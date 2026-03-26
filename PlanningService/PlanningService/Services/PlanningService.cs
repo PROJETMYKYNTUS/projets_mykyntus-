@@ -218,6 +218,48 @@ public class PlanningService : IPlanningService
         // ════════════════════════════════════════════════
         // ALGORITHME — Lun → Ven
         // ════════════════════════════════════════════════
+        // ════════════════════════════════════════════════════
+        // ALGORITHME — Rotation par employé + quotas respectés
+        // ════════════════════════════════════════════════════
+
+        // Calculer l'offset de semaine pour la rotation cross-semaines
+        var currentWeekNumber = System.Globalization.ISOWeek.GetWeekOfYear(
+            planning.WeekStartDate.ToDateTime(TimeOnly.MinValue));
+
+        // Pour chaque employé, calculer son shift de départ cette semaine
+        // basé sur son index + numéro de semaine (rotation cross-semaines)
+        // On groupe les employés selon les quotas
+        var orderedShifts = shiftConfigs.OrderBy(sc => sc.DisplayOrder).ToList();
+
+        // Construire la rotation : assigner chaque employé à un "groupe de shift de départ"
+        // Exemple 10 emp, quotas [4,2,2,2] :
+        // Emp 0-3 → groupe 0 (S1), Emp 4-5 → groupe 1 (S2), etc.
+        var employeeStartShiftIndex = new Dictionary<int, int>();
+        int cumulative = 0;
+        for (int shiftIdx = 0; shiftIdx < orderedShifts.Count; shiftIdx++)
+        {
+            for (int q = 0; q < orderedShifts[shiftIdx].RequiredCount; q++)
+            {
+                if (cumulative < employees.Count)
+                {
+                    // Offset par semaine pour rotation cross-semaines
+                    var empStartIdx = (shiftIdx + currentWeekNumber) % orderedShifts.Count;
+                    employeeStartShiftIndex[employees[cumulative].Id] = empStartIdx;
+                    cumulative++;
+                }
+            }
+        }
+
+        // Si plus d'employés que la somme des quotas → assigner au shift suivant
+        while (cumulative < employees.Count)
+        {
+            var empStartIdx = (cumulative + currentWeekNumber) % orderedShifts.Count;
+            employeeStartShiftIndex[employees[cumulative].Id] = empStartIdx;
+            cumulative++;
+        }
+
+        // Générer les assignments jour par jour
+        int dayIdx = 0;
         foreach (var (day, date) in weekDays)
         {
             var availableEmployees = employees.Where(e =>
@@ -249,110 +291,36 @@ public class PlanningService : IPlanningService
                 });
             }
 
-            var alreadyAssignedToday = new List<int>();
+            // Vérifier les quotas ce jour
+            var shiftCountToday = orderedShifts.ToDictionary(s => s.Id, s => 0);
 
-            foreach (var shiftConfig in shiftConfigs)
+            foreach (var emp in availableEmployees)
             {
-                var quota = shiftConfig.RequiredCount;
+                // Shift de cet employé ce jour = (startShift + dayIdx) % nbShifts
+                var startIdx = employeeStartShiftIndex.ContainsKey(emp.Id)
+                    ? employeeStartShiftIndex[emp.Id]
+                    : 0;
+                var todayShiftIdx = (startIdx + dayIdx) % orderedShifts.Count;
+                var todayShift = orderedShifts[todayShiftIdx];
 
-                var candidates = availableEmployees
-                    .Where(e => !alreadyAssignedToday.Contains(e.Id))
-                    .OrderBy(e =>
-                    {
-                        var hist = shiftHistory
-                            .FirstOrDefault(h =>
-                                h.UserId == e.Id &&
-                                h.ShiftConfigId == shiftConfig.Id);
-                        return hist?.Count ?? 0;
-                    })
-                    .ThenBy(e => e.Id)
-                    .Take(quota)
-                    .ToList();
-
-                foreach (var emp in candidates)
+                // Vérifier si quota atteint — si oui, prendre le shift suivant disponible
+                var finalShift = todayShift;
+                int attempts = 0;
+                while (shiftCountToday[finalShift.Id] >= finalShift.RequiredCount
+                       && attempts < orderedShifts.Count)
                 {
-                    assignments.Add(new ShiftAssignment
-                    {
-                        WeeklyPlanningId = planning.Id,
-                        UserId = emp.Id,
-                        SubServiceShiftConfigId = shiftConfig.Id,
-                        AssignedDate = date,
-                        DayOfWeek = day,
-                        IsSaturday = false,
-                        IsOnLeave = false,
-                        IsNewEmployee = IsNewEmployee(emp.Id, saturdayGroups)
-                    });
-
-                    alreadyAssignedToday.Add(emp.Id);
-
-                    var existingHist = shiftHistory
-                        .FirstOrDefault(h =>
-                            h.UserId == emp.Id &&
-                            h.ShiftConfigId == shiftConfig.Id);
-
-                    if (existingHist != null)
-                    {
-                        shiftHistory.Remove(existingHist);
-                        shiftHistory.Add(new
-                        {
-                            UserId = emp.Id,
-                            ShiftConfigId = shiftConfig.Id,
-                            Count = existingHist.Count + 1
-                        });
-                    }
-                    else
-                    {
-                        shiftHistory.Add(new
-                        {
-                            UserId = emp.Id,
-                            ShiftConfigId = shiftConfig.Id,
-                            Count = 1
-                        });
-                    }
+                    todayShiftIdx = (todayShiftIdx + 1) % orderedShifts.Count;
+                    finalShift = orderedShifts[todayShiftIdx];
+                    attempts++;
                 }
 
-                if (candidates.Count < quota)
-                {
-                    var remaining = availableEmployees
-                        .Where(e => !alreadyAssignedToday.Contains(e.Id))
-                        .Take(quota - candidates.Count)
-                        .ToList();
-
-                    foreach (var emp in remaining)
-                    {
-                        assignments.Add(new ShiftAssignment
-                        {
-                            WeeklyPlanningId = planning.Id,
-                            UserId = emp.Id,
-                            SubServiceShiftConfigId = shiftConfig.Id,
-                            AssignedDate = date,
-                            DayOfWeek = day,
-                            IsSaturday = false,
-                            IsOnLeave = false,
-                            IsNewEmployee = IsNewEmployee(emp.Id, saturdayGroups)
-                        });
-                        alreadyAssignedToday.Add(emp.Id);
-                    }
-                }
-            }
-
-            var unassigned = availableEmployees
-                .Where(e => !alreadyAssignedToday.Contains(e.Id))
-                .ToList();
-
-            foreach (var emp in unassigned)
-            {
-                var leastLoadedShift = shiftConfigs
-                    .OrderBy(sc => assignments.Count(a =>
-                        a.AssignedDate == date &&
-                        a.SubServiceShiftConfigId == sc.Id))
-                    .First();
+                shiftCountToday[finalShift.Id]++;
 
                 assignments.Add(new ShiftAssignment
                 {
                     WeeklyPlanningId = planning.Id,
                     UserId = emp.Id,
-                    SubServiceShiftConfigId = leastLoadedShift.Id,
+                    SubServiceShiftConfigId = finalShift.Id,
                     AssignedDate = date,
                     DayOfWeek = day,
                     IsSaturday = false,
@@ -360,8 +328,9 @@ public class PlanningService : IPlanningService
                     IsNewEmployee = IsNewEmployee(emp.Id, saturdayGroups)
                 });
             }
-        }
 
+            dayIdx++;
+        }
         // ════════════════════════════════════════════════
         // SAMEDI — Rotation basée sur SaturdayHistory
         // ════════════════════════════════════════════════

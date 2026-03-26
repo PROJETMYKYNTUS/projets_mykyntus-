@@ -1,22 +1,40 @@
-// dashboard-home.component.ts
-
-import { Component, ViewEncapsulation } from '@angular/core';
+import { Component, ViewEncapsulation, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { NotificationBellComponent } from '../../../contract/component/notification-bell/notification-bell.component';
-// puis dans imports: [..., NotificationBellComponent]
 
 @Component({
   selector: 'app-dashboard-home',
-  standalone: true,                      // ← si vous utilisez standalone components
-  imports: [CommonModule, RouterModule,NotificationBellComponent ], // ← si standalone
+  standalone: true,
+  imports: [CommonModule, RouterModule, NotificationBellComponent],
   templateUrl: './dashboard-home.html',
   styleUrls: ['./dashboard-home.css'],
-
-  
-  // ✅ CLEF DU PROBLÈME : désactive l'encapsulation CSS d'Angular
-  // Sans cette ligne, Angular ajoute des attributs _ngcontent-xxx
-  // qui cassent vos sélecteurs CSS (::before, ::after, hover, etc.)
   encapsulation: ViewEncapsulation.None,
 })
-export class DashboardHomeComponent {}
+export class DashboardHomeComponent implements OnInit {
+
+  currentUser: any = null;
+
+  constructor(private router: Router) {}
+
+  ngOnInit(): void {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        this.currentUser = JSON.parse(userStr);
+      } catch (e) {
+        this.currentUser = null;
+      }
+    }
+
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      window.location.href = 'http://localhost:4201/login';
+    }
+  }
+
+logout(): void {
+  localStorage.clear();
+  window.location.href = 'http://localhost:4201/login';
+}
+}

@@ -13,7 +13,7 @@ import { CommonModule } from '@angular/common';
   `
 })
 export class AuthCallbackComponent implements OnInit {
-  
+
   constructor(
     private route: ActivatedRoute,
     private router: Router
@@ -24,14 +24,30 @@ export class AuthCallbackComponent implements OnInit {
     const refresh = this.route.snapshot.queryParams['refresh'];
 
     if (token) {
-      // Stocker les tokens
+      // 1. Stocker les tokens
       localStorage.setItem('access_token', token);
       localStorage.setItem('refresh_token', refresh);
 
-      // Rediriger vers la page principale Planning
-      this.router.navigate(['/dashboard']);
+      // 2. Décoder le token pour extraire le user
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const user = {
+          id: payload.sub || payload.nameid,
+          username: payload.unique_name || payload.name || 'Utilisateur',
+          email: payload.email || ''
+        };
+        localStorage.setItem('user', JSON.stringify(user));
+      } catch (e) {
+        // Si décodage échoue, on continue quand même
+        console.warn('Impossible de décoder le token JWT', e);
+      }
+
+      // 3. Attendre que localStorage soit écrit avant de naviguer
+      setTimeout(() => {
+        this.router.navigate(['/dashboard']);
+      }, 100);
+
     } else {
-      // Pas de token → retour vers Auth
       window.location.href = 'http://localhost:4201/login';
     }
   }

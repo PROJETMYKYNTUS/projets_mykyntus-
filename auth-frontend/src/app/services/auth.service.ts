@@ -121,34 +121,44 @@ private apiUrl = `${environment.apiUrl}/Auth`;
     );
   }
 
-  logout(): Observable<any> {
+logout(): Observable<any> {
 
-    if (!this.isBrowser()) {
-      this.clearStorage();
-      return throwError(() => new Error('Logout non disponible côté serveur'));
-    }
-
-    const refreshToken = localStorage.getItem('refreshToken');
-    const token = this.getToken();
-
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    });
-
-    return this.http.post(`${this.apiUrl}/logout`, { refreshToken }, { headers }).pipe(
-      tap(() => {
-        this.clearStorage();
-        this.router.navigate(['/login']);
-      }),
-      catchError(error => {
-        this.clearStorage();
-        this.router.navigate(['/login']);
-        return throwError(() => error);
-      })
-    );
+  if (!this.isBrowser()) {
+    this.clearStorage();
+    return throwError(() => new Error('Logout non disponible côté serveur'));
   }
 
+  const refreshToken = localStorage.getItem('refreshToken');
+  const token = this.getToken();
+
+  const headers = new HttpHeaders({
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  });
+
+  return this.http.post(`${this.apiUrl}/logout`, { refreshToken }, { headers }).pipe(
+    tap(() => {
+      // ✅ Efface les clés des DEUX frontends
+      this.clearStorage();
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('token_type');
+      // ✅ Redirection propre vers login
+      window.location.href = 'http://localhost:4201/login';
+    }),
+    catchError(error => {
+      // ✅ Même chose en cas d'erreur API
+      this.clearStorage();
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('token_type');
+      window.location.href = 'http://localhost:4201/login';
+      return throwError(() => error);
+    })
+  );
+}
   refreshToken(): Observable<AuthResponse> {
 
     if (!this.isBrowser()) {

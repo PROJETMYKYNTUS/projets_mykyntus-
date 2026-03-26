@@ -26,11 +26,6 @@ export const routes: Routes = [
   },
   
   // Routes protégées (avec authGuard)
-  { 
-    path: 'dashboard', 
-    component: DashboardComponent,
-    canActivate: [authGuard]
-  },
   
   // Route 404 - redirection vers login
   { 

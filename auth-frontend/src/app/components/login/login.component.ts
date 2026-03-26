@@ -24,6 +24,15 @@ export class LoginComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // ✅ Nettoyer TOUS les tokens au chargement du login
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('token_type');
+
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]]
@@ -33,9 +42,7 @@ export class LoginComponent implements OnInit {
       this.loading = loading;
     });
 
-    if (this.authService.isLoggedIn()) {
-      this.router.navigate(['/dashboard']);
-    }
+    // ✅ Supprimé — plus de redirection auto
   }
 
   onSubmit(): void {
@@ -50,23 +57,23 @@ export class LoginComponent implements OnInit {
     const loginData = this.loginForm.value;
 
     this.authService.login(loginData).subscribe({
-  next: (response: any) => {
-  console.log('Connexion réussie', response);
-  
-  // Stocker le token et les infos utilisateur
-  localStorage.setItem('access_token', response.accessToken);
-  localStorage.setItem('refresh_token', response.refreshToken);
-  localStorage.setItem('user', JSON.stringify(response.user));
-  localStorage.setItem('token_type', response.tokenType);
+      next: (response: any) => {
+        console.log('Connexion réussie', response);
 
-  // Rediriger vers Planning avec le token
-  window.location.href = 
-    `http://localhost:4200/auth-callback?token=${response.accessToken}&refresh=${response.refreshToken}`;
-},
+        // Stocker les tokens
+        localStorage.setItem('access_token', response.accessToken);
+        localStorage.setItem('refresh_token', response.refreshToken);
+        localStorage.setItem('user', JSON.stringify(response.user));
+        localStorage.setItem('token_type', response.tokenType);
+
+        // ✅ Rediriger vers planning
+        window.location.href =
+          `http://localhost:4200/auth-callback?token=${response.accessToken}&refresh=${response.refreshToken}`;
+      },
       error: (error: any) => {
         console.error('Erreur de connexion', error);
         this.loading = false;
-        
+
         if (error.status === 401) {
           this.errorMessage = 'Email ou mot de passe incorrect';
         } else if (error.status === 0) {

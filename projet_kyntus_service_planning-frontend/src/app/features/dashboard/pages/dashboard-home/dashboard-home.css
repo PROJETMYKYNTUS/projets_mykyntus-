@@ -6,16 +6,16 @@
 
 /* ── Variables ── */
 :root {
-  --surface-card:   rgba(85, 96, 217, 0.055);
+  --surface-card:   rgba(8, 9, 19, 0.055);
   --surface-card-h: rgba(203, 204, 222, 0.095);
   --border:         rgba(26, 44, 239, 0.09);
   --border-strong:  rgba(255, 255, 255, 0.16);
   --text-primary:   #f0f6ff;
-  --text-secondary: rgba(220, 235, 255, 0.60);
+  --text-secondary: rgba(252, 252, 252, 0.6);
   --text-muted:     rgba(180, 210, 255, 0.38);
-  --blue-400: #60a5fa;
-  --blue-500: #3b82f6;
-  --blue-600: #1d4ed8;
+  --blue-400: #0d1928;
+  --blue-500: #081326;
+  --blue-600: #0e1731;
   --indigo:   #4f46e5;
   --cyan:     #06b6d4;
   --green:    #10b981;
@@ -41,7 +41,7 @@ body {
   background:
     radial-gradient(ellipse 110% 70% at -5% -5%, rgba(102, 153, 255, 0.25) 0%, transparent 52%),
     radial-gradient(ellipse 70% 60% at 105% 105%, rgba(150, 120, 255, 0.15) 0%, transparent 52%),
-    linear-gradient(160deg, #1a2b55 0%, #2b3b70 45%, #1f2a50 100%);
+    linear-gradient(160deg, #010818 0%, #030a27 45%, #202d5f 100%);
   min-height: 100vh;
   color: var(--text-primary);
 }
@@ -58,7 +58,7 @@ body {
 .sidebar {
   width: var(--sidebar-w);
   min-height: 100vh;
-  background: rgba(4, 15, 39, 0.88);
+  background: rgba(2, 29, 85, 0.88);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-right: 1px solid var(--border);
@@ -86,7 +86,7 @@ body {
   display: flex; align-items: center; justify-content: center;
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 800; font-size: 16px; color: white;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.45);
+  box-shadow: 0 4px 14px rgba(5, 35, 83, 0.45);
   flex-shrink: 0;
 }
 
@@ -149,7 +149,7 @@ body {
 
 .nav-chip {
   margin-left: auto;
-  background: rgba(59,130,246,0.15);
+  background: rgba(7, 19, 39, 0.15);
   color: var(--blue-400);
   font-size: 11px; font-weight: 600;
   padding: 2px 7px; border-radius: 20px;
@@ -196,7 +196,7 @@ body {
   height: var(--topbar-h);
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 28px;
-  background: rgba(9, 16, 32, 0.6);
+  background: rgba(7, 11, 21, 0.6);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
@@ -496,3 +496,40 @@ body {
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 3px; }
+.logout-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 16px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.8);
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.logout-btn:hover {
+  background: rgba(255, 80, 80, 0.2);
+  color: #fff;
+  border-color: rgba(255,80,80,0.4);
+}
+
+.logout-topbar {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid rgba(255,80,80,0.4);
+  border-radius: 8px;
+  color: #e74c3c;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.logout-topbar:hover {
+  background: #e74c3c;
+  color: #fff;
+}

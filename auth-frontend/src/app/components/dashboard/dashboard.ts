@@ -20,9 +20,10 @@ export class DashboardComponent {
   }
 
   logout(): void {
-    this.authService.logout().subscribe({
-      next: () => {},
-      error: () => {}
-    });
-  }
+  this.authService.logout().subscribe({
+    next: () => {},
+    error: () => {}
+    // ✅ La redirection est gérée dans le service
+  });
+}
 }

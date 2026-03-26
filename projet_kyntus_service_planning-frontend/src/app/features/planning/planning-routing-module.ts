@@ -10,6 +10,11 @@ const routes: Routes = [
       import('./pages/planning-generate/planning-generate.component')
         .then(m => m.PlanningGenerateComponent)
   },
+  {
+  path: 'saturday-history',
+  loadComponent: () => import('./pages/saturday-history/saturday-history.component')
+    .then(m => m.SaturdayHistoryComponent)
+},
  {
     path: 'shift-config',                                    // ✅ loadComponent
     loadComponent: () =>

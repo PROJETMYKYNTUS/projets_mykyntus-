@@ -4,9 +4,9 @@
 public class CreateWeeklyPlanningDto
 {
     public int SubServiceId { get; set; }
-    public string WeekCode { get; set; } = string.Empty; // ex: "2026-W10"
+    public string WeekCode { get; set; } = string.Empty;
     public DateOnly WeekStartDate { get; set; }
-    public int TotalEffectif { get; set; } // nombre total d'employés voulus
+    public int TotalEffectif { get; set; }
 }
 
 // ── Générer le planning automatiquement ──
@@ -20,16 +20,36 @@ public class GeneratePlanningDto
 public class OverrideShiftDto
 {
     public int ShiftAssignmentId { get; set; }
-    public int NewShiftId { get; set; }
+    public int NewShiftId { get; set; }                    // ancien système (gardé pour compatibilité)
+    public int NewSubServiceShiftConfigId { get; set; }    // ✅ nouveau système
 }
 
 // ── Configurer groupe samedi ──
 public class SetSaturdayGroupDto
 {
     public int UserId { get; set; }
-    public int GroupNumber { get; set; } // 1 ou 2
+    public int GroupNumber { get; set; }
     public bool IsNewEmployee { get; set; } = false;
 }
+
+public record SetSaturdayHistoryDto(
+    int SubServiceId,
+    string WeekCode,
+    List<SaturdayHistoryEntryDto> Entries
+);
+
+public record SaturdayHistoryEntryDto(
+    int UserId,
+    bool WorkedSaturday
+);
+
+public record SaturdayHistoryResponseDto(
+    int UserId,
+    string FullName,
+    string WeekCode,
+    bool WorkedSaturday,
+    bool IsManualEntry
+);
 
 // ── Réponse planning complet ──
 public class WeeklyPlanningResponseDto
@@ -42,7 +62,17 @@ public class WeeklyPlanningResponseDto
     public int SaturdayGroupId { get; set; }
     public string SubServiceName { get; set; } = string.Empty;
     public List<ShiftConfigResponseDto> ShiftConfigs { get; set; } = new();
+    public int SubServiceId { get; set; }
     public List<EmployeePlanningDto> Assignments { get; set; } = new();
+}
+
+// ✅ CORRIGÉ — WeeklyPlanningId + UserId ajoutés pour créer une assignation quand l'employé est OFF
+public class OverrideSaturdayDto
+{
+    public int ShiftAssignmentId { get; set; }          // 0 si l'employé est actuellement OFF
+    public int NewSubServiceShiftConfigId { get; set; }
+    public int WeeklyPlanningId { get; set; }           // requis quand ShiftAssignmentId = 0
+    public int UserId { get; set; }                     // requis quand ShiftAssignmentId = 0
 }
 
 // ── Config shift (% et count) ──
@@ -55,25 +85,22 @@ public class ShiftConfigResponseDto
     public decimal Percentage { get; set; }
 }
 
-// ── Planning d'un employé ──
-
-
 // ── Shift d'un jour ──
 public class DayAssignmentDto
 {
     public int AssignmentId { get; set; }
-    public string Day { get; set; } = string.Empty; // "Monday"
+    public string Day { get; set; } = string.Empty;
     public DateOnly AssignedDate { get; set; }
-    public string ShiftLabel { get; set; } = string.Empty; // "8h"
+    public string ShiftLabel { get; set; } = string.Empty;
     public string StartTime { get; set; } = string.Empty;
     public bool IsSaturday { get; set; }
     public bool IsManagerOverride { get; set; }
     public string EndTime { get; set; } = string.Empty;
-    public string? BreakTime { get; set; }  // ex: "12:00"
-     public bool   IsOnLeave         { get; set; }
-    public bool   IsHalfDaySaturday { get; set; }
-    public int    SaturdaySlot      { get; set; }
-    public string SlotLabel         { get; set; } = string.Empty;
+    public string? BreakTime { get; set; }
+    public bool IsOnLeave { get; set; }
+    public bool IsHalfDaySaturday { get; set; }
+    public int SaturdaySlot { get; set; }
+    public string SlotLabel { get; set; } = string.Empty;
 }
 
 // ── Vue employé (son propre planning) ──
@@ -85,12 +112,11 @@ public class MyPlanningDto
     public List<DayAssignmentDto> Days { get; set; } = new();
 }
 
-
 // ── Sauvegarder la config shifts d'une semaine ──
 public class SaveShiftConfigDto
 {
     public int SubServiceId { get; set; }
-    public string WeekCode { get; set; } = string.Empty;     // "2026-W10"
+    public string WeekCode { get; set; } = string.Empty;
     public DateOnly WeekStartDate { get; set; }
     public List<ShiftConfigItemDto> Shifts { get; set; } = new();
 }
@@ -98,19 +124,15 @@ public class SaveShiftConfigDto
 // ── Un shift dans la config ──
 public class ShiftConfigItemDto
 {
-    public string Label { get; set; } = string.Empty;        // "Matin", "Tardif"
-    public string StartTime { get; set; } = string.Empty;    // "08:00"
-    public int WorkHours { get; set; } = 8;                  // 8h par défaut
-    public int BreakDurationMinutes { get; set; } = 60;      // 1h par défaut
-
-    // Plage pause — par défaut calculée auto (début + 3h → fin - 1h)
-    // Le responsable peut modifier
-    public string? BreakRangeStart { get; set; }             // "11:00" (nullable = auto)
-    public string? BreakRangeEnd { get; set; }               // "14:00" (nullable = auto)
-
-    public int RequiredCount { get; set; }                   // nb employés
-    public int MinPresencePercent { get; set; } = 70;        // 70% présents min
-    public int DisplayOrder { get; set; }                    // ordre affichage
+    public string Label { get; set; } = string.Empty;
+    public string StartTime { get; set; } = string.Empty;
+    public int WorkHours { get; set; } = 8;
+    public int BreakDurationMinutes { get; set; } = 60;
+    public string? BreakRangeStart { get; set; }
+    public string? BreakRangeEnd { get; set; }
+    public int RequiredCount { get; set; }
+    public int MinPresencePercent { get; set; } = 70;
+    public int DisplayOrder { get; set; }
 }
 
 // ── Réponse après sauvegarde config ──
@@ -119,13 +141,13 @@ public class ShiftConfigResponseNewDto
     public int Id { get; set; }
     public string Label { get; set; } = string.Empty;
     public string StartTime { get; set; } = string.Empty;
-    public string EndTime { get; set; } = string.Empty;      // calculé : début + WorkHours + pause
+    public string EndTime { get; set; } = string.Empty;
     public int WorkHours { get; set; }
     public string BreakRangeStart { get; set; } = string.Empty;
     public string BreakRangeEnd { get; set; } = string.Empty;
     public int BreakDurationMinutes { get; set; }
     public int RequiredCount { get; set; }
-    public decimal Percentage { get; set; }                  // calculé auto
+    public decimal Percentage { get; set; }
     public int MinPresencePercent { get; set; }
     public int DisplayOrder { get; set; }
 }
@@ -137,7 +159,7 @@ public class WeekShiftConfigResponseDto
     public string SubServiceName { get; set; } = string.Empty;
     public string WeekCode { get; set; } = string.Empty;
     public DateOnly WeekStartDate { get; set; }
-    public int TotalEffectif { get; set; }                   // somme des RequiredCount
+    public int TotalEffectif { get; set; }
     public List<ShiftConfigResponseNewDto> Shifts { get; set; } = new();
 }
 
@@ -148,11 +170,13 @@ public class GeneratePlanningFromConfigDto
     public string WeekCode { get; set; } = string.Empty;
     public int WeeklyPlanningId { get; set; }
 }
+
 public class OverrideBreakDto
 {
     public int ShiftAssignmentId { get; set; }
-    public string NewBreakTime { get; set; } = string.Empty; // "12:30"
+    public string NewBreakTime { get; set; } = string.Empty;
 }
+
 // ── Sauvegarder un commentaire ──
 public class SavePlanningCommentDto
 {
@@ -173,8 +197,6 @@ public class PlanningCommentDto
     public DateTime? UpdatedAt { get; set; }
 }
 
-// ── Ajouter dans EmployeePlanningDto ──
-// (ajouter cette propriété à la classe existante)
 public class EmployeePlanningDto
 {
     public int UserId { get; set; }
@@ -182,5 +204,5 @@ public class EmployeePlanningDto
     public bool IsNewEmployee { get; set; }
     public int Level { get; set; }
     public List<DayAssignmentDto> Days { get; set; } = new();
-    public string? ManagerComment { get; set; }  // ✅ AJOUTER
+    public string? ManagerComment { get; set; }
 }

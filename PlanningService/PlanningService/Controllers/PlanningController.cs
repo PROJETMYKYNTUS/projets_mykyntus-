@@ -261,4 +261,48 @@ public class PlanningController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+    // GET /api/planning/saturday-history/{subServiceId}/{weekCode}
+    [HttpGet("saturday-history/{subServiceId}/{weekCode}")]
+    public async Task<IActionResult> GetSaturdayHistory(
+        int subServiceId, string weekCode)
+        => Ok(await _planningService.GetSaturdayHistoryAsync(subServiceId, weekCode));
+
+    // POST /api/planning/saturday-history
+    [HttpPost("saturday-history")]
+    public async Task<IActionResult> SaveSaturdayHistory(
+        [FromBody] SetSaturdayHistoryDto dto)
+    {
+        await _planningService.SaveSaturdayHistoryAsync(dto, true);
+        return Ok(new { message = "Historique samedi sauvegardé." });
+    }
+    // PUT api/planning/override-saturday
+    [HttpPut("override-saturday")]
+    public async Task<IActionResult> OverrideSaturdayShift(
+        [FromBody] OverrideSaturdayDto dto)
+    {
+        try
+        {
+            var result = await _planningService.OverrideSaturdayShiftAsync(dto);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+    [HttpDelete("{planningId}/saturday/{userId}/off")]
+    public async Task<IActionResult> SetSaturdayOff(int planningId, int userId)
+    {
+        try
+        {
+            await _planningService.SetSaturdayOffAsync(planningId, userId);
+            return Ok(new { message = "Samedi mis à OFF." });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+
 }

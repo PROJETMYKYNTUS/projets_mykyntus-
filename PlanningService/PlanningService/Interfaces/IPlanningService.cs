@@ -1,5 +1,6 @@
 ﻿using PlanningService.DTOs.Planning;
 namespace PlanningService.Interfaces;
+
 public interface IPlanningService
 {
     // ── CRUD Planning ──
@@ -37,4 +38,8 @@ public interface IPlanningService
     Task<PlanningCommentDto> SaveCommentAsync(SavePlanningCommentDto dto);
     Task DeleteCommentAsync(int planningId, int userId);
     Task<IEnumerable<PlanningCommentDto>> GetCommentsAsync(int planningId);
+    Task<List<SaturdayHistoryResponseDto>> GetSaturdayHistoryAsync(int subServiceId, string weekCode);
+    Task SaveSaturdayHistoryAsync(SetSaturdayHistoryDto dto, bool isManual);
+    Task<DayAssignmentDto> OverrideSaturdayShiftAsync(OverrideSaturdayDto dto);
+    Task SetSaturdayOffAsync(int weeklyPlanningId, int userId);
 }

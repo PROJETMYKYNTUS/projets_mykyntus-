@@ -9,7 +9,8 @@ import {
   DayAssignment,
   ShiftSimple,
   ShiftOption,
-  SavePlanningCommentDto   // ✅ AJOUTER dans planning.service.ts
+  SavePlanningCommentDto,
+  SetSaturdayHistoryDto
 } from '../../services/planning.service';
 
 @Component({
@@ -30,11 +31,12 @@ export class PlanningViewComponent implements OnInit {
   successMsg    = '';
 
   // ── Override shift modal ──
-  showOverride         = false;
-  selectedAssignmentId = 0;
-  selectedEmployeeName = '';
-  selectedDay          = '';
-  selectedNewShiftId   = 0;
+  showOverride             = false;
+  selectedAssignmentId     = 0;
+  selectedEmployeeName     = '';
+  selectedDay              = '';
+  selectedNewShiftConfigId = 0;       // ✅ SubServiceShiftConfig (nouveau système)
+  weekShiftConfigs: any[]  = [];      // ✅ configs chargées une fois pour lun–ven + sam
 
   // ── Override pause modal ──
   showBreakOverride         = false;
@@ -44,12 +46,23 @@ export class PlanningViewComponent implements OnInit {
   selectedNewBreakTime      = '';
   breakSlotOptions: ShiftOption[] = [];
 
-  // ✅ NOUVEAU — Commentaire modal
+  // ── Commentaire modal ──
   showCommentModal    = false;
   commentEmployeeId   = 0;
   commentEmployeeName = '';
   commentText         = '';
   savingComment       = false;
+
+  // ── Override Samedi modal ──
+  showSaturdayOverride         = false;
+  selectedSaturdayEmployeeId   = 0;
+  selectedSaturdayEmployeeName = '';
+  selectedSaturdayAssignmentId = 0;
+  selectedSaturdayAction       = ''; // 'work' = OFF → faire travailler | 'off' = WORK → mettre OFF
+  selectedSaturdayShiftId      = 0;
+  savingSaturday               = false;
+  private currentSubServiceId  = 0;
+  saturdayShiftConfigs: any[]  = [];  // ✅ alias de weekShiftConfigs pour le modal samedi
 
   readonly days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   readonly dayLabels: Record<string, string> = {
@@ -68,7 +81,7 @@ export class PlanningViewComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private planningService: PlanningService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -80,6 +93,7 @@ export class PlanningViewComponent implements OnInit {
     this.breakSlotOptions = this.planningService.getBreakSlotOptions();
   }
 
+  // ── Chargement planning ────────────────────────────
   loadPlanning(id: number): void {
     this.loading = true;
     this.cdr.detectChanges();
@@ -88,6 +102,19 @@ export class PlanningViewComponent implements OnInit {
         this.planning = data;
         this.loading  = false;
         this.buildShiftColorMap(data);
+
+        // ✅ Charger les configs shifts une seule fois pour lun–ven ET samedi
+        if (data.subServiceId && data.weekCode) {
+          this.planningService.getShiftConfigsForSaturday(
+            data.subServiceId,
+            data.weekCode
+          ).subscribe(configs => {
+            this.weekShiftConfigs    = configs;
+            this.saturdayShiftConfigs = configs; // partagé avec modal samedi
+            this.cdr.detectChanges();
+          });
+        }
+
         this.cdr.detectChanges();
       },
       error: () => { this.loading = false; this.cdr.detectChanges(); }
@@ -117,7 +144,7 @@ export class PlanningViewComponent implements OnInit {
     return this.shiftColorMap[label] ?? 'shift-color-1';
   }
 
-  // ── Publication ──────────────────────────────────
+  // ── Publication ────────────────────────────────────
   publishPlanning(): void {
     if (!this.planning) return;
     this.publishing = true;
@@ -137,16 +164,18 @@ export class PlanningViewComponent implements OnInit {
     return employee.days.find(d => d.day === day) ?? null;
   }
 
-  // ── Override SHIFT ────────────────────────────────
+  // ── Override SHIFT (lun–ven) ──────────────────────
   openOverride(employee: EmployeePlanning, day: string, event: Event): void {
     event.stopPropagation();
+    if (day === 'Saturday') return;
     const assignment = this.getAssignment(employee, day);
     if (!assignment || assignment.isOnLeave) return;
-    this.selectedAssignmentId = assignment.assignmentId;
-    this.selectedEmployeeName = employee.fullName;
-    this.selectedDay          = this.dayLabels[day] ?? day;
-    this.selectedNewShiftId   = 0;
-    this.showOverride         = true;
+
+    this.selectedAssignmentId     = assignment.assignmentId;
+    this.selectedEmployeeName     = employee.fullName;
+    this.selectedDay              = this.dayLabels[day] ?? day;
+    this.selectedNewShiftConfigId = 0; // ✅ reset
+    this.showOverride             = true;
     this.cdr.detectChanges();
   }
 
@@ -156,14 +185,20 @@ export class PlanningViewComponent implements OnInit {
   }
 
   confirmOverride(): void {
-    if (!this.selectedNewShiftId) return;
+    if (!this.selectedNewShiftConfigId) return; // ✅
+
     this.planningService.overrideShift({
-      shiftAssignmentId: this.selectedAssignmentId,
-      newShiftId:        this.selectedNewShiftId
+      shiftAssignmentId:          this.selectedAssignmentId,
+      newShiftId:                 0,                             // ancien système inutilisé
+      newSubServiceShiftConfigId: this.selectedNewShiftConfigId  // ✅ nouveau système
     }).subscribe({
       next: () => {
         this.showOverride = false;
         this.loadPlanning(this.planning!.id);
+        this.cdr.detectChanges();
+      },
+      error: err => {
+        this.error = `Erreur : ${err.error?.message ?? 'Erreur serveur'}`;
         this.cdr.detectChanges();
       }
     });
@@ -174,6 +209,7 @@ export class PlanningViewComponent implements OnInit {
     event.stopPropagation();
     const assignment = this.getAssignment(employee, day);
     if (!assignment || assignment.isOnLeave || !assignment.breakTime) return;
+
     this.selectedBreakAssignmentId = assignment.assignmentId;
     this.selectedBreakEmployeeName = employee.fullName;
     this.selectedBreakDay          = this.dayLabels[day] ?? day;
@@ -205,8 +241,122 @@ export class PlanningViewComponent implements OnInit {
     });
   }
 
-  // ✅ NOUVEAU — COMMENTAIRE ─────────────────────────
+  // ── Override SAMEDI ───────────────────────────────
+  openSaturdayOverride(employee: EmployeePlanning, event: Event): void {
+    event.stopPropagation();
+    if (!this.planning || this.planning.status !== 'Draft') return;
 
+    const assignment = this.getAssignment(employee, 'Saturday');
+
+    this.selectedSaturdayEmployeeId   = employee.userId;
+    this.selectedSaturdayEmployeeName = employee.fullName;
+    this.selectedSaturdayAssignmentId = assignment?.assignmentId ?? 0;
+    this.selectedSaturdayAction       = assignment && !assignment.isOnLeave ? 'off' : 'work';
+    this.selectedSaturdayShiftId      = 0;
+    this.showSaturdayOverride         = true;
+
+    // ✅ Réutiliser weekShiftConfigs déjà chargés, sinon recharger
+    if (this.weekShiftConfigs.length > 0) {
+      this.saturdayShiftConfigs = this.weekShiftConfigs;
+      this.cdr.detectChanges();
+    } else if (this.planning.subServiceId && this.planning.weekCode) {
+      this.planningService.getShiftConfigsForSaturday(
+        this.planning.subServiceId,
+        this.planning.weekCode
+      ).subscribe(configs => {
+        this.weekShiftConfigs     = configs;
+        this.saturdayShiftConfigs = configs;
+        this.cdr.detectChanges();
+      });
+    }
+
+    this.cdr.detectChanges();
+  }
+
+  closeSaturdayOverride(): void {
+    this.showSaturdayOverride = false;
+    this.cdr.detectChanges();
+  }
+
+  confirmSaturdayOverride(): void {
+  if (!this.planning) return;
+  this.savingSaturday = true;
+  this.error          = '';
+ 
+  if (this.selectedSaturdayAction === 'off') {
+    // ✅ FIX — WORK → OFF :
+    // 1. Supprimer l'assignation samedi en base
+    // 2. Sauvegarder dans l'historique
+    this.planningService.setSaturdayOff(
+      this.planning.id,
+      this.selectedSaturdayEmployeeId
+    ).subscribe({
+      next: () => {
+        // Sauvegarder dans l'historique (non bloquant)
+        const dto: SetSaturdayHistoryDto = {
+          subServiceId: this.planning!.subServiceId,
+          weekCode:     this.planning!.weekCode,
+          entries:      [{ userId: this.selectedSaturdayEmployeeId, workedSaturday: false }]
+        };
+        this.planningService.saveSaturdayHistory(dto).subscribe();
+ 
+        this.savingSaturday       = false;
+        this.showSaturdayOverride = false;
+        this.successMsg           = '✅ Samedi mis à OFF !';
+        this.loadPlanning(this.planning!.id);
+        setTimeout(() => { this.successMsg = ''; this.cdr.detectChanges(); }, 3000);
+        this.cdr.detectChanges();
+      },
+      error: err => {
+        this.savingSaturday = false;
+        this.error = `Erreur : ${err.error?.message ?? 'Erreur serveur'}`;
+        this.cdr.detectChanges();
+      }
+    });
+ 
+  } else {
+    // OFF → WORK
+    if (!this.selectedSaturdayShiftId) {
+      this.savingSaturday = false;
+      return;
+    }
+ 
+    this.planningService.overrideSaturdayShift({
+      shiftAssignmentId:          this.selectedSaturdayAssignmentId,
+      newSubServiceShiftConfigId: this.selectedSaturdayShiftId,
+      weeklyPlanningId:           this.planning.id,
+      userId:                     this.selectedSaturdayEmployeeId
+    }).subscribe({
+      next: () => {
+        // Sauvegarder dans l'historique
+        const dto: SetSaturdayHistoryDto = {
+          subServiceId: this.planning!.subServiceId,
+          weekCode:     this.planning!.weekCode,
+          entries: [{ userId: this.selectedSaturdayEmployeeId, workedSaturday: true }]
+        };
+        this.planningService.saveSaturdayHistory(dto).subscribe();
+ 
+        this.savingSaturday       = false;
+        this.showSaturdayOverride = false;
+        this.successMsg           = '✅ Samedi mis à jour !';
+        this.loadPlanning(this.planning!.id);
+        setTimeout(() => { this.successMsg = ''; this.cdr.detectChanges(); }, 3000);
+        this.cdr.detectChanges();
+      },
+      error: err => {
+        this.savingSaturday = false;
+        this.error = `Erreur : ${err.error?.message ?? 'Erreur serveur'}`;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+}
+
+  private getSubServiceIdFromPlanning(): number {
+    return this.planning?.subServiceId ?? 0;
+  }
+
+  // ── COMMENTAIRE ───────────────────────────────────
   openCommentModal(employee: EmployeePlanning, event: Event): void {
     event.stopPropagation();
     this.commentEmployeeId   = employee.userId;
@@ -231,7 +381,7 @@ export class PlanningViewComponent implements OnInit {
       weeklyPlanningId: this.planning.id,
       userId:           this.commentEmployeeId,
       comment:          this.commentText.trim(),
-      createdBy:        3  // TODO: remplacer par l'id du responsable connecté
+      createdBy:        3
     };
 
     this.planningService.saveComment(dto).subscribe({
@@ -241,7 +391,6 @@ export class PlanningViewComponent implements OnInit {
         this.successMsg       = '💬 Commentaire sauvegardé !';
         this.loadPlanning(this.planning!.id);
         this.cdr.detectChanges();
-        // Effacer le message après 3s
         setTimeout(() => { this.successMsg = ''; this.cdr.detectChanges(); }, 3000);
       },
       error: err => {

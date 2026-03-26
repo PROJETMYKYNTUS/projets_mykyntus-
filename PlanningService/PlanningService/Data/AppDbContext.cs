@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<ContractNotification> ContractNotifications { get; set; } = null!;
     public DbSet<Conge> Conges { get; set; } = null!;
     public DbSet<PlanningComment> PlanningComments { get; set; } = null!;
+    public DbSet<SaturdayHistory> SaturdayHistories => Set<SaturdayHistory>();
 
     // ✅ NOUVEAU
     public DbSet<SubServiceShiftConfig> SubServiceShiftConfigs { get; set; } = null!;

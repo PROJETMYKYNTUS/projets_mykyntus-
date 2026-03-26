@@ -3,11 +3,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
-
-// ════════════════════════════════════════════════════
-// INTERFACES — ANCIEN SYSTÈME (gardées pour compatibilité)
-// ════════════════════════════════════════════════════
 
 export interface ShiftConfig {
   shiftId:       number;
@@ -23,23 +20,23 @@ export interface DayAssignment {
   assignedDate:      string;
   shiftLabel:        string;
   startTime:         string;
-  endTime:           string;       // ✅ NOUVEAU
+  endTime:           string;
   isSaturday:        boolean;
   isManagerOverride: boolean;
   breakTime?:        string;
-  isOnLeave:         boolean;      // ✅ NOUVEAU
-  isHalfDaySaturday: boolean;      // ✅ NOUVEAU
-  saturdaySlot:      number;       // ✅ NOUVEAU
-  slotLabel:         string;       // ✅ NOUVEAU
+  isOnLeave:         boolean;
+  isHalfDaySaturday: boolean;
+  saturdaySlot:      number;
+  slotLabel:         string;
 }
 
 export interface EmployeePlanning {
-  userId:        number;
-  fullName:      string;
-  isNewEmployee: boolean;
-  days:          DayAssignment[];
-  managerComment?: string;   // 
-  level:           number;  
+  userId:          number;
+  fullName:        string;
+  isNewEmployee:   boolean;
+  days:            DayAssignment[];
+  managerComment?: string;
+  level:           number;
 }
 
 export interface WeeklyPlanningResponse {
@@ -48,6 +45,7 @@ export interface WeeklyPlanningResponse {
   weekStartDate:   string;
   status:          string;
   totalEffectif:   number;
+  subServiceId:    number;
   saturdayGroupId: number;
   subServiceName:  string;
   shiftConfigs:    ShiftConfig[];
@@ -66,9 +64,11 @@ export interface GeneratePlanningDto {
   totalEffectif:    number;
 }
 
+// ✅ CORRIGÉ — newSubServiceShiftConfigId ajouté
 export interface OverrideShiftDto {
-  shiftAssignmentId: number;
-  newShiftId:        number;
+  shiftAssignmentId:          number;
+  newShiftId:                 number;   // ancien système (0 si inutilisé)
+  newSubServiceShiftConfigId: number;   // ✅ nouveau système
 }
 
 export interface SubServiceSimple {
@@ -83,11 +83,12 @@ export interface ShiftSimple {
 }
 
 export interface EmployeeItem {
-   id:            number;  
+  id:            number;
   fullName:      string;
   isNewEmployee: boolean;
   isActive:      boolean;
 }
+
 export interface SavePlanningCommentDto {
   weeklyPlanningId: number;
   userId:           number;
@@ -96,32 +97,26 @@ export interface SavePlanningCommentDto {
 }
 
 export interface PlanningCommentDto {
-  id:        number;
-  userId:    number;
-  fullName:  string;
-  comment:   string;
-  createdAt: string;
+  id:         number;
+  userId:     number;
+  fullName:   string;
+  comment:    string;
+  createdAt:  string;
   updatedAt?: string;
-
 }
-// ════════════════════════════════════════════════════
-// ✅ NOUVEAU — INTERFACES CONFIG SHIFTS
-// ════════════════════════════════════════════════════
 
-// Un shift dans le tableau de config (ce que le responsable remplit)
 export interface ShiftConfigItem {
-  label:              string;    // "Matin", "Tardif"...
-  startTime:          string;    // "08:00"
-  workHours:          number;    // 8 par défaut
-  breakDurationMinutes: number;  // 60 par défaut
-  breakRangeStart?:   string;    // "11:00" — null = calculé auto
-  breakRangeEnd?:     string;    // "14:00" — null = calculé auto
-  requiredCount:      number;    // nb employés sur ce shift
-  minPresencePercent: number;    // 70 par défaut
-  displayOrder:       number;    // ordre dans le tableau
+  label:                string;
+  startTime:            string;
+  workHours:            number;
+  breakDurationMinutes: number;
+  breakRangeStart?:     string;
+  breakRangeEnd?:       string;
+  requiredCount:        number;
+  minPresencePercent:   number;
+  displayOrder:         number;
 }
 
-// Ce que le responsable envoie pour sauvegarder sa config
 export interface SaveShiftConfigDto {
   subServiceId:  number;
   weekCode:      string;
@@ -129,45 +124,66 @@ export interface SaveShiftConfigDto {
   shifts:        ShiftConfigItem[];
 }
 
-// Réponse d'un shift après sauvegarde (avec les calculs auto)
 export interface ShiftConfigResponseNew {
   id:                   number;
   label:                string;
   startTime:            string;
-  endTime:              string;    // calculé : début + workHours + pause
+  endTime:              string;
   workHours:            number;
   breakRangeStart:      string;
   breakRangeEnd:        string;
   breakDurationMinutes: number;
   requiredCount:        number;
-  percentage:           number;    // calculé auto
+  percentage:           number;
   minPresencePercent:   number;
   displayOrder:         number;
 }
 
-// Réponse config complète d'une semaine
 export interface WeekShiftConfigResponse {
-  subServiceId:    number;
-  subServiceName:  string;
-  weekCode:        string;
-  weekStartDate:   string;
-  totalEffectif:   number;
-  shifts:          ShiftConfigResponseNew[];
+  subServiceId:   number;
+  subServiceName: string;
+  weekCode:       string;
+  weekStartDate:  string;
+  totalEffectif:  number;
+  shifts:         ShiftConfigResponseNew[];
 }
 
-// Ce qu'on envoie pour déclencher la génération depuis la config
 export interface GeneratePlanningFromConfigDto {
-  subServiceId:      number;
-  weekCode:          string;
-  weeklyPlanningId:  number;
+  subServiceId:     number;
+  weekCode:         string;
+  weeklyPlanningId: number;
 }
 
-// ════════════════════════════════════════════════════
-// ✅ NOUVEAU — SHIFTS DISPONIBLES (horaires flexibles)
-// ════════════════════════════════════════════════════
+export interface SaturdayHistoryEntry {
+  userId:         number;
+  workedSaturday: boolean;
+}
+
+export interface SetSaturdayHistoryDto {
+  subServiceId: number;
+  weekCode:     string;
+  entries:      SaturdayHistoryEntry[];
+}
+
+export interface SaturdayHistoryResponse {
+  userId:         number;
+  fullName:       string;
+  weekCode:       string;
+  workedSaturday: boolean;
+  isManualEntry:  boolean;
+}
+
 export interface ShiftOption {
-  label:     string;   // "08:00", "08:30"...
-  value:     string;   // "08:00"
+  label: string;
+  value: string;
+}
+
+// ✅ CORRIGÉ — weeklyPlanningId + userId pour le cas OFF → WORK
+export interface OverrideSaturdayDto {
+  shiftAssignmentId:          number;
+  newSubServiceShiftConfigId: number;
+  weeklyPlanningId?:          number;
+  userId?:                    number;
 }
 
 // ════════════════════════════════════════════════════
@@ -200,20 +216,18 @@ export class PlanningService {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
 
-  // ── Génération ancienne (compatibilité) ───────────
+  // ── Génération ────────────────────────────────────
 
   generate(dto: GeneratePlanningDto): Observable<WeeklyPlanningResponse> {
     return this.http.post<WeeklyPlanningResponse>(`${this.base}/generate`, dto);
   }
 
-  // ── ✅ NOUVEAU — Config shifts ─────────────────────
+  // ── Config shifts ─────────────────────────────────
 
-  // Sauvegarder la config shifts du responsable
   saveShiftConfig(dto: SaveShiftConfigDto): Observable<WeekShiftConfigResponse> {
     return this.http.post<WeekShiftConfigResponse>(`${this.base}/config`, dto);
   }
 
-  // Lire la config d'un sous-service pour une semaine
   getShiftConfig(
     subServiceId: number,
     weekCode: string
@@ -221,8 +235,6 @@ export class PlanningService {
     return this.http.get<WeekShiftConfigResponse>(
       `${this.base}/config/${subServiceId}/${weekCode}`);
   }
-
-  // ── ✅ NOUVEAU — Génération depuis config ──────────
 
   generateFromConfig(
     dto: GeneratePlanningFromConfigDto
@@ -238,8 +250,26 @@ export class PlanningService {
       `${this.base}/${id}/publish?validatorId=${validatorId}`, {});
   }
 
+  // ✅ CORRIGÉ — envoie newSubServiceShiftConfigId au backend
   overrideShift(dto: OverrideShiftDto): Observable<DayAssignment> {
     return this.http.put<DayAssignment>(`${this.base}/override`, dto);
+  }
+
+  overrideBreakTime(dto: { shiftAssignmentId: number; newBreakTime: string }): Observable<any> {
+    return this.http.put(`${this.base}/override-break`, dto);
+  }
+
+  overrideSaturdayShift(dto: OverrideSaturdayDto): Observable<DayAssignment> {
+    return this.http.put<DayAssignment>(`${this.base}/override-saturday`, dto);
+  }
+
+  getShiftConfigsForSaturday(
+    subServiceId: number,
+    weekCode: string
+  ): Observable<ShiftConfigResponseNew[]> {
+    return this.http.get<WeekShiftConfigResponse>(
+      `${this.base}/config/${subServiceId}/${weekCode}`)
+      .pipe(map((r: WeekShiftConfigResponse) => r.shifts));
   }
 
   // ── Groupes samedi ────────────────────────────────
@@ -256,9 +286,35 @@ export class PlanningService {
   }): Observable<any> {
     return this.http.post(`${this.base}/saturday-group`, dto);
   }
-
+setSaturdayOff(weeklyPlanningId: number, userId: number): Observable<any> {
+  return this.http.delete(
+    `${this.base}/${weeklyPlanningId}/saturday/${userId}/off`
+  );
+}
   getSaturdayGroups(subServiceId: number): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/saturday-groups/${subServiceId}`);
+  }
+
+  getSaturdayHistory(
+    subServiceId: number,
+    weekCode: string
+  ): Observable<SaturdayHistoryResponse[]> {
+    return this.http.get<SaturdayHistoryResponse[]>(
+      `${this.base}/saturday-history/${subServiceId}/${weekCode}`);
+  }
+
+  saveSaturdayHistory(dto: SetSaturdayHistoryDto): Observable<any> {
+    return this.http.post(`${this.base}/saturday-history`, dto);
+  }
+
+  // ── Commentaires ──────────────────────────────────
+
+  saveComment(dto: SavePlanningCommentDto): Observable<PlanningCommentDto> {
+    return this.http.post<PlanningCommentDto>(`${this.base}/comment`, dto);
+  }
+
+  deleteComment(planningId: number, userId: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${planningId}/comment/${userId}`);
   }
 
   // ── Sous-services + Employés ──────────────────────
@@ -271,55 +327,48 @@ export class PlanningService {
     return this.http.get<EmployeeItem[]>(
       `${this.subSvcUrl}/${subServiceId}/employees`);
   }
-  overrideBreakTime(dto: { shiftAssignmentId: number; newBreakTime: string }): Observable<any> {
-  return this.http.put(`${this.base}/override-break`, dto);
-}
 
-  // ── ✅ NOUVEAU — Options horaires shifts ──────────
-  // Horaires disponibles de 5h à 14h par tranches de 30min
+  // ── Options horaires ──────────────────────────────
+
   getShiftStartOptions(): ShiftOption[] {
     const options: ShiftOption[] = [];
     for (let h = 5; h <= 14; h++) {
-      options.push({ label: `${h.toString().padStart(2,'0')}:00`,
-                     value: `${h.toString().padStart(2,'0')}:00` });
-      options.push({ label: `${h.toString().padStart(2,'0')}:30`,
-                     value: `${h.toString().padStart(2,'0')}:30` });
+      options.push({
+        label: `${h.toString().padStart(2, '0')}:00`,
+        value: `${h.toString().padStart(2, '0')}:00`
+      });
+      options.push({
+        label: `${h.toString().padStart(2, '0')}:30`,
+        value: `${h.toString().padStart(2, '0')}:30`
+      });
     }
     return options;
-    // 05:00, 05:30, 06:00 ... 13:30, 14:00
   }
-  saveComment(dto: SavePlanningCommentDto): Observable<PlanningCommentDto> {
-  return this.http.post<PlanningCommentDto>(`${this.base}/comment`, dto);
-}
 
-deleteComment(planningId: number, userId: number): Observable<void> {
-  return this.http.delete<void>(`${this.base}/${planningId}/comment/${userId}`);
-}
-
-  // Créneaux de pause de 11h à 16h par tranches de 30min
   getBreakSlotOptions(): ShiftOption[] {
     const options: ShiftOption[] = [];
     for (let h = 11; h <= 16; h++) {
-      options.push({ label: `${h.toString().padStart(2,'0')}:00`,
-                     value: `${h.toString().padStart(2,'0')}:00` });
+      options.push({
+        label: `${h.toString().padStart(2, '0')}:00`,
+        value: `${h.toString().padStart(2, '0')}:00`
+      });
       if (h < 16) {
-        options.push({ label: `${h.toString().padStart(2,'0')}:30`,
-                       value: `${h.toString().padStart(2,'0')}:30` });
+        options.push({
+          label: `${h.toString().padStart(2, '0')}:30`,
+          value: `${h.toString().padStart(2, '0')}:30`
+        });
       }
     }
     return options;
-    // 11:00, 11:30, 12:00 ... 15:30, 16:00
   }
 
-  // Calculer heure de fin automatiquement
   calculateEndTime(startTime: string, workHours: number): string {
     if (!startTime) return '';
     const [h, m] = startTime.split(':').map(Number);
-    const totalMinutes = h * 60 + m + (workHours * 60) + 60; // +60 = pause 1h
+    const totalMinutes = h * 60 + m + workHours * 60 + 60;
     const endH = Math.floor(totalMinutes / 60);
     const endM = totalMinutes % 60;
-    return `${endH.toString().padStart(2,'0')}:${endM.toString().padStart(2,'0')}`;
-    // Ex: 08:00 + 8h + 1h pause = 17:00
+    return `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
   }
 
   // Ancien getShifts() gardé pour compatibilité

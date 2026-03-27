@@ -99,6 +99,8 @@ public class DayAssignmentDto
     public string? BreakTime { get; set; }
     public bool IsOnLeave { get; set; }
     public bool IsHalfDaySaturday { get; set; }
+    public bool IsHoliday { get; set; } = false;
+    public string HolidayName { get; set; } = string.Empty;
     public int SaturdaySlot { get; set; }
     public string SlotLabel { get; set; } = string.Empty;
 }

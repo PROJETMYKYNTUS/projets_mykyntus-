@@ -2,6 +2,7 @@
 using PlanningService.Data;
 using PlanningService.DTOs.Planning;
 using PlanningService.Enums;
+using PlanningService.Helpers;
 using PlanningService.Interfaces;
 using PlanningService.Models;
 
@@ -151,7 +152,7 @@ public class PlanningService : IPlanningService
     // GÉNÉRER DEPUIS LA CONFIG
     // ════════════════════════════════════════════════════
     public async Task<WeeklyPlanningResponseDto> GeneratePlanningFromConfigAsync(
-        GeneratePlanningFromConfigDto dto)
+       GeneratePlanningFromConfigDto dto)
     {
         var planning = await _context.WeeklyPlannings
             .Include(p => p.SubService)
@@ -203,37 +204,17 @@ public class PlanningService : IPlanningService
         var assignments = new List<ShiftAssignment>();
         var weekDays = GetWeekDays(planning.WeekStartDate);
 
-        var shiftHistory = await _context.ShiftAssignments
-            .Where(a => userIds.Contains(a.UserId)
-                     && a.SubServiceShiftConfigId != null
-                     && a.WeeklyPlanning.WeekStartDate < planning.WeekStartDate)
-            .GroupBy(a => new { a.UserId, a.SubServiceShiftConfigId })
-            .Select(g => new {
-                g.Key.UserId,
-                ShiftConfigId = g.Key.SubServiceShiftConfigId!.Value,
-                Count = g.Count()
-            })
-            .ToListAsync();
+        // ✅ Jours fériés français
+        var holidays = FrenchHolidayHelper.GetHolidays(planning.WeekStartDate.Year);
 
         // ════════════════════════════════════════════════
-        // ALGORITHME — Lun → Ven
+        // ROTATION — offset par semaine + quotas respectés
         // ════════════════════════════════════════════════
-        // ════════════════════════════════════════════════════
-        // ALGORITHME — Rotation par employé + quotas respectés
-        // ════════════════════════════════════════════════════
-
-        // Calculer l'offset de semaine pour la rotation cross-semaines
         var currentWeekNumber = System.Globalization.ISOWeek.GetWeekOfYear(
             planning.WeekStartDate.ToDateTime(TimeOnly.MinValue));
 
-        // Pour chaque employé, calculer son shift de départ cette semaine
-        // basé sur son index + numéro de semaine (rotation cross-semaines)
-        // On groupe les employés selon les quotas
         var orderedShifts = shiftConfigs.OrderBy(sc => sc.DisplayOrder).ToList();
 
-        // Construire la rotation : assigner chaque employé à un "groupe de shift de départ"
-        // Exemple 10 emp, quotas [4,2,2,2] :
-        // Emp 0-3 → groupe 0 (S1), Emp 4-5 → groupe 1 (S2), etc.
         var employeeStartShiftIndex = new Dictionary<int, int>();
         int cumulative = 0;
         for (int shiftIdx = 0; shiftIdx < orderedShifts.Count; shiftIdx++)
@@ -242,7 +223,6 @@ public class PlanningService : IPlanningService
             {
                 if (cumulative < employees.Count)
                 {
-                    // Offset par semaine pour rotation cross-semaines
                     var empStartIdx = (shiftIdx + currentWeekNumber) % orderedShifts.Count;
                     employeeStartShiftIndex[employees[cumulative].Id] = empStartIdx;
                     cumulative++;
@@ -250,7 +230,6 @@ public class PlanningService : IPlanningService
             }
         }
 
-        // Si plus d'employés que la somme des quotas → assigner au shift suivant
         while (cumulative < employees.Count)
         {
             var empStartIdx = (cumulative + currentWeekNumber) % orderedShifts.Count;
@@ -258,10 +237,34 @@ public class PlanningService : IPlanningService
             cumulative++;
         }
 
-        // Générer les assignments jour par jour
+        // ════════════════════════════════════════════════
+        // GÉNÉRATION Lun → Ven
+        // ════════════════════════════════════════════════
         int dayIdx = 0;
         foreach (var (day, date) in weekDays)
         {
+            // ✅ Jour férié → tous FÉRIÉ
+            if (holidays.Contains(date))
+            {
+                foreach (var emp in employees)
+                {
+                    assignments.Add(new ShiftAssignment
+                    {
+                        WeeklyPlanningId = planning.Id,
+                        UserId = emp.Id,
+                        SubServiceShiftConfigId = null,
+                        AssignedDate = date,
+                        DayOfWeek = day,
+                        IsSaturday = false,
+                        IsOnLeave = false,
+                        IsHoliday = true,
+                        IsNewEmployee = IsNewEmployee(emp.Id, saturdayGroups)
+                    });
+                }
+                dayIdx++;
+                continue;
+            }
+
             var availableEmployees = employees.Where(e =>
                 !conges.Any(c =>
                     c.UserId == e.Id &&
@@ -287,23 +290,21 @@ public class PlanningService : IPlanningService
                     DayOfWeek = day,
                     IsSaturday = false,
                     IsOnLeave = true,
+                    IsHoliday = false,
                     IsNewEmployee = IsNewEmployee(emp.Id, saturdayGroups)
                 });
             }
 
-            // Vérifier les quotas ce jour
             var shiftCountToday = orderedShifts.ToDictionary(s => s.Id, s => 0);
 
             foreach (var emp in availableEmployees)
             {
-                // Shift de cet employé ce jour = (startShift + dayIdx) % nbShifts
                 var startIdx = employeeStartShiftIndex.ContainsKey(emp.Id)
                     ? employeeStartShiftIndex[emp.Id]
                     : 0;
                 var todayShiftIdx = (startIdx + dayIdx) % orderedShifts.Count;
                 var todayShift = orderedShifts[todayShiftIdx];
 
-                // Vérifier si quota atteint — si oui, prendre le shift suivant disponible
                 var finalShift = todayShift;
                 int attempts = 0;
                 while (shiftCountToday[finalShift.Id] >= finalShift.RequiredCount
@@ -325,59 +326,79 @@ public class PlanningService : IPlanningService
                     DayOfWeek = day,
                     IsSaturday = false,
                     IsOnLeave = false,
+                    IsHoliday = false,
                     IsNewEmployee = IsNewEmployee(emp.Id, saturdayGroups)
                 });
             }
 
             dayIdx++;
         }
-        // ════════════════════════════════════════════════
-        // SAMEDI — Rotation basée sur SaturdayHistory
-        // ════════════════════════════════════════════════
 
-        // ✅ FIX 1 — var (pas 'ar') + FIX 2 — saturdayWorkers déclaré ici
+        // ════════════════════════════════════════════════
+        // SAMEDI
+        // ════════════════════════════════════════════════
         var saturdayDate = planning.WeekStartDate.AddDays(5);
         var saturdayWorkers = new List<int>();
 
-        for (int empIndex = 0; empIndex < employees.Count; empIndex++)
+        if (holidays.Contains(saturdayDate))
         {
-            var employee = employees[empIndex];
-
-            bool isOnLeaveSaturday = conges.Any(c =>
-                c.UserId == employee.Id &&
-                c.StartDate <= saturdayDate &&
-                c.EndDate >= saturdayDate);
-
-            if (isOnLeaveSaturday)
+            // ✅ Samedi férié → tous FÉRIÉ
+            foreach (var emp in employees)
             {
-                // ✅ Créer une assignation Congé pour le samedi
                 assignments.Add(new ShiftAssignment
                 {
                     WeeklyPlanningId = planning.Id,
-                    UserId = employee.Id,
+                    UserId = emp.Id,
                     SubServiceShiftConfigId = null,
                     AssignedDate = saturdayDate,
                     DayOfWeek = DayOfWeekEnum.Saturday,
                     IsSaturday = true,
-                    IsOnLeave = true,
-                    IsNewEmployee = IsNewEmployee(employee.Id, saturdayGroups)
+                    IsOnLeave = false,
+                    IsHoliday = true,
+                    IsNewEmployee = IsNewEmployee(emp.Id, saturdayGroups)
                 });
             }
-            else
+        }
+        else
+        {
+            for (int empIndex = 0; empIndex < employees.Count; empIndex++)
             {
-                var satAssignment = await GenerateSaturdayAssignmentFromConfigAsync(
-                    employee, planning, shiftConfigs, saturdayGroups, empIndex, dto.WeekCode);
+                var employee = employees[empIndex];
 
-                if (satAssignment != null)
+                bool isOnLeaveSaturday = conges.Any(c =>
+                    c.UserId == employee.Id &&
+                    c.StartDate <= saturdayDate &&
+                    c.EndDate >= saturdayDate);
+
+                if (isOnLeaveSaturday)
                 {
-                    assignments.Add(satAssignment);
-                    saturdayWorkers.Add(employee.Id);
+                    assignments.Add(new ShiftAssignment
+                    {
+                        WeeklyPlanningId = planning.Id,
+                        UserId = employee.Id,
+                        SubServiceShiftConfigId = null,
+                        AssignedDate = saturdayDate,
+                        DayOfWeek = DayOfWeekEnum.Saturday,
+                        IsSaturday = true,
+                        IsOnLeave = true,
+                        IsHoliday = false,
+                        IsNewEmployee = IsNewEmployee(employee.Id, saturdayGroups)
+                    });
                 }
-                // Si null → employé OFF ce samedi → #noShift affiche "OFF"
+                else
+                {
+                    var satAssignment = await GenerateSaturdayAssignmentFromConfigAsync(
+                        employee, planning, shiftConfigs, saturdayGroups, empIndex, dto.WeekCode);
+
+                    if (satAssignment != null)
+                    {
+                        assignments.Add(satAssignment);
+                        saturdayWorkers.Add(employee.Id);
+                    }
+                }
             }
         }
 
-        // ✅ Sauvegarder automatiquement l'historique samedi
         await SaveSaturdayHistoryAsync(new SetSaturdayHistoryDto(
             dto.SubServiceId,
             dto.WeekCode,
@@ -389,9 +410,10 @@ public class PlanningService : IPlanningService
 
         _context.ShiftAssignments.AddRange(assignments);
 
-        // ── PAUSES ──────────────────────────────────────
+        // ── PAUSES (uniquement jours normaux travaillés) ──
         var workDayAssignments = assignments
-            .Where(a => !a.IsSaturday && !a.IsOnLeave && a.SubServiceShiftConfigId != null)
+            .Where(a => !a.IsSaturday && !a.IsOnLeave && !a.IsHoliday
+                     && a.SubServiceShiftConfigId != null)
             .GroupBy(a => a.AssignedDate)
             .ToList();
 
@@ -399,7 +421,8 @@ public class PlanningService : IPlanningService
             AssignBreakTimesFromConfig(dayGroup.ToList(), shiftConfigs, employees.Count);
 
         var saturdayWorkAssignments = assignments
-            .Where(a => a.IsSaturday && !a.IsOnLeave && a.SubServiceShiftConfigId != null)
+            .Where(a => a.IsSaturday && !a.IsOnLeave && !a.IsHoliday
+                     && a.SubServiceShiftConfigId != null)
             .ToList();
         if (saturdayWorkAssignments.Any())
             AssignBreakTimesFromConfig(saturdayWorkAssignments, shiftConfigs, employees.Count);
@@ -1244,10 +1267,12 @@ public class PlanningService : IPlanningService
 
     private static DayAssignmentDto MapToDayDtoNew(ShiftAssignment a)
     {
-        var label = a.IsOnLeave ? "CONGÉ"
-            : a.SubServiceShiftConfig?.Label
-              ?? a.Shift?.Label
-              ?? "—";
+        var label = a.IsHoliday ? "FÉRIÉ"
+     : a.IsOnLeave ? "CONGÉ"
+     : a.SubServiceShiftConfig?.Label
+       ?? a.Shift?.Label
+       ?? "—";
+
 
         var startTime = a.SubServiceShiftConfig?.StartTime.ToString("HH:mm")
                         ?? a.Shift?.StartTime.ToString("HH:mm")
@@ -1271,7 +1296,11 @@ public class PlanningService : IPlanningService
             SaturdaySlot = a.SaturdaySlot,
             SlotLabel = a.SaturdaySlot == 1 ? "8h00-12h00"
                               : a.SaturdaySlot == 2 ? "12h00-16h00"
-                              : string.Empty
+                              : string.Empty,
+                                 IsHoliday = a.IsHoliday,
+            HolidayName = a.IsHoliday
+        ? FrenchHolidayHelper.GetHolidayName(a.AssignedDate)
+        : string.Empty
         };
     }
 

@@ -11,8 +11,8 @@
   --border:         rgba(26, 44, 239, 0.09);
   --border-strong:  rgba(255, 255, 255, 0.16);
   --text-primary:   #f0f6ff;
-  --text-secondary: rgba(252, 252, 252, 0.6);
-  --text-muted:     rgba(180, 210, 255, 0.38);
+  --text-secondary: #e2e8f0;
+  --text-muted:    #f1f5f9;
   --blue-400: #0d1928;
   --blue-500: #081326;
   --blue-600: #0e1731;
@@ -41,7 +41,7 @@ body {
   background:
     radial-gradient(ellipse 110% 70% at -5% -5%, rgba(102, 153, 255, 0.25) 0%, transparent 52%),
     radial-gradient(ellipse 70% 60% at 105% 105%, rgba(150, 120, 255, 0.15) 0%, transparent 52%),
-    linear-gradient(160deg, #010818 0%, #030a27 45%, #202d5f 100%);
+    linear-gradient(135deg, #0f172a 0%, #111827 50%, #1f2933 100%);
   min-height: 100vh;
   color: var(--text-primary);
 }
@@ -58,7 +58,7 @@ body {
 .sidebar {
   width: var(--sidebar-w);
   min-height: 100vh;
-  background: rgba(2, 29, 85, 0.88);
+  background: #010818 ;
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-right: 1px solid var(--border);
@@ -196,7 +196,7 @@ body {
   height: var(--topbar-h);
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 28px;
-  background: rgba(7, 11, 21, 0.6);
+  background: #010818 ;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);

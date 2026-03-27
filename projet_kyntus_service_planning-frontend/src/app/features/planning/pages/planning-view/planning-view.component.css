@@ -249,3 +249,20 @@
 }
 .btn-confirm:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(59,130,246,.35); }
 .btn-confirm:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.shift-ferie {
+  background: linear-gradient(135deg, #7c3aed22, #7c3aed44);
+  border: 1px solid #7c3aed;
+  border-radius: 8px;
+  padding: 6px 10px;
+  text-align: center;
+  color: #a78bfa;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.ferie-name {
+  display: block;
+  font-size: 10px;
+  color: #c4b5fd;
+  margin-top: 2px;
+}

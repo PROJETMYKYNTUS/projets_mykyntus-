@@ -21,6 +21,7 @@ public class ShiftAssignment
     public bool IsOnLeave { get; set; } = false;  // ✅ En conge
     public bool IsHalfDaySaturday { get; set; } = false; // ✅ Nouveau employe 4h
     public int SaturdaySlot { get; set; } = 0;
+    public bool IsHoliday { get; set; } = false;
 
     public ICollection<Declaration> Declarations { get; set; }
     // ✅ NOUVEAU — FK vers SubServiceShiftConfig

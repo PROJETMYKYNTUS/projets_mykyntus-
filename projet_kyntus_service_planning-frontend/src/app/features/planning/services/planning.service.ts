@@ -28,6 +28,8 @@ export interface DayAssignment {
   isHalfDaySaturday: boolean;
   saturdaySlot:      number;
   slotLabel:         string;
+  isHoliday:   boolean;
+holidayName: string;
 }
 
 export interface EmployeePlanning {

@@ -119,6 +119,12 @@
                   <span>🏖️ Congé</span>
                 </div>
 
+                <!-- FÉRIÉ -->
+<div class="shift-ferie" *ngIf="a.isHoliday">
+  <span>🎌 Férié</span>
+  <span class="ferie-name" *ngIf="a.holidayName">{{ a.holidayName }}</span>
+</div>
+
                 <!-- Shift normal -->
                 <ng-container *ngIf="!a.isOnLeave">
 
@@ -213,6 +219,9 @@
       <div class="legend-item">
         <span class="shift-conge mini">🏖️</span> Congé
       </div>
+      <div class="legend-item">
+  <span class="shift-ferie mini">🎌</span> Férié
+</div>
       <div class="legend-item">
         <span class="override-icon">✏️</span> Modifié
       </div>

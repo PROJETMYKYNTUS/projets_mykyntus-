@@ -1,17 +1,17 @@
-<!-- conge-manager.component.html — SEULEMENT LES CONGÉS -->
+<!-- conge-manager.component.html -->
 <div class="page-wrapper">
   <div class="page-header">
     <button class="btn-back" (click)="goBack()">← Planning</button>
     <div class="header-info">
-      <h1 class="page-title">🏖️ Gestion des Congés</h1>
-      <p class="page-sub">Enregistrement et suivi des congés par sous-service</p>
+      <h1 class="page-title">📋 Gestion des Absences</h1>
+      <p class="page-sub">Enregistrement et suivi des absences par sous-service</p>
     </div>
     <div class="header-actions">
       <select class="select-subservice" [(ngModel)]="subServiceId" (change)="onSubServiceChange()">
         <option [value]="0" disabled>-- Sous-service --</option>
         <option *ngFor="let s of subServices" [value]="s.id">{{ s.name }}</option>
       </select>
-      <button class="btn-add" (click)="openForm()">+ Nouveau congé</button>
+      <button class="btn-add" (click)="openForm()">+ Nouvelle absence</button>
     </div>
   </div>
 
@@ -21,14 +21,14 @@
   <div class="section-card">
     <div class="card-header">
       <span class="card-icon">📋</span>
-      <h2>Congés enregistrés</h2>
+      <h2>Absences enregistrées</h2>
       <span class="count-badge" *ngIf="conges.length > 0">{{ conges.length }}</span>
     </div>
     <div class="state-loading" *ngIf="loading">
       <div class="spinner"></div><span>Chargement...</span>
     </div>
     <div class="state-empty" *ngIf="!loading && conges.length === 0">
-      <span>📭</span><p>Aucun congé pour ce sous-service</p>
+      <span>📭</span><p>Aucune absence pour ce sous-service</p>
     </div>
     <div class="conge-list" *ngIf="!loading && conges.length > 0">
       <div class="conge-item" *ngFor="let c of conges">
@@ -37,6 +37,9 @@
           <div class="ci-details">
             <span class="ci-name">{{ c.fullName }}</span>
             <span class="ci-dates">{{ formatDate(c.startDate) }} → {{ formatDate(c.endDate) }}</span>
+            <!-- ✅ TYPE D'ABSENCE affiché en badge -->
+            <span class="ci-type-badge">{{ getAbsenceLabel(c.absenceType) }}</span>
+            <!-- motif optionnel en dessous -->
             <span class="ci-reason" *ngIf="c.reason">{{ c.reason }}</span>
           </div>
         </div>
@@ -53,15 +56,27 @@
 <!-- MODAL -->
 <div class="modal-overlay" *ngIf="showForm" (click)="closeForm()">
   <div class="modal-card" (click)="$event.stopPropagation()">
-    <h3 class="modal-title">🏖️ Nouveau Congé</h3>
+    <h3 class="modal-title">📋 Nouvelle Absence</h3>
     <div class="alert-error" *ngIf="error">⚠️ {{ error }}</div>
+
+    <!-- Employé -->
     <div class="form-group">
       <label>Employé <span class="req">*</span></label>
-<select [(ngModel)]="formUserId">
-  <option [ngValue]="0" disabled>-- Sélectionner --</option>
-  <option *ngFor="let e of employees" [ngValue]="e.id">{{ e.fullName }}</option>
-</select>
+      <select [(ngModel)]="formUserId">
+        <option [ngValue]="0" disabled>-- Sélectionner --</option>
+        <option *ngFor="let e of employees" [ngValue]="e.id">{{ e.fullName }}</option>
+      </select>
     </div>
+
+    <!-- ✅ TYPE D'ABSENCE — ajouté avant les dates -->
+    <div class="form-group">
+      <label>Type d'absence <span class="req">*</span></label>
+      <select [(ngModel)]="formAbsenceType">
+        <option *ngFor="let t of absenceTypes" [value]="t.value">{{ t.label }}</option>
+      </select>
+    </div>
+
+    <!-- Dates -->
     <div class="form-row">
       <div class="form-group">
         <label>Date début <span class="req">*</span></label>
@@ -72,13 +87,17 @@
         <input type="date" [(ngModel)]="formEndDate" />
       </div>
     </div>
+
     <div class="days-preview" *ngIf="formStartDate && formEndDate && formStartDate <= formEndDate">
       📅 Durée : <strong>{{ getDaysCount(formStartDate, formEndDate) }} jour(s)</strong>
     </div>
+
+    <!-- Motif optionnel -->
     <div class="form-group">
-      <label>Motif</label>
-      <input type="text" [(ngModel)]="formReason" placeholder="Ex: Congé annuel, maladie..." />
+      <label>Motif <span class="optional">(optionnel)</span></label>
+      <input type="text" [(ngModel)]="formReason" placeholder="Précision supplémentaire..." />
     </div>
+
     <div class="modal-footer">
       <button class="btn-cancel" (click)="closeForm()">Annuler</button>
       <button class="btn-confirm" [disabled]="saving" (click)="saveConge()">

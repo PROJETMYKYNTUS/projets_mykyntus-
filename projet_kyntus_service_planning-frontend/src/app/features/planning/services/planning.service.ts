@@ -26,6 +26,7 @@ export interface DayAssignment {
   breakTime?:        string;
   isOnLeave:         boolean;
   isHalfDaySaturday: boolean;
+   absenceType:       string | null; 
   saturdaySlot:      number;
   slotLabel:         string;
   isHoliday:   boolean;

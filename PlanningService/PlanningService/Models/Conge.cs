@@ -10,6 +10,7 @@ public class Conge
     public DateOnly EndDate { get; set; }
     public string Reason { get; set; } = string.Empty;
     public CongeStatus Status { get; set; } = CongeStatus.Approved;
+    public AbsenceType AbsenceType { get; set; } = AbsenceType.CongesPayes; // ← NOUVEAU
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation

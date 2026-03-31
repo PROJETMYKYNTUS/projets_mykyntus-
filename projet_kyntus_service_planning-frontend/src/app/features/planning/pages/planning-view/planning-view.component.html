@@ -1,325 +1,492 @@
-<div class="page-wrapper">
+<!-- planning-view.component.html -->
+<div class="pv-wrapper">
 
-  <div class="state-loading" *ngIf="loading">
-    <div class="big-spinner"></div>
-    <p>Chargement du planning...</p>
+  <!-- ══════════════ LOADING ══════════════ -->
+  <div class="pv-loading" *ngIf="loading">
+    <div class="loading-orb">
+      <div class="orb-ring r1"></div>
+      <div class="orb-ring r2"></div>
+      <div class="orb-ring r3"></div>
+    </div>
+    <p>Chargement du planning…</p>
   </div>
 
   <ng-container *ngIf="!loading && planning">
 
-    <!-- HEADER -->
-    <div class="page-header">
-      <button class="btn-back" (click)="goBack()">← Retour</button>
-      <div class="header-info">
-        <h1 class="page-title">📅 {{ planning.weekCode }}</h1>
-        <p class="page-sub">
-          {{ planning.subServiceName }} · {{ planning.assignments.length }} employés
-        </p>
+    <!-- ══════════════ HEADER ══════════════ -->
+    <div class="pv-header">
+
+      <div class="header-left">
+        <button class="btn-back" (click)="goBack()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Retour
+        </button>
+        <div class="header-divider"></div>
+        <div class="header-meta">
+          <div class="header-week">
+            <span class="week-chip">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              {{ planning.weekCode }}
+            </span>
+            <span class="status-badge" [ngClass]="getStatusClass(planning.status)">
+              <span class="status-dot"></span>
+              {{ getStatusLabel(planning.status) }}
+            </span>
+          </div>
+          <h1 class="header-title">{{ planning.subServiceName }}</h1>
+          <p class="header-sub">
+            <span class="sub-item">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              {{ planning.assignments.length }} employés planifiés
+            </span>
+            <span class="sub-sep">·</span>
+            <span class="sub-item">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              {{ planning.shiftConfigs?.length || 0 }} shifts configurés
+            </span>
+          </p>
+        </div>
       </div>
-      <div class="header-actions">
-        <span class="status-badge" [ngClass]="getStatusClass(planning.status)">
-          {{ getStatusLabel(planning.status) }}
-        </span>
+
+      <div class="header-right">
         <button class="btn-publish"
           *ngIf="planning.status === 'Draft'"
           [disabled]="publishing"
           (click)="publishPlanning()">
-          <span *ngIf="!publishing">🚀 Publier</span>
-          <span *ngIf="publishing">Publication...</span>
+          <ng-container *ngIf="!publishing">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Publier le planning
+          </ng-container>
+          <ng-container *ngIf="publishing">
+            <span class="btn-spinner"></span>
+            Publication…
+          </ng-container>
         </button>
       </div>
+
     </div>
 
-    <div class="alert-success" *ngIf="successMsg">✅ {{ successMsg }}</div>
-    <div class="alert-error"   *ngIf="error">⚠️ {{ error }}</div>
+    <!-- ── Alertes ── -->
+    <div class="alert alert-success" *ngIf="successMsg">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      {{ successMsg }}
+    </div>
+    <div class="alert alert-error" *ngIf="error">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      {{ error }}
+    </div>
 
-    <!-- KPI SHIFTS -->
-    <div class="kpi-row">
-      <div class="kpi-card" *ngFor="let cfg of planning.shiftConfigs">
-        <div class="kpi-shift" [ngClass]="getShiftColor(cfg.shiftLabel)">
-          {{ cfg.shiftLabel }}
+    <!-- ══════════════ KPI SHIFTS ══════════════ -->
+    <div class="kpi-bar">
+      <div class="kpi-card" *ngFor="let cfg of planning.shiftConfigs; let i = index">
+        <div class="kpi-label-row">
+          <span class="kpi-shift-tag" [ngClass]="getShiftColor(cfg.shiftLabel)">{{ cfg.shiftLabel }}</span>
+          <span class="kpi-pct">{{ cfg.percentage }}%</span>
         </div>
-        <div class="kpi-body">
-          <span class="kpi-count">{{ cfg.requiredCount }}</span>
-          <span class="kpi-label">employés / jour</span>
-        </div>
-        <div class="kpi-pct">{{ cfg.percentage }}%</div>
+        <div class="kpi-val">{{ cfg.requiredCount }}</div>
+        <div class="kpi-desc">employés / jour</div>
+        <div class="kpi-bar-fill" [style.width.%]="cfg.percentage" [ngClass]="getShiftColor(cfg.shiftLabel)"></div>
       </div>
+
       <div class="kpi-card kpi-total">
-        <div class="kpi-shift shift-total">Total</div>
-        <div class="kpi-body">
-          <span class="kpi-count">{{ planning.totalEffectif }}</span>
-          <span class="kpi-label">effectif total</span>
+        <div class="kpi-label-row">
+          <span class="kpi-shift-tag shift-total-tag">Total</span>
+          <span class="kpi-pct">100%</span>
         </div>
-        <div class="kpi-pct">100%</div>
+        <div class="kpi-val">{{ planning.totalEffectif }}</div>
+        <div class="kpi-desc">effectif total</div>
+        <div class="kpi-bar-fill kpi-bar-total" style="width:100%"></div>
       </div>
     </div>
 
-    <!-- GRILLE PLANNING -->
-    <div class="grid-wrapper">
-      <table class="planning-grid">
-        <thead>
-          <tr>
-            <th class="col-employee">Employé</th>
-            <th *ngFor="let day of days"
-                [ngClass]="{'col-saturday': day === 'Saturday'}">
-              <div class="th-day">{{ dayLabels[day] }}</div>
-              <div class="th-date" *ngIf="planning.weekStartDate">
-                {{ getDateForDay(planning.weekStartDate, day) }}
-              </div>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let emp of planning.assignments"
-              [class.row-new]="emp.isNewEmployee">
+    <!-- ══════════════ GRILLE ══════════════ -->
+    <div class="grid-container">
 
-            <!-- Employé -->
-            <td class="cell-employee">
-              <div class="emp-info">
-                <div class="emp-avatar">{{ emp.fullName[0] }}</div>
-                <div class="emp-details">
-                  <div class="emp-name-row">
-                    <span class="emp-name">{{ emp.fullName }}</span>
-                    <span class="level-badge level-{{ emp.level }}">N{{ emp.level }}</span>
-                    <span class="emp-tag" *ngIf="emp.isNewEmployee">🆕</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Bouton commentaire Draft -->
-              <div class="emp-comment-row" *ngIf="planning!.status === 'Draft'">
-                <button class="btn-comment"
-                        (click)="openCommentModal(emp, $event)"
-                        [title]="emp.managerComment ? 'Modifier' : 'Ajouter note'">
-                  {{ emp.managerComment ? '💬' : '➕' }}
-                </button>
-                <button class="btn-delete-comment"
-                        *ngIf="emp.managerComment"
-                        (click)="deleteComment(emp, $event)"
-                        title="Supprimer">🗑️</button>
-              </div>
-
-              <!-- Commentaire affiché -->
-              <div class="emp-comment-display" *ngIf="emp.managerComment">
-                <span class="comment-icon">💬</span>
-                <span class="comment-text">{{ emp.managerComment }}</span>
-              </div>
-            </td>
-
-            <!-- Shifts par jour -->
-            <td *ngFor="let day of days"
-                class="cell-shift"
-                [ngClass]="{'cell-saturday': day === 'Saturday'}">
-
-              <ng-container *ngIf="getAssignment(emp, day) as a; else noShift">
-
-                <!-- Congé -->
-                <div class="shift-conge" *ngIf="a.isOnLeave">
-                  <span>🏖️ Congé</span>
-                </div>
-
-                <!-- FÉRIÉ -->
-<div class="shift-ferie" *ngIf="a.isHoliday">
-  <span>🎌 Férié</span>
-  <span class="ferie-name" *ngIf="a.holidayName">{{ a.holidayName }}</span>
-</div>
-
-                <!-- Shift normal -->
-                <ng-container *ngIf="!a.isOnLeave">
-
-                  <!-- ✅ Correction : samedi → openSaturdayOverride, autres jours → openOverride -->
-                  <div class="shift-pill"
-                       [ngClass]="getShiftColor(a.shiftLabel)"
-                       (click)="day === 'Saturday' ? openSaturdayOverride(emp, $event) : openOverride(emp, day, $event)"
-                       title="Cliquer pour modifier le shift">
-                    <span class="shift-label">{{ a.shiftLabel }}</span>
-                    <span class="shift-time">{{ a.startTime }}</span>
-                    <span class="override-icon" *ngIf="a.isManagerOverride">✏️</span>
-                  </div>
-
-                  <!-- Badge pause cliquable -->
-                  <div class="break-badge"
-                       *ngIf="a.breakTime"
-                       (click)="openBreakOverride(emp, day, $event)"
-                       title="Cliquer pour modifier la pause">
-                    🍽 {{ a.breakTime }}
-                    <span class="break-edit-icon">✏️</span>
-                  </div>
-
-                </ng-container>
-
-              </ng-container>
-              <ng-template #noShift>
-                <div class="shift-off"
-                     [ngClass]="{'shift-off-clickable': day === 'Saturday' && planning!.status === 'Draft'}"
-                     (click)="day === 'Saturday' && planning!.status === 'Draft' ? openSaturdayOverride(emp, $event) : null"
-                     [title]="day === 'Saturday' && planning!.status === 'Draft' ? 'Cliquer pour modifier le samedi' : ''">
-                  OFF
-                  <span *ngIf="day === 'Saturday' && planning!.status === 'Draft'" class="off-edit-icon">✏️</span>
-                </div>
-              </ng-template>
-
-            </td>
-
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- MODAL OVERRIDE SAMEDI -->
-    <div class="modal-overlay" *ngIf="showSaturdayOverride" (click)="closeSaturdayOverride()">
-      <div class="modal-card" (click)="$event.stopPropagation()">
-        <h3 class="modal-title">📅 Modifier le Samedi</h3>
-        <p class="modal-sub">
-          <strong>{{ selectedSaturdayEmployeeName }}</strong>
-        </p>
-
-        <!-- Actuellement OFF → faire travailler -->
-        <div *ngIf="selectedSaturdayAction === 'work'">
-          <p class="modal-info">Cet employé est actuellement <strong>OFF</strong> ce samedi.</p>
-          <div class="form-group">
-            <label>Choisir un shift</label>
-            <select [(ngModel)]="selectedSaturdayShiftId">
-              <option [ngValue]="0" disabled>-- Choisir --</option>
-              <option *ngFor="let s of saturdayShiftConfigs" [ngValue]="s.id">
-                {{ s.label }} ({{ s.startTime }})
-              </option>
-            </select>
+      <!-- Toolbar -->
+      <div class="grid-toolbar">
+        <div class="toolbar-left">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          Grille hebdomadaire
+        </div>
+        <div class="toolbar-right">
+          <!-- Légende compacte -->
+          <div class="legend-inline">
+            <div class="legend-item" *ngFor="let label of getUniqueShiftLabels()">
+              <span class="legend-pill" [ngClass]="getShiftColor(label)">{{ label }}</span>
+            </div>
+            <div class="legend-item"><span class="legend-off">OFF</span><span class="legend-txt">Repos</span></div>
+            <div class="legend-item"><span class="legend-conge">Congé</span></div>
+            <div class="legend-item"><span class="legend-ferie">Férié</span></div>
           </div>
         </div>
+      </div>
 
-        <!-- Actuellement WORK → mettre OFF -->
-        <div *ngIf="selectedSaturdayAction === 'off'">
-          <p class="modal-info">Cet employé travaille ce samedi. Voulez-vous le mettre <strong>OFF</strong> ?</p>
-        </div>
+      <!-- Table -->
+      <div class="grid-scroll">
+        <table class="pgrid">
+          <thead>
+            <tr>
+              <th class="th-emp">
+                <div class="th-inner">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                  Employé
+                </div>
+              </th>
+              <th *ngFor="let day of days" [class.th-saturday]="day === 'Saturday'">
+                <div class="th-day-inner">
+                  <span class="th-day-name">{{ dayLabels[day] }}</span>
+                  <span class="th-day-date" *ngIf="planning.weekStartDate">
+                    {{ getDateForDay(planning.weekStartDate, day) }}
+                  </span>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let emp of planning.assignments; let odd = odd"
+                [class.row-odd]="odd"
+                [class.row-new]="emp.isNewEmployee">
 
-        <div class="modal-footer">
-          <button class="btn-cancel" (click)="closeSaturdayOverride()">Annuler</button>
-          <button class="btn-confirm"
-                  [disabled]="selectedSaturdayAction === 'work' && !selectedSaturdayShiftId"
-                  (click)="confirmSaturdayOverride()">
-            {{ selectedSaturdayAction === 'off' ? '🔴 Mettre OFF' : '✅ Faire travailler' }}
-          </button>
-        </div>
-      </div>
-    </div>
+              <!-- ── Cellule employé ── -->
+              <td class="td-emp">
+                <div class="emp-row">
+                  <div class="emp-avatar-wrap">
+                    <div class="emp-av">{{ emp.fullName[0] }}</div>
+                    <span class="emp-level-dot level-dot-{{ emp.level }}" [title]="'Niveau ' + emp.level"></span>
+                  </div>
+                  <div class="emp-info">
+                    <div class="emp-name-row">
+                      <span class="emp-name">{{ emp.fullName }}</span>
+                      <span class="lvl-badge lvl-{{ emp.level }}">N{{ emp.level }}</span>
+                      <span class="new-badge" *ngIf="emp.isNewEmployee">Nouveau</span>
+                    </div>
+                    <!-- Actions commentaire -->
+                    <div class="emp-actions" *ngIf="planning!.status === 'Draft'">
+                      <button class="act-btn act-comment"
+                              (click)="openCommentModal(emp, $event)"
+                              [title]="emp.managerComment ? 'Modifier la note' : 'Ajouter une note'">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                        {{ emp.managerComment ? 'Modifier' : 'Note' }}
+                      </button>
+                      <button class="act-btn act-del"
+                              *ngIf="emp.managerComment"
+                              (click)="deleteComment(emp, $event)"
+                              title="Supprimer la note">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                      </button>
+                    </div>
+                    <!-- Commentaire affiché -->
+                    <div class="emp-comment" *ngIf="emp.managerComment">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                      <span>{{ emp.managerComment }}</span>
+                    </div>
+                  </div>
+                </div>
+              </td>
 
-    <!-- LÉGENDE DYNAMIQUE -->
-    <div class="legend">
-      <span class="legend-title">Légende :</span>
-      <div class="legend-item" *ngFor="let label of getUniqueShiftLabels()">
-        <span class="shift-pill mini" [ngClass]="getShiftColor(label)">
-          {{ label }}
-        </span>
-      </div>
-      <div class="legend-item">
-        <span class="shift-off mini">OFF</span> Repos
-      </div>
-      <div class="legend-item">
-        <span class="shift-conge mini">🏖️</span> Congé
-      </div>
-      <div class="legend-item">
-  <span class="shift-ferie mini">🎌</span> Férié
+              <!-- ── Cellules shifts ── -->
+              <td *ngFor="let day of days"
+                  class="td-shift"
+                  [class.td-saturday]="day === 'Saturday'">
+
+                <ng-container *ngIf="getAssignment(emp, day) as a; else noShift">
+
+                  <!-- Congé -->
+                <div class="cell-conge"
+     [class.cell-clickable]="day === 'Saturday' && planning!.status === 'Draft'"
+     (click)="day === 'Saturday' && planning!.status === 'Draft' ? openSaturdayOverride(emp, $event) : null"
+     *ngIf="a.isOnLeave">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17.5 19H9a7 7 0 117-7v1"/><path d="M17 9l4-4-4-4M21 5H9"/>
+  </svg>
+  <span>{{ getAbsenceLabel(a.absenceType) }}</span>
+  <span class="cell-edit-icon" *ngIf="day === 'Saturday' && planning!.status === 'Draft'">
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>
+  </span>
 </div>
-      <div class="legend-item">
-        <span class="override-icon">✏️</span> Modifié
-      </div>
-      <div class="legend-item">
-        <span class="break-badge mini">🍽 12:00</span> Pause déjeuner
+
+                  <!-- Férié -->
+                  <!-- Férié — REMPLACER l'ancien bloc -->
+<div class="cell-ferie"
+     *ngIf="a.isHoliday"
+     [class.cell-clickable]="planning!.status === 'Draft'"
+     (click)="planning!.status === 'Draft' ? openHolidayOverride(emp, day, $event) : null">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+  </svg>
+  <span>Férié</span>
+  <span class="ferie-name" *ngIf="a.holidayName">{{ a.holidayName }}</span>
+  <!-- icône crayon visible en Draft -->
+  <span class="cell-edit-icon" *ngIf="planning!.status === 'Draft'">
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>
+  </span>
+</div>
+
+                  <!-- Shift normal -->
+                  <ng-container *ngIf="!a.isOnLeave && !a.isHoliday">
+                    <div class="shift-pill"
+                         [ngClass]="getShiftColor(a.shiftLabel)"
+                         (click)="day === 'Saturday' ? openSaturdayOverride(emp, $event) : openOverride(emp, day, $event)">
+                      <span class="sp-label">{{ a.shiftLabel }}</span>
+                      <span class="sp-time">{{ a.startTime }}</span>
+                      <span class="sp-edited" *ngIf="a.isManagerOverride" title="Modifié manuellement">
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </span>
+                    </div>
+                    <div class="break-pill"
+                         *ngIf="a.breakTime"
+                         (click)="openBreakOverride(emp, day, $event)">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+                      {{ a.breakTime }}
+                    </div>
+                  </ng-container>
+
+                </ng-container>
+                <ng-template #noShift>
+                  <div class="shift-off"
+                       [class.shift-off-saturday]="day === 'Saturday' && planning!.status === 'Draft'"
+                       (click)="day === 'Saturday' && planning!.status === 'Draft' ? openSaturdayOverride(emp, $event) : null">
+                    <span>—</span>
+                    <svg class="off-edit" *ngIf="day === 'Saturday' && planning!.status === 'Draft'" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </div>
+                </ng-template>
+
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
   </ng-container>
 
-  <!-- MODAL OVERRIDE SHIFT (jours lun–ven uniquement) -->
- <div class="modal-overlay" *ngIf="showOverride" (click)="closeOverride()">
-  <div class="modal-card" (click)="$event.stopPropagation()">
-    <h3 class="modal-title">✏️ Modifier le shift</h3>
-    <p class="modal-sub">
-      <strong>{{ selectedEmployeeName }}</strong> — {{ selectedDay }}
-    </p>
- 
-    <div class="form-group">
-      <label>Nouveau shift</label>
- 
-      <!-- ✅ weekShiftConfigs au lieu de shifts statiques -->
-      <select [(ngModel)]="selectedNewShiftConfigId">
-        <option [ngValue]="0" disabled>-- Choisir --</option>
-        <option *ngFor="let s of weekShiftConfigs" [ngValue]="s.id">
-          {{ s.label }} ({{ s.startTime }})
-        </option>
-      </select>
- 
-      <!-- Message si configs pas encore chargées -->
-      <small *ngIf="weekShiftConfigs.length === 0" style="color: #e74c3c;">
-        ⚠️ Aucun shift configuré pour cette semaine.
-      </small>
+  <!-- ══════════════ MODAL — OVERRIDE SHIFT ══════════════ -->
+  <div class="modal-bg" *ngIf="showOverride" (click)="closeOverride()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-icon modal-icon-blue">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </div>
+        <div>
+          <h3 class="modal-title">Modifier le shift</h3>
+          <p class="modal-sub">{{ selectedEmployeeName }} <span class="modal-day-chip">{{ selectedDay }}</span></p>
+        </div>
+        <button class="modal-close" (click)="closeOverride()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label class="field-label">Nouveau shift</label>
+          <div class="select-wrap">
+            <select [(ngModel)]="selectedNewShiftConfigId">
+              <option [ngValue]="0" disabled>Sélectionner un shift…</option>
+              <option *ngFor="let s of weekShiftConfigs" [ngValue]="s.id">{{ s.label }} — {{ s.startTime }}</option>
+            </select>
+            <svg class="select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <small class="field-warn" *ngIf="weekShiftConfigs.length === 0">Aucun shift configuré pour cette semaine.</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeOverride()">Annuler</button>
+        <button class="btn-confirm" [disabled]="!selectedNewShiftConfigId" (click)="confirmOverride()">Confirmer</button>
+      </div>
     </div>
- 
+  </div>
+
+  <!-- ══════════════ MODAL — OVERRIDE SAMEDI ══════════════ -->
+  <div class="modal-bg" *ngIf="showSaturdayOverride" (click)="closeSaturdayOverride()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-icon modal-icon-indigo">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div>
+          <h3 class="modal-title">Modifier le Samedi</h3>
+          <p class="modal-sub">{{ selectedSaturdayEmployeeName }}</p>
+        </div>
+        <button class="modal-close" (click)="closeSaturdayOverride()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="info-box info-off" *ngIf="selectedSaturdayAction === 'work'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Cet employé est actuellement <strong>OFF</strong> ce samedi.
+        </div>
+        <div class="info-box info-work" *ngIf="selectedSaturdayAction === 'off'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Cet employé travaille ce samedi. Mettre en <strong>OFF</strong> ?
+        </div>
+        <div class="field" *ngIf="selectedSaturdayAction === 'work'">
+          <label class="field-label">Choisir un shift</label>
+          <div class="select-wrap">
+            <select [(ngModel)]="selectedSaturdayShiftId">
+              <option [ngValue]="0" disabled>Sélectionner…</option>
+              <option *ngFor="let s of saturdayShiftConfigs" [ngValue]="s.id">{{ s.label }} ({{ s.startTime }})</option>
+            </select>
+            <svg class="select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeSaturdayOverride()">Annuler</button>
+        <button class="btn-confirm btn-confirm-danger" *ngIf="selectedSaturdayAction === 'off'"
+                (click)="confirmSaturdayOverride()">Mettre OFF</button>
+        <button class="btn-confirm" *ngIf="selectedSaturdayAction === 'work'"
+                [disabled]="!selectedSaturdayShiftId"
+                (click)="confirmSaturdayOverride()">Faire travailler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ MODAL — PAUSE ══════════════ -->
+  <div class="modal-bg" *ngIf="showBreakOverride" (click)="closeBreakOverride()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-icon modal-icon-amber">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+        </div>
+        <div>
+          <h3 class="modal-title">Modifier la pause déjeuner</h3>
+          <p class="modal-sub">{{ selectedBreakEmployeeName }} <span class="modal-day-chip">{{ selectedBreakDay }}</span></p>
+        </div>
+        <button class="modal-close" (click)="closeBreakOverride()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label class="field-label">Heure de pause</label>
+          <div class="select-wrap">
+            <select [(ngModel)]="selectedNewBreakTime">
+              <option value="" disabled>Sélectionner…</option>
+              <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">{{ opt.label }}</option>
+            </select>
+            <svg class="select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeBreakOverride()">Annuler</button>
+        <button class="btn-confirm" [disabled]="!selectedNewBreakTime" (click)="confirmBreakOverride()">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ MODAL — COMMENTAIRE ══════════════ -->
+  <div class="modal-bg" *ngIf="showCommentModal" (click)="closeCommentModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-icon modal-icon-purple">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        </div>
+        <div>
+          <h3 class="modal-title">Note pour l'employé</h3>
+          <p class="modal-sub">{{ commentEmployeeName }}</p>
+        </div>
+        <button class="modal-close" (click)="closeCommentModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label class="field-label">
+            Commentaire
+            <span class="char-count" [class.char-warn]="commentText.length > 450">{{ commentText.length }}/500</span>
+          </label>
+          <textarea
+            [(ngModel)]="commentText"
+            maxlength="500"
+            rows="4"
+            placeholder="Ex : Tu travailles samedi prochain, merci de prévoir…">
+          </textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeCommentModal()">Annuler</button>
+        <button class="btn-confirm"
+                [disabled]="!commentText.trim() || savingComment"
+                (click)="saveComment()">
+          <span *ngIf="!savingComment">Sauvegarder</span>
+          <span *ngIf="savingComment"><span class="btn-spinner"></span>Sauvegarde…</span>
+        </button>
+      </div>
+    </div>
+  </div>
+<!-- ══════════════ MODAL — OVERRIDE FÉRIÉ ══════════════ -->
+<div class="modal-bg" *ngIf="showHolidayOverride" (click)="closeHolidayOverride()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-icon modal-icon-amber">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+      </div>
+      <div>
+        <h3 class="modal-title">Modifier le jour férié</h3>
+        <p class="modal-sub">{{ selectedHolidayEmployeeName }} <span class="modal-day-chip">{{ selectedHolidayDay }}</span></p>
+      </div>
+      <button class="modal-close" (click)="closeHolidayOverride()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Choix shift ou repos -->
+      <div class="field">
+        <label class="field-label">Action</label>
+        <div class="select-wrap">
+          <select [(ngModel)]="selectedHolidayAction">
+            <option value="shift">Assigner un shift</option>
+            <option value="off">Mettre en repos (OFF)</option>
+          </select>
+          <svg class="select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Select shift si action = shift -->
+      <div class="field" *ngIf="selectedHolidayAction === 'shift'">
+        <label class="field-label">Shift</label>
+        <div class="select-wrap">
+          <select [(ngModel)]="selectedHolidayShiftId">
+            <option [ngValue]="0" disabled>Sélectionner un shift…</option>
+            <option *ngFor="let s of weekShiftConfigs" [ngValue]="s.id">{{ s.label }} — {{ s.startTime }}</option>
+          </select>
+          <svg class="select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Info repos -->
+      <div class="info-box info-off" *ngIf="selectedHolidayAction === 'off'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        L'employé sera en <strong>repos</strong> ce jour.
+      </div>
+    </div>
+
     <div class="modal-footer">
-      <button class="btn-cancel" (click)="closeOverride()">Annuler</button>
- 
-      <!-- ✅ disabled sur selectedNewShiftConfigId -->
+      <button class="btn-cancel" (click)="closeHolidayOverride()">Annuler</button>
       <button class="btn-confirm"
-              [disabled]="!selectedNewShiftConfigId"
-              (click)="confirmOverride()">
+              [disabled]="selectedHolidayAction === 'shift' && !selectedHolidayShiftId"
+              (click)="confirmHolidayOverride()">
         Confirmer
       </button>
     </div>
   </div>
 </div>
- 
-  <!-- MODAL OVERRIDE PAUSE -->
-  <div class="modal-overlay" *ngIf="showBreakOverride" (click)="closeBreakOverride()">
-    <div class="modal-card" (click)="$event.stopPropagation()">
-      <h3 class="modal-title">🍽 Modifier la pause déjeuner</h3>
-      <p class="modal-sub">
-        <strong>{{ selectedBreakEmployeeName }}</strong> — {{ selectedBreakDay }}
-      </p>
-      <div class="form-group">
-        <label>Nouvelle heure de pause</label>
-        <select [(ngModel)]="selectedNewBreakTime">
-          <option value="" disabled>-- Choisir --</option>
-          <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-cancel"  (click)="closeBreakOverride()">Annuler</button>
-        <button class="btn-confirm" [disabled]="!selectedNewBreakTime"
-                (click)="confirmBreakOverride()">Confirmer</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL COMMENTAIRE -->
-  <div class="modal-overlay" *ngIf="showCommentModal" (click)="closeCommentModal()">
-    <div class="modal-card" (click)="$event.stopPropagation()">
-      <h3 class="modal-title">💬 Note pour l'employé</h3>
-      <p class="modal-sub">
-        <strong>{{ commentEmployeeName }}</strong>
-      </p>
-      <div class="form-group">
-        <label>Commentaire <span class="char-count">{{ commentText.length }}/500</span></label>
-        <textarea
-          [(ngModel)]="commentText"
-          maxlength="500"
-          rows="4"
-          placeholder="Ex: Tu travailles samedi prochain, merci de prévoir...">
-        </textarea>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-cancel"  (click)="closeCommentModal()">Annuler</button>
-        <button class="btn-confirm"
-                [disabled]="!commentText.trim() || savingComment"
-                (click)="saveComment()">
-          <span *ngIf="!savingComment">💾 Sauvegarder</span>
-          <span *ngIf="savingComment">Sauvegarde...</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
 </div>

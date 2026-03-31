@@ -15,6 +15,15 @@ export class DashboardHomeComponent implements OnInit {
 
   currentUser: any = null;
 
+  // ✅ Ajouté : contrôle de la sidebar mobile
+  sidebarOpen = false;
+
+  // ✅ Ajouté : getter pour les initiales (évite l'erreur du pipe slice sur unknown)
+  get userInitials(): string {
+    const name: string = this.currentUser?.username || 'AD';
+    return name.substring(0, 2).toUpperCase();
+  }
+
   constructor(private router: Router) {}
 
   ngOnInit(): void {
@@ -33,8 +42,8 @@ export class DashboardHomeComponent implements OnInit {
     }
   }
 
-logout(): void {
-  localStorage.clear();
-  window.location.href = 'http://localhost:4201/login';
-}
+  logout(): void {
+    localStorage.clear();
+    window.location.href = 'http://localhost:4201/login';
+  }
 }

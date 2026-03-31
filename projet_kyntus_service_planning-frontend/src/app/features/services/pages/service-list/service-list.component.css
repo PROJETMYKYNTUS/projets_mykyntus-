@@ -1,146 +1,78 @@
-/* ===== PAGE ===== */
+/* Container principal identique au Dashboard */
 .service-page {
-  padding: 40px;
+  padding: 2rem;
+  background-color: #0b0f1a;
   min-height: 100vh;
 }
 
-/* ===== HEADER ===== */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 25px;
-  color: white;
+  margin-bottom: 2rem;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 1.5rem;
 }
 
-.page-header h1 {
-  margin: 0;
-  font-size: 26px;
-}
+.header-left h1 { font-size: 1.5rem; color: #fff; margin: 0; font-weight: 600; }
+.header-left p { color: #94a3b8; font-size: 0.85rem; margin-top: 4px; }
 
-.page-header p {
-  margin: 4px 0 0;
-  font-size: 14px;
-  opacity: 0.8;
-}
-
-/* ===== CARD ===== */
+/* Carte style Kyntus */
 .card {
-  background: white;
-  border-radius: 16px;
-  padding: 30px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  background: #151b2b;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 
-/* ===== STATES ===== */
-.state {
-  text-align: center;
-  padding: 40px;
+.table-wrapper { overflow-x: auto; }
+
+.styled-table { width: 100%; border-collapse: collapse; }
+.styled-table th { 
+  text-align: left; padding: 12px; 
+  color: #94a3b8; font-size: 0.75rem; 
+  text-transform: uppercase; border-bottom: 1px solid rgba(245, 244, 244, 0.05);
 }
 
-.state.error {
-  color: red;
-}
+.styled-table td { padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.02); color: #cbd5e1; }
+.styled-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
 
-/* ===== TABLE ===== */
-.table-wrapper {
-  overflow-x: auto;
-}
-
-.styled-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.styled-table thead {
-  background: #1e3a66;
-  color: white;
-}
-
-.styled-table th,
-.styled-table td {
-  padding: 14px;
-  text-align: left;
-  font-size: 14px;
-}
-
-.styled-table tbody tr {
-  border-bottom: 1px solid #eee;
-  transition: 0.2s ease;
-}
-
-.styled-table tbody tr:hover {
-  background: #f4f6fa;
-}
-
-.service-name {
-  font-weight: 600;
-}
-
-.actions-col {
-  width: 220px;
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-}
-/* ===== BUTTONS ===== */
-.btn {
-  border: none;
-  padding: 8px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: 0.2s ease;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #2f5fa3, #1e3a66);
-  color: white;
-}
-
-.btn-light {
-  background: #e5e7eb;
-}
-
-.btn-danger,
-.btn-delete {
-  background: #ef4444;
-  color: white;
-}
-
-.btn-edit {
-  background: #f59e0b;
-  color: white;
-}
-
-.btn-view {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn:hover {
-  opacity: 0.9;
-}
-
-/* ===== BADGE ===== */
+/* Badges de code et de compte */
 .badge {
-  background: #e3e9ff;
-  color: #2f5fa3;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-family: monospace;
   font-weight: 600;
 }
 
 .badge.secondary {
-  background: #f3f4f6;
-  color: #555;
+  background: rgba(224, 232, 244, 0.1);
+  color: #94a3b8;
 }
+
+.service-name { color: #fff; font-weight: 500; }
+
+/* Boutons */
+.btn-primary {
+  background: #38bdf8; color: #0f172a; border: none;
+  padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;
+}
+
+.btn-light {
+  background: rgba(255, 255, 255, 0.05); color: #cbd5e1; border: none;
+  padding: 8px 15px; border-radius: 6px; cursor: pointer;
+}
+
+.actions .btn {
+  background: none; border: none; cursor: pointer; font-size: 0.85rem; margin-right: 10px;
+}
+.btn-view { color: #38bdf8; }
+.btn-edit { color: #10b981; }
+.btn-delete { color: #ef4444; }

@@ -2,6 +2,7 @@ import { Component, OnInit, ViewEncapsulation, ChangeDetectorRef } from '@angula
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
+import { ABSENCE_TYPES } from '../../services/conge.service'; 
 import {
   PlanningService,
   WeeklyPlanningResponse,
@@ -52,7 +53,14 @@ export class PlanningViewComponent implements OnInit {
   commentEmployeeName = '';
   commentText         = '';
   savingComment       = false;
-
+// ── Override FÉRIÉ modal ── (ajouter avec les autres variables)
+showHolidayOverride         = false;
+selectedHolidayEmployeeId   = 0;
+selectedHolidayEmployeeName = '';
+selectedHolidayAssignmentId = 0;
+selectedHolidayDay          = '';
+selectedHolidayAction       = 'shift'; // 'shift' | 'off'
+selectedHolidayShiftId      = 0;
   // ── Override Samedi modal ──
   showSaturdayOverride         = false;
   selectedSaturdayEmployeeId   = 0;
@@ -69,6 +77,7 @@ export class PlanningViewComponent implements OnInit {
     Monday: 'Lun', Tuesday: 'Mar', Wednesday: 'Mer',
     Thursday: 'Jeu', Friday: 'Ven', Saturday: 'Sam'
   };
+  readonly absenceTypes = ABSENCE_TYPES;
 
   private readonly shiftColorPalette = [
     'shift-color-1', 'shift-color-2', 'shift-color-3', 'shift-color-4',
@@ -251,7 +260,9 @@ export class PlanningViewComponent implements OnInit {
     this.selectedSaturdayEmployeeId   = employee.userId;
     this.selectedSaturdayEmployeeName = employee.fullName;
     this.selectedSaturdayAssignmentId = assignment?.assignmentId ?? 0;
-    this.selectedSaturdayAction       = assignment && !assignment.isOnLeave ? 'off' : 'work';
+    this.selectedSaturdayAction       = assignment && !assignment.isOnLeave ? 'off' : 'work';this.selectedSaturdayAction = (assignment && !assignment.isOnLeave) || assignment?.isOnLeave
+  ? 'off'
+  : 'work';
     this.selectedSaturdayShiftId      = 0;
     this.showSaturdayOverride         = true;
 
@@ -355,7 +366,72 @@ export class PlanningViewComponent implements OnInit {
   private getSubServiceIdFromPlanning(): number {
     return this.planning?.subServiceId ?? 0;
   }
+// ── Override FÉRIÉ ─── (ajouter avec les autres méthodes)
+openHolidayOverride(employee: EmployeePlanning, day: string, event: Event): void {
+  event.stopPropagation();
+  if (!this.planning || this.planning.status !== 'Draft') return;
 
+  const assignment = this.getAssignment(employee, day);
+  if (!assignment || !assignment.isHoliday) return;
+
+  this.selectedHolidayEmployeeId   = employee.userId;
+  this.selectedHolidayEmployeeName = employee.fullName;
+  this.selectedHolidayAssignmentId = assignment.assignmentId;
+  this.selectedHolidayDay          = this.dayLabels[day] ?? day;
+  this.selectedHolidayAction       = 'shift';
+  this.selectedHolidayShiftId      = 0;
+  this.showHolidayOverride         = true;
+  this.cdr.detectChanges();
+}
+
+closeHolidayOverride(): void {
+  this.showHolidayOverride = false;
+  this.cdr.detectChanges();
+}
+
+confirmHolidayOverride(): void {
+  if (!this.planning) return;
+
+  if (this.selectedHolidayAction === 'off') {
+    // Mettre en repos — réutiliser setSaturdayOff ou overrideShift avec repos
+    this.planningService.overrideShift({
+      shiftAssignmentId:          this.selectedHolidayAssignmentId,
+      newShiftId:                 0,
+      newSubServiceShiftConfigId: 0  // 0 = repos
+    }).subscribe({
+      next: () => {
+        this.showHolidayOverride = false;
+        this.successMsg = '✅ Jour modifié en repos !';
+        this.loadPlanning(this.planning!.id);
+        setTimeout(() => { this.successMsg = ''; this.cdr.detectChanges(); }, 3000);
+        this.cdr.detectChanges();
+      },
+      error: err => {
+        this.error = `Erreur : ${err.error?.message ?? 'Erreur serveur'}`;
+        this.cdr.detectChanges();
+      }
+    });
+  } else {
+    if (!this.selectedHolidayShiftId) return;
+    this.planningService.overrideShift({
+      shiftAssignmentId:          this.selectedHolidayAssignmentId,
+      newShiftId:                 0,
+      newSubServiceShiftConfigId: this.selectedHolidayShiftId
+    }).subscribe({
+      next: () => {
+        this.showHolidayOverride = false;
+        this.successMsg = '✅ Shift assigné sur jour férié !';
+        this.loadPlanning(this.planning!.id);
+        setTimeout(() => { this.successMsg = ''; this.cdr.detectChanges(); }, 3000);
+        this.cdr.detectChanges();
+      },
+      error: err => {
+        this.error = `Erreur : ${err.error?.message ?? 'Erreur serveur'}`;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+}
   // ── COMMENTAIRE ───────────────────────────────────
   openCommentModal(employee: EmployeePlanning, event: Event): void {
     event.stopPropagation();
@@ -441,6 +517,11 @@ export class PlanningViewComponent implements OnInit {
   getStatusLabel(status: string): string {
     return ({ Draft: '📝 Brouillon', Published: '✅ Publié' } as any)[status] ?? status;
   }
+  
+  getAbsenceLabel(value: string | null): string {
+  if (!value) return 'Congé';
+  return this.absenceTypes.find(t => t.value === value)?.label ?? 'Congé';
+}
 
   getDateForDay(weekStartDate: string, day: string): string {
     const offsets: Record<string, number> = {

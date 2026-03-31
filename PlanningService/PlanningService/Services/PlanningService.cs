@@ -728,6 +728,10 @@ public class PlanningService : IPlanningService
             .FirstOrDefaultAsync(a => a.Id == dto.ShiftAssignmentId)
             ?? throw new Exception("Assignment introuvable.");
 
+        // ✅ TOUJOURS remettre IsHoliday à false lors d'un override
+        assignment.IsHoliday = false;
+        assignment.IsManagerOverride = true;
+
         if (dto.NewSubServiceShiftConfigId > 0)
         {
             var config = await _context.SubServiceShiftConfigs
@@ -736,7 +740,7 @@ public class PlanningService : IPlanningService
 
             assignment.SubServiceShiftConfigId = dto.NewSubServiceShiftConfigId;
             assignment.ShiftId = null;
-            assignment.IsManagerOverride = true;
+            assignment.IsOnLeave = false;
             await _context.SaveChangesAsync();
 
             await _context.Entry(assignment)
@@ -747,17 +751,15 @@ public class PlanningService : IPlanningService
         }
         else
         {
-            var newShift = await _context.Shifts.FindAsync(dto.NewShiftId)
-                ?? throw new Exception("Shift introuvable.");
-
-            assignment.ShiftId = dto.NewShiftId;
-            assignment.IsManagerOverride = true;
+            // ✅ action = 'off' → repos (config null, shift null)
+            assignment.SubServiceShiftConfigId = null;
+            assignment.ShiftId = null;
+            assignment.IsOnLeave = false;
             await _context.SaveChangesAsync();
 
-            return MapToDayDto(assignment, newShift);
+            return MapToDayDtoNew(assignment);
         }
     }
-
     // ════════════════════════════════════════════════════
     // PUBLIER
     // ════════════════════════════════════════════════════
@@ -898,6 +900,16 @@ public class PlanningService : IPlanningService
             .Where(c => c.WeeklyPlanningId == id)
             .ToListAsync();
 
+        // ✅ AJOUTER — charger les congés de la semaine
+        var userIds = planning.ShiftAssignments.Select(a => a.UserId).Distinct().ToList();
+        var weekEnd = planning.WeekStartDate.AddDays(6);
+        var conges = await _context.Conges
+            .Where(c => userIds.Contains(c.UserId)
+                     && c.Status == CongeStatus.Approved
+                     && c.StartDate <= weekEnd
+                     && c.EndDate >= planning.WeekStartDate)
+            .ToListAsync();
+
         return new WeeklyPlanningResponseDto
         {
             Id = planning.Id,
@@ -926,8 +938,8 @@ public class PlanningService : IPlanningService
                     Level = g.First().User.Level,
                     ManagerComment = comments.FirstOrDefault(c => c.UserId == g.Key)?.Comment,
                     Days = g.OrderBy(a => a.AssignedDate)
-                                       .Select(a => MapToDayDtoNew(a))
-                                       .ToList()
+                             .Select(a => MapToDayDtoNew(a, conges)) // ✅ passer conges
+                             .ToList()
                 }).ToList()
         };
     }
@@ -1265,20 +1277,32 @@ public class PlanningService : IPlanningService
         return slots;
     }
 
-    private static DayAssignmentDto MapToDayDtoNew(ShiftAssignment a)
+    private static DayAssignmentDto MapToDayDtoNew(
+     ShiftAssignment a,
+     List<Conge>? conges = null) // ✅ paramètre optionnel
     {
         var label = a.IsHoliday ? "FÉRIÉ"
-     : a.IsOnLeave ? "CONGÉ"
-     : a.SubServiceShiftConfig?.Label
-       ?? a.Shift?.Label
-       ?? "—";
-
+                  : a.IsOnLeave ? "CONGÉ"
+                  : a.SubServiceShiftConfig?.Label
+                    ?? a.Shift?.Label
+                    ?? "—";
 
         var startTime = a.SubServiceShiftConfig?.StartTime.ToString("HH:mm")
                         ?? a.Shift?.StartTime.ToString("HH:mm")
                         ?? "";
 
         var endTime = a.SubServiceShiftConfig?.EndTime.ToString("HH:mm") ?? "";
+
+        // ✅ Trouver le type d'absence
+        string? absenceType = null;
+        if (a.IsOnLeave && conges != null)
+        {
+            var conge = conges.FirstOrDefault(c =>
+                c.UserId == a.UserId &&
+                c.StartDate <= a.AssignedDate &&
+                c.EndDate >= a.AssignedDate);
+            absenceType = conge?.AbsenceType.ToString();
+        }
 
         return new DayAssignmentDto
         {
@@ -1292,15 +1316,16 @@ public class PlanningService : IPlanningService
             IsManagerOverride = a.IsManagerOverride,
             BreakTime = a.BreakTime?.ToString("HH:mm"),
             IsOnLeave = a.IsOnLeave,
+            AbsenceType = absenceType, // ✅ NOUVEAU
             IsHalfDaySaturday = a.IsHalfDaySaturday,
             SaturdaySlot = a.SaturdaySlot,
             SlotLabel = a.SaturdaySlot == 1 ? "8h00-12h00"
                               : a.SaturdaySlot == 2 ? "12h00-16h00"
                               : string.Empty,
-                                 IsHoliday = a.IsHoliday,
+            IsHoliday = a.IsHoliday,
             HolidayName = a.IsHoliday
-        ? FrenchHolidayHelper.GetHolidayName(a.AssignedDate)
-        : string.Empty
+                ? FrenchHolidayHelper.GetHolidayName(a.AssignedDate)
+                : string.Empty
         };
     }
 

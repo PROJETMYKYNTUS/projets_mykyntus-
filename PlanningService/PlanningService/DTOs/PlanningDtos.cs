@@ -102,6 +102,7 @@ public class DayAssignmentDto
     public bool IsHoliday { get; set; } = false;
     public string HolidayName { get; set; } = string.Empty;
     public int SaturdaySlot { get; set; }
+    public string? AbsenceType { get; set; } // ← AJOUTER
     public string SlotLabel { get; set; } = string.Empty;
 }
 

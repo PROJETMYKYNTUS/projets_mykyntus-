@@ -1,224 +1,72 @@
-/* ================= LAYOUT ================= */
-
 .page {
+  padding: 2.5rem;
+  background-color: #0b0f1a;
   min-height: 100vh;
-  padding: 40px 60px;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 25px;
+  margin-bottom: 2rem;
 }
 
-.title-section h1 {
-  margin: 0;
-  color: #ffffff;
-  font-size: 28px;
-  font-weight: 600;
-}
+.title-section h1 { font-size: 1.8rem; color: #fff; margin: 0; }
+.subtitle { color: #94a3b8; font-size: 0.9rem; margin-top: 5px; }
 
-.subtitle {
-  margin-top: 6px;
-  color: #dbeafe;
-  font-size: 14px;
-}
-
-/* ================= BUTTONS ================= */
-
-.btn {
-  border: none;
-  padding: 10px 18px;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-back {
-  background: rgba(255,255,255,0.15);
-  color: white;
-}
-
-.btn-back:hover {
-  background: rgba(255,255,255,0.25);
-}
-
-.btn-primary {
-  background: #3182ce;
-  color: white;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
-.btn-primary:hover {
-  background: #2b6cb0;
-}
-
-/* ================= SEARCH ================= */
-
-.search-container {
-  margin-bottom: 25px;
-}
-
+/* Barre de recherche */
+.search-container { margin-bottom: 2rem; }
 .search-box {
-  width: 350px;
-  background: white;
-  border-radius: 8px;
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-}
-
-.search-input {
-  border: none;
-  outline: none;
-  margin-left: 8px;
-  width: 100%;
-  font-size: 14px;
-}
-
-/* ================= CARD ================= */
-
-.card {
-  background: #ffffff;
-  border-radius: 14px;
-  padding: 25px;
-  box-shadow: 0 15px 35px rgba(0,0,0,0.25);
-}
-
-/* ================= TABLE ================= */
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-thead {
-  background: #f1f5f9;
-}
-
-th {
-  text-align: left;
-  padding: 14px;
-  font-size: 12px;
-  text-transform: uppercase;
-  color: #64748b;
-  letter-spacing: 0.5px;
-}
-
-td {
-  padding: 14px;
-  border-top: 1px solid #e2e8f0;
-  font-size: 14px;
-  color: #1e293b;
-}
-
-tbody tr:hover {
-  background: #f8fafc;
-}
-
-/* ================= USER CELL ================= */
-
-.user-cell {
+  background: #151b2b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px 20px;
   display: flex;
   align-items: center;
   gap: 12px;
+  max-width: 500px;
 }
-
-.user-avatar {
-  width: 40px;
-  height: 40px;
-  background: #2b6cb0;
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-}
-
-.user-info .name {
-  font-weight: 600;
-  display: block;
-}
-
-.user-info .email {
-  font-size: 12px;
-  color: #64748b;
-}
-
-/* ================= BADGES ================= */
-
-.badge {
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.badge-role {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-/* ================= TAGS ================= */
-
-.tag {
-  background: #f1f5f9;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  margin-right: 5px;
-}
-
-/* ================= STATUS ================= */
-
-.status-indicator {
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-indicator:not(.inactive) {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.status-indicator.inactive {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-/* ================= ACTIONS ================= */
-
-.action-group {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-action {
+.search-input {
+  background: transparent;
   border: none;
-  background: #f1f5f9;
-  padding: 6px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: 0.2s;
+  color: #fff;
+  width: 100%;
+  outline: none;
 }
 
-.btn-action:hover {
-  background: #e2e8f0;
-}
-.user-name-row {
-  display: flex; align-items: center; gap: 8px;
+/* Cellule Utilisateur avec Avatar */
+.user-cell { display: flex; align-items: center; gap: 15px; }
+.user-avatar {
+  width: 40px; height: 40px;
+  background: linear-gradient(135deg, #38bdf8, #10b981);
+  color: #000; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.85rem;
 }
 
+.user-name-row { display: flex; align-items: center; gap: 8px; }
+.name { color: #fff; font-weight: 600; }
+.email { color: #64748b; font-size: 0.8rem; }
+
+/* Badges de Niveau */
 .level-badge {
-  font-size: 10px; font-weight: 700;
-  padding: 2px 6px; border-radius: 20px;
+  padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 800;
 }
-.lv-1 { background: rgba(16,185,129,0.2);  color: #34d399; }
-.lv-2 { background: rgba(245,158,11,0.2);  color: #fbbf24; }
-.lv-3 { background: rgba(239,68,68,0.2);   color: #f87171; }
+.lv-1 { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56,189,248,0.2); }
+.lv-2 { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+.lv-3 { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2); }
+
+/* Table Style */
+.card { background: #151b2b; border-radius: 16px; padding: 1.5rem; border: 1px solid rgba(255,255,255,0.05); }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; padding: 12px; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.05); }
+td { padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.02); color: #cbd5e1; }
+
+.status-indicator { font-size: 0.8rem; color: #10b981; display: flex; align-items: center; gap: 6px; }
+.status-indicator::before { content: ''; width: 6px; height: 6px; background: currentColor; border-radius: 50%; }
+.status-indicator.inactive { color: #ef4444; }
+
+/* Boutons d'actions */
+.action-group { display: flex; gap: 10px; }
+.btn-action { background: rgba(255,255,255,0.05); border: none; padding: 8px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+.btn-action:hover { background: rgba(255,255,255,0.1); transform: scale(1.1); }

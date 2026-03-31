@@ -43,6 +43,7 @@ public class CongesController : ControllerBase
                 startDate = c.StartDate,
                 endDate = c.EndDate,
                 reason = c.Reason,
+                absenceType = c.AbsenceType.ToString(),  // ← NOUVEAU
                 status = c.Status.ToString()
             })
             .ToListAsync();
@@ -88,13 +89,17 @@ public class CongesController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCongeDto dto)
     {
+        if (!Enum.TryParse<AbsenceType>(dto.AbsenceType, out var absenceType))
+            return BadRequest(new { message = "Type d'absence invalide." });
+
         var conge = new Conge
         {
             UserId = dto.UserId,
             StartDate = dto.StartDate,
             EndDate = dto.EndDate,
             Reason = dto.Reason ?? "",
-            Status = CongeStatus.Approved, // Approuve directement par le manager
+            AbsenceType = absenceType,  // ← NOUVEAU
+            Status = CongeStatus.Approved,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -102,6 +107,7 @@ public class CongesController : ControllerBase
         await _context.SaveChangesAsync();
         return Ok(conge);
     }
+  
 
     // DELETE /api/Conges/{id}
     [HttpDelete("{id}")]

@@ -1,116 +1,118 @@
-/* ===== PAGE ===== */
 .service-detail-page {
-  padding: 40px;
+  padding: 40px 20px;
+  background-color: #0b0f1a;
   min-height: 100vh;
-}
-
-/* ===== CARD ===== */
-.card {
-  background: white;
-  border-radius: 16px;
-  padding: 30px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-  max-width: 800px;
-}
-
-/* ===== INFO ===== */
-.service-info {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-bottom: 30px;
+  align-items: center;
+}
+
+.service-detail-page .card {
+  width: 100%;
+  max-width: 800px;
+  background: #151b2b;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 35px;
+}
+
+/* Infos principales */
+.service-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 25px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 25px;
+  border-radius: 12px;
+  margin-bottom: 40px;
 }
 
 .info-row {
   display: flex;
-  justify-content: space-between;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 8px;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.label {
-  font-weight: 600;
-  color: #555;
+.info-row .label {
+  color: #38bdf8; /* Couleur accentuation Kyntus */
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
 }
 
-.value {
-  font-size: 14px;
+.info-row .value {
+  color: #ffffff;
+  font-size: 1.2rem;
+  font-weight: 500;
 }
 
-/* ===== SUBSERVICES ===== */
-.subservices-section {
-  margin-top: 20px;
-}
-
+/* Section Sous-services */
 .subservices-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  gap: 15px;
+  margin-bottom: 20px;
 }
 
-.empty-state {
-  padding: 20px;
-  text-align: center;
-  color: #777;
+.subservices-header h2 {
+  font-size: 1.1rem;
+  color: #f8fafc;
+  margin: 0;
 }
 
-/* ===== ACTIONS ===== */
+.badge {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* Tableau interne des sous-services */
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.styled-table th {
+  text-align: left;
+  padding: 12px;
+  color: #64748b;
+  font-size: 0.8rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.styled-table td {
+  padding: 15px 12px;
+  color: #cbd5e1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+/* Actions Footer */
 .actions {
-  margin-top: 25px;
   display: flex;
-  gap: 12px;
-}
-/* ===== BUTTONS ===== */
-.btn {
-  border: none;
-  padding: 8px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: 0.2s ease;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #2f5fa3, #1e3a66);
-  color: white;
-}
-
-.btn-light {
-  background: #e5e7eb;
-}
-
-.btn-danger,
-.btn-delete {
-  background: #ef4444;
-  color: white;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-top: 30px;
 }
 
 .btn-edit {
-  background: #f59e0b;
-  color: white;
-}
-
-.btn-view {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn:hover {
-  opacity: 0.9;
-}
-
-/* ===== BADGE ===== */
-.badge {
-  background: #e3e9ff;
-  color: #2f5fa3;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
+  background: #10b981;
+  color: #000;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
   font-weight: 600;
+  cursor: pointer;
 }
 
-.badge.secondary {
-  background: #f3f4f6;
-  color: #555;
+.btn-delete {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
 }

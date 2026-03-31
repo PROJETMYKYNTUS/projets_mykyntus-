@@ -1,11 +1,10 @@
 // features/planning/pages/conge-manager/conge-manager.component.ts
-// VERSION SIMPLIFIÉE — seulement les congés
 
 import { Component, OnInit, ChangeDetectorRef } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
-import { CongeService, CongeItem } from "../../services/conge.service";
+import { CongeService, CongeItem, ABSENCE_TYPES } from "../../services/conge.service"; // ✅ ABSENCE_TYPES ajouté
 import { PlanningService, SubServiceSimple, EmployeeItem } from "../../services/planning.service";
 
 @Component({
@@ -17,20 +16,22 @@ import { PlanningService, SubServiceSimple, EmployeeItem } from "../../services/
 })
 export class CongeManagerComponent implements OnInit {
 
-  subServices:  SubServiceSimple[] = [];
-  conges:       CongeItem[]        = [];
-  employees:    EmployeeItem[]     = [];
-  subServiceId  = 0;
-  loading       = false;
-  error         = "";
-  successMsg    = "";
+  subServices:     SubServiceSimple[] = [];
+  conges:          CongeItem[]        = [];
+  employees:       EmployeeItem[]     = [];
+  subServiceId     = 0;
+  loading          = false;
+  error            = "";
+  successMsg       = "";
 
-  showForm      = false;
-  formUserId    = 0;
-  formStartDate = "";
-  formEndDate   = "";
-  formReason    = "";
-  saving        = false;
+  showForm         = false;
+  formUserId       = 0;
+  formStartDate    = "";
+  formEndDate      = "";
+  formReason       = "";
+  saving           = false;
+  absenceTypes     = ABSENCE_TYPES;    // ✅ fonctionne grâce à l'import
+  formAbsenceType  = 'CongesPayes';
 
   constructor(
     private congeService:    CongeService,
@@ -78,48 +79,52 @@ export class CongeManagerComponent implements OnInit {
   }
 
   openForm(): void {
-    this.showForm = true; this.formUserId = 0;
-    this.formStartDate = ""; this.formEndDate = "";
-    this.formReason = ""; this.error = "";
+    this.showForm       = true;
+    this.formUserId     = 0;
+    this.formStartDate  = "";
+    this.formEndDate    = "";
+    this.formReason     = "";
+    this.formAbsenceType = 'CongesPayes';
+    this.error          = "";
   }
 
   closeForm(): void { this.showForm = false; }
 
   saveConge(): void {
-
-
-     console.log('formUserId:', this.formUserId, typeof this.formUserId);
-  console.log('employees:', this.employees);
-  // ✅ Forcer la conversion en number
-  const userId = Number(this.formUserId);
-  
-  if (!userId || !this.formStartDate || !this.formEndDate) {
-    this.error = "Veuillez remplir tous les champs obligatoires."; return;
-  }
-  if (this.formStartDate > this.formEndDate) {
-    this.error = "La date de fin doit être après la date de début."; return;
-  }
-  this.saving = true; this.error = "";
-  this.congeService.create({
-    userId: userId,  // ✅ number garanti
-    startDate: this.formStartDate,
-    endDate: this.formEndDate,
-    reason: this.formReason
-  }).subscribe({
-    next: () => {
-      this.saving = false; this.showForm = false;
-      this.successMsg = "Congé enregistré avec succès !";
-      this.loadConges();
-      setTimeout(() => { this.successMsg = ""; this.cdr.detectChanges(); }, 3000);
-      this.cdr.detectChanges();
-    },
-    error: (err: any) => {
-      this.saving = false;
-      this.error = err.error?.message ?? "Erreur lors de la création.";
-      this.cdr.detectChanges();
+    const userId = Number(this.formUserId);
+    if (!userId || !this.formStartDate || !this.formEndDate || !this.formAbsenceType) {
+      this.error = "Veuillez remplir tous les champs obligatoires."; return;
     }
-  });
-}
+    if (this.formStartDate > this.formEndDate) {
+      this.error = "La date de fin doit être après la date de début."; return;
+    }
+    this.saving = true; this.error = "";
+    this.congeService.create({
+      userId,
+      startDate:   this.formStartDate,
+      endDate:     this.formEndDate,
+      reason:      this.formReason,
+      absenceType: this.formAbsenceType
+    }).subscribe({
+      next: () => {
+        this.saving    = false;
+        this.showForm  = false;
+        this.successMsg = "Absence enregistrée avec succès !";
+        this.loadConges();
+        setTimeout(() => { this.successMsg = ""; this.cdr.detectChanges(); }, 3000);
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        this.saving = false;
+        this.error  = err.error?.message ?? "Erreur lors de la création.";
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  getAbsenceLabel(value: string): string {
+    return this.absenceTypes.find(t => t.value === value)?.label ?? value;
+  }
 
   deleteConge(id: number): void {
     if (!confirm("Supprimer ce congé ?")) return;

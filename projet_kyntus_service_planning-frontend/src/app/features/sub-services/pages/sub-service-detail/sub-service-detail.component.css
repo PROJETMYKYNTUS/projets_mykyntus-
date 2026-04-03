@@ -1,6 +1,65 @@
-.ss-layout { padding: 2.5rem; background-color: #0b0f1a; min-height: 100vh; color: #fff; }
+ /* ─── Page wrapper ─────────────────────────────────────────── */
+.ss-layout {
+  padding: 40px 20px;
+  background-color: #0b0f1a;
+  min-height: 100vh;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
-/* Info Tiles Row */
+/* ─── Conteneur centré ───────────────────────────────────────── */
+.ss-layout > * {
+  width: 100%;
+  max-width: 900px;
+}
+
+/* ─── Header page ────────────────────────────────────────────── */
+.page-header {
+  margin-bottom: 24px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-left h1 {
+  font-size: 1.4rem;
+  color: #ffffff;
+  margin: 0 0 4px 0;
+}
+
+.header-left p {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-action {
+  padding: 9px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: opacity 0.2s;
+}
+
+.btn-action:hover { opacity: 0.85; }
+
+.btn-edit-h  { background: #10b981; color: #000; }
+.btn-del-h   { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+
+/* ─── Bande d'infos ──────────────────────────────────────────── */
 .info-strip {
   display: flex;
   flex-wrap: wrap;
@@ -13,43 +72,123 @@
   border: 1px solid rgba(255, 255, 255, 0.05);
   padding: 1.5rem;
   border-radius: 16px;
-  min-width: 180px;
+  min-width: 160px;
   flex: 1;
 }
 
-.tile-label { display: block; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px; }
-.tile-value { font-size: 1.2rem; font-weight: 600; }
-.emp-count-big { font-size: 2.5rem; font-weight: 800; color: #38bdf8; }
+.tile-label {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
 
-.service-pill { background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 6px 14px; border-radius: 8px; font-weight: 600; }
+.tile-value {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #fff;
+}
 
-/* Employee Table Row */
-.emp-row { display: flex; align-items: center; gap: 12px; }
+.emp-count-big {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #38bdf8;
+  line-height: 1;
+}
+
+/* ─── Badge service ──────────────────────────────────────────── */
+.service-pill {
+  display: inline-block;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+/* ─── Tableau employés ───────────────────────────────────────── */
+.table-wrapper { overflow-x: auto; }
+
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.styled-table th {
+  text-align: left;
+  padding: 12px;
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.styled-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  vertical-align: middle;
+}
+
+.styled-table tbody tr:last-child td { border-bottom: none; }
+
+/* ─── Ligne employé ──────────────────────────────────────────── */
+.emp-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
 .emp-avatar {
-  width: 36px; height: 36px;
+  width: 36px;
+  height: 36px;
   background: linear-gradient(135deg, #38bdf8, #10b981);
   color: #000;
   border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  flex-shrink: 0;
 }
 
-.emp-name { font-weight: 500; color: #fff; }
-.td-email { color: #94a3b8; font-size: 0.9rem; }
+.emp-name  { font-weight: 500; color: #fff; }
+.td-email  { color: #94a3b8; font-size: 0.9rem; }
 
+/* ─── Badge rôle ─────────────────────────────────────────────── */
 .role-badge {
-  background: rgba(255,255,255,0.05);
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.05);
   color: #cbd5e1;
   padding: 4px 12px;
   border-radius: 6px;
   font-size: 0.8rem;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Header Actions */
-.header-actions .btn-action {
-  padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; margin-left: 10px;
+/* ─── État vide ──────────────────────────────────────────────── */
+.empty-state {
+  color: #475569;
+  font-size: 0.9rem;
+  padding: 30px 0;
+  text-align: center;
 }
-.btn-edit-h { background: #10b981; color: #000; }
-.btn-del-h { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+
+/* ─── Bouton retour partagé ──────────────────────────────────── */
+.btn-light {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-light:hover { background: rgba(255, 255, 255, 0.1); }

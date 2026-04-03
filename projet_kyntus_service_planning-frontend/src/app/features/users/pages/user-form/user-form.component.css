@@ -1,51 +1,204 @@
-.card {
+/* ─── Page wrapper ─────────────────────────────────────────── */
+.employee-form-page {
+  padding: 40px 20px;
+  background-color: #0b0f1a;
+  min-height: 100vh;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ─── Header page ────────────────────────────────────────────── */
+.employee-form-page .page-header,
+.employee-form-page .card {
+  width: 100%;
   max-width: 900px;
-  margin: 0 auto;
+}
+
+.page-header { margin-bottom: 24px; }
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-left h1 { font-size: 1.4rem; color: #fff; margin: 0 0 4px 0; }
+.header-left p  { color: #94a3b8; font-size: 0.85rem; margin: 0; }
+
+/* ─── Carte ──────────────────────────────────────────────────── */
+.card {
   background: #151b2b;
   padding: 2.5rem;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
 }
 
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
-.form-group { display: flex; flex-direction: column; gap: 8px; }
-label { color: #94a3b8; font-size: 0.85rem; font-weight: 500; }
+/* ─── Grille formulaire ──────────────────────────────────────── */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 560px) {
+  .form-row { grid-template-columns: 1fr; }
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+label {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
 .required { color: #ef4444; }
 
-input, select {
-  background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 12px; border-radius: 8px; color: #fff; width: 100%;
+/* ─── Inputs & selects ───────────────────────────────────────── */
+input,
+select {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px;
+  border-radius: 8px;
+  color: #fff;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.95rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  appearance: none;
 }
 
-/* Level Selector (N1, N2, N3) */
-.level-selector { display: flex; gap: 1rem; margin-top: 5px; }
+input::placeholder { color: #475569; }
+
+input:focus,
+select:focus {
+  border-color: #38bdf8;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
+}
+
+/* ─── Sélecteur de niveau (N1 / N2 / N3) ────────────────────── */
+.level-selector {
+  display: flex;
+  gap: 1rem;
+  margin-top: 5px;
+}
+
 .level-btn {
-  flex: 1; display: flex; flex-direction: column; align-items: center;
-  padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);
-  background: rgba(255,255,255,0.02); cursor: pointer; transition: 0.3s;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 15px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
 }
-.level-num { font-size: 1.5rem; font-weight: 800; color: #94a3b8; }
-.level-lbl { font-size: 0.7rem; text-transform: uppercase; color: #64748b; margin-top: 4px; }
 
-.level-btn.active { border-color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
+.level-num {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+.level-lbl {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+
+.level-btn.active {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+}
+
 .level-btn.active .level-num { color: #38bdf8; }
 .level-btn.active .level-lbl { color: #fff; }
 
-/* Checkbox List (Sous-services gérés) */
+/* ─── Liste checkbox (sous-services) ────────────────────────── */
 .checkbox-list {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px; margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
 }
-.checkbox-item {
-  background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;
-  cursor: pointer; display: flex; align-items: center; gap: 10px;
-  border: 1px solid transparent;
-}
-.checkbox-item.checked { border-color: #10b981; background: rgba(16, 185, 129, 0.05); }
-.checkbox-text { display: flex; flex-direction: column; font-size: 0.85rem; }
-.service-name { font-size: 0.7rem; color: #64748b; }
 
-.form-actions {
-  display: flex; justify-content: flex-end; gap: 1rem;
-  margin-top: 2rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.05);
+.checkbox-item {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  transition: border-color 0.2s, background 0.2s;
 }
+
+.checkbox-item:hover { background: rgba(0, 0, 0, 0.35); }
+
+.checkbox-item.checked {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.checkbox-text {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+.service-name {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+/* ─── Erreur champ ───────────────────────────────────────────── */
+.input-error { color: #ef4444; font-size: 0.8rem; }
+
+/* ─── Actions ────────────────────────────────────────────────── */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ─── Boutons ────────────────────────────────────────────────── */
+.btn {
+  padding: 11px 24px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary { background: #38bdf8; color: #000; border: none; }
+.btn-primary:hover:not(:disabled) { background: #7dd3fc; }
+
+.btn-light {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-light:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); }

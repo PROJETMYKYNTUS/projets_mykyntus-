@@ -1,16 +1,26 @@
-.ss-layout { padding: 3rem; background-color: #0b0f1a; min-height: 100vh; color: #fff; position: relative; }
+/* ─── Page wrapper ─────────────────────────────────────────── */
+.ss-layout {
+  padding: 40px 20px;
+  background-color: #0b0f1a;
+  min-height: 100vh;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
+/* ─── Carte principale ───────────────────────────────────────── */
 .form-glass-card {
+  width: 100%;
   max-width: 800px;
-  margin: 0 auto;
   background: rgba(21, 27, 43, 0.8);
   backdrop-filter: blur(15px);
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 24px;
   overflow: hidden;
 }
 
-/* Mode Indicator Bar */
+/* ─── Barre de mode ──────────────────────────────────────────── */
 .form-mode-bar {
   background: rgba(255, 255, 255, 0.03);
   padding: 1rem 2rem;
@@ -20,47 +30,119 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.mode-dot { width: 10px; height: 10px; border-radius: 50%; }
+.mode-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .mode-create { background: #38bdf8; box-shadow: 0 0 10px #38bdf8; }
-.mode-edit { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
-.mode-text { font-size: 0.85rem; color: #94a3b8; }
+.mode-edit   { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
 
-/* Form Elements */
-.ss-form { padding: 2.5rem; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
-.form-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.5rem; }
+.mode-text {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
 
-.form-label { font-size: 0.9rem; color: #cbd5e1; font-weight: 500; }
+/* ─── Formulaire ─────────────────────────────────────────────── */
+.ss-form {
+  padding: 2.5rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 560px) {
+  .form-row { grid-template-columns: 1fr; }
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  font-size: 0.9rem;
+  color: #cbd5e1;
+  font-weight: 500;
+}
+
 .req-star { color: #ef4444; }
 
-.ss-input, .ss-select {
-  background: rgba(0,0,0,0.3);
-  border: 1px solid rgba(255,255,255,0.1);
+/* ─── Inputs & selects ───────────────────────────────────────── */
+.ss-input,
+.ss-select {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #fff;
   padding: 14px;
   border-radius: 12px;
   font-size: 1rem;
-  transition: 0.3s;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.2s, background 0.2s;
+  appearance: none;
 }
 
-.ss-input:focus, .ss-select:focus { border-color: #38bdf8; outline: none; background: rgba(0,0,0,0.5); }
+.ss-input::placeholder { color: #475569; }
 
-/* Actions */
+.ss-input:focus,
+.ss-select:focus {
+  border-color: #38bdf8;
+  outline: none;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
+}
+
+/* ─── Erreur champ ───────────────────────────────────────────── */
+.input-error {
+  color: #ef4444;
+  font-size: 0.8rem;
+}
+
+/* ─── Actions ────────────────────────────────────────────────── */
 .form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 1.5rem;
   margin-top: 2rem;
   padding-top: 2rem;
-  border-top: 1px solid rgba(255,255,255,0.05);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+/* ─── Boutons ────────────────────────────────────────────────── */
 .btn-save {
-  background: #38bdf8; color: #000; border: none; padding: 14px 28px;
-  border-radius: 12px; font-weight: 700; cursor: pointer;
+  background: #38bdf8;
+  color: #000;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s;
 }
+
+.btn-save:hover:not(:disabled) { background: #7dd3fc; }
+.btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-cancel {
-  background: none; border: 1px solid rgba(255,255,255,0.1);
-  color: #94a3b8; padding: 14px 28px; border-radius: 12px; cursor: pointer;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s;
 }
+
+.btn-cancel:hover:not(:disabled) { background: rgba(255, 255, 255, 0.05); }
+.btn-cancel:disabled { opacity: 0.5; cursor: not-allowed; }

@@ -7,8 +7,40 @@
       "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\services\\planningservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\controllers\\planningcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\controllers\\planningcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\interfaces\\iplanningservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\interfaces\\iplanningservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\helpers\\frenchholidayhelper.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\helpers\\frenchholidayhelper.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\dtos\\planningdtos.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\dtos\\planningdtos.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\controllers\\congescontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\controllers\\congescontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\dtos\\congedto.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\dtos\\congedto.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\models\\conge.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\models\\conge.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\enums\\absencetype.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\enums\\absencetype.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\enums\\congestatus.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\enums\\congestatus.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\migrations\\20260327101409_addisholiday.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -23,10 +55,6 @@
       "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\data\\appdbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\dtos\\planningdtos.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\dtos\\planningdtos.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\migrations\\appdbcontextmodelsnapshot.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\migrations\\appdbcontextmodelsnapshot.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -39,16 +67,8 @@
       "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\controllers\\planningcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\controllers\\planningcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\models\\saturdayhistory.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\models\\saturdayhistory.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\interfaces\\iplanningservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\interfaces\\iplanningservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\models\\shift.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -78,37 +98,132 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 9,
+          "SelectedChildIndex": 6,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "20260327101409_AddIsHoliday.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Migrations\\20260327101409_AddIsHoliday.cs",
-              "RelativeDocumentMoniker": "PlanningService\\Migrations\\20260327101409_AddIsHoliday.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Migrations\\20260327101409_AddIsHoliday.cs",
-              "RelativeToolTip": "PlanningService\\Migrations\\20260327101409_AddIsHoliday.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABgAAAARAAAAAAAAAA==",
+              "DocumentIndex": 9,
+              "Title": "CongeStatus.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Enums\\CongeStatus.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Enums\\CongeStatus.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Enums\\CongeStatus.cs",
+              "RelativeToolTip": "PlanningService\\Enums\\CongeStatus.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-27T10:46:17.159Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-31T08:52:23.171Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "20260223151154_anciennte.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Migrations\\20260223151154_anciennte.cs",
-              "RelativeDocumentMoniker": "PlanningService\\Migrations\\20260223151154_anciennte.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Migrations\\20260223151154_anciennte.cs",
-              "RelativeToolTip": "PlanningService\\Migrations\\20260223151154_anciennte.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "DocumentIndex": 7,
+              "Title": "Conge.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Models\\Conge.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Models\\Conge.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Models\\Conge.cs",
+              "RelativeToolTip": "PlanningService\\Models\\Conge.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAABYAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-27T10:46:08.649Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-31T08:49:38.529Z"
             },
             {
               "$type": "Document",
               "DocumentIndex": 6,
+              "Title": "CongeDto.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\DTOs\\CongeDto.cs",
+              "RelativeDocumentMoniker": "PlanningService\\DTOs\\CongeDto.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\DTOs\\CongeDto.cs",
+              "RelativeToolTip": "PlanningService\\DTOs\\CongeDto.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAAEAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-31T08:49:18.292Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "CongesController.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Controllers\\CongesController.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Controllers\\CongesController.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Controllers\\CongesController.cs",
+              "RelativeToolTip": "PlanningService\\Controllers\\CongesController.cs",
+              "ViewState": "AgIAAEYAAAAAAAAAAAAwwI8AAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-31T08:48:37.672Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "FrenchHolidayHelper.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Helpers\\FrenchHolidayHelper.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Helpers\\FrenchHolidayHelper.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Helpers\\FrenchHolidayHelper.cs",
+              "RelativeToolTip": "PlanningService\\Helpers\\FrenchHolidayHelper.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAACsAAAA1AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-27T09:46:05.28Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "PlanningController.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Controllers\\PlanningController.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Controllers\\PlanningController.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Controllers\\PlanningController.cs",
+              "RelativeToolTip": "PlanningService\\Controllers\\PlanningController.cs",
+              "ViewState": "AgIAAAMBAAAAAAAAAAAYwDMBAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-26T10:29:50.898Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "PlanningService.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Services\\PlanningService.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Services\\PlanningService.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Services\\PlanningService.cs",
+              "RelativeToolTip": "PlanningService\\Services\\PlanningService.cs",
+              "ViewState": "AgIAAMcFAAAAAAAAAAAqwPUFAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-25T09:43:48.693Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "PlanningDtos.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\DTOs\\PlanningDtos.cs",
+              "RelativeDocumentMoniker": "PlanningService\\DTOs\\PlanningDtos.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\DTOs\\PlanningDtos.cs",
+              "RelativeToolTip": "PlanningService\\DTOs\\PlanningDtos.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAGgAAAA5AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-25T09:40:17.611Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "IPlanningService.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Interfaces\\IPlanningService.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Interfaces\\IPlanningService.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Interfaces\\IPlanningService.cs",
+              "RelativeToolTip": "PlanningService\\Interfaces\\IPlanningService.cs",
+              "ViewState": "AgIAAAoAAAAAAAAAAAAgwCwAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-26T10:37:24.465Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "AbsenceType.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Enums\\AbsenceType.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Enums\\AbsenceType.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Enums\\AbsenceType.cs",
+              "RelativeToolTip": "PlanningService\\Enums\\AbsenceType.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-31T08:53:11.346Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 13,
               "Title": "AppDbContextModelSnapshot.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Migrations\\AppDbContextModelSnapshot.cs",
               "RelativeDocumentMoniker": "PlanningService\\Migrations\\AppDbContextModelSnapshot.cs",
@@ -116,25 +231,35 @@
               "RelativeToolTip": "PlanningService\\Migrations\\AppDbContextModelSnapshot.cs",
               "ViewState": "AgIAAAkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-27T10:44:54.699Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-27T10:44:54.699Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "FrenchHolidayHelper.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Helpers\\FrenchHolidayHelper.cs",
-              "RelativeDocumentMoniker": "PlanningService\\Helpers\\FrenchHolidayHelper.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Helpers\\FrenchHolidayHelper.cs",
-              "RelativeToolTip": "PlanningService\\Helpers\\FrenchHolidayHelper.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAAAWAAAAAAAAAA==",
+              "DocumentIndex": 11,
+              "Title": "20260223151154_anciennte.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Migrations\\20260223151154_anciennte.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Migrations\\20260223151154_anciennte.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Migrations\\20260223151154_anciennte.cs",
+              "RelativeToolTip": "PlanningService\\Migrations\\20260223151154_anciennte.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-27T09:46:05.28Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-27T10:46:08.649Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 10,
+              "Title": "20260327101409_AddIsHoliday.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Migrations\\20260327101409_AddIsHoliday.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Migrations\\20260327101409_AddIsHoliday.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Migrations\\20260327101409_AddIsHoliday.cs",
+              "RelativeToolTip": "PlanningService\\Migrations\\20260327101409_AddIsHoliday.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABgAAAARAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-27T10:46:17.159Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 15,
               "Title": "Program.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Program.cs",
               "RelativeDocumentMoniker": "PlanningService\\Program.cs",
@@ -142,24 +267,11 @@
               "RelativeToolTip": "PlanningService\\Program.cs",
               "ViewState": "AgIAAE4AAAAAAAAAAAAAAEIAAAAcAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-26T10:40:03.797Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-26T10:40:03.797Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
-              "Title": "IPlanningService.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Interfaces\\IPlanningService.cs",
-              "RelativeDocumentMoniker": "PlanningService\\Interfaces\\IPlanningService.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Interfaces\\IPlanningService.cs",
-              "RelativeToolTip": "PlanningService\\Interfaces\\IPlanningService.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAcwBgAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-26T10:37:24.465Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 12,
               "Title": "AppDbContext.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Data\\AppDbContext.cs",
               "RelativeDocumentMoniker": "PlanningService\\Data\\AppDbContext.cs",
@@ -167,12 +279,11 @@
               "RelativeToolTip": "PlanningService\\Data\\AppDbContext.cs",
               "ViewState": "AgIAAIQAAAAAAAAAAAAqwLgAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-26T10:35:22.759Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-26T10:35:22.759Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 16,
               "Title": "SaturdayHistory.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Models\\SaturdayHistory.cs",
               "RelativeDocumentMoniker": "PlanningService\\Models\\SaturdayHistory.cs",
@@ -184,33 +295,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
-              "Title": "PlanningController.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Controllers\\PlanningController.cs",
-              "RelativeDocumentMoniker": "PlanningService\\Controllers\\PlanningController.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Controllers\\PlanningController.cs",
-              "RelativeToolTip": "PlanningService\\Controllers\\PlanningController.cs",
-              "ViewState": "AgIAABsAAAAAAAAAAAAAABwAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-26T10:29:50.898Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "PlanningService.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Services\\PlanningService.cs",
-              "RelativeDocumentMoniker": "PlanningService\\Services\\PlanningService.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Services\\PlanningService.cs",
-              "RelativeToolTip": "PlanningService\\Services\\PlanningService.cs",
-              "ViewState": "AgIAANABAAAAAAAAAAAgwLEBAAAFAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-25T09:43:48.693Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 19,
               "Title": "SubServiceShiftConfig.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Models\\SubServiceShiftConfig.cs",
               "RelativeDocumentMoniker": "PlanningService\\Models\\SubServiceShiftConfig.cs",
@@ -222,7 +307,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 17,
               "Title": "Shift.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Models\\Shift.cs",
               "RelativeDocumentMoniker": "PlanningService\\Models\\Shift.cs",
@@ -234,7 +319,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 20,
               "Title": "WeeklyPlanning.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Models\\WeeklyPlanning.cs",
               "RelativeDocumentMoniker": "PlanningService\\Models\\WeeklyPlanning.cs",
@@ -246,7 +331,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 18,
               "Title": "WeeklyShiftConfig.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Models\\WeeklyShiftConfig.cs",
               "RelativeDocumentMoniker": "PlanningService\\Models\\WeeklyShiftConfig.cs",
@@ -258,7 +343,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 14,
               "Title": "ShiftAssignment.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Models\\ShiftAssignment.cs",
               "RelativeDocumentMoniker": "PlanningService\\Models\\ShiftAssignment.cs",
@@ -266,25 +351,11 @@
               "RelativeToolTip": "PlanningService\\Models\\ShiftAssignment.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABcAAAAwAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-25T09:41:43.732Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-25T09:41:43.732Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "PlanningDtos.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\DTOs\\PlanningDtos.cs",
-              "RelativeDocumentMoniker": "PlanningService\\DTOs\\PlanningDtos.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\DTOs\\PlanningDtos.cs",
-              "RelativeToolTip": "PlanningService\\DTOs\\PlanningDtos.cs",
-              "ViewState": "AgIAAK4AAAAAAAAAAAAQwNEAAAABAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-25T09:40:17.611Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 16,
+              "DocumentIndex": 21,
               "Title": "UserDto.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\DTOs\\UserDto.cs",
               "RelativeDocumentMoniker": "PlanningService\\DTOs\\UserDto.cs",

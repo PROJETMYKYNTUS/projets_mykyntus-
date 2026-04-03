@@ -522,7 +522,11 @@ confirmHolidayOverride(): void {
   if (!value) return 'Congé';
   return this.absenceTypes.find(t => t.value === value)?.label ?? 'Congé';
 }
-
+getShiftNumber(label: string): string {
+  // "Shift 1" → "1" | "Shift 2" → "2"
+  const match = label?.match(/\d+/);
+  return match ? match[0] : label;
+}
   getDateForDay(weekStartDate: string, day: string): string {
     const offsets: Record<string, number> = {
       Monday: 0, Tuesday: 1, Wednesday: 2,

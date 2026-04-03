@@ -648,3 +648,13 @@
   .legend-inline { display: none; }
   .modal { max-width: calc(100vw - 24px); }
 }
+.sp-time {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.sp-label {
+  font-size: 0.70rem;
+  font-weight: 400;
+  opacity: 0.75;
+}

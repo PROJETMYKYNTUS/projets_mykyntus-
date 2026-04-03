@@ -741,6 +741,17 @@ public class PlanningService : IPlanningService
             assignment.SubServiceShiftConfigId = dto.NewSubServiceShiftConfigId;
             assignment.ShiftId = null;
             assignment.IsOnLeave = false;
+            assignment.IsHoliday = false;
+            assignment.IsManagerOverride = true;
+
+            // ✅ Assigner une pause automatiquement
+            if (assignment.BreakTime == null)
+            {
+                var slots = GenerateBreakSlots(config.BreakRangeStart, config.BreakRangeEnd);
+                if (slots.Any())
+                    assignment.BreakTime = slots.First();
+            }
+
             await _context.SaveChangesAsync();
 
             await _context.Entry(assignment)
@@ -1511,4 +1522,5 @@ public class PlanningService : IPlanningService
             (DayOfWeekEnum.Thursday,  weekStart.AddDays(3)),
             (DayOfWeekEnum.Friday,    weekStart.AddDays(4)),
         };
+
 }

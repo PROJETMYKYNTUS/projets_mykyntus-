@@ -2,41 +2,21 @@ version: '3.9'
 
 services:
 
-  # ─── DATABASES ────────────────────────────────────────
+  # ─── DATABASE UNIQUE ──────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: kyntus_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: kyntus_db
-      POSTGRES_USER: kyntus_user
-      POSTGRES_PASSWORD: Kyntus@2026
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Postgres@2026
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # ← script auto-exécuté
     ports:
-      - "5544:5432"
+      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kyntus_user -d kyntus_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - microservices-network
-
-  postgres-auth:
-    image: postgres:16-alpine
-    container_name: kyntus_auth_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: auth_db
-      POSTGRES_USER: auth_user
-      POSTGRES_PASSWORD: Auth@2026
-    volumes:
-      - postgres_auth_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -53,11 +33,12 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: "Host=postgres-auth;Port=5432;Database=auth_db;Username=auth_user;Password=Auth@2026"
+      # ✅ Pointe vers le même postgres, base auth_db
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=auth_db;Username=auth_user;Password=Auth@2026"
     ports:
       - "5220:8080"
     depends_on:
-      postgres-auth:
+      postgres:
         condition: service_healthy
     networks:
       - microservices-network
@@ -71,6 +52,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      # ✅ Pointe vers le même postgres, base kyntus_db
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=kyntus_db;Username=kyntus_user;Password=Kyntus@2026"
     ports:
       - "5201:8080"
@@ -142,7 +124,6 @@ services:
 
 volumes:
   postgres_data:
-  postgres_auth_data:
 
 networks:
   microservices-network:

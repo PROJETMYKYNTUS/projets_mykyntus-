@@ -1,0 +1,70 @@
+<div class="container">
+
+  <div class="header">
+    <h1>Mon Planning</h1>
+    <p class="week-label">Semaine {{ currentWeek }}</p>
+  </div>
+
+  <!-- Chargement -->
+  <div *ngIf="loading" class="empty-state">
+    Chargement du planning...
+  </div>
+
+  <!-- Pas de planning -->
+  <div *ngIf="!loading && !planning" class="empty-state">
+    <p class="empty-title">Aucun planning publié pour cette semaine.</p>
+    <p>Votre responsable n'a pas encore publié le planning.</p>
+  </div>
+
+  <!-- Planning -->
+  <div *ngIf="!loading && planning">
+
+    <!-- Statut -->
+    <div class="status-badge" [class.published]="planning.isPublished">
+      <span>{{ planning.isPublished ? '✅ Planning publié' : '⏳ En attente de publication' }}</span>
+    </div>
+
+    <!-- Tableau -->
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Jour</th>
+            <th>Début</th>
+            <th>Fin</th>
+            <th>Pause</th>
+            <th>Shift</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let shift of planning.shifts; let i = index"
+              [class.odd]="i % 2 !== 0">
+            <td class="day">{{ shift.dayName }}</td>
+            <td>{{ shift.startTime }}</td>
+            <td>{{ shift.endTime }}</td>
+            <td>{{ shift.breakDuration }} min</td>
+            <td>
+              <span class="shift-badge"
+                    [style.background]="getShiftColor(shift.shiftType)">
+                {{ shift.shiftType }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Historique -->
+  <div *ngIf="history?.length" class="history">
+    <h2>Historique</h2>
+    <div class="history-pills">
+      <button *ngFor="let h of history"
+              (click)="loadWeek(h.weekCode)"
+              [class.active]="h.weekCode === currentWeek">
+        {{ h.weekCode }}
+      </button>
+    </div>
+  </div>
+
+</div>

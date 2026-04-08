@@ -84,12 +84,12 @@
         <div class="form-row">
           <div class="form-group">
             <label>Rôle <span class="required">*</span></label>
-            <select name="roleId" [(ngModel)]="form.roleId">
-              <option [value]="0" disabled>-- Sélectionner un rôle --</option>
-              @for (role of roles; track role.id) {
-                <option [value]="role.id">{{ role.name }}</option>
-              }
-            </select>
+        <select name="roleId" [(ngModel)]="form.roleId" (ngModelChange)="onRoleChange($event)">
+  <option [value]="0" disabled>-- Sélectionner un rôle --</option>
+  @for (role of roles; track role.id) {
+    <option [value]="role.id">{{ role.name }}</option>
+  }
+</select>
           </div>
           <div class="form-group">
             <label>Sous-service</label>
@@ -101,28 +101,29 @@
             </select>
           </div>
         </div>
+<!-- Ajouter après la form-row avec Rôle et Sous-service -->
 
-        @if (isManagerOrCoach) {
-          <div class="form-group">
-            <label>Sous-services gérés</label>
-            <p class="hint">Sélectionnez les sous-services supervisés</p>
-            <div class="checkbox-list">
-              @for (sub of subServices; track sub.id) {
-                <label class="checkbox-item" [class.checked]="isManagedSubService(sub.id)">
-                  <input
-                    type="checkbox"
-                    [checked]="isManagedSubService(sub.id)"
-                    (change)="toggleManagedSubService(sub.id)"
-                  />
-                  <span class="checkbox-text">
-                    {{ sub.name }}
-                    <small class="service-name">{{ sub.serviceName }}</small>
-                  </span>
-                </label>
-              }
-            </div>
-          </div>
-        }
+@if (isManagerOrCoach) {
+  <div class="form-group">
+    <label>Sous-services gérés</label>
+    <p class="hint">Sélectionnez les sous-services supervisés par cet employé</p>
+    <div class="checkbox-list">
+      @for (sub of subServices; track sub.id) {
+        <label class="checkbox-item" [class.checked]="isManagedSubService(sub.id)">
+          <input
+            type="checkbox"
+            [checked]="isManagedSubService(sub.id)"
+            (change)="toggleManagedSubService(sub.id)"
+          />
+          <span class="checkbox-text">
+            {{ sub.name }}
+            <small class="service-name">{{ sub.serviceName }}</small>
+          </span>
+        </label>
+      }
+    </div>
+  </div>
+}
 
         @if (isEditMode) {
           <div class="form-group checkbox-group">

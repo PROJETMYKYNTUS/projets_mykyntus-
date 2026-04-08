@@ -130,6 +130,13 @@ export class UserFormComponent implements OnInit {
       this.form.managedSubServiceIds.splice(idx, 1);
     }
   }
+  onRoleChange(roleId: number): void {
+  this.form.roleId = Number(roleId);
+  if (!this.isManagerOrCoach) {
+    this.form.managedSubServiceIds = [];
+  }
+  this.cdr.detectChanges();
+}
 
   checkEmail(): void {
     if (!this.form.email.trim()) return;

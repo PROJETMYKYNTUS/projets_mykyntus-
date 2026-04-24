@@ -26,6 +26,7 @@ public interface IPlanningService
     // ── Override manager ──
     Task<DayAssignmentDto> OverrideShiftAsync(OverrideShiftDto dto);
     Task<DayAssignmentDto> OverrideBreakAsync(OverrideBreakDto dto);
+    Task<MyPlanningDto?> GetMyCurrentPlanningAsync(int userId);
 
     // ── Samedi ──
     Task SetSaturdayGroupAsync(SetSaturdayGroupDto dto);

@@ -22,6 +22,37 @@ namespace PlanningService.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("CampaignAnalytics", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CampaignId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId");
+
+                    b.ToTable("CampaignAnalytics");
+                });
+
             modelBuilder.Entity("PlanningService.Models.Conge", b =>
                 {
                     b.Property<int>("Id")
@@ -29,6 +60,9 @@ namespace PlanningService.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AbsenceType")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -200,6 +234,88 @@ namespace PlanningService.Migrations
                     b.ToTable("Floors");
                 });
 
+            modelBuilder.Entity("PlanningService.Models.Newsletter", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("HtmlContent")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TextContent")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Newsletters");
+                });
+
+            modelBuilder.Entity("PlanningService.Models.NewsletterCampaign", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AudienceTarget")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("NewsletterId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ScheduledAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalRecipients")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NewsletterId");
+
+                    b.ToTable("NewsletterCampaigns");
+                });
+
             modelBuilder.Entity("PlanningService.Models.PlanningComment", b =>
                 {
                     b.Property<int>("Id")
@@ -236,6 +352,218 @@ namespace PlanningService.Migrations
                         .IsUnique();
 
                     b.ToTable("PlanningComments");
+                });
+
+            modelBuilder.Entity("PlanningService.Models.Proposition", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AssigneeId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AssigneeNom")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AuteurId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AuteurNom")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AuteurRole")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("BeneficeAttendu")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CommentaireEvaluation")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("EvalueeAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ImplementeeAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Priorite")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SatisfactionCommentaire")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SatisfactionNote")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Titre")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Propositions");
+                });
+
+            modelBuilder.Entity("PlanningService.Models.PropositionHistorique", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("EffectueParId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EffectueParNom")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("PropositionId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Valeur")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PropositionId");
+
+                    b.ToTable("PropositionHistoriques");
+                });
+
+            modelBuilder.Entity("PlanningService.Models.Reclamation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AssigneeId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AssigneeNom")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AuteurId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AuteurNom")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AuteurRole")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ClotureeAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CommentaireTraitement")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Priorite")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SatisfactionCommentaire")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("SatisfactionNote")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Titre")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("TraiteeAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Reclamations");
+                });
+
+            modelBuilder.Entity("PlanningService.Models.ReclamationHistorique", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("EffectueParId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EffectueParNom")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("ReclamationId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Valeur")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReclamationId");
+
+                    b.ToTable("ReclamationHistoriques");
                 });
 
             modelBuilder.Entity("PlanningService.Models.Role", b =>
@@ -709,6 +1037,17 @@ namespace PlanningService.Migrations
                     b.ToTable("WeeklyPlannings");
                 });
 
+            modelBuilder.Entity("CampaignAnalytics", b =>
+                {
+                    b.HasOne("PlanningService.Models.NewsletterCampaign", "Campaign")
+                        .WithMany("Analytics")
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Campaign");
+                });
+
             modelBuilder.Entity("PlanningService.Models.Conge", b =>
                 {
                     b.HasOne("PlanningService.Models.User", "User")
@@ -768,6 +1107,17 @@ namespace PlanningService.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("PlanningService.Models.NewsletterCampaign", b =>
+                {
+                    b.HasOne("PlanningService.Models.Newsletter", "Newsletter")
+                        .WithMany("Campaigns")
+                        .HasForeignKey("NewsletterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Newsletter");
+                });
+
             modelBuilder.Entity("PlanningService.Models.PlanningComment", b =>
                 {
                     b.HasOne("PlanningService.Models.User", "User")
@@ -785,6 +1135,28 @@ namespace PlanningService.Migrations
                     b.Navigation("User");
 
                     b.Navigation("WeeklyPlanning");
+                });
+
+            modelBuilder.Entity("PlanningService.Models.PropositionHistorique", b =>
+                {
+                    b.HasOne("PlanningService.Models.Proposition", "Proposition")
+                        .WithMany("Historique")
+                        .HasForeignKey("PropositionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Proposition");
+                });
+
+            modelBuilder.Entity("PlanningService.Models.ReclamationHistorique", b =>
+                {
+                    b.HasOne("PlanningService.Models.Reclamation", "Reclamation")
+                        .WithMany("Historique")
+                        .HasForeignKey("ReclamationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Reclamation");
                 });
 
             modelBuilder.Entity("PlanningService.Models.SaturdayGroup", b =>
@@ -950,6 +1322,26 @@ namespace PlanningService.Migrations
             modelBuilder.Entity("PlanningService.Models.Floor", b =>
                 {
                     b.Navigation("Services");
+                });
+
+            modelBuilder.Entity("PlanningService.Models.Newsletter", b =>
+                {
+                    b.Navigation("Campaigns");
+                });
+
+            modelBuilder.Entity("PlanningService.Models.NewsletterCampaign", b =>
+                {
+                    b.Navigation("Analytics");
+                });
+
+            modelBuilder.Entity("PlanningService.Models.Proposition", b =>
+                {
+                    b.Navigation("Historique");
+                });
+
+            modelBuilder.Entity("PlanningService.Models.Reclamation", b =>
+                {
+                    b.Navigation("Historique");
                 });
 
             modelBuilder.Entity("PlanningService.Models.Role", b =>

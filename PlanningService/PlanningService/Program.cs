@@ -2,12 +2,17 @@ using Microsoft.EntityFrameworkCore;
 using PlanningService.Data;
 using PlanningService.Interfaces;
 using PlanningService.Services;
+using PlanningService.Hubs;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
 using PlanningServiceImpl = PlanningService.Services.PlanningService;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ?? CORS ??
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular", policy =>
@@ -19,27 +24,77 @@ builder.Services.AddCors(options =>
                 "http://localhost"
             )
             .AllowAnyMethod()
-            .AllowAnyHeader();
+            .AllowAnyHeader()
+            .AllowCredentials();
     });
 });
 
-// ?? Database ??
+// Database
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ?? Services ??
+var jwtSecret = builder.Configuration["JwtSettings:Secret"]
+    ?? throw new InvalidOperationException("JwtSettings:Secret manquant");
+
+var jwtIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "AuthService";
+var jwtAudience = builder.Configuration["JwtSettings:Audience"] ?? "AuthServiceClient";
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+            ValidateAudience = true,
+            ValidAudience = jwtAudience,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+
+// Services
 builder.Services.AddScoped<IFloorService, FloorService>();
 builder.Services.AddScoped<IServiceService, ServiceService>();
 builder.Services.AddScoped<ISubServiceService, SubServiceService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<IPlanningService, PlanningServiceImpl>();
+builder.Services.AddScoped<IReclamationService, ReclamationService>();
+builder.Services.AddScoped<IPropositionService, PropositionService>();
+builder.Services.AddScoped<IReclamationNotificationService, ReclamationNotificationService>();
+// ? NOUVEAU — Newsletter
+builder.Services.AddScoped<INewsletterService, NewsletterService>();
 
-// ?? Controllers ??
+builder.Services.AddSignalR();
+
+// Controllers
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
     {
         opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        opts.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
     });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -49,9 +104,7 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var app = builder.Build();
 
-// ????????????????????????????????????????????????????
-// ? ÉTAPE 1 — Migrations en PREMIER (avant tout le reste)
-// ????????????????????????????????????????????????????
+// Migrations
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -72,9 +125,7 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// ????????????????????????????????????????????????????
-// ? ÉTAPE 2 — Seed Shifts (après migrations)
-// ????????????????????????????????????????????????????
+// Seed Shifts
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -90,25 +141,28 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// ????????????????????????????????????????????????????
-// ? ÉTAPE 3 — Sync employés (après migrations + seed)
-// ????????????????????????????????????????????????????
+// Sync employés
 using (var scope = app.Services.CreateScope())
 {
     var planningService = scope.ServiceProvider.GetRequiredService<IPlanningService>();
     await planningService.SyncNewEmployeesAsync();
 }
 
-// ?? Middleware ??
+// ?? Middleware pipeline ??????????????????????????????
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
 app.UseCors("AllowAngular");
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+app.MapHub<PlanningHub>("/hubs/planning");
+
+// ? NOUVEAU — Hub Newsletter
+app.MapHub<NewsletterHub>("/hubs/newsletter");
+app.MapHub<ReclamationHub>("/hubs/reclamation");
 app.Run();

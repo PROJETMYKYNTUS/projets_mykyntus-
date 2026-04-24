@@ -22,6 +22,13 @@ export class PlanningService {
       { headers: this.getHeaders() }
     );
   }
+  // Ajouter cette méthode
+getMyCurrentPlanning(userId: number): Observable<any> {
+  return this.http.get(
+    `${this.api}/planning/my/current?userId=${userId}`,
+    { headers: this.getHeaders() }
+  );
+}
 
   getMyHistory(userId: number): Observable<any> {
     return this.http.get(

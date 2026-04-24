@@ -9,15 +9,20 @@ export class AuthGuard implements CanActivate {
   constructor(private router: Router) {}
 
   canActivate(route: ActivatedRouteSnapshot): boolean {
-    const token = localStorage.getItem('access_token');
-
+    const token = localStorage.getItem('token');
+  console.log('=== AuthGuard ===');
+  console.log('Token présent :', !!token);
+  console.log('Token valeur :', token);
+  console.log('isExpired :', token ? this.isTokenExpired(token) : 'N/A');
+  console.log('Route roles :', route.data?.['roles']);
+  console.log('Role extrait :', token ? this.getRole(token) : 'N/A');
     if (!token) {
       window.location.href = 'http://localhost:4201/login';
       return false;
     }
 
     if (this.isTokenExpired(token)) {
-      localStorage.removeItem('access_token');
+      localStorage.removeItem('token');
       window.location.href = 'http://localhost:4201/login';
       return false;
     }
@@ -34,6 +39,11 @@ export class AuthGuard implements CanActivate {
 
     return true;
   }
+  
+  isAdminRole(token: string): boolean {
+  const role = this.getRole(token);
+  return ['Admin', 'RH'].includes(role);
+}
 
   getRole(token: string): string {
     try {

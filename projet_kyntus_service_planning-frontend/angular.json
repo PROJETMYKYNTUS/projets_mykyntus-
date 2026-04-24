@@ -30,21 +30,31 @@
             ]
           },
           "configurations": {
-            "production": {
-              "budgets": [
-  {
-    "type": "initial",
-    "maximumWarning": "1MB",
-    "maximumError": "2MB"
+"production": {
+  "optimization": {
+    "scripts": true,
+    "styles": {
+      "minify": true,
+      "inlineCritical": true
+    },
+    "fonts": {
+      "inline": false
+    }
   },
-  {
-    "type": "anyComponentStyle",
-    "maximumWarning": "10kB",
-    "maximumError": "50kB"
-  }
-],
-              "outputHashing": "all"
-            },
+  "budgets": [
+    {
+      "type": "initial",
+      "maximumWarning": "1MB",
+      "maximumError": "2MB"
+    },
+    {
+      "type": "anyComponentStyle",
+      "maximumWarning": "10kB",
+      "maximumError": "50kB"
+    }
+  ],
+  "outputHashing": "all"
+},
             "development": {
               "optimization": false,
               "extractLicenses": false,

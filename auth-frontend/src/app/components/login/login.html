@@ -1,139 +1,144 @@
-<div class="login-container">
-  <!-- Panneau gauche - Branding -->
-  <div class="branding-panel">
-    <div class="branding-content">
- <div class="company-logo">
- <img src="images/kyntusmorocco01_logo.jpg" alt="KYNTUS MOROCCO" class="logo-image"/>
-<h2>Bienvenue sur votre plateforme de gestion</h2>
-        <p>Gérez efficacement vos plannings, contrats et ressources humaines</p>
-</div>
-      
+<div class="login-page">
+
+  <!-- ══ PANNEAU GAUCHE ══════════════════════ -->
+  <aside class="panel-left">
+
+    <div class="logo-top">
+     <img src="images/kyntusmorocco02_logo.jpg" alt="KYNTUS MOROCCO" class="logo-image"/>
+    </div>
+
+    <div class="hero">
+      <div class="badge"><span class="badge-dot"></span>Plateforme RH Pro</div>
+      <h2>Gérez vos équipes<br>avec <em>efficacité</em></h2>
+      <p>Plannings, contrats et ressources humaines centralisés en un seul endroit.</p>
+
       <div class="features">
-        <div class="feature-item">
-          <span class="feature-icon">📊</span>
-          <span>Planification intelligente</span>
+        <div class="feat">
+          <div class="feat-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          </div>
+          <p><strong>Planification</strong> intelligente des équipes</p>
         </div>
-        <div class="feature-item">
-          <span class="feature-icon">👥</span>
-          <span>Gestion d'équipe</span>
+        <div class="feat">
+          <div class="feat-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <p><strong>Gestion</strong> des contrats et RH</p>
         </div>
-        <div class="feature-item">
-          <span class="feature-icon">📈</span>
-          <span>Suivi des performances</span>
+        <div class="feat">
+          <div class="feat-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+          </div>
+          <p><strong>Suivi</strong> des performances en temps réel</p>
+        </div>
+        <div class="feat">
+          <div class="feat-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+          </div>
+          <p><strong>Rapports</strong> analytiques avancés</p>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Panneau droit - Formulaire -->
-  <div class="form-panel">
-    <div class="login-card">
-      <div class="login-header">
-        <h1>Connexion</h1>
-        <p>Accédez à votre espace personnel</p>
+    <div class="panel-footer">
+      <span class="online-dot"></span>
+      <span>Tous les systèmes opérationnels — v2.6.0</span>
+    </div>
+  </aside>
+
+  <!-- ══ PANNEAU DROIT ════════════════════════ -->
+  <main class="panel-right">
+
+    <!-- Topbar avec logo -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <img src="images/kyntusmorocco02_logo.jpg" alt="KYNTUS MOROCCO" class="logo-image"/>
+        <div class="topbar-sep"></div>
+        <span>Espace personnel</span>
       </div>
+      <a href="mailto:support@kyntus.ma" class="btn-support">Support</a>
+    </header>
 
-      <!-- Message d'erreur -->
-      <div *ngIf="errorMessage" class="alert alert-error">
-        <span class="alert-icon">⚠️</span>
-        {{ errorMessage }}
-      </div>
+    <!-- Formulaire centré -->
+    <div class="form-center">
+      <div class="form-card">
 
-      <!-- Formulaire de connexion -->
-      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
-        
-        <!-- Email -->
-        <div class="form-group">
-          <label for="email">
-            <span class="label-icon">✉️</span>
-            Adresse email
-          </label>
-          <input 
-            type="email" 
-            id="email" 
-            formControlName="email"
-            placeholder="votre.email@kyntus.ma"
-            [class.error]="hasError('email', 'required') || hasError('email', 'email')"
-          />
-          <div class="error-message" *ngIf="hasError('email', 'required')">
-            L'email est requis
-          </div>
-          <div class="error-message" *ngIf="hasError('email', 'email')">
-            Format d'email invalide
-          </div>
+        <div class="form-head">
+          <h1>Connexion</h1>
+          <p>Bienvenue — entrez vos identifiants pour continuer</p>
         </div>
 
-        <!-- Mot de passe -->
-        <div class="form-group">
-          <label for="password">
-            <span class="label-icon">🔒</span>
-            Mot de passe
-          </label>
-          <div class="password-input-wrapper">
-            <input 
-              [type]="showPassword ? 'text' : 'password'" 
-              id="password" 
-              formControlName="password"
-              placeholder="••••••••"
-              [class.error]="hasError('password', 'required') || hasError('password', 'minlength')"
+        <!-- Erreur -->
+        <div class="alert-error" *ngIf="errorMessage">
+          <span>⚠</span> {{ errorMessage }}
+        </div>
+
+        <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+
+          <div class="field">
+            <label for="email">Adresse email</label>
+            <input
+              type="email"
+              id="email"
+              formControlName="email"
+              placeholder="votre.email@kyntus.ma"
+              [class.input-error]="hasError('email','required') || hasError('email','email')"
             />
-            <button 
-              type="button" 
-              class="toggle-password"
-              (click)="togglePasswordVisibility()"
-              tabindex="-1"
-              [attr.aria-label]="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
-            >
-              {{ showPassword ? '👁️' : '👁️‍🗨️' }}
-            </button>
+            <span class="err" *ngIf="hasError('email','required')">L'email est requis</span>
+            <span class="err" *ngIf="hasError('email','email')">Format d'email invalide</span>
           </div>
-          <div class="error-message" *ngIf="hasError('password', 'required')">
-            Le mot de passe est requis
+
+          <div class="field">
+            <label for="password">Mot de passe</label>
+            <div class="pw-wrap">
+              <input
+                [type]="showPassword ? 'text' : 'password'"
+                id="password"
+                formControlName="password"
+                placeholder="••••••••"
+                [class.input-error]="hasError('password','required') || hasError('password','minlength')"
+              />
+              <button type="button" class="pw-btn" (click)="togglePasswordVisibility()">
+                {{ showPassword ? 'Masquer' : 'Voir' }}
+              </button>
+            </div>
+            <span class="err" *ngIf="hasError('password','required')">Le mot de passe est requis</span>
+            <span class="err" *ngIf="hasError('password','minlength')">Minimum 6 caractères</span>
           </div>
-          <div class="error-message" *ngIf="hasError('password', 'minlength')">
-            Le mot de passe doit contenir au moins 6 caractères
+
+          <div class="form-opts">
+            <label class="check-label">
+              <input type="checkbox" /> Se souvenir de moi
+            </label>
+            <a href="#" class="forgot">Mot de passe oublié ?</a>
           </div>
+
+          <button type="submit" class="btn-login" [disabled]="loading || loginForm.invalid">
+            <span *ngIf="!loading">Se connecter &nbsp;→</span>
+            <span *ngIf="loading">Connexion en cours…</span>
+          </button>
+
+        </form>
+
+        <div class="card-footer">
+          <p>Besoin d'aide ? <a href="mailto:support@kyntus.ma">Contacter le support</a></p>
         </div>
+        <div class="copyright">© 2026 Kyntus Morocco. Tous droits réservés.</div>
 
-        <!-- Options supplémentaires -->
-        <div class="form-options">
-          <label class="checkbox-container">
-            <input type="checkbox" />
-            <span class="checkmark"></span>
-            <span class="checkbox-label">Se souvenir de moi</span>
-          </label>
-          <a href="#" class="forgot-password">Mot de passe oublié ?</a>
-        </div>
-
-        <!-- Bouton de connexion -->
-        <button 
-          type="submit" 
-          class="btn btn-primary"
-          [disabled]="loading || loginForm.invalid"
-        >
-          <span *ngIf="!loading">
-            <span class="btn-icon">🚀</span>
-            Se connecter
-          </span>
-          <span *ngIf="loading" class="spinner">
-            <span class="spinner-icon">⏳</span>
-            Connexion en cours...
-          </span>
-        </button>
-      </form>
-
-      <!-- Footer -->
-      <div class="footer-links">
-        <p class="help-text">
-          Besoin d'aide ? 
-          <a href="mailto:support@kyntus.ma">Contactez le support</a>
-        </p>
-      </div>
-
-      <!-- Copyright -->
-      <div class="copyright">
-        <p>© 2026 KYNTUS MOROCCO. Tous droits réservés.</p>
       </div>
     </div>
-  </div>
+
+  </main>
+
 </div>

@@ -154,21 +154,35 @@ selectedHolidayShiftId      = 0;
   }
 
   // ── Publication ────────────────────────────────────
-  publishPlanning(): void {
-    if (!this.planning) return;
-    this.publishing = true;
+ publishPlanning(): void {
+  if (!this.planning) return;
+  this.publishing = true;
+
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const validatorId = user?.id;
+
+  // ✅ Juste vérifier que l'id existe
+  if (!validatorId) {
+    this.error = 'Session expirée — veuillez vous reconnecter.';
+    this.publishing = false;
     this.cdr.detectChanges();
-    this.planningService.publish(this.planning.id, 3).subscribe({
-      next: data => {
-        this.planning   = data;
-        this.publishing = false;
-        this.successMsg = 'Planning publié ! Les employés peuvent voir leur planning.';
-        this.cdr.detectChanges();
-      },
-      error: () => { this.publishing = false; this.cdr.detectChanges(); }
-    });
+    return;
   }
 
+  this.planningService.publish(this.planning.id, validatorId).subscribe({
+    next: data => {
+      this.planning   = data;
+      this.publishing = false;
+      this.successMsg = '✅ Planning publié !';
+      this.cdr.detectChanges();
+    },
+    error: (err) => {
+      this.error = err.error?.message || 'Erreur publication';
+      this.publishing = false;
+      this.cdr.detectChanges();
+    }
+  });
+}
   getAssignment(employee: EmployeePlanning, day: string): DayAssignment | null {
     return employee.days.find(d => d.day === day) ?? null;
   }
@@ -453,13 +467,13 @@ confirmHolidayOverride(): void {
     this.savingComment = true;
     this.error         = '';
 
-    const dto: SavePlanningCommentDto = {
-      weeklyPlanningId: this.planning.id,
-      userId:           this.commentEmployeeId,
-      comment:          this.commentText.trim(),
-      createdBy:        3
-    };
-
+   const user = JSON.parse(localStorage.getItem('user') || '{}');
+const dto: SavePlanningCommentDto = {
+  weeklyPlanningId: this.planning.id,
+  userId:           this.commentEmployeeId,
+  comment:          this.commentText.trim(),
+  createdBy:        user?.id   // ✅
+};
     this.planningService.saveComment(dto).subscribe({
       next: () => {
         this.savingComment    = false;

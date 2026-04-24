@@ -1,117 +1,104 @@
-<!-- dashboard-home.component.html -->
-<div class="dashboard-layout" [class.sidebar-open]="sidebarOpen">
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kyntus Morocco RH — Tableau de bord</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="layout">
 
-  <!-- ════════ SIDEBAR OVERLAY (mobile) ════════ -->
-  <div class="sidebar-overlay" (click)="sidebarOpen = false"></div>
-
-  <!-- ════════ SIDEBAR ════════ -->
+  <!-- SIDEBAR -->
   <aside class="sidebar">
-
-    <!-- Brand -->
-    <div class="sidebar-brand">
+    <div class="brand">
       <div class="brand-logo">K</div>
       <div class="brand-text">
         <strong>Kyntus</strong>
         <span>Morocco RH</span>
       </div>
-      <button class="sidebar-close" (click)="sidebarOpen = false" aria-label="Fermer">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
     </div>
 
-    <nav class="sidebar-nav">
-
-      <!-- Principal -->
-      <span class="nav-group-label">Principal</span>
+    <nav class="nav">
+      <span class="nav-label">Principal</span>
       <a class="nav-item active" routerLink="/dashboard">
         <span class="nav-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         </span>
         Tableau de bord
       </a>
 
-      <!-- Organisation -->
-      <span class="nav-group-label">Organisation</span>
+      <span class="nav-label">Organisation</span>
       <a class="nav-item" routerLink="/floors">
-        <span class="nav-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        </span>
+        <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
         Étages
-      
       </a>
       <a class="nav-item" routerLink="/services">
-        <span class="nav-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg>
-        </span>
+        <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg></span>
         Services
-   
       </a>
       <a class="nav-item" routerLink="/sub-services">
-        <span class="nav-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-        </span>
+        <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span>
         Sous-services
- 
       </a>
 
-      <!-- RH -->
-      <span class="nav-group-label">Ressources Humaines</span>
+      <span class="nav-label">Ressources Humaines</span>
       <a class="nav-item" routerLink="/users">
-        <span class="nav-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-        </span>
+        <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></span>
         Employés
         <span class="nav-chip">230</span>
       </a>
       <a class="nav-item" routerLink="/contracts">
-        <span class="nav-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        </span>
+        <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
         Contrats
       </a>
       <a class="nav-item" routerLink="/conge">
-        <span class="nav-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 117-7v1"/><path d="M17 9l4-4-4-4M21 5H9"/></svg>
-        </span>
+        <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 117-7v1"/><path d="M17 9l4-4-4-4M21 5H9"/></svg></span>
         Congés
       </a>
       <a class="nav-item" routerLink="/new-employees">
-        <span class="nav-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-        </span>
+        <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>
         Nouveaux Employés
       </a>
 
-      <!-- Planification -->
-      <span class="nav-group-label">Planification</span>
+      <span class="nav-label">Planification</span>
       <a class="nav-item" routerLink="/planning">
-        <span class="nav-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        </span>
+        <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
         Plannings
       </a>
       <a class="nav-item" routerLink="/planning/shift-config">
-        <span class="nav-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
-        </span>
+        <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg></span>
         Config Shifts
       </a>
       <a class="nav-item" routerLink="/planning/saturday-history">
-        <span class="nav-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3zM3 9h18M9 21V9"/></svg>
-        </span>
+        <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3zM3 9h18M9 21V9"/></svg></span>
         Historique Samedis
       </a>
 
+      <span class="nav-label">Communication</span>
+      <a class="nav-item" routerLink="/newsletter">
+        <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+        Newsletters
+      </a>
+
+      <!-- ✅ AJOUT : section Qualité & Amélioration avec lien Réclamations -->
+      <span class="nav-label">Qualité &amp; Amélioration</span>
+      <a class="nav-item" routerLink="/reclamations-admin">
+        <span class="nav-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+        </span>
+        Réclamations &amp; Propositions
+      </a>
     </nav>
 
-    <!-- Footer utilisateur -->
     <div class="sidebar-footer">
       <div class="user-row">
         <div class="user-av">{{ userInitials }}</div>
         <div class="user-info">
           <strong>{{ currentUser?.username || 'Administrateur' }}</strong>
-          <span>{{ currentUser?.email || 'admin@kyntus.ma' }}</span>
+          <span>{{ currentUser?.email || 'amjad@kyntus.ma' }}</span>
         </div>
       </div>
       <button class="logout-btn" (click)="logout()">
@@ -122,114 +109,96 @@
 
   </aside>
 
-  <!-- ════════ MAIN ════════ -->
+  <!-- MAIN -->
   <div class="main">
 
-    <!-- ── TOPBAR ── -->
+    <!-- TOPBAR -->
     <header class="topbar">
-      <div class="topbar-left">
-        <button class="menu-toggle" (click)="sidebarOpen = true" aria-label="Menu">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-        </button>
+      <div class="topbar-l">
         <div>
           <h1>Tableau de bord</h1>
           <p>Gestion des ressources humaines — Kyntus Morocco</p>
         </div>
       </div>
-      <div class="topbar-right">
-        <div class="tb-pill">
-          <span class="pulse-dot"></span>
+      <div class="topbar-r">
+        <div class="pill-active">
+          <span class="dot-pulse"></span>
           Système actif
         </div>
         <app-notification-bell></app-notification-bell>
-        <button class="tb-btn" aria-label="Paramètres">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+        <button class="tb-icon-btn" title="Paramètres">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
         </button>
-        <div class="tb-avatar">AD</div>
+        <div class="tb-av">AD</div>
       </div>
     </header>
 
-    <!-- ── PAGE ── -->
+    <!-- PAGE CONTENT -->
     <div class="page">
 
       <!-- KPI STRIP -->
       <div class="kpi-grid">
-
-        <div class="kpi k1" routerLink="/floors">
-          <div class="kpi-ic ik-b">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <a class="kpi kpi-1" routerLink="/floors">
+          <div class="kpi-ic kic-b">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           </div>
           <div class="kpi-body">
             <div class="kpi-lbl">Étages</div>
-      
+            <div class="kpi-val">7</div>
             <div class="kpi-sub">Niveaux gérés</div>
           </div>
-          <span class="kpi-tag t-ok">stable</span>
-        </div>
-
-        <div class="kpi k2" routerLink="/services">
-          <div class="kpi-ic ik-c">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg>
+          <span class="kpi-tag tag-ok">stable</span>
+        </a>
+        <a class="kpi kpi-2" routerLink="/services">
+          <div class="kpi-ic kic-c">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg>
           </div>
           <div class="kpi-body">
             <div class="kpi-lbl">Services</div>
-     
+            <div class="kpi-val">12</div>
             <div class="kpi-sub">28 sous-services</div>
           </div>
-          <span class="kpi-tag t-ok">actif</span>
-        </div>
-
-        <div class="kpi k3" routerLink="/users">
-          <div class="kpi-ic ik-g">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          <span class="kpi-tag tag-ok">actif</span>
+        </a>
+        <a class="kpi kpi-3" routerLink="/users">
+          <div class="kpi-ic kic-g">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
           </div>
           <div class="kpi-body">
             <div class="kpi-lbl">Employés</div>
-     
+            <div class="kpi-val">230</div>
             <div class="kpi-sub">Actifs ce mois</div>
           </div>
-          <span class="kpi-tag t-up">+3</span>
-        </div>
-
-        <div class="kpi k4" routerLink="/planning">
-          <div class="kpi-ic ik-a">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="kpi-tag tag-up">+3</span>
+        </a>
+        <a class="kpi kpi-4" routerLink="/planning">
+          <div class="kpi-ic kic-a">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           </div>
           <div class="kpi-body">
             <div class="kpi-lbl">Plannings</div>
-    
+            <div class="kpi-val">8</div>
             <div class="kpi-sub">Shifts configurés</div>
           </div>
-          <span class="kpi-tag t-warn">en cours</span>
-        </div>
-
+          <span class="kpi-tag tag-warn">en cours</span>
+        </a>
       </div>
 
-      <!-- ── ORGANISATION ── -->
-      <div class="db-section">
+      <!-- ORGANISATION -->
+      <div class="section">
         <div class="sec-hd">
-          <div class="sec-left">
+          <div class="sec-l">
             <span class="sec-dot sd-b"></span>
             <span class="sec-title">Organisation</span>
             <span class="sec-count">3 modules</span>
           </div>
-          <div class="sec-right">
-            <a class="sec-link" routerLink="/floors">
-              Voir tout
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-            </a>
-          </div>
+          <a class="sec-link" href="#">Voir tout <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
         </div>
         <div class="cards-grid">
-
-          <div class="card cc-blue" routerLink="/floors">
+          <a class="card cc-b" routerLink="/floors">
             <div class="card-top">
-              <div class="card-ic cic-blue">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-              </div>
-              <div class="card-arr">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
-              </div>
+              <div class="card-ic cic-b"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+              <div class="card-arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
             </div>
             <h3>Étages</h3>
             <p>Gestion et configuration des étages du bâtiment</p>
@@ -237,16 +206,11 @@
               <span class="badge"><span class="bdot bd-b"></span>7 niveaux</span>
               <span class="card-cta">Gérer →</span>
             </div>
-          </div>
-
-          <div class="card cc-indigo" routerLink="/services">
+          </a>
+          <a class="card cc-i" routerLink="/services">
             <div class="card-top">
-              <div class="card-ic cic-indigo">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
-              </div>
-              <div class="card-arr">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
-              </div>
+              <div class="card-ic cic-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg></div>
+              <div class="card-arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
             </div>
             <h3>Services</h3>
             <p>Administration des services et départements</p>
@@ -254,16 +218,11 @@
               <span class="badge"><span class="bdot bd-i"></span>12 services</span>
               <span class="card-cta">Gérer →</span>
             </div>
-          </div>
-
-          <div class="card cc-yellow" routerLink="/sub-services">
+          </a>
+          <a class="card cc-y" routerLink="/sub-services">
             <div class="card-top">
-              <div class="card-ic cic-yellow">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-              </div>
-              <div class="card-arr">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
-              </div>
+              <div class="card-ic cic-y"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></div>
+              <div class="card-arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
             </div>
             <h3>Sous-services</h3>
             <p>Gestion des sous-divisions de services</p>
@@ -271,36 +230,25 @@
               <span class="badge"><span class="bdot bd-y"></span>28 sous-services</span>
               <span class="card-cta">Gérer →</span>
             </div>
-          </div>
-
+          </a>
         </div>
       </div>
 
-      <!-- ── RESSOURCES HUMAINES ── -->
-      <div class="db-section">
+      <!-- RESSOURCES HUMAINES -->
+      <div class="section">
         <div class="sec-hd">
-          <div class="sec-left">
+          <div class="sec-l">
             <span class="sec-dot sd-g"></span>
             <span class="sec-title">Ressources Humaines</span>
             <span class="sec-count">4 modules</span>
           </div>
-          <div class="sec-right">
-            <a class="sec-link" routerLink="/users">
-              Voir tout
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-            </a>
-          </div>
+          <a class="sec-link" routerLink="/users">Voir tout <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
         </div>
         <div class="cards-grid">
-
-          <div class="card cc-green" routerLink="/users">
+          <a class="card cc-g" routerLink="/users">
             <div class="card-top">
-              <div class="card-ic cic-green">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-              </div>
-              <div class="card-arr">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
-              </div>
+              <div class="card-ic cic-g"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
+              <div class="card-arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
             </div>
             <h3>Employés</h3>
             <p>Gestion des dossiers et profils des employés</p>
@@ -308,16 +256,11 @@
               <span class="badge"><span class="bdot bd-g"></span>230 actifs</span>
               <span class="card-cta">Gérer →</span>
             </div>
-          </div>
-
-          <div class="card cc-indigo" routerLink="/contracts">
+          </a>
+          <a class="card cc-i" routerLink="/contracts">
             <div class="card-top">
-              <div class="card-ic cic-indigo">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              </div>
-              <div class="card-arr">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
-              </div>
+              <div class="card-ic cic-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+              <div class="card-arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
             </div>
             <h3>Contrats</h3>
             <p>Gestion des contrats CDI, CDD, Stage et Intérim</p>
@@ -325,16 +268,11 @@
               <span class="badge"><span class="bdot bd-i"></span>CDI · CDD · Stage</span>
               <span class="card-cta">Ouvrir →</span>
             </div>
-          </div>
-
-          <div class="card cc-teal" routerLink="/conge">
+          </a>
+          <a class="card cc-t" routerLink="/conge">
             <div class="card-top">
-              <div class="card-ic cic-teal">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 117-7v1"/><path d="M17 9l4-4-4-4M21 5H9"/></svg>
-              </div>
-              <div class="card-arr">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
-              </div>
+              <div class="card-ic cic-t"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 117-7v1"/><path d="M17 9l4-4-4-4M21 5H9"/></svg></div>
+              <div class="card-arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
             </div>
             <h3>Congés</h3>
             <p>Gestion et suivi des congés des employés</p>
@@ -342,16 +280,11 @@
               <span class="badge"><span class="bdot bd-t"></span>Suivi en temps réel</span>
               <span class="card-cta">Ouvrir →</span>
             </div>
-          </div>
-
-          <div class="card cc-yellow" routerLink="/new-employees">
+          </a>
+          <a class="card cc-y" routerLink="/new-employees">
             <div class="card-top">
-              <div class="card-ic cic-yellow">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-              </div>
-              <div class="card-arr">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
-              </div>
+              <div class="card-ic cic-y"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></div>
+              <div class="card-arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
             </div>
             <h3>Nouveaux Employés</h3>
             <p>Configuration des slots samedi pour les nouveaux employés</p>
@@ -359,36 +292,142 @@
               <span class="badge"><span class="bdot bd-y"></span>Slots samedi</span>
               <span class="card-cta">Configurer →</span>
             </div>
-          </div>
-
+          </a>
         </div>
       </div>
 
-      <!-- ── PLANIFICATION ── -->
-      <div class="db-section">
+      <!-- NEWSLETTER HERO -->
+      <div class="newsletter-section">
         <div class="sec-hd">
-          <div class="sec-left">
+          <div class="sec-l">
+            <span class="sec-dot sd-e"></span>
+            <span class="sec-title">Communication interne</span>
+            <span class="sec-count">1 module</span>
+          </div>
+          <a class="sec-link" routerLink="/newsletter">Voir les newsletters <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+        </div>
+
+        <div class="newsletter-hero">
+          <div>
+            <div class="nl-badge">
+              <span class="nl-dot"></span>
+              Module Newsletter
+            </div>
+            <h2>Communiquez avec vos équipes en un clic</h2>
+            <p>Créez, personnalisez et envoyez des newsletters internes à l'ensemble de vos employés ou à des services ciblés. Suivez les taux d'ouverture et d'engagement en temps réel.</p>
+
+            <div class="nl-stats">
+              <div>
+                <div class="nl-stat-val">12</div>
+                <div class="nl-stat-lbl">Newsletters envoyées</div>
+              </div>
+              <div class="nl-stat-sep"></div>
+              <div>
+                <div class="nl-stat-val">87%</div>
+                <div class="nl-stat-lbl">Taux d'ouverture</div>
+              </div>
+              <div class="nl-stat-sep"></div>
+              <div>
+                <div class="nl-stat-val">230</div>
+                <div class="nl-stat-lbl">Abonnés actifs</div>
+              </div>
+            </div>
+
+            <div class="nl-actions">
+              <a class="nl-btn-primary" routerLink="/newsletter">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                Créer une newsletter
+              </a>
+              <a class="nl-btn-ghost" routerLink="/newsletter">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Voir l'historique
+              </a>
+            </div>
+          </div>
+
+          <div class="nl-visual">
+            <div class="nl-email-preview">
+              <div class="nl-ep-header">
+                <div class="nl-ep-av">K</div>
+                <div>
+                  <div class="nl-ep-from">Kyntus Morocco RH</div>
+                  <div class="nl-ep-sub">newsletter@kyntus.ma</div>
+                </div>
+                <div class="nl-ep-tag">Nouveau</div>
+              </div>
+              <div class="nl-ep-line w85"></div>
+              <div class="nl-ep-line w60"></div>
+              <div class="nl-ep-line w85"></div>
+              <div class="nl-ep-line w45"></div>
+              <div class="nl-ep-cta">Lire la newsletter →</div>
+            </div>
+
+            <div class="nl-recent">
+              <div class="nl-recent-row">
+                <div class="nl-rr-dot" style="background:#6094ff;"></div>
+                <div class="nl-rr-text">Mise à jour politique RH — Avril</div>
+                <div class="nl-rr-stat">92% ouvert</div>
+              </div>
+              <div class="nl-recent-row">
+                <div class="nl-rr-dot" style="background:#6ee7b7;"></div>
+                <div class="nl-rr-text">Nouvelles recrues — Mars 2025</div>
+                <div class="nl-rr-stat">88% ouvert</div>
+              </div>
+              <div class="nl-recent-row">
+                <div class="nl-rr-dot" style="background:#fbbf24;"></div>
+                <div class="nl-rr-text">Planning congés — Printemps</div>
+                <div class="nl-rr-stat">81% ouvert</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ✅ AJOUT : Section Qualité & Amélioration sur le tableau de bord -->
+      <div class="section">
+        <div class="sec-hd">
+          <div class="sec-l">
+            <span class="sec-dot sd-r"></span>
+            <span class="sec-title">Qualité &amp; Amélioration</span>
+            <span class="sec-count">1 module</span>
+          </div>
+          <a class="sec-link" routerLink="/reclamations-admin">Voir tout <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+        </div>
+        <div class="cards-grid">
+          <a class="card cc-r" routerLink="/reclamations-admin">
+            <div class="card-top">
+              <div class="card-ic cic-r">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                </svg>
+              </div>
+              <div class="card-arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
+            </div>
+            <h3>Réclamations &amp; Propositions</h3>
+            <p>Traitement, assignation et suivi des réclamations et propositions d'amélioration</p>
+            <div class="card-ft">
+              <span class="badge"><span class="bdot bd-r"></span>Traitement &amp; Reporting</span>
+              <span class="card-cta">Gérer →</span>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- PLANIFICATION -->
+      <div class="section">
+        <div class="sec-hd">
+          <div class="sec-l">
             <span class="sec-dot sd-a"></span>
             <span class="sec-title">Planification</span>
             <span class="sec-count">3 modules</span>
           </div>
-          <div class="sec-right">
-            <a class="sec-link" routerLink="/planning">
-              Voir tout
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-            </a>
-          </div>
+          <a class="sec-link" routerLink="/planning">Voir tout <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
         </div>
         <div class="cards-grid">
-
-          <div class="card cc-rose" routerLink="/planning">
+          <a class="card cc-r" routerLink="/planning">
             <div class="card-top">
-              <div class="card-ic cic-rose">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              </div>
-              <div class="card-arr">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
-              </div>
+              <div class="card-ic cic-r"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+              <div class="card-arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
             </div>
             <h3>Plannings</h3>
             <p>Organisation et gestion des plannings d'équipe</p>
@@ -396,16 +435,11 @@
               <span class="badge"><span class="bdot bd-r"></span>En cours</span>
               <span class="card-cta">Gérer →</span>
             </div>
-          </div>
-
-          <div class="card cc-indigo" routerLink="/planning/shift-config">
+          </a>
+          <a class="card cc-i" routerLink="/planning/shift-config">
             <div class="card-top">
-              <div class="card-ic cic-indigo">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
-              </div>
-              <div class="card-arr">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
-              </div>
+              <div class="card-ic cic-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg></div>
+              <div class="card-arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
             </div>
             <h3>Configuration Shifts</h3>
             <p>Définir les shifts, horaires et pauses par sous-service</p>
@@ -413,16 +447,11 @@
               <span class="badge"><span class="bdot bd-i"></span>Par semaine</span>
               <span class="card-cta">Configurer →</span>
             </div>
-          </div>
-
-          <div class="card cc-teal" routerLink="/planning/saturday-history">
+          </a>
+          <a class="card cc-t" routerLink="/planning/saturday-history">
             <div class="card-top">
-              <div class="card-ic cic-teal">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3zM3 9h18M9 21V9"/></svg>
-              </div>
-              <div class="card-arr">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
-              </div>
+              <div class="card-ic cic-t"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3zM3 9h18M9 21V9"/></svg></div>
+              <div class="card-arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
             </div>
             <h3>Historique Samedis</h3>
             <p>Consulter l'historique des présences du samedi</p>
@@ -430,11 +459,12 @@
               <span class="badge"><span class="bdot bd-t"></span>Historique</span>
               <span class="card-cta">Consulter →</span>
             </div>
-          </div>
-
+          </a>
         </div>
       </div>
 
     </div><!-- /page -->
   </div><!-- /main -->
-</div><!-- /dashboard-layout -->
+</div><!-- /layout -->
+</body>
+</html>

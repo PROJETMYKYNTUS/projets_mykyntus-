@@ -1,0 +1,280 @@
+<section class="nl-admin-shell">
+  <header class="nl-hero">
+    <div class="nl-hero-copy">
+      <span class="nl-eyebrow">Communication interne</span>
+      <h1>Administration des newsletters</h1>
+      <p>Créez le contenu, préparez les campagnes et suivez la lecture depuis une interface alignée sur votre backend actuel.</p>
+    </div>
+
+    <div class="nl-hero-actions">
+      <button type="button" class="nl-btn nl-btn-secondary" (click)="refresh()">Rafraichir</button>
+      <button type="button" class="nl-btn nl-btn-primary" (click)="setView('create')">Nouvelle newsletter</button>
+    </div>
+  </header>
+
+  <nav class="nl-tabs">
+    <button type="button" class="nl-tab" [class.active]="currentView === 'list'" (click)="setView('list')">Newsletters</button>
+    <button type="button" class="nl-tab" [class.active]="currentView === 'create'" (click)="setView('create')">Creation</button>
+    <button type="button" class="nl-tab" [class.active]="currentView === 'campaigns'" (click)="setView('campaigns')">Campagnes</button>
+    <button type="button" class="nl-tab" [class.active]="currentView === 'analytics'" (click)="selectedCampaignId ? setView('analytics') : setView('campaigns')">Analytics</button>
+  </nav>
+
+  <div class="nl-grid-top">
+    <article class="nl-stat-card">
+      <span class="nl-stat-label">Newsletters</span>
+      <strong>{{ newsletters.length }}</strong>
+      <p>Contenus disponibles pour les campagnes.</p>
+    </article>
+
+    <article class="nl-stat-card">
+      <span class="nl-stat-label">Campagnes</span>
+      <strong>{{ campaigns.length }}</strong>
+      <p>Diffusions creees et suivies depuis l'administration.</p>
+    </article>
+
+    <article class="nl-stat-card">
+      <span class="nl-stat-label">Dernier taux de lecture</span>
+      <strong>{{ analytics?.readRate ?? 0 }}%</strong>
+      <p>Visible quand une campagne a ete ouverte dans les analytics.</p>
+    </article>
+  </div>
+
+  <section class="nl-panel" *ngIf="currentView === 'list'">
+    <div class="nl-panel-head">
+      <div>
+        <h2>Bibliotheque des newsletters</h2>
+        <p>Chaque newsletter represente un contenu reutilisable pour une ou plusieurs campagnes.</p>
+      </div>
+    </div>
+
+    <div class="nl-state" *ngIf="loadingNewsletters">Chargement des newsletters...</div>
+
+    <div class="nl-empty" *ngIf="!loadingNewsletters && newsletters.length === 0">
+      <h3>Aucune newsletter disponible</h3>
+      <p>Commencez par creer un premier contenu pour pouvoir lancer une campagne.</p>
+      <button type="button" class="nl-btn nl-btn-primary" (click)="setView('create')">Creer une newsletter</button>
+    </div>
+
+    <div class="nl-card-list" *ngIf="!loadingNewsletters && newsletters.length > 0">
+      <article class="nl-card" *ngFor="let newsletter of newsletters; trackBy: trackById">
+        <div class="nl-card-head">
+          <div>
+            <h3>{{ newsletter.title }}</h3>
+            <p>{{ newsletter.subject }}</p>
+          </div>
+          <span class="nl-badge">{{ newsletter.campaignsCount }} campagne(s)</span>
+        </div>
+
+        <div class="nl-meta">
+          <span>Creee le {{ formatDate(newsletter.createdAt) }}</span>
+          <span *ngIf="newsletter.updatedAt">Maj {{ formatDate(newsletter.updatedAt) }}</span>
+        </div>
+
+        <div class="nl-card-actions">
+          <button type="button" class="nl-btn nl-btn-secondary" (click)="openNewsletterPreview(newsletter)">Apercu</button>
+          <button type="button" class="nl-btn nl-btn-danger" (click)="deleteNewsletter(newsletter.id)">Supprimer</button>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="nl-panel" *ngIf="currentView === 'create'">
+    <div class="nl-panel-head">
+      <div>
+        <h2>Nouvelle newsletter</h2>
+        <p>Le contenu est ensuite reutilise dans une campagne avec une audience et une planification.</p>
+      </div>
+    </div>
+
+    <div class="nl-form-grid">
+      <div class="nl-field">
+        <label for="newsletter-title">Titre</label>
+        <input id="newsletter-title" type="text" [(ngModel)]="newNewsletter.title" placeholder="Ex: Infos RH de la semaine">
+      </div>
+
+      <div class="nl-field">
+        <label for="newsletter-subject">Sujet</label>
+        <input id="newsletter-subject" type="text" [(ngModel)]="newNewsletter.subject" placeholder="Ex: Nouveautes internes et rappels RH">
+      </div>
+
+      <div class="nl-field nl-field-full">
+        <label for="newsletter-html">Contenu HTML</label>
+        <textarea id="newsletter-html" rows="10" [(ngModel)]="newNewsletter.htmlContent" placeholder="<h2>Bonjour</h2><p>Votre contenu...</p>"></textarea>
+      </div>
+
+      <div class="nl-field nl-field-full">
+        <label for="newsletter-text">Version texte</label>
+        <textarea id="newsletter-text" rows="5" [(ngModel)]="newNewsletter.textContent" placeholder="Version texte optionnelle pour fallback"></textarea>
+      </div>
+    </div>
+
+    <div class="nl-form-actions">
+      <button type="button" class="nl-btn nl-btn-secondary" (click)="setView('list')">Retour</button>
+      <button type="button" class="nl-btn nl-btn-primary" [disabled]="submittingNewsletter" (click)="submitNewsletter()">
+        {{ submittingNewsletter ? 'Creation...' : 'Enregistrer la newsletter' }}
+      </button>
+    </div>
+  </section>
+
+  <section class="nl-panel" *ngIf="currentView === 'campaigns'">
+    <div class="nl-panel-head">
+      <div>
+        <h2>Campagnes</h2>
+        <p>Associez une newsletter a une audience, puis publiez ou planifiez la diffusion.</p>
+      </div>
+    </div>
+
+    <div class="nl-campaign-layout">
+      <div class="nl-subpanel">
+        <h3>Creer une campagne</h3>
+
+        <div class="nl-field">
+          <label for="campaign-name">Nom de campagne</label>
+          <input id="campaign-name" type="text" [(ngModel)]="newCampaign.name" placeholder="Ex: Flash RH avril">
+        </div>
+
+        <div class="nl-field">
+          <label for="campaign-newsletter">Newsletter</label>
+          <select id="campaign-newsletter" [(ngModel)]="newCampaign.newsletterId">
+            <option [ngValue]="0">Selectionner une newsletter</option>
+            <option *ngFor="let newsletter of newsletters; trackBy: trackById" [ngValue]="newsletter.id">
+              {{ newsletter.title }}
+            </option>
+          </select>
+        </div>
+
+        <div class="nl-field">
+          <label for="campaign-audience">Audience</label>
+          <select id="campaign-audience" [(ngModel)]="newCampaign.audienceTarget">
+            <option *ngFor="let option of audienceOptions" [ngValue]="option">
+              {{ getAudienceLabel(option) }}
+            </option>
+          </select>
+        </div>
+
+        <div class="nl-field">
+          <label for="campaign-date">Date planifiee</label>
+          <input id="campaign-date" type="datetime-local" [(ngModel)]="newCampaign.scheduledAt">
+        </div>
+
+        <div class="nl-form-actions">
+          <button type="button" class="nl-btn nl-btn-primary" [disabled]="submittingCampaign" (click)="submitCampaign()">
+            {{ submittingCampaign ? 'Creation...' : 'Creer la campagne' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="nl-subpanel">
+        <h3>Liste des campagnes</h3>
+
+        <div class="nl-state" *ngIf="loadingCampaigns">Chargement des campagnes...</div>
+
+        <div class="nl-empty nl-empty-inner" *ngIf="!loadingCampaigns && campaigns.length === 0">
+          <h3>Aucune campagne creee</h3>
+          <p>Creez une campagne pour publier une newsletter vers une audience cible.</p>
+        </div>
+
+        <div class="nl-campaign-list" *ngIf="!loadingCampaigns && campaigns.length > 0">
+          <article class="nl-campaign-card" *ngFor="let campaign of campaigns; trackBy: trackById">
+            <div class="nl-campaign-top">
+              <div>
+                <h4>{{ campaign.name }}</h4>
+                <p>{{ campaign.newsletterTitle }}</p>
+              </div>
+              <span class="nl-status" [ngClass]="getStatusClass(campaign.status)">
+                {{ getStatusLabel(campaign.status) }}
+              </span>
+            </div>
+
+            <div class="nl-campaign-meta">
+              <span>Audience: {{ getAudienceLabel(campaign.audienceTarget) }}</span>
+              <span>Destinataires: {{ campaign.totalRecipients }}</span>
+              <span>Creee le {{ formatDate(campaign.createdAt) }}</span>
+              <span *ngIf="campaign.scheduledAt">Planifiee: {{ formatDate(campaign.scheduledAt) }}</span>
+              <span *ngIf="campaign.publishedAt">Publiee: {{ formatDate(campaign.publishedAt) }}</span>
+            </div>
+
+            <div class="nl-card-actions">
+              <button type="button" class="nl-btn nl-btn-secondary" (click)="viewAnalytics(campaign.id)">Analytics</button>
+              <button type="button" class="nl-btn nl-btn-primary" *ngIf="campaign.status === 'Draft' || campaign.status === 'Scheduled'" (click)="publishCampaign(campaign.id)">Publier</button>
+              <button type="button" class="nl-btn nl-btn-danger" *ngIf="campaign.status === 'Draft' || campaign.status === 'Scheduled'" (click)="cancelCampaign(campaign.id)">Annuler</button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="nl-panel" *ngIf="currentView === 'analytics'">
+    <div class="nl-panel-head">
+      <div>
+        <h2>Analytics de campagne</h2>
+        <p>Consultez la performance de lecture de la campagne selectionnee.</p>
+      </div>
+      <button type="button" class="nl-btn nl-btn-secondary" (click)="setView('campaigns')">Retour aux campagnes</button>
+    </div>
+
+    <div class="nl-state" *ngIf="loadingAnalytics">Chargement des analytics...</div>
+
+    <div class="nl-empty" *ngIf="!loadingAnalytics && !analytics">
+      <h3>Aucune campagne selectionnee</h3>
+      <p>Ouvrez une campagne pour afficher son taux de lecture et son volume de diffusion.</p>
+    </div>
+
+    <div class="nl-analytics" *ngIf="!loadingAnalytics && analytics">
+      <div class="nl-analytics-main">
+        <div class="nl-analytics-card">
+          <span class="nl-stat-label">Campagne</span>
+          <strong>{{ analytics.campaignName }}</strong>
+          <p>Identifiant {{ analytics.campaignId }}</p>
+        </div>
+
+        <div class="nl-analytics-card">
+          <span class="nl-stat-label">Destinataires</span>
+          <strong>{{ analytics.totalRecipients }}</strong>
+          <p>Population cible de la campagne</p>
+        </div>
+
+        <div class="nl-analytics-card">
+          <span class="nl-stat-label">Lus</span>
+          <strong>{{ analytics.totalRead }}</strong>
+          <p>Newsletters ouvertes par les employes</p>
+        </div>
+
+        <div class="nl-analytics-card">
+          <span class="nl-stat-label">Non lus</span>
+          <strong>{{ analytics.totalUnread }}</strong>
+          <p>Destinataires n'ayant pas encore lu le contenu</p>
+        </div>
+      </div>
+
+      <div class="nl-progress-card">
+        <div class="nl-progress-head">
+          <h3>Taux de lecture</h3>
+          <strong>{{ analytics.readRate }}%</strong>
+        </div>
+
+        <div class="nl-progress-bar">
+          <span [style.width.%]="getAnalyticsReadPercent()"></span>
+        </div>
+
+        <p>
+          Le suivi se base sur le marquage "lu" cote employe via l'endpoint
+          <code>/api/my-newsletters/{{ '{' }}analyticsId{{ '}' }}/read</code>.
+        </p>
+      </div>
+    </div>
+<section class="nl-preview">
+  <ng-container *ngIf="previewNewsletter">
+    <h3>{{ previewNewsletter.title }}</h3>
+    <p>{{ previewNewsletter.subject }}</p>
+    <span>Creee le {{ formatDate(previewNewsletter.createdAt) }}</span>
+    <span *ngIf="previewNewsletter.updatedAt">
+      Maj {{ formatDate(previewNewsletter.updatedAt) }}
+    </span>
+    <div class="nl-preview-html" [innerHTML]="previewNewsletter.htmlContent"></div>
+    <div class="nl-preview-text" *ngIf="previewNewsletter.textContent">
+      <pre>{{ previewNewsletter.textContent }}</pre>
+    </div>
+  </ng-container>        <!-- ✅ ng-container fermé AVANT section -->
+</section>               <!-- ✅ section fermé après -->

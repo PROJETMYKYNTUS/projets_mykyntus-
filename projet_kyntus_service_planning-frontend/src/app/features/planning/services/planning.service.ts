@@ -1,7 +1,7 @@
 // features/planning/services/planning.service.ts
 
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient,HttpHeaders } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
@@ -197,11 +197,16 @@ export class PlanningService {
 
   private base      = `${environment.apiUrl}/planning`;
   private subSvcUrl = `${environment.apiUrl}/SubServices`;
+  private api       = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
 
-  // ── CRUD Planning ──────────────────────────────────
+  private getHeaders(): HttpHeaders {
+    const token = localStorage.getItem('access_token');
+    return new HttpHeaders({ Authorization: `Bearer ${token}` });
+  }
 
+  // ── CRUD Planning ──────────────────────────────────
   create(dto: CreatePlanningDto): Observable<WeeklyPlanningResponse> {
     return this.http.post<WeeklyPlanningResponse>(this.base, dto);
   }
@@ -211,8 +216,7 @@ export class PlanningService {
   }
 
   getBySubService(subServiceId: number): Observable<WeeklyPlanningResponse[]> {
-    return this.http.get<WeeklyPlanningResponse[]>(
-      `${this.base}/subservice/${subServiceId}`);
+    return this.http.get<WeeklyPlanningResponse[]>(`${this.base}/subservice/${subServiceId}`);
   }
 
   delete(id: number): Observable<void> {
@@ -220,40 +224,51 @@ export class PlanningService {
   }
 
   // ── Génération ────────────────────────────────────
-
   generate(dto: GeneratePlanningDto): Observable<WeeklyPlanningResponse> {
     return this.http.post<WeeklyPlanningResponse>(`${this.base}/generate`, dto);
   }
 
   // ── Config shifts ─────────────────────────────────
-
   saveShiftConfig(dto: SaveShiftConfigDto): Observable<WeekShiftConfigResponse> {
     return this.http.post<WeekShiftConfigResponse>(`${this.base}/config`, dto);
   }
 
-  getShiftConfig(
-    subServiceId: number,
-    weekCode: string
-  ): Observable<WeekShiftConfigResponse> {
-    return this.http.get<WeekShiftConfigResponse>(
-      `${this.base}/config/${subServiceId}/${weekCode}`);
+  getShiftConfig(subServiceId: number, weekCode: string): Observable<WeekShiftConfigResponse> {
+    return this.http.get<WeekShiftConfigResponse>(`${this.base}/config/${subServiceId}/${weekCode}`);
   }
 
-  generateFromConfig(
-    dto: GeneratePlanningFromConfigDto
-  ): Observable<WeeklyPlanningResponse> {
-    return this.http.post<WeeklyPlanningResponse>(
-      `${this.base}/generate-from-config`, dto);
+  generateFromConfig(dto: GeneratePlanningFromConfigDto): Observable<WeeklyPlanningResponse> {
+    return this.http.post<WeeklyPlanningResponse>(`${this.base}/generate-from-config`, dto);
+  }
+
+  // ── Vue Employé ───────────────────────────────────
+  getMyCurrentPlanning(userId: number): Observable<any> {
+    return this.http.get(
+      `${this.api}/planning/my/current?userId=${userId}`,
+      { headers: this.getHeaders() }
+    );
+  }
+
+  getMyPlanning(weekCode: string, userId: number): Observable<any> {
+    return this.http.get(
+      `${this.api}/planning/my/${weekCode}?userId=${userId}`,
+      { headers: this.getHeaders() }
+    );
+  }
+
+  getMyHistory(userId: number): Observable<any> {
+    return this.http.get(
+      `${this.api}/planning/my/history?userId=${userId}`,
+      { headers: this.getHeaders() }
+    );
   }
 
   // ── Publication + Override ─────────────────────────
-
   publish(id: number, validatorId: number): Observable<WeeklyPlanningResponse> {
     return this.http.post<WeeklyPlanningResponse>(
       `${this.base}/${id}/publish?validatorId=${validatorId}`, {});
   }
 
-  // ✅ CORRIGÉ — envoie newSubServiceShiftConfigId au backend
   overrideShift(dto: OverrideShiftDto): Observable<DayAssignment> {
     return this.http.put<DayAssignment>(`${this.base}/override`, dto);
   }
@@ -266,42 +281,29 @@ export class PlanningService {
     return this.http.put<DayAssignment>(`${this.base}/override-saturday`, dto);
   }
 
-  getShiftConfigsForSaturday(
-    subServiceId: number,
-    weekCode: string
-  ): Observable<ShiftConfigResponseNew[]> {
-    return this.http.get<WeekShiftConfigResponse>(
-      `${this.base}/config/${subServiceId}/${weekCode}`)
+  getShiftConfigsForSaturday(subServiceId: number, weekCode: string): Observable<ShiftConfigResponseNew[]> {
+    return this.http.get<WeekShiftConfigResponse>(`${this.base}/config/${subServiceId}/${weekCode}`)
       .pipe(map((r: WeekShiftConfigResponse) => r.shifts));
   }
 
   // ── Groupes samedi ────────────────────────────────
-
   autoAssignSaturdayGroups(subServiceId: number): Observable<any> {
-    return this.http.post(
-      `${this.base}/saturday-groups/auto/${subServiceId}`, {});
+    return this.http.post(`${this.base}/saturday-groups/auto/${subServiceId}`, {});
   }
 
-  setSaturdayGroup(dto: {
-    userId: number;
-    groupNumber: number;
-    isNewEmployee: boolean;
-  }): Observable<any> {
+  setSaturdayGroup(dto: { userId: number; groupNumber: number; isNewEmployee: boolean }): Observable<any> {
     return this.http.post(`${this.base}/saturday-group`, dto);
   }
-setSaturdayOff(weeklyPlanningId: number, userId: number): Observable<any> {
-  return this.http.delete(
-    `${this.base}/${weeklyPlanningId}/saturday/${userId}/off`
-  );
-}
+
+  setSaturdayOff(weeklyPlanningId: number, userId: number): Observable<any> {
+    return this.http.delete(`${this.base}/${weeklyPlanningId}/saturday/${userId}/off`);
+  }
+
   getSaturdayGroups(subServiceId: number): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/saturday-groups/${subServiceId}`);
   }
 
-  getSaturdayHistory(
-    subServiceId: number,
-    weekCode: string
-  ): Observable<SaturdayHistoryResponse[]> {
+  getSaturdayHistory(subServiceId: number, weekCode: string): Observable<SaturdayHistoryResponse[]> {
     return this.http.get<SaturdayHistoryResponse[]>(
       `${this.base}/saturday-history/${subServiceId}/${weekCode}`);
   }
@@ -311,7 +313,6 @@ setSaturdayOff(weeklyPlanningId: number, userId: number): Observable<any> {
   }
 
   // ── Commentaires ──────────────────────────────────
-
   saveComment(dto: SavePlanningCommentDto): Observable<PlanningCommentDto> {
     return this.http.post<PlanningCommentDto>(`${this.base}/comment`, dto);
   }
@@ -321,29 +322,20 @@ setSaturdayOff(weeklyPlanningId: number, userId: number): Observable<any> {
   }
 
   // ── Sous-services + Employés ──────────────────────
-
   getSubServices(): Observable<SubServiceSimple[]> {
     return this.http.get<SubServiceSimple[]>(this.subSvcUrl);
   }
 
   getSubServiceEmployees(subServiceId: number): Observable<EmployeeItem[]> {
-    return this.http.get<EmployeeItem[]>(
-      `${this.subSvcUrl}/${subServiceId}/employees`);
+    return this.http.get<EmployeeItem[]>(`${this.subSvcUrl}/${subServiceId}/employees`);
   }
 
   // ── Options horaires ──────────────────────────────
-
   getShiftStartOptions(): ShiftOption[] {
     const options: ShiftOption[] = [];
     for (let h = 5; h <= 14; h++) {
-      options.push({
-        label: `${h.toString().padStart(2, '0')}:00`,
-        value: `${h.toString().padStart(2, '0')}:00`
-      });
-      options.push({
-        label: `${h.toString().padStart(2, '0')}:30`,
-        value: `${h.toString().padStart(2, '0')}:30`
-      });
+      options.push({ label: `${h.toString().padStart(2, '0')}:00`, value: `${h.toString().padStart(2, '0')}:00` });
+      options.push({ label: `${h.toString().padStart(2, '0')}:30`, value: `${h.toString().padStart(2, '0')}:30` });
     }
     return options;
   }
@@ -351,15 +343,9 @@ setSaturdayOff(weeklyPlanningId: number, userId: number): Observable<any> {
   getBreakSlotOptions(): ShiftOption[] {
     const options: ShiftOption[] = [];
     for (let h = 11; h <= 16; h++) {
-      options.push({
-        label: `${h.toString().padStart(2, '0')}:00`,
-        value: `${h.toString().padStart(2, '0')}:00`
-      });
+      options.push({ label: `${h.toString().padStart(2, '0')}:00`, value: `${h.toString().padStart(2, '0')}:00` });
       if (h < 16) {
-        options.push({
-          label: `${h.toString().padStart(2, '0')}:30`,
-          value: `${h.toString().padStart(2, '0')}:30`
-        });
+        options.push({ label: `${h.toString().padStart(2, '0')}:30`, value: `${h.toString().padStart(2, '0')}:30` });
       }
     }
     return options;
@@ -374,7 +360,6 @@ setSaturdayOff(weeklyPlanningId: number, userId: number): Observable<any> {
     return `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
   }
 
-  // Ancien getShifts() gardé pour compatibilité
   getShifts(): Observable<ShiftSimple[]> {
     return of([
       { id: 1, label: '8h',  startTime: '08:00' },
@@ -383,4 +368,5 @@ setSaturdayOff(weeklyPlanningId: number, userId: number): Observable<any> {
       { id: 4, label: '11h', startTime: '11:00' },
     ]);
   }
-}
+
+} 

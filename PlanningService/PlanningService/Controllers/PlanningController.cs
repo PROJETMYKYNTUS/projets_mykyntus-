@@ -28,7 +28,7 @@ public class PlanningController : ControllerBase
     }
 
     // GET api/planning/5
-    [HttpGet("{id}")]
+    [HttpGet("{id:int}")]  // ← UNIQUEMENT les entiers
     public async Task<IActionResult> GetById(int id)
     {
         var result = await _planningService.GetPlanningByIdAsync(id);
@@ -196,8 +196,26 @@ public class PlanningController : ControllerBase
     // ════════════════════════════════════════════════════
     // VUE EMPLOYÉ
     // ════════════════════════════════════════════════════
+    // VUE EMPLOYÉ
+    // ════════════════════════════════════════════════════
 
-    // GET api/planning/my/2026-W10?userId=5
+    // ✅ DOIT être AVANT my/{weekCode}
+    [HttpGet("my/current")]
+    public async Task<IActionResult> GetMyCurrentPlanning([FromQuery] int userId)
+    {
+        var result = await _planningService.GetMyCurrentPlanningAsync(userId);
+        return result == null ? NotFound() : Ok(result);
+    }
+
+    // ✅ DOIT être AVANT my/history aussi
+    [HttpGet("my/history")]
+    public async Task<IActionResult> GetMyHistory([FromQuery] int userId)
+    {
+        var result = await _planningService.GetMyPlanningHistoryAsync(userId);
+        return Ok(result);
+    }
+
+    // ✅ Route paramétrique EN DERNIER
     [HttpGet("my/{weekCode}")]
     public async Task<IActionResult> GetMyPlanning(string weekCode, [FromQuery] int userId)
     {
@@ -206,12 +224,7 @@ public class PlanningController : ControllerBase
     }
 
     // GET api/planning/my/history?userId=5
-    [HttpGet("my/history")]
-    public async Task<IActionResult> GetMyHistory([FromQuery] int userId)
-    {
-        var result = await _planningService.GetMyPlanningHistoryAsync(userId);
-        return Ok(result);
-    }
+
     // POST api/planning/comment
     [HttpPost("comment")]
     public async Task<IActionResult> SaveComment([FromBody] SavePlanningCommentDto dto)

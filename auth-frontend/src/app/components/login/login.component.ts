@@ -57,19 +57,32 @@ export class LoginComponent implements OnInit {
     const loginData = this.loginForm.value;
 
     this.authService.login(loginData).subscribe({
-      next: (response: any) => {
-        console.log('Connexion réussie', response);
+     next: (response: any) => {
+  console.log('Connexion réussie', response);
 
-        // Stocker les tokens
-        localStorage.setItem('access_token', response.accessToken);
-        localStorage.setItem('refresh_token', response.refreshToken);
-        localStorage.setItem('user', JSON.stringify(response.user));
-        localStorage.setItem('token_type', response.tokenType);
+  // ✅ Extraire userId depuis le token JWT
+  const payload = JSON.parse(atob(response.accessToken.split('.')[1]));
+  const userId = parseInt(
+    payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
+  );
 
-        // ✅ Rediriger vers planning
-        window.location.href =
-          `http://localhost:4200/auth-callback?token=${response.accessToken}&refresh=${response.refreshToken}`;
-      },
+  // Stocker les tokens
+  localStorage.setItem('access_token', response.accessToken);
+  localStorage.setItem('refresh_token', response.refreshToken);
+  localStorage.setItem('token_type', response.tokenType);
+
+  // ✅ Stocker user AVEC l'id
+  localStorage.setItem('user', JSON.stringify({
+    id: userId,
+    username: response.user?.username || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'],
+    email: response.user?.email || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'],
+    role: response.user?.role || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
+  }));
+
+  // Rediriger vers planning
+  window.location.href =
+    `http://localhost:4200/auth-callback?token=${response.accessToken}&refresh=${response.refreshToken}`;
+},
       error: (error: any) => {
         console.error('Erreur de connexion', error);
         this.loading = false;

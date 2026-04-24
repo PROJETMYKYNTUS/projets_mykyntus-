@@ -3,26 +3,26 @@ using Ocelot.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Charger ocelot.json
 builder.Configuration.AddJsonFile("ocelot.json", optional: false, reloadOnChange: true);
 
-// CORS pour Angular
+// ? CORS avec AllowCredentials pour SignalR
 builder.Services.AddCors(options => {
     options.AddPolicy("AllowAngular", policy => {
         policy.WithOrigins("http://localhost:4200")
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials(); // ? obligatoire pour SignalR
     });
 });
 
-// Ajouter Ocelot
 builder.Services.AddOcelot(builder.Configuration);
 
 var app = builder.Build();
 
 app.UseCors("AllowAngular");
 
-// Lancer Ocelot
+app.UseWebSockets(); // ? obligatoire pour SignalR WebSocket
+
 await app.UseOcelot();
 
 app.Run();

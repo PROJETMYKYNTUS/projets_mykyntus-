@@ -1,8 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using PlanningService.Data;
 using PlanningService.DTOs.Planning;
 using PlanningService.Enums;
 using PlanningService.Helpers;
+using PlanningService.Hubs;
 using PlanningService.Interfaces;
 using PlanningService.Models;
 
@@ -11,10 +13,12 @@ namespace PlanningService.Services;
 public class PlanningService : IPlanningService
 {
     private readonly AppDbContext _context;
+    private readonly IHubContext<PlanningHub> _hubContext;
 
-    public PlanningService(AppDbContext context)
+    public PlanningService(AppDbContext context, IHubContext<PlanningHub> hubContext)
     {
         _context = context;
+        _hubContext = hubContext;
     }
 
     // ════════════════════════════════════════════════════
@@ -716,7 +720,52 @@ public class PlanningService : IPlanningService
 
         await _context.SaveChangesAsync();
     }
+    public async Task<MyPlanningDto?> GetMyCurrentPlanningAsync(int userId)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        Console.WriteLine($"TODAY: {today}, userId: {userId}");
 
+        // Test 1 : tous les plannings publiés
+        var allPublished = await _context.WeeklyPlannings
+            .Where(p => p.Status == PlanningStatus.Published)
+            .ToListAsync();
+        Console.WriteLine($"Plannings publiés: {allPublished.Count}");
+        foreach (var p in allPublished)
+            Console.WriteLine($"  -> Id={p.Id} WeekCode={p.WeekCode} WeekStart={p.WeekStartDate}");
+
+        // Test 2 : assignments pour cet userId
+        var assignments = await _context.ShiftAssignments
+            .Where(a => a.UserId == userId)
+            .ToListAsync();
+        Console.WriteLine($"Assignments pour userId={userId}: {assignments.Count}");
+
+        var planning = await _context.WeeklyPlannings
+            .Include(p => p.SubService)
+            .Include(p => p.ShiftAssignments)
+                .ThenInclude(a => a.Shift)
+            .Include(p => p.ShiftAssignments)
+                .ThenInclude(a => a.SubServiceShiftConfig)
+            .Where(p => p.Status == PlanningStatus.Published
+                     && p.ShiftAssignments.Any(a => a.UserId == userId))
+            .OrderByDescending(p => p.WeekStartDate)
+            .FirstOrDefaultAsync();
+
+        Console.WriteLine($"Planning trouvé: {planning?.Id.ToString() ?? "NULL"}");
+
+        if (planning == null) return null;
+
+        return new MyPlanningDto
+        {
+            WeekCode = planning.WeekCode,
+            WeekStartDate = planning.WeekStartDate,
+            SubServiceName = planning.SubService.Name,
+            Days = planning.ShiftAssignments
+                .Where(a => a.UserId == userId)
+                .OrderBy(a => a.AssignedDate)
+                .Select(a => MapToDayDtoNew(a))
+                .ToList()
+        };
+    }
     // ════════════════════════════════════════════════════
     // OVERRIDE MANAGER
     // ════════════════════════════════════════════════════
@@ -774,18 +823,43 @@ public class PlanningService : IPlanningService
     // ════════════════════════════════════════════════════
     // PUBLIER
     // ════════════════════════════════════════════════════
-    public async Task<WeeklyPlanningResponseDto> PublishPlanningAsync(int planningId, int validatorId)
+ public async Task<WeeklyPlanningResponseDto> PublishPlanningAsync(int planningId, int validatorId)
+{
+    var planning = await _context.WeeklyPlannings
+        .Include(p => p.ShiftAssignments)
+        .Include(p => p.SubService)
+        .FirstOrDefaultAsync(p => p.Id == planningId);
+
+    if (planning == null) throw new Exception("Planning introuvable");
+
+    planning.Status      = PlanningStatus.Published;
+    planning.ValidatedBy = validatorId;
+
+    await _context.SaveChangesAsync();
+
+    // ✅ Notifier chaque employé en temps réel
+    var userIds = planning.ShiftAssignments
+        .Select(a => a.UserId)
+        .Distinct()
+        .ToList();
+
+    foreach (var userId in userIds)
     {
-        var planning = await _context.WeeklyPlannings.FindAsync(planningId)
-            ?? throw new Exception("Planning introuvable.");
+            Console.WriteLine($"📢 Envoi notification à user_{userId}");
+            await _hubContext.Clients
+                .Group($"user_{userId}")
+                .SendAsync("PlanningPublished", new
+                {
+                    weekCode = planning.WeekCode,
+                    subServiceName = planning.SubService.Name,
+                    message = $"Votre planning {planning.WeekCode} est disponible !"
+                });
+            Console.WriteLine($"✅ Notification envoyée à user_{userId}");
+        }
 
-        planning.Status = PlanningStatus.Published;
-        planning.ValidatedBy = validatorId;
-        await _context.SaveChangesAsync();
-
-        return await GetPlanningByIdAsync(planningId)
-            ?? throw new Exception("Erreur publication.");
-    }
+    return await GetPlanningByIdAsync(planning.Id)
+        ?? throw new Exception("Erreur publication planning.");
+}
 
     // ════════════════════════════════════════════════════
     // GROUPES SAMEDI

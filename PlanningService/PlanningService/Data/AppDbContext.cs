@@ -10,7 +10,7 @@ public class AppDbContext : DbContext
     {
     }
 
-    // ── DbSets ──
+    // ── DbSets existants ──
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<Role> Roles { get; set; } = null!;
     public DbSet<Floor> Floors { get; set; } = null!;
@@ -28,9 +28,16 @@ public class AppDbContext : DbContext
     public DbSet<Conge> Conges { get; set; } = null!;
     public DbSet<PlanningComment> PlanningComments { get; set; } = null!;
     public DbSet<SaturdayHistory> SaturdayHistories => Set<SaturdayHistory>();
-
-    // ✅ NOUVEAU
     public DbSet<SubServiceShiftConfig> SubServiceShiftConfigs { get; set; } = null!;
+    public DbSet<Reclamation> Reclamations { get; set; } = null!;
+    public DbSet<ReclamationHistorique> ReclamationHistoriques { get; set; } = null!;
+    public DbSet<Proposition> Propositions { get; set; } = null!;
+    public DbSet<PropositionHistorique> PropositionHistoriques { get; set; } = null!;
+    // ✅ NOUVEAU — Newsletter
+    public DbSet<Newsletter> Newsletters { get; set; } = null!;
+    public DbSet<NewsletterCampaign> NewsletterCampaigns { get; set; } = null!;
+  
+    public DbSet<CampaignAnalytics> CampaignAnalytics { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -87,7 +94,6 @@ public class AppDbContext : DbContext
             .HasForeignKey(a => a.WeeklyPlanningId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // ✅ NOUVEAU — ShiftAssignment → SubServiceShiftConfig
         modelBuilder.Entity<ShiftAssignment>()
             .HasOne(a => a.SubServiceShiftConfig)
             .WithMany()
@@ -119,6 +125,16 @@ public class AppDbContext : DbContext
             .HasForeignKey(d => d.ResolverId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        modelBuilder.Entity<Reclamation>().HasMany(r => r.Historique)
+        .WithOne(h => h.Reclamation)
+        .HasForeignKey(h => h.ReclamationId)
+        .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Proposition>().HasMany(p => p.Historique)
+            .WithOne(h => h.Proposition)
+            .HasForeignKey(h => h.PropositionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // ── Conge ──
         modelBuilder.Entity<Conge>(entity =>
         {
@@ -130,56 +146,56 @@ public class AppDbContext : DbContext
             entity.HasIndex(c => new { c.UserId, c.StartDate, c.EndDate });
         });
 
-        // ✅ NOUVEAU — SubServiceShiftConfig ──
+        // ── SubServiceShiftConfig ──
         modelBuilder.Entity<SubServiceShiftConfig>(entity =>
         {
-            // Index unique : pas deux shifts avec même label
-            // pour le même sous-service et la même semaine
-            entity.HasIndex(e => new
-            {
-                e.SubServiceId,
-                e.WeekCode,
-                e.Label
-            }).IsUnique();
-
-            entity.Property(e => e.Label)
-                  .IsRequired()
-                  .HasMaxLength(50);
-
-            entity.Property(e => e.WeekCode)
-                  .IsRequired()
-                  .HasMaxLength(10);
-
-            entity.Property(e => e.Percentage)
-                  .HasPrecision(5, 2);
-
-            // EndTime est calculé -> pas stocké en base
+            entity.HasIndex(e => new { e.SubServiceId, e.WeekCode, e.Label }).IsUnique();
+            entity.Property(e => e.Label).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.WeekCode).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.Percentage).HasPrecision(5, 2);
             entity.Ignore(e => e.EndTime);
-
             entity.HasOne(e => e.SubService)
                   .WithMany()
                   .HasForeignKey(e => e.SubServiceId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
+
+        // ── PlanningComment ──
         modelBuilder.Entity<PlanningComment>(entity =>
         {
-            // Un seul commentaire par employé par planning
-            entity.HasIndex(e => new { e.WeeklyPlanningId, e.UserId })
-                  .IsUnique();
-
-            entity.Property(e => e.Comment)
-                  .IsRequired()
-                  .HasMaxLength(500);
-
+            entity.HasIndex(e => new { e.WeeklyPlanningId, e.UserId }).IsUnique();
+            entity.Property(e => e.Comment).IsRequired().HasMaxLength(500);
             entity.HasOne(e => e.WeeklyPlanning)
                   .WithMany()
                   .HasForeignKey(e => e.WeeklyPlanningId)
                   .OnDelete(DeleteBehavior.Cascade);
-
             entity.HasOne(e => e.User)
                   .WithMany()
                   .HasForeignKey(e => e.UserId)
                   .OnDelete(DeleteBehavior.Restrict);
         });
+
+        // ✅ NOUVEAU — Newsletter ──────────────────────────────────────────────
+
+
+
+        // ✅ CONFIGURATION CORRIGÉE — Newsletter
+        modelBuilder.Entity<NewsletterCampaign>()
+            .HasOne(c => c.Newsletter)
+            .WithMany(n => n.Campaigns)
+            .HasForeignKey(c => c.NewsletterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ✅ À UTILISER
+        modelBuilder.Entity<CampaignAnalytics>()
+            .HasOne(a => a.Campaign)
+            .WithMany(c => c.Analytics)
+            .HasForeignKey(a => a.CampaignId);
+
+        // On indique juste que UserId est requis, sans créer de relation complexe 
+        // si ApplicationUser n'est pas géré par ce DbContext précis.
+        modelBuilder.Entity<CampaignAnalytics>()
+            .Property(a => a.UserId)
+            .IsRequired();
     }
 }

@@ -21,39 +21,39 @@ export const routes: Routes = [
         .then(m => m.DashboardHomeComponent)
   },
   {
-    path: 'dashboard-employee',            // ✅ corrigé : dashboard-employee
+    path: 'dashboard-employee',
     canActivate: [AuthGuard],
-    data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation'] },
+    data: { roles: ['Employee', 'Pilote', 'ROLE_PILOT', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation'] },
     loadComponent: () =>
       import('./features/dashboard/pages/dashboard-employee/dashboard-employee.component')
         .then(m => m.DashboardEmployeeComponent)
   },
-{
+  {
     path: 'reclamations',
     canActivate: [AuthGuard],
     data: {
-      roles: ['employee','RH','Manager','Coach','RP','Admin','Audit','Equipe_Formation']
+      roles: ['employee', 'Employee', 'RH', 'Manager', 'Coach', 'RP', 'Admin', 'Audit', 'Equipe_Formation', 'Pilote', 'ROLE_PILOT']
     },
     loadComponent: () =>
       import('./features/reclamation/employee/reclamation-employee.component')
         .then(m => m.ReclamationEmployeeComponent)
   },
- 
+
   // Vue admin/gestion (RH, Manager, RP, Admin, Audit)
   {
     path: 'reclamations-admin',
     canActivate: [AuthGuard],
-    data: { roles: ['RH','Manager','RP','Admin','Audit'] },
+    data: { roles: ['RH', 'Manager', 'RP', 'Admin', 'Audit'] },
     loadComponent: () =>
       import('./features/reclamation/admin/reclamation-admin.component')
         .then(m => m.ReclamationAdminComponent)
   },
-  
+
   // ─── NEWSLETTER — Admin + RH ──────────────────────
   {
     path: 'newsletter',
     canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },      // ✅ RH ajouté
+    data: { roles: ['Admin', 'RH'] },
     component: NewsletterAdminComponent
   },
 
@@ -111,7 +111,7 @@ export const routes: Routes = [
   {
     path: 'users',
     canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },      // ✅ RH gère les employés
+    data: { roles: ['Admin', 'RH'] },
     loadChildren: () =>
       import('./features/users/users-routing-module')
         .then(m => m.UsersRoutingModule)
@@ -155,10 +155,20 @@ export const routes: Routes = [
   {
     path: 'planning',
     canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'] }, // ✅ tous les vrais rôles
+    data: { roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Employee', 'ROLE_PILOT', 'Audit', 'Equipe_Formation'] },
     loadChildren: () =>
       import('./features/planning/planning-routing-module')
         .then(m => m.PlanningRoutingModule)
+  },
+
+  // ─── DOCUMENTATION (intégrée dans le même frontend) ─
+  {
+    path: 'documentation',
+    canActivate: [AuthGuard],
+    data: { roles: ['Admin', 'RH', 'Employee', 'Pilote', 'ROLE_PILOT', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation'] },
+    loadChildren: () =>
+      import('./features/documentation/documentation.module')
+        .then((m) => m.DocumentationModule),
   },
 
   // ─── AUTRES ───────────────────────────────────────
@@ -170,5 +180,5 @@ export const routes: Routes = [
   },
 
   { path: '', redirectTo: 'auth-callback', pathMatch: 'full' },
-  { path: '**', redirectTo: 'dashboard-employee' }   // ✅ corrigé
+  { path: '**', redirectTo: 'dashboard-employee' }
 ];

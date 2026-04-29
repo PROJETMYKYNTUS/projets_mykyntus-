@@ -19,3 +19,11 @@ GRANT ALL PRIVILEGES ON DATABASE auth_db TO auth_user;
 GRANT ALL ON SCHEMA public TO auth_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO auth_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO auth_user;
+
+-- ─── BASE DOCUMENTATION (microservice Documentation) ──
+CREATE USER documentation_user WITH PASSWORD 'Htelgroupe!2025';
+CREATE DATABASE mykyntus_documentation OWNER documentation_user;
+\c mykyntus_documentation
+GRANT ALL ON SCHEMA public TO documentation_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO documentation_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO documentation_user;

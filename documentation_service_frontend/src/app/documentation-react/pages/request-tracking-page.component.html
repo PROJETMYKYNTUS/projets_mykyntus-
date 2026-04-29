@@ -1,0 +1,93 @@
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h3 class="text-lg font-semibold text-white">Historique de mes demandes</h3>
+      <p class="text-xs text-slate-500 mt-1">
+        Demandes dont vous êtes le demandeur ou le bénéficiaire. Document disponible après génération par le RH.
+      </p>
+    </div>
+  </div>
+
+  @if (loading) {
+    <p class="text-slate-400 text-sm">Chargement…</p>
+  } @else if (error) {
+    <p class="text-red-400 text-sm">{{ error }}</p>
+  }
+
+  <div class="card-navy">
+    <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse min-w-[640px]">
+      <thead>
+        <tr class="bg-navy-800/50 border-b border-navy-800">
+          <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">ID</th>
+          <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Type</th>
+          <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date</th>
+          <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Statut</th>
+          <th
+            class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right min-w-[11rem] whitespace-nowrap"
+          >
+            Document
+          </th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-navy-800">
+        @if (!loading && !error && requests.length === 0) {
+          <tr>
+            <td colspan="5" class="px-6 py-8 text-center text-sm text-slate-500">Aucune demande.</td>
+          </tr>
+        }
+        @for (req of requests; track req.internalId) {
+          <tr class="hover:bg-navy-800/30 transition-colors">
+            <td class="px-6 py-4">
+              <span class="text-sm font-mono text-blue-400">{{ req.id }}</span>
+            </td>
+            <td class="px-6 py-4">
+              <span class="text-sm font-medium text-slate-200">{{ req.type }}</span>
+            </td>
+            <td class="px-6 py-4 text-sm text-slate-400">{{ req.requestDate }}</td>
+            <td class="px-6 py-4">
+              <app-status-badge [status]="req.status"></app-status-badge>
+              @if (showProcessingHint(req)) {
+                <p class="text-[10px] text-amber-500/90 mt-1">En cours de traitement</p>
+              }
+              @if (req.status === 'Rejected' && req.rejectionReason?.trim()) {
+                <p class="text-[10px] text-red-400 mt-1">Motif de rejet : {{ req.rejectionReason }}</p>
+              }
+            </td>
+            <td class="relative overflow-visible px-6 py-4 text-right min-w-[11rem] whitespace-nowrap">
+              @if (hasDocument(req)) {
+                <div class="flex flex-nowrap justify-end items-center gap-2">
+                  <button
+                    type="button"
+                    class="p-2 text-slate-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
+                    title="Aperçu (PDF)"
+                    (click)="openPreview(req)"
+                  >
+                    <app-doc-icon name="eye" klass="w-4 h-4"></app-doc-icon>
+                  </button>
+                  <app-generated-document-format-menu
+                    [generatedDocumentId]="req.generatedDocumentId ?? null"
+                    [fileNameBase]="exportFileNameHint(req)"
+                    appearance="standard"
+                  />
+                </div>
+              } @else {
+                <span class="text-xs text-slate-600">—</span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <app-generated-document-preview-modal
+    [open]="previewOpen"
+    [title]="previewTitle"
+    [subtitle]="previewSubtitle"
+    [generatedDocumentId]="previewGeneratedId"
+    [exportFileNameBase]="previewExportFileNameBase"
+    (closed)="closePreview()"
+  />
+</div>

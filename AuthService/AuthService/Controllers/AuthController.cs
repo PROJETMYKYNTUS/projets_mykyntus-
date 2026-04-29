@@ -10,6 +10,8 @@ namespace AuthService.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
+        private const string AccessTokenCookieName = "kyntus_access_token";
+        private const string RefreshTokenCookieName = "kyntus_refresh_token";
         private readonly IAuthService _authService;
         private readonly ILogger<AuthController> _logger;
 
@@ -29,6 +31,7 @@ namespace AuthService.Controllers
             try
             {
                 var response = await _authService.RegisterAsync(registerDto);
+                SetAuthCookies(response);
                 return Ok(response);
             }
             catch (InvalidOperationException ex)
@@ -53,6 +56,7 @@ namespace AuthService.Controllers
             try
             {
                 var response = await _authService.LoginAsync(loginDto);
+                SetAuthCookies(response);
                 return Ok(response);
             }
             catch (UnauthorizedAccessException ex)
@@ -77,6 +81,7 @@ namespace AuthService.Controllers
             try
             {
                 var response = await _authService.RefreshTokenAsync(refreshTokenDto.RefreshToken);
+                SetAuthCookies(response);
                 return Ok(response);
             }
             catch (UnauthorizedAccessException ex)
@@ -101,6 +106,7 @@ namespace AuthService.Controllers
             try
             {
                 var result = await _authService.LogoutAsync(refreshTokenDto.RefreshToken);
+                ClearAuthCookies();
                 if (result)
                 {
                     return Ok(new { message = "Déconnexion réussie" });
@@ -112,6 +118,35 @@ namespace AuthService.Controllers
                 _logger.LogError(ex, "Erreur serveur lors de la déconnexion");
                 return StatusCode(500, new { message = "Une erreur est survenue lors de la déconnexion" });
             }
+        }
+
+        private void SetAuthCookies(AuthResponseDto response)
+        {
+            var accessTokenCookie = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTimeOffset.UtcNow.AddSeconds(response.ExpiresIn),
+                Path = "/"
+            };
+            Response.Cookies.Append(AccessTokenCookieName, response.AccessToken, accessTokenCookie);
+
+            var refreshTokenCookie = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTimeOffset.UtcNow.AddDays(7),
+                Path = "/"
+            };
+            Response.Cookies.Append(RefreshTokenCookieName, response.RefreshToken, refreshTokenCookie);
+        }
+
+        private void ClearAuthCookies()
+        {
+            Response.Cookies.Delete(AccessTokenCookieName, new CookieOptions { Path = "/" });
+            Response.Cookies.Delete(RefreshTokenCookieName, new CookieOptions { Path = "/" });
         }
 
         /// <summary>

@@ -1,12 +1,14 @@
 import { Injectable } from '@angular/core';
 import { CanActivate, ActivatedRouteSnapshot, Router } from '@angular/router';
+import { JwtRoleService } from '../../core/auth/jwt-role.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthGuard implements CanActivate {
 
-  private readonly ROLE_CLAIM = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
-
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private readonly jwtRole: JwtRoleService,
+  ) {}
 
   canActivate(route: ActivatedRouteSnapshot): boolean {
     const token = localStorage.getItem('token');
@@ -30,7 +32,7 @@ export class AuthGuard implements CanActivate {
     // Si la route exige un rôle spécifique
     const allowedRoles = route.data?.['roles'] as string[];
     if (allowedRoles?.length) {
-      const role = this.getRole(token);
+      const role = this.jwtRole.getRoleFromToken(token);
       if (!allowedRoles.includes(role)) {
         this.router.navigate(['/unauthorized']);
         return false;
@@ -41,17 +43,13 @@ export class AuthGuard implements CanActivate {
   }
   
   isAdminRole(token: string): boolean {
-  const role = this.getRole(token);
-  return ['Admin', 'RH'].includes(role);
-}
+    const role = this.jwtRole.getRoleFromToken(token);
+    return ['Admin', 'RH'].includes(role);
+  }
 
+  /** Exposé pour les composants qui dupliquaient le décodage JWT (ex. boutons Documentation). */
   getRole(token: string): string {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload[this.ROLE_CLAIM] || '';
-    } catch {
-      return '';
-    }
+    return this.jwtRole.getRoleFromToken(token);
   }
 
   isTokenExpired(token: string): boolean {

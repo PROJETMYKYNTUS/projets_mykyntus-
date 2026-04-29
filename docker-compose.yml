@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
 
   # ─── DATABASE UNIQUE ──────────────────────────────────
@@ -12,7 +10,7 @@ services:
       POSTGRES_PASSWORD: Postgres@2026
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # ← script auto-exécuté
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
     healthcheck:
@@ -33,7 +31,6 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      # ✅ Pointe vers le même postgres, base auth_db
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=auth_db;Username=auth_user;Password=Auth@2026"
     ports:
       - "5220:8080"
@@ -52,13 +49,54 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      # ✅ Pointe vers le même postgres, base kyntus_db
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=kyntus_db;Username=kyntus_user;Password=Kyntus@2026"
     ports:
       - "5201:8080"
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - microservices-network
+
+  documentation-backend:
+    build:
+      context: ./documentation_service_backend
+      dockerfile: Dockerfile
+    container_name: documentation_backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Documentation: "Host=postgres;Port=5432;Database=mykyntus_documentation;Username=documentation_user;Password=Htelgroupe!2025"
+    ports:
+      - "5002:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - microservices-network
+
+  parrainage-backend:
+    build:
+      context: ./parrainage_service_backend
+    container_name: parrainage_backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "5003:8080"
+    networks:
+      - microservices-network
+
+  prime-backend:
+    build:
+      context: ./prime_service_backend
+    container_name: prime_backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "5001:8080"
     networks:
       - microservices-network
 
@@ -106,6 +144,54 @@ services:
       - "4200:80"
     depends_on:
       - api-gateway
+    networks:
+      - microservices-network
+
+  documentation-frontend:
+    build:
+      context: ./documentation_service_frontend
+      dockerfile: Dockerfile
+    container_name: documentation_frontend
+    restart: unless-stopped
+    ports:
+      - "4202:80"
+    depends_on:
+      - documentation-backend
+    networks:
+      - microservices-network
+
+  parrainage-frontend:
+    build:
+      context: ./parrainage_service_frontend
+    container_name: parrainage_frontend
+    restart: unless-stopped
+    ports:
+      - "4203:80"
+    depends_on:
+      - parrainage-backend
+    networks:
+      - microservices-network
+
+  prime-frontend:
+    build:
+      context: ./prime_service_frontend
+    container_name: prime_frontend
+    restart: unless-stopped
+    ports:
+      - "4204:80"
+    depends_on:
+      - prime-backend
+    networks:
+      - microservices-network
+
+  # ─── MINIO ────────────────────────────────────────────
+  documentation-minio:
+    image: minio/minio:latest
+    container_name: documentation_minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
     networks:
       - microservices-network
 

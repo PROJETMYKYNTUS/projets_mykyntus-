@@ -1,0 +1,168 @@
+﻿import { CommonModule } from '@angular/common';
+import { Component, Input } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { environment } from '../../../../../environments/environment';
+
+import { DocumentationIdentityService } from '../../../../core/services/documentation-identity.service';
+import type { DocumentationRole } from '../../interfaces/documentation-role';
+import { AppContextService } from '../../services/app-context.service';
+import { AuditInterfaceNavService } from '../../services/audit-interface-nav.service';
+import type { AuditInterfaceSectionId } from '../../services/audit-interface-nav.service';
+import { DocumentationNavigationService, type DocumentationTabId } from '../../services/documentation-navigation.service';
+import { DocIconComponent } from '../doc-icon/doc-icon.component';
+
+export interface SidebarNavItem {
+  id: DocumentationTabId;
+  labelKey: string;
+  icon: string;
+}
+
+export interface AuditSidebarNavItem {
+  key: string;
+  label?: string;
+  labelKey?: string;
+  icon: string;
+  tab: DocumentationTabId;
+  section: AuditInterfaceSectionId;
+}
+
+@Component({
+  selector: 'app-documentation-sidebar',
+  standalone: true,
+  imports: [CommonModule, DocIconComponent],
+  templateUrl: './documentation-sidebar.component.html',
+  styleUrl: './documentation-sidebar.component.scss',
+})
+export class DocumentationSidebarComponent {
+  /** Bandeau dev fixed en tÃªte : dÃ©cale la sidebar sous le ruban (pleine largeur Ã©cran). */
+  @Input() stackBelowDevBanner = false;
+
+  /** AlignÃ© sur le service : !collapsed â‡” sidebar Â« ouverte Â» (large) */
+  readonly collapsed = toSignal(this.nav.sidebarCollapsed$, { initialValue: false });
+  readonly role = toSignal(this.nav.role$, { initialValue: 'Pilote' as DocumentationRole });
+  readonly activeTab = toSignal(this.nav.activeTab$, { initialValue: 'dashboard' as DocumentationTabId });
+  readonly auditSec = toSignal(this.auditNav.section$, { initialValue: 'journal' });
+
+  readonly piloteNavItems: SidebarNavItem[] = [
+    { id: 'dashboard', labelKey: 'nav.dashboard', icon: 'layout-dashboard' },
+    { id: 'my-docs', labelKey: 'nav.myDocs', icon: 'file-text' },
+    { id: 'request', labelKey: 'nav.requestDoc', icon: 'plus-circle' },
+    { id: 'tracking', labelKey: 'nav.requestTracking', icon: 'history' },
+    { id: 'notifications', labelKey: 'nav.notifications', icon: 'bell' },
+    { id: 'settings', labelKey: 'nav.settings', icon: 'settings' },
+  ];
+
+  readonly auditNavItems: AuditSidebarNavItem[] = [
+    { key: 'journal', label: 'Journal dâ€™audit', icon: 'activity', tab: 'audit-logs', section: 'journal' },
+    { key: 'hist', labelKey: 'nav.accessHistory', icon: 'shield', tab: 'access-history', section: 'access-history' },
+    { key: 'anom', label: 'Anomalies', icon: 'alert-triangle', tab: 'audit-logs', section: 'anomalies' },
+    { key: 'report', label: 'Reporting', icon: 'bar-chart', tab: 'audit-logs', section: 'reporting' },
+    { key: 'notif', labelKey: 'nav.notifications', icon: 'bell', tab: 'notifications', section: 'journal' },
+    { key: 'sett', labelKey: 'nav.settings', icon: 'settings', tab: 'settings', section: 'journal' },
+  ];
+
+  constructor(
+    readonly nav: DocumentationNavigationService,
+    readonly app: AppContextService,
+    readonly auditNav: AuditInterfaceNavService,
+    readonly identity: DocumentationIdentityService,
+  ) {}
+
+  get isSidebarOpen(): boolean {
+    return !this.nav.isSidebarCollapsed;
+  }
+
+  /** Ouverture / fermeture uniquement via le bouton â˜° â€” ne pas appeler depuis la navigation */
+  toggleSidebar(): void {
+    this.nav.toggleSidebar();
+  }
+
+  navigate(tab: DocumentationTabId): void {
+    this.nav.navigateToTab(tab);
+  }
+
+  auditSelect(section: AuditInterfaceSectionId, tab: DocumentationTabId): void {
+    this.auditNav.setSection(section);
+    this.nav.navigateToTab(tab);
+  }
+
+  auditItemActive(
+    item: AuditSidebarNavItem,
+    activeTab: DocumentationTabId,
+    auditSec: AuditInterfaceSectionId,
+  ): boolean {
+    if (item.key === 'notif') return activeTab === 'notifications';
+    if (item.key === 'sett') return activeTab === 'settings';
+    if (item.tab === 'access-history') return activeTab === 'access-history';
+    return activeTab === item.tab && auditSec === item.section;
+  }
+
+  managementItems(role: DocumentationRole): SidebarNavItem[] {
+    const managerItems: SidebarNavItem[] = [
+      { id: 'team-docs', labelKey: 'nav.teamDocs', icon: 'users' },
+      { id: 'team-requests', labelKey: 'nav.teamRequests', icon: 'clipboard-list' },
+      { id: 'notifications', labelKey: 'nav.notifications', icon: 'bell' },
+      { id: 'settings', labelKey: 'nav.settings', icon: 'settings' },
+    ];
+    const hrItems: SidebarNavItem[] = [
+      { id: 'hr-mgmt', labelKey: 'nav.allRequests', icon: 'clipboard-list' },
+      { id: 'hr-doc-history', labelKey: 'nav.hrDocHistory', icon: 'history' },
+      { id: 'doc-gen', labelKey: 'nav.docGen', icon: 'file-edit' },
+      { id: 'templates', labelKey: 'nav.templates', icon: 'layers' },
+      { id: 'notifications', labelKey: 'nav.notifications', icon: 'bell' },
+      { id: 'settings', labelKey: 'nav.settings', icon: 'settings' },
+    ];
+    const rpItems: SidebarNavItem[] = [
+      { id: 'dashboard', labelKey: 'nav.dashboard', icon: 'layout-dashboard' },
+      { id: 'team-docs', labelKey: 'nav.teamDocs', icon: 'users' },
+      { id: 'hr-mgmt', labelKey: 'nav.allRequests', icon: 'clipboard-list' },
+      { id: 'hr-doc-history', labelKey: 'nav.hrDocHistory', icon: 'history' },
+      { id: 'notifications', labelKey: 'nav.notifications', icon: 'bell' },
+      { id: 'settings', labelKey: 'nav.settings', icon: 'settings' },
+    ];
+    const adminItems: SidebarNavItem[] = [
+      { id: 'admin-config', labelKey: 'nav.adminConfig', icon: 'settings' },
+      { id: 'doc-types', labelKey: 'nav.docTypes', icon: 'layers' },
+      { id: 'permissions', labelKey: 'nav.permissions', icon: 'lock' },
+      { id: 'storage', labelKey: 'nav.storage', icon: 'hard-drive' },
+      { id: 'notifications', labelKey: 'nav.notifications', icon: 'bell' },
+      { id: 'settings', labelKey: 'nav.settings', icon: 'settings' },
+    ];
+    switch (role) {
+      case 'Manager':
+      case 'Coach':
+        return managerItems;
+      case 'RH':
+        return hrItems;
+      case 'RP':
+        return rpItems;
+      case 'Admin':
+        return adminItems;
+      default:
+        return [];
+    }
+  }
+
+  logout(): void {
+    // Nettoyer les contextes applicatifs (planning + documentation) puis revenir au login central.
+    const keys = [
+      'token',
+      'access_token',
+      'accessToken',
+      'refresh_token',
+      'refreshToken',
+      'user',
+      'currentUser',
+      'documentation-dev-profile-json',
+      'documentation-dev-user-id',
+      'documentation-dev-user-role',
+      'documentation-dev-tenant-id',
+      'documentation-scope-manager-id',
+      'documentation-scope-coach-id',
+    ];
+    for (const key of keys) {
+      localStorage.removeItem(key);
+    }
+    window.location.href = environment.authLoginUrl;
+  }
+}

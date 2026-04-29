@@ -1,0 +1,209 @@
+<div class="mx-auto max-w-3xl space-y-6">
+  <div class="card-navy p-8 md:p-10">
+    <div class="mb-10 flex items-start gap-4">
+      <div class="w-12 h-12 bg-blue-600/10 rounded-xl flex items-center justify-center">
+        <app-doc-icon name="plus-circle" klass="w-6 h-6 text-blue-500"></app-doc-icon>
+      </div>
+      <div>
+        <h2 class="text-xl font-bold text-white">Demander un document</h2>
+        <p class="mt-1 text-sm leading-6 text-slate-500">
+          Choisissez un <span class="text-slate-300">modèle RH</span> (avec les données demandées pour la génération), un
+          <span class="text-slate-300">type du catalogue</span>, ou une demande
+          <span class="text-slate-300">hors catalogue</span>.
+        </p>
+      </div>
+    </div>
+
+    @if (docTypesLoading) {
+      <p class="text-sm text-slate-400 mb-4">Chargement des modèles et types…</p>
+    }
+    @if (docTypesError) {
+      <p class="text-sm text-amber-400 mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+        {{ docTypesError }}
+      </p>
+    }
+    @if (submitError) {
+      <p class="text-sm text-red-400 mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2">
+        {{ submitError }}
+      </p>
+    }
+    @if (fieldValidationError) {
+      <p class="text-sm text-red-400 mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2">
+        {{ fieldValidationError }}
+      </p>
+    }
+    @if (submitSuccess) {
+      <p class="text-sm text-emerald-400 mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+        Votre demande a bien été enregistrée.
+        @if (submitSuccessRef) {
+          <br />
+          Référence : <strong>{{ submitSuccessRef }}</strong>
+        }
+      </p>
+    }
+
+    <form (submit)="handleSubmit($event)" class="space-y-7">
+      <div class="space-y-2">
+        <label class="text-sm font-medium text-slate-300" for="req-kind">Document souhaité</label>
+        <select
+          id="req-kind"
+          name="selection"
+          class="w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-slate-200 outline-none focus:border-blue-500 transition-all"
+          [(ngModel)]="selectionKey"
+          (ngModelChange)="onSelectionChange($event)"
+          [disabled]="docTypesLoading"
+        >
+          @if (templates.length > 0) {
+            <optgroup label="Modèles RH (données nécessaires à la génération)">
+              @for (t of templates; track t.id) {
+                <option [ngValue]="'tpl:' + t.id">
+                  {{ t.name }}@if (t.documentTypeName) {
+                    — {{ t.documentTypeName }}
+                  }
+                  @if ((t.kind ?? 'dynamic').toLowerCase() === 'static') {
+                    (fichier prêt)
+                  }
+                </option>
+              }
+            </optgroup>
+          }
+          @if (docTypes.length > 0) {
+            <optgroup label="Types du catalogue (sans modèle dédié)">
+              @for (t of docTypes; track t.id) {
+                <option [ngValue]="'type:' + t.id">{{ t.name }}</option>
+              }
+            </optgroup>
+          }
+          <option [ngValue]="OTHER_KEY">{{ otherLabel }}</option>
+        </select>
+        <p class="text-[11px] text-slate-500 leading-relaxed">
+          Les modèles listés sont ceux créés par les RH dans « Modèles ». Les champs affichés correspondent aux données
+          demandées pour remplir le document (variables du modèle).
+        </p>
+      </div>
+
+      @if (selectionKey.startsWith('tpl:')) {
+        @if (templateDetailLoading) {
+          <p class="text-sm text-slate-400">Chargement du détail du modèle…</p>
+        }
+        @if (templateDetailError) {
+          <p class="text-sm text-red-400">{{ templateDetailError }}</p>
+        }
+        @if (templateDetail && !templateDetailLoading) {
+          <div class="space-y-3 rounded-lg border border-navy-700 bg-navy-900/40 p-4">
+            <p class="text-xs font-semibold text-slate-300 uppercase tracking-wide">Données à fournir</p>
+            @if (templateDetail.description?.trim()) {
+              <p class="text-xs text-slate-400">{{ templateDetail.description }}</p>
+            }
+            @if (pilotVariables(templateDetail).length === 0) {
+              <p class="text-xs text-amber-500/90">
+                Ce modèle n’a pas de variables détectées. Précisez le contexte dans le motif ci-dessous.
+              </p>
+            } @else {
+              @for (v of pilotVariables(templateDetail); track v.name) {
+                <div class="space-y-1">
+                  <label class="text-xs font-medium text-slate-400" [attr.for]="'pv-' + v.name">
+                    {{ variableLabel(v.name, v.displayLabel) }}
+                    @if (v.isRequired) {
+                      <span class="text-red-400">*</span>
+                    }
+                    <span class="ml-1 font-mono text-[10px] text-slate-600">({{ '{{' + v.name + '}}' }})</span>
+                  </label>
+                  <input
+                    [id]="'pv-' + v.name"
+                    type="text"
+                    class="w-full bg-navy-800 border border-navy-700 rounded-lg p-2.5 text-sm text-slate-200 outline-none focus:border-blue-500"
+                    [name]="'pv_' + v.name"
+                    [(ngModel)]="pilotFieldValues[v.name]"
+                    [required]="v.isRequired"
+                  />
+                </div>
+              }
+            }
+          </div>
+        }
+      }
+
+      @if (selectionKey === OTHER_KEY) {
+        <div class="space-y-2">
+          <label class="text-sm font-medium text-slate-300">
+            Description du document souhaité <span class="text-red-400">*</span>
+          </label>
+          <textarea
+            rows="3"
+            name="otherDescription"
+            [(ngModel)]="otherDescription"
+            (input)="otherDescriptionError = false"
+            required
+            placeholder="Précisez le document souhaité"
+            class="w-full bg-navy-800 rounded-lg p-3 text-slate-200 outline-none focus:border-blue-500 transition-all resize-none border"
+            [ngClass]="otherDescriptionError ? 'border-red-500/60' : 'border-navy-700'"
+          ></textarea>
+          @if (otherDescriptionError) {
+            <p class="text-xs text-red-400">Ce champ est obligatoire lorsque vous choisissez « Autre ».</p>
+          }
+        </div>
+      }
+
+      <div class="space-y-2">
+        <label class="text-sm font-medium text-slate-300">Motif de la demande</label>
+        <textarea
+          rows="4"
+          name="reason"
+          [(ngModel)]="reason"
+          placeholder="ex. dossier bancaire, visa, etc."
+          class="w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-slate-200 outline-none focus:border-blue-500 transition-all resize-none"
+        ></textarea>
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-sm font-medium text-slate-300">Commentaires complémentaires (facultatif)</label>
+        <input
+          type="text"
+          name="complementaryComments"
+          [(ngModel)]="complementaryComments"
+          class="w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-slate-200 outline-none focus:border-blue-500 transition-all"
+        />
+      </div>
+
+      <div class="pt-2">
+        <button
+          type="submit"
+          [disabled]="submitting || docTypesLoading"
+          class="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-3 font-bold text-white transition-all disabled:cursor-not-allowed disabled:opacity-60"
+          [ngClass]="submitSuccess ? 'bg-emerald-600' : 'bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20'"
+        >
+          @if (submitting) {
+            <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" aria-hidden="true"></span>
+            <span>Envoi en cours...</span>
+          } @else if (submitSuccess) {
+            <app-doc-icon name="check-circle-2" klass="w-5 h-5"></app-doc-icon>
+            <span>Demande envoyée</span>
+          } @else {
+            <app-doc-icon name="plus-circle" klass="w-5 h-5"></app-doc-icon>
+            <span>Envoyer la demande</span>
+          }
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <div class="card-navy p-4 flex items-start gap-3">
+      <app-doc-icon name="clock" klass="w-5 h-5 text-amber-500 mt-0.5"></app-doc-icon>
+      <div>
+        <p class="text-sm font-semibold text-white">Délai de traitement</p>
+        <p class="text-xs text-slate-500">Les demandes standard sont traitées sous 2 à 3 jours ouvrés.</p>
+      </div>
+    </div>
+    <div class="card-navy p-4 flex items-start gap-3">
+      <app-doc-icon name="shield-check" klass="w-5 h-5 text-blue-500 mt-0.5"></app-doc-icon>
+      <div>
+        <p class="text-sm font-semibold text-white">Données pour la génération</p>
+        <p class="text-xs text-slate-500">
+          Les champs affichés pour un modèle RH sont définis par les RH (libellés et obligatoire) dans « Modèles ».
+        </p>
+      </div>
+    </div>
+  </div>
+</div>

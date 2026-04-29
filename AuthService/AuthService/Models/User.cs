@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace AuthService.Models
 {
@@ -25,11 +25,12 @@ namespace AuthService.Models
 
         public DateTime? UpdatedAt { get; set; }
 
-        // Relation avec Role
         public int RoleId { get; set; }
         public Role Role { get; set; } = null!;
 
-        // Pour gérer les refresh tokens (optionnel)
+        /// <summary>Optional: UUID documentation.directory_users.id pour JWT doc_uid / gateway X-User-Id.</summary>
+        public Guid? DocumentationDirectoryUserId { get; set; }
+
         public string? RefreshToken { get; set; }
         public DateTime? RefreshTokenExpiryTime { get; set; }
     }

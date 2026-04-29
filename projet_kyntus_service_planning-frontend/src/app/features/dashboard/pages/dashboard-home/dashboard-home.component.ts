@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { NotificationBellComponent } from '../../../contract/component/notification-bell/notification-bell.component';
 import { NotificationService } from '../../../../core/services/notification.service'; // ← AJOUTEZ
+import { JwtRoleService } from '../../../../core/auth/jwt-role.service';
 
 @Component({
   selector: 'app-dashboard-home',
@@ -24,8 +25,15 @@ export class DashboardHomeComponent implements OnInit {
 
   constructor(
     private router: Router,
-    private notificationService: NotificationService  // ← AJOUTEZ
+    private notificationService: NotificationService, // ← AJOUTEZ
+    private readonly jwtRole: JwtRoleService,
   ) {}
+
+  /** Documentation RH : mêmes rôles JWT que le dashboard manager (`Admin`, `RH` — binôme). */
+  get showDocumentationRhButton(): boolean {
+    return this.jwtRole.hasDocumentationRhAccess();
+  }
+
 
   ngOnInit(): void {
     const userStr = localStorage.getItem('user');

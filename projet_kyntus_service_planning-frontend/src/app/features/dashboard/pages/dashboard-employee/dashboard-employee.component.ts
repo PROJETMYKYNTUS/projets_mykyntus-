@@ -1,6 +1,8 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { PlanningService } from '../../../../core/services/planning.service';
+import { JwtRoleService } from '../../../../core/auth/jwt-role.service';
 import { NotificationService, PlanningNotification } from '../../../../core/services/notification.service';
 import { NewsletterService, EmployeeNewsletter } from '../../../../core/services/newsletter.service';
 import { ReclamationEmployeeComponent } from '../../../reclamation/employee/reclamation-employee.component';
@@ -32,6 +34,7 @@ interface MyPlanning {
   standalone: true,
   imports: [
     CommonModule,
+    RouterModule,
     ReclamationEmployeeComponent],
   templateUrl: './dashboard-employee.component.html',
   styleUrls: ['./dashboard-employee.component.css']
@@ -97,8 +100,14 @@ export class DashboardEmployeeComponent implements OnInit, OnDestroy {
   constructor(
     private planningService: PlanningService,
     private notificationService: NotificationService,
-    private newsletterSvc: NewsletterService
+    private newsletterSvc: NewsletterService,
+    private readonly jwtRole: JwtRoleService,
   ) {}
+
+  /** Employee = Pilote : deux labels de rôle donnent le même accès Documentation employé. */
+  get showDocumentationPilotButton(): boolean {
+    return this.jwtRole.hasDocumentationPilotAccess();
+  }
 
   ngOnInit(): void {
   const user = JSON.parse(localStorage.getItem('user') || '{}');

@@ -1,0 +1,2 @@
+# Scripts shell : fins de ligne LF obligatoires (sinon « not found » sous Linux).
+*.sh text eol=lf

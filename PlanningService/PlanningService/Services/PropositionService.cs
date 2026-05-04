@@ -12,7 +12,11 @@ namespace PlanningService.Services
         private readonly AppDbContext _context;
         private readonly ILogger<PropositionService> _logger;
         private readonly IReclamationNotificationService _notif;
-        public PropositionService(AppDbContext context, ILogger<PropositionService> logger, IReclamationNotificationService notif)
+
+        public PropositionService(
+            AppDbContext context,
+            ILogger<PropositionService> logger,
+            IReclamationNotificationService notif)
         {
             _context = context;
             _logger = logger;
@@ -40,11 +44,14 @@ namespace PlanningService.Services
 
             await AddHistoriqueAsync(proposition.Id, "Proposition soumise",
                 proposition.Status.ToString(), auteurId, auteurNom);
+
+            // ✅ Notifier les managers
+            Console.WriteLine($"🔔 ENVOI NOTIFICATION managers — {dto.Titre}");
             await _notif.NotifyManagersAsync(
-    "Nouvelle proposition",
-    $"{auteurNom} a soumis une proposition : {dto.Titre}",
-    "info"
-);
+                "Nouvelle proposition",
+                $"{auteurNom} a soumis une proposition : {dto.Titre}",
+                "info"
+            );
 
             _logger.LogInformation("Proposition {Id} soumise par {Auteur}", proposition.Id, auteurNom);
             return MapToDto(proposition);
@@ -64,7 +71,7 @@ namespace PlanningService.Services
         }
 
         // ──────────────────────────────────────────
-        // Détail (auteur + rôles autorisés)
+        // Détail
         // ──────────────────────────────────────────
         public async Task<PropositionDetailDto?> GetByIdAsync(int id, string userId)
         {
@@ -92,7 +99,7 @@ namespace PlanningService.Services
         }
 
         // ──────────────────────────────────────────
-        // Évaluer / changer statut (RH, Manager, RP, Admin)
+        // Évaluer (RH, Manager, RP, Admin)
         // ──────────────────────────────────────────
         public async Task EvaluerAsync(
             int id, UpdatePropositionStatusDto dto, string evaluateurId, string evaluateurNom)
@@ -117,14 +124,16 @@ namespace PlanningService.Services
             await _context.SaveChangesAsync();
             await AddHistoriqueAsync(id, "Statut changé",
                 $"{ancienStatut} → {dto.Status}", evaluateurId, evaluateurNom);
+
+            // ✅ Notifier l'auteur
             await _notif.NotifyAuteurAsync(
-           prop.AuteurId,
-           "Proposition évaluée",
-           $"Votre proposition '{prop.Titre}' est maintenant : {dto.Status}",
-           dto.Status == PropositionStatus.Approuvee ? "success" :
-           dto.Status == PropositionStatus.Implementee ? "success" :
-           dto.Status == PropositionStatus.Rejetee ? "warning" : "info"
-       );
+                prop.AuteurId,
+                "Proposition évaluée",
+                $"Votre proposition '{prop.Titre}' est maintenant : {dto.Status}",
+                dto.Status == PropositionStatus.Approuvee ? "success" :
+                dto.Status == PropositionStatus.Implementee ? "success" :
+                dto.Status == PropositionStatus.Rejetee ? "warning" : "info"
+            );
         }
 
         // ──────────────────────────────────────────
@@ -140,6 +149,14 @@ namespace PlanningService.Services
 
             await _context.SaveChangesAsync();
             await AddHistoriqueAsync(id, "Assigné à", dto.AssigneeNom, assigneurId, assigneurNom);
+
+            // ✅ Notifier l'auteur
+            await _notif.NotifyAuteurAsync(
+                prop.AuteurId,
+                "Proposition assignée",
+                $"Votre proposition '{prop.Titre}' a été assignée à {dto.AssigneeNom}",
+                "info"
+            );
         }
 
         // ──────────────────────────────────────────
@@ -156,10 +173,18 @@ namespace PlanningService.Services
             await _context.SaveChangesAsync();
             await AddHistoriqueAsync(id, "Priorité changée",
                 $"{ancienne} → {dto.Priorite}", userId, userNom);
+
+            // ✅ Notifier l'auteur
+            await _notif.NotifyAuteurAsync(
+                prop.AuteurId,
+                "Priorité mise à jour",
+                $"La priorité de votre proposition '{prop.Titre}' est maintenant : {dto.Priorite}",
+                dto.Priorite == Priority.Critique ? "warning" : "info"
+            );
         }
 
         // ──────────────────────────────────────────
-        // Reporting satisfaction (RH, Manager, RP, Admin, Audit)
+        // Reporting satisfaction
         // ──────────────────────────────────────────
         public async Task<SatisfactionReportDto> GetReportSatisfactionAsync(
             DateTime? from = null, DateTime? to = null)
@@ -189,7 +214,7 @@ namespace PlanningService.Services
         }
 
         // ──────────────────────────────────────────
-        // Historique & audit (RP, Admin, Audit)
+        // Historique & audit
         // ──────────────────────────────────────────
         public async Task<PaginatedResult<PropositionDetailDto>> GetHistoriqueAsync(
             int? propositionId = null, int page = 1, int pageSize = 20)

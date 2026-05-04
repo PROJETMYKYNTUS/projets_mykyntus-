@@ -1,10 +1,13 @@
-// features/contract/components/notification-bell/notification-bell.component.ts
-
 import { Component, OnInit, OnDestroy, ViewEncapsulation, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { interval, Subscription } from 'rxjs';
 import { ContractService, ContractNotification } from '../../services/contract.service';
+import { NotificationService, PlanningNotification } from '../../../../core/services/notification.service'; // ← AJOUT
+
+export type UnifiedNotification =
+  | { source: 'contract';    data: ContractNotification   }
+  | { source: 'reclamation'; data: PlanningNotification   };
 
 @Component({
   selector: 'app-notification-bell',
@@ -16,56 +19,82 @@ import { ContractService, ContractNotification } from '../../services/contract.s
 })
 export class NotificationBellComponent implements OnInit, OnDestroy {
 
-  notifications: ContractNotification[] = [];
+  // Contrats (HTTP)
+  contractNotifications: ContractNotification[] = [];
+
+  // Réclamations (SignalR)
+  reclamationNotifications: PlanningNotification[] = [];
+
   unreadCount = 0;
   isOpen      = false;
-  loading     = false;   // ← false par défaut
+  loading     = false;
 
-  private pollSub?: Subscription;
+  private pollSub?:    Subscription;
+  private signalrSub?: Subscription;
 
   constructor(
-    private contractService: ContractService,
-    private router: Router,
-    private cdr: ChangeDetectorRef  // ← injecter
+    private contractService:     ContractService,
+    private notificationService: NotificationService, // ← AJOUT
+    private router:              Router,
+    private cdr:                 ChangeDetectorRef
   ) {}
 
-  ngOnInit(): void {
-    this.loadCount();
-    this.pollSub = interval(30_000).subscribe(() => this.loadCount());
-  }
+ngOnInit(): void {
+  this.loadCount();
+  this.pollSub = interval(30_000).subscribe(() => this.loadCount());
 
+  this.signalrSub = this.notificationService.notifications$.subscribe(notifs => {
+    console.log('🔔 notifications$ reçu:', notifs.length, notifs);
+    this.reclamationNotifications = notifs.filter(n => n.type === 'reclamation');
+    this.refreshUnreadCount();
+    this.cdr.detectChanges();
+  });
+}
   ngOnDestroy(): void {
     this.pollSub?.unsubscribe();
+    this.signalrSub?.unsubscribe();
   }
 
-  // ── Compteur badge ──
+  // ── Badge total = contrats + réclamations non lues ──
   loadCount(): void {
     this.contractService.getNotificationsCount().subscribe({
       next: res => {
-        this.unreadCount = res.count;
-        this.cdr.detectChanges();  // ← forcer mise à jour du badge
+        this.refreshUnreadCount(res.count);
+        this.cdr.detectChanges();
       },
       error: () => {}
     });
   }
 
-  // ── Charger les notifs à l'ouverture ──
+  private refreshUnreadCount(contractCount?: number): void {
+    const contracts   = contractCount ?? this.contractNotifications.length;
+    const reclamations = this.reclamationNotifications.filter(n => !n.read).length;
+    this.unreadCount  = contracts + reclamations;
+  }
+
   loadNotifications(): void {
     this.loading = true;
-    this.cdr.detectChanges();  // ← forcer affichage spinner
+    this.cdr.detectChanges();
 
     this.contractService.getNotifications().subscribe({
       next: data => {
-        this.notifications = data.slice(0, 8);
-        this.unreadCount   = data.length;
-        this.loading       = false;
-        this.cdr.detectChanges();  // ← forcer affichage liste
+        this.contractNotifications = data.slice(0, 8);
+        this.loading               = false;
+        this.refreshUnreadCount(data.length);
+        this.cdr.detectChanges();
       },
       error: () => {
         this.loading = false;
         this.cdr.detectChanges();
       }
     });
+  }
+
+  markReclamationRead(n: PlanningNotification): void {
+    n.read = true;
+    this.notificationService.markAllRead(); // ou cibler une seule
+    this.refreshUnreadCount();
+    this.cdr.detectChanges();
   }
 
   togglePanel(): void {
@@ -75,8 +104,14 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
 
   closePanel(): void { this.isOpen = false; }
 
-  onNotifClick(n: ContractNotification): void {
+  onContractClick(n: ContractNotification): void {
     this.router.navigate(['/contracts', n.contractId]);
+    this.closePanel();
+  }
+
+  onReclamationClick(n: PlanningNotification): void {
+    this.markReclamationRead(n);
+    this.router.navigate(['/reclamations-admin']);
     this.closePanel();
   }
 
@@ -95,7 +130,7 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
   }
 
   getIconClass(type: string): string {
-    if (type.startsWith('AvantFin'))    return 'ic-warn';
+    if (type.startsWith('AvantFin'))   return 'ic-warn';
     if (type.startsWith('MiParcours')) return 'ic-info';
     return 'ic-default';
   }

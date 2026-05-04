@@ -92,6 +92,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // ? ÉTAPE 1 — Migrations
+// ? ÉTAPE 1 — Migrations + Seed
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -109,6 +110,41 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine($"? Attente DB... tentative {i + 1}/{maxRetries}: {ex.Message}");
             Thread.Sleep(3000);
         }
+    }
+
+    // ? SEED — Roles
+    if (!db.Roles.Any())
+    {
+        db.Roles.AddRange(
+            new AuthService.Models.Role { Id = 1, Name = "Employee", Description = "Employee du système", CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.Role { Id = 2, Name = "RH", Description = "Responsable des ressources humaines", CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.Role { Id = 3, Name = "Manager", Description = "Manager de planning", CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.Role { Id = 4, Name = "Coach", Description = "Coach des équipes", CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.Role { Id = 5, Name = "RP", Description = "Responsable de production", CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.Role { Id = 6, Name = "Admin", Description = "Administrateur système", CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.Role { Id = 7, Name = "Audit", Description = "Auditeur interne", CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.Role { Id = 8, Name = "Equipe formation", Description = "Équipe de formation", CreatedAt = DateTime.UtcNow }
+        );
+        db.SaveChanges();
+        Console.WriteLine("? Roles insérés.");
+    }
+
+    // ? SEED — Users
+    if (!db.Users.Any())
+    {
+        var hasher = new AuthService.Helpers.PasswordHasher();
+        db.Users.AddRange(
+            new AuthService.Models.User { Username = "Employee", Email = "employee@kyntus.ma", PasswordHash = hasher.HashPassword("Employee@2026"), RoleId = 1, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.User { Username = "rh", Email = "rh@kyntus.ma", PasswordHash = hasher.HashPassword("RH@2026"), RoleId = 2, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.User { Username = "manager", Email = "manager@kyntus.ma", PasswordHash = hasher.HashPassword("Manager@2026"), RoleId = 3, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.User { Username = "coach", Email = "coach@kyntus.ma", PasswordHash = hasher.HashPassword("Coach@2026"), RoleId = 4, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.User { Username = "rp", Email = "rp@kyntus.ma", PasswordHash = hasher.HashPassword("RP@2026"), RoleId = 5, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.User { Username = "admin", Email = "admin@kyntus.ma", PasswordHash = hasher.HashPassword("Admin@2026"), RoleId = 6, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.User { Username = "audit", Email = "audit@kyntus.ma", PasswordHash = hasher.HashPassword("Audit@2026"), RoleId = 7, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.User { Username = "equipeformation", Email = "formation@kyntus.ma", PasswordHash = hasher.HashPassword("Formation@2026"), RoleId = 8, IsActive = true, CreatedAt = DateTime.UtcNow }
+        );
+        db.SaveChanges();
+        Console.WriteLine("? Users insérés.");
     }
 }
 

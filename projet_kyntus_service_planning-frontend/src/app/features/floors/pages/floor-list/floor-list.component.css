@@ -1,10 +1,10 @@
-/* Container & Header */
 .page-container {
   padding: 2rem;
-  background-color: #0b0f1a;
+  background: #f1f5f9;
   min-height: 100vh;
 }
 
+/* HEADER */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -12,89 +12,132 @@
   margin-bottom: 2rem;
 }
 
-.header-content {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
 .title-section h1 {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: 600;
-  color: #f8fafc;
-  margin: 0;
+  color: #0f172a;
 }
 
 .title-section p {
-  color: #94a3b8;
+  color: #64748b;
   font-size: 0.85rem;
-  margin: 5px 0 0 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .dot-active {
   width: 8px;
   height: 8px;
-  background: #10b981;
+  background: #22c55e;
   border-radius: 50%;
-  box-shadow: 0 0 8px #10b981;
 }
 
-/* Card & Table */
+/* CARD */
 .main-card {
-  background: #151b2b;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+  background: #ffffff;
+  border-radius: 16px;
   padding: 1.5rem;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  border: 1px solid #e2e8f0;
 }
 
+/* TOP BAR */
 .card-info-bar {
   display: flex;
   justify-content: space-between;
   margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.table-title { font-weight: 600; color: #f8fafc; }
-.badge-count { color: #38bdf8; font-size: 0.85rem; background: rgba(56, 189, 248, 0.1); padding: 4px 10px; border-radius: 6px; }
+.table-title {
+  font-weight: 600;
+  color: #0f172a;
+}
 
-.pro-table { width: 100%; border-collapse: collapse; }
-.pro-table th { text-align: left; padding: 12px; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; }
+.badge-count {
+  background: #e0f2fe;
+  color: #0284c7;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
 
-.pro-row td { padding: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.03); color: #cbd5e1; }
-.pro-row:hover { background: rgba(255, 255, 255, 0.02); }
+/* TABLE */
+.pro-table {
+  width: 100%;
+  border-collapse: collapse;
+}
 
-/* Elements inside table */
+.pro-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  padding: 12px;
+}
+
+.pro-row td {
+  padding: 1rem;
+  border-top: 1px solid #f1f5f9;
+  color: #334155;
+}
+
+.pro-row:hover {
+  background: #f8fafc;
+}
+
+/* ELEMENTS */
 .floor-badge {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  width: 32px; height: 32px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 6px; font-weight: bold; font-size: 0.8rem;
+  background: #e0f2fe;
+  color: #0284c7;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
 }
 
-.floor-name-wrapper { display: flex; align-items: center; gap: 12px; }
-.text-white-bold { color: #fff; font-weight: 500; }
+.text-white-bold {
+  color: #0f172a;
+  font-weight: 500;
+}
 
+/* STATUS */
 .status-pill {
-  padding: 4px 12px; border-radius: 20px; font-size: 0.75rem;
-  background: rgba(16, 185, 129, 0.1); color: #10b981;
+  background: #dcfce7;
+  color: #16a34a;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
 }
-.status-pill.warning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
 
-/* Buttons */
+.status-pill.warning {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+/* BUTTONS */
 .btn-primary-add {
-  background: #38bdf8; color: #0f172a; border: none;
-  padding: 10px 18px; border-radius: 8px; font-weight: 600;
-  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary-add:hover {
+  background: #2563eb;
 }
 
 .btn-opt {
-  background: none; border: none; color: #64748b; cursor: pointer; padding: 6px;
-  transition: color 0.2s;
+  background: #f1f5f9;
+  border-radius: 6px;
+  padding: 6px;
 }
-.btn-opt.edit:hover { color: #10b981; }
+
+.btn-opt:hover {
+  background: #e2e8f0;
+}
+
+.btn-opt.edit:hover { color: #22c55e; }
 .btn-opt.delete:hover { color: #ef4444; }

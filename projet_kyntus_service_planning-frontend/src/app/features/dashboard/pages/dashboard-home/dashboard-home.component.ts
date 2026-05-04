@@ -41,12 +41,16 @@ export class DashboardHomeComponent implements OnInit {
     if (!token) {
       window.location.href = 'http://localhost:4201/login';
     }
-
+     console.log('👤 currentUser:', this.currentUser);
+     console.log('🔌 Appel connectAsManager — id:', this.currentUser?.id);
     // ← AJOUTEZ — connecter le hub reclamation pour les managers
-    if (this.currentUser?.id) {
-      this.notificationService.connectAsManager(this.currentUser.id);
-    }
+if (this.currentUser?.id) {
+    this.notificationService.connectAsManager(this.currentUser.id);
+  } else {
+    console.error('❌ currentUser.id est undefined — hub non connecté !');
   }
+}
+  
 
   logout(): void {
     this.notificationService.disconnect(); // ← AJOUTEZ

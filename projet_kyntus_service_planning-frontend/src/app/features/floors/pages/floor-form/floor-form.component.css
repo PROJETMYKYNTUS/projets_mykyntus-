@@ -1,77 +1,74 @@
 .page-wrapper {
+  background: #f1f5f9;
+  min-height: 100vh;
   padding: 3rem 1rem;
   display: flex;
   justify-content: center;
-  background-color: #0b0f1a;
-  min-height: 100vh;
 }
 
 .form-card {
   width: 100%;
   max-width: 650px;
-  background: #151b2b;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: white;
   border-radius: 16px;
   padding: 2.5rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+  border: 1px solid #e2e8f0;
 }
 
-.form-header {
-  margin-bottom: 2.5rem;
+/* HEADER */
+.form-header h1 {
+  color: #0f172a;
+}
+
+.form-header p {
+  color: #64748b;
 }
 
 .btn-back {
-  background: none; border: none; color: #38bdf8; 
-  cursor: pointer; margin-bottom: 1rem; padding: 0;
+  color: #3b82f6;
   font-weight: 500;
 }
 
-.form-header h1 { font-size: 1.5rem; color: #fff; margin: 0; }
-.form-header p { color: #94a3b8; font-size: 0.9rem; margin-top: 5px; }
-
-/* Form inputs */
-.form-body { display: flex; flex-direction: column; gap: 1.5rem; }
-
-.form-group { display: flex; flex-direction: column; gap: 8px; }
-.form-group label { color: #cbd5e1; font-size: 0.85rem; font-weight: 500; }
-
+/* INPUT */
 input, textarea {
-  background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 12px 16px;
-  color: #fff;
-  font-size: 0.95rem;
-  transition: border-color 0.2s;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  color: #0f172a;
 }
 
 input:focus, textarea:focus {
-  outline: none;
-  border-color: #38bdf8;
-  background: #151b2b;
+  border-color: #3b82f6;
+  background: #fff;
 }
 
-.field-error { color: #ef4444; font-size: 0.75rem; margin-top: 4px; }
+/* LABEL */
+.form-group label {
+  color: #475569;
+}
 
-/* Actions */
+/* ERROR */
+.field-error {
+  color: #ef4444;
+}
+
+/* ACTIONS */
 .form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1rem;
-  padding-top: 2rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  margin-top: 2rem;
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.05); border: none;
-  color: #cbd5e1; padding: 12px 24px; border-radius: 8px;
-  cursor: pointer; font-weight: 600;
+  background: #e2e8f0;
+  color: #334155;
 }
 
 .btn-primary {
-  background: #38bdf8; color: #000; border: none;
-  padding: 12px 24px; border-radius: 8px;
-  cursor: pointer; font-weight: 700;
+  background: #3b82f6;
+  color: white;
 }
 
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary:hover {
+  background: #2563eb;
+}

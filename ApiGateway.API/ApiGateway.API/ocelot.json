@@ -1,7 +1,6 @@
 {
   "Routes": [
 
-    // ── HUBS PLANNING ─────────────────────────────────
     {
       "UpstreamPathTemplate": "/hubs/planning/negotiate",
       "UpstreamHttpMethod": [ "GET", "POST" ],
@@ -27,7 +26,6 @@
       ]
     },
 
-    // ── HUBS NEWSLETTER ───────────────────────────────
     {
       "UpstreamPathTemplate": "/hubs/newsletter/negotiate",
       "UpstreamHttpMethod": [ "GET", "POST" ],
@@ -53,7 +51,6 @@
       ]
     },
 
-    // ── HUBS RECLAMATION — NOUVEAU ────────────────────
     {
       "UpstreamPathTemplate": "/hubs/reclamation/negotiate",
       "UpstreamHttpMethod": [ "GET", "POST" ],
@@ -68,9 +65,9 @@
     },
     {
       "UpstreamPathTemplate": "/hubs/reclamation",
-      "UpstreamHttpMethod": [ "GET", "POST", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": [ "GET", "POST", "CONNECT" ],
       "DownstreamPathTemplate": "/hubs/reclamation",
-      "DownstreamScheme": "http",
+      "DownstreamScheme": "ws",
       "DownstreamHostAndPorts": [
         {
           "Host": "planning-backend",
@@ -79,7 +76,6 @@
       ]
     },
 
-    // ── CATCH-ALL HUBS ────────────────────────────────
     {
       "UpstreamPathTemplate": "/hubs/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "CONNECT" ],
@@ -93,7 +89,6 @@
       ]
     },
 
-    // ── API AUTH ──────────────────────────────────────
     {
       "UpstreamPathTemplate": "/api/Auth/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
@@ -119,7 +114,6 @@
       ]
     },
 
-    // ── API RECLAMATION — NOUVEAU ─────────────────────
     {
       "UpstreamPathTemplate": "/api/reclamation",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
@@ -145,7 +139,6 @@
       ]
     },
 
-    // ── API PROPOSITION — NOUVEAU ─────────────────────
     {
       "UpstreamPathTemplate": "/api/proposition",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
@@ -171,7 +164,6 @@
       ]
     },
 
-    // ── API NEWSLETTER ────────────────────────────────
     {
       "UpstreamPathTemplate": "/api/newsletter",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
@@ -221,7 +213,6 @@
       ]
     },
 
-    // ── API PLANNING ──────────────────────────────────
     {
       "UpstreamPathTemplate": "/api/conges",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],

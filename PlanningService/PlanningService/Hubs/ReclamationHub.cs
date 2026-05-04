@@ -14,18 +14,16 @@ namespace PlanningService.Hubs
             _logger = logger;
         }
 
-        public async Task JoinUserGroup(string userId)
-        {
-            await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
-            _logger.LogInformation("✅ JoinUserGroup — userId: {UserId}, connId: {ConnId}",
-                userId, Context.ConnectionId);
-        }
-
         public async Task JoinManagerGroup()
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, "managers");
-            _logger.LogInformation("✅ JoinManagerGroup — connId: {ConnId}",
-                Context.ConnectionId);
+            Console.WriteLine($"✅ JoinManagerGroup — connId: {Context.ConnectionId}");
+        }
+
+        public async Task JoinUserGroup(string userId)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
+            Console.WriteLine($"✅ JoinUserGroup — userId: {userId}, connId: {Context.ConnectionId}");
         }
 
         public async Task LeaveGroup(string group)

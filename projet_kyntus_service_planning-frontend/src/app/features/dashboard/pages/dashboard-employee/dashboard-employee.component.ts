@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PlanningService } from '../../../../core/services/planning.service';
 import { NotificationService, PlanningNotification } from '../../../../core/services/notification.service';
@@ -97,7 +97,8 @@ export class DashboardEmployeeComponent implements OnInit, OnDestroy {
   constructor(
     private planningService: PlanningService,
     private notificationService: NotificationService,
-    private newsletterSvc: NewsletterService
+    private newsletterSvc: NewsletterService,
+    private cdr: ChangeDetectorRef 
   ) {}
 
   ngOnInit(): void {
@@ -114,25 +115,26 @@ export class DashboardEmployeeComponent implements OnInit, OnDestroy {
     // ── SignalR ──
     this.notificationService.connect(this.userId);
 
-this.notificationService.notifications$.subscribe(notifs => {
-  console.log('📋 notifications$ émis:', notifs.length, notifs); // ← AJOUTEZ
-  this.notifications = notifs;
+  this.notificationService.notifications$.subscribe(notifs => {
+    console.log('📋 notifications$ émis:', notifs.length, notifs);
+    this.notifications = notifs;
+    this.cdr.detectChanges(); // ← AJOUTEZ
 
-  const latest = notifs[0];
-  if (latest && !latest.read) {
-    this.showToastMessage(latest.message);
-    // ✅ Recharger TOUJOURS, sans condition sur la vue
-    this.loadCurrentPlanning();
-    this.loadHistory();
-  }
-});
+    const latest = notifs[0];
+    if (latest && !latest.read) {
+      this.showToastMessage(latest.message);
+      this.loadCurrentPlanning();
+      this.loadHistory();
+    }
+  });
 
-    this.notificationService.unreadCount$.subscribe(count => {
-      this.unreadCount = count;
-    });
+  this.notificationService.unreadCount$.subscribe(count => {
+    this.unreadCount = count;
+    this.cdr.detectChanges(); // ← AJOUTEZ
+  });
 
-    this.loadHistory();
-  }
+  this.loadHistory();
+}
 
   ngOnDestroy(): void {
     this.notificationService.disconnect();

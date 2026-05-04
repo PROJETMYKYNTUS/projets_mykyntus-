@@ -1,78 +1,100 @@
-/* Container principal identique au Dashboard */
+/* ───────── GLOBAL PAGE ───────── */
 .service-page {
-  padding: 2rem;
-  background-color: #0b0f1a;
+  padding: 32px;
+  background: #0b0f1a;
   min-height: 100vh;
 }
 
+/* ───────── HEADER ───────── */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 24px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 16px;
 }
 
-.header-left h1 { font-size: 1.5rem; color: #fff; margin: 0; font-weight: 600; }
-.header-left p { color: #94a3b8; font-size: 0.85rem; margin-top: 4px; }
+.header-left h1 {
+  color: #fff;
+  font-size: 1.6rem;
+}
 
-/* Carte style Kyntus */
+.header-left p {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+/* ───────── CARD ───────── */
 .card {
   background: #151b2b;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  border-radius: 14px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,0.05);
 }
 
-.table-wrapper { overflow-x: auto; }
-
-.styled-table { width: 100%; border-collapse: collapse; }
-.styled-table th { 
-  text-align: left; padding: 12px; 
-  color: #94a3b8; font-size: 0.75rem; 
-  text-transform: uppercase; border-bottom: 1px solid rgba(245, 244, 244, 0.05);
+/* ───────── TABLE ───────── */
+.table-wrapper {
+  overflow-x: auto;
 }
 
-.styled-table td { padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.02); color: #cbd5e1; }
-.styled-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+}
 
-/* Badges de code et de compte */
+.styled-table th {
+  color: #64748b;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  padding: 12px;
+}
+
+.styled-table td {
+  padding: 14px;
+  color: #cbd5e1;
+}
+
+.styled-table tr:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+/* ───────── BADGES ───────── */
 .badge {
-  background: rgba(56, 189, 248, 0.1);
+  background: rgba(56,189,248,0.15);
   color: #38bdf8;
   padding: 4px 10px;
   border-radius: 6px;
-  font-family: monospace;
   font-weight: 600;
 }
 
 .badge.secondary {
-  background: rgba(224, 232, 244, 0.1);
+  background: rgba(148,163,184,0.1);
   color: #94a3b8;
 }
 
-.service-name { color: #fff; font-weight: 500; }
+/* ───────── BUTTONS ───────── */
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
 
-/* Boutons */
 .btn-primary {
-  background: #38bdf8; color: #0f172a; border: none;
-  padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;
+  background: #38bdf8;
+  color: #000;
 }
 
 .btn-light {
-  background: rgba(255, 255, 255, 0.05); color: #cbd5e1; border: none;
-  padding: 8px 15px; border-radius: 6px; cursor: pointer;
+  background: rgba(255,255,255,0.05);
+  color: #fff;
 }
 
-.actions .btn {
-  background: none; border: none; cursor: pointer; font-size: 0.85rem; margin-right: 10px;
-}
-.btn-view { color: #38bdf8; }
-.btn-edit { color: #10b981; }
-.btn-delete { color: #ef4444; }
+.btn-view { color: #38bdf8; background: none; }
+.btn-edit { color: #10b981; background: none; }
+.btn-delete { color: #ef4444; background: none; }

@@ -1,7 +1,7 @@
 .page-wrapper {
-  padding: 3rem 1rem;
-  background-color: #0b0f1a;
+  background: #f1f5f9;
   min-height: 100vh;
+  padding: 3rem 1rem;
   display: flex;
   justify-content: center;
 }
@@ -9,57 +9,58 @@
 .detail-card {
   width: 100%;
   max-width: 600px;
-  background: #151b2b;
+  background: #ffffff;
   border-radius: 16px;
   padding: 2.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  border: 1px solid #e2e8f0;
 }
 
-.detail-header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  padding-bottom: 1.5rem;
-  margin-bottom: 2rem;
+/* HEADER */
+.detail-header h1 {
+  color: #0f172a;
 }
 
-.detail-header h1 { font-size: 1.4rem; color: #fff; margin-top: 1rem; }
-
-/* Data rows */
+/* ROW */
 .info-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 1.2rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  padding: 1rem 0;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.info-row:last-of-type { border-bottom: none; }
+.label {
+  color: #64748b;
+}
 
-.label { color: #94a3b8; font-size: 0.9rem; }
-.value { color: #f8fafc; font-weight: 500; }
-.value.strong { color: #38bdf8; font-size: 1.1rem; }
+.value {
+  color: #0f172a;
+  font-weight: 500;
+}
 
+.value.strong {
+  color: #3b82f6;
+}
+
+/* BADGE */
 .badge {
-  background: rgba(56, 189, 248, 0.1);
-  color: #38bdf8;
-  padding: 4px 14px;
-  border-radius: 6px;
-  font-weight: 600;
+  background: #e0f2fe;
+  color: #0284c7;
+  padding: 5px 12px;
+  border-radius: 8px;
 }
 
-/* Footer buttons */
+/* BUTTONS */
 .detail-actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 2.5rem;
+  margin-top: 2rem;
 }
 
 .btn-edit {
-  flex: 2; background: #10b981; color: #000; border: none;
-  padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer;
+  background: #22c55e;
+  color: white;
 }
 
 .btn-delete {
-  flex: 1; background: rgba(239, 68, 68, 0.1); color: #ef4444; 
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer;
+  background: #fee2e2;
+  color: #ef4444;
 }

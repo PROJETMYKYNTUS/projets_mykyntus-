@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { PlanningService } from '../../../../core/services/planning.service';
 import { NotificationService, PlanningNotification } from '../../../../core/services/notification.service';
 import { NewsletterService, EmployeeNewsletter } from '../../../../core/services/newsletter.service';
@@ -98,7 +99,8 @@ export class DashboardEmployeeComponent implements OnInit, OnDestroy {
     private planningService: PlanningService,
     private notificationService: NotificationService,
     private newsletterSvc: NewsletterService,
-    private cdr: ChangeDetectorRef 
+    private cdr: ChangeDetectorRef,
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -150,6 +152,21 @@ navigateTo(view: 'home' | 'planning' | 'conges' | 'settings' | 'newsletters' | '
     this.loadMyNewsletters();
   }
 }
+
+  /** Documentation intégrée : espace pilote + handoff (e-mail annuaire). */
+  openDocumentationApp(): void {
+    const queryParams: Record<string, string> = { handoff: 'pilote' };
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}') as { email?: string };
+      const email = u?.email?.trim();
+      if (email) {
+        queryParams['email'] = email;
+      }
+    } catch {
+      /* ignore */
+    }
+    void this.router.navigate(['/documentation'], { queryParams });
+  }
   // ── Planning ──
   loadCurrentPlanning(): void {
     this.loading = true;

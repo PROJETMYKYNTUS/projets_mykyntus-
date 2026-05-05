@@ -57,4 +57,14 @@ if (this.currentUser?.id) {
     localStorage.clear();
     window.location.href = 'http://localhost:4201/login';
   }
+
+  /** Documentation intégrée : espace RH + handoff sans jeton (e-mail annuaire). */
+  openDocumentationRhApp(): void {
+    const email = (this.currentUser?.email as string | undefined)?.trim();
+    const queryParams: Record<string, string> = { handoff: 'rh' };
+    if (email) {
+      queryParams['email'] = email;
+    }
+    void this.router.navigate(['/documentation', 'hr-mgmt'], { queryParams });
+  }
 }

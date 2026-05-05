@@ -33,3 +33,16 @@ GRANT ALL PRIVILEGES ON DATABASE documentation_db TO documentation_user;
 GRANT ALL ON SCHEMA public TO documentation_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO documentation_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO documentation_user;
+
+-- Schéma métier EF (DocumentationDbContext : HasDefaultSchema("documentation")).
+-- Sans cela : 42501 permission denied for schema documentation pour documentation_user.
+CREATE SCHEMA IF NOT EXISTS documentation AUTHORIZATION documentation_user;
+GRANT USAGE, CREATE ON SCHEMA documentation TO documentation_user;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA documentation TO documentation_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA documentation TO documentation_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA documentation GRANT ALL ON TABLES TO documentation_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA documentation GRANT ALL ON SEQUENCES TO documentation_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE documentation_user IN SCHEMA documentation GRANT ALL ON TABLES TO documentation_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE documentation_user IN SCHEMA documentation GRANT ALL ON SEQUENCES TO documentation_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA documentation GRANT ALL ON TABLES TO documentation_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA documentation GRANT ALL ON SEQUENCES TO documentation_user;

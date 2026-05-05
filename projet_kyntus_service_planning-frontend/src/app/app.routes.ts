@@ -161,6 +161,30 @@ export const routes: Routes = [
         .then(m => m.PlanningRoutingModule)
   },
 
+  // ─── DOCUMENTATION (microservice UI intégré, lazy) ─────────────────
+  {
+    path: 'documentation',
+    canActivate: [AuthGuard],
+    data: {
+      roles: [
+        'Admin',
+        'RH',
+        'Employee',
+        'employee',
+        'Manager',
+        'Coach',
+        'RP',
+        'Pilote',
+        'Audit',
+        'Equipe_Formation',
+      ],
+    },
+    loadChildren: () =>
+      import('./features/documentation/documentation-feature/documentation-feature.module').then(
+        (m) => m.DocumentationFeatureModule,
+      ),
+  },
+
   // ─── AUTRES ───────────────────────────────────────
   {
     path: 'unauthorized',

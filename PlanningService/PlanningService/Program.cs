@@ -84,7 +84,7 @@ builder.Services.AddScoped<IPlanningService, PlanningServiceImpl>();
 builder.Services.AddScoped<IReclamationService, ReclamationService>();
 builder.Services.AddScoped<IPropositionService, PropositionService>();
 builder.Services.AddScoped<IReclamationNotificationService, ReclamationNotificationService>();
-// ? NOUVEAU — Newsletter
+// ? NOUVEAU ï¿½ Newsletter
 builder.Services.AddScoped<INewsletterService, NewsletterService>();
 
 builder.Services.AddSignalR();
@@ -114,7 +114,7 @@ using (var scope = app.Services.CreateScope())
         try
         {
             db.Database.Migrate();
-            Console.WriteLine("? Migrations appliquées avec succès.");
+            Console.WriteLine("? Migrations appliquï¿½es avec succï¿½s.");
             break;
         }
         catch (Exception ex)
@@ -141,11 +141,17 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Sync employés
+// Sync employï¿½s
 using (var scope = app.Services.CreateScope())
 {
     var planningService = scope.ServiceProvider.GetRequiredService<IPlanningService>();
     await planningService.SyncNewEmployeesAsync();
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var planningDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await DockerComposePlanningDemoSeed.ApplyIfEnabledAsync(app.Configuration, planningDb);
 }
 
 // ?? Middleware pipeline ??????????????????????????????
@@ -162,7 +168,7 @@ app.MapControllers();
 
 app.MapHub<PlanningHub>("/hubs/planning");
 
-// ? NOUVEAU — Hub Newsletter
+// ? NOUVEAU ï¿½ Hub Newsletter
 app.MapHub<NewsletterHub>("/hubs/newsletter");
 app.MapHub<ReclamationHub>("/hubs/reclamation");
 app.Run();

@@ -23,7 +23,7 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["Secret"] ?? throw new InvalidOperationException("JWT Secret non configurée");
+var secretKey = jwtSettings["Secret"] ?? throw new InvalidOperationException("JWT Secret non configurï¿½e");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -91,8 +91,8 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// ? ÉTAPE 1 — Migrations
-// ? ÉTAPE 1 — Migrations + Seed
+// ? ï¿½TAPE 1 ï¿½ Migrations
+// ? ï¿½TAPE 1 ï¿½ Migrations + Seed
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -102,7 +102,7 @@ using (var scope = app.Services.CreateScope())
         try
         {
             db.Database.Migrate();
-            Console.WriteLine("? Auth migrations appliquées avec succès.");
+            Console.WriteLine("? Auth migrations appliquï¿½es avec succï¿½s.");
             break;
         }
         catch (Exception ex)
@@ -112,24 +112,27 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
-    // ? SEED — Roles
+    // ? SEED ï¿½ Roles
     if (!db.Roles.Any())
     {
         db.Roles.AddRange(
-            new AuthService.Models.Role { Id = 1, Name = "Employee", Description = "Employee du système", CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.Role { Id = 1, Name = "Employee", Description = "Employee du systï¿½me", CreatedAt = DateTime.UtcNow },
             new AuthService.Models.Role { Id = 2, Name = "RH", Description = "Responsable des ressources humaines", CreatedAt = DateTime.UtcNow },
             new AuthService.Models.Role { Id = 3, Name = "Manager", Description = "Manager de planning", CreatedAt = DateTime.UtcNow },
-            new AuthService.Models.Role { Id = 4, Name = "Coach", Description = "Coach des équipes", CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.Role { Id = 4, Name = "Coach", Description = "Coach des ï¿½quipes", CreatedAt = DateTime.UtcNow },
             new AuthService.Models.Role { Id = 5, Name = "RP", Description = "Responsable de production", CreatedAt = DateTime.UtcNow },
-            new AuthService.Models.Role { Id = 6, Name = "Admin", Description = "Administrateur système", CreatedAt = DateTime.UtcNow },
+            new AuthService.Models.Role { Id = 6, Name = "Admin", Description = "Administrateur systï¿½me", CreatedAt = DateTime.UtcNow },
             new AuthService.Models.Role { Id = 7, Name = "Audit", Description = "Auditeur interne", CreatedAt = DateTime.UtcNow },
-            new AuthService.Models.Role { Id = 8, Name = "Equipe formation", Description = "Équipe de formation", CreatedAt = DateTime.UtcNow }
+            new AuthService.Models.Role { Id = 8, Name = "Equipe formation", Description = "ï¿½quipe de formation", CreatedAt = DateTime.UtcNow }
+            
+           
         );
+        
         db.SaveChanges();
-        Console.WriteLine("? Roles insérés.");
+        Console.WriteLine("? Roles insï¿½rï¿½s.");
     }
 
-    // ? SEED — Users
+    // ? SEED ï¿½ Users
     if (!db.Users.Any())
     {
         var hasher = new AuthService.Helpers.PasswordHasher();
@@ -144,11 +147,11 @@ using (var scope = app.Services.CreateScope())
             new AuthService.Models.User { Username = "equipeformation", Email = "formation@kyntus.ma", PasswordHash = hasher.HashPassword("Formation@2026"), RoleId = 8, IsActive = true, CreatedAt = DateTime.UtcNow }
         );
         db.SaveChanges();
-        Console.WriteLine("? Users insérés.");
+        Console.WriteLine("? Users insï¿½rï¿½s.");
     }
 }
 
-// ? ÉTAPE 2 — Middleware
+// ? ï¿½TAPE 2 ï¿½ Middleware
 app.UseSwagger();
 app.UseSwaggerUI();
 
@@ -158,5 +161,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// ? ÉTAPE 3 — Run (une seule fois)
+// ? ï¿½TAPE 3 ï¿½ Run (une seule fois)
 app.Run();

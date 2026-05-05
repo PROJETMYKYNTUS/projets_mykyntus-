@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <!-- net10.0 x64 : aligné sur le runtime installé (ex. seulement 10.0.x en Program Files\dotnet ; .NET 8 x64 souvent absent si 8.0 n’est que x86). -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- Permet dotnet user-secrets (clé OpenAI, etc.) — jamais committer secrets.json. -->
+    <UserSecretsId>mykyntus-documentation-backend-9f3c2a1e-8b7d-4c6a-9e5f-2d1c0b4a8e7f</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="DocumentationBackend.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="4.0.7.10" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.3.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.4" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+    <PackageReference Include="EFCore.NamingConventions" Version="10.0.1" />
+    <PackageReference Include="QuestPDF" Version="2026.2.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Documentation.Contracts\Documentation.Contracts.csproj" />
+  </ItemGroup>
+</Project>
+

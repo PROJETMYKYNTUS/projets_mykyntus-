@@ -1,0 +1,145 @@
+@if (enabled) {
+  <div
+    class="dev-filter-bar"
+    role="region"
+    aria-label="Sélecteur de contexte développeur — organisation et hiérarchie métier"
+  >
+    <span class="dev-filter-bar__title">Mode développeur</span>
+
+    <label>
+      <span>Pôle</span>
+      <select
+        [(ngModel)]="selectedPoleId"
+        (ngModelChange)="onPoleChange($event)"
+      >
+        @for (p of poles; track p.id) {
+          <option [ngValue]="p.id">{{ p.name }} ({{ p.code }})</option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Cellule</span>
+      <select
+        [(ngModel)]="selectedCelluleId"
+        (ngModelChange)="onCelluleChange($event)"
+        [disabled]="!selectedPoleId"
+      >
+        @for (c of cellules; track c.id) {
+          <option [ngValue]="c.id">{{ c.name }} ({{ c.code }})</option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Département</span>
+      <select
+        [(ngModel)]="selectedDepartementId"
+        (ngModelChange)="onDepartementChange($event)"
+        [disabled]="!selectedCelluleId"
+      >
+        @for (d of departements; track d.id) {
+          <option [ngValue]="d.id">{{ d.name }} ({{ d.code }})</option>
+        }
+      </select>
+    </label>
+
+    <label>
+      <span>Rôle</span>
+      <select
+        [(ngModel)]="selectedRole"
+        (ngModelChange)="onRoleChange($event)"
+        [disabled]="!orgSelectionComplete()"
+      >
+        @for (r of roleOptions; track r) {
+          <option [ngValue]="r">{{ r }}</option>
+        }
+      </select>
+    </label>
+
+    @if (selectedRole === 'Manager') {
+      <label>
+        <span>Manager</span>
+        <select
+          [(ngModel)]="selectedManagerUserId"
+          (ngModelChange)="onManagerIdentityChange($event)"
+          [disabled]="!orgSelectionComplete()"
+        >
+          @for (m of managersForDept; track m.id) {
+            <option [ngValue]="m.id">{{ m.prenom }} {{ m.nom }} — {{ m.email }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        <span>Coach (périmètre)</span>
+        <select
+          [(ngModel)]="selectedCoachScopeId"
+          (ngModelChange)="onCoachScopeChange($event)"
+          [disabled]="!orgSelectionComplete() || !selectedManagerUserId"
+        >
+          @for (c of coachesForManager; track c.id) {
+            <option [ngValue]="c.id">{{ c.prenom }} {{ c.nom }} — {{ c.email }}</option>
+          }
+        </select>
+      </label>
+    } @else if (selectedRole === 'RP') {
+      <label>
+        <span>Manager</span>
+        <select
+          [(ngModel)]="selectedRpScopeManagerId"
+          (ngModelChange)="onRpManagerChange($event)"
+          [disabled]="!orgSelectionComplete()"
+        >
+          @for (m of managersForDept; track m.id) {
+            <option [ngValue]="m.id">{{ m.prenom }} {{ m.nom }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        <span>Coach</span>
+        <select
+          [(ngModel)]="selectedRpScopeCoachId"
+          (ngModelChange)="onRpCoachChange($event)"
+          [disabled]="!orgSelectionComplete() || !selectedRpScopeManagerId"
+        >
+          @for (c of coachesForManager; track c.id) {
+            <option [ngValue]="c.id">{{ c.prenom }} {{ c.nom }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        <span>RP (identité)</span>
+        <select
+          [(ngModel)]="selectedRpUserId"
+          (ngModelChange)="onRpUserChange($event)"
+          [disabled]="!orgSelectionComplete()"
+        >
+          @for (u of rpUsersForDept; track u.id) {
+            <option [ngValue]="u.id">{{ u.prenom }} {{ u.nom }} — {{ u.email }}</option>
+          }
+        </select>
+      </label>
+    } @else {
+      <label>
+        <span>Utilisateur</span>
+        <select
+          [(ngModel)]="selectedUserId"
+          (ngModelChange)="onUserChange($event)"
+          [disabled]="!orgSelectionComplete()"
+        >
+          @for (u of scopedUsersForRole; track u.id) {
+            <option [ngValue]="u.id">{{ u.prenom }} {{ u.nom }} — {{ u.email }}</option>
+          }
+        </select>
+      </label>
+    }
+
+    @if (orgLoadHint) {
+      <span class="dev-filter-bar__error" role="status">{{ orgLoadHint }}</span>
+    }
+
+    <span class="dev-filter-bar__hint" title="Contexte courant">
+      Connecté en tant que : <strong>{{ displayLine() }}</strong> ·
+      <code>{{ headers.tenantId }}</code>
+      = {{ currentTenantId() }}
+    </span>
+  </div>
+}

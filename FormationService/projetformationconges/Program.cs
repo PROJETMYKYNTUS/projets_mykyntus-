@@ -1,4 +1,5 @@
 using Formation.Application.Commands.CreateFormation;
+using Formation.Domain.Entities;
 using Formation.Infrastructure.Persistence;
 using Formation.Infrastructure.Repositories;
 using Formation.Domain.Interfaces;
@@ -29,11 +30,26 @@ app.UseSwagger();
 app.UseSwaggerUI();
 app.MapControllers();
 
-// Migration automatique au démarrage
+// Migration automatique au dï¿½marrage
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<FormationDbContext>();
     db.Database.Migrate();
+
+    if (string.Equals(app.Configuration["KYNTUS_FORMATION_DEMO_SEED"], "true", StringComparison.OrdinalIgnoreCase)
+        && !await db.Formations.AnyAsync())
+    {
+        var demo = FormationEntity.Create(
+            "Formation d'accueil (dï¿½mo Docker)",
+            "Jeu de donnï¿½es insï¿½rï¿½ automatiquement aprï¿½s git clone (KYNTUS_FORMATION_DEMO_SEED).",
+            "Formateur dï¿½mo",
+            DateTime.UtcNow.AddDays(7),
+            DateTime.UtcNow.AddDays(9),
+            25,
+            0);
+        db.Formations.Add(demo);
+        await db.SaveChangesAsync();
+    }
 }
 
 app.Run();

@@ -26,6 +26,7 @@
               }
             ],
             "styles": [
+              "src/styles-documentation.css",
               "src/styles.css"
             ]
           },

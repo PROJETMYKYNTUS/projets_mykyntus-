@@ -1,0 +1,155 @@
+<div class="space-y-6">
+  <div class="doc-page-header">
+    <div>
+      <h3 class="doc-page-title">Historique des documents générés</h3>
+      <p class="doc-page-desc">
+        Demandes au statut « document généré » — recherche, filtre par date, téléchargement du PDF.
+      </p>
+    </div>
+    <button
+      type="button"
+      class="btn-secondary shrink-0"
+      [disabled]="loading"
+      (click)="reload()"
+    >
+      Actualiser
+    </button>
+  </div>
+
+  <div class="card-navy p-4 space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="space-y-1">
+          <label class="text-[11px] font-medium text-slate-500" for="hist-search">Recherche (ID, nom, type)</label>
+          <input
+            id="hist-search"
+            type="search"
+            class="doc-field"
+            [(ngModel)]="searchQuery"
+            (ngModelChange)="onFilterChange()"
+            placeholder="Ex. REQ-2026 ou Dupont"
+          />
+        </div>
+        <div class="space-y-1">
+          <label class="text-[11px] font-medium text-slate-500" for="hist-from">Généré à partir du</label>
+          <div class="doc-date-with-picker">
+            <input
+              #histFrom
+              id="hist-from"
+              type="date"
+              class="doc-field doc-date-input"
+              [(ngModel)]="dateFrom"
+              (ngModelChange)="onFilterChange()"
+            />
+            <button
+              type="button"
+              class="doc-date-calendar-btn"
+              title="Ouvrir le calendrier"
+              (click)="openNativeDatePicker(histFrom, $event)"
+            >
+              <app-doc-icon name="calendar" klass="w-4 h-4"></app-doc-icon>
+            </button>
+          </div>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[11px] font-medium text-slate-500" for="hist-to">Jusqu’au</label>
+          <div class="doc-date-with-picker">
+            <input
+              #histTo
+              id="hist-to"
+              type="date"
+              class="doc-field doc-date-input"
+              [(ngModel)]="dateTo"
+              (ngModelChange)="onFilterChange()"
+            />
+            <button
+              type="button"
+              class="doc-date-calendar-btn"
+              title="Ouvrir le calendrier"
+              (click)="openNativeDatePicker(histTo, $event)"
+            >
+              <app-doc-icon name="calendar" klass="w-4 h-4"></app-doc-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+  </div>
+
+  @if (loading) {
+    <p class="text-slate-400 text-sm">Chargement…</p>
+  } @else if (error) {
+    <p class="text-red-400 text-sm">{{ error }}</p>
+  }
+
+  <div class="card-navy">
+    <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse min-w-[720px]">
+      <thead>
+        <tr class="bg-navy-800/50 border-b border-navy-800">
+          <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">ID demande</th>
+          <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bénéficiaire</th>
+          <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Type</th>
+          <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Généré le</th>
+          <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Statut</th>
+          <th
+            class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right min-w-[11rem] whitespace-nowrap"
+          >
+            Document
+          </th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-navy-800">
+        @if (!loading && !error && filtered.length === 0) {
+          <tr>
+            <td colspan="6" class="px-6 py-8 text-center text-sm text-slate-500">
+              Aucune demande avec document généré (ou aucun résultat pour les filtres).
+            </td>
+          </tr>
+        }
+        @for (r of filtered; track r.internalId) {
+          <tr class="hover:bg-navy-800/30 transition-colors">
+            <td class="px-6 py-4">
+              <span class="text-sm font-mono text-blue-400">{{ r.id }}</span>
+            </td>
+            <td class="px-6 py-4 text-sm text-slate-200">{{ beneficiaryLabel(r) }}</td>
+            <td class="px-6 py-4 text-sm text-slate-300">{{ cleanDocumentRequestTypeLabel(r.type) }}</td>
+            <td class="px-6 py-4 text-sm text-slate-400">{{ formatGeneratedAt(r.generatedAt) }}</td>
+            <td class="px-6 py-4">
+              <app-status-badge [status]="r.status"></app-status-badge>
+            </td>
+            <td class="relative overflow-visible px-6 py-4 text-right min-w-[11rem] whitespace-nowrap">
+              @if (canDownload(r)) {
+                <div class="flex flex-nowrap justify-end items-center gap-2">
+                  <button
+                    type="button"
+                    class="p-2 text-slate-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
+                    title="Aperçu (PDF)"
+                    (click)="openPreview(r)"
+                  >
+                    <app-doc-icon name="eye" klass="w-4 h-4"></app-doc-icon>
+                  </button>
+                  <app-generated-document-format-menu
+                    [generatedDocumentId]="r.generatedDocumentId ?? null"
+                    [fileNameBase]="exportFileNameHint(r)"
+                    appearance="standard"
+                  />
+                </div>
+              } @else {
+                <span class="text-xs text-slate-600">—</span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <app-generated-document-preview-modal
+    [open]="previewOpen"
+    [title]="previewTitle"
+    [subtitle]="previewSubtitle"
+    [generatedDocumentId]="previewGeneratedId"
+    [exportFileNameBase]="previewExportFileNameBase"
+    (closed)="closePreview()"
+  />
+</div>

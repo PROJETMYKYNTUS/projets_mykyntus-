@@ -1,0 +1,60 @@
+<div class="service-page">
+  <div class="page-header">
+    <div class="header-left">
+      <button class="btn btn-light" (click)="goToDashboard()">← Dashboard</button>
+      <div>
+        <h1>Gestion des Services</h1>
+        <p>Administration des services et sous-services</p>
+      </div>
+    </div>
+    <button class="btn btn-primary" (click)="createService()">+ Nouveau Service</button>
+  </div>
+
+  <div class="card">
+    @if (loading) {
+      <div class="state loading">
+        <div class="spinner"></div>
+        <p>Chargement en cours...</p>
+      </div>
+    } @else if (error) {
+      <div class="state error">
+        <p>{{ error }}</p>
+        <button class="btn btn-danger" (click)="loadServices()">Réessayer</button>
+      </div>
+    } @else if (services.length === 0) {
+      <div class="state empty">
+        <p>Aucun service trouvé.</p>
+        <button class="btn btn-primary" (click)="loadServices()">Recharger</button>
+      </div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="styled-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Nom</th>
+              <th>Étage</th>
+              <th>Sous-services</th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (service of services; track service.id) {
+              <tr>
+                <td><span class="badge">{{ service.code }}</span></td>
+                <td class="service-name">{{ service.name }}</td>
+                <td>{{ service.floorName }}</td>
+                <td><span class="badge secondary">{{ service.subServicesCount }}</span></td>
+                <td class="actions">
+                  <button class="btn btn-view" (click)="viewService(service.id)">Voir</button>
+                  <button class="btn btn-edit" (click)="editService(service.id)">Modifier</button>
+                  <button class="btn btn-delete" (click)="deleteService(service.id)">Supprimer</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

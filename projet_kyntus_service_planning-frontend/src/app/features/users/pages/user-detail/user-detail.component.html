@@ -1,0 +1,95 @@
+<div class="employee-detail-page">
+
+  <!-- HEADER -->
+  <div class="page-header">
+
+    <div class="header-left">
+      <button class="btn-back" (click)="goBack()">← Retour</button>
+
+      <div>
+        <h1>Détail de l'Employé</h1>
+        <p class="subtitle">Informations complètes du compte</p>
+      </div>
+    </div>
+
+    @if (user) {
+      <div class="header-actions">
+        <button class="btn-edit" (click)="editUser()">Modifier</button>
+        <button class="btn-delete" (click)="deleteUser()">Supprimer</button>
+      </div>
+    }
+
+  </div>
+
+  <!-- CARD -->
+  <div class="detail-card">
+
+    @if (loading) {
+      <div class="state-box">
+        <div class="spinner"></div>
+        <p>Chargement des informations...</p>
+      </div>
+    }
+
+    @else if (error) {
+      <div class="state-box error">
+        <p>{{ error }}</p>
+        <button class="btn-outline" (click)="goBack()">Retour</button>
+      </div>
+    }
+
+    @else if (user) {
+
+      <!-- PROFILE HEADER -->
+      <div class="user-header">
+        <div class="avatar">
+          {{ user.firstName[0] }}{{ user.lastName[0] }}
+        </div>
+
+        <div class="user-main-info">
+          <h2>{{ user.firstName }} {{ user.lastName }}</h2>
+          <p class="email">{{ user.email }}</p>
+        </div>
+
+        <span class="badge"
+              [class.inactive]="!user.isActive">
+          {{ user.isActive ? 'Actif' : 'Inactif' }}
+        </span>
+      </div>
+
+      <!-- INFO GRID -->
+      <div class="info-grid">
+
+        <div class="info-item">
+          <span class="info-label">Rôle</span>
+          <span class="badge role">{{ user.roleName }}</span>
+        </div>
+
+        <div class="info-item">
+          <span class="info-label">Sous-service</span>
+          <span class="info-value">
+            {{ user.subServiceName || '— (RH)' }}
+          </span>
+        </div>
+
+        <div class="info-item">
+          <span class="info-label">Date de création</span>
+          <span class="info-value">
+            {{ user.createdAt | date:'dd/MM/yyyy' }}
+          </span>
+        </div>
+        <div class="info-item">
+  <span class="info-label">Niveau</span>
+  <span class="level-badge lv-{{ user.level }}">
+    Niveau {{ user.level }}
+    {{ user.level === 1 ? '— Débutant' : user.level === 2 ? '— Intermédiaire' : '— Expert' }}
+  </span>
+</div>
+
+      </div>
+
+    }
+
+  </div>
+
+</div>

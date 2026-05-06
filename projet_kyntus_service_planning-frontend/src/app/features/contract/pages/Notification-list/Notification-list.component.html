@@ -1,0 +1,76 @@
+<!-- features/contract/pages/notification-list/notification-list.component.html -->
+<!-- ✅ LOGIQUE LIVE : alertes actives tant que le contrat est en zone d'alerte -->
+
+<div class="page-wrapper">
+
+  <!-- ── HEADER ── -->
+  <div class="page-header">
+    <div class="header-left">
+      <h1 class="page-title">Alertes contrats</h1>
+      <p class="page-sub">
+        {{ stats.total }} alerte(s) active(s) en ce moment
+      </p>
+    </div>
+    <button class="btn-back" (click)="goBack()">← Retour contrats</button>
+  </div>
+
+  <!-- ── FILTRES ── -->
+  <div class="filters-bar">
+    <button class="filter-btn" [class.active]="activeFilter === 'all'" (click)="setFilter('all')">
+      Toutes <span class="filter-count">{{ stats.total }}</span>
+    </button>
+    <button class="filter-btn" [class.active]="activeFilter === 'warn'" (click)="setFilter('warn')">
+      ⚠️ Avant fin <span class="filter-count warn">{{ stats.warn }}</span>
+    </button>
+    <button class="filter-btn" [class.active]="activeFilter === 'mid'" (click)="setFilter('mid')">
+      ⏳ Mi-parcours <span class="filter-count info">{{ stats.mid }}</span>
+    </button>
+  </div>
+
+  <!-- ── LOADING ── -->
+  <div class="page-loading" *ngIf="loading">
+    <div class="spinner"></div>
+    <span>Chargement des alertes...</span>
+  </div>
+
+  <!-- ── LISTE ── -->
+  <div class="notif-cards" *ngIf="!loading">
+
+    <div
+      class="notif-card"
+      *ngFor="let n of filteredNotifications"
+      (click)="onCardClick(n)">
+
+      <!-- Icône -->
+      <div class="card-icon" [ngClass]="getIconClass(n.type)">
+        {{ getIcon(n.type) }}
+      </div>
+
+      <!-- Contenu -->
+      <div class="card-body">
+        <p class="card-message">{{ n.message }}</p>
+        <div class="card-meta">
+          <span class="meta-user">👤 {{ n.userFullName }}</span>
+          <span class="meta-type" [ngClass]="getTypeBadgeClass(n.type)">
+            {{ getTypeLabel(n.type) }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Arrow -->
+      <div class="card-arrow">
+        <span>Voir le contrat →</span>
+      </div>
+
+    </div>
+
+    <!-- Vide -->
+    <div class="empty-state" *ngIf="filteredNotifications.length === 0">
+      <span>✅</span>
+      <p>Aucune alerte active</p>
+      <small>Tous les contrats sont dans les délais normaux</small>
+    </div>
+
+  </div>
+
+</div>

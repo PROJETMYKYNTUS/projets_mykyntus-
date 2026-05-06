@@ -1,0 +1,56 @@
+<div class="service-form-page">
+  <div class="page-header">
+    <div class="header-left">
+      <button class="btn btn-light" (click)="goBack()">← Retour</button>
+      <div>
+        <h1>{{ isEditMode ? 'Modifier le Service' : 'Nouveau Service' }}</h1>
+        <p>Configuration et paramètres du service</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    @if (loading) {
+      <div class="state loading">
+        <div class="spinner"></div>
+        <p>Chargement...</p>
+      </div>
+    } @else {
+      @if (error) {
+        <div class="alert error">{{ error }}</div>
+      }
+
+      <form class="form-container">
+        <div class="form-group">
+          <label>Étage <span>*</span></label>
+          <select name="floorId" [(ngModel)]="form.floorId">
+            <option [value]="0" disabled>-- Sélectionner un étage --</option>
+            @for (floor of floors; track floor.id) {
+              <option [value]="floor.id">{{ floor.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Nom <span>*</span></label>
+          <input name="name" type="text" [(ngModel)]="form.name" placeholder="Nom du service" />
+        </div>
+
+        <div class="form-group">
+          <label>Code <span>*</span></label>
+          <input name="code" type="text" [(ngModel)]="form.code" placeholder="Code unique" (blur)="checkCode()" />
+          @if (codeError) {
+            <div class="input-error">{{ codeError }}</div>
+          }
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-light" type="button" (click)="goBack()" [disabled]="submitting">Annuler</button>
+          <button class="btn btn-primary" type="button" (click)="submit()" [disabled]="submitting || !!codeError">
+            {{ submitting ? 'Enregistrement...' : (isEditMode ? 'Modifier' : 'Créer') }}
+          </button>
+        </div>
+      </form>
+    }
+  </div>
+</div>

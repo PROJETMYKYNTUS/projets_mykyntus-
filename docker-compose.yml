@@ -1,0 +1,225 @@
+# ─── Métadonnées (non consommées par Docker ; référence intégration Documentation) ───
+# API métier & temps réel : uniquement via api-gateway (hôte 5000 → conteneur 8080).
+# Les frontends nginx proxy /api/ et /hubs/ vers api-gateway — pas d’appel navigateur direct aux backends.
+x-documentation-integration:
+  public_gateway_base: "http://localhost:5000"
+  documentation_api_prefixes: "/api/documentation,/api/generate-document-ai"
+  documentation_signalr_hub: "/hubs/documentation"
+
+services:
+
+  # ─── DATABASE UNIQUE ──────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: kyntus_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Postgres@2026
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - microservices-network
+
+  # ─── BACKENDS ─────────────────────────────────────────
+  auth-backend:
+    build:
+      context: ./AuthService/AuthService
+      dockerfile: Dockerfile
+    container_name: kyntus_auth_backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=auth_db;Username=auth_user;Password=Auth@2026"
+    ports:
+      - "5220:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - microservices-network
+
+  # One-shot : insère 2 utilisateurs atlas-tech-demo dans auth_db."Users" après migrations auth-backend.
+  auth-atlas-doc-users-seed:
+    image: postgres:16-alpine
+    container_name: kyntus_seed_auth_atlas_doc_users
+    restart: "no"
+    environment:
+      PGPASSWORD: Postgres@2026
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-backend:
+        condition: service_started
+    volumes:
+      - ./init/sql/auth_insert_atlas_doc_users.sql:/seed.sql:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        until pg_isready -h postgres -p 5432 -U postgres -q; do sleep 2; done
+        i=0
+        while [ "$$i" -lt 90 ]; do
+          if psql -h postgres -U postgres -d auth_db -tAc 'SELECT 1 FROM "Users" LIMIT 1' 2>/dev/null | grep -qx 1; then
+            psql -h postgres -U postgres -d auth_db -v ON_ERROR_STOP=1 -f /seed.sql
+            echo "init: auth_insert_atlas_doc_users.sql applied"
+            exit 0
+          fi
+          i=$$((i + 1))
+          sleep 2
+        done
+        echo "init: timeout waiting for auth Users table" >&2
+        exit 1
+    networks:
+      - microservices-network
+
+  planning-backend:
+    build:
+      context: ./PlanningService/PlanningService
+      dockerfile: Dockerfile
+    container_name: kyntus_planning_backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      KYNTUS_PLANNING_DEMO_SEED: "true"
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=kyntus_db;Username=kyntus_user;Password=Kyntus@2026"
+    ports:
+      - "5201:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - microservices-network
+
+  formation-backend:
+    build:
+      context: ./FormationService
+      dockerfile: projetformationconges/Dockerfile
+    container_name: kyntus_formation_backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      KYNTUS_FORMATION_DEMO_SEED: "true"
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=formation_db;Username=formation_user;Password=Formation@2026"
+    ports:
+      - "5210:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - microservices-network
+
+  # Documentation : HTTP interne 8080 ; exposition hôte 5230 = diagnostic uniquement (métier via gateway :5000).
+  documentation-backend:
+    build:
+      context: .
+      dockerfile: init/DocumentationBackend.Dockerfile
+    container_name: kyntus_documentation_backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      # Crée le schéma documentation + tables au premier démarrage (init.sql ne contient pas le DDL métier).
+      Documentation__ApplyBootstrapSchema: "true"
+      Documentation__DemoDataSeed: "true"
+      Documentation__DefaultTenantId: "atlas-tech-demo"
+      DocumentationDb__Password: "Documentation@2026"
+      ConnectionStrings__Documentation: "Host=postgres;Port=5432;Database=documentation_db;Username=documentation_user;Password=Documentation@2026"
+    ports:
+      - "5230:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - microservices-network
+
+  # ─── API GATEWAY ──────────────────────────────────────
+  # Point d’entrée unique côté HTTP pour /api/* et /hubs/* (Ocelot : init/ocelot.gateway.json).
+  api-gateway:
+    build:
+      context: ./ApiGateway.API/ApiGateway.API
+      dockerfile: Dockerfile
+    container_name: kyntus_gateway
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "5000:8080"
+    volumes:
+      - ./init/ocelot.gateway.json:/app/ocelot.json:ro
+    depends_on:
+      auth-atlas-doc-users-seed:
+        condition: service_completed_successfully
+      auth-backend:
+        condition: service_started
+      planning-backend:
+        condition: service_started
+      formation-backend:
+        condition: service_started
+      documentation-backend:
+        condition: service_started
+    networks:
+      - microservices-network
+
+  # ─── FRONTENDS ────────────────────────────────────────
+  auth-frontend:
+    build:
+      context: ./auth-frontend
+      dockerfile: DockerFile
+    container_name: kyntus_auth_frontend
+    restart: unless-stopped
+    ports:
+      - "4201:4000"
+    environment:
+      - API_URL=http://api-gateway:8080
+    depends_on:
+      - api-gateway
+    networks:
+      - microservices-network
+
+  planning-frontend:
+    build:
+      context: ./projet_kyntus_service_planning-frontend
+      dockerfile: Dockerfile
+    container_name: kyntus_planning_frontend
+    restart: unless-stopped
+    ports:
+      - "4200:80"
+    depends_on:
+      api-gateway:
+        condition: service_started
+    networks:
+      - microservices-network
+
+  # ─── PGADMIN ──────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: kyntus_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@kyntus.ma
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    networks:
+      - microservices-network
+
+volumes:
+  postgres_data:
+
+networks:
+  microservices-network:
+    driver: bridge

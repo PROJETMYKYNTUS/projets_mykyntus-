@@ -1,0 +1,136 @@
+<!-- features/contract/pages/contract-detail/contract-detail.component.html -->
+
+<div class="page-wrapper">
+
+  <!-- Loading -->
+  <div class="page-loading" *ngIf="loading">
+    <div class="spinner"></div>
+    <span>Chargement...</span>
+  </div>
+
+  <ng-container *ngIf="!loading && contract">
+
+    <!-- ── HEADER ── -->
+    <div class="page-header">
+      <button class="btn-back" (click)="goBack()">← Retour</button>
+      <div class="header-center">
+        <h1 class="page-title">Détails du contrat</h1>
+        <p class="page-sub">Informations complètes du contrat</p>
+      </div>
+      <button class="btn-primary" (click)="goToEdit()">✏️ Modifier</button>
+    </div>
+
+    <!-- ── ALERTE ACTIVE ── -->
+    <div class="alert-banner" *ngIf="contract.isAlertActive">
+      ⚠️ Ce contrat est dans la zone d'alerte — moins de {{ contract.alertThresholdDays }} jours avant échéance.
+    </div>
+
+    <div class="detail-grid">
+
+      <!-- Colonne gauche : infos principales -->
+      <div class="detail-main">
+
+        <!-- Hero card -->
+        <div class="hero-card">
+          <div class="hero-avatar">{{ getInitials(contract.userFullName) }}</div>
+          <div class="hero-info">
+            <h2>{{ contract.userFullName }}</h2>
+            <div class="hero-badges">
+              <span class="badge-type" [ngClass]="typeBadge(contract.type)">{{ contract.type }}</span>
+              <span class="badge-status" [ngClass]="statusBadge(contract.status)">{{ contract.status }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Infos contrat -->
+        <div class="info-card">
+          <h3 class="card-title">📅 Dates du contrat</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Date de début</span>
+              <span class="info-value">{{ contract.startDate | date:'dd MMMM yyyy' }}</span>
+            </div>
+            <div class="info-item" *ngIf="contract.endDate">
+              <span class="info-label">Date de fin</span>
+              <span class="info-value">{{ contract.endDate | date:'dd MMMM yyyy' }}</span>
+            </div>
+            <div class="info-item" *ngIf="contract.probationEndDate">
+              <span class="info-label">Fin période d'essai</span>
+              <span class="info-value">{{ contract.probationEndDate | date:'dd MMMM yyyy' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Seuil d'alerte</span>
+              <span class="info-value">{{ contract.alertThresholdDays }} jours avant fin</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="info-card" *ngIf="contract.notes">
+          <h3 class="card-title">📝 Notes</h3>
+          <p class="notes-text">{{ contract.notes }}</p>
+        </div>
+
+      </div>
+
+      <!-- Colonne droite : jours restants + timeline -->
+      <div class="detail-side">
+
+        <!-- Jours restants contrat -->
+        <div class="countdown-card" *ngIf="contract.joursRestants != null">
+          <h3 class="card-title">⏱️ Fin de contrat</h3>
+          <div class="countdown-value" [ngClass]="daysTextClass(contract.joursRestants!)">
+            {{ contract.joursRestants }}
+          </div>
+          <div class="countdown-label">jours restants</div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill"
+              [style.width.%]="daysPercent()"
+              [ngClass]="daysBarClass(contract.joursRestants!)">
+            </div>
+          </div>
+          <div class="countdown-dates">
+            <span>{{ contract.startDate | date:'dd/MM/yy' }}</span>
+            <span>{{ contract.endDate | date:'dd/MM/yy' }}</span>
+          </div>
+        </div>
+
+        <!-- Jours restants période d'essai -->
+        <div class="countdown-card amber" *ngIf="contract.joursRestantsPeriodeEssai != null && contract.status === 'En période d\'essai'">
+          <h3 class="card-title">⏳ Fin période d'essai</h3>
+          <div class="countdown-value txt-warn">
+            {{ contract.joursRestantsPeriodeEssai }}
+          </div>
+          <div class="countdown-label">jours restants</div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill fill-warn"
+              [style.width.%]="probationPercent()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Infos création -->
+        <div class="info-card">
+          <h3 class="card-title">ℹ️ Informations</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">ID contrat</span>
+              <span class="info-value">#{{ contract.id }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">ID employé</span>
+              <span class="info-value">#{{ contract.userId }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Créé le</span>
+              <span class="info-value">{{ contract.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </ng-container>
+
+</div>

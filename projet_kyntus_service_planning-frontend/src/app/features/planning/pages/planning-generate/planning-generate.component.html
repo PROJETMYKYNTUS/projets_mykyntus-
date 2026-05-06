@@ -1,0 +1,135 @@
+<!-- features/planning/pages/planning-generator/planning-generator.component.html -->
+
+<div class="page-wrapper">
+
+  <!-- ── HEADER ── -->
+  <div class="page-header">
+    <button class="btn-back" (click)="goBack()">← Dashboard</button>
+    <div class="header-info">
+      <h1 class="page-title">⚡ Génération Planning</h1>
+      <p class="page-sub">Algorithme intelligent de distribution des shifts</p>
+    </div>
+    <div class="week-badge">
+      <span class="week-label">Semaine en cours</span>
+      <span class="week-value">{{ currentWeekCode }}</span>
+    </div>
+  </div>
+
+  <!-- ── GRILLE PRINCIPALE ── -->
+  <div class="main-grid">
+
+    <!-- ── COLONNE GAUCHE : Formulaire génération ── -->
+    <div class="gen-card">
+      <div class="card-header">
+        <span class="card-icon">🗓️</span>
+        <h2>Nouveau Planning</h2>
+      </div>
+
+      <!-- Sous-service -->
+      <div class="form-group">
+        <label>Sous-service <span class="req">*</span></label>
+        <select [(ngModel)]="subServiceId" (change)="onSubServiceChange()">
+          <option value="0" disabled>-- Sélectionner --</option>
+          <option *ngFor="let s of subServices" [value]="s.id">{{ s.name }}</option>
+        </select>
+      </div>
+
+      <!-- Semaine -->
+      <div class="form-group">
+        <label>Semaine (Lundi) <span class="req">*</span></label>
+        <input type="date" [(ngModel)]="weekStartDate" (change)="onWeekChange()" />
+        <span class="week-preview" *ngIf="weekCode">{{ weekCode }}</span>
+      </div>
+
+      <!-- Effectif -->
+      <div class="form-group">
+        <label>Effectif total nécessaire <span class="req">*</span></label>
+        <input type="number" [(ngModel)]="totalEffectif" min="1" placeholder="Ex: 20" />
+        <span class="hint">Le système répartit équitablement sur les 4 shifts</span>
+      </div>
+
+      <!-- Preview quotas -->
+      <div class="quota-preview" *ngIf="totalEffectif > 0">
+        <p class="quota-title">📊 Distribution automatique :</p>
+        <div class="quota-grid">
+          <div class="quota-item" *ngFor="let h of ['8h','9h','10h','11h']; let i = index">
+            <span class="quota-shift">{{ h }}</span>
+            <span class="quota-count">
+              {{ Math.floor(totalEffectif / 4) + (i < totalEffectif % 4 ? 1 : 0) }}
+            </span>
+            <span class="quota-pct">pers.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="alert-error"   *ngIf="error">⚠️ {{ error }}</div>
+      <div class="alert-success" *ngIf="successMsg">✅ {{ successMsg }}</div>
+
+      <!-- Bouton générer -->
+      <button class="btn-generate" [disabled]="generating || !subServiceId || !totalEffectif" (click)="generatePlanning()">
+        <span *ngIf="!generating">🚀 Générer le planning</span>
+        <span *ngIf="generating" class="generating-state">
+          <span class="dot-pulse"></span>
+          Génération en cours...
+        </span>
+      </button>
+
+      <!-- Info algorithme -->
+      <div class="algo-info">
+        <p class="algo-title">🤖 Algorithme intelligent :</p>
+        <ul>
+          <li>Distribution équitable des shifts sur la semaine</li>
+          <li>Rotation basée sur l'historique de chaque employé</li>
+          <li>Respect de la règle samedi (Groupe A / B)</li>
+          <li>Nouveaux employés → samedi 8h automatique</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── COLONNE DROITE : Historique plannings ── -->
+    <div class="history-card">
+      <div class="card-header">
+        <span class="card-icon">📋</span>
+        <h2>Plannings existants</h2>
+        <span class="count-badge" *ngIf="plannings.length > 0">{{ plannings.length }}</span>
+      </div>
+
+      <!-- Loading -->
+      <div class="state-loading" *ngIf="loading">
+        <div class="spinner"></div>
+        <span>Chargement...</span>
+      </div>
+
+      <!-- Vide -->
+      <div class="state-empty" *ngIf="!loading && plannings.length === 0">
+        <span>📭</span>
+        <p>Aucun planning pour ce sous-service</p>
+      </div>
+
+      <!-- Liste -->
+      <div class="planning-list" *ngIf="!loading && plannings.length > 0">
+        <div class="planning-item" *ngFor="let p of plannings" (click)="viewPlanning(p.id)">
+          <div class="pi-left">
+            <span class="pi-week">{{ p.weekCode }}</span>
+            <span class="pi-sub">{{ p.subServiceName }}</span>
+            <span class="pi-effectif">👥 {{ p.totalEffectif }} employés</span>
+          </div>
+          <div class="pi-right">
+            <span class="status-badge" [ngClass]="getStatusClass(p.status)">
+              {{ getStatusLabel(p.status) }}
+            </span>
+            <!-- ✅ NOUVEAU — Bouton supprimer -->
+            <button class="btn-delete-planning"
+                    (click)="deletePlanning(p.id, $event)"
+                    title="Supprimer ce planning">
+              🗑️
+            </button>
+            <span class="pi-arrow">→</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="projetformationconges/Formation.API.csproj" />
+  <Project Path="src/Services/Formation/Formation.Application/Formation.Application.csproj" />
+  <Project Path="src/Services/Formation/Formation.Domain/Formation.Domain.csproj" />
+  <Project Path="src/Services/Formation/Formation.Infrastructure/Formation.Infrastructure.csproj" />
+  <Project Path="src/Services/Formation/Shared.Kernel/Shared.Kernel.csproj" />
+</Solution>

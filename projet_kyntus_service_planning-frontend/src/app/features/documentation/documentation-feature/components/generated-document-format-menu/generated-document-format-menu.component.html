@@ -1,0 +1,49 @@
+<div #triggerHost class="relative inline-block shrink-0" (click)="$event.stopPropagation()">
+  @if (appearance === 'button' || appearance === 'standard') {
+    <button
+      type="button"
+      class="btn-download"
+      [disabled]="!!busyFormat || !generatedDocumentId?.trim()"
+      (click)="toggleMenu($event)"
+    >
+      @if (busyFormat) {
+        <span class="doc-inline-spinner shrink-0" aria-hidden="true"></span>
+        <span>Téléchargement…</span>
+      } @else {
+        <span aria-hidden="true">⬇</span>
+        <span>Télécharger</span>
+        <span class="opacity-90 text-xs" aria-hidden="true">▾</span>
+      }
+    </button>
+  } @else {
+    <button
+      type="button"
+      class="btn-download !px-3 !py-2"
+      title="Télécharger (choix du format)"
+      [disabled]="!!busyFormat || !generatedDocumentId?.trim()"
+      (click)="toggleMenu($event)"
+    >
+      @if (busyFormat) {
+        <span class="doc-inline-spinner shrink-0" aria-hidden="true"></span>
+      } @else {
+        <span aria-hidden="true">⬇</span>
+      }
+    </button>
+  }
+
+  @if (menuOpen && !busyFormat && generatedDocumentId?.trim()) {
+    <div
+      #dropdownPanel
+      class="doc-download-dropdown doc-download-dropdown--fixed py-1 z-[1000] box-border"
+      role="menu"
+      [style.top.px]="dropdownTop"
+      [style.left.px]="dropdownLeft"
+      [style.width.px]="dropdownAppliedWidth"
+      (click)="$event.stopPropagation()"
+    >
+      <p class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Télécharger en</p>
+      <button type="button" role="menuitem" (click)="downloadAs('pdf', $event)">PDF (.pdf)</button>
+      <button type="button" role="menuitem" (click)="downloadAs('docx', $event)">DOCX (.docx)</button>
+    </div>
+  }
+</div>

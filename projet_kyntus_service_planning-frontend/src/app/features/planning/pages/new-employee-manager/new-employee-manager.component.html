@@ -1,0 +1,73 @@
+<!-- new-employee-manager.component.html -->
+<div class="page-wrapper">
+  <div class="page-header">
+    <button class="btn-back" (click)="goBack()">← Dashboard</button>
+    <div class="header-info">
+      <h1 class="page-title">🆕 Nouveaux Employés</h1>
+      <p class="page-sub">Configuration slots samedi · Statut automatique &lt; 3 mois</p>
+    </div>
+    <div class="header-actions">
+      <select class="select-subservice" [(ngModel)]="subServiceId" (change)="onSubServiceChange()">
+        <option [value]="0" disabled>-- Sous-service --</option>
+        <option *ngFor="let s of subServices" [value]="s.id">{{ s.name }}</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="alert-success" *ngIf="successMsg">✅ {{ successMsg }}</div>
+  <div class="alert-error"   *ngIf="error">⚠️ {{ error }}</div>
+
+  <div class="rule-banner">
+    <span class="rule-icon">⚡</span>
+    <div>
+      <strong>Détection automatique</strong>
+      <p>Tout employé embauché il y a <strong>moins de 3 mois</strong> est automatiquement
+      marqué comme nouveau et travaille <strong>tous les samedis</strong> en demi-journée (4h).
+      Le responsable peut retirer ce statut manuellement.</p>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="card-header">
+      <span class="card-icon">🆕</span>
+      <h2>Nouveaux employés</h2>
+      <span class="count-badge warn" *ngIf="newEmployees.length > 0">{{ newEmployees.length }}</span>
+    </div>
+
+    <div class="state-loading" *ngIf="loading">
+      <div class="spinner"></div><span>Chargement...</span>
+    </div>
+    <div class="state-empty" *ngIf="!loading && newEmployees.length === 0">
+      <span>✅</span><p>Aucun nouvel employé dans ce sous-service</p>
+    </div>
+
+    <div class="new-emp-list" *ngIf="!loading && newEmployees.length > 0">
+      <div class="new-emp-item" *ngFor="let emp of newEmployees">
+        <div class="ne-left">
+          <div class="ne-avatar">{{ emp.fullName[0] }}</div>
+          <div class="ne-details">
+            <span class="ne-name">{{ emp.fullName }}</span>
+            <span class="ne-hire">
+              📅 Embauché il y a
+              <strong [ngClass]="emp.monthsHere < 1 ? 'months-red' : 'months-orange'">
+                {{ emp.monthsHere }} mois
+              </strong>
+            </span>
+            <span class="ne-slot-current" [ngClass]="emp.saturdaySlot === 0 ? 'slot-warn' : 'slot-ok'">
+              🗓 Samedi : {{ emp.saturdaySlotLabel }}
+            </span>
+          </div>
+        </div>
+        <div class="ne-right">
+          <button class="btn-slot" [ngClass]="{'slot-active': emp.saturdaySlot === 1}" (click)="setSaturdaySlot(emp.id, 1)">🌅 8h–12h</button>
+          <button class="btn-slot" [ngClass]="{'slot-active': emp.saturdaySlot === 2}" (click)="setSaturdaySlot(emp.id, 2)">🌆 12h–16h</button>
+          <button class="btn-remove" (click)="removeNewStatus(emp.id, emp.fullName)" title="Retirer le statut Nouveau">✖ Retirer</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="warning-box" *ngIf="newEmployees.length > 0 && hasUnconfiguredSlot">
+      ⚠️ Certains employés n'ont pas de slot samedi configuré. Configurez avant de générer le planning.
+    </div>
+  </div>
+</div>

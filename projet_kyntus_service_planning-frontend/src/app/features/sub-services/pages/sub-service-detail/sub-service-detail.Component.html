@@ -1,0 +1,104 @@
+<!-- sub-service-detail.component.html -->
+<div class="ss-layout">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <!-- HEADER -->
+  <header class="ss-header">
+    <div class="ss-header-left">
+      <button class="btn-ghost" (click)="goBack()">← Retour</button>
+      <div class="divider-v"></div>
+      <div class="page-title-group">
+        <div class="page-eyebrow">Détail · Sous-Service</div>
+        <h1 class="page-title">{{ subService?.name ?? 'Chargement…' }}</h1>
+      </div>
+    </div>
+    @if (subService) {
+      <div class="header-actions">
+        <button class="btn-action btn-edit-h" (click)="editSubService()">
+          ✏ Modifier
+        </button>
+        <button class="btn-action btn-del-h" (click)="deleteSubService()">
+          🗑 Supprimer
+        </button>
+      </div>
+    }
+  </header>
+
+  @if (loading) {
+    <div class="state-center">
+      <div class="loader-ring"></div>
+      <p class="state-text">Chargement…</p>
+    </div>
+  } @else if (subService) {
+
+    <!-- INFO CARDS -->
+    <div class="info-strip">
+      <div class="info-tile">
+        <span class="tile-label">Code</span>
+        <span class="code-badge">{{ subService.code }}</span>
+      </div>
+      <div class="info-tile">
+        <span class="tile-label">Nom</span>
+        <span class="tile-value">{{ subService.name }}</span>
+      </div>
+      <div class="info-tile">
+        <span class="tile-label">Service Parent</span>
+        <span class="service-pill">{{ subService.serviceName }}</span>
+      </div>
+      <div class="info-tile">
+        <span class="tile-label">Localisation</span>
+        <span class="tile-value">{{ subService.floorName }}</span>
+      </div>
+      <div class="info-tile">
+        <span class="tile-label">Effectif</span>
+        <span class="emp-count-big">{{ subService.employees.length }}</span>
+      </div>
+    </div>
+
+    <!-- EMPLOYEES -->
+    <div class="glass-card">
+      <div class="card-header-bar">
+        <div class="card-header-left">
+          <h2 class="card-title">👥 Employés rattachés</h2>
+          <span class="count-chip">{{ subService.employees.length }} membres</span>
+        </div>
+      </div>
+
+      @if (subService.employees.length === 0) {
+        <div class="state-center">
+          <div class="empty-icon">👤</div>
+          <p class="state-text">Aucun employé dans ce sous-service</p>
+        </div>
+      } @else {
+        <div class="table-wrap">
+          <table class="ss-table">
+            <thead>
+              <tr>
+                <th>Employé</th>
+                <th>Email</th>
+                <th>Rôle</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (emp of subService.employees; track emp.id) {
+                <tr class="table-row">
+                  <td>
+                    <div class="emp-row">
+                      <div class="emp-avatar">{{ getInitials(emp) }}</div>
+                      <span class="emp-name">{{ emp.lastName }} {{ emp.firstName }}</span>
+                    </div>
+                  </td>
+                  <td class="td-email">{{ emp.email }}</td>
+                  <td><span class="role-badge">{{ emp.roleName }}</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+  }
+</div>

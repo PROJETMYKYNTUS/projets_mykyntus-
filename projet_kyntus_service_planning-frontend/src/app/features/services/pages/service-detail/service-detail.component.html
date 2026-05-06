@@ -1,0 +1,75 @@
+<div class="service-detail-page">
+  <div class="page-header">
+    <div class="header-left">
+      <button class="btn btn-light" (click)="goBack()">← Retour</button>
+      <div>
+        <h1>Détail du Service</h1>
+        <p>Informations et sous-services associés</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    @if (loading) {
+      <div class="state loading">
+        <div class="spinner"></div>
+        <p>Chargement en cours...</p>
+      </div>
+    } @else if (error) {
+      <div class="state error">
+        <p>{{ error }}</p>
+        <button class="btn btn-light" (click)="goBack()">Retour</button>
+      </div>
+    } @else if (service) {
+      <div class="service-info">
+        <div class="info-row">
+          <span class="label">Code</span>
+          <span class="badge">{{ service.code }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Nom</span>
+          <span class="value">{{ service.name }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Étage</span>
+          <span class="value">{{ service.floorName }}</span>
+        </div>
+      </div>
+
+      <div class="subservices-section">
+        <div class="subservices-header">
+          <h2>Sous-services</h2>
+          <span class="badge secondary">{{ service.subServices.length }}</span>
+        </div>
+
+        @if (service.subServices.length === 0) {
+          <div class="empty-state">Aucun sous-service pour ce service.</div>
+        } @else {
+          <div class="table-wrapper">
+            <table class="styled-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Nom</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (sub of service.subServices; track sub.id) {
+                  <tr>
+                    <td><span class="badge">{{ sub.code }}</span></td>
+                    <td>{{ sub.name }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-edit" (click)="editService()">Modifier</button>
+        <button class="btn btn-delete" (click)="deleteService()">Supprimer</button>
+      </div>
+    }
+  </div>
+</div>

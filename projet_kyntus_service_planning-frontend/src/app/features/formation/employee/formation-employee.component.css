@@ -1,0 +1,42 @@
+.fe-root { padding: 0; }
+.fe-toast { position: fixed; top: 20px; right: 20px; background: #10b981;
+  color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 14px;
+  opacity: 0; transition: opacity .3s; z-index: 9999; pointer-events: none; }
+.fe-toast.visible { opacity: 1; pointer-events: auto; }
+.fe-toast.error { background: #ef4444; }
+
+.fe-header { margin-bottom: 24px; }
+.fe-title { font-size: 20px; font-weight: 700; color: #0f172a; margin: 0; }
+.fe-sub { font-size: 13px; color: #64748b; margin: 4px 0 0; }
+
+.fe-loading, .fe-empty { display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 60px; color: #94a3b8; gap: 12px; }
+.fe-spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0;
+  border-top-color: #6094ff; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.fe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.fe-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+  padding: 20px; display: flex; flex-direction: column; gap: 12px; transition: box-shadow .2s; }
+.fe-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+
+.fe-card-head { display: flex; justify-content: space-between; align-items: center; }
+.fe-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+.badge-valid { background: #f0fdf4; color: #16a34a; }
+.badge-active { background: #eff6ff; color: #1d4ed8; }
+
+.fe-places { font-size: 12px; color: #64748b; font-weight: 500; }
+.fe-places.complet { color: #ef4444; }
+
+.fe-card-title { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; }
+.fe-card-desc { font-size: 13px; color: #64748b; line-height: 1.5; margin: 0; }
+
+.fe-card-meta { display: flex; flex-direction: column; gap: 6px; }
+.fe-meta-item { display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: #475569; }
+
+.fe-btn-inscrire { margin-top: auto; padding: 11px; background: #6094ff;
+  color: #fff; border: none; border-radius: 8px; font-size: 14px;
+  font-weight: 500; cursor: pointer; transition: background .2s; }
+.fe-btn-inscrire:hover:not(.disabled) { background: #4a7cf7; }
+.fe-btn-inscrire.disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }

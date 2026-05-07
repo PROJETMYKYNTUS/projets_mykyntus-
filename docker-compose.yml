@@ -83,6 +83,25 @@ services:
     networks:
       - microservices-network
 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: kyntus_rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - microservices-network
+
   planning-backend:
     build:
       context: ./PlanningService/PlanningService
@@ -141,6 +160,28 @@ services:
       - "5230:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+    networks:
+      - microservices-network
+  conge-backend:
+    build:
+      context: ./FormationService
+      dockerfile: Conge.API/Dockerfile
+    container_name: kyntus_conge_backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__CongeDb: "Host=postgres;Port=5432;Database=conge_db;Username=postgres;Password=Postgres@2026"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: guest
+      RabbitMQ__Password: guest
+    ports:
+      - "5240:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - microservices-network

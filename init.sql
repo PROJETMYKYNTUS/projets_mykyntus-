@@ -46,3 +46,12 @@ ALTER DEFAULT PRIVILEGES FOR ROLE documentation_user IN SCHEMA documentation GRA
 ALTER DEFAULT PRIVILEGES FOR ROLE documentation_user IN SCHEMA documentation GRANT ALL ON SEQUENCES TO documentation_user;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA documentation GRANT ALL ON TABLES TO documentation_user;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA documentation GRANT ALL ON SEQUENCES TO documentation_user;
+
+-- ─── BASE PRIME ─────────────────────────────────────
+CREATE DATABASE prime_db;
+CREATE USER prime_user WITH PASSWORD 'Prime@2026';
+GRANT ALL PRIVILEGES ON DATABASE prime_db TO prime_user;
+\c prime_db
+GRANT ALL ON SCHEMA public TO prime_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO prime_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO prime_user;

@@ -6,6 +6,7 @@ import { NotificationService, PlanningNotification } from '../../../../core/serv
 import { NewsletterService, EmployeeNewsletter } from '../../../../core/services/newsletter.service';
 import { ReclamationEmployeeComponent } from '../../../reclamation/employee/reclamation-employee.component';
 import { FormationEmployeeComponent } from '../../../formation/employee/formation-employee.component';
+import { CongeEmployeComponent } from '../../../conge/pages/conge-employe/conge-employe.component';
 interface DayAssignment {
   assignmentId: number;
   day: string;
@@ -34,7 +35,8 @@ interface MyPlanning {
   imports: [
     CommonModule,
     ReclamationEmployeeComponent,
-    FormationEmployeeComponent
+    FormationEmployeeComponent,
+    CongeEmployeComponent,
   ],
   templateUrl: './dashboard-employee.component.html',
   styleUrls: ['./dashboard-employee.component.css']

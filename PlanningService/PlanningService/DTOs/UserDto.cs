@@ -1,6 +1,8 @@
 ﻿public class UserDto
 {
     public int Id { get; set; }
+    public Guid Guid { get; set; }      // ← AJOUTER
+    public Guid? ManagerId { get; set; }
     public int RoleId { get; set; }
     public string RoleName { get; set; } = string.Empty;
     public int? SubServiceId { get; set; }

@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations;
 public class User
 {
     public int Id { get; set; }
-
+    public Guid Guid { get; set; } = Guid.NewGuid();
     // FK Role
     public int RoleId { get; set; }
     public Role Role { get; set; } = null!;

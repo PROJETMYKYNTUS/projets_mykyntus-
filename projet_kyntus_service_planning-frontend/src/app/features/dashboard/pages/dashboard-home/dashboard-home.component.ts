@@ -50,6 +50,19 @@ if (this.currentUser?.id) {
     console.error('❌ currentUser.id est undefined — hub non connecté !');
   }
 }
+// Ajoutez cette propriété calculée :
+get congesRoute(): string {
+  const role: string = this.currentUser?.role || '';
+  const managerRoles = ['Admin', 'RH', 'Manager'];
+  return managerRoles.includes(role) ? '/conge' : '/mes-conges';
+}
+
+get congesLabel(): string {
+  const role: string = this.currentUser?.role || '';
+  return ['Admin', 'RH', 'Manager'].includes(role)
+    ? 'Gérer les congés'
+    : 'Mes congés';
+}
   
 
   logout(): void {

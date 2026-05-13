@@ -1,18 +1,22 @@
-using Microsoft.EntityFrameworkCore;
-using PlanningService.Data;
-using PlanningService.Interfaces;
-using PlanningService.Services;
-using PlanningService.Hubs;
-using System.Text.Json.Serialization;
+using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Planning.Messaging.Publishers;
+using PlanningService.Data;
+using PlanningService.Hubs;
+using PlanningService.Interfaces;
+using PlanningService.Messaging.Consumers;
+using PlanningService.Messaging.Publishers;
+using PlanningService.Services;
 using System.Text;
+using System.Text.Json.Serialization;
 
 using PlanningServiceImpl = PlanningService.Services.PlanningService;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// CORS
+// ── CORS ──────────────────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular", policy =>
@@ -29,10 +33,11 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Database
+// ── Database ──────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// ── JWT ───────────────────────────────────────────────────────────────────────
 var jwtSecret = builder.Configuration["JwtSettings:Secret"]
     ?? throw new InvalidOperationException("JwtSettings:Secret manquant");
 
@@ -60,12 +65,8 @@ builder.Services
             {
                 var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
-
-                if (!string.IsNullOrEmpty(accessToken) &&
-                    path.StartsWithSegments("/hubs"))
-                {
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
                     context.Token = accessToken;
-                }
                 return Task.CompletedTask;
             }
         };
@@ -73,8 +74,7 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
-
-// Services
+// ── Services existants ────────────────────────────────────────────────────────
 builder.Services.AddScoped<IFloorService, FloorService>();
 builder.Services.AddScoped<IServiceService, ServiceService>();
 builder.Services.AddScoped<ISubServiceService, SubServiceService>();
@@ -84,12 +84,38 @@ builder.Services.AddScoped<IPlanningService, PlanningServiceImpl>();
 builder.Services.AddScoped<IReclamationService, ReclamationService>();
 builder.Services.AddScoped<IPropositionService, PropositionService>();
 builder.Services.AddScoped<IReclamationNotificationService, ReclamationNotificationService>();
-// ? NOUVEAU � Newsletter
 builder.Services.AddScoped<INewsletterService, NewsletterService>();
 
+// ── 🆕 MassTransit + RabbitMQ ─────────────────────────────────────────────────
+builder.Services.AddScoped<IEmployePublisher, EmployePublisher>();
+
+builder.Services.AddMassTransit(x =>
+{
+    // Consumer : reçoit les congés validés depuis Conge Service
+    x.AddConsumer<CongeValideConsumer>();
+
+    x.UsingRabbitMq((ctx, cfg) =>
+    {
+        cfg.Host(builder.Configuration["RabbitMQ:Host"] ?? "rabbitmq", "/", h =>
+        {
+            h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
+            h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
+        });
+
+        // Queue : écoute les congés validés depuis Conge Service
+        cfg.ReceiveEndpoint("planning-conge-valide", e =>
+        {
+            e.ConfigureConsumer<CongeValideConsumer>(ctx);
+        });
+
+        cfg.ConfigureEndpoints(ctx);
+    });
+});
+
+// ── SignalR ───────────────────────────────────────────────────────────────────
 builder.Services.AddSignalR();
 
-// Controllers
+// ── Controllers ───────────────────────────────────────────────────────────────
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
     {
@@ -104,7 +130,7 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var app = builder.Build();
 
-// Migrations
+// ── Migrations ────────────────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -114,18 +140,18 @@ using (var scope = app.Services.CreateScope())
         try
         {
             db.Database.Migrate();
-            Console.WriteLine("? Migrations appliqu�es avec succ�s.");
+            Console.WriteLine("✅ Migrations appliquées avec succès.");
             break;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"? Attente DB... tentative {i + 1}/{maxRetries}: {ex.Message}");
+            Console.WriteLine($"⏳ Attente DB... tentative {i + 1}/{maxRetries}: {ex.Message}");
             Thread.Sleep(3000);
         }
     }
 }
 
-// Seed Shifts
+// ── Seed Shifts ───────────────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -141,7 +167,7 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Sync employ�s
+// ── Sync employés ─────────────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var planningService = scope.ServiceProvider.GetRequiredService<IPlanningService>();
@@ -154,7 +180,7 @@ using (var scope = app.Services.CreateScope())
     await DockerComposePlanningDemoSeed.ApplyIfEnabledAsync(app.Configuration, planningDb);
 }
 
-// ?? Middleware pipeline ??????????????????????????????
+// ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -167,8 +193,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.MapHub<PlanningHub>("/hubs/planning");
-
-// ? NOUVEAU � Hub Newsletter
 app.MapHub<NewsletterHub>("/hubs/newsletter");
 app.MapHub<ReclamationHub>("/hubs/reclamation");
+
 app.Run();

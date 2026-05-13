@@ -72,6 +72,12 @@ public class UsersController : ControllerBase
 
         return Ok(result);
     }
+    [HttpPost("sync-to-conge")]
+    public async Task<IActionResult> SyncAllToConge()
+    {
+        await _userService.SyncAllEmployesToCongeAsync();
+        return Ok(new { message = "Synchronisation envoyée via RabbitMQ." });
+    }
     [HttpPut("{id}/new-employee")]
     public async Task<IActionResult> SetNewEmployeeStatus(
     int id, [FromBody] SetNewEmployeeDto dto)

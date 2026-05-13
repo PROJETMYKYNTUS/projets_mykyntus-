@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\services\\propositionservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\services\\propositionservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -73,10 +77,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\models\\reclamationmodels.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\models\\reclamationmodels.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
-      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\version stable\\planningservice\\planningservice\\services\\newsletterservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -210,23 +210,11 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 5,
+          "SelectedChildIndex": 7,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "Program.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Program.cs",
-              "RelativeDocumentMoniker": "PlanningService\\Program.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Program.cs",
-              "RelativeToolTip": "PlanningService\\Program.cs",
-              "ViewState": "AgIAAFIAAAAAAAAAAAAQwKcAAAAKAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-26T10:40:03.797Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 8,
               "Title": "ReclamationNotificationService.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Services\\ReclamationNotificationService.cs",
               "RelativeDocumentMoniker": "PlanningService\\Services\\ReclamationNotificationService.cs",
@@ -238,7 +226,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "Reclamationcontroller.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Controllers\\Reclamationcontroller.cs",
               "RelativeDocumentMoniker": "PlanningService\\Controllers\\Reclamationcontroller.cs",
@@ -250,7 +238,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 5,
               "Title": "Propositioncontroller.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Controllers\\Propositioncontroller.cs",
               "RelativeDocumentMoniker": "PlanningService\\Controllers\\Propositioncontroller.cs",
@@ -262,7 +250,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 10,
               "Title": "INotificationService.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Interfaces\\INotificationService.cs",
               "RelativeDocumentMoniker": "PlanningService\\Interfaces\\INotificationService.cs",
@@ -274,7 +262,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "PropositionService.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Services\\PropositionService.cs",
               "RelativeDocumentMoniker": "PlanningService\\Services\\PropositionService.cs",
@@ -287,7 +275,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "IPlanningService.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Interfaces\\IPlanningService.cs",
               "RelativeDocumentMoniker": "PlanningService\\Interfaces\\IPlanningService.cs",
@@ -299,7 +287,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "Ireclamationpropositionservice.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Interfaces\\Ireclamationpropositionservice.cs",
               "RelativeDocumentMoniker": "PlanningService\\Interfaces\\Ireclamationpropositionservice.cs",
@@ -311,7 +299,32 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 0,
+              "Title": "appsettings.json",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\appsettings.json",
+              "RelativeDocumentMoniker": "PlanningService\\appsettings.json",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\appsettings.json",
+              "RelativeToolTip": "PlanningService\\appsettings.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABEAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-04-15T10:55:52.773Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Program.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Program.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Program.cs",
+              "RelativeToolTip": "PlanningService\\Program.cs",
+              "ViewState": "AgIAAFIAAAAAAAAAAAAQwKcAAAAKAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-26T10:40:03.797Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
               "Title": "Reclamationservice .cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Services\\Reclamationservice .cs",
               "RelativeDocumentMoniker": "PlanningService\\Services\\Reclamationservice .cs",
@@ -323,7 +336,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 7,
               "Title": "ReclamationHub.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Hubs\\ReclamationHub.cs",
               "RelativeDocumentMoniker": "PlanningService\\Hubs\\ReclamationHub.cs",
@@ -335,7 +348,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 13,
               "Title": "ServicesController.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Controllers\\ServicesController.cs",
               "RelativeDocumentMoniker": "PlanningService\\Controllers\\ServicesController.cs",
@@ -347,7 +360,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 11,
               "Title": "NewsletterHub.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Hubs\\NewsletterHub.cs",
               "RelativeDocumentMoniker": "PlanningService\\Hubs\\NewsletterHub.cs",
@@ -359,7 +372,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 14,
               "Title": "ReclamationEnums.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Enums\\ReclamationEnums.cs",
               "RelativeDocumentMoniker": "PlanningService\\Enums\\ReclamationEnums.cs",
@@ -371,7 +384,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 12,
               "Title": "PlanningHub.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Hubs\\PlanningHub.cs",
               "RelativeDocumentMoniker": "PlanningService\\Hubs\\PlanningHub.cs",
@@ -383,7 +396,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 15,
               "Title": "ReclamationDtos.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\DTOs\\ReclamationDtos.cs",
               "RelativeDocumentMoniker": "PlanningService\\DTOs\\ReclamationDtos.cs",
@@ -395,7 +408,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 16,
               "Title": "AppDbContext.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Data\\AppDbContext.cs",
               "RelativeDocumentMoniker": "PlanningService\\Data\\AppDbContext.cs",
@@ -407,7 +420,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 16,
+              "DocumentIndex": 17,
               "Title": "PlanningController.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Controllers\\PlanningController.cs",
               "RelativeDocumentMoniker": "PlanningService\\Controllers\\PlanningController.cs",
@@ -419,7 +432,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 17,
+              "DocumentIndex": 18,
               "Title": "ReclamationModels.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\Models\\ReclamationModels.cs",
               "RelativeDocumentMoniker": "PlanningService\\Models\\ReclamationModels.cs",
@@ -464,18 +477,6 @@
               "ViewState": "AgIAAAAAAAAAAAAAAAAAACQAAAAtAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-13T09:55:38.204Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 18,
-              "Title": "appsettings.json",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\appsettings.json",
-              "RelativeDocumentMoniker": "PlanningService\\appsettings.json",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\Version stable\\PlanningService\\PlanningService\\appsettings.json",
-              "RelativeToolTip": "PlanningService\\appsettings.json",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABEAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2026-04-15T10:55:52.773Z"
             },
             {
               "$type": "Document",

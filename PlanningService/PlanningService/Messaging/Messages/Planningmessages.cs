@@ -1,8 +1,9 @@
 ﻿namespace Planning.Messaging.Messages;
-// ── Messages consommés depuis le service RH ───────────────────────────────────
 
 /// <summary>
-/// Reçu depuis RH quand un employé est créé → initialiser son solde.
+/// Publié quand un nouvel employé est créé dans Planning.
+/// → Conge Service écoute cet event pour créer le EmployeSnapshot
+///   et initialiser le solde de congé.
 /// </summary>
 public record EmployeCreatedMessage
 {
@@ -18,7 +19,8 @@ public record EmployeCreatedMessage
 }
 
 /// <summary>
-/// Reçu depuis RH quand les infos d'un employé changent (manager, service...).
+/// Publié quand les infos d'un employé changent (manager, service, email...).
+/// → Conge Service met à jour le EmployeSnapshot local.
 /// </summary>
 public record EmployeUpdatedMessage
 {
@@ -32,7 +34,8 @@ public record EmployeUpdatedMessage
 }
 
 /// <summary>
-/// Reçu depuis RH en début d'année → initialise le solde annuel.
+/// Publié en début de chaque année (ex: job planifié le 1er janvier).
+/// → Conge Service crée un nouveau SoldeConge pour l'année.
 /// </summary>
 public record SoldeAnnuelInitialiseMessage
 {
@@ -42,10 +45,9 @@ public record SoldeAnnuelInitialiseMessage
     public int Annee { get; init; }
 }
 
-// ── Messages publiés vers les autres services ─────────────────────────────────
-
 /// <summary>
-/// Publié vers RH/Planning quand un congé est validé.
+/// Reçu depuis Conge Service quand un congé est validé.
+/// → Planning peut mettre à jour le calendrier / absences.
 /// </summary>
 public record CongeValideMessage
 {
@@ -55,26 +57,4 @@ public record CongeValideMessage
     public DateTime DateFin { get; init; }
     public double NombreJours { get; init; }
     public DateTime DateValidation { get; init; }
-}
-
-/// <summary>
-/// Publié quand une demande est soumise (pour notifier le manager).
-/// </summary>
-public record CongeDemandeMessage
-{
-    public Guid DemandeId { get; init; }
-    public Guid EmployeId { get; init; }
-    public Guid ManagerId { get; init; }
-    public DateTime DateDebut { get; init; }
-    public DateTime DateFin { get; init; }
-}
-
-/// <summary>
-/// Publié quand un congé est refusé.
-/// </summary>
-public record CongeRefuseMessage
-{
-    public Guid DemandeId { get; init; }
-    public Guid EmployeId { get; init; }
-    public string Motif { get; init; } = string.Empty;
 }

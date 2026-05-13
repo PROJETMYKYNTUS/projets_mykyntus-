@@ -159,14 +159,36 @@ export const routes: Routes = [
       import('./features/planning/pages/new-employee-manager/new-employee-manager.component')
         .then(m => m.NewEmployeeManagerComponent)
   },
-  {
-    path: 'conge',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH', 'Manager'] },
-    loadComponent: () =>
-      import('./features/planning/pages/conge-manager/conge-manager.component')
-        .then(m => m.CongeManagerComponent)
-  },
+  // ─── CONGÉS — Employé ─────────────────────────────────────────────
+// ✅ L'ANCIEN — votre bouton existant continue à fonctionner
+{
+  path: 'conge',                          // ← path inchangé, le bouton actuel pointe ici
+  canActivate: [AuthGuard],
+  data: { roles: ['Admin', 'RH', 'Manager'] },
+  loadComponent: () =>
+    import('./features/planning/pages/conge-manager/conge-manager.component')
+      .then(m => m.CongeManagerComponent)
+},
+
+// ✅ LE NOUVEAU — votre nouvelle gestion complète
+{
+  path: 'conge-gestion',                  // ← nouveau path distinct
+  canActivate: [AuthGuard],
+  data: { roles: ['Admin', 'RH', 'Manager'] },
+  loadComponent: () =>
+    import('./features/conge/pages/conge-manager/conge-manager.component')
+      .then(m => m.CongeManagerComponent)
+},
+
+// ✅ EMPLOYÉ — inchangé
+{
+  path: 'mes-conges',
+  canActivate: [AuthGuard],
+  data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation'] },
+  loadComponent: () =>
+    import('./features/conge/pages/conge-employe/conge-employe.component')
+      .then(m => m.CongeEmployeComponent)
+},
 
   // ─── PLANNING — tous les rôles ────────────────────
   {

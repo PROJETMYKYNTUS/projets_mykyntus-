@@ -47,19 +47,24 @@ builder.Services.AddMassTransit(x =>
             h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
         });
 
-        // Queue : écoute les events depuis le service RH
+        // ?? Les noms des queues doivent correspondre aux exchanges créés par Planning.
+        // Exchange : "Planning.Messaging.Messages:EmployeCreatedMessage"
         cfg.ReceiveEndpoint("conge-employe-created", e =>
         {
+            // Binding explicite sur l'exchange de Planning
+            e.Bind("Planning.Messaging.Messages:EmployeCreatedMessage");
             e.ConfigureConsumer<EmployeCreatedConsumer>(ctx);
         });
 
         cfg.ReceiveEndpoint("conge-employe-updated", e =>
         {
+            e.Bind("Planning.Messaging.Messages:EmployeUpdatedMessage");
             e.ConfigureConsumer<EmployeUpdatedConsumer>(ctx);
         });
 
         cfg.ReceiveEndpoint("conge-solde-annuel", e =>
         {
+            e.Bind("Planning.Messaging.Messages:SoldeAnnuelInitialiseMessage");
             e.ConfigureConsumer<SoldeAnnuelInitialiseConsumer>(ctx);
         });
 

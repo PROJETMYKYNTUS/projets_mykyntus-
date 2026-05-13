@@ -394,12 +394,9 @@
       </div>
 
       <!-- ══ VUE CONGÉS ══ -->
-      <div class="emp-body emp-coming-soon" *ngIf="currentView === 'conges'">
-        <div class="emp-soon-icon">🏖️</div>
-        <h3>Mes Congés</h3>
-        <p>Cette fonctionnalité sera disponible prochainement.</p>
-        <button class="emp-btn-back" (click)="navigateTo('home')">Retour à l'accueil</button>
-      </div>
+<div class="emp-body" *ngIf="currentView === 'conges'">
+  <app-conge-employe></app-conge-employe>
+</div>
 
       <!-- ══ VUE PARAMÈTRES ══ -->
       <div class="emp-body emp-coming-soon" *ngIf="currentView === 'settings'">

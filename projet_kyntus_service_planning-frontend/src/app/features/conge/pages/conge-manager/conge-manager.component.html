@@ -1,0 +1,174 @@
+<div class="cm-root">
+
+  <div class="cm-toast" [class.visible]="toast.show" [class.error]="toast.type === 'error'">{{ toast.message }}</div>
+
+  <div class="cm-header">
+    <div>
+      <h2 class="cm-title">Gestion des Congés — Équipe</h2>
+      <p class="cm-sub">Validez ou refusez les demandes de votre équipe</p>
+    </div>
+    <button class="cm-btn-refresh" (click)="loadDemandes()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+      </svg>
+      Actualiser
+    </button>
+  </div>
+
+  <div class="cm-stats-grid">
+    <div class="cm-stat-card pending">
+      <span class="cm-stat-value">{{ nbEnAttente }}</span>
+      <span class="cm-stat-label">En attente</span>
+    </div>
+    <div class="cm-stat-card valid">
+      <span class="cm-stat-value">{{ nbValidees }}</span>
+      <span class="cm-stat-label">Validées</span>
+    </div>
+    <div class="cm-stat-card refused">
+      <span class="cm-stat-value">{{ nbRefusees }}</span>
+      <span class="cm-stat-label">Refusées</span>
+    </div>
+    <div class="cm-stat-card total">
+      <span class="cm-stat-value">{{ demandes.length }}</span>
+      <span class="cm-stat-label">Total</span>
+    </div>
+  </div>
+
+  <div class="cm-filters">
+    <select [(ngModel)]="filtreStatut" (change)="onFiltreChange()">
+      <option value="">Tous les statuts</option>
+      <option [value]="StatutDemande.EnAttente">En attente</option>
+      <option [value]="StatutDemande.Validee">Validée</option>
+      <option [value]="StatutDemande.Refusee">Refusée</option>
+      <option [value]="StatutDemande.Annulee">Annulée</option>
+    </select>
+    <input type="text" placeholder="Rechercher par employé ou motif…"
+      [(ngModel)]="filtreSearch" (input)="onFiltreChange()" />
+  </div>
+
+  <div class="cm-loading" *ngIf="loading"><div class="cm-spinner"></div><p>Chargement…</p></div>
+
+  <div class="cm-empty" *ngIf="!loading && demandesFiltrees.length === 0">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+      <rect x="3" y="4" width="18" height="18" rx="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+    <h3>Aucune demande</h3>
+    <p>Aucune demande ne correspond à vos filtres.</p>
+  </div>
+
+  <div class="cm-table-wrap" *ngIf="!loading && demandesFiltrees.length > 0">
+    <table class="cm-table">
+      <thead>
+        <tr>
+          <th>Employé</th><th>Type</th><th>Dates</th>
+          <th>Jours</th><th>Motif</th><th>Statut</th>
+          <th>Demandé le</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let d of demandesFiltrees" [class.row-pending]="d.statut === StatutDemande.EnAttente">
+          <td class="cm-td-employe">
+            <div class="cm-avatar">{{ d.employeId.substring(0,2).toUpperCase() }}</div>
+            <span>{{ d.employeId | slice:0:8 }}…</span>
+          </td>
+          <td>
+            {{ typeCongeLabels[d.typeConge] }}
+            <small *ngIf="d.typeExceptionnel" class="cm-sub-type">{{ exceptionnelLabels[d.typeExceptionnel] }}</small>
+          </td>
+          <td class="cm-td-date">{{ d.dateDebut | date:'dd/MM/yy' }} → {{ d.dateFin | date:'dd/MM/yy' }}</td>
+          <td><strong>{{ d.nombreJours }}</strong></td>
+          <td>{{ d.motif || '—' }}</td>
+          <td><span class="cm-badge" [ngClass]="getStatutClass(d.statut)">{{ statutLabels[d.statut] }}</span></td>
+          <td class="cm-td-date">{{ d.dateDemande | date:'dd/MM/yy' }}</td>
+          <td class="cm-td-actions">
+            <button class="cm-btn-detail" (click)="voirDetail(d)" title="Voir détail">👁</button>
+            <button class="cm-btn-valid" *ngIf="d.statut === StatutDemande.EnAttente" (click)="valider(d)">✅</button>
+            <button class="cm-btn-refuse" *ngIf="d.statut === StatutDemande.EnAttente" (click)="ouvrirRefus(d)">❌</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- MODAL REFUS -->
+  <div class="cm-modal-overlay" *ngIf="showRefusModal" (click)="showRefusModal = false">
+    <div class="cm-modal" (click)="$event.stopPropagation()">
+      <div class="cm-modal-head">
+        <h3>Refuser la demande</h3>
+        <button (click)="showRefusModal = false">✕</button>
+      </div>
+      <div class="cm-modal-body" *ngIf="demandeSelectee">
+        <div class="cm-refus-info">
+          <p>Congé de <strong>{{ demandeSelectee.nombreJours }} jours</strong></p>
+          <p>Du <strong>{{ demandeSelectee.dateDebut | date:'dd/MM/yyyy' }}</strong>
+             au <strong>{{ demandeSelectee.dateFin | date:'dd/MM/yyyy' }}</strong></p>
+        </div>
+        <div class="cm-field">
+          <label>Motif du refus <span class="required">*</span></label>
+          <textarea [(ngModel)]="commentaireRefus" rows="4"
+            placeholder="Expliquez la raison du refus (obligatoire)…"></textarea>
+        </div>
+      </div>
+      <div class="cm-modal-foot">
+        <button class="cm-btn-cancel" (click)="showRefusModal = false">Annuler</button>
+        <button class="cm-btn-refuse-confirm" (click)="confirmerRefus()">Confirmer le refus</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DÉTAIL -->
+  <div class="cm-modal-overlay" *ngIf="showDetailModal" (click)="showDetailModal = false">
+    <div class="cm-modal cm-modal-detail" (click)="$event.stopPropagation()">
+      <div class="cm-modal-head">
+        <h3>Détail de la demande</h3>
+        <button (click)="showDetailModal = false">✕</button>
+      </div>
+      <div class="cm-modal-body" *ngIf="demandeDetail">
+        <div class="cm-detail-grid">
+          <div class="cm-detail-item">
+            <span class="cm-detail-label">Type</span>
+            <span>{{ typeCongeLabels[demandeDetail.typeConge] }}</span>
+          </div>
+          <div class="cm-detail-item">
+            <span class="cm-detail-label">Statut</span>
+            <span class="cm-badge" [ngClass]="getStatutClass(demandeDetail.statut)">{{ statutLabels[demandeDetail.statut] }}</span>
+          </div>
+          <div class="cm-detail-item">
+            <span class="cm-detail-label">Date début</span>
+            <span>{{ demandeDetail.dateDebut | date:'dd/MM/yyyy' }}</span>
+          </div>
+          <div class="cm-detail-item">
+            <span class="cm-detail-label">Date fin</span>
+            <span>{{ demandeDetail.dateFin | date:'dd/MM/yyyy' }}</span>
+          </div>
+          <div class="cm-detail-item">
+            <span class="cm-detail-label">Nombre de jours</span>
+            <span><strong>{{ demandeDetail.nombreJours }} jours</strong></span>
+          </div>
+          <div class="cm-detail-item">
+            <span class="cm-detail-label">Demandé le</span>
+            <span>{{ demandeDetail.dateDemande | date:'dd/MM/yyyy HH:mm' }}</span>
+          </div>
+          <div class="cm-detail-item full">
+            <span class="cm-detail-label">Motif</span>
+            <span>{{ demandeDetail.motif || '—' }}</span>
+          </div>
+          <div class="cm-detail-item full" *ngIf="demandeDetail.commentaireManager">
+            <span class="cm-detail-label">Commentaire manager</span>
+            <span>{{ demandeDetail.commentaireManager }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="cm-modal-foot">
+        <button class="cm-btn-cancel" (click)="showDetailModal = false">Fermer</button>
+        <ng-container *ngIf="demandeDetail?.statut === StatutDemande.EnAttente">
+          <button class="cm-btn-valid-modal" (click)="valider(demandeDetail!); showDetailModal = false">✅ Valider</button>
+          <button class="cm-btn-refuse-modal" (click)="ouvrirRefus(demandeDetail!); showDetailModal = false">❌ Refuser</button>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+
+</div>

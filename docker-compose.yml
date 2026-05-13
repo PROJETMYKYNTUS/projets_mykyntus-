@@ -163,6 +163,8 @@ services:
         condition: service_healthy
     networks:
       - microservices-network
+# ─── CONGE BACKEND ───────────────────────────────────
+  # ✅ FIX : ajout depends_on rabbitmq + user dédié conge_user
   conge-backend:
     build:
       context: ./FormationService

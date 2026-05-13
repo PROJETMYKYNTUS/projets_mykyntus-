@@ -11,4 +11,5 @@ public interface IUserService
     Task<UserDto?> UpdateUserAsync(int id, UpdateUserDto dto);
     Task<bool> DeleteUserAsync(int id);
     Task<bool> IsEmailUniqueAsync(string email, int? excludeId = null);
+    Task SyncAllEmployesToCongeAsync();
 }

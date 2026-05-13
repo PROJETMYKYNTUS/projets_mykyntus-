@@ -1,5 +1,5 @@
-﻿
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using Planning.Messaging.Publishers;
 using PlanningService.Data;
 using PlanningService.DTOs;
 using PlanningService.Interfaces;
@@ -10,10 +10,12 @@ namespace PlanningService.Services;
 public class UserService : IUserService
 {
     private readonly AppDbContext _context;
+    private readonly IEmployePublisher _employePublisher; // 🆕
 
-    public UserService(AppDbContext context)
+    public UserService(AppDbContext context, IEmployePublisher employePublisher) // 🆕
     {
         _context = context;
+        _employePublisher = employePublisher; // 🆕
     }
 
     public async Task<List<UserDto>> GetAllUsersAsync()
@@ -48,6 +50,7 @@ public class UserService : IUserService
         var user = await _context.Users
             .Include(u => u.Role)
             .Include(u => u.SubService)
+                .ThenInclude(ss => ss != null ? ss.Service : null)
             .Include(u => u.ManagedSubServices)
                 .ThenInclude(us => us.SubService)
                     .ThenInclude(s => s.Service)
@@ -89,9 +92,80 @@ public class UserService : IUserService
             await _context.SaveChangesAsync();
         }
 
-        return await GetUserByIdAsync(user.Id) ?? throw new Exception("Erreur création utilisateur.");
-    }
+        // 🆕 Récupérer le sous-service pour avoir le nom du service
+        var subService = dto.SubServiceId.HasValue
+            ? await _context.SubServices
+                .Include(ss => ss.Service)
+                .FirstOrDefaultAsync(ss => ss.Id == dto.SubServiceId.Value)
+            : null;
 
+        // 🆕 Récupérer le manager du sous-service (premier manager trouvé)
+        var manager = dto.SubServiceId.HasValue
+            ? await _context.UserSubServices
+                .Include(us => us.User)
+                    .ThenInclude(u => u.Role)
+                .Where(us => us.SubServiceId == dto.SubServiceId.Value
+                          && us.User.Role.Name == "Manager")
+                .Select(us => us.User)
+                .FirstOrDefaultAsync()
+            : null;
+
+        // 🆕 Publier l'event vers Conge Service via RabbitMQ
+        // CreateUserAsync — utiliser user.Guid au lieu du faux Guid
+        await _employePublisher.PublishEmployeCreatedAsync(
+            employeId: user.Guid,          // ← REMPLACER le PadLeft
+            nom: user.LastName,
+            prenom: user.FirstName,
+            email: user.Email,
+            managerId: manager != null
+                          ? manager.Guid  // ← REMPLACER le PadLeft
+                          : Guid.Empty,
+            serviceId: subService != null
+                          ? Guid.Parse(subService.ServiceId.ToString().PadLeft(32, '0'))
+                          : Guid.Empty,
+            serviceNom: subService?.Service?.Name ?? string.Empty,
+            dateEmbauche: user.HireDate,
+            estMineur: false
+        );
+
+        return await GetUserByIdAsync(user.Id)
+            ?? throw new Exception("Erreur création utilisateur.");
+    }
+    public async Task SyncAllEmployesToCongeAsync()
+    {
+        var users = await _context.Users
+            .Include(u => u.Role)
+            .Include(u => u.SubService)
+                .ThenInclude(ss => ss != null ? ss.Service : null)
+            .Where(u => u.IsActive)
+            .ToListAsync();
+
+        foreach (var user in users)
+        {
+            var manager = user.SubServiceId.HasValue
+                ? await _context.UserSubServices
+                    .Include(us => us.User).ThenInclude(u => u.Role)
+                    .Where(us => us.SubServiceId == user.SubServiceId.Value
+                              && us.User.Role.Name == "Manager")
+                    .Select(us => us.User)
+                    .FirstOrDefaultAsync()
+                : null;
+
+            await _employePublisher.PublishEmployeCreatedAsync(
+                employeId: user.Guid,
+                nom: user.LastName,
+                prenom: user.FirstName,
+                email: user.Email,
+                managerId: manager?.Guid ?? Guid.Empty,
+                serviceId: user.SubService != null
+                                ? Guid.Parse(user.SubService.ServiceId.ToString().PadLeft(32, '0'))
+                                : Guid.Empty,
+                serviceNom: user.SubService?.Service?.Name ?? string.Empty,
+                dateEmbauche: DateTime.SpecifyKind(user.HireDate, DateTimeKind.Utc), // ← FIX
+                estMineur: false
+            );
+        }
+    }
     public async Task<UserDto?> UpdateUserAsync(int id, UpdateUserDto dto)
     {
         var user = await _context.Users.FindAsync(id);
@@ -123,6 +197,40 @@ public class UserService : IUserService
         }
 
         await _context.SaveChangesAsync();
+
+        // 🆕 Récupérer le sous-service mis à jour
+        var subService = dto.SubServiceId.HasValue
+            ? await _context.SubServices
+                .Include(ss => ss.Service)
+                .FirstOrDefaultAsync(ss => ss.Id == dto.SubServiceId.Value)
+            : null;
+
+        // 🆕 Récupérer le manager du sous-service
+        var manager = dto.SubServiceId.HasValue
+            ? await _context.UserSubServices
+                .Include(us => us.User)
+                    .ThenInclude(u => u.Role)
+                .Where(us => us.SubServiceId == dto.SubServiceId.Value
+                          && us.User.Role.Name == "Manager")
+                .Select(us => us.User)
+                .FirstOrDefaultAsync()
+            : null;
+
+        // 🆕 Publier l'event de mise à jour vers Conge Service
+        await _employePublisher.PublishEmployeUpdatedAsync(
+        employeId: user.Guid,         // ← REMPLACER
+        nom: user.LastName,
+        prenom: user.FirstName,
+        email: user.Email,
+        managerId: manager != null
+                      ? manager.Guid // ← REMPLACER
+                      : Guid.Empty,
+        serviceId: subService != null
+                      ? Guid.Parse(subService.ServiceId.ToString().PadLeft(32, '0'))
+                      : Guid.Empty,
+        serviceNom: subService?.Service?.Name ?? string.Empty
+    );
+
         return await GetUserByIdAsync(id);
     }
 
@@ -149,6 +257,7 @@ public class UserService : IUserService
     private static UserDto ToDto(User u) => new()
     {
         Id = u.Id,
+        Guid = u.Guid,
         RoleId = u.RoleId,
         RoleName = u.Role?.Name ?? string.Empty,
         SubServiceId = u.SubServiceId,

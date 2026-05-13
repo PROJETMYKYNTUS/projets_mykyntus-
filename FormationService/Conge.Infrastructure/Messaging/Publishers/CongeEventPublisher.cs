@@ -1,6 +1,7 @@
 ﻿using Conge.Application.Contracts;
 using MassTransit;
 
+using Conge.Infrastructure.Messaging.Messages;
 namespace Conge.Infrastructure.Messaging.Publishers;
 
 public class CongeEventPublisher : ICongeEventPublisher

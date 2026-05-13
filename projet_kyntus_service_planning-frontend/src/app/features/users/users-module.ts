@@ -6,6 +6,7 @@ export interface SubServiceSimple {
 
 export interface User {
   id: number;
+  guid: string;
   roleId: number;
   roleName: string;
   subServiceId?: number;

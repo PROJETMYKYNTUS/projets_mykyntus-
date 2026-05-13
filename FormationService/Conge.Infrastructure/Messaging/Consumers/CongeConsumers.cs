@@ -4,7 +4,7 @@ using Conge.Domain.Interfaces;
 using Conge.Infrastructure.Persistence.Repositories;
 using MassTransit;
 using MediatR;
-
+using Planning.Messaging.Messages;
 namespace Conge.Infrastructure.Messaging.Consumers;
 
 /// <summary>

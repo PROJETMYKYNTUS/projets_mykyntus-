@@ -46,12 +46,3 @@ ALTER DEFAULT PRIVILEGES FOR ROLE documentation_user IN SCHEMA documentation GRA
 ALTER DEFAULT PRIVILEGES FOR ROLE documentation_user IN SCHEMA documentation GRANT ALL ON SEQUENCES TO documentation_user;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA documentation GRANT ALL ON TABLES TO documentation_user;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA documentation GRANT ALL ON SEQUENCES TO documentation_user;
-
--- ─── BASE CONGE ────────────────────────────────────
-CREATE DATABASE conge_db;
-CREATE USER conge_user WITH PASSWORD 'Conge@2026';
-GRANT ALL PRIVILEGES ON DATABASE conge_db TO conge_user;
-\c conge_db
-GRANT ALL ON SCHEMA public TO conge_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO conge_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO conge_user;

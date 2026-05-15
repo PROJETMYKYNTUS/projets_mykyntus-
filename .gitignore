@@ -426,3 +426,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# IAM WO report generator output (regenerate with tools/iam-wo-pptx)
+tools/iam-wo-pptx/output/*.pptx

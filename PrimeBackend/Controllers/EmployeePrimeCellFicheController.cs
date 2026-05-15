@@ -7,86 +7,121 @@ using PrimeBackend.Services;
 namespace PrimeBackend.Controllers;
 
 [ApiController]
-[Route("api/prime/employee-prime-cell-fiches")]
-public sealed class EmployeePrimeCellFicheController(PrimeDbContext? db, PrimeInMemoryStore store) : ControllerBase
+[Route("api/prime/employee-prime-service-fiches")]
+[Route("api/prime/employee-prime-cell-fiches")] // alias : clients encore sur l’ancien chemin (ex. Angular 4202)
+public sealed class EmployeePrimeServiceFicheController(PrimeDbContext? db, PrimeOrgScopeService org) : ControllerBase
 {
-    private static EmployeePrimeCellFicheResponseDto Map(EmployeePrimeCellFicheEntity e) =>
+    private static EmployeePrimeServiceFicheResponseDto Map(EmployeePrimeServiceFicheEntity e) =>
         new()
         {
             Id = e.Id,
-            PolePrimeDraftId = e.PolePrimeDraftId,
+            CellulePrimeDraftId = e.CellulePrimeDraftId,
             SupervisorUserId = e.SupervisorUserId,
             EmployeeId = e.EmployeeId,
+            ServiceId = e.ServiceId,
             CelluleId = e.CelluleId,
-            PoleId = e.PoleId,
             Period = e.Period,
-            CellSaisieJson = e.CellSaisieJson,
+            ServiceSaisieJson = e.ServiceSaisieJson,
             FillingStatus = e.FillingStatus,
             UpdatedAt = e.UpdatedAt,
         };
 
     [HttpGet("list")]
-    public async Task<ActionResult<List<EmployeePrimeCellFicheListItemDto>>> List(
-        [FromQuery] string celluleId,
+    public async Task<ActionResult<List<EmployeePrimeServiceFicheListItemDto>>> List(
+        [FromQuery] string? serviceId,
+        [FromQuery] string? celluleId,
         [FromQuery] string period,
         [FromQuery] string supervisorUserId,
         CancellationToken ct)
     {
         if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
-        if (string.IsNullOrWhiteSpace(celluleId) || string.IsNullOrWhiteSpace(period) ||
-            string.IsNullOrWhiteSpace(supervisorUserId))
-            return BadRequest(new { error = "celluleId, period et supervisorUserId sont requis." });
+        if (string.IsNullOrWhiteSpace(period) || string.IsNullOrWhiteSpace(supervisorUserId))
+            return BadRequest(new { error = "period et supervisorUserId sont requis." });
 
-        var poleId = store.GetPoleIdForCellule(celluleId);
-        if (poleId is null) return NotFound(new { error = "Cellule introuvable." });
-        if (!store.SupervisorOwnsPole(supervisorUserId, poleId))
-            return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
+        var hasService = !string.IsNullOrWhiteSpace(serviceId);
+        var hasCellule = !string.IsNullOrWhiteSpace(celluleId);
+        if (!hasService && !hasCellule)
+            return BadRequest(new { error = "Indiquez serviceId (équipe) ou celluleId (cellule entière)." });
+        // Si les deux sont fournis, on privilégie serviceId (plus précis).
+        if (hasService && hasCellule) hasCellule = false;
 
-        var cid = celluleId.Trim();
         var per = period.Trim();
-        var emps = store.GetEmployees()
-            .Where(e => string.Equals(e.CelluleId, cid, StringComparison.Ordinal))
-            .OrderBy(e => e.LastName)
-            .ThenBy(e => e.FirstName)
-            .ToList();
+        var sup = supervisorUserId.Trim();
 
-        var fiches = await db.EmployeePrimeCellFiches.AsNoTracking()
-            .Where(f => f.CelluleId == cid && f.Period == per)
-            .ToListAsync(ct);
-        var byEmp = fiches.ToDictionary(f => f.EmployeeId, StringComparer.Ordinal);
+        List<EmployeeEntity> emps;
+        List<EmployeePrimeServiceFicheEntity> fiches;
 
-        var result = new List<EmployeePrimeCellFicheListItemDto>();
+        if (hasService)
+        {
+            var cid = serviceId!.Trim();
+            var resolvedCellule = await org.GetCelluleIdForServiceAsync(cid, ct);
+            if (resolvedCellule is null) return NotFound(new { error = "Service introuvable." });
+            if (!await org.SupervisorOwnsCelluleAsync(sup, resolvedCellule, ct))
+                return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
+
+            emps = await org.GetEmployeesInServiceAsync(cid, ct);
+            fiches = await db.EmployeePrimeServiceFiches.AsNoTracking()
+                .Where(f => f.ServiceId == cid && f.Period == per)
+                .ToListAsync(ct);
+        }
+        else
+        {
+            var cTrim = celluleId!.Trim();
+            if (!await org.SupervisorOwnsCelluleAsync(sup, cTrim, ct))
+                return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
+
+            var serviceIds = await db.Services.AsNoTracking()
+                .Where(s => s.CelluleId == cTrim)
+                .Select(s => s.Id)
+                .ToListAsync(ct);
+            if (serviceIds.Count == 0) return Ok(new List<EmployeePrimeServiceFicheListItemDto>());
+
+            emps = await db.Employees.AsNoTracking()
+                .Where(e => serviceIds.Contains(e.ServiceId))
+                .OrderBy(e => e.LastName)
+                .ThenBy(e => e.FirstName)
+                .ToListAsync(ct);
+            fiches = await db.EmployeePrimeServiceFiches.AsNoTracking()
+                .Where(f => f.Period == per && serviceIds.Contains(f.ServiceId))
+                .ToListAsync(ct);
+        }
+
+        var byEmp = fiches
+            .GroupBy(f => f.EmployeeId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First(), StringComparer.Ordinal);
+
+        var result = new List<EmployeePrimeServiceFicheListItemDto>();
         foreach (var e in emps)
         {
             if (byEmp.TryGetValue(e.Id, out var f))
             {
-                result.Add(new EmployeePrimeCellFicheListItemDto
+                result.Add(new EmployeePrimeServiceFicheListItemDto
                 {
                     EmployeeId = e.Id,
                     FirstName = e.FirstName,
                     LastName = e.LastName,
                     Email = e.Email,
-                    CelluleId = e.CelluleId,
+                    ServiceId = e.ServiceId,
                     FicheId = f.Id,
-                    PolePrimeDraftId = f.PolePrimeDraftId,
+                    CellulePrimeDraftId = f.CellulePrimeDraftId,
                     FillingStatus = f.FillingStatus,
-                    CellSaisieJson = f.CellSaisieJson,
+                    ServiceSaisieJson = f.ServiceSaisieJson,
                     UpdatedAt = f.UpdatedAt,
                 });
             }
             else
             {
-                result.Add(new EmployeePrimeCellFicheListItemDto
+                result.Add(new EmployeePrimeServiceFicheListItemDto
                 {
                     EmployeeId = e.Id,
                     FirstName = e.FirstName,
                     LastName = e.LastName,
                     Email = e.Email,
-                    CelluleId = e.CelluleId,
+                    ServiceId = e.ServiceId,
                     FicheId = null,
-                    PolePrimeDraftId = null,
+                    CellulePrimeDraftId = null,
                     FillingStatus = "NotStarted",
-                    CellSaisieJson = "{}",
+                    ServiceSaisieJson = "{}",
                     UpdatedAt = null,
                 });
             }
@@ -96,7 +131,7 @@ public sealed class EmployeePrimeCellFicheController(PrimeDbContext? db, PrimeIn
     }
 
     [HttpGet("for-employee")]
-    public async Task<ActionResult<EmployeePrimeCellFicheResponseDto>> GetForEmployee(
+    public async Task<ActionResult<EmployeePrimeServiceFicheResponseDto>> GetForEmployee(
         [FromQuery] string supervisorUserId,
         [FromQuery] string employeeId,
         [FromQuery] string period,
@@ -108,24 +143,24 @@ public sealed class EmployeePrimeCellFicheController(PrimeDbContext? db, PrimeIn
             string.IsNullOrWhiteSpace(period))
             return BadRequest(new { error = "supervisorUserId, employeeId et period sont requis." });
 
-        var emp = store.GetEmployees().FirstOrDefault(e => e.Id == employeeId.Trim());
+        var emp = await org.GetEmployeeAsync(employeeId, ct);
         if (emp is null) return NotFound(new { error = "Employé introuvable." });
-        if (!store.SupervisorOwnsPole(supervisorUserId, emp.PoleId))
+        if (!await org.SupervisorOwnsCelluleAsync(supervisorUserId, emp.CelluleId, ct))
             return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
 
         var sup = supervisorUserId.Trim();
         var per = period.Trim();
-        SupervisorPolePrimeDraftEntity? draft;
+        SupervisorCellulePrimeDraftEntity? draft;
         if (!string.IsNullOrWhiteSpace(templateId))
         {
-            draft = await db.SupervisorPolePrimeDrafts.AsNoTracking().FirstOrDefaultAsync(
-                x => x.SupervisorUserId == sup && x.PoleId == emp.PoleId && x.Period == per &&
+            draft = await db.SupervisorCellulePrimeDrafts.AsNoTracking().FirstOrDefaultAsync(
+                x => x.SupervisorUserId == sup && x.CelluleId == emp.CelluleId && x.Period == per &&
                      x.TemplateId == templateId.Trim(), ct);
         }
         else
         {
-            draft = await db.SupervisorPolePrimeDrafts.AsNoTracking()
-                .Where(x => x.SupervisorUserId == sup && x.PoleId == emp.PoleId && x.Period == per)
+            draft = await db.SupervisorCellulePrimeDrafts.AsNoTracking()
+                .Where(x => x.SupervisorUserId == sup && x.CelluleId == emp.CelluleId && x.Period == per)
                 .OrderByDescending(x => x.UpdatedAt)
                 .FirstOrDefaultAsync(ct);
         }
@@ -138,20 +173,20 @@ public sealed class EmployeePrimeCellFicheController(PrimeDbContext? db, PrimeIn
                     : "Brouillon pôle introuvable pour cette période et ce template.",
             });
 
-        var fiche = await db.EmployeePrimeCellFiches.AsNoTracking().FirstOrDefaultAsync(
+        var fiche = await db.EmployeePrimeServiceFiches.AsNoTracking().FirstOrDefaultAsync(
             x => x.EmployeeId == emp.Id && x.Period == period.Trim(), ct);
         if (fiche is null)
         {
-            return Ok(new EmployeePrimeCellFicheResponseDto
+            return Ok(new EmployeePrimeServiceFicheResponseDto
             {
                 Id = Guid.Empty,
-                PolePrimeDraftId = draft.Id,
+                CellulePrimeDraftId = draft.Id,
                 SupervisorUserId = supervisorUserId.Trim(),
                 EmployeeId = emp.Id,
+                ServiceId = emp.ServiceId,
                 CelluleId = emp.CelluleId,
-                PoleId = emp.PoleId,
                 Period = period.Trim(),
-                CellSaisieJson = "{}",
+                ServiceSaisieJson = "{}",
                 FillingStatus = "NotStarted",
                 UpdatedAt = DateTimeOffset.UtcNow,
             });
@@ -161,61 +196,69 @@ public sealed class EmployeePrimeCellFicheController(PrimeDbContext? db, PrimeIn
     }
 
     [HttpPut]
-    public async Task<ActionResult<EmployeePrimeCellFicheResponseDto>> Upsert(
-        [FromBody] UpsertEmployeePrimeCellFicheRequest body,
+    public async Task<ActionResult<EmployeePrimeServiceFicheResponseDto>> Upsert(
+        [FromBody] UpsertEmployeePrimeServiceFicheRequest body,
         CancellationToken ct)
     {
         if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+
+        if (body.CellulePrimeDraftId == Guid.Empty && body.PolePrimeDraftId is Guid pp && pp != Guid.Empty)
+            body.CellulePrimeDraftId = pp;
+        if (!string.IsNullOrWhiteSpace(body.CellSaisieJson) &&
+            (string.IsNullOrWhiteSpace(body.ServiceSaisieJson) ||
+             string.Equals(body.ServiceSaisieJson.Trim(), "{}", StringComparison.Ordinal)))
+            body.ServiceSaisieJson = body.CellSaisieJson.Trim();
+
         if (string.IsNullOrWhiteSpace(body.SupervisorUserId) || string.IsNullOrWhiteSpace(body.EmployeeId) ||
-            string.IsNullOrWhiteSpace(body.Period) || body.PolePrimeDraftId == Guid.Empty)
+            string.IsNullOrWhiteSpace(body.Period) || body.CellulePrimeDraftId == Guid.Empty)
             return BadRequest(new { error = "Champs obligatoires manquants." });
 
-        var emp = store.GetEmployees().FirstOrDefault(e => e.Id == body.EmployeeId.Trim());
+        var emp = await org.GetEmployeeAsync(body.EmployeeId, ct);
         if (emp is null) return NotFound(new { error = "Employé introuvable." });
-        if (!store.SupervisorOwnsPole(body.SupervisorUserId, emp.PoleId))
+        if (!await org.SupervisorOwnsCelluleAsync(body.SupervisorUserId, emp.CelluleId, ct))
             return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
 
-        var draft = await db.SupervisorPolePrimeDrafts.FirstOrDefaultAsync(x => x.Id == body.PolePrimeDraftId, ct);
+        var draft = await db.SupervisorCellulePrimeDrafts.FirstOrDefaultAsync(x => x.Id == body.CellulePrimeDraftId, ct);
         if (draft is null) return NotFound(new { error = "Brouillon pôle introuvable." });
         if (!string.Equals(draft.SupervisorUserId, body.SupervisorUserId.Trim(), StringComparison.Ordinal) ||
-            !string.Equals(draft.PoleId, emp.PoleId, StringComparison.Ordinal) ||
+            !string.Equals(draft.CelluleId, emp.CelluleId, StringComparison.Ordinal) ||
             !string.Equals(draft.Period, body.Period.Trim(), StringComparison.Ordinal))
             return BadRequest(new { error = "Le brouillon pôle ne correspond pas à l’employé ou à la période." });
 
-        var indicators = await db.CellulePrimeIndicators.AsNoTracking()
-            .Where(i => i.CelluleId == emp.CelluleId)
+        var indicators = await db.ServicePrimeIndicators.AsNoTracking()
+            .Where(i => i.ServiceId == emp.ServiceId)
             .OrderBy(i => i.SortOrder)
             .ToListAsync(ct);
-        var status = PrimeCellFicheStatusHelper.ComputeFillingStatus(body.CellSaisieJson, indicators);
+        var status = PrimeServiceFicheStatusHelper.ComputeFillingStatus(body.ServiceSaisieJson, indicators);
         var now = DateTimeOffset.UtcNow;
 
-        var entity = await db.EmployeePrimeCellFiches.FirstOrDefaultAsync(
+        var entity = await db.EmployeePrimeServiceFiches.FirstOrDefaultAsync(
             x => x.EmployeeId == emp.Id && x.Period == body.Period.Trim(), ct);
 
         if (entity == null)
         {
-            entity = new EmployeePrimeCellFicheEntity
+            entity = new EmployeePrimeServiceFicheEntity
             {
                 Id = Guid.NewGuid(),
-                PolePrimeDraftId = draft.Id,
+                CellulePrimeDraftId = draft.Id,
                 SupervisorUserId = body.SupervisorUserId.Trim(),
                 EmployeeId = emp.Id,
+                ServiceId = emp.ServiceId,
                 CelluleId = emp.CelluleId,
-                PoleId = emp.PoleId,
                 Period = body.Period.Trim(),
-                CellSaisieJson = body.CellSaisieJson,
+                ServiceSaisieJson = body.ServiceSaisieJson,
                 FillingStatus = status,
                 UpdatedAt = now,
             };
-            db.EmployeePrimeCellFiches.Add(entity);
+            db.EmployeePrimeServiceFiches.Add(entity);
         }
         else
         {
-            entity.PolePrimeDraftId = draft.Id;
+            entity.CellulePrimeDraftId = draft.Id;
             entity.SupervisorUserId = body.SupervisorUserId.Trim();
+            entity.ServiceId = emp.ServiceId;
             entity.CelluleId = emp.CelluleId;
-            entity.PoleId = emp.PoleId;
-            entity.CellSaisieJson = body.CellSaisieJson;
+            entity.ServiceSaisieJson = body.ServiceSaisieJson;
             entity.FillingStatus = status;
             entity.UpdatedAt = now;
         }

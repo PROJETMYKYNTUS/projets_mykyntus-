@@ -527,6 +527,24 @@
       ]
     },
     {
+      "UpstreamPathTemplate": "/api/prime/supervisor-pole-prime-drafts",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
+      "DownstreamPathTemplate": "/api/prime/supervisor-cellule-prime-drafts",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "prime-backend", "Port": 8080 }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/prime/supervisor-pole-prime-drafts/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
+      "DownstreamPathTemplate": "/api/prime/supervisor-cellule-prime-drafts/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "prime-backend", "Port": 8080 }
+      ]
+    },
+    {
       "UpstreamPathTemplate": "/api/prime/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
       "DownstreamPathTemplate": "/api/prime/{everything}",

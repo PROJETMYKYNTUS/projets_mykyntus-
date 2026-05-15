@@ -7,6 +7,7 @@
     <RootNamespace>PrimeBackend</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.104.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

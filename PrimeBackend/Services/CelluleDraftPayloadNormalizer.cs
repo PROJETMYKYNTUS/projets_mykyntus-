@@ -6,26 +6,26 @@ using System.Text.RegularExpressions;
 namespace PrimeBackend.Services;
 
 /// <summary>
-/// Pour le contrat SAV, la répartition RDV n’est pas un indicateur métier : on normalise le JSON
+/// Pour le contrat SAV, la répartition RDV n'est pas un indicateur métier : on normalise le JSON
 /// (suppression / valeur numérique) pour éviter les résidus Excel (tirets, pourcentages mal typés, etc.).
 /// </summary>
-public static class PoleDraftPayloadNormalizer
+public static class CelluleDraftPayloadNormalizer
 {
     private static readonly Regex PercentRegex = new(
         @"^\s*(-?\d+(?:[.,]\d+)?)\s*%\s*$",
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
-    public static string NormalizePoleSaisieJson(string? schemaJson, string poleSaisieJson)
+    public static string NormalizeCelluleSaisieJson(string? schemaJson, string celluleSaisieJson)
     {
-        if (string.IsNullOrWhiteSpace(schemaJson) || string.IsNullOrWhiteSpace(poleSaisieJson))
-            return poleSaisieJson;
+        if (string.IsNullOrWhiteSpace(schemaJson) || string.IsNullOrWhiteSpace(celluleSaisieJson))
+            return celluleSaisieJson;
 
         try
         {
             var schemaRoot = JsonNode.Parse(schemaJson);
             var lines = schemaRoot?["lines"] as JsonArray;
             if (lines is null || lines.Count == 0)
-                return poleSaisieJson;
+                return celluleSaisieJson;
 
             var savStableIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var line in lines)
@@ -38,13 +38,13 @@ public static class PoleDraftPayloadNormalizer
             }
 
             if (savStableIds.Count == 0)
-                return poleSaisieJson;
+                return celluleSaisieJson;
 
-            var poleRoot = JsonNode.Parse(poleSaisieJson) as JsonObject
+            var celluleRoot = JsonNode.Parse(celluleSaisieJson) as JsonObject
                            ?? JsonNode.Parse("{}")!.AsObject();
-            var lignes = poleRoot["lignes"] as JsonObject;
+            var lignes = celluleRoot["lignes"] as JsonObject;
             if (lignes is null)
-                return poleSaisieJson;
+                return celluleSaisieJson;
 
             foreach (var stableId in savStableIds)
             {
@@ -53,11 +53,11 @@ public static class PoleDraftPayloadNormalizer
                 NormalizeSavRepartitionLine(lineObj);
             }
 
-            return poleRoot.ToJsonString();
+            return celluleRoot.ToJsonString();
         }
         catch
         {
-            return poleSaisieJson;
+            return celluleSaisieJson;
         }
     }
 

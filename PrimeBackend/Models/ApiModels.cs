@@ -1,18 +1,18 @@
-namespace PrimeBackend.Models;
+using System.Text.Json.Serialization;
 
-public class Department
-{
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-    public List<Pole> Poles { get; set; } = [];
-}
+namespace PrimeBackend.Models;
 
 public class Pole
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
-    public string DepartmentId { get; set; } = "";
-    public List<Cellule> Cells { get; set; } = [];
+    [JsonPropertyName("cells")]
+    public List<Cellule> Cellules { get; set; } = [];
+
+    // ---- LEGACY COMPAT (Phase 0 - to remove in Phase 1.6) ----
+    public string PoleId { get; set; } = "";
+    [JsonIgnore]
+    public List<Cellule> Cells { get => Cellules; set => Cellules = value; }
 }
 
 public class Cellule
@@ -20,64 +20,81 @@ public class Cellule
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public string PoleId { get; set; } = "";
-    public List<Team> Teams { get; set; } = [];
+    [JsonPropertyName("teams")]
+    public List<Service> Services { get; set; } = [];
+
+    // ---- LEGACY COMPAT (Phase 0 - to remove in Phase 1.6) ----
+    public string CelluleId { get; set; } = "";
 }
 
-public class Team
+public class Service
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public string CelluleId { get; set; } = "";
+
+    // ---- LEGACY COMPAT (Phase 0 - to remove in Phase 1.6) ----
+    public string ServiceId { get; set; } = "";
+}
+
+// ---- LEGACY MOCK TYPES (Phase 0 - to remove in Phase 1.6) ----
+public class Department
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public List<Pole> Poles { get; set; } = [];
+}
+
+public class Team : Service { }
+
+public class PoleNode
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+}
+
+public class CelluleNode
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    [JsonPropertyName("etageId")]
+    public string? PoleId { get; set; }
+    public string? ServiceId { get; set; }
 }
 
 // -----------------------------
 // Models (Org assignments)
 // -----------------------------
-public class EtageNode
-{
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-}
 
-public class ServiceNode
-{
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-    public string EtageId { get; set; } = "";
-}
-
-public class SousServiceNode
-{
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-    public string ServiceId { get; set; } = "";
-}
-
-public class ManagerEtageAssignment
+public class ChefProjetPoleAssignment
 {
     public string Id { get; set; } = "";
     public string UserId { get; set; } = "";
-    public string EtageId { get; set; } = "";
+    [JsonPropertyName("etageId")]
+    public string PoleId { get; set; } = "";
 }
 
-public class SupervisorServiceAssignment
+public class SupervisorCelluleAssignment
+{
+    public string Id { get; set; } = "";
+    public string UserId { get; set; } = "";
+    public string CelluleId { get; set; } = "";
+
+    // ---- LEGACY COMPAT (Phase 0 - to remove in Phase 1.6) ----
+    public string ServiceId { get => CelluleId; set => CelluleId = value; }
+}
+
+public class ReferentTechniqueServiceAssignment
 {
     public string Id { get; set; } = "";
     public string UserId { get; set; } = "";
     public string ServiceId { get; set; } = "";
 }
 
-public class CoachSousServiceAssignment
+public class ReferentTechniquePilotLink
 {
     public string Id { get; set; } = "";
-    public string UserId { get; set; } = "";
-    public string SousServiceId { get; set; } = "";
-}
-
-public class CoachPilotLink
-{
-    public string Id { get; set; } = "";
-    public string CoachUserId { get; set; } = "";
+    public string ReferentTechniqueUserId { get; set; } = "";
     public string PilotUserId { get; set; } = "";
 }
 
@@ -88,11 +105,10 @@ public class Employee
     public string LastName { get; set; } = "";
     // Role values are kept as string to avoid breaking JSON contract.
     public string Role { get; set; } = "";
-    /// <summary>Supérieur hiérarchique ; autorité descendante : RP → Manager → Superviseur → Coach → Pilote (Pilote = employé en rôle Pilote).</summary>
+    /// <summary>Supérieur hiérarchique ; autorité descendante : Chef de projet → Superviseur → Référent technique → Pilote (Pilote = employé en rôle Pilote).</summary>
     public string? ParentId { get; set; }
-    public string TeamId { get; set; } = "";
-    /// <summary>Département → Pôle → Cellule (aligné sur la structure organisationnelle).</summary>
-    public string DepartementId { get; set; } = "";
+    public string ServiceId { get; set; } = "";
+    /// <summary>Pôle → Cellule → Service (aligné sur la structure organisationnelle).</summary>
     public string PoleId { get; set; } = "";
     public string CelluleId { get; set; } = "";
     public string Email { get; set; } = "";
@@ -104,7 +120,7 @@ public class PrimeType
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public string Type { get; set; } = "";
-    public string DepartmentId { get; set; } = "";
+    public string PoleId { get; set; } = "";
     public string Status { get; set; } = "";
     public string? Description { get; set; }
 }
@@ -113,10 +129,9 @@ public class PrimeRule
 {
     public string Id { get; set; } = "";
     public string PrimeTypeId { get; set; } = "";
-    public string? DepartmentId { get; set; }
     public string? PoleId { get; set; }
     public string? CelluleId { get; set; }
-    public string? TeamId { get; set; }
+    public string? ServiceId { get; set; }
     public string? RoleId { get; set; }
     public string ConditionField { get; set; } = "";
     public string ConditionType { get; set; } = "";
@@ -140,10 +155,10 @@ public class PrimeResult
 }
 
 // -----------------------------
-// Models (RP)
+// Models (Chef de projet)
 // -----------------------------
 
-public class RpTeamMemberPerformance
+public class ChefProjetTeamMemberPerformance
 {
     public string EmployeeId { get; set; } = "";
     public string EmployeeName { get; set; } = "";
@@ -162,7 +177,7 @@ public class MonthlyPerformancePoint
     public int Score { get; set; }
 }
 
-public class RpValidationItem
+public class ChefProjetValidationItem
 {
     public string Id { get; set; } = "";
     public string EmployeeId { get; set; } = "";
@@ -170,12 +185,12 @@ public class RpValidationItem
     public string ProjectId { get; set; } = "";
     public string ProjectName { get; set; } = "";
     public int PerformanceScore { get; set; }
-    public bool ManagerValidated { get; set; }
+    public bool SuperviseurValidated { get; set; }
     public string Status { get; set; } = "";
     public string Period { get; set; } = "";
 }
 
-public class RpDashboardStats
+public class ChefProjetDashboardStats
 {
     public int ProjectProgress { get; set; }
     public int CompletedTasks { get; set; }
@@ -262,7 +277,7 @@ public class AdminChartPoint
     public int Value { get; set; }
 }
 
-public class AdminByDepartmentPoint
+public class AdminByPolePoint
 {
     public string Name { get; set; } = "";
     public int Value { get; set; }
@@ -272,7 +287,7 @@ public class AdminDashboardCharts
 {
     public List<AdminChartPoint> VolumeByMonth { get; set; } = [];
     public List<AdminChartPoint> ValidationRate { get; set; } = [];
-    public List<AdminByDepartmentPoint> ByDepartment { get; set; } = [];
+    public List<AdminByPolePoint> ByPole { get; set; } = [];
 }
 
 public class AdminDashboardResponse

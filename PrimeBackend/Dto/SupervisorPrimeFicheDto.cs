@@ -4,7 +4,7 @@ public sealed class SupervisorPrimeFicheResponseDto
 {
     public Guid Id { get; init; }
     public string SupervisorUserId { get; init; } = "";
-    public string? PoleId { get; init; }
+    public string? CelluleId { get; init; }
     public string Period { get; init; } = "";
     public string TemplateId { get; init; } = "";
     public string TemplateDisplayName { get; init; } = "";
@@ -20,7 +20,7 @@ public sealed class SupervisorPrimeFicheResponseDto
 public sealed class CreateSupervisorPrimeFicheRequest
 {
     public string SupervisorUserId { get; set; } = "";
-    public string? PoleId { get; set; }
+    public string? CelluleId { get; set; }
     public string Period { get; set; } = "";
     public string TemplateId { get; set; } = "";
     public string TemplateDisplayName { get; set; } = "";

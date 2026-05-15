@@ -20,7 +20,7 @@ public sealed class SupervisorPrimeFicheController : ControllerBase
         {
             Id = e.Id,
             SupervisorUserId = e.SupervisorUserId,
-            PoleId = e.PoleId,
+            CelluleId = e.CelluleId,
             Period = e.Period,
             TemplateId = e.TemplateId,
             TemplateDisplayName = e.TemplateDisplayName,
@@ -43,7 +43,7 @@ public sealed class SupervisorPrimeFicheController : ControllerBase
         {
             Id = Guid.NewGuid(),
             SupervisorUserId = body.SupervisorUserId.Trim(),
-            PoleId = string.IsNullOrWhiteSpace(body.PoleId) ? null : body.PoleId.Trim(),
+            CelluleId = string.IsNullOrWhiteSpace(body.CelluleId) ? null : body.CelluleId.Trim(),
             Period = body.Period.Trim(),
             TemplateId = body.TemplateId.Trim(),
             TemplateDisplayName = body.TemplateDisplayName.Trim(),

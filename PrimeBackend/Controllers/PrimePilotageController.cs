@@ -8,7 +8,7 @@ namespace PrimeBackend.Controllers;
 
 [ApiController]
 [Route("api/prime/pilotage")]
-public sealed class PrimePilotageController(PrimeDbContext? db, PrimeInMemoryStore store) : ControllerBase
+public sealed class PrimePilotageController(PrimeDbContext? db, PrimeOrgScopeService org) : ControllerBase
 {
     private static string AggregateState(int total, int notStarted, int inProgress, int complete)
     {
@@ -19,7 +19,7 @@ public sealed class PrimePilotageController(PrimeDbContext? db, PrimeInMemorySto
     }
 
     [HttpGet("cells-summary")]
-    public async Task<ActionResult<List<CellPilotageSummaryDto>>> CellsSummary(
+    public async Task<ActionResult<List<ServicePilotageSummaryDto>>> CellsSummary(
         [FromQuery] string supervisorUserId,
         [FromQuery] string period,
         CancellationToken ct)
@@ -28,38 +28,28 @@ public sealed class PrimePilotageController(PrimeDbContext? db, PrimeInMemorySto
         if (string.IsNullOrWhiteSpace(supervisorUserId) || string.IsNullOrWhiteSpace(period))
             return BadRequest(new { error = "supervisorUserId et period sont requis." });
 
-        var poleIds = store.GetSupervisedPoleIds(supervisorUserId);
-        if (poleIds.Count == 0) return Ok(new List<CellPilotageSummaryDto>());
+        var celluleIds = await org.GetSupervisedCelluleIdsAsync(supervisorUserId, ct);
+        if (celluleIds.Count == 0) return Ok(new List<ServicePilotageSummaryDto>());
 
         var per = period.Trim();
-        var cells = new List<(string Id, string Name, string PoleId)>();
-        foreach (var d in store.GetDepartments())
-        {
-            foreach (var p in d.Poles.Where(x => poleIds.Contains(x.Id)))
-            {
-                foreach (var c in p.Cells)
-                    cells.Add((c.Id, c.Name, p.Id));
-            }
-        }
+        var cells = await org.GetServicesForCellulesAsync(celluleIds, ct);
 
-        var fiches = await db.EmployeePrimeCellFiches.AsNoTracking()
-            .Where(f => f.Period == per && poleIds.Contains(f.PoleId))
+        var fiches = await db.EmployeePrimeServiceFiches.AsNoTracking()
+            .Where(f => f.Period == per && celluleIds.Contains(f.CelluleId))
             .ToListAsync(ct);
 
         var supTrim = supervisorUserId.Trim();
-        var poleDrafts = await db.SupervisorPolePrimeDrafts.AsNoTracking()
-            .Where(d => d.SupervisorUserId == supTrim && d.Period == per && poleIds.Contains(d.PoleId))
+        var poleDrafts = await db.SupervisorCellulePrimeDrafts.AsNoTracking()
+            .Where(d => d.SupervisorUserId == supTrim && d.Period == per && celluleIds.Contains(d.CelluleId))
             .ToListAsync(ct);
-        var linkedDraftByPole = new Dictionary<string, SupervisorPolePrimeDraftEntity>(StringComparer.Ordinal);
-        foreach (var g in poleDrafts.GroupBy(d => d.PoleId, StringComparer.Ordinal))
+        var linkedDraftByPole = new Dictionary<string, SupervisorCellulePrimeDraftEntity>(StringComparer.Ordinal);
+        foreach (var g in poleDrafts.GroupBy(d => d.CelluleId, StringComparer.Ordinal))
             linkedDraftByPole[g.Key] = g.OrderByDescending(x => x.UpdatedAt).First();
 
-        var result = new List<CellPilotageSummaryDto>();
-        foreach (var (cellId, cellName, poleId) in cells)
+        var result = new List<ServicePilotageSummaryDto>();
+        foreach (var (cellId, cellName, celluleId) in cells)
         {
-            var emps = store.GetEmployees()
-                .Where(e => string.Equals(e.CelluleId, cellId, StringComparison.Ordinal))
-                .ToList();
+            var emps = await org.GetEmployeesInServiceAsync(cellId, ct);
             var total = emps.Count;
             var empIds = emps.Select(e => e.Id).ToHashSet(StringComparer.Ordinal);
             var cellFiches = fiches.Where(f => empIds.Contains(f.EmployeeId)).ToList();
@@ -76,23 +66,26 @@ public sealed class PrimePilotageController(PrimeDbContext? db, PrimeInMemorySto
                 else notStarted++;
             }
 
-            linkedDraftByPole.TryGetValue(poleId, out var linkedDraft);
-            result.Add(new CellPilotageSummaryDto
+            linkedDraftByPole.TryGetValue(celluleId, out var linkedDraft);
+            var poolOk = linkedDraft is not null && linkedDraft.GlobalPoolManagerApprovedAt.HasValue &&
+                         linkedDraft.GlobalPoolRhApprovedAt.HasValue;
+            result.Add(new ServicePilotageSummaryDto
             {
-                CelluleId = cellId,
-                CelluleName = cellName,
-                PoleId = poleId,
+                ServiceId = cellId,
+                ServiceName = cellName,
+                CelluleId = celluleId,
                 TotalEmployees = total,
                 NotStarted = notStarted,
                 InProgress = inProgress,
                 Complete = complete,
-                CellAggregateState = AggregateState(total, notStarted, inProgress, complete),
-                LinkedPolePrimeDraftId = linkedDraft?.Id,
+                ServiceAggregateState = AggregateState(total, notStarted, inProgress, complete),
+                LinkedCellulePrimeDraftId = linkedDraft?.Id,
                 LinkedTemplateId = linkedDraft?.TemplateId,
                 LinkedTemplateDisplayName = linkedDraft?.TemplateDisplayName,
+                PoolDistributionUnlocked = poolOk,
             });
         }
 
-        return Ok(result.OrderBy(r => r.CelluleName).ToList());
+        return Ok(result.OrderBy(r => r.ServiceName).ToList());
     }
 }

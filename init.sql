@@ -34,6 +34,21 @@ GRANT ALL ON SCHEMA public TO documentation_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO documentation_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO documentation_user;
 
+CREATE DATABASE conge_db;
+CREATE USER conge_user WITH PASSWORD 'Conge@2026';
+GRANT ALL PRIVILEGES ON DATABASE conge_db TO conge_user;
+\c conge_db
+GRANT ALL ON SCHEMA public TO conge_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO conge_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO conge_user;
+
+CREATE DATABASE prime_db;
+CREATE USER prime_user WITH PASSWORD 'Prime@2026';
+GRANT ALL PRIVILEGES ON DATABASE prime_db TO prime_user;
+\c prime_db
+GRANT ALL ON SCHEMA public TO prime_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO prime_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO prime_user;
 -- Schéma métier EF (DocumentationDbContext : HasDefaultSchema("documentation")).
 -- Sans cela : 42501 permission denied for schema documentation pour documentation_user.
 CREATE SCHEMA IF NOT EXISTS documentation AUTHORIZATION documentation_user;

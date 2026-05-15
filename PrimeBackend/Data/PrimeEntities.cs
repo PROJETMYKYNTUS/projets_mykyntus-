@@ -1,20 +1,11 @@
 namespace PrimeBackend.Data;
 
-/// <summary>EF persistence for hiérarchie Département → Pôle → Cellule → Équipe.</summary>
-public class DepartmentEntity
-{
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-    public ICollection<PoleEntity> Poles { get; set; } = new List<PoleEntity>();
-}
-
+/// <summary>EF persistence for hiérarchie Pôle → Cellule → Service (Pilotes rattachés au Service).</summary>
 public class PoleEntity
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
-    public string DepartmentId { get; set; } = "";
-    public DepartmentEntity Department { get; set; } = null!;
-    public ICollection<CelluleEntity> Cells { get; set; } = new List<CelluleEntity>();
+    public ICollection<CelluleEntity> Cellules { get; set; } = new List<CelluleEntity>();
 }
 
 public class CelluleEntity
@@ -23,16 +14,24 @@ public class CelluleEntity
     public string Name { get; set; } = "";
     public string PoleId { get; set; } = "";
     public PoleEntity Pole { get; set; } = null!;
-    public ICollection<TeamEntity> Teams { get; set; } = new List<TeamEntity>();
-    public ICollection<CellulePrimeIndicatorEntity> PrimeIndicators { get; set; } = new List<CellulePrimeIndicatorEntity>();
+    public ICollection<ServiceEntity> Services { get; set; } = new List<ServiceEntity>();
 }
 
-/// <summary>Indicateur PRIME propre à une cellule (libellé, pondérations, ordre).</summary>
-public class CellulePrimeIndicatorEntity
+public class ServiceEntity
 {
-    public Guid Id { get; set; }
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
     public string CelluleId { get; set; } = "";
     public CelluleEntity Cellule { get; set; } = null!;
+    public ICollection<ServicePrimeIndicatorEntity> PrimeIndicators { get; set; } = new List<ServicePrimeIndicatorEntity>();
+}
+
+/// <summary>Indicateur PRIME propre à un service (libellé, pondérations, ordre).</summary>
+public class ServicePrimeIndicatorEntity
+{
+    public Guid Id { get; set; }
+    public string ServiceId { get; set; } = "";
+    public ServiceEntity Service { get; set; } = null!;
     public int SortOrder { get; set; }
     public string Label { get; set; } = "";
     public decimal? PonderationPrimePct { get; set; }
@@ -43,12 +42,12 @@ public class CellulePrimeIndicatorEntity
     public DateTimeOffset? UpdatedAt { get; set; }
 }
 
-/// <summary>Saisie pôle RACC/SAV partagée (une fois par superviseur, pôle, période et template).</summary>
-public class SupervisorPolePrimeDraftEntity
+/// <summary>Saisie cellule RACC/SAV partagée (une fois par superviseur, cellule, période et template).</summary>
+public class SupervisorCellulePrimeDraftEntity
 {
     public Guid Id { get; set; }
     public string SupervisorUserId { get; set; } = "";
-    public string PoleId { get; set; } = "";
+    public string CelluleId { get; set; } = "";
     public string Period { get; set; } = "";
     public string TemplateId { get; set; } = "";
     public string TemplateDisplayName { get; set; } = "";
@@ -56,37 +55,61 @@ public class SupervisorPolePrimeDraftEntity
     /// <summary>Draft | Validated</summary>
     public string Status { get; set; } = "Draft";
     public string SchemaJson { get; set; } = "{}";
-    public string PoleSaisieJson { get; set; } = "{}";
+    public string CelluleSaisieJson { get; set; } = "{}";
     public string? ComputedJson { get; set; }
     /// <summary>Snapshot JSON (calcSheets, formulas, previewSheetName, etc.) pour recalcul HyperFormula côté client (pilotage).</summary>
     public string? TemplateCalcSnapshotJson { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
-    public ICollection<EmployeePrimeCellFicheEntity> EmployeeFiches { get; set; } = new List<EmployeePrimeCellFicheEntity>();
+
+    /// <summary>Fichier Excel « pool global » (montants / données administratives) — validations RH + Manager puis accusé Compta.</summary>
+    public byte[]? GlobalPoolExcelContent { get; set; }
+    public string? GlobalPoolFileName { get; set; }
+    public DateTimeOffset? GlobalPoolUploadedAt { get; set; }
+    public string? GlobalPoolUploadedByUserId { get; set; }
+    public DateTimeOffset? GlobalPoolManagerApprovedAt { get; set; }
+    public string? GlobalPoolManagerApprovedByUserId { get; set; }
+    public DateTimeOffset? GlobalPoolRhApprovedAt { get; set; }
+    public string? GlobalPoolRhApprovedByUserId { get; set; }
+    public DateTimeOffset? GlobalPoolComptaAckAt { get; set; }
+    public string? GlobalPoolComptaAckByUserId { get; set; }
+
+    public ICollection<EmployeePrimeServiceFicheEntity> EmployeeFiches { get; set; } = new List<EmployeePrimeServiceFicheEntity>();
 }
 
-/// <summary>Partie « cellule » de la fiche PRIME pour un employé et une période.</summary>
-public class EmployeePrimeCellFicheEntity
+/// <summary>Partie « service » de la fiche PRIME pour un employé et une période.</summary>
+public class EmployeePrimeServiceFicheEntity
 {
     public Guid Id { get; set; }
-    public Guid PolePrimeDraftId { get; set; }
-    public SupervisorPolePrimeDraftEntity PolePrimeDraft { get; set; } = null!;
+    public Guid CellulePrimeDraftId { get; set; }
+    public SupervisorCellulePrimeDraftEntity CellulePrimeDraft { get; set; } = null!;
     public string SupervisorUserId { get; set; } = "";
     public string EmployeeId { get; set; } = "";
+    public string ServiceId { get; set; } = "";
     public string CelluleId { get; set; } = "";
-    public string PoleId { get; set; } = "";
     public string Period { get; set; } = "";
-    public string CellSaisieJson { get; set; } = "{}";
+    public string ServiceSaisieJson { get; set; } = "{}";
     /// <summary>NotStarted | InProgress | Complete</summary>
     public string FillingStatus { get; set; } = "NotStarted";
     public DateTimeOffset UpdatedAt { get; set; }
-}
 
-public class TeamEntity
-{
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-    public string CelluleId { get; set; } = "";
-    public CelluleEntity Cellule { get; set; } = null!;
+    // ============================================================
+    // Workflow de validation — 4 étapes actives (+ Rejected)
+    // Pending → Superviseur Approved → Chef de projet Approved → RH Approved
+    // (Référent technique = lecture seule, pas de transition depuis Pending)
+    // ============================================================
+    /// <summary>Pending | Superviseur Approved | Chef de projet Approved | RH Approved | Rejected</summary>
+    public string ValidationStatus { get; set; } = "Pending";
+    /// <summary>UserId du dernier valideur (Superviseur, Chef de projet ou RH).</summary>
+    public string? LastApproverUserId { get; set; }
+    public DateTimeOffset? LastApprovedAt { get; set; }
+    /// <summary>UserId du rejeteur (si Rejected).</summary>
+    public string? RejectedByUserId { get; set; }
+    public DateTimeOffset? RejectedAt { get; set; }
+    public string? RejectionReason { get; set; }
+    /// <summary>Montant prime calculé (issu de ComputedJson supervisor draft, snapshoté ici à la validation).</summary>
+    public decimal? PrimeAmount { get; set; }
+    public decimal? ChallengeAmount { get; set; }
+    public decimal? TotalAmount { get; set; }
 }
 
 public class EmployeeEntity
@@ -96,10 +119,9 @@ public class EmployeeEntity
     public string LastName { get; set; } = "";
     public string Role { get; set; } = "";
     public string? ParentId { get; set; }
-    public string TeamId { get; set; } = "";
-    public string DepartementId { get; set; } = "";
-    public string PoleId { get; set; } = "";
+    public string ServiceId { get; set; } = "";
     public string CelluleId { get; set; } = "";
+    public string PoleId { get; set; } = "";
     public string Email { get; set; } = "";
     public string? Avatar { get; set; }
 }
@@ -109,7 +131,7 @@ public class SupervisorPrimeFicheEntity
 {
     public Guid Id { get; set; }
     public string SupervisorUserId { get; set; } = "";
-    public string? PoleId { get; set; }
+    public string? CelluleId { get; set; }
     /// <summary>Période cible, ex. 2026-04</summary>
     public string Period { get; set; } = "";
     public string TemplateId { get; set; } = "";

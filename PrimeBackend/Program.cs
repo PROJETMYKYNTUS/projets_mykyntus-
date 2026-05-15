@@ -18,6 +18,7 @@ builder.Services.AddCors(options =>
     {
         policy
             .WithOrigins(
+                "http://localhost:4200",
                 "http://localhost:4201",
                 "http://localhost:4202",
                 "http://localhost:4203",
@@ -29,6 +30,8 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSingleton<PrimeInMemoryStore>();
+builder.Services.AddScoped<PrimeOrgScopeService>(sp =>
+    new PrimeOrgScopeService(sp.GetService<PrimeDbContext>()));
 
 var conn = builder.Configuration.GetConnectionString("DefaultConnection");
 if (!string.IsNullOrWhiteSpace(conn))
@@ -36,6 +39,8 @@ if (!string.IsNullOrWhiteSpace(conn))
     builder.Services.AddDbContext<PrimeDbContext>(o => o.UseNpgsql(conn));
     if (builder.Configuration.GetValue("Prime:ApplyMigrations", true))
         builder.Services.AddHostedService<PrimeDatabaseInitializer>();
+
+    builder.Services.AddScoped<PrimeBackend.Services.AnomalyDetectionService>();
 }
 
 var app = builder.Build();

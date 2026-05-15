@@ -6,7 +6,7 @@ public class UpdatePrimeResultStatusRequest
     public string? ApprovedBy { get; set; }
 }
 
-public class UpdateRpValidationStatusRequest
+public class UpdateChefProjetValidationStatusRequest
 {
     public string Status { get; set; } = "";
 }
@@ -16,41 +16,44 @@ public class UpdateAnomalyStatusRequest
     public string Status { get; set; } = "";
 }
 
-public class AssignManagerEtageRequest
+public class AssignChefProjetPoleRequest
 {
     public string UserId { get; set; } = "";
-    public string EtageId { get; set; } = "";
+    public string PoleId { get; set; } = "";
 }
 
-public class AssignSupervisorServiceRequest
+public class AssignSupervisorCelluleRequest
+{
+    public string UserId { get; set; } = "";
+    public string CelluleId { get; set; } = "";
+
+    // ---- LEGACY COMPAT (Phase 0 - to remove in Phase 1.6) ----
+    public string ServiceId { get => CelluleId; set => CelluleId = value; }
+}
+
+public class AssignReferentTechniqueServiceRequest
 {
     public string UserId { get; set; } = "";
     public string ServiceId { get; set; } = "";
 }
 
-public class AssignCoachSousServiceRequest
+public class AssignReferentTechniquePilotRequest
 {
-    public string UserId { get; set; } = "";
-    public string SousServiceId { get; set; } = "";
-}
-
-public class AssignCoachPilotRequest
-{
-    public string CoachUserId { get; set; } = "";
+    public string ReferentTechniqueUserId { get; set; } = "";
     public string PilotUserId { get; set; } = "";
 }
 
-/// <summary>Corps pour désigner le responsable structurel (manager, superviseur, coach) sur un nœud d’org.</summary>
+/// <summary>Corps pour désigner le responsable structurel (chef de projet, superviseur, référent technique) sur un nœud d'org.</summary>
 public class SetOrgResponsibleBody
 {
     public string EmployeeId { get; set; } = "";
 }
 
-public class AddPilotToCelluleBody
+public class AddPilotToServiceBody
 {
     public string EmployeeId { get; set; } = "";
-    /// <summary>Si null, première équipe de la cellule (règle stable).</summary>
-    public string? TeamId { get; set; }
+    /// <summary>Si null, premier service de la cellule (règle stable).</summary>
+    public string? ServiceId { get; set; }
 }
 
 public class SupervisorValidateRequest
@@ -125,7 +128,7 @@ public class ToggleRbacPermissionRequest
     public string Permission { get; set; } = ""; // read|edit|validate|configure
 }
 
-public class CreateOrgDepartmentBody
+public class CreateOrgPoleBody
 {
     public string Name { get; set; } = "";
 }

@@ -1,47 +1,59 @@
 namespace PrimeBackend.Controllers;
 
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PrimeBackend.Data;
 using PrimeBackend.Models;
 using PrimeBackend.Dto;
 using PrimeBackend.Services;
 
 [ApiController]
 [Route("api/prime")]
-public class PrimeController(PrimeInMemoryStore store) : ControllerBase
+public class PrimeController(PrimeDbContext? db, PrimeOrgScopeService org) : ControllerBase
 {
     [HttpGet("departments")]
-    public ActionResult<List<Department>> GetDepartments() => store.GetDepartments();
+    public async Task<ActionResult<List<Department>>> GetPoles(CancellationToken ct) =>
+        db == null
+            ? StatusCode(503, new { error = "Base de données non configurée." })
+            : Ok(await org.GetLegacyDepartmentTreeAsync(ct));
 
     [HttpGet("employees")]
-    public ActionResult<List<Employee>> GetEmployees() => store.GetEmployees();
+    public async Task<ActionResult<List<Employee>>> GetEmployees(CancellationToken ct) =>
+        db == null
+            ? StatusCode(503, new { error = "Base de données non configurée." })
+            : Ok(await org.GetLegacyEmployeesAsync(ct));
 
     [HttpGet("types")]
-    public ActionResult<List<PrimeType>> GetPrimeTypes() => store.GetPrimeTypes();
+    public ActionResult<List<PrimeType>> GetPrimeTypes() => Ok(new List<PrimeType>());
 
     [HttpGet("rules")]
-    public ActionResult<List<PrimeRule>> GetPrimeRules() => store.GetPrimeRules();
+    public ActionResult<List<PrimeRule>> GetPrimeRules() => Ok(new List<PrimeRule>());
 
     [HttpGet("results")]
-    public ActionResult<List<PrimeResult>> GetPrimeResults() => store.GetPrimeResults();
+    public async Task<ActionResult<List<PrimeResult>>> GetPrimeResults(CancellationToken ct) =>
+        db == null
+            ? StatusCode(503, new { error = "Base de données non configurée." })
+            : Ok(await org.GetPrimeResultsFromFichesAsync(500, ct));
 
     [HttpGet("my-results")]
-    public ActionResult<List<PrimeResult>> GetMyPrimeResults([FromQuery] string employeeId) =>
-        store.GetMyPrimeResults(employeeId);
+    public async Task<ActionResult<List<PrimeResult>>> GetMyPrimeResults([FromQuery] string employeeId, CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        var list = await org.GetPrimeResultsFromFichesAsync(500, ct);
+        return Ok(list.Where(r => r.EmployeeId == employeeId.Trim()).ToList());
+    }
 
     [HttpPut("results/{id}/status")]
     public ActionResult<PrimeResult> UpdatePrimeResultStatus(string id, [FromBody] UpdatePrimeResultStatusRequest req)
-    {
-        try
-        {
-            var updated = store.UpdatePrimeResultStatus(id, req.Status, req.ApprovedBy);
-            return Ok(updated);
-        }
-        catch (InvalidOperationException e) { return Conflict(new { error = e.Message }); }
-        catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
-    }
+        => StatusCode(StatusCodes.Status410Gone,
+            new { error = "Utilisez l’API /api/prime/validation pour approuver ou rejeter une fiche." });
 
     [HttpGet("dashboard-stats")]
-    public ActionResult<object> GetDashboardStats() => store.GetPrimeDashboardStats();
+    public async Task<ActionResult<object>> GetDashboardStats(CancellationToken ct) =>
+        db == null
+            ? StatusCode(503, new { error = "Base de données non configurée." })
+            : Ok(await org.BuildDashboardStatsAsync(ct));
 }
 
 [ApiController]
@@ -53,19 +65,19 @@ public class RpPrimeController(PrimeInMemoryStore store) : ControllerBase
         store.GetAssignedProjectIds(rpUserId);
 
     [HttpGet("dashboard-stats")]
-    public ActionResult<RpDashboardStats> GetRpDashboardStats([FromQuery] string rpUserId) =>
-        store.GetRpDashboardStats(rpUserId);
+    public ActionResult<ChefProjetDashboardStats> GetChefProjetDashboardStats([FromQuery] string rpUserId) =>
+        store.GetChefProjetDashboardStats(rpUserId);
 
     [HttpGet("team-performance")]
-    public ActionResult<List<RpTeamMemberPerformance>> GetTeamPerformanceByProject([FromQuery] string rpUserId) =>
+    public ActionResult<List<ChefProjetTeamMemberPerformance>> GetTeamPerformanceByProject([FromQuery] string rpUserId) =>
         store.GetTeamPerformanceByProject(rpUserId);
 
     [HttpGet("manager-validated")]
-    public ActionResult<List<RpValidationItem>> GetManagerValidatedPrimes([FromQuery] string rpUserId) =>
-        store.GetManagerValidatedPrimes(rpUserId);
+    public ActionResult<List<ChefProjetValidationItem>> GetSuperviseurValidatedPrimes([FromQuery] string rpUserId) =>
+        store.GetSuperviseurValidatedPrimes(rpUserId);
 
     [HttpPut("validations/{id}/status")]
-    public ActionResult<RpValidationItem> UpdateRpValidationStatus(string id, [FromBody] UpdateRpValidationStatusRequest req)
+    public ActionResult<ChefProjetValidationItem> UpdateRpValidationStatus(string id, [FromBody] UpdateChefProjetValidationStatusRequest req)
     {
         var updated = store.UpdateRpValidationStatus(id, req.Status);
         return Ok(updated);
@@ -130,46 +142,134 @@ public class AuditPrimeController(PrimeInMemoryStore store) : ControllerBase
 
 [ApiController]
 [Route("api/prime/org")]
-public class PrimeOrgAssignmentsController(PrimeInMemoryStore store) : ControllerBase
+public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbContext? db) : ControllerBase
 {
     [HttpGet("etages")]
-    public ActionResult<List<EtageNode>> GetEtages() => store.GetEtages();
+    public async Task<ActionResult<List<PoleNode>>> GetEtages(CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        return Ok(await db.Poles.AsNoTracking()
+            .OrderBy(p => p.Id)
+            .Select(p => new PoleNode { Id = p.Id, Name = p.Name })
+            .ToListAsync(ct));
+    }
 
     [HttpGet("services")]
-    public ActionResult<List<ServiceNode>> GetServices() => store.GetServices();
+    public async Task<ActionResult<List<CelluleNode>>> GetServices(CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        return Ok(await db.Cellules.AsNoTracking()
+            .OrderBy(c => c.PoleId).ThenBy(c => c.Id)
+            .Select(c => new CelluleNode { Id = c.Id, Name = c.Name, PoleId = c.PoleId })
+            .ToListAsync(ct));
+    }
 
     [HttpGet("sous-services")]
-    public ActionResult<List<SousServiceNode>> GetSousServices() => store.GetSousServices();
+    public async Task<ActionResult<List<CelluleNode>>> GetSousServices(CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        return Ok(await db.Services.AsNoTracking()
+            .OrderBy(s => s.CelluleId).ThenBy(s => s.Id)
+            .Select(s => new CelluleNode { Id = s.Id, Name = s.Name, ServiceId = s.CelluleId })
+            .ToListAsync(ct));
+    }
 
     [HttpGet("assignments/manager-etage")]
-    public ActionResult<List<ManagerEtageAssignment>> GetManagerEtageAssignments([FromQuery] string? userId) =>
-        store.GetManagerEtageAssignments(userId);
+    public async Task<ActionResult<List<ChefProjetPoleAssignment>>> GetChefProjetPoleAssignments(
+        [FromQuery] string? userId,
+        CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        var q = db.Employees.AsNoTracking().Where(e => e.Role == "Chef de projet");
+        if (!string.IsNullOrWhiteSpace(userId)) q = q.Where(e => e.Id == userId.Trim());
+        var rows = await q.OrderBy(e => e.Id).ToListAsync(ct);
+        var list = rows
+            .Where(e => !string.IsNullOrWhiteSpace(e.PoleId))
+            .Select(e => new ChefProjetPoleAssignment
+            {
+                Id = $"m|{e.Id}|{e.PoleId}",
+                UserId = e.Id,
+                PoleId = e.PoleId,
+            })
+            .ToList();
+        return Ok(list);
+    }
 
     [HttpGet("assignments/supervisor-service")]
-    public ActionResult<List<SupervisorServiceAssignment>> GetSupervisorServiceAssignments([FromQuery] string? userId) =>
-        store.GetSupervisorServiceAssignments(userId);
+    public async Task<ActionResult<List<SupervisorCelluleAssignment>>> GetSupervisorCelluleAssignments(
+        [FromQuery] string? userId,
+        CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        var q = db.Employees.AsNoTracking().Where(e => e.Role == "Superviseur");
+        if (!string.IsNullOrWhiteSpace(userId)) q = q.Where(e => e.Id == userId.Trim());
+        var rows = await q.OrderBy(e => e.Id).ToListAsync(ct);
+        var list = rows
+            .Where(e => !string.IsNullOrWhiteSpace(e.CelluleId))
+            .Select(e => new SupervisorCelluleAssignment
+            {
+                Id = $"s|{e.Id}|{e.CelluleId}",
+                UserId = e.Id,
+                CelluleId = e.CelluleId,
+            })
+            .ToList();
+        return Ok(list);
+    }
 
     [HttpGet("assignments/coach-sous-service")]
-    public ActionResult<List<CoachSousServiceAssignment>> GetCoachSousServiceAssignments([FromQuery] string? userId) =>
-        store.GetCoachSousServiceAssignments(userId);
+    public async Task<ActionResult<List<ReferentTechniqueServiceAssignment>>> GetReferentTechniqueServiceAssignments(
+        [FromQuery] string? userId,
+        CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        var q = db.Employees.AsNoTracking().Where(e => e.Role == "Référent technique");
+        if (!string.IsNullOrWhiteSpace(userId)) q = q.Where(e => e.Id == userId.Trim());
+        var rows = await q.OrderBy(e => e.Id).ToListAsync(ct);
+        var list = rows
+            .Where(e => !string.IsNullOrWhiteSpace(e.ServiceId))
+            .Select(e => new ReferentTechniqueServiceAssignment
+            {
+                Id = $"c|{e.Id}|{e.ServiceId}",
+                UserId = e.Id,
+                ServiceId = e.ServiceId,
+            })
+            .ToList();
+        return Ok(list);
+    }
 
     [HttpGet("assignments/coach-pilot")]
-    public ActionResult<List<CoachPilotLink>> GetCoachPilotLinks([FromQuery] string? coachUserId) =>
-        store.GetCoachPilotLinks(coachUserId);
+    public async Task<ActionResult<List<ReferentTechniquePilotLink>>> GetReferentTechniquePilotLinks(
+        [FromQuery] string? coachUserId,
+        CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        var q = db.Employees.AsNoTracking().Where(e => e.Role == "Pilote" && e.ParentId != null);
+        if (!string.IsNullOrWhiteSpace(coachUserId)) q = q.Where(e => e.ParentId == coachUserId.Trim());
+        var rows = await q.OrderBy(e => e.Id).ToListAsync(ct);
+        var list = rows
+            .Select(e => new ReferentTechniquePilotLink
+            {
+                Id = $"p|{e.ParentId}|{e.Id}",
+                ReferentTechniqueUserId = e.ParentId!,
+                PilotUserId = e.Id,
+            })
+            .ToList();
+        return Ok(list);
+    }
 
     [HttpPost("assignments/manager-etage")]
-    public ActionResult<ManagerEtageAssignment> AssignManagerEtage([FromBody] AssignManagerEtageRequest req)
+    public ActionResult<ChefProjetPoleAssignment> AssignManagerEtage([FromBody] AssignChefProjetPoleRequest req)
     {
         try
         {
-            return Ok(store.AssignManagerEtage(req.UserId, req.EtageId));
+            return Ok(store.AssignManagerEtage(req.UserId, req.PoleId));
         }
         catch (InvalidOperationException e) { return Conflict(new { error = e.Message }); }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
     }
 
     [HttpPost("assignments/supervisor-service")]
-    public ActionResult<SupervisorServiceAssignment> AssignSupervisorService([FromBody] AssignSupervisorServiceRequest req)
+    public ActionResult<SupervisorCelluleAssignment> AssignSupervisorService([FromBody] AssignSupervisorCelluleRequest req)
     {
         try
         {
@@ -180,72 +280,72 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store) : Controlle
     }
 
     [HttpPost("assignments/coach-sous-service")]
-    public ActionResult<CoachSousServiceAssignment> AssignCoachSousService([FromBody] AssignCoachSousServiceRequest req)
+    public ActionResult<ReferentTechniqueServiceAssignment> AssignCoachSousService([FromBody] AssignReferentTechniqueServiceRequest req)
     {
         try
         {
-            return Ok(store.AssignCoachSousService(req.UserId, req.SousServiceId));
+            return Ok(store.AssignCoachSousService(req.UserId, req.ServiceId));
         }
         catch (InvalidOperationException e) { return Conflict(new { error = e.Message }); }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
     }
 
     [HttpPost("assignments/coach-pilot")]
-    public ActionResult<CoachPilotLink> AssignCoachPilot([FromBody] AssignCoachPilotRequest req)
+    public ActionResult<ReferentTechniquePilotLink> AssignCoachPilot([FromBody] AssignReferentTechniquePilotRequest req)
     {
         try
         {
-            return Ok(store.AssignCoachPilot(req.CoachUserId, req.PilotUserId));
+            return Ok(store.AssignCoachPilot(req.ReferentTechniqueUserId, req.PilotUserId));
         }
         catch (InvalidOperationException e) { return Conflict(new { error = e.Message }); }
     }
 
     [HttpDelete("assignments/manager-etage/{assignmentId}")]
-    public IActionResult RemoveManagerEtageAssignment(string assignmentId)
+    public IActionResult RemoveChefProjetPoleAssignment(string assignmentId)
     {
         try
         {
-            store.RemoveManagerEtageAssignment(assignmentId);
+            store.RemoveChefProjetPoleAssignment(assignmentId);
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
     }
 
     [HttpDelete("assignments/supervisor-service/{assignmentId}")]
-    public IActionResult RemoveSupervisorServiceAssignment(string assignmentId)
+    public IActionResult RemoveSupervisorCelluleAssignment(string assignmentId)
     {
         try
         {
-            store.RemoveSupervisorServiceAssignment(assignmentId);
+            store.RemoveSupervisorCelluleAssignment(assignmentId);
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
     }
 
     [HttpDelete("assignments/coach-sous-service/{assignmentId}")]
-    public IActionResult RemoveCoachSousServiceAssignment(string assignmentId)
+    public IActionResult RemoveReferentTechniqueServiceAssignment(string assignmentId)
     {
         try
         {
-            store.RemoveCoachSousServiceAssignment(assignmentId);
+            store.RemoveReferentTechniqueServiceAssignment(assignmentId);
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
     }
 
     [HttpDelete("assignments/coach-pilot/{linkId}")]
-    public IActionResult RemoveCoachPilotLink(string linkId)
+    public IActionResult RemoveReferentTechniquePilotLink(string linkId)
     {
         try
         {
-            store.RemoveCoachPilotLink(linkId);
+            store.RemoveReferentTechniquePilotLink(linkId);
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
     }
 
     [HttpPost("structure/departments")]
-    public ActionResult<Department> CreateDepartment([FromBody] CreateOrgDepartmentBody body)
+    public ActionResult<Department> CreateDepartment([FromBody] CreateOrgPoleBody body)
     {
         try
         {
@@ -257,12 +357,12 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store) : Controlle
         }
     }
 
-    [HttpPost("structure/departments/{departmentId}/poles")]
-    public ActionResult<Pole> CreatePoleForDepartment(string departmentId, [FromBody] CreateOrgNodeNameBody body)
+    [HttpPost("structure/departments/{poleId}/poles")]
+    public ActionResult<Pole> CreatePoleForDepartment(string poleId, [FromBody] CreateOrgNodeNameBody body)
     {
         try
         {
-            return Ok(store.CreateOrgPole(departmentId, body.Name));
+            return Ok(store.CreateOrgPole(poleId, body.Name));
         }
         catch (ArgumentException e)
         {
@@ -274,12 +374,12 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store) : Controlle
         }
     }
 
-    [HttpPost("structure/poles/{poleId}/cellules")]
-    public ActionResult<Cellule> CreateCelluleForPole(string poleId, [FromBody] CreateOrgNodeNameBody body)
+    [HttpPost("structure/poles/{celluleId}/cellules")]
+    public ActionResult<Cellule> CreateCelluleForPole(string celluleId, [FromBody] CreateOrgNodeNameBody body)
     {
         try
         {
-            return Ok(store.CreateOrgCellule(poleId, body.Name));
+            return Ok(store.CreateOrgCellule(celluleId, body.Name));
         }
         catch (ArgumentException e)
         {
@@ -291,81 +391,81 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store) : Controlle
         }
     }
 
-    [HttpPost("structure/departments/{departmentId}/manager")]
-    public IActionResult SetManagerForDepartment(string departmentId, [FromBody] SetOrgResponsibleBody body)
+    [HttpPost("structure/departments/{poleId}/manager")]
+    public IActionResult SetManagerForDepartment(string poleId, [FromBody] SetOrgResponsibleBody body)
     {
         try
         {
-            store.SetManagerForDepartment(body.EmployeeId, departmentId);
+            store.SetManagerForDepartment(body.EmployeeId, poleId);
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
         catch (InvalidOperationException e) { return Conflict(new { error = e.Message }); }
     }
 
-    [HttpDelete("structure/departments/{departmentId}/manager")]
-    public IActionResult ClearManagerForDepartment(string departmentId)
+    [HttpDelete("structure/departments/{poleId}/manager")]
+    public IActionResult ClearManagerForDepartment(string poleId)
     {
-        store.ClearManagerForDepartment(departmentId);
+        store.ClearManagerForDepartment(poleId);
         return NoContent();
     }
 
-    [HttpPost("structure/poles/{poleId}/supervisor")]
-    public IActionResult SetSupervisorForPole(string poleId, [FromBody] SetOrgResponsibleBody body)
+    [HttpPost("structure/poles/{celluleId}/supervisor")]
+    public IActionResult SetSupervisorForPole(string celluleId, [FromBody] SetOrgResponsibleBody body)
     {
         try
         {
-            store.SetSupervisorForPole(body.EmployeeId, poleId);
+            store.SetSupervisorForPole(body.EmployeeId, celluleId);
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
         catch (InvalidOperationException e) { return Conflict(new { error = e.Message }); }
     }
 
-    [HttpDelete("structure/poles/{poleId}/supervisor")]
-    public IActionResult ClearSupervisorForPole(string poleId)
+    [HttpDelete("structure/poles/{celluleId}/supervisor")]
+    public IActionResult ClearSupervisorForPole(string celluleId)
     {
-        store.ClearSupervisorForPole(poleId);
+        store.ClearSupervisorForPole(celluleId);
         return NoContent();
     }
 
-    [HttpPost("structure/cellules/{celluleId}/coach")]
-    public IActionResult SetCoachForCellule(string celluleId, [FromBody] SetOrgResponsibleBody body)
+    [HttpPost("structure/cellules/{serviceId}/coach")]
+    public IActionResult SetCoachForCellule(string serviceId, [FromBody] SetOrgResponsibleBody body)
     {
         try
         {
-            store.SetCoachForCellule(body.EmployeeId, celluleId);
+            store.SetCoachForCellule(body.EmployeeId, serviceId);
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
         catch (InvalidOperationException e) { return Conflict(new { error = e.Message }); }
     }
 
-    [HttpDelete("structure/cellules/{celluleId}/coach")]
-    public IActionResult ClearCoachForCellule(string celluleId)
+    [HttpDelete("structure/cellules/{serviceId}/coach")]
+    public IActionResult ClearCoachForCellule(string serviceId)
     {
-        store.ClearCoachForCellule(celluleId);
+        store.ClearCoachForCellule(serviceId);
         return NoContent();
     }
 
-    [HttpPost("structure/cellules/{celluleId}/pilots")]
-    public IActionResult AddPilotToCellule(string celluleId, [FromBody] AddPilotToCelluleBody body)
+    [HttpPost("structure/cellules/{serviceId}/pilots")]
+    public IActionResult AddPilotToCellule(string serviceId, [FromBody] AddPilotToServiceBody body)
     {
         try
         {
-            store.AddPilotToCellule(body.EmployeeId, celluleId, body.TeamId);
+            store.AddPilotToCellule(body.EmployeeId, serviceId, body.ServiceId);
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
         catch (InvalidOperationException e) { return Conflict(new { error = e.Message }); }
     }
 
-    [HttpDelete("structure/cellules/{celluleId}/pilots/{employeeId}")]
-    public IActionResult RemovePilotFromCellule(string celluleId, string employeeId)
+    [HttpDelete("structure/cellules/{serviceId}/pilots/{employeeId}")]
+    public IActionResult RemovePilotFromCellule(string serviceId, string employeeId)
     {
         try
         {
-            store.RemovePilotFromCellule(employeeId, celluleId);
+            store.RemovePilotFromCellule(employeeId, serviceId);
             return NoContent();
         }
         catch (InvalidOperationException e) { return Conflict(new { error = e.Message }); }

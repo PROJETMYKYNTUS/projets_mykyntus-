@@ -5,9 +5,9 @@ using PrimeBackend.Data;
 namespace PrimeBackend.Services;
 
 /// <summary>
-/// Statut de remplissage partie cellule : format legacy (cible/réalisé) ou v2 (plafonds + lignes aplatis secteur_*).
+/// Statut de remplissage partie service : format legacy (cible/réalisé) ou v2 (plafonds + lignes aplatis secteur_*).
 /// </summary>
-public static class PrimeCellFicheStatusHelper
+public static class PrimeServiceFicheStatusHelper
 {
     private static readonly string[] SectorCoreSuffixes =
     [
@@ -26,7 +26,7 @@ public static class PrimeCellFicheStatusHelper
 
     private static readonly Regex SectorIndexRegex = new(@"^secteur_(\d+)_", RegexOptions.Compiled);
 
-    public static string ComputeFillingStatus(string cellSaisieJson, IReadOnlyList<CellulePrimeIndicatorEntity> activeOrderedIndicators)
+    public static string ComputeFillingStatus(string serviceSaisieJson, IReadOnlyList<ServicePrimeIndicatorEntity> activeOrderedIndicators)
     {
         var active = activeOrderedIndicators.Where(i => i.IsActive).OrderBy(i => i.SortOrder).ToList();
         if (active.Count == 0)
@@ -35,7 +35,7 @@ public static class PrimeCellFicheStatusHelper
         JsonDocument? doc = null;
         try
         {
-            doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(cellSaisieJson) ? "{}" : cellSaisieJson);
+            doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(serviceSaisieJson) ? "{}" : serviceSaisieJson);
         }
         catch
         {
@@ -75,7 +75,7 @@ public static class PrimeCellFicheStatusHelper
         return false;
     }
 
-    private static string ComputeLegacy(IReadOnlyList<JsonElement> rowsArr, List<CellulePrimeIndicatorEntity> active)
+    private static string ComputeLegacy(IReadOnlyList<JsonElement> rowsArr, List<ServicePrimeIndicatorEntity> active)
     {
         static bool Filled(string? s) => !string.IsNullOrWhiteSpace(s);
 
@@ -116,7 +116,7 @@ public static class PrimeCellFicheStatusHelper
         return allComplete ? "Complete" : "InProgress";
     }
 
-    private static string ComputeDynamic(JsonElement root, IReadOnlyList<JsonElement> rowsArr, List<CellulePrimeIndicatorEntity> active)
+    private static string ComputeDynamic(JsonElement root, IReadOnlyList<JsonElement> rowsArr, List<ServicePrimeIndicatorEntity> active)
     {
         static bool FilledPlafond(JsonElement el)
         {

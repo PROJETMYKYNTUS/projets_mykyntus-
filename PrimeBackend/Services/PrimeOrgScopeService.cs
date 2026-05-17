@@ -285,4 +285,42 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
             }).ToList(),
         };
     }
+
+    private static string NewOrgHierarchyChildId(string prefix) => $"{prefix}-{Guid.NewGuid():N}";
+
+    /// <summary>
+    /// Garantit qu’un pôle racine (<c>prime_pole</c>) possède au moins une cellule et un service feuille,
+    /// nécessaire pour l’affectation « chef de projet » (ancre hiérarchique dans <see cref="PrimeInMemoryStore"/>).
+    /// </summary>
+    public async Task EnsureRootPoleHasMinimalChildrenAsync(string rootPoleId, CancellationToken ct = default)
+    {
+        if (db == null) return;
+        var key = rootPoleId.Trim();
+        var pole = await db.Poles
+            .Include(p => p.Cellules)
+            .ThenInclude(c => c.Services)
+            .FirstOrDefaultAsync(p => p.Id == key, ct);
+        if (pole is null) return;
+
+        if (pole.Cellules.Any(c => c.Services.Count > 0))
+            return;
+
+        CelluleEntity targetCell;
+        if (pole.Cellules.Count == 0)
+        {
+            var cellId = NewOrgHierarchyChildId("p");
+            while (await db.Cellules.AnyAsync(c => c.Id == cellId, ct))
+                cellId = NewOrgHierarchyChildId("p");
+            targetCell = new CelluleEntity { Id = cellId, Name = "Cellule principale", PoleId = pole.Id };
+            db.Cellules.Add(targetCell);
+        }
+        else
+            targetCell = pole.Cellules.OrderBy(c => c.Id).First();
+
+        var srvId = NewOrgHierarchyChildId("c");
+        while (await db.Services.AnyAsync(s => s.Id == srvId, ct))
+            srvId = NewOrgHierarchyChildId("c");
+        db.Services.Add(new ServiceEntity { Id = srvId, Name = "Service principal", CelluleId = targetCell.Id });
+        await db.SaveChangesAsync(ct);
+    }
 }

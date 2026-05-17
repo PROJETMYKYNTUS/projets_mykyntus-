@@ -94,6 +94,7 @@ public class ReferentTechniqueServiceAssignment
 public class ReferentTechniquePilotLink
 {
     public string Id { get; set; } = "";
+    [JsonPropertyName("coachUserId")]
     public string ReferentTechniqueUserId { get; set; } = "";
     public string PilotUserId { get; set; } = "";
 }

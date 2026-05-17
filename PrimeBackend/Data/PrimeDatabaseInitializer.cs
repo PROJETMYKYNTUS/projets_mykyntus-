@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using PrimeBackend.Services;
 
 namespace PrimeBackend.Data;
 
-public sealed class PrimeDatabaseInitializer(IServiceScopeFactory scopeFactory) : IHostedService
+public sealed class PrimeDatabaseInitializer(IServiceScopeFactory scopeFactory, IConfiguration configuration) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -11,8 +12,14 @@ public sealed class PrimeDatabaseInitializer(IServiceScopeFactory scopeFactory) 
         var db = scope.ServiceProvider.GetRequiredService<PrimeDbContext>();
         await db.Database.MigrateAsync(cancellationToken);
         await EnsurePrimeMetierTablesExistAsync(db, cancellationToken);
+        await PrimeDbSeeder.EnsureOperationalFicheWorkflowOnlyAsync(db, cancellationToken: cancellationToken);
+        await PrimeDbSeeder.SeedMissingReferentTechnicalValidateRbacAsync(db, cancellationToken);
         if (!await db.Poles.AnyAsync(cancellationToken))
-            await PrimeDbSeeder.SeedAsync(db, cancellationToken);
+        {
+            // PrimeDbSeeder.SeedAsync: set Prime:SeedDemoData=false in production for core-only seed (no demo fiches).
+            var seedDemo = configuration.GetValue("Prime:SeedDemoData", true);
+            await PrimeDbSeeder.SeedAsync(db, seedDemo, cancellationToken);
+        }
 
         var store = scope.ServiceProvider.GetRequiredService<PrimeInMemoryStore>();
         store.HydrateOrganizationFromDatabase(db);

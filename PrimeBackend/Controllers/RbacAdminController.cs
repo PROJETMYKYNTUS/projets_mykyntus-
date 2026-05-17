@@ -28,6 +28,21 @@ public sealed class RbacAdminController(PrimeDbContext? db) : ControllerBase
         return Ok(rows.Select(Map).ToList());
     }
 
+    [HttpGet("catalog")]
+    public async Task<ActionResult<RbacCatalogDto>> Catalog(CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        var permRoles = await db.RbacPermissions.AsNoTracking().Select(p => p.Role).Distinct().ToListAsync(ct);
+        var empRoles = await db.Employees.AsNoTracking().Select(e => e.Role).Distinct().ToListAsync(ct);
+        var roles = permRoles.Concat(empRoles).Distinct(StringComparer.Ordinal).OrderBy(r => r).ToList();
+        return Ok(new RbacCatalogDto
+        {
+            Actions = ["Read", "Edit", "Validate", "Configure"],
+            Scopes = ["Global", "Pole", "Cellule", "Service", "Self"],
+            Roles = roles,
+        });
+    }
+
     [HttpPut]
     public async Task<ActionResult<RbacPermissionDto>> Upsert([FromBody] UpsertRbacPermissionRequest body, CancellationToken ct)
     {

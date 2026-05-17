@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PrimeBackend.Data;
@@ -11,9 +12,11 @@ using PrimeBackend.Data;
 namespace PrimeBackend.Data.Migrations
 {
     [DbContext(typeof(PrimeDbContext))]
-    partial class PrimeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260515021328_PrimeV4WorkflowGlobalPool")]
+    partial class PrimeV4WorkflowGlobalPool
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

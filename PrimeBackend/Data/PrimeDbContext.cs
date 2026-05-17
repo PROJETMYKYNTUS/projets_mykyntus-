@@ -18,6 +18,8 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
     public DbSet<WorkflowGlobalConfigEntity> WorkflowGlobalConfigs => Set<WorkflowGlobalConfigEntity>();
     public DbSet<AuditLogEntity> AuditLogs => Set<AuditLogEntity>();
     public DbSet<AnomalyEntity> Anomalies => Set<AnomalyEntity>();
+    public DbSet<GlobalPoolWorkflowStepEntity> GlobalPoolWorkflowSteps => Set<GlobalPoolWorkflowStepEntity>();
+    public DbSet<GlobalPoolApprovalEntity> GlobalPoolApprovals => Set<GlobalPoolApprovalEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -114,6 +116,10 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.Property(x => x.GlobalPoolComptaAckByUserId).HasMaxLength(128);
             e.HasIndex(x => new { x.SupervisorUserId, x.Period });
             e.HasIndex(x => new { x.SupervisorUserId, x.CelluleId, x.Period, x.TemplateId }).IsUnique();
+            e.HasMany(x => x.GlobalPoolApprovals)
+                .WithOne(x => x.Draft)
+                .HasForeignKey(x => x.DraftId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<EmployeePrimeServiceFicheEntity>(e =>
@@ -163,7 +169,27 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.Property(x => x.FromStatus).HasMaxLength(64).IsRequired();
             e.Property(x => x.ToStatus).HasMaxLength(64).IsRequired();
             e.HasIndex(x => x.SortOrder);
-            e.HasIndex(x => new { x.FromStatus, x.ToStatus }).IsUnique();
+            e.HasIndex(x => new { x.FromStatus, x.ApproverRole, x.ToStatus }).IsUnique();
+        });
+
+        modelBuilder.Entity<GlobalPoolWorkflowStepEntity>(e =>
+        {
+            e.ToTable("prime_global_pool_workflow_step");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ApproverRole).HasMaxLength(64).IsRequired();
+            e.HasIndex(x => x.SortOrder);
+        });
+
+        modelBuilder.Entity<GlobalPoolApprovalEntity>(e =>
+        {
+            e.ToTable("prime_global_pool_approval");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.UserId).HasMaxLength(128).IsRequired();
+            e.HasIndex(x => new { x.DraftId, x.StepId }).IsUnique();
+            e.HasOne(x => x.Step)
+                .WithMany()
+                .HasForeignKey(x => x.StepId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<WorkflowGlobalConfigEntity>(e =>

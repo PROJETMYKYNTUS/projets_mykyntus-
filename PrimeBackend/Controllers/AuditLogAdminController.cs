@@ -2,13 +2,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Data;
 using PrimeBackend.Dto;
+using PrimeBackend.Services;
 
 namespace PrimeBackend.Controllers;
 
 /// <summary>API de consultation du journal d'audit (Phase 1.4).</summary>
 [ApiController]
 [Route("api/prime/admin/audit-logs")]
-public sealed class AuditLogAdminController(PrimeDbContext? db) : ControllerBase
+public sealed class AuditLogAdminController(PrimeDbContext? db, PrimeAuditLogService auditWriter) : ControllerBase
 {
     private static AuditLogDto Map(AuditLogEntity e) => new()
     {
@@ -49,5 +50,15 @@ public sealed class AuditLogAdminController(PrimeDbContext? db) : ControllerBase
         var max = Math.Clamp(take ?? 200, 1, 1000);
         var rows = await q.Take(max).ToListAsync(ct);
         return Ok(rows.Select(Map).ToList());
+    }
+
+    /// <summary>Enregistre une consultation d’écran (SPA) pour la supervision admin.</summary>
+    [HttpPost("nav")]
+    public async Task<IActionResult> RecordNavigation([FromBody] RecordAuditNavigationRequest body, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(body.UserId) || string.IsNullOrWhiteSpace(body.Route))
+            return BadRequest(new { error = "userId et route sont requis." });
+        await auditWriter.RecordNavigationAsync(body.UserId, body.UserDisplayName, body.Role, body.Route, ct);
+        return NoContent();
     }
 }

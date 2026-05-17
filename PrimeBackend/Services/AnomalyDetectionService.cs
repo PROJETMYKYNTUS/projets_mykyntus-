@@ -5,31 +5,22 @@ using PrimeBackend.Data;
 namespace PrimeBackend.Services;
 
 /// <summary>
-/// Service de détection d'anomalies sur les fiches PRIME (Phase 1.5).
-///
-/// 6 règles métier :
-///   R1 (ComputationMismatch)  : TotalAmount renseigné ≠ PrimeAmount + ChallengeAmount (tolérance 0.01).
-///   R2 (DuplicateFiche)       : plusieurs fiches pour le même (EmployeeId, Period) — devrait être unique.
-///   R3 (OutOfRange)           : montant prime ou challenge négatif, ou prime > seuil aberrant (10 000 par défaut).
-///   R4 (MissingApprover)      : statut ≠ Pending et ≠ Rejected sans LastApproverUserId.
-///   R5 (StaleValidation)      : fiche en cours (≠ RH Approved et ≠ Rejected) sans mise à jour depuis SLA global × 3.
-///   R6 (InvalidScope)         : ServiceId / CelluleId vides alors que la fiche est validée.
+/// Détection d'anomalies sur les fiches PRIME — terminaux et SLA alignés sur le workflow en base.
 /// </summary>
-public sealed class AnomalyDetectionService(PrimeDbContext db)
+public sealed class AnomalyDetectionService(PrimeDbContext db, PrimeValidationWorkflowRuntime wfRuntime)
 {
     private const decimal MoneyTolerance = 0.01m;
     private const decimal AberrantPrimeThreshold = 10000m;
 
-    /// <summary>Recalcule l'ensemble des anomalies sur le périmètre courant (toute la base). Idempotent : met à jour les Open existantes, ré-crée si manquantes, marque Resolved les disparues qui étaient Open.</summary>
     public async Task<int> RecomputeAllAsync(CancellationToken ct = default)
     {
         var now = DateTimeOffset.UtcNow;
         var detected = new List<AnomalyEntity>();
-        var sla = await GetGlobalSlaHoursAsync(ct);
+        var slaGlobal = await GetGlobalSlaHoursAsync(ct);
+        var terminals = await wfRuntime.GetTerminalStatusesAsync(ct);
 
         var fiches = await db.EmployeePrimeServiceFiches.AsNoTracking().ToListAsync(ct);
 
-        // R1 ComputationMismatch
         foreach (var f in fiches)
         {
             if (f.TotalAmount is null || (f.PrimeAmount is null && f.ChallengeAmount is null)) continue;
@@ -42,7 +33,6 @@ public sealed class AnomalyDetectionService(PrimeDbContext db)
             }
         }
 
-        // R2 DuplicateFiche
         var duplicates = fiches
             .GroupBy(f => new { f.EmployeeId, f.Period })
             .Where(g => g.Count() > 1);
@@ -56,7 +46,6 @@ public sealed class AnomalyDetectionService(PrimeDbContext db)
             }
         }
 
-        // R3 OutOfRange
         foreach (var f in fiches)
         {
             var primeNeg = (f.PrimeAmount ?? 0m) < 0m;
@@ -73,10 +62,12 @@ public sealed class AnomalyDetectionService(PrimeDbContext db)
             }
         }
 
-        // R4 MissingApprover
         foreach (var f in fiches)
         {
-            if (f.ValidationStatus is PrimeValidationWorkflowService.Pending or PrimeValidationWorkflowService.Rejected) continue;
+            if (f.ValidationStatus == PrimeValidationWorkflowService.Pending ||
+                f.ValidationStatus == PrimeValidationWorkflowService.Rejected ||
+                terminals.Contains(f.ValidationStatus))
+                continue;
             if (string.IsNullOrWhiteSpace(f.LastApproverUserId))
             {
                 detected.Add(BuildAnomaly(f, now, "MissingApprover", "High",
@@ -85,23 +76,26 @@ public sealed class AnomalyDetectionService(PrimeDbContext db)
             }
         }
 
-        // R5 StaleValidation
-        var staleThreshold = now.AddHours(-sla * 3);
         foreach (var f in fiches)
         {
-            if (f.ValidationStatus is PrimeValidationWorkflowService.RhApproved or PrimeValidationWorkflowService.Rejected) continue;
+            if (terminals.Contains(f.ValidationStatus)) continue;
+            var stepSla = await wfRuntime.GetSlaHoursForCurrentStepAsync(f.ValidationStatus, ct);
+            var hours = stepSla ?? slaGlobal;
+            if (hours <= 0) continue;
+            var staleThreshold = now.AddHours(-hours * 3);
             if (f.UpdatedAt < staleThreshold)
             {
                 detected.Add(BuildAnomaly(f, now, "StaleValidation", "Medium",
                     $"Fiche bloquée en « {f.ValidationStatus} » sans mise à jour depuis {(now - f.UpdatedAt).TotalHours:F0}h.",
-                    JsonSerializer.Serialize(new { f.UpdatedAt, slaHours = sla })));
+                    JsonSerializer.Serialize(new { f.UpdatedAt, slaHours = hours })));
             }
         }
 
-        // R6 InvalidScope
         foreach (var f in fiches)
         {
-            if (f.ValidationStatus == PrimeValidationWorkflowService.Pending) continue;
+            if (f.ValidationStatus == PrimeValidationWorkflowService.Pending ||
+                f.ValidationStatus == PrimeValidationWorkflowService.Rejected)
+                continue;
             if (string.IsNullOrWhiteSpace(f.ServiceId) || string.IsNullOrWhiteSpace(f.CelluleId))
             {
                 detected.Add(BuildAnomaly(f, now, "InvalidScope", "High",
@@ -110,18 +104,36 @@ public sealed class AnomalyDetectionService(PrimeDbContext db)
             }
         }
 
-        // Upsert idempotent : pour chaque (Type, TargetEntityType, TargetEntityId) on conserve la ligne existante si Open/InReview.
+        var hasActiveSteps = await db.WorkflowSteps.AsNoTracking().AnyAsync(s => s.IsActive, ct);
+        if (hasActiveSteps)
+        {
+            foreach (var f in fiches)
+            {
+                if (f.ValidationStatus == PrimeValidationWorkflowService.Pending ||
+                    f.ValidationStatus == PrimeValidationWorkflowService.Rejected)
+                    continue;
+                var hasFrom = await db.WorkflowSteps.AsNoTracking()
+                    .AnyAsync(s => s.IsActive && s.FromStatus == f.ValidationStatus, ct);
+                if (!hasFrom && !terminals.Contains(f.ValidationStatus))
+                {
+                    detected.Add(BuildAnomaly(f, now, "WorkflowBlocked", "Critical",
+                        $"Aucune transition active depuis le statut « {f.ValidationStatus} » — workflow bloqué.",
+                        null));
+                }
+            }
+        }
+
         return await UpsertAnomaliesAsync(detected, now, ct);
     }
 
-    /// <summary>Réévalue les anomalies d'une seule fiche (appelé sur upsert/validation).</summary>
     public async Task RecomputeForFicheAsync(Guid ficheId, CancellationToken ct = default)
     {
         var f = await db.EmployeePrimeServiceFiches.AsNoTracking().FirstOrDefaultAsync(x => x.Id == ficheId, ct);
         if (f == null) return;
 
         var now = DateTimeOffset.UtcNow;
-        var sla = await GetGlobalSlaHoursAsync(ct);
+        var slaGlobal = await GetGlobalSlaHoursAsync(ct);
+        var terminals = await wfRuntime.GetTerminalStatusesAsync(ct);
         var detected = new List<AnomalyEntity>();
 
         if (f.TotalAmount is not null && (f.PrimeAmount is not null || f.ChallengeAmount is not null))
@@ -133,15 +145,33 @@ public sealed class AnomalyDetectionService(PrimeDbContext db)
         }
         if ((f.PrimeAmount ?? 0m) < 0m || (f.ChallengeAmount ?? 0m) < 0m || (f.PrimeAmount ?? 0m) > AberrantPrimeThreshold)
             detected.Add(BuildAnomaly(f, now, "OutOfRange", "Medium", "Montant prime/challenge hors bornes.", null));
-        if (f.ValidationStatus is not PrimeValidationWorkflowService.Pending and not PrimeValidationWorkflowService.Rejected
-            && string.IsNullOrWhiteSpace(f.LastApproverUserId))
+        if (f.ValidationStatus != PrimeValidationWorkflowService.Pending &&
+            f.ValidationStatus != PrimeValidationWorkflowService.Rejected &&
+            !terminals.Contains(f.ValidationStatus) &&
+            string.IsNullOrWhiteSpace(f.LastApproverUserId))
             detected.Add(BuildAnomaly(f, now, "MissingApprover", "High", "Statut sans LastApproverUserId.", null));
-        if (f.ValidationStatus is not PrimeValidationWorkflowService.RhApproved and not PrimeValidationWorkflowService.Rejected
-            && f.UpdatedAt < now.AddHours(-sla * 3))
-            detected.Add(BuildAnomaly(f, now, "StaleValidation", "Medium", "Fiche en attente trop longtemps.", null));
-        if (f.ValidationStatus != PrimeValidationWorkflowService.Pending
-            && (string.IsNullOrWhiteSpace(f.ServiceId) || string.IsNullOrWhiteSpace(f.CelluleId)))
+        if (!terminals.Contains(f.ValidationStatus))
+        {
+            var stepSla = await wfRuntime.GetSlaHoursForCurrentStepAsync(f.ValidationStatus, ct);
+            var hours = stepSla ?? slaGlobal;
+            if (hours > 0 && f.UpdatedAt < now.AddHours(-hours * 3))
+                detected.Add(BuildAnomaly(f, now, "StaleValidation", "Medium", "Fiche en attente trop longtemps.", null));
+        }
+        if (f.ValidationStatus != PrimeValidationWorkflowService.Pending &&
+            (string.IsNullOrWhiteSpace(f.ServiceId) || string.IsNullOrWhiteSpace(f.CelluleId)))
             detected.Add(BuildAnomaly(f, now, "InvalidScope", "High", "Périmètre incomplet.", null));
+        if (await db.WorkflowSteps.AsNoTracking().AnyAsync(s => s.IsActive, ct))
+        {
+            if (f.ValidationStatus != PrimeValidationWorkflowService.Pending &&
+                f.ValidationStatus != PrimeValidationWorkflowService.Rejected)
+            {
+                var hasFrom = await db.WorkflowSteps.AsNoTracking()
+                    .AnyAsync(s => s.IsActive && s.FromStatus == f.ValidationStatus, ct);
+                if (!hasFrom && !terminals.Contains(f.ValidationStatus))
+                    detected.Add(BuildAnomaly(f, now, "WorkflowBlocked", "Critical",
+                        $"Workflow bloqué sur « {f.ValidationStatus} ».", null));
+            }
+        }
 
         await UpsertAnomaliesAsync(detected, now, ct, scopedTargetId: f.Id.ToString());
     }
@@ -166,12 +196,9 @@ public sealed class AnomalyDetectionService(PrimeDbContext db)
 
     private async Task<int> UpsertAnomaliesAsync(List<AnomalyEntity> detected, DateTimeOffset now, CancellationToken ct, string? scopedTargetId = null)
     {
-        // Si on est sur le scope d'une seule fiche, on supprime les Open existantes hors du set détecté pour cette fiche
         var existingQuery = db.Anomalies.AsQueryable();
         if (scopedTargetId is not null)
-        {
             existingQuery = existingQuery.Where(a => a.TargetEntityId == scopedTargetId);
-        }
         var existing = await existingQuery.ToListAsync(ct);
 
         var detectedKeys = detected
@@ -198,7 +225,6 @@ public sealed class AnomalyDetectionService(PrimeDbContext db)
             }
         }
 
-        // Auto-résolution : Open existantes plus détectées
         foreach (var a in existing)
         {
             var key = (a.Type, a.TargetEntityType, a.TargetEntityId);

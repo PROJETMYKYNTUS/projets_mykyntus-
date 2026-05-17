@@ -30,6 +30,8 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSingleton<PrimeInMemoryStore>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<PrimeAuditLogService>();
 builder.Services.AddScoped<PrimeOrgScopeService>(sp =>
     new PrimeOrgScopeService(sp.GetService<PrimeDbContext>()));
 
@@ -41,6 +43,10 @@ if (!string.IsNullOrWhiteSpace(conn))
         builder.Services.AddHostedService<PrimeDatabaseInitializer>();
 
     builder.Services.AddScoped<PrimeBackend.Services.AnomalyDetectionService>();
+    builder.Services.AddScoped<PrimeValidationWorkflowRuntime>();
+    builder.Services.AddScoped<PrimeRbacReadService>();
+    builder.Services.AddScoped<IPrimeRequestUserResolver, PrimeRequestUserResolver>();
+    builder.Services.AddScoped<GlobalPoolWorkflowService>();
 }
 
 var app = builder.Build();

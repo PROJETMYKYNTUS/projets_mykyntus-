@@ -6,9 +6,9 @@ namespace PrimeBackend.Services;
 /// Service métier qui encapsule les règles de transition du workflow de validation
 /// d'une <see cref="EmployeePrimeServiceFicheEntity"/> (Phase 1.1).
 ///
-/// Workflow fiche employé (sans étape bloquante « Référent technique » — lecture seule côté métier) :
-///     Pending → Superviseur Approved (niveau 1) → Chef de projet Approved (niveau 2) → RH Approved
-///     (toute étape pré-RH peut tomber en Rejected)
+/// Workflow fiche employé (rôles opérationnels) :
+///     Pending → Référent technique Approved → Superviseur Approved → Chef de projet Approved (terminal)
+///     RH / Manager / Comptabilité : fichier synthèse globale, pas ce flux.
 /// </summary>
 public static class PrimeValidationWorkflowService
 {
@@ -23,9 +23,9 @@ public static class PrimeValidationWorkflowService
     private static readonly string[] OrderedFlow =
     [
         Pending,
+        ReferentTechniqueApproved,
         SuperviseurApproved,
         ChefDeProjetApproved,
-        RhApproved,
     ];
 
     /// <summary>Liste ordonnée des statuts du flux (sans Rejected).</summary>
@@ -37,9 +37,9 @@ public static class PrimeValidationWorkflowService
     /// <summary>Rôle attendu pour faire la prochaine validation depuis l'état courant.</summary>
     public static string? RequiredApproverRole(string currentStatus) => currentStatus switch
     {
-        Pending => "Superviseur",
-        SuperviseurApproved => "Chef de projet",
-        ChefDeProjetApproved => "RH",
+        Pending => PrimeFicheValidationRoles.ReferentTechnique,
+        ReferentTechniqueApproved => PrimeFicheValidationRoles.Superviseur,
+        SuperviseurApproved => PrimeFicheValidationRoles.ChefDeProjet,
         _ => null,
     };
 
@@ -54,8 +54,7 @@ public static class PrimeValidationWorkflowService
     /// <summary>Vrai si <paramref name="role"/> peut rejeter la fiche depuis <paramref name="currentStatus"/>.</summary>
     public static bool CanReject(string currentStatus, string role)
     {
-        // Tant que la fiche n'est pas RH Approved ni déjà Rejected, le valideur courant peut rejeter.
-        if (currentStatus is RhApproved or Rejected) return false;
+        if (currentStatus is ChefDeProjetApproved or RhApproved or Rejected) return false;
         var required = RequiredApproverRole(currentStatus);
         return required is not null && string.Equals(required, role, StringComparison.Ordinal);
     }
@@ -78,7 +77,13 @@ public static class PrimeValidationWorkflowService
             throw new InvalidOperationException($"Le rôle « {approverRole} » ne peut pas valider depuis l'état « {fiche.ValidationStatus} ».");
         var next = NextStatus(fiche.ValidationStatus)
             ?? throw new InvalidOperationException("Pas de statut suivant disponible.");
-        fiche.ValidationStatus = next;
+        ApplyApproval(fiche, next, approverUserId, now);
+    }
+
+    /// <summary>Applique une transition d’approbation connue (ex. étapes chargées depuis la base).</summary>
+    public static void ApplyApproval(EmployeePrimeServiceFicheEntity fiche, string nextStatus, string approverUserId, DateTimeOffset now)
+    {
+        fiche.ValidationStatus = nextStatus;
         fiche.LastApproverUserId = approverUserId;
         fiche.LastApprovedAt = now;
         fiche.RejectedByUserId = null;
@@ -94,10 +99,15 @@ public static class PrimeValidationWorkflowService
             throw new InvalidOperationException($"Le rôle « {rejecterRole} » ne peut pas rejeter depuis l'état « {fiche.ValidationStatus} ».");
         if (string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("Un motif de rejet est obligatoire.", nameof(reason));
+        ApplyReject(fiche, rejecterUserId, reason.Trim(), now);
+    }
+
+    public static void ApplyReject(EmployeePrimeServiceFicheEntity fiche, string rejecterUserId, string reason, DateTimeOffset now)
+    {
         fiche.ValidationStatus = Rejected;
         fiche.RejectedByUserId = rejecterUserId;
         fiche.RejectedAt = now;
-        fiche.RejectionReason = reason.Trim();
+        fiche.RejectionReason = reason;
         fiche.UpdatedAt = now;
     }
 }

@@ -142,8 +142,48 @@ public class AuditPrimeController(PrimeInMemoryStore store) : ControllerBase
 
 [ApiController]
 [Route("api/prime/org")]
-public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbContext? db) : ControllerBase
+public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbContext? db, PrimeOrgScopeService org) : ControllerBase
 {
+    private static string NewPersistedOrgId(string prefix)
+    {
+        var s = Guid.NewGuid().ToString("N");
+        return $"{prefix}-{s[..Math.Min(12, s.Length)]}";
+    }
+
+    /// <summary>Applique une mutation sur le store en mémoire puis la reflète en base lorsque le DbContext est disponible.</summary>
+    private async Task ExecuteOrgStructureMutationAsync(
+        CancellationToken ct,
+        Action mutation,
+        Func<Task>? beforeMutationAsync = null)
+    {
+        if (db is null)
+        {
+            if (beforeMutationAsync is not null)
+                await beforeMutationAsync();
+            mutation();
+            return;
+        }
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            if (beforeMutationAsync is not null)
+                await beforeMutationAsync();
+            store.HydrateOrganizationFromDatabase(db);
+            mutation();
+            await store.PushEmployeeOrgStateToDatabaseAsync(db, ct);
+            await tx.CommitAsync(ct);
+        }
+        catch
+        {
+            await tx.RollbackAsync(ct);
+            store.HydrateOrganizationFromDatabase(db);
+            throw;
+        }
+
+        store.HydrateOrganizationFromDatabase(db);
+    }
+
     [HttpGet("etages")]
     public async Task<ActionResult<List<PoleNode>>> GetEtages(CancellationToken ct)
     {
@@ -345,11 +385,26 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbCont
     }
 
     [HttpPost("structure/departments")]
-    public ActionResult<Department> CreateDepartment([FromBody] CreateOrgPoleBody body)
+    public async Task<ActionResult<Department>> CreateDepartment([FromBody] CreateOrgPoleBody body, CancellationToken ct)
     {
+        if (body is null || string.IsNullOrWhiteSpace(body.Name))
+            return BadRequest(new { error = "Le nom du pôle est requis." });
+        var name = body.Name.Trim();
+        if (db is not null)
+        {
+            var id = NewPersistedOrgId("d");
+            while (await db.Poles.AnyAsync(p => p.Id == id, ct))
+                id = NewPersistedOrgId("d");
+            db.Poles.Add(new PoleEntity { Id = id, Name = name });
+            await db.SaveChangesAsync(ct);
+            await org.EnsureRootPoleHasMinimalChildrenAsync(id, ct);
+            store.HydrateOrganizationFromDatabase(db);
+            return Ok(new Department { Id = id, Name = name, Poles = [] });
+        }
+
         try
         {
-            return Ok(store.CreateOrgDepartment(body.Name));
+            return Ok(store.CreateOrgDepartment(name));
         }
         catch (ArgumentException e)
         {
@@ -357,12 +412,30 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbCont
         }
     }
 
-    [HttpPost("structure/departments/{poleId}/poles")]
-    public ActionResult<Pole> CreatePoleForDepartment(string poleId, [FromBody] CreateOrgNodeNameBody body)
+    /// <summary><paramref name="departmentId"/> = identifiant du pôle racine (table <c>prime_pole</c>).</summary>
+    [HttpPost("structure/departments/{departmentId}/poles")]
+    public async Task<ActionResult<Pole>> CreatePoleForDepartment(string departmentId, [FromBody] CreateOrgNodeNameBody body, CancellationToken ct)
     {
+        if (body is null || string.IsNullOrWhiteSpace(body.Name))
+            return BadRequest(new { error = "Le nom est requis." });
+        var n = body.Name.Trim();
+        if (db is not null)
+        {
+            var deptId = departmentId.Trim();
+            if (!await db.Poles.AnyAsync(p => p.Id == deptId, ct))
+                return NotFound(new { error = "Pôle racine introuvable." });
+            var id = NewPersistedOrgId("p");
+            while (await db.Cellules.AnyAsync(c => c.Id == id, ct))
+                id = NewPersistedOrgId("p");
+            db.Cellules.Add(new CelluleEntity { Id = id, Name = n, PoleId = deptId });
+            await db.SaveChangesAsync(ct);
+            store.HydrateOrganizationFromDatabase(db);
+            return Ok(new Pole { Id = id, Name = n, PoleId = deptId, Cellules = [] });
+        }
+
         try
         {
-            return Ok(store.CreateOrgPole(poleId, body.Name));
+            return Ok(store.CreateOrgPole(departmentId, n));
         }
         catch (ArgumentException e)
         {
@@ -374,12 +447,39 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbCont
         }
     }
 
+    /// <summary><paramref name="celluleId"/> = identifiant de la cellule (table <c>prime_cellule</c>) ; crée un service feuille.</summary>
     [HttpPost("structure/poles/{celluleId}/cellules")]
-    public ActionResult<Cellule> CreateCelluleForPole(string celluleId, [FromBody] CreateOrgNodeNameBody body)
+    public async Task<ActionResult<Cellule>> CreateCelluleForPole(string celluleId, [FromBody] CreateOrgNodeNameBody body, CancellationToken ct)
     {
+        if (body is null || string.IsNullOrWhiteSpace(body.Name))
+            return BadRequest(new { error = "Le nom est requis." });
+        var n = body.Name.Trim();
+        if (db is not null)
+        {
+            var parentCelluleId = celluleId.Trim();
+            if (!await db.Cellules.AnyAsync(c => c.Id == parentCelluleId, ct))
+                return NotFound(new { error = "Cellule introuvable." });
+            var id = NewPersistedOrgId("c");
+            while (await db.Services.AnyAsync(s => s.Id == id, ct))
+                id = NewPersistedOrgId("c");
+            db.Services.Add(new ServiceEntity { Id = id, Name = n, CelluleId = parentCelluleId });
+            await db.SaveChangesAsync(ct);
+            store.HydrateOrganizationFromDatabase(db);
+            return Ok(new Cellule
+            {
+                Id = id,
+                Name = n,
+                CelluleId = parentCelluleId,
+                Services =
+                [
+                    new Team { Id = id + "-team", Name = n, CelluleId = parentCelluleId, ServiceId = id },
+                ],
+            });
+        }
+
         try
         {
-            return Ok(store.CreateOrgCellule(celluleId, body.Name));
+            return Ok(store.CreateOrgCellule(celluleId, n));
         }
         catch (ArgumentException e)
         {
@@ -392,11 +492,16 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbCont
     }
 
     [HttpPost("structure/departments/{poleId}/manager")]
-    public IActionResult SetManagerForDepartment(string poleId, [FromBody] SetOrgResponsibleBody body)
+    public async Task<IActionResult> SetManagerForDepartment(string poleId, [FromBody] SetOrgResponsibleBody body, CancellationToken ct)
     {
         try
         {
-            store.SetManagerForDepartment(body.EmployeeId, poleId);
+            if (body is null || string.IsNullOrWhiteSpace(body.EmployeeId))
+                return BadRequest(new { error = "employeeId est requis." });
+            await ExecuteOrgStructureMutationAsync(
+                ct,
+                () => store.SetManagerForDepartment(body.EmployeeId, poleId),
+                async () => await org.EnsureRootPoleHasMinimalChildrenAsync(poleId, ct));
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
@@ -404,18 +509,20 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbCont
     }
 
     [HttpDelete("structure/departments/{poleId}/manager")]
-    public IActionResult ClearManagerForDepartment(string poleId)
+    public async Task<IActionResult> ClearManagerForDepartment(string poleId, CancellationToken ct)
     {
-        store.ClearManagerForDepartment(poleId);
+        await ExecuteOrgStructureMutationAsync(ct, () => store.ClearManagerForDepartment(poleId));
         return NoContent();
     }
 
     [HttpPost("structure/poles/{celluleId}/supervisor")]
-    public IActionResult SetSupervisorForPole(string celluleId, [FromBody] SetOrgResponsibleBody body)
+    public async Task<IActionResult> SetSupervisorForPole(string celluleId, [FromBody] SetOrgResponsibleBody body, CancellationToken ct)
     {
         try
         {
-            store.SetSupervisorForPole(body.EmployeeId, celluleId);
+            if (body is null || string.IsNullOrWhiteSpace(body.EmployeeId))
+                return BadRequest(new { error = "employeeId est requis." });
+            await ExecuteOrgStructureMutationAsync(ct, () => store.SetSupervisorForPole(body.EmployeeId, celluleId));
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
@@ -423,18 +530,20 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbCont
     }
 
     [HttpDelete("structure/poles/{celluleId}/supervisor")]
-    public IActionResult ClearSupervisorForPole(string celluleId)
+    public async Task<IActionResult> ClearSupervisorForPole(string celluleId, CancellationToken ct)
     {
-        store.ClearSupervisorForPole(celluleId);
+        await ExecuteOrgStructureMutationAsync(ct, () => store.ClearSupervisorForPole(celluleId));
         return NoContent();
     }
 
     [HttpPost("structure/cellules/{serviceId}/coach")]
-    public IActionResult SetCoachForCellule(string serviceId, [FromBody] SetOrgResponsibleBody body)
+    public async Task<IActionResult> SetCoachForCellule(string serviceId, [FromBody] SetOrgResponsibleBody body, CancellationToken ct)
     {
         try
         {
-            store.SetCoachForCellule(body.EmployeeId, serviceId);
+            if (body is null || string.IsNullOrWhiteSpace(body.EmployeeId))
+                return BadRequest(new { error = "employeeId est requis." });
+            await ExecuteOrgStructureMutationAsync(ct, () => store.SetCoachForCellule(body.EmployeeId, serviceId));
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
@@ -442,18 +551,21 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbCont
     }
 
     [HttpDelete("structure/cellules/{serviceId}/coach")]
-    public IActionResult ClearCoachForCellule(string serviceId)
+    public async Task<IActionResult> ClearCoachForCellule(string serviceId, CancellationToken ct)
     {
-        store.ClearCoachForCellule(serviceId);
+        await ExecuteOrgStructureMutationAsync(ct, () => store.ClearCoachForCellule(serviceId));
         return NoContent();
     }
 
     [HttpPost("structure/cellules/{serviceId}/pilots")]
-    public IActionResult AddPilotToCellule(string serviceId, [FromBody] AddPilotToServiceBody body)
+    public async Task<IActionResult> AddPilotToCellule(string serviceId, [FromBody] AddPilotToServiceBody body, CancellationToken ct)
     {
         try
         {
-            store.AddPilotToCellule(body.EmployeeId, serviceId, body.ServiceId);
+            if (body is null || string.IsNullOrWhiteSpace(body.EmployeeId))
+                return BadRequest(new { error = "employeeId est requis." });
+            var teamKey = body.TeamId ?? body.ServiceId;
+            await ExecuteOrgStructureMutationAsync(ct, () => store.AddPilotToCellule(body.EmployeeId, serviceId, teamKey));
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
@@ -461,13 +573,14 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbCont
     }
 
     [HttpDelete("structure/cellules/{serviceId}/pilots/{employeeId}")]
-    public IActionResult RemovePilotFromCellule(string serviceId, string employeeId)
+    public async Task<IActionResult> RemovePilotFromCellule(string serviceId, string employeeId, CancellationToken ct)
     {
         try
         {
-            store.RemovePilotFromCellule(employeeId, serviceId);
+            await ExecuteOrgStructureMutationAsync(ct, () => store.RemovePilotFromCellule(employeeId, serviceId));
             return NoContent();
         }
+        catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
         catch (InvalidOperationException e) { return Conflict(new { error = e.Message }); }
     }
 }

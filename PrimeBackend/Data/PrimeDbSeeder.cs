@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Services;
 
@@ -10,13 +11,16 @@ public static class PrimeDbSeeder
     /// employés (scénario centre d’appels / relation client au Maroc), matrice RBAC,
     /// workflow, config globale et 6 fiches de démo couvrant tous les statuts de validation.
     /// </summary>
-    public static async Task SeedAsync(PrimeDbContext db, CancellationToken cancellationToken = default)
+    public static async Task SeedAsync(PrimeDbContext db, bool includeDemoFiches, CancellationToken cancellationToken = default)
     {
         await SeedOrganizationAsync(db, cancellationToken);
         await SeedRbacAsync(db, cancellationToken);
         await SeedMissingManagerComptableRbacAsync(db, cancellationToken);
+        await SeedMissingReferentTechnicalValidateRbacAsync(db, cancellationToken);
         await SeedWorkflowAsync(db, cancellationToken);
-        await SeedDemoFichesAsync(db, cancellationToken);
+        await SeedGlobalPoolWorkflowAsync(db, cancellationToken);
+        if (includeDemoFiches)
+            await SeedDemoFichesAsync(db, cancellationToken);
     }
 
     // -------------------------------------------------------------------
@@ -102,7 +106,7 @@ public static class PrimeDbSeeder
             E("e8", "Omar", "Tazi", "Référent technique", "e9", "d1", "p1", "c1", "omar.tazi@contactcentre.ma"),
             E("e9", "Kenza", "Alami", "Superviseur", "e3", "d1", "p1", "c1", "kenza.alami@contactcentre.ma"),
             E("e10", "Nadia", "Benchrif", "Manager", "e6", "d1", "p1", "c1", "nadia.benchrif@contactcentre.ma"),
-            E("e11", "Karim", "Oufkir", "Comptable", null, "d1", "p1", "c1", "karim.oufkir@contactcentre.ma"),
+            E("e11", "Karim", "Oufkir", "Comptabilité", null, "d1", "p1", "c1", "karim.oufkir@contactcentre.ma"),
             E("e-admin", "Système", "Admin", "Admin", null, "d1", "p1", "c1", "admin@contactcentre.ma")
         );
 
@@ -128,7 +132,7 @@ public static class PrimeDbSeeder
             P("Admin", "Validate",  "Global",  now),
             P("Admin", "Configure", "Global",  now),
 
-            // RH : lecture globale + validation finale + configuration référentiels
+            // RH : lecture / config + validation du fichier synthèse globale (pas des fiches service)
             P("RH", "Read",      "Global",  now),
             P("RH", "Validate",  "Global",  now),
             P("RH", "Configure", "Global",  now),
@@ -143,8 +147,10 @@ public static class PrimeDbSeeder
             P("Superviseur", "Edit",     "Cellule", now),
             P("Superviseur", "Validate", "Cellule", now),
 
-            // Référent technique : lecture seule (pas de validation / édition métier dans ce flux)
+            // Référent technique : 1er validateur fiche (périmètre service)
             P("Référent technique", "Read",     "Service", now),
+            P("Référent technique", "Edit",     "Service", now),
+            P("Référent technique", "Validate", "Service", now),
 
             // Pilote : lecture de sa propre fiche
             P("Pilote", "Read", "Self", now),
@@ -152,11 +158,11 @@ public static class PrimeDbSeeder
             // Audit : lecture globale seule (jamais d'édition)
             P("Audit", "Read", "Global", now),
 
-            // Manager & Comptable — fichier global PRIME (validations parallèles + compta)
+            // Manager & Comptabilité — fichier global PRIME (validations parallèles + compta)
             P("Manager", "Read", "Global", now),
             P("Manager", "Validate", "Global", now),
-            P("Comptable", "Read", "Global", now),
-            P("Comptable", "Validate", "Global", now),
+            P("Comptabilité", "Read", "Global", now),
+            P("Comptabilité", "Validate", "Global", now),
         };
 
         db.RbacPermissions.AddRange(rows);
@@ -164,7 +170,7 @@ public static class PrimeDbSeeder
     }
 
     // -------------------------------------------------------------------
-    // 3. Workflow : 4 étapes + config globale singleton
+    // 3. Workflow fiches : Référent → Superviseur → Chef de projet + config globale
     // -------------------------------------------------------------------
     private static async Task SeedWorkflowAsync(PrimeDbContext db, CancellationToken cancellationToken)
     {
@@ -176,35 +182,44 @@ public static class PrimeDbSeeder
                 {
                     Id = Guid.NewGuid(),
                     SortOrder = 1,
-                    ApproverRole = "Superviseur",
+                    ApproverRole = PrimeFicheValidationRoles.ReferentTechnique,
                     FromStatus = PrimeValidationWorkflowService.Pending,
-                    ToStatus = PrimeValidationWorkflowService.SuperviseurApproved,
+                    ToStatus = PrimeValidationWorkflowService.ReferentTechniqueApproved,
                     IsActive = true,
                     SlaHours = 48,
+                    CapturesAmountsOnApproval = true,
                     CreatedAt = now,
+                    UpdatedAt = now,
                 },
                 new WorkflowStepConfigEntity
                 {
                     Id = Guid.NewGuid(),
                     SortOrder = 2,
-                    ApproverRole = "Chef de projet",
-                    FromStatus = PrimeValidationWorkflowService.SuperviseurApproved,
-                    ToStatus = PrimeValidationWorkflowService.ChefDeProjetApproved,
+                    ApproverRole = PrimeFicheValidationRoles.Superviseur,
+                    FromStatus = PrimeValidationWorkflowService.ReferentTechniqueApproved,
+                    ToStatus = PrimeValidationWorkflowService.SuperviseurApproved,
                     IsActive = true,
-                    SlaHours = 72,
+                    SlaHours = 48,
                     CreatedAt = now,
+                    UpdatedAt = now,
                 },
                 new WorkflowStepConfigEntity
                 {
                     Id = Guid.NewGuid(),
                     SortOrder = 3,
-                    ApproverRole = "RH",
-                    FromStatus = PrimeValidationWorkflowService.ChefDeProjetApproved,
-                    ToStatus = PrimeValidationWorkflowService.RhApproved,
+                    ApproverRole = PrimeFicheValidationRoles.ChefDeProjet,
+                    FromStatus = PrimeValidationWorkflowService.SuperviseurApproved,
+                    ToStatus = PrimeValidationWorkflowService.ChefDeProjetApproved,
                     IsActive = true,
                     SlaHours = 72,
+                    TerminalApproved = true,
                     CreatedAt = now,
+                    UpdatedAt = now,
                 });
+        }
+        else
+        {
+            await EnsureOperationalFicheWorkflowOnlyAsync(db, now, cancellationToken);
         }
 
         if (!await db.WorkflowGlobalConfigs.AnyAsync(cancellationToken))
@@ -220,6 +235,44 @@ public static class PrimeDbSeeder
             });
         }
 
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task SeedGlobalPoolWorkflowAsync(PrimeDbContext db, CancellationToken cancellationToken)
+    {
+        if (await db.GlobalPoolWorkflowSteps.AnyAsync(cancellationToken)) return;
+        var now = DateTimeOffset.UtcNow;
+        db.GlobalPoolWorkflowSteps.AddRange(
+            new GlobalPoolWorkflowStepEntity
+            {
+                Id = Guid.NewGuid(),
+                SortOrder = 1,
+                ApproverRole = "Manager",
+                IsRequired = true,
+                IsActive = true,
+                CreatedAt = now,
+                UpdatedAt = now,
+            },
+            new GlobalPoolWorkflowStepEntity
+            {
+                Id = Guid.NewGuid(),
+                SortOrder = 1,
+                ApproverRole = "RH",
+                IsRequired = true,
+                IsActive = true,
+                CreatedAt = now,
+                UpdatedAt = now,
+            },
+            new GlobalPoolWorkflowStepEntity
+            {
+                Id = Guid.NewGuid(),
+                SortOrder = 2,
+                ApproverRole = "Comptabilité",
+                IsRequired = true,
+                IsActive = true,
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
         await db.SaveChangesAsync(cancellationToken);
     }
 
@@ -251,14 +304,28 @@ public static class PrimeDbSeeder
         };
         db.SupervisorCellulePrimeDrafts.Add(draft);
 
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Synthèse");
+            ws.Cell(1, 1).Value = "PRIME — fichier global de démonstration (Manager + RH + Compta)";
+            ws.Cell(2, 1).Value = "Période";
+            ws.Cell(2, 2).Value = period;
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            draft.GlobalPoolExcelContent = ms.ToArray();
+            draft.GlobalPoolFileName = $"PRIME_synthese_globale_{period}.xlsx";
+            draft.GlobalPoolUploadedAt = now;
+            draft.GlobalPoolUploadedByUserId = "seed";
+        }
+
         // 6 employés (les Pilotes + autres) pour couvrir 6 statuts
         var fixtures = new (string EmployeeId, string ServiceId, string Status, string? ApproverId, string? RejectedById, string? Reason)[]
         {
             ("e1", "c1", PrimeValidationWorkflowService.Pending,                       null, null, null),
-            ("e2", "c1", PrimeValidationWorkflowService.SuperviseurApproved,          "e9", null, null),
+            ("e2", "c1", PrimeValidationWorkflowService.ReferentTechniqueApproved,    "e8", null, null),
             ("e4", "c1", PrimeValidationWorkflowService.SuperviseurApproved,          "e9", null, null),
             ("e8", "c1", PrimeValidationWorkflowService.ChefDeProjetApproved,         "e6", null, null),
-            ("e9", "c1", PrimeValidationWorkflowService.RhApproved,                    "e5", null, null),
+            ("e9", "c1", PrimeValidationWorkflowService.ChefDeProjetApproved,         "e6", null, null),
             ("e3", "c1", PrimeValidationWorkflowService.Rejected,                      null, "e9", "Écart entre appels traités (ACD) et saisie manuelle indicateur Q3 — à resynchroniser."),
         };
 
@@ -299,7 +366,7 @@ public static class PrimeDbSeeder
             new() { Id = Guid.NewGuid(), Role = role, Action = action, Scope = scope, IsAllowed = true, CreatedAt = n };
 
         var toAdd = new List<RbacPermissionEntity>();
-        foreach (var role in new[] { "Manager", "Comptable" })
+        foreach (var role in new[] { "Manager", "Comptabilité" })
         {
             if (await db.RbacPermissions.AnyAsync(x => x.Role == role, cancellationToken)) continue;
             toAdd.AddRange(
@@ -312,5 +379,152 @@ public static class PrimeDbSeeder
         if (toAdd.Count == 0) return;
         db.RbacPermissions.AddRange(toAdd);
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>Ajoute Validate/Edit Service pour Référent technique sur bases déjà initialisées.</summary>
+    public static async Task SeedMissingReferentTechnicalValidateRbacAsync(PrimeDbContext db, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        static RbacPermissionEntity P(string role, string action, string scope, DateTimeOffset n) =>
+            new() { Id = Guid.NewGuid(), Role = role, Action = action, Scope = scope, IsAllowed = true, CreatedAt = n };
+
+        var role = PrimeFicheValidationRoles.ReferentTechnique;
+        if (await db.RbacPermissions.AnyAsync(x => x.Role == role && x.Action == "Validate", cancellationToken))
+            return;
+
+        db.RbacPermissions.AddRange(
+        [
+            P(role, "Edit", "Service", now),
+            P(role, "Validate", "Service", now),
+        ]);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Fiches : Référent → Superviseur → Chef (terminal). Désactive RH/Manager/Compta sur ce flux.
+    /// </summary>
+    public static async Task EnsureOperationalFicheWorkflowOnlyAsync(
+        PrimeDbContext db,
+        DateTimeOffset? now = null,
+        CancellationToken cancellationToken = default)
+    {
+        var ts = now ?? DateTimeOffset.UtcNow;
+        var steps = await db.WorkflowSteps.ToListAsync(cancellationToken);
+        if (steps.Count == 0) return;
+
+        var nonOperational = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "RH", "Manager", "Comptabilité", "Comptable", "Admin", "Audit", "Pilote",
+        };
+
+        foreach (var s in steps)
+        {
+            if (nonOperational.Contains(s.ApproverRole) ||
+                PrimeFicheValidationRoles.IsGlobalPoolStakeholder(s.ApproverRole))
+            {
+                s.IsActive = false;
+                s.TerminalApproved = false;
+                s.UpdatedAt = ts;
+            }
+        }
+
+        var referent = steps.FirstOrDefault(s =>
+            string.Equals(s.ApproverRole, PrimeFicheValidationRoles.ReferentTechnique, StringComparison.Ordinal));
+        var superviseur = steps.FirstOrDefault(s =>
+            string.Equals(s.ApproverRole, PrimeFicheValidationRoles.Superviseur, StringComparison.Ordinal));
+        var chef = steps.FirstOrDefault(s =>
+            string.Equals(s.ApproverRole, PrimeFicheValidationRoles.ChefDeProjet, StringComparison.Ordinal));
+
+        if (referent is null)
+        {
+            referent = new WorkflowStepConfigEntity
+            {
+                Id = Guid.NewGuid(),
+                SortOrder = 1,
+                ApproverRole = PrimeFicheValidationRoles.ReferentTechnique,
+                FromStatus = PrimeValidationWorkflowService.Pending,
+                ToStatus = PrimeValidationWorkflowService.ReferentTechniqueApproved,
+                IsActive = true,
+                SlaHours = 48,
+                CapturesAmountsOnApproval = true,
+                CreatedAt = ts,
+                UpdatedAt = ts,
+            };
+            db.WorkflowSteps.Add(referent);
+            steps.Add(referent);
+        }
+        else
+        {
+            referent.IsActive = true;
+            referent.SortOrder = 1;
+            referent.ToStatus = PrimeValidationWorkflowService.ReferentTechniqueApproved;
+            referent.CapturesAmountsOnApproval = true;
+            referent.TerminalApproved = false;
+            referent.UpdatedAt = ts;
+        }
+
+        if (superviseur is null)
+        {
+            superviseur = new WorkflowStepConfigEntity
+            {
+                Id = Guid.NewGuid(),
+                SortOrder = 2,
+                ApproverRole = PrimeFicheValidationRoles.Superviseur,
+                FromStatus = PrimeValidationWorkflowService.ReferentTechniqueApproved,
+                ToStatus = PrimeValidationWorkflowService.SuperviseurApproved,
+                IsActive = true,
+                SlaHours = 48,
+                CreatedAt = ts,
+                UpdatedAt = ts,
+            };
+            db.WorkflowSteps.Add(superviseur);
+            steps.Add(superviseur);
+        }
+        else
+        {
+            superviseur.IsActive = true;
+            superviseur.SortOrder = 2;
+            superviseur.ToStatus = PrimeValidationWorkflowService.SuperviseurApproved;
+            superviseur.CapturesAmountsOnApproval = false;
+            superviseur.TerminalApproved = false;
+            superviseur.UpdatedAt = ts;
+        }
+
+        if (chef is null)
+        {
+            chef = new WorkflowStepConfigEntity
+            {
+                Id = Guid.NewGuid(),
+                SortOrder = 3,
+                ApproverRole = PrimeFicheValidationRoles.ChefDeProjet,
+                FromStatus = PrimeValidationWorkflowService.SuperviseurApproved,
+                ToStatus = PrimeValidationWorkflowService.ChefDeProjetApproved,
+                IsActive = true,
+                SlaHours = 72,
+                TerminalApproved = true,
+                CreatedAt = ts,
+                UpdatedAt = ts,
+            };
+            db.WorkflowSteps.Add(chef);
+            steps.Add(chef);
+        }
+        else
+        {
+            chef.IsActive = true;
+            chef.SortOrder = 3;
+            chef.ToStatus = PrimeValidationWorkflowService.ChefDeProjetApproved;
+            chef.CapturesAmountsOnApproval = false;
+            chef.TerminalApproved = true;
+            superviseur!.TerminalApproved = false;
+            referent!.TerminalApproved = false;
+            chef.UpdatedAt = ts;
+        }
+
+        WorkflowStepConfigRechain.ApplyToActiveSteps(steps);
+        foreach (var s in steps.Where(x => x.IsActive))
+            s.UpdatedAt = ts;
+
+        await db.SaveChangesAsync(cancellationToken);
+        await SeedMissingReferentTechnicalValidateRbacAsync(db, cancellationToken);
     }
 }

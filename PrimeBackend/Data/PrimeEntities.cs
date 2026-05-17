@@ -74,6 +74,7 @@ public class SupervisorCellulePrimeDraftEntity
     public string? GlobalPoolComptaAckByUserId { get; set; }
 
     public ICollection<EmployeePrimeServiceFicheEntity> EmployeeFiches { get; set; } = new List<EmployeePrimeServiceFicheEntity>();
+    public ICollection<GlobalPoolApprovalEntity> GlobalPoolApprovals { get; set; } = new List<GlobalPoolApprovalEntity>();
 }
 
 /// <summary>Partie « service » de la fiche PRIME pour un employé et une période.</summary>

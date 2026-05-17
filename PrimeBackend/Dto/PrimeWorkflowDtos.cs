@@ -64,3 +64,32 @@ public sealed class WorkflowStatusSummaryDto
     public int Rejected { get; init; }
     public int Total { get; init; }
 }
+
+public sealed class WorkflowStatusCountDto
+{
+    public string Status { get; set; } = "";
+    public int Count { get; set; }
+}
+
+/// <summary>Récap dynamique : comptages par statut réel + liste des statuts terminaux.</summary>
+public sealed class WorkflowValidationSummaryDto
+{
+    public List<WorkflowStatusCountDto> StatusCounts { get; set; } = [];
+    public List<string> TerminalStatuses { get; set; } = [];
+    public int Total { get; set; }
+}
+
+public sealed class WorkflowValidationMetaDto
+{
+    public List<WorkflowStepConfigDto> Steps { get; set; } = [];
+    public List<string> TerminalStatuses { get; set; } = [];
+    /// <summary>Statuts « en attente » pour le rôle passé en query (<c>?role=</c>).</summary>
+    public List<string> ActionableFromStatuses { get; set; } = [];
+}
+
+public sealed class RbacCatalogDto
+{
+    public List<string> Actions { get; set; } = [];
+    public List<string> Scopes { get; set; } = [];
+    public List<string> Roles { get; set; } = [];
+}

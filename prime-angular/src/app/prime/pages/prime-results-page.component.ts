@@ -1,0 +1,499 @@
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import { CheckCircle2, Clock, Download, ShieldCheck, XCircle } from 'lucide';
+import { LucideIconComponent } from '../../shared/lucide-icon.component';
+import { PrimeCardComponent } from '../components/prime-card.component';
+import {
+  PrimeFilterBarComponent,
+  type PrimeFilterBarFilter,
+} from '../components/prime-filter-bar.component';
+import type { Employee, PrimeResult, Role } from '../models';
+import { isPrimeGlobalPoolStakeholderRole } from '../lib/prime-global-pool-stakeholder';
+import { RoleService } from '../state/role.service';
+import { PrimeService } from '../services/prime.service';
+import {
+  PrimeFicheResultService,
+  type EmployeePrimeServiceFicheValidationDto,
+  type FicheValidationListFilters,
+  type PrimeFicheValidationStatus,
+} from '../services/prime-fiche-result.service';
+import { primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
+
+/** Données agrégées `/api/prime/results` (sans périmètre fiche validation) → même grille que l’API validation. */
+function mapPrimeResultToFicheDto(
+  r: PrimeResult,
+  employees: Employee[],
+): EmployeePrimeServiceFicheValidationDto {
+  const emp = employees.find((e) => e.id === r.employeeId);
+  return {
+    id: r.id,
+    employeeId: r.employeeId,
+    supervisorUserId: emp?.parentId ?? '',
+    serviceId: emp?.serviceId ?? '—',
+    celluleId: emp?.celluleId ?? '—',
+    period: r.period,
+    fillingStatus: '—',
+    validationStatus: r.status as PrimeFicheValidationStatus,
+    lastApproverUserId: r.approvedBy ?? null,
+    lastApprovedAt: r.date ? `${r.date}T12:00:00.000Z` : null,
+    rejectedByUserId: null,
+    rejectedAt: null,
+    rejectionReason: null,
+    primeAmount: r.amount,
+    challengeAmount: null,
+    totalAmount: r.score,
+    updatedAt: r.date ? `${r.date}T12:00:00.000Z` : new Date().toISOString(),
+  };
+}
+
+const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[] = [
+  { value: 'Pending', label: 'En attente' },
+  { value: 'Référent technique Approved', label: 'Réf. technique validé' },
+  { value: 'Superviseur Approved', label: 'Superviseur validé' },
+  { value: 'Chef de projet Approved', label: 'Chef de projet validé' },
+  { value: 'RH Approved', label: 'RH validé' },
+  { value: 'Rejected', label: 'Rejeté' },
+];
+
+@Component({
+  selector: 'app-prime-results-page',
+  standalone: true,
+  imports: [LucideIconComponent, PrimeCardComponent, PrimeFilterBarComponent],
+  template: `
+    <div class="p-8 space-y-6">
+      <div class="flex justify-between items-start gap-4">
+        <div>
+          <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Résultats PRIME</h1>
+          <p class="text-slate-500 mt-1">
+            Suivi des fiches PRIME calculées et de leur statut de validation.
+          </p>
+        </div>
+        <button
+          type="button"
+          [disabled]="filteredResults().length === 0"
+          (click)="exportCsv()"
+          class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <app-lucide-icon [icon]="icons.download" className="w-4 h-4" />
+          Exporter CSV
+        </button>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+        @for (kpi of statusCounters(); track kpi.status) {
+          <button
+            type="button"
+            (click)="setStatusFilter(kpi.status)"
+            class="text-left rounded-xl border bg-card p-3 transition-all hover:border-indigo-300"
+            [class.border-indigo-500]="statusFilter() === kpi.status"
+            [class.border-default]="statusFilter() !== kpi.status"
+          >
+            <div class="text-xs uppercase tracking-wider text-muted">{{ kpi.label }}</div>
+            <div class="mt-1 text-2xl font-bold text-primary">{{ kpi.count }}</div>
+          </button>
+        }
+      </div>
+
+      <app-prime-filter-bar [onSearch]="setSearch" [filters]="filterBarFilters()" />
+
+      @if (loading()) {
+        <div class="p-8 flex justify-center">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        </div>
+      } @else if (errorMessage()) {
+        <app-prime-card>
+          <div class="p-6 text-rose-600 text-sm">{{ errorMessage() }}</div>
+        </app-prime-card>
+      } @else {
+        <app-prime-card className="p-0">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+              <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
+                <tr>
+                  <th class="px-6 py-3 font-medium tracking-wider">Pilote</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Périmètre</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Période</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Prime</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Challenge</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Total</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Statut</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-navy-800">
+                @if (filteredResults().length === 0) {
+                  <tr>
+                    <td colspan="7" class="px-6 py-8 text-center text-slate-500">
+                      Aucune fiche pour ces critères.
+                    </td>
+                  </tr>
+                } @else {
+                  @for (item of filteredResults(); track item.id) {
+                    <tr class="bg-navy-900 hover:bg-navy-800 transition-colors">
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        @let emp = getEmployee(item.employeeId);
+                        <div class="flex items-center gap-3">
+                          <div
+                            class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs"
+                          >
+                            {{ initial(emp, item.employeeId) }}
+                          </div>
+                          <div>
+                            <div class="font-medium text-slate-200">
+                              {{ displayName(emp, item.employeeId) }}
+                            </div>
+                            <div class="text-xs text-slate-500">{{ emp?.email || '—' }}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-slate-300">
+                        <div class="text-xs uppercase tracking-wider text-slate-500">Cellule</div>
+                        <div class="font-medium">{{ item.celluleId }}</div>
+                        <div class="text-xs text-slate-500 mt-1">Service: {{ item.serviceId }}</div>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap font-mono text-slate-200">
+                        {{ item.period }}
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                        {{ formatAmount(item.primeAmount) }}
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                        {{ formatAmount(item.challengeAmount) }}
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="font-semibold text-emerald-400">
+                          {{ formatAmount(item.totalAmount) }}
+                        </div>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        @switch (item.validationStatus) {
+                          @case ('Pending') {
+                            <span
+                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200"
+                            >
+                              <app-lucide-icon [icon]="icons.clock" className="w-3.5 h-3.5" />
+                              En attente
+                            </span>
+                          }
+                          @case ('Référent technique Approved') {
+                            <span
+                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-cyan-50 text-cyan-800 border border-cyan-200"
+                            >
+                              <app-lucide-icon [icon]="icons.check" className="w-3.5 h-3.5" /> Réf. tech.
+                            </span>
+                          }
+                          @case ('Superviseur Approved') {
+                            <span
+                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-sky-50 text-sky-800 border border-sky-200"
+                            >
+                              <app-lucide-icon [icon]="icons.check" className="w-3.5 h-3.5" /> Sup. validé
+                            </span>
+                          }
+                          @case ('Chef de projet Approved') {
+                            <span
+                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200"
+                            >
+                              <app-lucide-icon [icon]="icons.shield" className="w-3.5 h-3.5" /> CdP validé
+                            </span>
+                          }
+                          @case ('RH Approved') {
+                            <span
+                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            >
+                              <app-lucide-icon [icon]="icons.check" className="w-3.5 h-3.5" /> RH validé
+                            </span>
+                          }
+                          @case ('Rejected') {
+                            <span
+                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200"
+                              [title]="item.rejectionReason || ''"
+                            >
+                              <app-lucide-icon [icon]="icons.xCircle" className="w-3.5 h-3.5" /> Rejeté
+                            </span>
+                          }
+                          @default {
+                            <span class="text-slate-400">{{ item.validationStatus }}</span>
+                          }
+                        }
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        </app-prime-card>
+      }
+    </div>
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class PrimeResultsPageComponent implements OnInit {
+  private readonly roleService = inject(RoleService);
+  private readonly api = inject(PrimeFicheResultService);
+
+  readonly icons = {
+    download: Download,
+    clock: Clock,
+    check: CheckCircle2,
+    shield: ShieldCheck,
+    xCircle: XCircle,
+  };
+
+  readonly results = signal<EmployeePrimeServiceFicheValidationDto[]>([]);
+  readonly loading = signal(true);
+  readonly errorMessage = signal<string | null>(null);
+
+  readonly search = signal('');
+  readonly periodFilter = signal('2026-04');
+  readonly statusFilter = signal<PrimeFicheValidationStatus | ''>('');
+  readonly celluleFilter = signal('');
+  readonly serviceFilter = signal('');
+
+  readonly setSearch = (value: string): void => {
+    this.search.set(value);
+  };
+  readonly setPeriodFilter = (value: string): void => {
+    this.periodFilter.set(value);
+  };
+  readonly setStatusFilter = (value: PrimeFicheValidationStatus | '') => {
+    this.statusFilter.set(this.statusFilter() === value ? '' : value);
+  };
+  readonly setCelluleFilter = (value: string): void => {
+    this.celluleFilter.set(value);
+  };
+  readonly setServiceFilter = (value: string): void => {
+    this.serviceFilter.set(value);
+  };
+
+  readonly statusCounters = computed(() => {
+    const rows = this.results();
+    return VALIDATION_STATUSES.map((s) => ({
+      status: s.value,
+      label: s.label,
+      count: rows.filter((r) => r.validationStatus === s.value).length,
+    }));
+  });
+
+  readonly filteredResults = computed(() => {
+    const q = this.search().toLowerCase().trim();
+    const status = this.statusFilter();
+    return this.results().filter((r) => {
+      if (status && r.validationStatus !== status) return false;
+      if (!q) return true;
+      const emp = this.getEmployee(r.employeeId);
+      const name = emp ? `${emp.firstName} ${emp.lastName}` : r.employeeId;
+      return (
+        name.toLowerCase().includes(q) ||
+        r.employeeId.toLowerCase().includes(q) ||
+        r.serviceId.toLowerCase().includes(q) ||
+        r.celluleId.toLowerCase().includes(q)
+      );
+    });
+  });
+
+  readonly filterBarFilters = computed<PrimeFilterBarFilter[]>(() => {
+    const role = this.roleService.currentRole() as Role;
+    const all = this.results();
+    const distinct = <K extends string>(items: EmployeePrimeServiceFicheValidationDto[], key: K) =>
+      Array.from(
+        new Set(items.map((x) => (x as unknown as Record<K, string>)[key])),
+      )
+        .filter((v): v is string => !!v)
+        .map((v) => ({ label: v, value: v }));
+
+    const out: PrimeFilterBarFilter[] = [
+      {
+        name: 'Période',
+        value: this.periodFilter(),
+        onChange: this.setPeriodFilter,
+        options: [
+          { label: '2026-04', value: '2026-04' },
+          { label: '2026-03', value: '2026-03' },
+          { label: '2026-02', value: '2026-02' },
+          { label: '2026-01', value: '2026-01' },
+        ],
+      },
+    ];
+
+    if (
+      role === 'Admin' ||
+      role === 'RH' ||
+      role === 'Audit' ||
+      role === 'Manager' ||
+      role === 'Comptabilité' ||
+      role === 'Comptable' ||
+      role === 'Chef de projet' ||
+      role === 'RP'
+    ) {
+      out.push({
+        name: 'Cellule',
+        value: this.celluleFilter(),
+        onChange: this.setCelluleFilter,
+        options: distinct(all, 'celluleId'),
+      });
+    }
+    if (role !== 'Pilote') {
+      out.push({
+        name: 'Service',
+        value: this.serviceFilter(),
+        onChange: this.setServiceFilter,
+        options: distinct(all, 'serviceId'),
+      });
+    }
+    return out;
+  });
+
+  constructor() {
+    effect(() => {
+      void this.roleService.currentRole();
+      void this.roleService.currentUser().id;
+      void this.periodFilter();
+      void this.celluleFilter();
+      void this.serviceFilter();
+      this.fetch();
+    });
+  }
+
+  ngOnInit(): void {
+    // initial fetch via effect
+  }
+
+  private fetch(): void {
+    this.loading.set(true);
+    this.errorMessage.set(null);
+
+    const filters: FicheValidationListFilters = {
+      period: this.periodFilter() || undefined,
+      serviceId: this.serviceFilter() || undefined,
+      celluleId: this.celluleFilter() || undefined,
+    };
+
+    const role = this.roleService.currentRole() as Role;
+    const user = this.roleService.currentUser();
+    if (role === 'Pilote') {
+      this.api.list({ ...filters }).subscribe({
+        next: (rows) => {
+          this.results.set(rows.filter((r) => r.employeeId === user.id));
+          this.loading.set(false);
+        },
+        error: (err) => this.handleError(err),
+      });
+      return;
+    }
+
+    if (isPrimeGlobalPoolStakeholderRole(role)) {
+      void PrimeService.getPrimeResults()
+        .then((rows) => {
+          const employees = this.roleService.employees();
+          let mapped = rows.map((r) => mapPrimeResultToFicheDto(r, employees));
+          const p = filters.period;
+          if (p) mapped = mapped.filter((x) => x.period === p);
+          if (filters.celluleId) mapped = mapped.filter((x) => x.celluleId === filters.celluleId);
+          if (filters.serviceId) mapped = mapped.filter((x) => x.serviceId === filters.serviceId);
+          this.results.set(mapped);
+          this.loading.set(false);
+        })
+        .catch((err: unknown) => this.handleError(err));
+      return;
+    }
+
+    this.api.list(filters).subscribe({
+      next: (rows) => {
+        this.results.set(rows);
+        this.loading.set(false);
+      },
+      error: (err) => this.handleError(err),
+    });
+  }
+
+  private handleError(err: unknown): void {
+    console.error('[PrimeResultsPage] fetch error', err);
+    const detail = primeHttpErrorDetail(err);
+    this.errorMessage.set(
+      detail
+        ? `Impossible de charger les fiches PRIME. ${detail}`
+        : 'Impossible de charger les fiches PRIME depuis le backend. Vérifiez que le service est démarré.',
+    );
+    this.results.set([]);
+    this.loading.set(false);
+  }
+
+  getEmployee(id: string): Employee | undefined {
+    return this.roleService.employees().find((e) => e.id === id);
+  }
+
+  displayName(emp: Employee | undefined, fallback: string): string {
+    return emp ? `${emp.firstName} ${emp.lastName}` : fallback;
+  }
+
+  initial(emp: Employee | undefined, fallback: string): string {
+    if (!emp) return fallback.slice(0, 2).toUpperCase();
+    return `${emp.firstName.charAt(0)}${emp.lastName.charAt(0)}`.toUpperCase();
+  }
+
+  formatAmount(value: number | null | undefined): string {
+    if (value === null || value === undefined) return '—';
+    return `${value.toFixed(2)} MAD`;
+  }
+
+  exportCsv(): void {
+    const rows = this.filteredResults();
+    if (rows.length === 0) return;
+    const headers = [
+      'EmployeeId',
+      'PiloteName',
+      'CelluleId',
+      'ServiceId',
+      'Period',
+      'PrimeAmount',
+      'ChallengeAmount',
+      'TotalAmount',
+      'ValidationStatus',
+      'LastApproverUserId',
+      'LastApprovedAt',
+      'RejectedByUserId',
+      'RejectionReason',
+    ];
+    const lines = [headers.join(',')];
+    for (const r of rows) {
+      const emp = this.getEmployee(r.employeeId);
+      const name = emp ? `${emp.firstName} ${emp.lastName}` : '';
+      lines.push(
+        [
+          r.employeeId,
+          this.csvCell(name),
+          r.celluleId,
+          r.serviceId,
+          r.period,
+          r.primeAmount ?? '',
+          r.challengeAmount ?? '',
+          r.totalAmount ?? '',
+          this.csvCell(r.validationStatus),
+          r.lastApproverUserId ?? '',
+          r.lastApprovedAt ?? '',
+          r.rejectedByUserId ?? '',
+          this.csvCell(r.rejectionReason ?? ''),
+        ].join(','),
+      );
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `prime-results-${this.periodFilter() || 'all'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private csvCell(value: string): string {
+    if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+    return value;
+  }
+}

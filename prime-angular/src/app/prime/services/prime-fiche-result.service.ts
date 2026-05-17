@@ -1,0 +1,154 @@
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { inject, Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+
+const base = '/api/prime/validation';
+
+export type PrimeFicheValidationStatus = string;
+
+export interface EmployeePrimeServiceFicheValidationDto {
+  id: string;
+  employeeId: string;
+  supervisorUserId: string;
+  serviceId: string;
+  celluleId: string;
+  period: string;
+  fillingStatus: string;
+  validationStatus: PrimeFicheValidationStatus;
+  lastApproverUserId?: string | null;
+  lastApprovedAt?: string | null;
+  rejectedByUserId?: string | null;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
+  primeAmount?: number | null;
+  challengeAmount?: number | null;
+  totalAmount?: number | null;
+  updatedAt: string;
+}
+
+export interface WorkflowStatusCountDto {
+  status: string;
+  count: number;
+}
+
+export interface WorkflowValidationSummaryDto {
+  statusCounts: WorkflowStatusCountDto[];
+  terminalStatuses: string[];
+  total: number;
+}
+
+export interface WorkflowStepMetaDto {
+  id: string;
+  sortOrder: number;
+  approverRole: string;
+  fromStatus: string;
+  toStatus: string;
+  isActive: boolean;
+  slaHours: number;
+  capturesAmountsOnApproval: boolean;
+  terminalApproved: boolean;
+  updatedAt?: string | null;
+}
+
+export interface WorkflowValidationMetaDto {
+  steps: WorkflowStepMetaDto[];
+  terminalStatuses: string[];
+  actionableFromStatuses: string[];
+}
+
+export interface ApproveServiceFicheRequest {
+  userId: string;
+  role: string;
+  primeAmount?: number | null;
+  challengeAmount?: number | null;
+  totalAmount?: number | null;
+}
+
+export interface RejectServiceFicheRequest {
+  userId: string;
+  role: string;
+  reason: string;
+}
+
+export interface BulkApproveServiceFicheRequest {
+  userId: string;
+  role: string;
+  ficheIds: string[];
+}
+
+export interface BulkApproveResult {
+  approvedIds: string[];
+  ignoredIds: string[];
+}
+
+export interface FicheValidationListFilters {
+  period?: string;
+  status?: string;
+  serviceId?: string;
+  celluleId?: string;
+  userId?: string;
+  role?: string;
+}
+
+@Injectable({ providedIn: 'root' })
+export class PrimeFicheResultService {
+  private readonly http = inject(HttpClient);
+
+  private buildParams(filters?: FicheValidationListFilters): HttpParams {
+    let params = new HttpParams();
+    if (!filters) return params;
+    if (filters.period) params = params.set('period', filters.period);
+    if (filters.status) params = params.set('status', filters.status);
+    if (filters.serviceId) params = params.set('serviceId', filters.serviceId);
+    if (filters.celluleId) params = params.set('celluleId', filters.celluleId);
+    if (filters.userId) params = params.set('userId', filters.userId);
+    if (filters.role) params = params.set('role', filters.role);
+    return params;
+  }
+
+  list(filters?: FicheValidationListFilters): Observable<EmployeePrimeServiceFicheValidationDto[]> {
+    return this.http.get<EmployeePrimeServiceFicheValidationDto[]>(base, { params: this.buildParams(filters) });
+  }
+
+  summary(filters?: Omit<FicheValidationListFilters, 'status'>): Observable<WorkflowValidationSummaryDto> {
+    return this.http.get<WorkflowValidationSummaryDto>(`${base}/summary`, { params: this.buildParams(filters) });
+  }
+
+  workflowMeta(role?: string): Observable<WorkflowValidationMetaDto> {
+    let params = new HttpParams();
+    if (role?.trim()) params = params.set('role', role.trim());
+    return this.http.get<WorkflowValidationMetaDto>(`${base}/workflow-meta`, { params });
+  }
+
+  periods(): Observable<string[]> {
+    return this.http.get<string[]>(`${base}/periods`);
+  }
+
+  approve(id: string, body: ApproveServiceFicheRequest): Observable<EmployeePrimeServiceFicheValidationDto> {
+    return this.http.post<EmployeePrimeServiceFicheValidationDto>(`${base}/${id}/approve`, body);
+  }
+
+  reject(id: string, body: RejectServiceFicheRequest): Observable<EmployeePrimeServiceFicheValidationDto> {
+    return this.http.post<EmployeePrimeServiceFicheValidationDto>(`${base}/${id}/reject`, body);
+  }
+
+  bulkApprove(body: BulkApproveServiceFicheRequest): Observable<BulkApproveResult> {
+    return this.http.post<BulkApproveResult>(`${base}/bulk-approve`, body);
+  }
+
+  exportCsvUrl(ficheId: string, userId?: string, role?: string): string {
+    const q = new URLSearchParams();
+    if (userId) q.set('userId', userId);
+    if (role) q.set('role', role);
+    const qs = q.toString();
+    return `${base}/${ficheId}/export-csv${qs ? `?${qs}` : ''}`;
+  }
+
+  exportXlsxUrl(ficheId: string, userId?: string, role?: string): string {
+    const q = new URLSearchParams();
+    if (userId) q.set('userId', userId);
+    if (role) q.set('role', role);
+    const qs = q.toString();
+    return `${base}/${ficheId}/export-xlsx${qs ? `?${qs}` : ''}`;
+  }
+}

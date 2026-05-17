@@ -1,0 +1,651 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { ClipboardList, ChevronRight, Download, ExternalLink, Eye, Grid3x3, RefreshCw, User } from 'lucide';
+import { catchError, forkJoin, map, of, type Observable } from 'rxjs';
+import { LucideIconComponent } from '../../shared/lucide-icon.component';
+import { PrimeCellSaisieBlockComponent } from '../components/prime-cell-saisie-block.component';
+import { PrimeNavRequestService } from '../services/prime-nav-request.service';
+import {
+  draftResponseSaisieJson,
+  ficheListDraftId,
+  ficheResponseSaisieJson,
+  PrimeCellPrimeApiService,
+  type CellPilotageSummaryDto,
+  type EmployeePrimeCellFicheListItemDto,
+} from '../services/prime-cell-prime-api.service';
+import { PrimeCellSaisieContextService } from '../services/prime-cell-saisie-context.service';
+import { RoleService } from '../state/role.service';
+import { parsePrimeSchemaFromDraftJson } from '../lib/prime-cell-schema-merge';
+import {
+  computeMergedEmployeeFichePreview,
+  MERGED_PREVIEW_MISSING_SNAPSHOT_HINT,
+  type MergedEmployeeFichePreviewResult,
+} from '../lib/prime-employee-fiche-merged-preview';
+import {
+  buildStyledMergedFicheWorkbook,
+  downloadStyledFicheWorkbook,
+} from '../lib/prime-fiche-xlsx-export';
+import {
+  mergedFicheActionsDisabledHint,
+  mergedFicheActionsEnabled,
+} from '../lib/prime-fiche-distribution-access';
+
+function httpErr(err: unknown): string {
+  if (err instanceof HttpErrorResponse) {
+    const b = err.error as { error?: string } | undefined;
+    if (b?.error) return b.error;
+    return err.message;
+  }
+  return err instanceof Error ? err.message : 'Erreur';
+}
+
+/** Pilote sélectionné + contexte cellule pour le panneau de droite. */
+interface PilotSelection {
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  /** Cellule métier (clé brouillon partie commune). */
+  celluleId: string;
+  /** Équipe / service (ligne pilotage). */
+  serviceId: string;
+  /** Libellé affiché (nom d’équipe). */
+  celluleName: string;
+  /** Même valeur que `celluleId` : id passé à `getPoleDraft` (brouillon partie commune). */
+  poleId: string;
+  linkedTemplateId: string | null;
+  fillingStatus: string;
+  linkedTemplateDisplayName: string | null;
+}
+
+@Component({
+  selector: 'app-prime-fiches-pilotes-page',
+  standalone: true,
+  imports: [LucideIconComponent, PrimeCellSaisieBlockComponent],
+  template: `
+    <div class="p-4 sm:p-6 pb-20 bg-navy-950 min-h-full">
+      <div class="max-w-[1600px] mx-auto space-y-5">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-100 sm:text-3xl flex items-center gap-2">
+              <app-lucide-icon [icon]="icons.board" className="w-8 h-8 text-blue-400 shrink-0" />
+              Fiches PRIME — pilotage
+            </h1>
+            <p class="text-slate-400 mt-2 max-w-2xl text-sm leading-relaxed">
+              Choisissez la <strong class="text-slate-200">période</strong> : le même brouillon pôle (partie commune
+              RACC/SAV) s’applique automatiquement à la partie cellule. À gauche, cellules et pilotes avec code couleur ;
+              à droite, la saisie du pilote sélectionné (dans l’ordre qui vous convient).
+            </p>
+          </div>
+          <button
+            type="button"
+            (click)="reload()"
+            [disabled]="loading()"
+            class="inline-flex items-center gap-2 rounded-lg border border-navy-600 bg-navy-900 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 disabled:opacity-50"
+          >
+            <app-lucide-icon [icon]="icons.refresh" className="w-4 h-4" />
+            Actualiser
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-end gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Période</label>
+            <input
+              type="month"
+              [value]="period()"
+              (change)="onPeriodChange($event)"
+              class="rounded-lg border border-navy-600 bg-navy-900 px-3 py-2 text-sm text-slate-100"
+            />
+          </div>
+          @if (globalTemplateHint()) {
+            <p class="text-xs text-slate-500 max-w-xl pb-1">
+              Partie commune liée :
+              <span class="text-slate-300 font-medium">{{ globalTemplateHint() }}</span>
+            </p>
+          }
+        </div>
+
+        @if (error()) {
+          <div class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200" role="alert">
+            {{ error() }}
+          </div>
+        }
+
+        @if (loading()) {
+          <div class="flex justify-center py-16">
+            <div class="animate-spin rounded-full h-10 w-10 border-2 border-blue-500 border-t-transparent"></div>
+          </div>
+        } @else {
+          <div
+            class="flex flex-col lg:flex-row gap-6 lg:items-stretch lg:min-h-[calc(100dvh-12rem)]"
+          >
+            <aside
+              class="lg:w-[min(100%,380px)] shrink-0 flex flex-col rounded-xl border border-navy-700 bg-navy-900/50 overflow-hidden max-h-[52vh] lg:max-h-none"
+            >
+              <div
+                class="px-4 py-3 border-b border-navy-700 text-xs font-semibold uppercase tracking-wide text-slate-500"
+              >
+                Cellules & pilotes
+              </div>
+              <div class="overflow-y-auto flex-1 p-3 space-y-4">
+                @for (c of summary(); track c.serviceId) {
+                  <section class="rounded-lg border border-navy-700/80 bg-navy-950/60 overflow-hidden">
+                    <div class="flex items-center gap-2 px-3 py-2 bg-navy-900/80">
+                      <span [class]="cellRollupDot(c.serviceAggregateState)" aria-hidden="true"></span>
+                      <div class="min-w-0 flex-1">
+                        <div class="font-semibold text-slate-100 text-sm truncate">{{ c.serviceName }}</div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">
+                          {{ c.complete }} OK · {{ c.inProgress }} en cours · {{ c.notStarted }} pas commencé
+                        </div>
+                      </div>
+                      <span class="text-[10px] font-medium text-slate-500 shrink-0">{{
+                        stateShortLabel(c.serviceAggregateState)
+                      }}</span>
+                    </div>
+                    <ul class="divide-y divide-navy-800">
+                      @for (emp of employeesForService(c.serviceId); track emp.employeeId) {
+                        <li class="flex items-stretch gap-0.5">
+                          <button
+                            type="button"
+                            (click)="selectPilot(emp, c)"
+                            [class]="pilotRowClass(emp.employeeId) + ' flex-1 min-w-0 rounded-none border-0'"
+                          >
+                            <span [class]="pilotDotClass(emp.fillingStatus)" aria-hidden="true"></span>
+                            <span class="min-w-0 flex-1 text-left">
+                              <span class="block text-sm font-medium text-slate-100 truncate"
+                                >{{ emp.firstName }} {{ emp.lastName }}</span
+                              >
+                              <span class="block text-[11px] text-slate-500 truncate">{{ emp.email }}</span>
+                            </span>
+                            <span class="text-[10px] text-slate-500 shrink-0">{{ statusShort(emp.fillingStatus) }}</span>
+                            <app-lucide-icon [icon]="icons.chev" className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                          </button>
+                          <div class="flex flex-col justify-center gap-0.5 py-1 pr-1 shrink-0 border-l border-navy-800">
+                            <button
+                              type="button"
+                              [title]="mergedActionsHint(emp, c) || 'Aperçu fiche fusionnée (pôle + cellule)'"
+                              (click)="openMergedPreview($event, emp, c)"
+                              [disabled]="!mergedActionsEnabled(emp, c)"
+                              class="rounded px-1.5 py-1 text-[10px] font-medium text-blue-300 hover:bg-navy-800 disabled:opacity-30 disabled:pointer-events-none"
+                            >
+                              <app-lucide-icon [icon]="icons.eye" className="w-4 h-4 mx-auto" />
+                            </button>
+                            <button
+                              type="button"
+                              [title]="mergedActionsHint(emp, c) || 'Télécharger .xlsx (une feuille)'"
+                              (click)="downloadMergedXlsx($event, emp, c)"
+                              [disabled]="!mergedActionsEnabled(emp, c)"
+                              class="rounded px-1.5 py-1 text-[10px] font-medium text-emerald-300 hover:bg-navy-800 disabled:opacity-30 disabled:pointer-events-none"
+                            >
+                              <app-lucide-icon [icon]="icons.download" className="w-4 h-4 mx-auto" />
+                            </button>
+                          </div>
+                        </li>
+                      }
+                    </ul>
+                  </section>
+                }
+                @if (summary().length === 0) {
+                  <p class="text-sm text-slate-500 px-2">Aucune cellule pour votre périmètre superviseur.</p>
+                }
+              </div>
+            </aside>
+
+            <main class="flex-1 min-w-0 flex flex-col rounded-xl border border-navy-700 bg-navy-900/30 overflow-hidden">
+              <div
+                class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-navy-700 bg-navy-900/60"
+              >
+                <div class="min-w-0 flex-1 space-y-2">
+                  <h2 class="text-sm font-semibold text-slate-200">Saisie cellule</h2>
+                  @if (selectedPilot(); as sp) {
+                    <div class="flex flex-col sm:flex-row gap-2 min-w-0">
+                      <div
+                        class="flex-1 min-w-0 rounded-lg border border-slate-600/80 bg-slate-800/50 px-3 py-2.5 shadow-sm"
+                      >
+                        <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Cellule</div>
+                        <div class="flex items-center gap-2 text-sm font-medium text-slate-100">
+                          <app-lucide-icon [icon]="icons.grid" className="w-4 h-4 text-slate-400 shrink-0" />
+                          <span class="truncate">{{ sp.celluleName }}</span>
+                        </div>
+                      </div>
+                      <div
+                        class="flex-1 min-w-0 rounded-lg border border-blue-500/35 bg-blue-950/40 px-3 py-2.5 ring-1 ring-inset ring-blue-500/25 shadow-sm"
+                      >
+                        <div class="text-[10px] font-semibold uppercase tracking-wide text-blue-300/80 mb-1">
+                          Pilote
+                        </div>
+                        <div class="flex items-start gap-2 text-sm text-slate-100">
+                          <app-lucide-icon [icon]="icons.user" className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                          <div class="min-w-0">
+                            <div class="font-medium truncate">{{ sp.firstName }} {{ sp.lastName }}</div>
+                            <div class="text-[11px] text-slate-400 truncate">{{ sp.email }}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  } @else {
+                    <p class="text-xs text-slate-500">Sélectionnez un pilote dans la liste de gauche.</p>
+                  }
+                </div>
+                @if (selectedPilot()) {
+                  <button
+                    type="button"
+                    (click)="openFullPage()"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-navy-600 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-navy-800 shrink-0"
+                  >
+                    <app-lucide-icon [icon]="icons.external" className="w-3.5 h-3.5" />
+                    Plein écran
+                  </button>
+                }
+              </div>
+              <div class="flex-1 overflow-y-auto p-3 sm:p-4">
+                @for (p of pilotBlockRows(); track p.employeeId) {
+                  <app-prime-cell-saisie-block
+                    [employeeId]="p.employeeId"
+                    [period]="period()"
+                    [linkedTemplateLabel]="p.linkedTemplateDisplayName"
+                    [poleId]="p.poleId"
+                    [linkedTemplateId]="p.linkedTemplateId"
+                    [celluleName]="p.celluleName"
+                    [embedded]="true"
+                    (saved)="onPilotSaved()"
+                  />
+                }
+                @if (!selectedPilot()) {
+                  <div
+                    class="h-full min-h-[240px] flex flex-col items-center justify-center text-center text-slate-500 text-sm px-6"
+                  >
+                    <p>Les indicateurs verts, jaunes et rouges indiquent l’avancement de chaque fiche pilote.</p>
+                    <p class="mt-2 text-xs">Sans brouillon pôle pour cette période, la saisie affichera une erreur : complétez d’abord la partie commune dans « Fiche PRIME — saisie ».</p>
+                  </div>
+                }
+              </div>
+            </main>
+          </div>
+        }
+      </div>
+    </div>
+
+    @if (previewOpen()) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="prime-pilot-preview-title"
+        (click)="closeMergedPreview()"
+      >
+        <div
+          class="max-w-[min(96vw,1400px)] w-full max-h-[min(90vh,900px)] flex flex-col rounded-xl border border-navy-600 bg-navy-950 shadow-xl"
+          (click)="$event.stopPropagation()"
+        >
+          <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-navy-700 shrink-0">
+            <h3 id="prime-pilot-preview-title" class="text-sm font-semibold text-slate-100 truncate">
+              {{ previewTitle() }}
+            </h3>
+            <button
+              type="button"
+              (click)="closeMergedPreview()"
+              class="rounded-lg border border-navy-600 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-navy-800 shrink-0"
+            >
+              Fermer
+            </button>
+          </div>
+          @if (previewBusy()) {
+            <div class="flex justify-center py-16 shrink-0">
+              <div class="animate-spin rounded-full h-10 w-10 border-2 border-blue-500 border-t-transparent"></div>
+            </div>
+          } @else {
+            @if (previewBanner()) {
+              <div
+                class="mx-4 mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100 shrink-0"
+                role="status"
+              >
+                {{ previewBanner() }}
+              </div>
+            }
+            @if (previewErrors().length) {
+              <div
+                class="mx-4 mt-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-100 max-h-28 overflow-y-auto shrink-0 space-y-0.5"
+                role="status"
+              >
+                @for (er of previewErrors(); track er) {
+                  <p>{{ er }}</p>
+                }
+              </div>
+            }
+            <div class="flex-1 min-h-0 overflow-auto p-3">
+              <table class="text-[11px] border-collapse border border-navy-700 text-slate-200">
+                @for (row of previewRows(); track pr; let pr = $index) {
+                  <tr>
+                    @for (cell of row; track pc; let pc = $index) {
+                      <td class="border border-navy-800 px-1 py-0.5 whitespace-nowrap align-top">{{ cell }}</td>
+                    }
+                  </tr>
+                }
+              </table>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class PrimeFichesPilotesPageComponent implements OnInit {
+  private readonly api = inject(PrimeCellPrimeApiService);
+  private readonly role = inject(RoleService);
+  private readonly nav = inject(PrimeNavRequestService);
+  private readonly cellCtx = inject(PrimeCellSaisieContextService);
+
+  readonly icons = {
+    board: ClipboardList,
+    refresh: RefreshCw,
+    chev: ChevronRight,
+    external: ExternalLink,
+    grid: Grid3x3,
+    user: User,
+    eye: Eye,
+    download: Download,
+  };
+
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly summary = signal<CellPilotageSummaryDto[]>([]);
+  readonly period = signal(this.defaultPeriod());
+  readonly employeesByServiceId = signal<Record<string, EmployeePrimeCellFicheListItemDto[]>>({});
+  readonly selectedPilot = signal<PilotSelection | null>(null);
+
+  readonly previewOpen = signal(false);
+  readonly previewBusy = signal(false);
+  readonly previewTitle = signal('');
+  readonly previewRows = signal<string[][]>([]);
+  readonly previewErrors = signal<string[]>([]);
+  readonly previewBanner = signal<string | null>(null);
+
+  readonly pilotBlockRows = computed(() => {
+    const s = this.selectedPilot();
+    return s ? [s] : [];
+  });
+
+  /** Premier libellé de template lié trouvé dans le résumé (info globale). */
+  readonly globalTemplateHint = computed(() => {
+    const rows = this.summary();
+    const withName = rows.find((r) => (r.linkedTemplateDisplayName ?? '').trim().length > 0);
+    if (withName?.linkedTemplateDisplayName?.trim()) return withName.linkedTemplateDisplayName.trim();
+    const withId = rows.find((r) => (r.linkedTemplateId ?? '').trim().length > 0);
+    return withId?.linkedTemplateId?.trim() ?? null;
+  });
+
+  ngOnInit(): void {
+    // Si une période a été demandée par la liste fiches communes, l'appliquer
+    // avant le premier chargement.
+    const requested = this.nav.requestedPeriod();
+    if (requested && /^\d{4}-\d{2}$/.test(requested)) {
+      this.period.set(requested);
+      this.nav.clearRequestedPeriod();
+    }
+    void this.reload();
+  }
+
+  defaultPeriod(): string {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  }
+
+  onPeriodChange(ev: Event): void {
+    const v = (ev.target as HTMLInputElement).value;
+    if (!v) return;
+    this.period.set(v);
+    this.selectedPilot.set(null);
+    void this.reload();
+  }
+
+  employeesForService(serviceId: string): EmployeePrimeCellFicheListItemDto[] {
+    return this.employeesByServiceId()[serviceId] ?? [];
+  }
+
+  reload(): void {
+    const u = this.role.currentUser();
+    this.loading.set(true);
+    this.error.set(null);
+    this.api.cellsSummary(u.id, this.period()).subscribe({
+      next: (rows) => {
+        this.summary.set(rows);
+        if (rows.length === 0) {
+          this.employeesByServiceId.set({});
+          this.loading.set(false);
+          this.syncSelectionAfterReload();
+          return;
+        }
+        forkJoin(
+          rows.map((c) =>
+            this.api.listEmployeeFiches(this.period(), u.id, { serviceId: c.serviceId }).pipe(
+              map((emps) => ({ id: c.serviceId, emps })),
+              catchError(() => of({ id: c.serviceId, emps: [] as EmployeePrimeCellFicheListItemDto[] })),
+            ),
+          ),
+        ).subscribe({
+          next: (parts) => {
+            const m: Record<string, EmployeePrimeCellFicheListItemDto[]> = {};
+            for (const p of parts) m[p.id] = p.emps;
+            this.employeesByServiceId.set(m);
+            this.loading.set(false);
+            this.syncSelectionAfterReload();
+          },
+          error: (e) => {
+            this.error.set(httpErr(e));
+            this.loading.set(false);
+          },
+        });
+      },
+      error: (e) => {
+        this.error.set(httpErr(e));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  private syncSelectionAfterReload(): void {
+    const cur = this.selectedPilot();
+    if (!cur) return;
+    const list = this.employeesForService(cur.serviceId);
+    if (!list.some((e) => e.employeeId === cur.employeeId)) {
+      this.selectedPilot.set(null);
+    }
+  }
+
+  selectPilot(emp: EmployeePrimeCellFicheListItemDto, cell: CellPilotageSummaryDto): void {
+    const name =
+      (cell.linkedTemplateDisplayName ?? '').trim() ||
+      (cell.linkedTemplateId ?? '').trim() ||
+      null;
+    this.selectedPilot.set({
+      employeeId: emp.employeeId,
+      firstName: emp.firstName,
+      lastName: emp.lastName,
+      email: emp.email,
+      celluleId: cell.celluleId,
+      serviceId: cell.serviceId,
+      celluleName: cell.serviceName,
+      poleId: cell.celluleId,
+      linkedTemplateId: (cell.linkedTemplateId ?? '').trim() || null,
+      fillingStatus: emp.fillingStatus,
+      linkedTemplateDisplayName: name,
+    });
+  }
+
+  pilotRowClass(employeeId: string): string {
+    const base =
+      'w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-navy-800/80 ';
+    const sel = this.selectedPilot()?.employeeId === employeeId;
+    return sel ? base + 'bg-blue-600/15 ring-1 ring-inset ring-blue-500/40' : base;
+  }
+
+  mergedActionsEnabled(emp: EmployeePrimeCellFicheListItemDto, cell: CellPilotageSummaryDto): boolean {
+    return mergedFicheActionsEnabled(
+      this.role.currentRole() as string,
+      emp,
+      cell,
+      !!ficheListDraftId(emp),
+    );
+  }
+
+  mergedActionsHint(emp: EmployeePrimeCellFicheListItemDto, cell: CellPilotageSummaryDto): string {
+    return mergedFicheActionsDisabledHint(
+      this.role.currentRole() as string,
+      emp,
+      cell,
+      !!ficheListDraftId(emp),
+    );
+  }
+
+  private fetchMerged$(
+    emp: EmployeePrimeCellFicheListItemDto,
+    cell: CellPilotageSummaryDto,
+  ): Observable<MergedEmployeeFichePreviewResult> {
+    const u = this.role.currentUser();
+    const tid = (cell.linkedTemplateId ?? '').trim();
+    return forkJoin({
+      draft: this.api.getPoleDraft(u.id, cell.celluleId.trim(), this.period(), tid),
+      fiche: this.api.getFicheForEmployee(u.id, emp.employeeId, this.period(), tid),
+      inds: this.api.getIndicators(emp.serviceId, u.id),
+    }).pipe(
+      map(({ draft, fiche, inds }) => {
+        const schema = parsePrimeSchemaFromDraftJson(draft.schemaJson);
+        return computeMergedEmployeeFichePreview({
+          schema,
+          poleSaisieJson: draftResponseSaisieJson(draft),
+          cellSaisieJson: ficheResponseSaisieJson(fiche),
+          templateCalcSnapshotJson: draft.templateCalcSnapshotJson,
+          indicators: inds,
+          templateId: tid,
+        });
+      }),
+    );
+  }
+
+  openMergedPreview(ev: Event, emp: EmployeePrimeCellFicheListItemDto, cell: CellPilotageSummaryDto): void {
+    ev.stopPropagation();
+    if (!this.mergedActionsEnabled(emp, cell)) return;
+    this.previewOpen.set(true);
+    this.previewBusy.set(true);
+    this.previewRows.set([]);
+    this.previewErrors.set([]);
+    this.previewBanner.set(null);
+    this.previewTitle.set(`Aperçu — ${emp.firstName} ${emp.lastName} — ${this.period()}`);
+    this.fetchMerged$(emp, cell).subscribe({
+      next: (res) => {
+        this.previewRows.set(res.rows);
+        this.previewErrors.set(res.errors);
+        if (res.missingSnapshot) this.previewBanner.set(MERGED_PREVIEW_MISSING_SNAPSHOT_HINT);
+        else if (!res.rows.length && !res.errors.length) this.previewBanner.set('Aucune donnée à afficher.');
+        else this.previewBanner.set(null);
+        this.previewBusy.set(false);
+      },
+      error: (e) => {
+        this.previewBanner.set(httpErr(e));
+        this.previewBusy.set(false);
+      },
+    });
+  }
+
+  downloadMergedXlsx(ev: Event, emp: EmployeePrimeCellFicheListItemDto, cell: CellPilotageSummaryDto): void {
+    ev.stopPropagation();
+    if (!this.mergedActionsEnabled(emp, cell)) return;
+    this.fetchMerged$(emp, cell).subscribe({
+      next: (res) => {
+        if (res.missingSnapshot) {
+          window.alert(MERGED_PREVIEW_MISSING_SNAPSHOT_HINT);
+          return;
+        }
+        if (!res.rows.length) {
+          window.alert(res.errors[0] ?? 'Export impossible — grille vide.');
+          return;
+        }
+        if (!res.effectiveSchema) {
+          window.alert('Schéma indisponible : impossible de générer le livrable stylé.');
+          return;
+        }
+        const sheetName =
+          (res.previewSheetName || 'Fiche_PRIME').replace(/[:\\/?*[\]]/g, '_').slice(0, 31) || 'Fiche_PRIME';
+        const safe =
+          `${emp.lastName}_${emp.firstName}_${this.period()}`.replace(/[<>:"/\\|?*]+/g, '_').trim() || 'fiche';
+        void buildStyledMergedFicheWorkbook(res.rows, res.effectiveSchema, sheetName)
+          .then((wb) => downloadStyledFicheWorkbook(wb, `PRIME_fiche_${safe}.xlsx`))
+          .catch((e: unknown) => window.alert(httpErr(e)));
+      },
+      error: (e) => window.alert(httpErr(e)),
+    });
+  }
+
+  closeMergedPreview(): void {
+    this.previewOpen.set(false);
+    this.previewBusy.set(false);
+    this.previewBanner.set(null);
+    this.previewErrors.set([]);
+    this.previewRows.set([]);
+  }
+
+  pilotDotClass(st: string): string {
+    const s = st.toLowerCase();
+    if (s === 'complete')
+      return 'inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_0_1px_rgba(16,185,129,0.35)]';
+    if (s === 'inprogress')
+      return 'inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]';
+    return 'inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500 shadow-[0_0_0_1px_rgba(244,63,94,0.35)]';
+  }
+
+  cellRollupDot(state: string): string {
+    const s = state.toLowerCase();
+    if (s === 'done')
+      return 'inline-block h-3 w-3 shrink-0 rounded-full bg-emerald-500 ring-2 ring-emerald-500/30';
+    if (s === 'inprogress')
+      return 'inline-block h-3 w-3 shrink-0 rounded-full bg-amber-400 ring-2 ring-amber-400/30';
+    if (s === 'empty' || s === 'notstarted')
+      return 'inline-block h-3 w-3 shrink-0 rounded-full bg-slate-600 ring-2 ring-slate-500/25';
+    return 'inline-block h-3 w-3 shrink-0 rounded-full bg-rose-500 ring-2 ring-rose-500/30';
+  }
+
+  stateShortLabel(state: string): string {
+    const s = state.toLowerCase();
+    if (s === 'done') return 'OK';
+    if (s === 'inprogress') return 'Encours';
+    if (s === 'empty') return 'Vide';
+    if (s === 'notstarted') return 'NS';
+    return 'À faire';
+  }
+
+  statusShort(st: string): string {
+    const s = st.toLowerCase();
+    if (s === 'complete') return 'OK';
+    if (s === 'inprogress') return '…';
+    return '·';
+  }
+
+  onPilotSaved(): void {
+    void this.reload();
+  }
+
+  openFullPage(): void {
+    const p = this.selectedPilot();
+    if (!p) return;
+    this.cellCtx.setContext(p.employeeId, this.period(), {
+      templateId: p.linkedTemplateId,
+      poleId: p.poleId,
+      celluleName: p.celluleName,
+    });
+    this.nav.requestView('/prime-saisie-cellule');
+  }
+}

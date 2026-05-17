@@ -1,0 +1,172 @@
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { PrimeCardComponent } from '../prime-card.component';
+import {
+  PrimeAdminService,
+  type AnomalyDto,
+  type AnomalyStatus,
+} from '../../services/prime-admin.service';
+
+@Component({
+  selector: 'app-anomalies-admin',
+  standalone: true,
+  imports: [PrimeCardComponent],
+  template: `
+    <app-prime-card title="Gestion des anomalies">
+      <p class="text-slate-400 text-sm mb-4">
+        Types détectés côté serveur : <span class="text-slate-300">ComputationMismatch</span> (total ≠ prime +
+        challenge), <span class="text-slate-300">DuplicateFiche</span>, <span class="text-slate-300">OutOfRange</span>,
+        <span class="text-slate-300">MissingApprover</span>, <span class="text-slate-300">StaleValidation</span>,
+        <span class="text-slate-300">InvalidScope</span>.
+      </p>
+      <div class="flex flex-wrap gap-3 mb-4">
+        <button
+          type="button"
+          [disabled]="recomputing()"
+          (click)="recompute()"
+          class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-medium disabled:opacity-50"
+        >
+          Relancer la détection
+        </button>
+        <button
+          type="button"
+          (click)="reload()"
+          class="px-4 py-2 rounded-lg border border-navy-600 text-slate-200 text-sm hover:bg-navy-800"
+        >
+          Rafraîchir la liste
+        </button>
+      </div>
+
+      @if (loading()) {
+        <div class="py-12 flex justify-center">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        </div>
+      } @else if (error()) {
+        <p class="text-rose-400 text-sm">{{ error() }}</p>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-default">
+                <th class="text-left py-3 text-slate-400">Type</th>
+                <th class="text-left py-3 text-slate-400">Gravité</th>
+                <th class="text-left py-3 text-slate-400">Description</th>
+                <th class="text-left py-3 text-slate-400">Statut</th>
+                <th class="text-right py-3 text-slate-400">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of rows(); track row.id) {
+                <tr class="border-b border-default/60">
+                  <td class="py-3 text-slate-200">{{ row.type }}</td>
+                  <td class="py-3 text-slate-400">{{ row.severity }}</td>
+                  <td class="py-3 text-slate-300 max-w-md">{{ row.description }}</td>
+                  <td class="py-3">
+                    <span class="text-xs px-2 py-1 rounded-full" [class]="statusClass(row.status)">
+                      {{ row.status }}
+                    </span>
+                  </td>
+                  <td class="py-3 text-right">
+                    @if (row.status === 'Open' || row.status === 'InReview') {
+                      <div class="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          [disabled]="busyId() === row.id"
+                          (click)="setStatus(row, 'Resolved')"
+                          class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 text-xs"
+                        >
+                          Résolu
+                        </button>
+                        <button
+                          type="button"
+                          [disabled]="busyId() === row.id"
+                          (click)="setStatus(row, 'Ignored')"
+                          class="px-2 py-1 rounded bg-slate-500/20 text-slate-300 text-xs"
+                        >
+                          Ignorer
+                        </button>
+                      </div>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (rows().length === 0) {
+            <p class="text-slate-500 text-sm py-6 text-center">Aucune anomalie détectée.</p>
+          }
+        </div>
+      }
+    </app-prime-card>
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class AnomaliesAdminComponent implements OnInit {
+  private readonly admin = inject(PrimeAdminService);
+
+  readonly rows = signal<AnomalyDto[]>([]);
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
+  readonly busyId = signal<string | null>(null);
+  readonly recomputing = signal(false);
+
+  ngOnInit(): void {
+    this.reload();
+  }
+
+  reload(): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.admin.listAnomalies().subscribe({
+      next: (list) => {
+        this.rows.set(list);
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.error?.error ?? 'Impossible de charger les anomalies.');
+        this.rows.set([]);
+        this.loading.set(false);
+      },
+    });
+  }
+
+  recompute(): void {
+    this.recomputing.set(true);
+    this.admin.recomputeAnomalies().subscribe({
+      next: () => {
+        this.recomputing.set(false);
+        this.reload();
+      },
+      error: (err) => {
+        this.error.set(err?.error?.error ?? 'Recalcul impossible.');
+        this.recomputing.set(false);
+      },
+    });
+  }
+
+  setStatus(row: AnomalyDto, status: AnomalyStatus): void {
+    this.busyId.set(row.id);
+    this.admin
+      .updateAnomalyStatus(row.id, {
+        status,
+        resolvedByUserId: 'admin-ui',
+        resolutionNote: status === 'Resolved' ? 'Traité depuis l’interface Admin' : 'Ignoré depuis l’interface Admin',
+      })
+      .subscribe({
+        next: (updated) => {
+          this.rows.update((list) => list.map((r) => (r.id === updated.id ? updated : r)));
+          this.busyId.set(null);
+        },
+        error: (err) => {
+          this.error.set(err?.error?.error ?? 'Mise à jour impossible.');
+          this.busyId.set(null);
+        },
+      });
+  }
+
+  statusClass(status: string): string {
+    if (status === 'Open') return 'bg-amber-500/20 text-amber-300';
+    if (status === 'InReview') return 'bg-sky-500/20 text-sky-300';
+    if (status === 'Resolved') return 'bg-emerald-500/20 text-emerald-300';
+    return 'bg-slate-500/20 text-slate-300';
+  }
+}

@@ -1,6 +1,6 @@
 # ─── Métadonnées (non consommées par Docker ; référence intégration Documentation) ───
 # API métier & temps réel : uniquement via api-gateway (hôte 5000 → conteneur 8080).
-# Les frontends nginx proxy /api/ et /hubs/ vers api-gateway — pas d’appel navigateur direct aux backends.
+# Les frontends nginx proxy /api/ et /hubs/ vers api-gateway — pas d'appel navigateur direct aux backends.
 x-documentation-integration:
   public_gateway_base: "http://localhost:5000"
   documentation_api_prefixes: "/api/documentation,/api/generate-document-ai"
@@ -49,7 +49,6 @@ services:
     networks:
       - microservices-network
 
-  # One-shot : insère 2 utilisateurs atlas-tech-demo dans auth_db."Users" après migrations auth-backend.
   auth-atlas-doc-users-seed:
     image: postgres:16-alpine
     container_name: kyntus_seed_auth_atlas_doc_users
@@ -90,7 +89,6 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
-      # Évite les échecs eacces sur .erlang.cookie (souvent vus sous Docker Desktop / WSL2).
       RABBITMQ_ERLANG_COOKIE: kyntus-dev-erlang-cookie
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
@@ -144,31 +142,30 @@ services:
     networks:
       - microservices-network
 
-  # Documentation : HTTP interne 8080 ; exposition hôte 5230 = diagnostic uniquement (métier via gateway :5000).
-  documentation-backend:
-    build:
-      context: .
-      dockerfile: init/DocumentationBackend.Dockerfile
-    container_name: kyntus_documentation_backend
-    restart: unless-stopped
-    environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:8080
-      # Crée le schéma documentation + tables au premier démarrage (init.sql ne contient pas le DDL métier).
-      Documentation__ApplyBootstrapSchema: "true"
-      Documentation__DemoDataSeed: "true"
-      Documentation__DefaultTenantId: "atlas-tech-demo"
-      DocumentationDb__Password: "Documentation@2026"
-      ConnectionStrings__Documentation: "Host=postgres;Port=5432;Database=documentation_db;Username=documentation_user;Password=Documentation@2026"
-    ports:
-      - "5230:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - microservices-network
-# ─── CONGE BACKEND ───────────────────────────────────
-  # ✅ FIX : ajout depends_on rabbitmq + user dédié conge_user
+  # ─── DOCUMENTATION BACKEND (désactivé pour hosting) ──
+  # documentation-backend:
+  #   build:
+  #     context: .
+  #     dockerfile: init/DocumentationBackend.Dockerfile
+  #   container_name: kyntus_documentation_backend
+  #   restart: unless-stopped
+  #   environment:
+  #     ASPNETCORE_ENVIRONMENT: Production
+  #     ASPNETCORE_URLS: http://+:8080
+  #     Documentation__ApplyBootstrapSchema: "true"
+  #     Documentation__DemoDataSeed: "true"
+  #     Documentation__DefaultTenantId: "atlas-tech-demo"
+  #     DocumentationDb__Password: "Documentation@2026"
+  #     ConnectionStrings__Documentation: "Host=postgres;Port=5432;Database=documentation_db;Username=documentation_user;Password=Documentation@2026"
+  #   ports:
+  #     - "5230:8080"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - microservices-network
+
+  # ─── CONGE BACKEND ────────────────────────────────────
   conge-backend:
     build:
       context: ./FormationService
@@ -192,54 +189,53 @@ services:
     networks:
       - microservices-network
 
-  # One-shot : crée prime_db + prime_user si le volume Postgres existait avant l’ajout du bloc PRIME dans init.sql.
-  prime-db-bootstrap:
-    image: postgres:16-alpine
-    container_name: kyntus_prime_db_bootstrap
-    restart: "no"
-    environment:
-      PGPASSWORD: Postgres@2026
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./init/sql/prime_database.sql:/prime_database.sql:ro
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        set -e
-        until pg_isready -h postgres -p 5432 -U postgres -q; do sleep 2; done
-        if psql -h postgres -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'prime_db'" | grep -qx 1; then
-          echo "prime_db: already exists"
-          exit 0
-        fi
-        psql -h postgres -U postgres -v ON_ERROR_STOP=1 -f /prime_database.sql
-        echo "prime_db: created"
-    networks:
-      - microservices-network
+  # ─── PRIME (désactivé pour hosting) ──────────────────
+  # prime-db-bootstrap:
+  #   image: postgres:16-alpine
+  #   container_name: kyntus_prime_db_bootstrap
+  #   restart: "no"
+  #   environment:
+  #     PGPASSWORD: Postgres@2026
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./init/sql/prime_database.sql:/prime_database.sql:ro
+  #   entrypoint: ["/bin/sh", "-c"]
+  #   command:
+  #     - |
+  #       set -e
+  #       until pg_isready -h postgres -p 5432 -U postgres -q; do sleep 2; done
+  #       if psql -h postgres -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'prime_db'" | grep -qx 1; then
+  #         echo "prime_db: already exists"
+  #         exit 0
+  #       fi
+  #       psql -h postgres -U postgres -v ON_ERROR_STOP=1 -f /prime_database.sql
+  #       echo "prime_db: created"
+  #   networks:
+  #     - microservices-network
 
-  prime-backend:
-    build:
-      context: ./PrimeBackend
-      dockerfile: Dockerfile
-    container_name: kyntus_prime_backend
-    restart: unless-stopped
-    environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=prime_db;Username=prime_user;Password=Prime@2026"
-    ports:
-      - "5250:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      prime-db-bootstrap:
-        condition: service_completed_successfully
-    networks:
-      - microservices-network
+  # prime-backend:
+  #   build:
+  #     context: ./PrimeBackend
+  #     dockerfile: Dockerfile
+  #   container_name: kyntus_prime_backend
+  #   restart: unless-stopped
+  #   environment:
+  #     ASPNETCORE_ENVIRONMENT: Production
+  #     ASPNETCORE_URLS: http://+:8080
+  #     ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=prime_db;Username=prime_user;Password=Prime@2026"
+  #   ports:
+  #     - "5250:8080"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     prime-db-bootstrap:
+  #       condition: service_completed_successfully
+  #   networks:
+  #     - microservices-network
 
   # ─── API GATEWAY ──────────────────────────────────────
-  # Point d’entrée unique côté HTTP pour /api/* et /hubs/* (Ocelot : init/ocelot.gateway.json).
   api-gateway:
     build:
       context: ./ApiGateway.API/ApiGateway.API
@@ -262,10 +258,10 @@ services:
         condition: service_started
       formation-backend:
         condition: service_started
-      documentation-backend:
-        condition: service_started
-      prime-backend:
-        condition: service_started
+      # documentation-backend:   # désactivé hosting
+      #   condition: service_started
+      # prime-backend:           # désactivé hosting
+      #   condition: service_started
     networks:
       - microservices-network
 
@@ -299,22 +295,20 @@ services:
     networks:
       - microservices-network
 
-  prime-frontend:
-    build:
-      context: ./prime-angular
-      dockerfile: Dockerfile
-    container_name: kyntus_prime_frontend
-    restart: unless-stopped
-    # Module Prime (Angular) : http://localhost:4202 — pas le port 4200 (planning). Après changement UI : rebuild sans cache.
-    #   docker compose build --no-cache prime-frontend && docker compose up -d prime-frontend
-    # Si 4202 est encore pris par un ancien conteneur : `docker compose down` puis `up`, ou remplacez par ex. "4207:80".
-    ports:
-      - "4202:80"
-    depends_on:
-      api-gateway:
-        condition: service_started
-    networks:
-      - microservices-network
+  # ─── PRIME FRONTEND (désactivé pour hosting) ─────────
+  # prime-frontend:
+  #   build:
+  #     context: ./prime-angular
+  #     dockerfile: Dockerfile
+  #   container_name: kyntus_prime_frontend
+  #   restart: unless-stopped
+  #   ports:
+  #     - "4202:80"
+  #   depends_on:
+  #     api-gateway:
+  #       condition: service_started
+  #   networks:
+  #     - microservices-network
 
   # ─── PGADMIN ──────────────────────────────────────────
   pgadmin:

@@ -47,6 +47,8 @@ public class SupervisorCellulePrimeDraftEntity
 {
     public Guid Id { get; set; }
     public string SupervisorUserId { get; set; } = "";
+    /// <summary>Pôle racine EF (<c>prime_pole</c>) — unicité fiche commune par période.</summary>
+    public string RootPoleId { get; set; } = "";
     public string CelluleId { get; set; } = "";
     public string Period { get; set; } = "";
     public string TemplateId { get; set; } = "";
@@ -120,8 +122,8 @@ public class EmployeeEntity
     public string LastName { get; set; } = "";
     public string Role { get; set; } = "";
     public string? ParentId { get; set; }
-    public string ServiceId { get; set; } = "";
-    public string CelluleId { get; set; } = "";
+    public string? ServiceId { get; set; }
+    public string? CelluleId { get; set; }
     public string PoleId { get; set; } = "";
     public string Email { get; set; } = "";
     public string? Avatar { get; set; }

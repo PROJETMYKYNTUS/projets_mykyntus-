@@ -190,7 +190,6 @@ namespace PrimeBackend.Data.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CelluleId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Email")
@@ -221,7 +220,6 @@ namespace PrimeBackend.Data.Migrations
                         .HasColumnType("character varying(64)");
 
                     b.Property<string>("ServiceId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -576,6 +574,11 @@ namespace PrimeBackend.Data.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<string>("RootPoleId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<string>("SchemaJson")
                         .IsRequired()
                         .HasColumnType("text");
@@ -611,9 +614,13 @@ namespace PrimeBackend.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("RootPoleId");
+
                     b.HasIndex("SupervisorUserId", "Period");
 
-                    b.HasIndex("SupervisorUserId", "CelluleId", "Period", "TemplateId")
+                    b.HasIndex("SupervisorUserId", "CelluleId", "Period", "TemplateId");
+
+                    b.HasIndex("SupervisorUserId", "RootPoleId", "Period")
                         .IsUnique();
 
                     b.ToTable("prime_supervisor_cellule_prime_draft", (string)null);

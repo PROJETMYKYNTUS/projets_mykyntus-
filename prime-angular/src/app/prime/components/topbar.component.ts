@@ -81,6 +81,9 @@ import { Bell, Moon, Search, Settings, Shield, Sun } from 'lucide';
               <option [value]="r">{{ roleLabel[r] }}</option>
             }
           </select>
+          <span class="text-xs text-slate-500 hidden lg:inline truncate max-w-[10rem]" [title]="role.currentUser().email">
+            {{ role.currentUser().firstName }} {{ role.currentUser().lastName }}
+          </span>
         </div>
       </div>
     </header>

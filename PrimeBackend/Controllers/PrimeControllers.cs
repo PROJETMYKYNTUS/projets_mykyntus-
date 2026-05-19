@@ -6,12 +6,32 @@ using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Data;
 using PrimeBackend.Models;
 using PrimeBackend.Dto;
+using PrimeBackend.Infrastructure;
 using PrimeBackend.Services;
 
 [ApiController]
 [Route("api/prime")]
 public class PrimeController(PrimeDbContext? db, PrimeOrgScopeService org) : ControllerBase
 {
+    /// <summary>Diagnostic : vérifie que l’API écoute et que PostgreSQL répond (utile si 502 via gateway).</summary>
+    [HttpGet("health")]
+    public async Task<IActionResult> Health(CancellationToken ct)
+    {
+        if (db is null)
+            return Ok(new { status = "ok", mode = "memory-only" });
+        try
+        {
+            var ok = await db.Database.CanConnectAsync(ct);
+            return ok
+                ? Ok(new { status = "ok", database = "prime_db" })
+                : StatusCode(503, new { status = "db-unreachable" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(503, new { status = "db-error", error = ex.Message });
+        }
+    }
+
     [HttpGet("departments")]
     public async Task<ActionResult<List<Department>>> GetPoles(CancellationToken ct) =>
         db == null
@@ -58,29 +78,50 @@ public class PrimeController(PrimeDbContext? db, PrimeOrgScopeService org) : Con
 
 [ApiController]
 [Route("api/rp")]
-public class RpPrimeController(PrimeInMemoryStore store) : ControllerBase
+public class RpPrimeController(PrimeRpQueryService rpQueries) : ControllerBase
 {
     [HttpGet("assigned-project-ids")]
-    public ActionResult<List<string>> GetAssignedProjectIds([FromQuery] string rpUserId) =>
-        store.GetAssignedProjectIds(rpUserId);
+    public async Task<ActionResult<List<string>>> GetAssignedProjectIds([FromQuery] string rpUserId, CancellationToken ct) =>
+        Ok(await rpQueries.GetAssignedProjectIdsAsync(rpUserId, ct));
 
     [HttpGet("dashboard-stats")]
-    public ActionResult<ChefProjetDashboardStats> GetChefProjetDashboardStats([FromQuery] string rpUserId) =>
-        store.GetChefProjetDashboardStats(rpUserId);
+    public async Task<ActionResult<ChefProjetDashboardStats>> GetChefProjetDashboardStats([FromQuery] string rpUserId, CancellationToken ct) =>
+        Ok(await rpQueries.GetDashboardStatsAsync(rpUserId, ct));
 
     [HttpGet("team-performance")]
-    public ActionResult<List<ChefProjetTeamMemberPerformance>> GetTeamPerformanceByProject([FromQuery] string rpUserId) =>
-        store.GetTeamPerformanceByProject(rpUserId);
+    public async Task<ActionResult<List<ChefProjetTeamMemberPerformance>>> GetTeamPerformanceByProject([FromQuery] string rpUserId, CancellationToken ct) =>
+        Ok(await rpQueries.GetTeamPerformanceByProjectAsync(rpUserId, ct));
 
     [HttpGet("manager-validated")]
-    public ActionResult<List<ChefProjetValidationItem>> GetSuperviseurValidatedPrimes([FromQuery] string rpUserId) =>
-        store.GetSuperviseurValidatedPrimes(rpUserId);
+    public async Task<ActionResult<List<ChefProjetValidationItem>>> GetSuperviseurValidatedPrimes([FromQuery] string rpUserId, CancellationToken ct) =>
+        Ok(await rpQueries.GetSuperviseurValidatedPrimesAsync(rpUserId, ct));
 
     [HttpPut("validations/{id}/status")]
-    public ActionResult<ChefProjetValidationItem> UpdateRpValidationStatus(string id, [FromBody] UpdateChefProjetValidationStatusRequest req)
+    public async Task<ActionResult<ChefProjetValidationItem>> UpdateRpValidationStatus(
+        string id,
+        [FromBody] UpdateChefProjetValidationStatusRequest req,
+        [FromQuery] string? rpUserId,
+        CancellationToken ct)
     {
-        var updated = store.UpdateRpValidationStatus(id, req.Status);
-        return Ok(updated);
+        if (string.IsNullOrWhiteSpace(rpUserId))
+            return BadRequest(new { error = "rpUserId requis." });
+        try
+        {
+            var updated = await rpQueries.UpdateValidationStatusAsync(id, req.Status, rpUserId, ct);
+            return Ok(updated);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 }
 
@@ -142,7 +183,11 @@ public class AuditPrimeController(PrimeInMemoryStore store) : ControllerBase
 
 [ApiController]
 [Route("api/prime/org")]
-public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbContext? db, PrimeOrgScopeService org) : ControllerBase
+public class PrimeOrgAssignmentsController(
+    PrimeInMemoryStore store,
+    PrimeDbContext? db,
+    PrimeOrgScopeService org,
+    IConfiguration configuration) : ControllerBase
 {
     private static string NewPersistedOrgId(string prefix)
     {
@@ -174,6 +219,12 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbCont
             await store.PushEmployeeOrgStateToDatabaseAsync(db, ct);
             await tx.CommitAsync(ct);
         }
+        catch (DbUpdateException ex)
+        {
+            await tx.RollbackAsync(ct);
+            store.HydrateOrganizationFromDatabase(db);
+            throw new InvalidOperationException(DbExceptionMessages.FromSaveChanges(ex), ex);
+        }
         catch
         {
             await tx.RollbackAsync(ct);
@@ -202,6 +253,18 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbCont
             .OrderBy(c => c.PoleId).ThenBy(c => c.Id)
             .Select(c => new CelluleNode { Id = c.Id, Name = c.Name, PoleId = c.PoleId })
             .ToListAsync(ct));
+    }
+
+    /// <summary>Cellules supervisées et services (structure RH) pour les écrans indicateurs / filtres.</summary>
+    [HttpGet("supervisor-scope")]
+    public async Task<ActionResult<List<SupervisorOrgScopeCelluleDto>>> GetSupervisorScope(
+        [FromQuery] string supervisorUserId,
+        CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        if (string.IsNullOrWhiteSpace(supervisorUserId))
+            return BadRequest(new { error = "supervisorUserId est requis." });
+        return Ok(await org.GetSupervisorOrganizationalScopeAsync(supervisorUserId, ct));
     }
 
     [HttpGet("sous-services")]
@@ -397,7 +460,8 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbCont
                 id = NewPersistedOrgId("d");
             db.Poles.Add(new PoleEntity { Id = id, Name = name });
             await db.SaveChangesAsync(ct);
-            await org.EnsureRootPoleHasMinimalChildrenAsync(id, ct);
+            if (configuration.GetValue("Prime:AutoCreateMinimalOrg", false))
+                await org.EnsureRootPoleHasMinimalChildrenAsync(id, ct);
             store.HydrateOrganizationFromDatabase(db);
             return Ok(new Department { Id = id, Name = name, Poles = [] });
         }
@@ -498,10 +562,7 @@ public class PrimeOrgAssignmentsController(PrimeInMemoryStore store, PrimeDbCont
         {
             if (body is null || string.IsNullOrWhiteSpace(body.EmployeeId))
                 return BadRequest(new { error = "employeeId est requis." });
-            await ExecuteOrgStructureMutationAsync(
-                ct,
-                () => store.SetManagerForDepartment(body.EmployeeId, poleId),
-                async () => await org.EnsureRootPoleHasMinimalChildrenAsync(poleId, ct));
+            await ExecuteOrgStructureMutationAsync(ct, () => store.SetManagerForDepartment(body.EmployeeId, poleId));
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }

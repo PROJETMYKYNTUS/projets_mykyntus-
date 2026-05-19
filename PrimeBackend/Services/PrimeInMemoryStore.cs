@@ -650,50 +650,83 @@ public class PrimeInMemoryStore
         return d;
     }
 
-    /// <summary>Premier pôle, première cellule, première équipe du département (ordre stable des listes).</summary>
-    private static (Department Dept, Pole Pole, Cellule Cell, Service Team) GetFirstTeamAnchorInDepartment(Department dept)
+    /// <summary>Premier enfant structurel du pôle racine (legacy : Pole→Cellule→Service), si présent.</summary>
+    private static bool TryGetFirstChildStructure(
+        Department dept,
+        out Pole legacyCellule,
+        out Cellule? legacyServiceLeaf,
+        out Service? legacyTeam)
     {
-        var pole = dept.Poles.FirstOrDefault()
-            ?? throw new InvalidOperationException(
-                $"Le pôle racine « {dept.Name} » (id {dept.Id}) n’a encore aucune cellule en dessous. "
-                + "Ajoutez une cellule puis un service depuis les onglets « Cellules » ou « Structure », puis réessayez.");
-        var cell = pole.Cells.FirstOrDefault()
-            ?? throw new InvalidOperationException(
-                $"La cellule « {pole.Name} » (id {pole.Id}) n’a aucun service feuille. Complétez la structure depuis l’onglet « Structure ».");
-        var team = cell.Services.FirstOrDefault()
-            ?? throw new InvalidOperationException(
-                $"Le service « {cell.Name} » (id {cell.Id}) n’a pas d’équipe par défaut : complétez la structure depuis l’onglet « Structure ».");
+        legacyCellule = null!;
+        legacyServiceLeaf = null;
+        legacyTeam = null;
+        var pole = dept.Poles.FirstOrDefault();
+        if (pole is null) return false;
+        legacyCellule = pole;
+        legacyServiceLeaf = pole.Cells.FirstOrDefault();
+        legacyTeam = legacyServiceLeaf?.Services.FirstOrDefault();
+        return true;
+    }
+
+    private (Department Dept, Pole Pole, Cellule Cell, Service Team) GetFirstTeamAnchorInDepartment(Department dept)
+    {
+        if (!TryGetFirstChildStructure(dept, out var pole, out var cell, out var team) || cell is null || team is null)
+            throw new InvalidOperationException(
+                $"Le pôle racine « {dept.Name} » (id {dept.Id}) n’a pas encore de cellule/service en dessous. "
+                + "Vous pouvez tout de même affecter un chef de projet ; complétez la structure pour ancrer les pilotes.");
         return (dept, pole, cell, team);
     }
 
     private (Department Dept, Pole Pole, Cellule Cell, Service Team) GetFirstTeamPathInDepartment(string poleId) =>
         GetFirstTeamAnchorInDepartment(RequireDepartment(poleId));
 
-    private (Department Dept, Pole Pole, Cellule Cell, Service Team) ResolveCellulePath(string serviceId)
+    private bool TryResolveCellulePath(
+        string serviceOrCelluleId,
+        out Department dept,
+        out Pole legacyCellule,
+        out Cellule legacyServiceLeaf,
+        out Service? legacyTeam)
     {
+        dept = null!;
+        legacyCellule = null!;
+        legacyServiceLeaf = null!;
+        legacyTeam = null;
+        var key = serviceOrCelluleId.Trim();
         foreach (var d in _departments)
         {
             foreach (var p in d.Poles)
             {
-                var c = p.Cells.FirstOrDefault(x => x.Id == serviceId.Trim());
+                var c = p.Cells.FirstOrDefault(x => x.Id == key);
                 if (c is null) continue;
-                var team = c.Services.FirstOrDefault() ?? throw new InvalidOperationException("Cellule sans équipe.");
-                return (d, p, c, team);
+                dept = d;
+                legacyCellule = p;
+                legacyServiceLeaf = c;
+                legacyTeam = c.Services.FirstOrDefault();
+                return true;
             }
         }
-        throw new KeyNotFoundException("Cellule introuvable.");
+        return false;
     }
 
-    private (Department Dept, Pole Pole, Cellule Cell, Service Team) GetFirstTeamPathInPole(string celluleId)
+    private (Department Dept, Pole Pole, Cellule Cell, Service Team) ResolveCellulePath(string serviceId)
     {
-        var (dept, pole) = GetDepartmentForPole(celluleId);
-        var cell = pole.Cells.FirstOrDefault()
-            ?? throw new InvalidOperationException(
-                $"La cellule « {pole.Name} » (id {pole.Id}) n’a aucun service feuille. Ajoutez un service depuis l’onglet « Structure ».");
-        var team = cell.Services.FirstOrDefault()
-            ?? throw new InvalidOperationException(
-                $"Le service « {cell.Name} » (id {cell.Id}) n’a pas d’équipe par défaut.");
-        return (dept, pole, cell, team);
+        if (!TryResolveCellulePath(serviceId, out var dept, out var pole, out var cell, out var team))
+            throw new KeyNotFoundException("Cellule introuvable.");
+        return (dept, pole, cell, team ?? new Service { Id = cell.Id, Name = cell.Name, CelluleId = pole.Id, ServiceId = cell.Id });
+    }
+
+    private static void ApplyPiloteFallback(
+        Employee emp,
+        string rootPoleId,
+        string? legacyCelluleId,
+        string? legacyServiceLeafId,
+        string? parentId)
+    {
+        emp.Role = "Pilote";
+        emp.PoleId = rootPoleId;
+        emp.CelluleId = legacyCelluleId;
+        emp.ServiceId = legacyServiceLeafId;
+        emp.ParentId = parentId;
     }
 
     private (Department Dept, Pole Pole) GetDepartmentForPole(string celluleId)
@@ -725,6 +758,9 @@ public class PrimeInMemoryStore
             ?.Id;
     }
 
+    private static string? NormalizeOrgFk(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
     /// <summary>Pousse les champs d’organisation des employés du store vers PostgreSQL (rôle, rattachements, parent).</summary>
     public async Task PushEmployeeOrgStateToDatabaseAsync(PrimeDbContext db, CancellationToken ct = default)
     {
@@ -735,10 +771,10 @@ public class PrimeInMemoryStore
             var m = _employees.FirstOrDefault(x => x.Id == ent.Id);
             if (m is null) continue;
             ent.Role = m.Role;
-            ent.ParentId = m.ParentId;
-            ent.PoleId = m.PoleId;
-            ent.CelluleId = m.CelluleId;
-            ent.ServiceId = m.ServiceId;
+            ent.ParentId = NormalizeOrgFk(m.ParentId);
+            ent.PoleId = m.PoleId?.Trim() ?? "";
+            ent.CelluleId = NormalizeOrgFk(m.CelluleId);
+            ent.ServiceId = NormalizeOrgFk(m.ServiceId);
         }
 
         await db.SaveChangesAsync(ct);
@@ -830,20 +866,23 @@ public class PrimeInMemoryStore
     private void DemoteExistingChefProjetOnRootPole(string rootPoleId, string exceptEmployeeId)
     {
         var key = rootPoleId.Trim();
+        var dept = RequireDepartment(key);
         foreach (var old in _employees.Where(e =>
                      string.Equals(e.Role, "Chef de projet", StringComparison.Ordinal) &&
                      string.Equals(e.PoleId, key, StringComparison.Ordinal) &&
                      !string.Equals(e.Id, exceptEmployeeId, StringComparison.Ordinal))
                  .ToList())
         {
-            var (d0, p0, c0, _) = GetFirstTeamPathInDepartment(key);
-            var coach = GetReferentTechniqueUserIdForCellule(c0.Id);
-            var sup = GetSupervisorUserIdForPole(p0.Id);
-            old.Role = "Pilote";
-            old.PoleId = d0.Id;
-            old.CelluleId = p0.Id;
-            old.ServiceId = c0.Id;
-            old.ParentId = coach ?? sup;
+            string? parent = null;
+            string? cellId = null;
+            string? svcId = null;
+            if (TryGetFirstChildStructure(dept, out var p0, out var c0, out _))
+            {
+                cellId = p0.Id;
+                svcId = c0?.Id;
+                parent = (c0 is not null ? GetReferentTechniqueUserIdForCellule(c0.Id) : null) ?? GetSupervisorUserIdForPole(p0.Id);
+            }
+            ApplyPiloteFallback(old, dept.Id, cellId, svcId, parent);
             _managerEtageAssignments.RemoveAll(a => a.UserId == old.Id && a.PoleId == key);
         }
     }
@@ -858,13 +897,15 @@ public class PrimeInMemoryStore
                      !string.Equals(e.Id, exceptEmployeeId, StringComparison.Ordinal))
                  .ToList())
         {
-            var cell0 = pole.Cells.FirstOrDefault() ?? throw new InvalidOperationException("Pôle sans cellule.");
-            var coach = GetReferentTechniqueUserIdForCellule(cell0.Id);
-            old.Role = "Pilote";
-            old.PoleId = dept.Id;
-            old.CelluleId = pole.Id;
-            old.ServiceId = cell0.Id;
-            old.ParentId = coach ?? GetManagerUserIdForDepartment(dept.Id);
+            var cell0 = pole.Cells.FirstOrDefault();
+            string? parent = GetManagerUserIdForDepartment(dept.Id);
+            string? svcId = null;
+            if (cell0 is not null)
+            {
+                parent = GetReferentTechniqueUserIdForCellule(cell0.Id) ?? parent;
+                svcId = cell0.Id;
+            }
+            ApplyPiloteFallback(old, dept.Id, pole.Id, svcId, parent);
             _supervisorServiceAssignments.RemoveAll(a => a.UserId == old.Id && a.ServiceId == key);
         }
     }
@@ -913,25 +954,34 @@ public class PrimeInMemoryStore
         {
             if (string.Equals(row.UserId, emp.Id, StringComparison.Ordinal)) continue;
             var old = RequireEmployee(row.UserId);
-            var (d0, p0, c0, t0) = GetFirstTeamPathInDepartment(deptKey);
-            var coach = GetReferentTechniqueUserIdForCellule(c0.Id);
-            var sup = GetSupervisorUserIdForPole(p0.Id);
-            old.Role = "Pilote";
-            old.PoleId = d0.Id;
-            old.CelluleId = p0.Id;
-            old.ServiceId = c0.Id;
-            old.ParentId = coach ?? sup;
+            string? parent = null;
+            string? cellId = null;
+            string? svcId = null;
+            if (TryGetFirstChildStructure(dept, out var p0, out var c0, out _))
+            {
+                cellId = p0.Id;
+                svcId = c0?.Id;
+                parent = (c0 is not null ? GetReferentTechniqueUserIdForCellule(c0.Id) : null) ?? GetSupervisorUserIdForPole(p0.Id);
+            }
+            ApplyPiloteFallback(old, dept.Id, cellId, svcId, parent);
             _managerEtageAssignments.Remove(row);
         }
 
         StripOrgStructureAssignmentsForUser(emp.Id);
 
-        var (d, p, c, t) = GetFirstTeamAnchorInDepartment(dept);
         var parentChef = GetFirstChefProjetIdExcluding(emp.Id);
         emp.Role = "Chef de projet";
-        emp.PoleId = d.Id;
-        emp.CelluleId = p.Id;
-        emp.ServiceId = c.Id;
+        emp.PoleId = deptKey;
+        if (TryGetFirstChildStructure(dept, out var legCell, out var legSvc, out _))
+        {
+            emp.CelluleId = legCell.Id;
+            emp.ServiceId = legSvc?.Id;
+        }
+        else
+        {
+            emp.CelluleId = null;
+            emp.ServiceId = null;
+        }
         emp.ParentId = parentChef;
 
         if (!_managerEtageAssignments.Any(a => a.UserId == emp.Id && a.PoleId == deptKey))
@@ -945,14 +995,17 @@ public class PrimeInMemoryStore
         if (string.IsNullOrWhiteSpace(existingId)) return;
         var old = RequireEmployee(existingId);
         _managerEtageAssignments.RemoveAll(a => a.PoleId == deptKey);
-        var (d0, p0, c0, t0) = GetFirstTeamPathInDepartment(deptKey);
-        var coach = GetReferentTechniqueUserIdForCellule(c0.Id);
-        var sup = GetSupervisorUserIdForPole(p0.Id);
-        old.Role = "Pilote";
-        old.PoleId = d0.Id;
-        old.CelluleId = p0.Id;
-        old.ServiceId = c0.Id;
-        old.ParentId = coach ?? sup;
+        var dept = RequireDepartment(deptKey);
+        string? parent = null;
+        string? cellId = null;
+        string? svcId = null;
+        if (TryGetFirstChildStructure(dept, out var p0, out var c0, out _))
+        {
+            cellId = p0.Id;
+            svcId = c0?.Id;
+            parent = (c0 is not null ? GetReferentTechniqueUserIdForCellule(c0.Id) : null) ?? GetSupervisorUserIdForPole(p0.Id);
+        }
+        ApplyPiloteFallback(old, dept.Id, cellId, svcId, parent);
     }
 
     /// <summary>Remplace le superviseur du pôle (un seul actif).</summary>
@@ -970,25 +1023,22 @@ public class PrimeInMemoryStore
         {
             if (string.Equals(row.UserId, emp.Id, StringComparison.Ordinal)) continue;
             var old = RequireEmployee(row.UserId);
-            var cell0 = pole.Cells.FirstOrDefault() ?? throw new InvalidOperationException("Pôle sans cellule.");
-            var team0 = cell0.Services.FirstOrDefault() ?? throw new InvalidOperationException("Cellule sans équipe.");
-            var coach = GetReferentTechniqueUserIdForCellule(cell0.Id);
-            old.Role = "Pilote";
-            old.PoleId = dept.Id;
-            old.CelluleId = pole.Id;
-            old.ServiceId = cell0.Id;
-            old.ParentId = coach ?? GetManagerUserIdForDepartment(dept.Id);
+            var cell0 = pole.Cells.FirstOrDefault();
+            string? parent = GetManagerUserIdForDepartment(dept.Id);
+            string? svcId = cell0?.Id;
+            if (cell0 is not null)
+                parent = GetReferentTechniqueUserIdForCellule(cell0.Id) ?? parent;
+            ApplyPiloteFallback(old, dept.Id, pole.Id, svcId, parent);
             _supervisorServiceAssignments.Remove(row);
         }
 
         StripOrgStructureAssignmentsForUser(emp.Id);
 
-        var cell = pole.Cells.FirstOrDefault() ?? throw new InvalidOperationException("Pôle sans cellule.");
-        var team = cell.Services.FirstOrDefault() ?? throw new InvalidOperationException("Cellule sans équipe.");
+        var cell = pole.Cells.FirstOrDefault();
         emp.Role = "Superviseur";
         emp.PoleId = dept.Id;
         emp.CelluleId = pole.Id;
-        emp.ServiceId = cell.Id;
+        emp.ServiceId = cell?.Id;
         emp.ParentId = GetManagerUserIdForDepartment(dept.Id);
 
         if (!_supervisorServiceAssignments.Any(a => a.UserId == emp.Id && a.ServiceId == poleKey))
@@ -1003,14 +1053,11 @@ public class PrimeInMemoryStore
         var (dept, pole) = GetDepartmentForPole(poleKey);
         var old = RequireEmployee(existingId);
         _supervisorServiceAssignments.RemoveAll(a => a.ServiceId == poleKey);
-        var cell0 = pole.Cells.FirstOrDefault() ?? throw new InvalidOperationException("Pôle sans cellule.");
-        var team0 = cell0.Services.FirstOrDefault() ?? throw new InvalidOperationException("Cellule sans équipe.");
-        var coach = GetReferentTechniqueUserIdForCellule(cell0.Id);
-        old.Role = "Pilote";
-        old.PoleId = dept.Id;
-        old.CelluleId = pole.Id;
-        old.ServiceId = cell0.Id;
-        old.ParentId = coach ?? GetManagerUserIdForDepartment(dept.Id);
+        var cell0 = pole.Cells.FirstOrDefault();
+        string? parent = GetManagerUserIdForDepartment(dept.Id);
+        if (cell0 is not null)
+            parent = GetReferentTechniqueUserIdForCellule(cell0.Id) ?? parent;
+        ApplyPiloteFallback(old, dept.Id, pole.Id, cell0?.Id, parent);
     }
 
     /// <summary>Remplace le coach de la cellule (un seul actif).</summary>
@@ -1019,7 +1066,8 @@ public class PrimeInMemoryStore
         var emp = RequireEmployee(employeeId);
         if (IsProtectedStructureRole(emp.Role))
             throw new InvalidOperationException("Ce profil (RH / Admin / Audit) ne peut pas recevoir une affectation structurelle.");
-        var (dept, pole, cell, team) = ResolveCellulePath(serviceId);
+        if (!TryResolveCellulePath(serviceId, out var dept, out var pole, out var cell, out _))
+            throw new KeyNotFoundException("Cellule ou service introuvable.");
         var cellKey = cell.Id;
 
         DemoteExistingReferentOnService(serviceId, emp.Id);
@@ -1110,7 +1158,7 @@ public class PrimeInMemoryStore
             .ToHashSet();
 
         var visibleEmployeeIds = _employees
-            .Where(e => allowedServiceIds.Contains(e.CelluleId))
+            .Where(e => e.CelluleId is not null && allowedServiceIds.Contains(e.CelluleId))
             .Select(e => e.Id)
             .ToHashSet();
 

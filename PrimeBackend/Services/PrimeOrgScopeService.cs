@@ -58,8 +58,8 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
         if (db == null) return new HashSet<string>(StringComparer.Ordinal);
         var u = supervisorUserId.Trim();
         var rows = await db.Employees.AsNoTracking()
-            .Where(e => e.Id == u && e.Role == "Superviseur")
-            .Select(e => e.CelluleId)
+            .Where(e => e.Id == u && e.Role == "Superviseur" && e.CelluleId != null)
+            .Select(e => e.CelluleId!)
             .Distinct()
             .ToListAsync(ct);
         return rows.ToHashSet(StringComparer.Ordinal);
@@ -323,4 +323,63 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
         db.Services.Add(new ServiceEntity { Id = srvId, Name = "Service principal", CelluleId = targetCell.Id });
         await db.SaveChangesAsync(ct);
     }
+
+    /// <summary>Résout le pôle racine EF (<c>prime_pole</c>) à partir d’un id cellule (<c>prime_cellule</c>).</summary>
+    public async Task<string?> ResolveRootPoleIdForCelluleAsync(string celluleId, CancellationToken ct = default)
+    {
+        if (db == null) return null;
+        var key = celluleId.Trim();
+        var fromCellule = await db.Cellules.AsNoTracking()
+            .Where(c => c.Id == key)
+            .Select(c => c.PoleId)
+            .FirstOrDefaultAsync(ct);
+        if (!string.IsNullOrWhiteSpace(fromCellule))
+            return fromCellule;
+        var isRootPole = await db.Poles.AsNoTracking().AnyAsync(p => p.Id == key, ct);
+        return isRootPole ? key : null;
+    }
+
+    /// <summary>Cellules supervisées (RH) et services enfants — pour indicateurs et filtres UI.</summary>
+    public async Task<List<SupervisorOrgScopeCelluleDto>> GetSupervisorOrganizationalScopeAsync(
+        string supervisorUserId,
+        CancellationToken ct = default)
+    {
+        if (db == null) return [];
+        var celluleIds = await GetSupervisedCelluleIdsAsync(supervisorUserId, ct);
+        if (celluleIds.Count == 0) return [];
+
+        var cellules = await db.Cellules.AsNoTracking()
+            .Where(c => celluleIds.Contains(c.Id))
+            .OrderBy(c => c.Name)
+            .ToListAsync(ct);
+
+        var services = await db.Services.AsNoTracking()
+            .Where(s => celluleIds.Contains(s.CelluleId))
+            .OrderBy(s => s.Name)
+            .ToListAsync(ct);
+
+        return cellules.Select(c => new SupervisorOrgScopeCelluleDto
+        {
+            Id = c.Id,
+            Name = c.Name,
+            RootPoleId = c.PoleId,
+            Services = services.Where(s => s.CelluleId == c.Id)
+                .Select(s => new SupervisorOrgScopeServiceDto { Id = s.Id, Name = s.Name })
+                .ToList(),
+        }).ToList();
+    }
+}
+
+public sealed class SupervisorOrgScopeCelluleDto
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string RootPoleId { get; set; } = "";
+    public List<SupervisorOrgScopeServiceDto> Services { get; set; } = [];
+}
+
+public sealed class SupervisorOrgScopeServiceDto
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
 }

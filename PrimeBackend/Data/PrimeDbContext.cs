@@ -76,9 +76,12 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.HasIndex(x => x.ServiceId);
             e.HasIndex(x => x.PoleId);
             e.HasIndex(x => x.CelluleId);
+            e.Property(x => x.CelluleId).IsRequired(false);
+            e.Property(x => x.ServiceId).IsRequired(false);
             e.HasOne<ServiceEntity>()
                 .WithMany()
                 .HasForeignKey(x => x.ServiceId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -104,6 +107,7 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.ToTable("prime_supervisor_cellule_prime_draft");
             e.HasKey(x => x.Id);
             e.Property(x => x.SupervisorUserId).HasMaxLength(128);
+            e.Property(x => x.RootPoleId).HasMaxLength(128);
             e.Property(x => x.CelluleId).HasMaxLength(128);
             e.Property(x => x.Period).HasMaxLength(16);
             e.Property(x => x.TemplateId).HasMaxLength(128);
@@ -115,7 +119,12 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.Property(x => x.GlobalPoolRhApprovedByUserId).HasMaxLength(128);
             e.Property(x => x.GlobalPoolComptaAckByUserId).HasMaxLength(128);
             e.HasIndex(x => new { x.SupervisorUserId, x.Period });
-            e.HasIndex(x => new { x.SupervisorUserId, x.CelluleId, x.Period, x.TemplateId }).IsUnique();
+            e.HasIndex(x => new { x.SupervisorUserId, x.RootPoleId, x.Period }).IsUnique();
+            e.HasIndex(x => new { x.SupervisorUserId, x.CelluleId, x.Period, x.TemplateId });
+            e.HasOne<PoleEntity>()
+                .WithMany()
+                .HasForeignKey(x => x.RootPoleId)
+                .OnDelete(DeleteBehavior.Restrict);
             e.HasMany(x => x.GlobalPoolApprovals)
                 .WithOne(x => x.Draft)
                 .HasForeignKey(x => x.DraftId)

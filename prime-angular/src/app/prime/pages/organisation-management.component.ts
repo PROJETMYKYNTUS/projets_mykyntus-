@@ -25,6 +25,8 @@ import {
   type OrgAssignmentsOverview,
 } from '../services/prime-org-api.service';
 import type { Department, Employee, LegacyCellule as Cellule, LegacyPole as Pole, Role, Team } from '../models';
+import { employeesForSelect, selectValueOrEmpty } from '../lib/prime-select-options';
+import { RoleService } from '../state/role.service';
 
 const PROTECTED_ROLES: readonly Role[] = ['RH', 'Admin', 'Audit', 'RP', 'Chef de projet'];
 
@@ -187,11 +189,11 @@ function httpErrMessage(err: unknown): string {
                         <td class="px-4 py-3">
                           <select
                             class="w-full max-w-xs rounded-lg border border-navy-700 bg-navy-950 px-2 py-2 text-slate-200"
-                            [value]="draftManagerDept(dept.id)"
+                            [value]="selectManagerValue(dept.id)"
                             (change)="patchDraftManager(dept.id, selectVal($event))"
                           >
                             <option value="">— Choisir —</option>
-                            @for (e of assignableEmployees(); track e.id) {
+                            @for (e of employeesForManagerRow(dept.id); track e.id) {
                               <option [value]="e.id">{{ e.firstName }} {{ e.lastName }} ({{ e.role }})</option>
                             }
                           </select>
@@ -261,8 +263,7 @@ function httpErrMessage(err: unknown): string {
                 </button>
               </div>
               <p class="px-4 sm:px-6 pb-3 text-xs text-slate-500 border-b border-navy-800 bg-navy-950/40">
-                Un pôle sans cellule ne permet pas encore d’affecter un superviseur : créez au moins une cellule sous ce
-                pôle.
+                Vous pouvez affecter un superviseur dès qu’une cellule existe ; les services peuvent être ajoutés ensuite.
               </p>
               <div class="overflow-x-auto -m-6">
                 <table class="w-full text-sm text-left">
@@ -284,11 +285,11 @@ function httpErrMessage(err: unknown): string {
                         <td class="px-4 py-3">
                           <select
                             class="w-full max-w-xs rounded-lg border border-navy-700 bg-navy-950 px-2 py-2 text-slate-200"
-                            [value]="draftSupervisorPole(row.poleId)"
+                            [value]="selectSupervisorValue(row.poleId)"
                             (change)="patchDraftSupervisor(row.poleId, selectVal($event))"
                           >
                             <option value="">— Choisir —</option>
-                            @for (e of assignableEmployees(); track e.id) {
+                            @for (e of employeesForSupervisorRow(row.poleId); track e.id) {
                               <option [value]="e.id">{{ e.firstName }} {{ e.lastName }} ({{ e.role }})</option>
                             }
                           </select>
@@ -416,11 +417,11 @@ function httpErrMessage(err: unknown): string {
                         <td class="px-4 py-3">
                           <select
                             class="w-full max-w-xs rounded-lg border border-navy-700 bg-navy-950 px-2 py-2 text-slate-200"
-                            [value]="draftCoachCell(row.celluleId)"
+                            [value]="selectCoachValue(row.celluleId)"
                             (change)="patchDraftCoach(row.celluleId, selectVal($event))"
                           >
                             <option value="">— Choisir —</option>
-                            @for (e of assignableEmployees(); track e.id) {
+                            @for (e of employeesForCoachRow(row.celluleId); track e.id) {
                               <option [value]="e.id">{{ e.firstName }} {{ e.lastName }} ({{ e.role }})</option>
                             }
                           </select>
@@ -473,12 +474,12 @@ function httpErrMessage(err: unknown): string {
                             <div class="flex flex-wrap gap-2 items-end max-w-lg">
                               <select
                                 class="flex-1 min-w-[160px] rounded-lg border border-navy-700 bg-navy-900 px-2 py-2 text-sm text-slate-200"
-                                [value]="draftPilotCell(row.celluleId)"
+                                [value]="selectPilotValue(row.celluleId)"
                                 (change)="patchDraftPilotCell(row.celluleId, selectVal($event))"
                                 [disabled]="!coachUserId(row.celluleId)"
                               >
                                 <option value="">— Pilote —</option>
-                                @for (e of assignableEmployees(); track e.id) {
+                                @for (e of employeesForPilotRow(row.celluleId); track e.id) {
                                   <option [value]="e.id">{{ e.firstName }} {{ e.lastName }}</option>
                                 }
                               </select>
@@ -1105,6 +1106,7 @@ function httpErrMessage(err: unknown): string {
 })
 export class OrganisationManagementComponent implements OnInit {
   private readonly orgApi = inject(PrimeOrgApiService);
+  private readonly role = inject(RoleService);
 
   readonly icons = {
     refresh: RefreshCw,
@@ -1161,6 +1163,7 @@ export class OrganisationManagementComponent implements OnInit {
   readonly structureActivityLog = signal<StructureLogEntry[]>([]);
 
   ngOnInit(): void {
+    this.role.preferRhForOrgScreen();
     this.load(false);
   }
 
@@ -1490,6 +1493,42 @@ export class OrganisationManagementComponent implements OnInit {
 
   draftPilotTeamCell(id: string): string {
     return this.draftPilotTeamByCell()[id] ?? '';
+  }
+
+  employeesForManagerRow(deptId: string): Employee[] {
+    return employeesForSelect(this.assignableEmployees(), this.draftManagerDept(deptId));
+  }
+
+  employeesForSupervisorRow(poleId: string): Employee[] {
+    return employeesForSelect(this.assignableEmployees(), this.draftSupervisorPole(poleId));
+  }
+
+  employeesForCoachRow(cellId: string): Employee[] {
+    return employeesForSelect(this.assignableEmployees(), this.draftCoachCell(cellId));
+  }
+
+  selectManagerValue(deptId: string): string {
+    const opts = this.employeesForManagerRow(deptId).map((e) => e.id);
+    return selectValueOrEmpty(this.draftManagerDept(deptId), opts);
+  }
+
+  selectSupervisorValue(poleId: string): string {
+    const opts = this.employeesForSupervisorRow(poleId).map((e) => e.id);
+    return selectValueOrEmpty(this.draftSupervisorPole(poleId), opts);
+  }
+
+  selectCoachValue(cellId: string): string {
+    const opts = this.employeesForCoachRow(cellId).map((e) => e.id);
+    return selectValueOrEmpty(this.draftCoachCell(cellId), opts);
+  }
+
+  employeesForPilotRow(cellId: string): Employee[] {
+    return employeesForSelect(this.assignableEmployees(), this.draftPilotCell(cellId));
+  }
+
+  selectPilotValue(cellId: string): string {
+    const opts = this.employeesForPilotRow(cellId).map((e) => e.id);
+    return selectValueOrEmpty(this.draftPilotCell(cellId), opts);
   }
 
   patchDraftManager(deptId: string, value: string): void {

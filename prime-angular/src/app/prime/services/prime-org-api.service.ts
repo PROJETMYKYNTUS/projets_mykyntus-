@@ -54,6 +54,18 @@ export interface CoachPilotLinkDto {
   pilotUserId: string;
 }
 
+export interface SupervisorOrgScopeService {
+  id: string;
+  name: string;
+}
+
+export interface SupervisorOrgScopeCellule {
+  id: string;
+  name: string;
+  rootPoleId: string;
+  services: SupervisorOrgScopeService[];
+}
+
 export interface OrgAssignmentsOverview {
   etages: EtageNodeDto[];
   services: ServiceNodeDto[];
@@ -69,6 +81,11 @@ export interface OrgAssignmentsOverview {
 @Injectable({ providedIn: 'root' })
 export class PrimeOrgApiService {
   private readonly http = inject(HttpClient);
+
+  getSupervisorScope(supervisorUserId: string): Observable<SupervisorOrgScopeCellule[]> {
+    const params = { supervisorUserId };
+    return this.http.get<SupervisorOrgScopeCellule[]>(`${orgBase}/supervisor-scope`, { params });
+  }
 
   loadOverview(): Observable<OrgAssignmentsOverview> {
     return forkJoin({

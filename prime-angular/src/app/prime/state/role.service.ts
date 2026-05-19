@@ -1,5 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import type { Employee, Role } from '../models';
+import { PRIME_AUTHORIZED_ROLES } from '../models';
 import { primeApiGet } from '../services/prime-http';
 
 /** Utilisé uniquement si la liste employés est vide ou sans correspondance de rôle (ex. chargement initial). */
@@ -14,9 +15,11 @@ const fallbackUser: Employee = {
   email: 'admin@local',
 };
 
+const ROLE_STORAGE_KEY = 'prime.demoRole';
+
 @Injectable({ providedIn: 'root' })
 export class RoleService {
-  readonly currentRole = signal<Role>('Superviseur');
+  readonly currentRole = signal<Role>(RoleService.readStoredRole());
   readonly employees = signal<Employee[]>([]);
 
   readonly currentUser = computed<Employee>(() => {
@@ -49,5 +52,25 @@ export class RoleService {
 
   setRole(role: Role): void {
     this.currentRole.set(role);
+    try {
+      sessionStorage.setItem(ROLE_STORAGE_KEY, role);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Rôle par défaut pour l’écran Organisation RH. */
+  preferRhForOrgScreen(): void {
+    if (this.currentRole() !== 'RH') this.setRole('RH');
+  }
+
+  private static readStoredRole(): Role {
+    try {
+      const saved = sessionStorage.getItem(ROLE_STORAGE_KEY) as Role | null;
+      if (saved && PRIME_AUTHORIZED_ROLES.includes(saved)) return saved;
+    } catch {
+      /* ignore */
+    }
+    return 'Superviseur';
   }
 }

@@ -147,9 +147,10 @@ export const RpPrimeService = {
   ) => {
     const scope = await combinedRpPiloteScope(rpUserId, drill);
     if (scope === null) throw new Error('Selection Manager/Coach requise');
-    const item = await primeApiPut<RpValidationItem>(`/api/rp/validations/${encodeURIComponent(id)}/status`, {
-      status,
-    });
+    const item = await primeApiPut<RpValidationItem>(
+      `/api/rp/validations/${encodeURIComponent(id)}/status?rpUserId=${encodeURIComponent(rpUserId)}`,
+      { status },
+    );
     if (!scope.has(item.employeeId)) throw new Error('Acces refuse hors perimetre hierarchique');
     return item;
   },

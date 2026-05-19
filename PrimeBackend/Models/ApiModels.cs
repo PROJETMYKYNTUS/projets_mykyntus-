@@ -108,10 +108,10 @@ public class Employee
     public string Role { get; set; } = "";
     /// <summary>Supérieur hiérarchique ; autorité descendante : Chef de projet → Superviseur → Référent technique → Pilote (Pilote = employé en rôle Pilote).</summary>
     public string? ParentId { get; set; }
-    public string ServiceId { get; set; } = "";
+    public string? ServiceId { get; set; }
     /// <summary>Pôle → Cellule → Service (aligné sur la structure organisationnelle).</summary>
     public string PoleId { get; set; } = "";
-    public string CelluleId { get; set; } = "";
+    public string? CelluleId { get; set; }
     public string Email { get; set; } = "";
     public string? Avatar { get; set; }
 }

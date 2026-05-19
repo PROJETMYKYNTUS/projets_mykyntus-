@@ -287,6 +287,7 @@ export class PrimeLayoutComponent {
   /** Zone principale « dashboard embarqué » : Admin, Audit, RP legacy (shell sectionné). */
   readonly isAdminRpOrAudit = computed(() => {
     const r = this.role.currentRole();
+    if (r === 'Admin' && this.currentView() === '/rh/organisation') return false;
     return r === 'Admin' || r === 'RP' || r === 'Audit';
   });
 

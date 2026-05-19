@@ -26,6 +26,11 @@ import {
   type PutServicePrimeIndicatorItem,
   type ServicePrimeIndicatorDto,
 } from '../services/prime-cell-prime-api.service';
+import {
+  PrimeOrgApiService,
+  type SupervisorOrgScopeCellule,
+} from '../services/prime-org-api.service';
+import { selectValueOrEmpty } from '../lib/prime-select-options';
 import { RoleService } from '../state/role.service';
 
 function httpErr(err: unknown): string {
@@ -48,36 +53,50 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-primary sm:text-3xl flex items-center gap-2">
           <app-lucide-icon [icon]="icons.sliders" className="w-8 h-8 text-blue-600 shrink-0" />
-          Indicateurs PRIME par cellule
+          Indicateurs PRIME par service
         </h1>
         <p class="text-muted mt-2 max-w-2xl text-sm">
-          Définissez les lignes d’indicateurs (libellé, pondérations Prime et Challenge en %) pour chaque cellule de votre
-          pôle. La liste est remplacée à chaque enregistrement.
+          Choisissez une cellule RH puis un service : les indicateurs sont enregistrés par service et s’appliquent aux
+          fiches pilotes de ce service. Utilisez le rôle Superviseur (ex. e9) pour voir votre périmètre.
         </p>
       </div>
 
       <app-prime-card
-        title="Cellule"
-        description="Choisissez la cellule à éditer. Les indicateurs sont définis par cellule (ils ne varient pas par période) et s'appliquent à toutes les fiches utilisant cette cellule. Les stableId proposés viennent du gabarit Excel actuellement lié à la cellule."
+        title="Cellule et service"
+        description="Indicateurs par service (prime_service). Les stableId viennent du gabarit Excel du pôle pour la période de référence."
       >
         <div class="flex flex-wrap gap-4 items-end">
           <div class="flex-1 min-w-[12rem]">
-            <label class="block text-sm font-medium text-muted mb-1">Cellule</label>
+            <label class="block text-sm font-medium text-muted mb-1">Cellule (RH)</label>
             <select
-              [value]="selectedCelluleId()"
-              (change)="onCellChange($any($event.target).value)"
+              [value]="selectRhCelluleValue()"
+              (change)="onRhCelluleChange($any($event.target).value)"
               class="w-full rounded-lg border border-default bg-input px-3 py-2 text-sm text-primary"
             >
               <option value="">— Choisir —</option>
-              @for (c of cellOptions(); track c.id) {
+              @for (c of rhCelluleOptions(); track c.id) {
                 <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="flex-1 min-w-[12rem]">
+            <label class="block text-sm font-medium text-muted mb-1">Service</label>
+            <select
+              [value]="selectServiceValue()"
+              (change)="onServiceChange($any($event.target).value)"
+              [disabled]="!selectedRhCelluleId()"
+              class="w-full rounded-lg border border-default bg-input px-3 py-2 text-sm text-primary disabled:opacity-50"
+            >
+              <option value="">— Choisir —</option>
+              @for (s of serviceOptions(); track s.id) {
+                <option [value]="s.id">{{ s.name }}</option>
               }
             </select>
           </div>
           <button
             type="button"
             (click)="addRow()"
-            [disabled]="!selectedCelluleId()"
+            [disabled]="!selectedServiceId()"
             class="inline-flex items-center gap-2 rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-navy-700/40 disabled:opacity-50"
           >
             <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
@@ -86,7 +105,7 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
           <button
             type="button"
             (click)="save()"
-            [disabled]="!selectedCelluleId() || saving()"
+            [disabled]="!selectedServiceId() || saving()"
             class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
           >
             <app-lucide-icon [icon]="icons.save" className="w-4 h-4" />
@@ -101,7 +120,7 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
         </div>
       }
 
-      @if (selectedCelluleId() && rows().length) {
+      @if (selectedServiceId() && rows().length) {
         <app-prime-card title="Indicateurs" description="Ordre = colonne « ordre » (tri croissant)">
           <div class="overflow-x-auto rounded-lg border border-default">
             <table class="w-full text-sm text-left min-w-[720px]">
@@ -191,72 +210,72 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
       }
 
       <app-prime-card
-        title="Aperçu des cellules"
-        description="Toutes les cellules de votre pôle. Cliquez sur une cellule pour voir ses indicateurs déjà définis, ou utilisez « Modifier » pour la charger dans le formulaire ci-dessus."
+        title="Aperçu des services"
+        description="Services de votre périmètre superviseur. Dépliez pour voir les indicateurs ou « Modifier » pour éditer."
       >
-        @if (cellOptions().length === 0) {
-          <p class="text-sm text-muted">Aucune cellule rattachée à votre pôle.</p>
+        @if (previewEntries().length === 0) {
+          <p class="text-sm text-muted">Aucune cellule ou service dans votre périmètre (vérifiez le rôle Superviseur).</p>
         } @else {
           <ul class="divide-y divide-default rounded-lg border border-default overflow-hidden">
-            @for (c of cellOptions(); track c.id) {
+            @for (e of previewEntries(); track e.serviceId) {
               <li class="bg-card">
                 <div
                   class="flex flex-wrap items-center gap-2 px-3 py-2 hover:bg-navy-700/40 transition-colors"
-                  [class.bg-navy-700]="selectedCelluleId() === c.id"
+                  [class.bg-navy-700]="selectedServiceId() === e.serviceId"
                 >
                   <button
                     type="button"
-                    (click)="toggleCellExpansion(c.id)"
+                    (click)="toggleCellExpansion(e.serviceId)"
                     class="flex flex-1 min-w-0 items-center gap-2 text-left"
-                    [attr.aria-expanded]="isCellExpanded(c.id)"
-                    [attr.aria-controls]="'cell-panel-' + c.id"
+                    [attr.aria-expanded]="isCellExpanded(e.serviceId)"
+                    [attr.aria-controls]="'svc-panel-' + e.serviceId"
                   >
                     <app-lucide-icon
-                      [icon]="isCellExpanded(c.id) ? icons.chevronDown : icons.chevronRight"
+                      [icon]="isCellExpanded(e.serviceId) ? icons.chevronDown : icons.chevronRight"
                       className="w-4 h-4 text-muted shrink-0"
                     />
-                    <span class="truncate text-sm font-medium text-primary">{{ c.name }}</span>
-                    @if (isCellLoading(c.id)) {
+                    <span class="truncate text-sm font-medium text-primary">{{ e.label }}</span>
+                    @if (isCellLoading(e.serviceId)) {
                       <span class="ml-2 text-xs text-muted italic">chargement…</span>
                     } @else {
-                      @if (indicatorsForCell(c.id); as list) {
+                      @if (indicatorsForCell(e.serviceId); as list) {
                         <span
                           class="ml-2 inline-flex items-center gap-1 rounded-md border border-default bg-input px-2 py-0.5 text-[11px] font-semibold text-muted"
-                          [title]="list.length + ' indicateur(s) au total — ' + activeIndicatorCount(c.id) + ' actif(s)'"
+                          [title]="list.length + ' indicateur(s) au total — ' + activeIndicatorCount(e.serviceId) + ' actif(s)'"
                         >
                           <app-lucide-icon [icon]="icons.listChecks" className="w-3 h-3" />
-                          {{ activeIndicatorCount(c.id) }} / {{ list.length }}
+                          {{ activeIndicatorCount(e.serviceId) }} / {{ list.length }}
                         </span>
                       }
                     }
                   </button>
                   <button
                     type="button"
-                    (click)="selectAndEdit(c.id)"
+                    (click)="selectAndEditService(e.celluleId, e.serviceId)"
                     class="inline-flex items-center gap-1.5 rounded-md border border-default bg-card px-2.5 py-1 text-xs font-semibold text-primary hover:bg-navy-700/50"
-                    [class.border-blue-500]="selectedCelluleId() === c.id"
-                    [class.text-blue-400]="selectedCelluleId() === c.id"
-                    title="Charger cette cellule dans le formulaire et faire défiler vers le haut"
+                    [class.border-blue-500]="selectedServiceId() === e.serviceId"
+                    [class.text-blue-400]="selectedServiceId() === e.serviceId"
+                    title="Charger ce service dans le formulaire"
                   >
                     <app-lucide-icon [icon]="icons.pencil" className="w-3.5 h-3.5" />
                     Modifier
                   </button>
                 </div>
 
-                @if (isCellExpanded(c.id)) {
-                  <div [id]="'cell-panel-' + c.id" class="border-t border-default bg-app/40 px-4 py-3">
-                    @if (isCellLoading(c.id) && !indicatorsForCell(c.id)) {
+                @if (isCellExpanded(e.serviceId)) {
+                  <div [id]="'svc-panel-' + e.serviceId" class="border-t border-default bg-app/40 px-4 py-3">
+                    @if (isCellLoading(e.serviceId) && !indicatorsForCell(e.serviceId)) {
                       <p class="text-sm text-muted italic">Chargement des indicateurs…</p>
-                    } @else if (indicatorsForCell(c.id) !== null) {
-                      @let list = indicatorsForCell(c.id) ?? [];
+                    } @else if (indicatorsForCell(e.serviceId) !== null) {
+                      @let list = indicatorsForCell(e.serviceId) ?? [];
                       @if (list.length === 0) {
                         <div class="flex flex-wrap items-center justify-between gap-2">
                           <p class="text-sm text-muted">
-                            Aucun indicateur défini pour cette cellule.
+                            Aucun indicateur défini pour ce service.
                           </p>
                           <button
                             type="button"
-                            (click)="selectAndEdit(c.id)"
+                            (click)="selectAndEditService(e.celluleId, e.serviceId)"
                             class="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700"
                           >
                             <app-lucide-icon [icon]="icons.plus" className="w-3.5 h-3.5" />
@@ -314,7 +333,7 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
                         </div>
                       }
                     } @else {
-                      <p class="text-sm text-muted italic">Indisponible pour cette cellule.</p>
+                      <p class="text-sm text-muted italic">Indisponible pour ce service.</p>
                     }
                   </div>
                 }
@@ -329,6 +348,7 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
 })
 export class PrimeCelluleIndicatorsPageComponent implements OnInit {
   private readonly api = inject(PrimeCellPrimeApiService);
+  private readonly orgApi = inject(PrimeOrgApiService);
   private readonly role = inject(RoleService);
 
   readonly icons = {
@@ -342,21 +362,34 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
     listChecks: ListChecks,
   };
 
-  readonly cellOptions = signal<{ id: string; name: string }[]>([]);
+  readonly scopeCellules = signal<SupervisorOrgScopeCellule[]>([]);
   readonly period = signal(this.defaultPeriod());
   readonly templateStableOptions = signal<{ value: string; label: string }[]>([]);
-  readonly selectedCelluleId = signal('');
+  readonly selectedRhCelluleId = signal('');
+  readonly selectedServiceId = signal('');
   readonly rows = signal<DraftRow[]>([]);
   readonly saving = signal(false);
   readonly banner = signal<string | null>(null);
   readonly bannerIsError = signal(false);
 
-  /** Cellules actuellement dépliées dans l'aperçu du bas. */
   readonly expandedCellIds = signal<ReadonlySet<string>>(new Set<string>());
-  /** Cellules dont les indicateurs sont en cours de chargement. */
   readonly cellIndicatorsLoading = signal<ReadonlySet<string>>(new Set<string>());
-  /** Cache des indicateurs déjà chargés par **serviceId** (rafraîchi sur save). */
   readonly cellIndicatorsMap = signal<ReadonlyMap<string, ServicePrimeIndicatorDto[]>>(new Map());
+
+  readonly rhCelluleOptions = computed(() => this.scopeCellules());
+  readonly serviceOptions = computed(() => {
+    const cid = this.selectedRhCelluleId();
+    return this.scopeCellules().find((c) => c.id === cid)?.services ?? [];
+  });
+  readonly previewEntries = computed(() =>
+    this.scopeCellules().flatMap((c) =>
+      c.services.map((s) => ({
+        serviceId: s.id,
+        celluleId: c.id,
+        label: c.services.length > 1 ? `${c.name} — ${s.name}` : s.name || c.name,
+      })),
+    ),
+  );
 
   readonly bannerClass = computed(() => {
     if (!this.banner()) return '';
@@ -366,18 +399,19 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.reloadCellules();
+    this.reloadScope();
   }
 
-  /**
-   * Période utilisée uniquement en interne pour :
-   *  - lister les cellules du pôle (`cellsSummary`)
-   *  - retrouver le brouillon pôle lié pour proposer les `stableId` de gabarit
-   *
-   * Les indicateurs eux-mêmes sont stockés par cellule (pas par période) et s'appliquent
-   * à toutes les fiches utilisant cette cellule, c'est pourquoi le sélecteur de période
-   * n'est pas exposé à l'utilisateur sur cette page.
-   */
+  selectRhCelluleValue(): string {
+    const opts = this.rhCelluleOptions().map((c) => c.id);
+    return selectValueOrEmpty(this.selectedRhCelluleId(), opts);
+  }
+
+  selectServiceValue(): string {
+    const opts = this.serviceOptions().map((s) => s.id);
+    return selectValueOrEmpty(this.selectedServiceId(), opts);
+  }
+
   private defaultPeriod(): string {
     const d = new Date();
     d.setDate(1);
@@ -385,24 +419,26 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
 
-  private reloadCellules(): void {
+  private reloadScope(): void {
     const u = this.role.currentUser();
     this.cellIndicatorsMap.set(new Map());
     this.cellIndicatorsLoading.set(new Set());
     this.expandedCellIds.set(new Set());
-    this.api.cellsSummary(u.id, this.period()).subscribe({
+    this.orgApi.getSupervisorScope(u.id).subscribe({
       next: (list) => {
-        this.cellOptions.set(list.map((x) => ({ id: x.serviceId, name: x.serviceName })));
-        const cur = this.selectedCelluleId();
-        if (cur && !list.some((x) => x.serviceId === cur)) {
-          this.selectedCelluleId.set('');
+        this.scopeCellules.set(list);
+        const serviceIds = list.flatMap((c) => c.services.map((s) => s.id));
+        const curSvc = this.selectedServiceId();
+        if (curSvc && !serviceIds.includes(curSvc)) {
+          this.selectedRhCelluleId.set('');
+          this.selectedServiceId.set('');
           this.rows.set([]);
           this.templateStableOptions.set([]);
         }
-        this.preloadAllCellIndicators(list.map((x) => x.serviceId));
+        this.preloadAllCellIndicators(serviceIds);
       },
       error: () => {
-        this.cellOptions.set([]);
+        this.scopeCellules.set([]);
       },
     });
   }
@@ -436,15 +472,29 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
     }
   }
 
-  onCellChange(id: string): void {
-    this.selectedCelluleId.set(id);
+  onRhCelluleChange(celluleId: string): void {
+    this.selectedRhCelluleId.set(celluleId);
     this.banner.set(null);
-    if (!id) {
+    if (!celluleId) {
+      this.selectedServiceId.set('');
       this.rows.set([]);
       this.templateStableOptions.set([]);
       return;
     }
-    this.loadIndicatorsAndStableLines(id);
+    const cell = this.scopeCellules().find((c) => c.id === celluleId);
+    const firstSvc = cell?.services[0]?.id ?? '';
+    this.onServiceChange(firstSvc);
+  }
+
+  onServiceChange(serviceId: string): void {
+    this.selectedServiceId.set(serviceId);
+    this.banner.set(null);
+    if (!serviceId) {
+      this.rows.set([]);
+      this.templateStableOptions.set([]);
+      return;
+    }
+    this.loadIndicatorsAndStableLines(serviceId);
   }
 
   /** `id` = **serviceId** (clé API indicateurs). */
@@ -481,24 +531,26 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
    * Sélectionne la cellule dans le formulaire du haut et fait remonter la page
    * pour que l'utilisateur puisse éditer ses indicateurs en contexte.
    */
-  selectAndEdit(celluleId: string): void {
-    this.onCellChange(celluleId);
+  selectAndEditService(celluleId: string, serviceId: string): void {
+    this.selectedRhCelluleId.set(celluleId);
+    this.onServiceChange(serviceId);
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
 
 
-  private loadIndicatorsAndStableLines(cellId: string): void {
+  private loadIndicatorsAndStableLines(serviceId: string): void {
     const u = this.role.currentUser();
-    this.api.getIndicators(cellId, u.id).subscribe({
+    this.api.getIndicators(serviceId, u.id).subscribe({
       next: (list) => {
         this.rows.set(list.map((x) => this.fromDto(x)));
         this.api.cellsSummary(u.id, this.period()).subscribe({
           next: (summaries) => {
-            const s = summaries.find((x) => x.serviceId === cellId);
+            const s = summaries.find((x) => x.serviceId === serviceId);
+            const rhCell = this.findRhCelluleForService(serviceId);
             const tid = (s?.linkedTemplateId ?? '').trim();
-            const pole = (s?.celluleId ?? '').trim();
+            const pole = (rhCell?.rootPoleId ?? s?.celluleId ?? '').trim();
             if (!tid || !pole) {
               this.templateStableOptions.set([]);
               return;
@@ -514,7 +566,7 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
                 const schema = parsePrimeSchemaFromDraftJson(draft.schemaJson);
                 const optActives = this.rows()
                   .filter((r) => r.isActive && r.label.trim())
-                  .map((r) => this.toIndicatorDtoStub(cellId, r));
+                  .map((r) => this.toIndicatorDtoStub(serviceId, r));
                 const lines = getCellTemplateLinesOrDerived(schema, optActives);
                 this.templateStableOptions.set(
                   lines.map((l) => ({
@@ -605,8 +657,12 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
     return Number.isFinite(n) ? n : null;
   }
 
+  private findRhCelluleForService(serviceId: string): SupervisorOrgScopeCellule | undefined {
+    return this.scopeCellules().find((c) => c.services.some((s) => s.id === serviceId));
+  }
+
   save(): void {
-    const cellId = this.selectedCelluleId();
+    const cellId = this.selectedServiceId();
     if (!cellId) return;
     const u = this.role.currentUser();
     const indicators: PutServicePrimeIndicatorItem[] = this.rows()

@@ -88,7 +88,7 @@ const pathNavEntries: NavPathEntry[] = [
     name: 'Affectations organisationnelles',
     path: '/rh/organisation',
     icon: GitBranch,
-    roles: ['RH'],
+    roles: ['RH', 'Admin'],
   },
   {
     type: 'link',

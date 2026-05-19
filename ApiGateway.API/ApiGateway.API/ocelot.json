@@ -237,33 +237,6 @@
       ]
     },
     // CORRIGÉ ✅
-    // ── Ancien congé dans Planning backend ──
-    {
-      "UpstreamPathTemplate": "/api/conge",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
-      "DownstreamPathTemplate": "/api/conge",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "planning-backend",
-          "Port": 8080
-        }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/api/conge/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
-      "DownstreamPathTemplate": "/api/conge/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "planning-backend",
-          "Port": 8080
-        }
-      ]
-    },
-
-    // ── Nouveau congé microservice dédié ──
     {
       "UpstreamPathTemplate": "/api/conges",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
@@ -284,6 +257,31 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "conge-backend",
+          "Port": 8080
+        }
+      ]
+    },
+
+    {
+      "UpstreamPathTemplate": "/api/conges",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "DownstreamPathTemplate": "/api/conges",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "planning-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/conges/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "DownstreamPathTemplate": "/api/conges/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "planning-backend",
           "Port": 8080
         }
       ]

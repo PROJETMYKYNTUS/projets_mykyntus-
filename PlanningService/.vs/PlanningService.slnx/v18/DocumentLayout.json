@@ -3,18 +3,6 @@
   "WorkspaceRootPath": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\services\\userservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\services\\userservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\controllers\\userscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\controllers\\userscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\interfaces\\iuserservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\interfaces\\iuserservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\models\\user.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\models\\user.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -27,8 +15,16 @@
       "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\hubs\\planninghub.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\services\\userservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\services\\userservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\controllers\\congescontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\controllers\\congescontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\controllers\\userscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\controllers\\userscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\dtos\\userdto.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -65,6 +61,10 @@
     {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\services\\subserviceservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\services\\subserviceservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\interfaces\\iuserservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\interfaces\\iuserservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -246,111 +246,11 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 5,
+          "SelectedChildIndex": 3,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 8,
-              "Title": "SubServiceDto.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\DTOs\\SubServiceDto.cs",
-              "RelativeDocumentMoniker": "PlanningService\\DTOs\\SubServiceDto.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\DTOs\\SubServiceDto.cs",
-              "RelativeToolTip": "PlanningService\\DTOs\\SubServiceDto.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-13T09:05:17.388Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 9,
-              "Title": "Planningmessages.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Messaging\\Messages\\Planningmessages.cs",
-              "RelativeDocumentMoniker": "PlanningService\\Messaging\\Messages\\Planningmessages.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Messaging\\Messages\\Planningmessages.cs",
-              "RelativeToolTip": "PlanningService\\Messaging\\Messages\\Planningmessages.cs",
-              "ViewState": "AgIAAB0AAAAAAAAAAAAowC0AAAABAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-11T08:20:16.578Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "User.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Models\\User.cs",
-              "RelativeDocumentMoniker": "PlanningService\\Models\\User.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Models\\User.cs",
-              "RelativeToolTip": "PlanningService\\Models\\User.cs",
-              "ViewState": "AgIAAAkAAAAAAAAAAAA5wCYAAAABAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-16T10:45:40.442Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "UserDto.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\DTOs\\UserDto.cs",
-              "RelativeDocumentMoniker": "PlanningService\\DTOs\\UserDto.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\DTOs\\UserDto.cs",
-              "RelativeToolTip": "PlanningService\\DTOs\\UserDto.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAUAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-25T09:40:09.932Z"
-            },
-            {
-              "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "UsersController.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Controllers\\UsersController.cs",
-              "RelativeDocumentMoniker": "PlanningService\\Controllers\\UsersController.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Controllers\\UsersController.cs",
-              "RelativeToolTip": "PlanningService\\Controllers\\UsersController.cs",
-              "ViewState": "AgIAADcAAAAAAAAAAAAkwE8AAAAFAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-07T10:49:02.948Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "UserService.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Services\\UserService.cs",
-              "RelativeDocumentMoniker": "PlanningService\\Services\\UserService.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Services\\UserService.cs",
-              "RelativeToolTip": "PlanningService\\Services\\UserService.cs",
-              "ViewState": "AgIAAIEAAAAAAAAAAAAkwKUAAAAOAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-07T10:54:52.276Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 6,
-              "Title": "CongesController.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Controllers\\CongesController.cs",
-              "RelativeDocumentMoniker": "PlanningService\\Controllers\\CongesController.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Controllers\\CongesController.cs",
-              "RelativeToolTip": "PlanningService\\Controllers\\CongesController.cs",
-              "ViewState": "AgIAAEsAAAAAAAAAAAAQwHgAAAAFAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-31T08:48:37.672Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "IUserService.cs",
-              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Interfaces\\IUserService.cs",
-              "RelativeDocumentMoniker": "PlanningService\\Interfaces\\IUserService.cs",
-              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Interfaces\\IUserService.cs",
-              "RelativeToolTip": "PlanningService\\Interfaces\\IUserService.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA0AAAAnAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-11T08:34:28.423Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
               "Title": "20260513101629_AddGuidToUser.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Migrations\\20260513101629_AddGuidToUser.cs",
               "RelativeDocumentMoniker": "PlanningService\\Migrations\\20260513101629_AddGuidToUser.cs",
@@ -358,11 +258,103 @@
               "RelativeToolTip": "PlanningService\\Migrations\\20260513101629_AddGuidToUser.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAB4AAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-13T10:26:14.62Z"
+              "WhenOpened": "2026-05-13T10:26:14.62Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "SubServiceDto.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\DTOs\\SubServiceDto.cs",
+              "RelativeDocumentMoniker": "PlanningService\\DTOs\\SubServiceDto.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\DTOs\\SubServiceDto.cs",
+              "RelativeToolTip": "PlanningService\\DTOs\\SubServiceDto.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-13T09:05:17.388Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "Planningmessages.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Messaging\\Messages\\Planningmessages.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Messaging\\Messages\\Planningmessages.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Messaging\\Messages\\Planningmessages.cs",
+              "RelativeToolTip": "PlanningService\\Messaging\\Messages\\Planningmessages.cs",
+              "ViewState": "AgIAAB0AAAAAAAAAAAAowC0AAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-11T08:20:16.578Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "User.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Models\\User.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Models\\User.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Models\\User.cs",
+              "RelativeToolTip": "PlanningService\\Models\\User.cs",
+              "ViewState": "AgIAAAkAAAAAAAAAAAAkwCYAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-16T10:45:40.442Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "UserDto.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\DTOs\\UserDto.cs",
+              "RelativeDocumentMoniker": "PlanningService\\DTOs\\UserDto.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\DTOs\\UserDto.cs",
+              "RelativeToolTip": "PlanningService\\DTOs\\UserDto.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAUAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-25T09:40:09.932Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 5,
+              "Title": "UsersController.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Controllers\\UsersController.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Controllers\\UsersController.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Controllers\\UsersController.cs",
+              "RelativeToolTip": "PlanningService\\Controllers\\UsersController.cs",
+              "ViewState": "AgIAADEAAAAAAAAAAAAkwJYAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-07T10:49:02.948Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "UserService.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Services\\UserService.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Services\\UserService.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Services\\UserService.cs",
+              "RelativeToolTip": "PlanningService\\Services\\UserService.cs",
+              "ViewState": "AgIAAKkAAAAAAAAAAAAQwMUAAAAGAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-07T10:54:52.276Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "CongesController.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Controllers\\CongesController.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Controllers\\CongesController.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Controllers\\CongesController.cs",
+              "RelativeToolTip": "PlanningService\\Controllers\\CongesController.cs",
+              "ViewState": "AgIAAEsAAAAAAAAAAAAQwHgAAAAFAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-31T08:48:37.672Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
               "Title": "PlanningHub.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Hubs\\PlanningHub.cs",
               "RelativeDocumentMoniker": "PlanningService\\Hubs\\PlanningHub.cs",
@@ -370,11 +362,12 @@
               "RelativeToolTip": "PlanningService\\Hubs\\PlanningHub.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-09T11:20:01.823Z"
+              "WhenOpened": "2026-04-09T11:20:01.823Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 9,
               "Title": "CongeValideConsumer.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Messaging\\Consumers\\CongeValideConsumer.cs",
               "RelativeDocumentMoniker": "PlanningService\\Messaging\\Consumers\\CongeValideConsumer.cs",
@@ -382,11 +375,12 @@
               "RelativeToolTip": "PlanningService\\Messaging\\Consumers\\CongeValideConsumer.cs",
               "ViewState": "AgIAAAUAAAAAAAAAAAAQwC4AAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-11T08:30:20.73Z"
+              "WhenOpened": "2026-05-11T08:30:20.73Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 10,
               "Title": "EmployePublisher.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Messaging\\Publishers\\EmployePublisher.cs",
               "RelativeDocumentMoniker": "PlanningService\\Messaging\\Publishers\\EmployePublisher.cs",
@@ -394,11 +388,12 @@
               "RelativeToolTip": "PlanningService\\Messaging\\Publishers\\EmployePublisher.cs",
               "ViewState": "AgIAAC8AAAAAAAAAAAAYwFkAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-11T08:29:58.961Z"
+              "WhenOpened": "2026-05-11T08:29:58.961Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 11,
               "Title": "IEmployePublisher.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Interfaces\\IEmployePublisher.cs",
               "RelativeDocumentMoniker": "PlanningService\\Interfaces\\IEmployePublisher.cs",
@@ -406,11 +401,12 @@
               "RelativeToolTip": "PlanningService\\Interfaces\\IEmployePublisher.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAACQAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-11T08:21:56.956Z"
+              "WhenOpened": "2026-05-11T08:21:56.956Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 12,
               "Title": "appsettings.json",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\appsettings.json",
               "RelativeDocumentMoniker": "PlanningService\\appsettings.json",
@@ -418,11 +414,12 @@
               "RelativeToolTip": "PlanningService\\appsettings.json",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABcAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2026-04-15T10:55:52.773Z"
+              "WhenOpened": "2026-04-15T10:55:52.773Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 13,
               "Title": "ServiceService.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Services\\ServiceService.cs",
               "RelativeDocumentMoniker": "PlanningService\\Services\\ServiceService.cs",
@@ -430,11 +427,12 @@
               "RelativeToolTip": "PlanningService\\Services\\ServiceService.cs",
               "ViewState": "AgIAALgAAAAAAAAAAAAQwOEAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-11T08:34:45.939Z"
+              "WhenOpened": "2026-05-11T08:34:45.939Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 14,
               "Title": "SubServiceService.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Services\\SubServiceService.cs",
               "RelativeDocumentMoniker": "PlanningService\\Services\\SubServiceService.cs",
@@ -442,7 +440,21 @@
               "RelativeToolTip": "PlanningService\\Services\\SubServiceService.cs",
               "ViewState": "AgIAAMEAAAAAAAAAAAAYwOsAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-11T08:34:42.109Z"
+              "WhenOpened": "2026-05-11T08:34:42.109Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 15,
+              "Title": "IUserService.cs",
+              "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Interfaces\\IUserService.cs",
+              "RelativeDocumentMoniker": "PlanningService\\Interfaces\\IUserService.cs",
+              "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Interfaces\\IUserService.cs",
+              "RelativeToolTip": "PlanningService\\Interfaces\\IUserService.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-11T08:34:28.423Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -454,7 +466,8 @@
               "RelativeToolTip": "PlanningService\\Program.cs",
               "ViewState": "AgIAAMcAAAAAAAAAAAAAAMcAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-26T10:40:03.797Z"
+              "WhenOpened": "2026-03-26T10:40:03.797Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",

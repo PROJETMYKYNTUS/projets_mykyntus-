@@ -2,19 +2,73 @@
 
   <div class="cm-toast" [class.visible]="toast.show" [class.error]="toast.type === 'error'">{{ toast.message }}</div>
 
-  <div class="cm-header">
-    <div>
-      <h2 class="cm-title">Gestion des Congés — Équipe</h2>
-      <p class="cm-sub">Validez ou refusez les demandes de votre équipe</p>
-    </div>
+<!-- Dans cm-header, à côté du bouton Actualiser -->
+<!-- Dans cm-header -->
+<div class="cm-header">
+  <div>
+    <h2 class="cm-title">Gestion des Congés — Équipe</h2>
+    <p class="cm-sub">Validez ou refusez les demandes de votre équipe</p>
+  </div>
+  <div style="display:flex; gap:10px; align-items:center;">
+    <!-- ✅ Bouton Ma demande -->
+    <button class="cm-btn-my-conge" (click)="openMyDemande()">
+      + Ma demande
+    </button>
     <button class="cm-btn-refresh" (click)="loadDemandes()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
-        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
-      </svg>
       Actualiser
     </button>
   </div>
+</div>
+
+<!-- ✅ MODAL Ma demande -->
+<div class="cm-modal-overlay" *ngIf="showMyDemandeModal" 
+     (click)="showMyDemandeModal = false">
+  <div class="cm-modal" (click)="$event.stopPropagation()">
+    <div class="cm-modal-head">
+      <h3>+ Nouvelle demande de congé</h3>
+      <button (click)="showMyDemandeModal = false">✕</button>
+    </div>
+    <div class="cm-modal-body">
+      <div class="cm-field">
+        <label>Type de congé</label>
+        <select [(ngModel)]="myForm.typeConge" (change)="onMyTypeChange()">
+          <option *ngFor="let t of typesConge" [value]="t.value">
+            {{ t.label }}
+          </option>
+        </select>
+      </div>
+      <div class="cm-field" *ngIf="myForm.typeConge === TypeConge.Exceptionnel">
+        <label>Type exceptionnel</label>
+        <select [(ngModel)]="myForm.typeExceptionnel">
+          <option *ngFor="let t of typesExceptionnels" [value]="t.value">
+            {{ t.label }}
+          </option>
+        </select>
+      </div>
+      <div class="cm-field">
+        <label>Date début</label>
+        <input type="date" [(ngModel)]="myForm.dateDebut" />
+      </div>
+      <div class="cm-field">
+        <label>Date fin</label>
+        <input type="date" [(ngModel)]="myForm.dateFin" />
+      </div>
+      <div class="cm-field">
+        <label>Motif</label>
+        <textarea [(ngModel)]="myForm.motif" rows="3" 
+                  placeholder="Motif (optionnel)…"></textarea>
+      </div>
+    </div>
+    <div class="cm-modal-foot">
+      <button class="cm-btn-cancel" (click)="showMyDemandeModal = false">
+        Annuler
+      </button>
+      <button class="cm-btn-valid-modal" (click)="submitMyDemande()">
+        Envoyer
+      </button>
+    </div>
+  </div>
+</div>
 
   <div class="cm-stats-grid">
     <div class="cm-stat-card pending">

@@ -50,36 +50,191 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
     </div>
   `,
   styles: [`
-    .page-wrapper { padding: 24px; }
-    .page-title { font-size: 24px; font-weight: 700; color: #fff; }
-    .page-sub { color: #94a3b8; margin-bottom: 24px; }
-    .filters { display: flex; gap: 12px; margin-bottom: 24px; }
-    .filters select, .filters input {
-      padding: 8px 12px; border-radius: 8px;
-      background: #1e293b; color: #fff; border: 1px solid #334155;
+  .page-wrapper {
+    min-height: 100vh;
+    padding: 32px 24px 48px;
+    background:
+      radial-gradient(circle at top right, rgba(37, 99, 235, 0.06), transparent 18%),
+      linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+    font-family: "Inter", "Segoe UI", sans-serif;
+    color: #0f172a;
+  }
+
+  .page-title {
+    margin: 0 0 6px;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+  }
+
+  .page-sub {
+    margin: 0 0 24px;
+    color: #64748b;
+    font-size: 0.92rem;
+  }
+
+  .filters {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid #e2e8f0;
+    border-radius: 24px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07);
+  }
+
+  .filters select,
+  .filters input {
+    min-width: 220px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: #ffffff;
+    color: #0f172a;
+    border: 1px solid #dbe3ee;
+    font-size: 0.92rem;
+    outline: none;
+    transition: all 0.22s ease;
+  }
+
+  .filters select:focus,
+  .filters input:focus {
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+  }
+
+  .success-msg {
+    margin-bottom: 18px;
+    padding: 14px 16px;
+    background: #ecfdf5;
+    border: 1px solid #bbf7d0;
+    border-radius: 16px;
+    color: #047857;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .employees-list {
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid #e2e8f0;
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07);
+  }
+
+  .emp-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 18px;
+    background: #fbfdff;
+    border: 1px solid #edf2f7;
+    border-radius: 18px;
+    margin-bottom: 12px;
+    transition: all 0.22s ease;
+  }
+
+  .emp-row:hover {
+    background: #f8fbff;
+    border-color: #dbeafe;
+  }
+
+  .emp-name {
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .toggle-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn-worked,
+  .btn-off {
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 1px solid #dbe3ee;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.84rem;
+    background: #ffffff;
+    color: #64748b;
+    transition: all 0.22s ease;
+  }
+
+  .btn-worked:hover,
+  .btn-off:hover {
+    transform: translateY(-1px);
+  }
+
+  .btn-worked.active {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #86efac;
+  }
+
+  .btn-off.active {
+    background: #fff1f2;
+    color: #b91c1c;
+    border-color: #fecdd3;
+  }
+
+  .btn-save {
+    margin-top: 18px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.9rem;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
+    transition: all 0.22s ease;
+  }
+
+  .btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 28px rgba(37, 99, 235, 0.22);
+  }
+
+  @media (max-width: 768px) {
+    .page-wrapper {
+      padding: 20px 16px 40px;
     }
+
+    .page-title {
+      font-size: 1.5rem;
+    }
+
+    .filters,
+    .employees-list {
+      border-radius: 18px;
+      padding: 18px;
+    }
+
     .emp-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 16px; background: #1e293b;
-      border-radius: 8px; margin-bottom: 8px;
+      flex-direction: column;
+      align-items: flex-start;
     }
-    .emp-name { color: #fff; font-weight: 600; }
-    .toggle-group { display: flex; gap: 8px; }
-    .btn-worked, .btn-off {
-      padding: 6px 16px; border-radius: 6px;
-      border: none; cursor: pointer; font-weight: 600;
-      background: #334155; color: #94a3b8;
+
+    .toggle-group {
+      width: 100%;
     }
-    .btn-worked.active { background: #10b981; color: #fff; }
-    .btn-off.active { background: #ef4444; color: #fff; }
+
+    .btn-worked,
+    .btn-off,
     .btn-save {
-      margin-top: 16px; padding: 10px 24px;
-      background: #6366f1; color: #fff;
-      border: none; border-radius: 8px;
-      cursor: pointer; font-weight: 700;
+      width: 100%;
+      justify-content: center;
     }
-    .success-msg { color: #10b981; margin-bottom: 16px; }
-  `]
+  }
+`]
 })
 export class SaturdayHistoryComponent implements OnInit {
   subServices: any[] = [];

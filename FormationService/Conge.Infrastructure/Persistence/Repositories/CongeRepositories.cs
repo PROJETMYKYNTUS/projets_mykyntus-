@@ -89,7 +89,13 @@ public class EmployeSnapshotRepository : IEmployeSnapshotRepository
         => await _context.EmployeSnapshots
             .Where(e => e.ManagerId == managerId)
             .ToListAsync(ct);
-
+    public async Task<EmployeSnapshot?> GetAdminOuRhAsync(CancellationToken ct = default)
+    {
+        return await _context.EmployeSnapshots
+            .Where(e => e.Role == "Admin" || e.Role == "RH")
+            .OrderBy(e => e.Role) // Admin en premier
+            .FirstOrDefaultAsync(ct);
+    }
     public async Task AddAsync(EmployeSnapshot employe, CancellationToken ct = default)
         => await _context.EmployeSnapshots.AddAsync(employe, ct);
 

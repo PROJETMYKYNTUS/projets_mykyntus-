@@ -38,13 +38,34 @@
           <span class="emp-nav-badge" *ngIf="unreadCount > 0">{{ unreadCount }}</span>
         </button>
 
-        <button class="emp-nav-item" [class.active]="currentView === 'conges'"
-                (click)="navigateTo('conges')">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M17.5 19H9a7 7 0 117-7v1"/><path d="M17 9l4-4-4-4M21 5H9"/>
-          </svg>
-          <span>Mes Congés</span>
-        </button>
+        <!-- Congés : un seul bouton, label dynamique selon le rôle -->
+      <!-- Sidebar nav -->
+
+<!-- Bouton Mes Congés — tout le monde -->
+<button class="emp-nav-item"
+        [class.active]="currentView === 'conges' && congesSubView === 'mes-conges'"
+        (click)="navigateTo('conges'); navigateConges('mes-conges')">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="2">
+    <path d="M17.5 19H9a7 7 0 117-7v1"/>
+    <path d="M17 9l4-4-4-4M21 5H9"/>
+  </svg>
+  <span>Mes Congés</span>
+</button>
+
+<!-- Bouton Congés Équipe — Manager uniquement -->
+<button class="emp-nav-item"
+        *ngIf="userRole === 'Manager'"
+        [class.active]="currentView === 'conges' && congesSubView === 'equipe'"
+        (click)="navigateTo('conges'); navigateConges('equipe')">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="2">
+    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+  </svg>
+  <span>Congés Équipe</span>
+</button>
 
         <button class="emp-nav-item" [class.active]="currentView === 'newsletters'"
                 (click)="navigateTo('newsletters')">
@@ -56,7 +77,6 @@
           <span class="emp-nav-badge" *ngIf="unreadNewsletters > 0">{{ unreadNewsletters }}</span>
         </button>
 
-        <!-- ✅ FIX: Bouton Réclamations déjà présent, vue corrigée ci-dessous -->
         <button class="emp-nav-item"
                 [class.active]="currentView === 'reclamations'"
                 (click)="navigateTo('reclamations')">
@@ -105,12 +125,12 @@
       <header class="emp-topbar">
         <div class="emp-topbar-left">
           <h1 class="emp-page-title">
-            <!-- ✅ FIX : ajout du cas 'reclamations' dans le ternaire du titre -->
-            {{ currentView === 'home'          ? 'Tableau de bord'           :
-               currentView === 'planning'      ? 'Mon Planning'              :
-               currentView === 'conges'        ? 'Mes Congés'                :
-               currentView === 'newsletters'   ? 'Newsletters'               :
-               currentView === 'reclamations'  ? 'Réclamations & Propositions' :
+            {{ currentView === 'home'          ? 'Tableau de bord'              :
+               currentView === 'planning'      ? 'Mon Planning'                 :
+               currentView === 'conges'        ? (isManager ? 'Congés Équipe' : 'Mes Congés') :
+               currentView === 'newsletters'   ? 'Newsletters'                  :
+               currentView === 'reclamations'  ? 'Réclamations & Propositions'  :
+               currentView === 'formations'    ? 'Formations'                   :
                                                  'Paramètres' }}
           </h1>
           <p class="emp-topbar-date">{{ getCurrentDate() }}</p>
@@ -145,18 +165,17 @@
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg>
                 <p>Aucune notification</p>
               </div>
-           <!-- Remplacez le bloc emp-notif-item existant par celui-ci -->
-<div class="emp-notif-item" *ngFor="let n of notifications"
-     [class.unread]="!n.read"
-     (click)="onNotifClick(n)">
-  <div class="emp-notif-icon-wrap">
-    {{ n.icon || (n.type === 'reclamation' ? '💬' : '📅') }}
-  </div>
-  <div>
-    <p class="emp-notif-msg">{{ n.message }}</p>
-    <span class="emp-notif-time">{{ n.receivedAt | date:'HH:mm' }}</span>
-  </div>
-</div>
+              <div class="emp-notif-item" *ngFor="let n of notifications"
+                   [class.unread]="!n.read"
+                   (click)="onNotifClick(n)">
+                <div class="emp-notif-icon-wrap">
+                  {{ n.icon || (n.type === 'reclamation' ? '💬' : '📅') }}
+                </div>
+                <div>
+                  <p class="emp-notif-msg">{{ n.message }}</p>
+                  <span class="emp-notif-time">{{ n.receivedAt | date:'HH:mm' }}</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -227,20 +246,55 @@
               <span class="emp-menu-notif" *ngIf="unreadCount > 0">{{ unreadCount }} nouveau(x)</span>
             </div>
 
-            <div class="emp-menu-card" (click)="navigateTo('conges')">
-              <div class="emp-menu-card-icon" style="background: #f0fdf4; color: #10b981;">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M17.5 19H9a7 7 0 117-7v1"/><path d="M17 9l4-4-4-4M21 5H9"/>
-                </svg>
-              </div>
-              <div class="emp-menu-card-body">
-                <h3>Mes Congés</h3>
-                <p>Gérez vos demandes de congés et absences</p>
-              </div>
-              <div class="emp-menu-card-arrow">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-              </div>
-            </div>
+            <!-- Carte Congés — label dynamique -->
+      <!-- Dans emp-menu-grid -->
+
+<!-- Carte Mes Congés — tout le monde -->
+<div class="emp-menu-card" 
+     (click)="navigateTo('conges'); navigateConges('mes-conges')">
+  <div class="emp-menu-card-icon" style="background:#f0fdf4; color:#10b981;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2">
+      <path d="M17.5 19H9a7 7 0 117-7v1"/>
+      <path d="M17 9l4-4-4-4M21 5H9"/>
+    </svg>
+  </div>
+  <div class="emp-menu-card-body">
+    <h3>Mes Congés</h3>
+    <p>Consultez votre solde et soumettez vos demandes</p>
+  </div>
+  <div class="emp-menu-card-arrow">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.5">
+      <line x1="5" y1="12" x2="19" y2="12"/>
+      <polyline points="12 5 19 12 12 19"/>
+    </svg>
+  </div>
+</div>
+
+<!-- Carte Congés Équipe — Manager uniquement -->
+<div class="emp-menu-card" *ngIf="userRole === 'Manager'"
+     (click)="navigateTo('conges'); navigateConges('equipe')">
+  <div class="emp-menu-card-icon" style="background:#fff7ed; color:#f97316;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+    </svg>
+  </div>
+  <div class="emp-menu-card-body">
+    <h3>Congés Équipe</h3>
+    <p>Validez les demandes de congés de votre équipe</p>
+  </div>
+  <div class="emp-menu-card-arrow">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.5">
+      <line x1="5" y1="12" x2="19" y2="12"/>
+      <polyline points="12 5 19 12 12 19"/>
+    </svg>
+  </div>
+</div>
 
             <div class="emp-menu-card" (click)="navigateTo('newsletters')">
               <div class="emp-menu-card-icon" style="background: #f5f3ff; color: #8b5cf6;">
@@ -257,23 +311,23 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
               </div>
             </div>
-            <div class="emp-menu-card" (click)="navigateTo('formations')">
-  <div class="emp-menu-card-icon" style="background: #eff6ff; color: #3b82f6;">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-      <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-    </svg>
-  </div>
-  <div class="emp-menu-card-body">
-    <h3>Formations</h3>
-    <p>Consultez et inscrivez-vous aux formations disponibles</p>
-  </div>
-  <div class="emp-menu-card-arrow">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-  </div>
-</div>
 
-            <!-- ✅ Carte Réclamations sur l'accueil -->
+            <div class="emp-menu-card" (click)="navigateTo('formations')">
+              <div class="emp-menu-card-icon" style="background: #eff6ff; color: #3b82f6;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+                  <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+                </svg>
+              </div>
+              <div class="emp-menu-card-body">
+                <h3>Formations</h3>
+                <p>Consultez et inscrivez-vous aux formations disponibles</p>
+              </div>
+              <div class="emp-menu-card-arrow">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </div>
+            </div>
+
             <div class="emp-menu-card" (click)="navigateTo('reclamations')">
               <div class="emp-menu-card-icon" style="background: #fff7ed; color: #f97316;">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -393,11 +447,20 @@
         </ng-container>
       </div>
 
-      <!-- ══ VUE CONGÉS ══ -->
-<div class="emp-body" *ngIf="currentView === 'conges'">
-  <app-conge-employe></app-conge-employe>
-</div>
+      <!-- ══ VUE CONGÉS — bloc UNIQUE ══ -->
+      <div class="emp-body" *ngIf="currentView === 'conges'">
 
+  <!-- Mes Congés — tout le monde -->
+  <app-conge-employe 
+    *ngIf="congesSubView === 'mes-conges'">
+  </app-conge-employe>
+
+  <!-- Congés Équipe — Manager uniquement -->
+  <app-conge-manager 
+    *ngIf="congesSubView === 'equipe' && userRole === 'Manager'">
+  </app-conge-manager>
+
+</div>
       <!-- ══ VUE PARAMÈTRES ══ -->
       <div class="emp-body emp-coming-soon" *ngIf="currentView === 'settings'">
         <div class="emp-soon-icon">⚙️</div>
@@ -409,7 +472,6 @@
       <!-- ══ VUE NEWSLETTERS ══ -->
       <div class="emp-body" *ngIf="currentView === 'newsletters'">
 
-        <!-- Header -->
         <div class="enl-header">
           <div class="enl-title-block">
             <div class="enl-header-icon">
@@ -439,13 +501,11 @@
           </div>
         </div>
 
-        <!-- Loading -->
         <div class="enl-loading" *ngIf="nlLoading">
           <div class="enl-spinner"></div>
           <p>Chargement des newsletters…</p>
         </div>
 
-        <!-- Empty -->
         <div class="enl-empty" *ngIf="!nlLoading && myNewsletters.length === 0">
           <div class="enl-empty-icon">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round">
@@ -457,7 +517,6 @@
           <p>Les communications de votre organisation apparaîtront ici.</p>
         </div>
 
-        <!-- Liste newsletters (mode inbox) -->
         <div class="enl-inbox" *ngIf="!nlLoading && myNewsletters.length > 0 && !selectedNewsletter">
           <div class="enl-inbox-item"
                *ngFor="let nl of myNewsletters"
@@ -490,7 +549,6 @@
           </div>
         </div>
 
-        <!-- Détail newsletter -->
         <div class="enl-detail" *ngIf="selectedNewsletter">
           <div class="enl-detail-nav">
             <button class="enl-back-btn" (click)="closeNewsletter()">
@@ -517,13 +575,16 @@
 
       </div>
 
-      <!-- ══ VUE RÉCLAMATIONS ══ ✅ AJOUT PRINCIPAL -->
+      <!-- ══ VUE RÉCLAMATIONS ══ -->
       <div class="emp-body" *ngIf="currentView === 'reclamations'">
         <app-reclamation-employee></app-reclamation-employee>
       </div>
-        <div class="emp-body" *ngIf="currentView === 'formations'">
-  <app-formation-employee></app-formation-employee>
-</div>
+
+      <!-- ══ VUE FORMATIONS ══ -->
+      <div class="emp-body" *ngIf="currentView === 'formations'">
+        <app-formation-employee></app-formation-employee>
+      </div>
+
     </main>
   </div>
 </div>

@@ -17,6 +17,7 @@ public interface IEmployeSnapshotRepository
     Task<IEnumerable<EmployeSnapshot>> GetByManagerIdAsync(Guid managerId, CancellationToken ct = default);
     Task AddAsync(EmployeSnapshot employe, CancellationToken ct = default);
     void Update(EmployeSnapshot employe);
+    Task<EmployeSnapshot?> GetAdminOuRhAsync(CancellationToken ct = default);
     Task<bool> ExistsAsync(Guid employeId, CancellationToken ct = default);
 }
 

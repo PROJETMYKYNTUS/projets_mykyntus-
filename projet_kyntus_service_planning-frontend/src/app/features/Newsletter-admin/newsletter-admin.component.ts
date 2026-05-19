@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
@@ -59,7 +59,10 @@ export class NewsletterAdminComponent implements OnInit, OnDestroy {
 
   selectedCampaignId: number | null = null;
 
-  constructor(private newsletterSvc: NewsletterService) {}
+  constructor(
+    private newsletterSvc: NewsletterService,
+  private cdr: ChangeDetectorRef 
+) {}
 
   ngOnInit(): void {
     this.setView('list');
@@ -91,7 +94,7 @@ export class NewsletterAdminComponent implements OnInit, OnDestroy {
     this.setView(this.currentView);
   }
 
-  loadNewsletters(): void {
+ loadNewsletters(): void {
     this.loadingNewsletters = true;
     this.newsletterSvc.getNewsletters()
       .pipe(takeUntil(this.destroy$))
@@ -100,10 +103,12 @@ export class NewsletterAdminComponent implements OnInit, OnDestroy {
           this.newsletters = data ?? [];
           this.loadingNewsletters = false;
           this.loadedViews.add('list');
+          this.cdr.detectChanges(); // ← ajouter
         },
         error: () => {
           this.loadingNewsletters = false;
           this.showToast('Erreur de chargement des newsletters', 'error');
+          this.cdr.detectChanges(); // ← ajouter
         }
       });
   }
@@ -117,10 +122,12 @@ export class NewsletterAdminComponent implements OnInit, OnDestroy {
           this.campaigns = data ?? [];
           this.loadingCampaigns = false;
           this.loadedViews.add('campaigns');
+          this.cdr.detectChanges(); // ← ajouter
         },
         error: () => {
           this.loadingCampaigns = false;
           this.showToast('Erreur de chargement des campagnes', 'error');
+          this.cdr.detectChanges(); // ← ajouter
         }
       });
   }
@@ -251,10 +258,12 @@ export class NewsletterAdminComponent implements OnInit, OnDestroy {
           this.loadingAnalytics = false;
           this.currentView = 'analytics';
           this.loadedViews.add('analytics');
+          this.cdr.detectChanges(); // ← ajouter
         },
         error: () => {
           this.loadingAnalytics = false;
           this.showToast('Erreur de chargement des analytics', 'error');
+          this.cdr.detectChanges(); // ← ajouter
         }
       });
   }

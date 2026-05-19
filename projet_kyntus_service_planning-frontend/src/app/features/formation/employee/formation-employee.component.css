@@ -1,42 +1,230 @@
-.fe-root { padding: 0; }
-.fe-toast { position: fixed; top: 20px; right: 20px; background: #10b981;
-  color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 14px;
-  opacity: 0; transition: opacity .3s; z-index: 9999; pointer-events: none; }
-.fe-toast.visible { opacity: 1; pointer-events: auto; }
-.fe-toast.error { background: #ef4444; }
+.fe-root {
+  min-height: 100vh;
+  padding: 32px 24px 48px;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.06), transparent 20%),
+    linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+}
 
-.fe-header { margin-bottom: 24px; }
-.fe-title { font-size: 20px; font-weight: 700; color: #0f172a; margin: 0; }
-.fe-sub { font-size: 13px; color: #64748b; margin: 4px 0 0; }
+.fe-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1100;
+  background: #166534;
+  color: #ffffff;
+  padding: 12px 18px;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: all 0.25s ease;
+  transform: translateY(-8px);
+  pointer-events: none;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
+}
 
-.fe-loading, .fe-empty { display: flex; flex-direction: column;
-  align-items: center; justify-content: center; padding: 60px; color: #94a3b8; gap: 12px; }
-.fe-spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0;
-  border-top-color: #6094ff; border-radius: 50%; animation: spin .8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+.fe-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
 
-.fe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-.fe-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
-  padding: 20px; display: flex; flex-direction: column; gap: 12px; transition: box-shadow .2s; }
-.fe-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+.fe-toast.error {
+  background: #b91c1c;
+}
 
-.fe-card-head { display: flex; justify-content: space-between; align-items: center; }
-.fe-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
-.badge-valid { background: #f0fdf4; color: #16a34a; }
-.badge-active { background: #eff6ff; color: #1d4ed8; }
+.fe-header {
+  margin-bottom: 24px;
+}
 
-.fe-places { font-size: 12px; color: #64748b; font-weight: 500; }
-.fe-places.complet { color: #ef4444; }
+.fe-title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
 
-.fe-card-title { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; }
-.fe-card-desc { font-size: 13px; color: #64748b; line-height: 1.5; margin: 0; }
+.fe-sub {
+  margin: 6px 0 0;
+  font-size: 0.92rem;
+  color: #64748b;
+}
 
-.fe-card-meta { display: flex; flex-direction: column; gap: 6px; }
-.fe-meta-item { display: flex; align-items: center; gap: 6px;
-  font-size: 13px; color: #475569; }
+.fe-loading,
+.fe-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 20px;
+  border-radius: 20px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
 
-.fe-btn-inscrire { margin-top: auto; padding: 11px; background: #6094ff;
-  color: #fff; border: none; border-radius: 8px; font-size: 14px;
-  font-weight: 500; cursor: pointer; transition: background .2s; }
-.fe-btn-inscrire:hover:not(.disabled) { background: #4a7cf7; }
-.fe-btn-inscrire.disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
+.fe-empty h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.fe-empty p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.fe-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #dbeafe;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: fe-spin 0.8s linear infinite;
+}
+
+@keyframes fe-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.fe-card {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 22px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07);
+  transition: all 0.22s ease;
+}
+
+.fe-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.1);
+}
+
+.fe-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fe-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.badge-valid {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #bbf7d0;
+}
+
+.badge-active {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.fe-places {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.fe-places.complet {
+  color: #b91c1c;
+}
+
+.fe-card-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.fe-card-desc {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.fe-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fe-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: #475569;
+}
+
+.fe-btn-inscrire {
+  margin-top: auto;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.16);
+}
+
+.fe-btn-inscrire:hover:not(.disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.22);
+}
+
+.fe-btn-inscrire.disabled,
+.fe-btn-inscrire:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .fe-root {
+    padding: 20px 16px 40px;
+  }
+
+  .fe-title {
+    font-size: 1.5rem;
+  }
+
+  .fe-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fe-card {
+    border-radius: 18px;
+  }
+}

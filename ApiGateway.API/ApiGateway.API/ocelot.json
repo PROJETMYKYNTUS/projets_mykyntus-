@@ -49,7 +49,6 @@
         }
       ]
     },
-
     {
       "UpstreamPathTemplate": "/hubs/newsletter/negotiate",
       "UpstreamHttpMethod": [ "GET", "POST" ],
@@ -74,7 +73,6 @@
         }
       ]
     },
-
     {
       "UpstreamPathTemplate": "/hubs/reclamation/negotiate",
       "UpstreamHttpMethod": [ "GET", "POST" ],
@@ -99,7 +97,6 @@
         }
       ]
     },
-
     {
       "UpstreamPathTemplate": "/hubs/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "CONNECT" ],
@@ -112,7 +109,6 @@
         }
       ]
     },
-
     {
       "UpstreamPathTemplate": "/api/Auth/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
@@ -137,7 +133,6 @@
         }
       ]
     },
-
     {
       "UpstreamPathTemplate": "/api/reclamation",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
@@ -162,7 +157,6 @@
         }
       ]
     },
-
     {
       "UpstreamPathTemplate": "/api/proposition",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
@@ -187,7 +181,6 @@
         }
       ]
     },
-
     {
       "UpstreamPathTemplate": "/api/newsletter",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
@@ -236,11 +229,77 @@
         }
       ]
     },
-    // CORRIGÉ ✅
+
     {
-      "UpstreamPathTemplate": "/api/conges",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
-      "DownstreamPathTemplate": "/api/conges",
+      "UpstreamPathTemplate": "/api/Conges/subservice/{subServiceId}",
+      "UpstreamHttpMethod": [ "GET" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/subservice/{subServiceId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "planning-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/Conges/new-employees/{subServiceId}",
+      "UpstreamHttpMethod": [ "GET" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/new-employees/{subServiceId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "planning-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/Conges/saturday-slot",
+      "UpstreamHttpMethod": [ "POST" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/saturday-slot",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "planning-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/Conges/planning",
+      "UpstreamHttpMethod": [ "POST" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "planning-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/Conges/planning/{id}",
+      "UpstreamHttpMethod": [ "DELETE" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/{id}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "planning-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/Conges/employe/{employeId}/historique",
+      "UpstreamHttpMethod": [ "GET" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/employe/{employeId}/historique",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -250,9 +309,88 @@
       ]
     },
     {
-      "UpstreamPathTemplate": "/api/conges/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
-      "DownstreamPathTemplate": "/api/conges/{everything}",
+      "UpstreamPathTemplate": "/api/Conges/employe/{employeId}/solde",
+      "UpstreamHttpMethod": [ "GET" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/employe/{employeId}/solde",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "conge-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/Conges/employe/{employeId}",
+      "UpstreamHttpMethod": [ "GET" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/employe/{employeId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "conge-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/Conges/manager/{managerId}",
+      "UpstreamHttpMethod": [ "GET" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/manager/{managerId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "conge-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/Conges/{id}/valider",
+      "UpstreamHttpMethod": [ "PUT" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/{id}/valider",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "conge-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/Conges/{id}/refuser",
+      "UpstreamHttpMethod": [ "PUT" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/{id}/refuser",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "conge-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/Conges/{id}/annuler",
+      "UpstreamHttpMethod": [ "PUT" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/{id}/annuler",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "conge-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/Conges",
+      "UpstreamHttpMethod": [ "POST" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -262,30 +400,6 @@
       ]
     },
 
-    {
-      "UpstreamPathTemplate": "/api/conges",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
-      "DownstreamPathTemplate": "/api/conges",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "planning-backend",
-          "Port": 8080
-        }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/api/conges/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
-      "DownstreamPathTemplate": "/api/conges/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "planning-backend",
-          "Port": 8080
-        }
-      ]
-    },
     {
       "UpstreamPathTemplate": "/api/contract",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],

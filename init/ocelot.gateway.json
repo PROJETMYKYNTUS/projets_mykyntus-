@@ -25,6 +25,30 @@
         }
       ]
     },
+    {
+      "UpstreamPathTemplate": "/api/formations",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "DownstreamPathTemplate": "/api/formations",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "formation-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/formations/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "DownstreamPathTemplate": "/api/formations/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "formation-backend",
+          "Port": 8080
+        }
+      ]
+    },
 
     {
       "UpstreamPathTemplate": "/hubs/newsletter/negotiate",
@@ -50,24 +74,7 @@
         }
       ]
     },
-{
-  "UpstreamPathTemplate": "/api/formations",
-  "UpstreamHttpMethod": [ "GET", "POST" ],
-  "DownstreamPathTemplate": "/api/formations",
-  "DownstreamScheme": "http",
-  "DownstreamHostAndPorts": [
-    { "Host": "formation-backend", "Port": 8080 }
-  ]
-},
-{
-  "UpstreamPathTemplate": "/api/formations/{everything}",
-  "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
-  "DownstreamPathTemplate": "/api/formations/{everything}",
-  "DownstreamScheme": "http",
-  "DownstreamHostAndPorts": [
-    { "Host": "formation-backend", "Port": 8080 }
-  ]
-},
+
     {
       "UpstreamPathTemplate": "/hubs/reclamation/negotiate",
       "UpstreamHttpMethod": [ "GET", "POST" ],
@@ -88,31 +95,6 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "planning-backend",
-          "Port": 8080
-        }
-      ]
-    },
-
-    {
-      "UpstreamPathTemplate": "/hubs/documentation/negotiate",
-      "UpstreamHttpMethod": [ "GET", "POST" ],
-      "DownstreamPathTemplate": "/hubs/documentation/negotiate",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "documentation-backend",
-          "Port": 8080
-        }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/hubs/documentation",
-      "UpstreamHttpMethod": [ "GET", "POST", "CONNECT" ],
-      "DownstreamPathTemplate": "/hubs/documentation",
-      "DownstreamScheme": "ws",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "documentation-backend",
           "Port": 8080
         }
       ]
@@ -256,9 +238,10 @@
     },
 
     {
-      "UpstreamPathTemplate": "/api/conges",
+      "UpstreamPathTemplate": "/api/Conges",
+      "RouteIsCaseSensitive": true,
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
-      "DownstreamPathTemplate": "/api/conges",
+      "DownstreamPathTemplate": "/api/Conges",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -268,13 +251,40 @@
       ]
     },
     {
+      "UpstreamPathTemplate": "/api/Conges/{everything}",
+      "RouteIsCaseSensitive": true,
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "DownstreamPathTemplate": "/api/Conges/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "planning-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/conges",
+      "RouteIsCaseSensitive": true,
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "DownstreamPathTemplate": "/api/conges",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "conge-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
       "UpstreamPathTemplate": "/api/conges/{everything}",
+      "RouteIsCaseSensitive": true,
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
       "DownstreamPathTemplate": "/api/conges/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "planning-backend",
+          "Host": "conge-backend",
           "Port": 8080
         }
       ]
@@ -445,184 +455,6 @@
           "Host": "planning-backend",
           "Port": 8080
         }
-      ]
-    },
-
-    {
-      "UpstreamPathTemplate": "/api/documentation",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/documentation",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "documentation-backend",
-          "Port": 8080
-        }
-      ],
-      "UpstreamHeaderTransform": {
-        "X-User-Id": "11111111-1111-4111-8111-111111111101",
-        "X-User-Role": "pilote",
-        "X-Tenant-Id": "atlas-tech-demo"
-      }
-    },
-    {
-      "UpstreamPathTemplate": "/api/documentation/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/documentation/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "documentation-backend",
-          "Port": 8080
-        }
-      ],
-      "UpstreamHeaderTransform": {
-        "X-User-Id": "11111111-1111-4111-8111-111111111101",
-        "X-User-Role": "pilote",
-        "X-Tenant-Id": "atlas-tech-demo"
-      }
-    },
-    {
-      "UpstreamPathTemplate": "/api/generate-document-ai",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/generate-document-ai",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "documentation-backend",
-          "Port": 8080
-        }
-      ],
-      "UpstreamHeaderTransform": {
-        "X-User-Id": "11111111-1111-4111-8111-111111111101",
-        "X-User-Role": "pilote",
-        "X-Tenant-Id": "atlas-tech-demo"
-      }
-    },
-    {
-      "UpstreamPathTemplate": "/api/generate-document-ai/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/generate-document-ai/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "documentation-backend",
-          "Port": 8080
-        }
-      ],
-      "UpstreamHeaderTransform": {
-        "X-User-Id": "11111111-1111-4111-8111-111111111101",
-        "X-User-Role": "pilote",
-        "X-Tenant-Id": "atlas-tech-demo"
-      }
-    },
-
-    {
-      "UpstreamPathTemplate": "/api/prime",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/prime",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "prime-backend", "Port": 8080 }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/api/prime/supervisor-pole-prime-drafts",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/prime/supervisor-cellule-prime-drafts",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "prime-backend", "Port": 8080 }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/api/prime/supervisor-pole-prime-drafts/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/prime/supervisor-cellule-prime-drafts/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "prime-backend", "Port": 8080 }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/api/prime/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/prime/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "prime-backend", "Port": 8080 }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/api/rp",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/rp",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "prime-backend", "Port": 8080 }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/api/rp/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/rp/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "prime-backend", "Port": 8080 }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/api/admin",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/admin",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "prime-backend", "Port": 8080 }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/api/admin/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/admin/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "prime-backend", "Port": 8080 }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/api/audit",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/audit",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "prime-backend", "Port": 8080 }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/api/audit/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/audit/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "prime-backend", "Port": 8080 }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/api/supervisor",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/supervisor",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "prime-backend", "Port": 8080 }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/api/supervisor/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/supervisor/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        { "Host": "prime-backend", "Port": 8080 }
       ]
     }
   ],

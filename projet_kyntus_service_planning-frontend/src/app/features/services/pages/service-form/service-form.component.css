@@ -1,85 +1,196 @@
-/* ───────── PAGE ───────── */
 .service-form-page {
-  background: #0b0f1a;
   min-height: 100vh;
+  padding: 32px 20px;
   display: flex;
   justify-content: center;
-  padding: 40px 20px;
+  align-items: flex-start;
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 22%),
+    linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
 }
 
-/* ───────── CONTAINER ───────── */
 .page-header,
 .card {
   width: 100%;
-  max-width: 600px;
+  max-width: 760px;
 }
 
-/* ───────── CARD ───────── */
+.page-header {
+  margin-bottom: 20px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-left h1 {
+  margin: 0;
+  font-size: 1.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.header-left p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 0.96rem;
+}
+
 .card {
-  background: #151b2b;
-  border-radius: 16px;
-  padding: 30px;
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(8px);
 }
 
-/* ───────── FORM ───────── */
+.form-container {
+  display: grid;
+  gap: 22px;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
-  margin-bottom: 20px;
-  gap: 6px;
+  gap: 10px;
 }
 
 label {
-  color: #cbd5e1;
-  font-size: 0.9rem;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.95rem;
 }
 
 label span {
-  color: #ef4444;
+  color: #dc2626;
 }
 
-/* ───────── INPUTS ───────── */
-input, select {
-  background: #0f172a;
-  border: 1px solid rgba(255,255,255,0.15);
-  padding: 12px;
-  border-radius: 8px;
-  color: white;
-}
-
-input:focus, select:focus {
-  border-color: #38bdf8;
+input,
+select {
+  width: 100%;
+  background: #f8fafc;
+  border: 1px solid #dbe3ee;
+  border-radius: 16px;
+  padding: 14px 16px;
+  color: #0f172a;
+  font-size: 0.96rem;
   outline: none;
+  transition: all 0.25s ease;
 }
 
-/* ───────── ERRORS ───────── */
+input::placeholder {
+  color: #94a3b8;
+}
+
+input:focus,
+select:focus {
+  background: #ffffff;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+}
+
 .input-error {
-  color: #ef4444;
-  font-size: 0.8rem;
+  color: #dc2626;
+  font-size: 0.84rem;
+  font-weight: 500;
 }
 
-/* ───────── ACTIONS ───────── */
+.alert.error {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  background: #fff1f2;
+  color: #b91c1c;
+  border: 1px solid #fecdd3;
+  border-radius: 14px;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
+  gap: 14px;
+  margin-top: 10px;
 }
 
-/* ───────── BUTTONS ───────── */
 .btn {
-  padding: 10px 18px;
-  border-radius: 8px;
+  border: none;
+  border-radius: 14px;
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  font-weight: 700;
   cursor: pointer;
+  transition: all 0.25s ease;
 }
 
 .btn-primary {
-  background: #38bdf8;
-  color: black;
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.22);
 }
 
 .btn-light {
-  background: rgba(255,255,255,0.05);
-  color: white;
+  background: #eef2f7;
+  color: #334155;
+  border: 1px solid #dbe3ee;
+}
+
+.btn-light:hover {
+  background: #e2e8f0;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.state {
+  padding: 24px;
+  border-radius: 16px;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+}
+
+.state.loading {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 12px;
+  border: 3px solid #dbeafe;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 22px;
+    border-radius: 18px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
 }

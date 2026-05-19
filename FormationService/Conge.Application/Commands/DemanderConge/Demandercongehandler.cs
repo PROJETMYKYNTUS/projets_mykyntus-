@@ -3,7 +3,6 @@ using Conge.Domain.Enums;
 using Conge.Domain.Exceptions;
 using Conge.Domain.Interfaces;
 using MediatR;
-using System;
 
 namespace Conge.Application.Commands.DemanderConge;
 
@@ -32,26 +31,41 @@ public class DemanderCongeHandler : IRequestHandler<DemanderCongeCommand, Guid>
         var employe = await _employeRepo.GetByEmployeIdAsync(request.EmployeId, ct)
             ?? throw new EmployeNotFoundException(request.EmployeId);
 
-        // 2. Vérifier chevauchement
+        // 2. Déterminer le validateur selon le rôle
+        // ✅ Manager → valide par Admin/RH
+        // ✅ Employé → valide par son Manager
+        Guid validateurId;
+
+        if (employe.Role == "Manager")
+        {
+            var adminRh = await _employeRepo.GetAdminOuRhAsync(ct)
+                ?? throw new EmployeNotFoundException(Guid.Empty, "Aucun Admin/RH disponible.");
+            validateurId = adminRh.EmployeId;
+        }
+        else
+        {
+            validateurId = employe.ManagerId;
+        }
+
+        // 3. Vérifier chevauchement
         var chevauchement = await _demandeRepo.ExistsCongeEnChevauchementAsync(
             request.EmployeId, request.DateDebut, request.DateFin, ct);
-
         if (chevauchement)
-            throw new InvalidOperationException("Une demande de congé existe déjà sur cette période.");
+            throw new InvalidOperationException(
+                "Une demande de congé existe déjà sur cette période.");
 
+        // 4. Créer la demande selon le type
         DemandeConge demande;
 
         if (request.TypeConge == TypeConge.Annuel)
         {
-            // 3. Récupérer le solde de l'année en cours
             var solde = await _soldeRepo.GetByEmployeAndAnneeAsync(
                 request.EmployeId, DateTime.Today.Year, ct)
                 ?? throw new SoldeNotFoundException(request.EmployeId, DateTime.Today.Year);
 
-            // 4. Créer la demande (la logique métier est dans l'entité)
             demande = DemandeConge.CreerCongeAnnuel(
                 request.EmployeId,
-                employe.ManagerId,
+                validateurId,        // ← validateur dynamique
                 request.DateDebut,
                 request.DateFin,
                 solde,
@@ -61,18 +75,20 @@ public class DemanderCongeHandler : IRequestHandler<DemanderCongeCommand, Guid>
         else if (request.TypeConge == TypeConge.Exceptionnel)
         {
             if (!request.TypeExceptionnel.HasValue)
-                throw new ArgumentException("Le type exceptionnel est obligatoire pour un congé exceptionnel.");
+                throw new ArgumentException(
+                    "Le type exceptionnel est obligatoire pour un congé exceptionnel.");
 
             demande = DemandeConge.CreerCongeExceptionnel(
                 request.EmployeId,
-                employe.ManagerId,
+                validateurId,        // ← validateur dynamique
                 request.TypeExceptionnel.Value,
                 request.DateDebut,
                 request.Motif);
         }
         else
         {
-            throw new NotSupportedException($"Type de congé '{request.TypeConge}' non supporté via cette commande.");
+            throw new NotSupportedException(
+                $"Type de congé '{request.TypeConge}' non supporté via cette commande.");
         }
 
         await _demandeRepo.AddAsync(demande, ct);

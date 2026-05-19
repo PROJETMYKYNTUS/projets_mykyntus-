@@ -1,8 +1,4 @@
-/* ══════════════════════════════════════════════════
-   reclamation-admin.component.css
-   ══════════════════════════════════════════════════ */
-
-/* ── Root ─────────────────────────────────────────── */
+@import "../styles/reclamation-shared.css";
 .rp-root {
   padding: 24px;
   font-family: 'DM Sans', sans-serif;

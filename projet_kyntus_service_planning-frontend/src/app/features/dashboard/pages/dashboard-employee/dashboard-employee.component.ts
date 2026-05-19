@@ -7,6 +7,8 @@ import { NewsletterService, EmployeeNewsletter } from '../../../../core/services
 import { ReclamationEmployeeComponent } from '../../../reclamation/employee/reclamation-employee.component';
 import { FormationEmployeeComponent } from '../../../formation/employee/formation-employee.component';
 import { CongeEmployeComponent } from '../../../conge/pages/conge-employe/conge-employe.component';
+import { CongeManagerComponent } from '../../../conge/pages/conge-manager/conge-manager.component'; // ← AJOUT
+
 interface DayAssignment {
   assignmentId: number;
   day: string;
@@ -37,6 +39,7 @@ interface MyPlanning {
     ReclamationEmployeeComponent,
     FormationEmployeeComponent,
     CongeEmployeComponent,
+    CongeManagerComponent,  // ← AJOUT
   ],
   templateUrl: './dashboard-employee.component.html',
   styleUrls: ['./dashboard-employee.component.css']
@@ -44,7 +47,8 @@ interface MyPlanning {
 export class DashboardEmployeeComponent implements OnInit, OnDestroy {
 
   // ── Vues ──
-   currentView: 'home' | 'planning' | 'conges' | 'settings' | 'newsletters' | 'reclamations' | 'formations' = 'home';
+  currentView: 'home' | 'planning' | 'conges' | 'settings' | 'newsletters' | 'reclamations' | 'formations' = 'home';
+  congesSubView: 'mes-conges' | 'equipe' = 'mes-conges';
   // ── User ──
   planning: MyPlanning | null = null;
   history: MyPlanning[] = [];
@@ -53,7 +57,7 @@ export class DashboardEmployeeComponent implements OnInit, OnDestroy {
   userId = 0;
   userName = 'Employé';
   userInitials = 'EK';
-  userRole = 'Employé';
+ 
 
   // ── Notifications ──
   notifications: PlanningNotification[] = [];
@@ -73,30 +77,25 @@ export class DashboardEmployeeComponent implements OnInit, OnDestroy {
     Monday: 'Lundi', Tuesday: 'Mardi', Wednesday: 'Mercredi',
     Thursday: 'Jeudi', Friday: 'Vendredi', Saturday: 'Samedi'
   };
+userRole = (() => {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  return (user?.role ?? user?.Role ?? user?.roles?.[0] ?? '').trim();
+})();
+  // ── Getters rôle ──────────────────────────────────────────────────────────
+ get isManager(): boolean {
+  return this.userRole.toLowerCase().trim() === 'manager';
+}
 
-  readonly menuItems = [
-    {
-      id: 'planning',
-      label: 'Mon Planning',
-      desc: 'Consultez vos shifts et horaires de la semaine',
-      icon: 'calendar',
-      color: '#3b82f6'
-    },
-    {
-      id: 'conges',
-      label: 'Mes Congés',
-      desc: 'Gérez vos demandes de congés et absences',
-      icon: 'beach',
-      color: '#10b981'
-    },
-    {
-      id: 'settings',
-      label: 'Paramètres',
-      desc: 'Personnalisez votre compte et préférences',
-      icon: 'settings',
-      color: '#8b5cf6'
-    }
-  ];
+  get congesLabel(): string {
+    return this.isManager ? 'Congés Équipe' : 'Mes Congés';
+  }
+
+  get congesDesc(): string {
+    return this.isManager
+      ? 'Validez les demandes de congés de votre équipe'
+      : 'Gérez vos demandes de congés et absences';
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   constructor(
     private planningService: PlanningService,
@@ -107,70 +106,73 @@ export class DashboardEmployeeComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  this.userId   = user?.id;
-  this.userName = user?.username || 'Employé';
-  console.log('👤 user object complet:', user);        // ← AJOUTEZ
-  console.log('👤 userId pour SignalR:', this.userId);
-  this.loadMyNewsletters();  // ← appelé ici, nlLoading = false après
-  this.userInitials = this.userName.substring(0, 2).toUpperCase();
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    this.userId       = user?.id;
+    this.userName     = user?.username || 'Employé';
+    this.userInitials = this.userName.substring(0, 2).toUpperCase();
 
-  if (!this.userId) return;
+    console.log('👤 user object complet:', user);
+    console.log('👤 userId pour SignalR:', this.userId);
+    console.log('👤 userRole:', this.userRole);
+    console.log('👤 isManager:', this.isManager);
+
+    this.loadMyNewsletters();
+
+    if (!this.userId) return;
 
     // ── SignalR ──
     this.notificationService.connect(this.userId);
 
-  this.notificationService.notifications$.subscribe(notifs => {
-    console.log('📋 notifications$ émis:', notifs.length, notifs);
-    this.notifications = notifs;
-    this.cdr.detectChanges(); // ← AJOUTEZ
+    this.notificationService.notifications$.subscribe(notifs => {
+      console.log('📋 notifications$ émis:', notifs.length, notifs);
+      this.notifications = notifs;
+      this.cdr.detectChanges();
 
-    const latest = notifs[0];
-    if (latest && !latest.read) {
-      this.showToastMessage(latest.message);
-      this.loadCurrentPlanning();
-      this.loadHistory();
-    }
-  });
+      const latest = notifs[0];
+      if (latest && !latest.read) {
+        this.showToastMessage(latest.message);
+        this.loadCurrentPlanning();
+        this.loadHistory();
+      }
+    });
 
-  this.notificationService.unreadCount$.subscribe(count => {
-    this.unreadCount = count;
-    this.cdr.detectChanges(); // ← AJOUTEZ
-  });
+    this.notificationService.unreadCount$.subscribe(count => {
+      this.unreadCount = count;
+      this.cdr.detectChanges();
+    });
 
-  this.loadHistory();
-}
+    this.loadHistory();
+  }
 
   ngOnDestroy(): void {
     this.notificationService.disconnect();
   }
 
-  // ── Navigation ──
-navigateTo(view: 'home' | 'planning' | 'conges' | 'settings' | 'newsletters' | 'reclamations' | 'formations'):void {
+  // ── Navigation ────────────────────────────────────────────────────────────
+navigateTo(view: 'home' | 'planning' | 'conges' | 'settings' | 
+                 'newsletters' | 'reclamations' | 'formations'): void {
   this.currentView = view;
-  if (view === 'planning' && !this.planning) {
-    this.loadCurrentPlanning();
-  }
-  if (view === 'newsletters') {
-    this.loadMyNewsletters();
-  }
+  if (view === 'planning' && !this.planning) this.loadCurrentPlanning();
+  if (view === 'newsletters') this.loadMyNewsletters();
+  // Reset sous-vue à chaque entrée
+  if (view === 'conges') this.congesSubView = 'mes-conges';
 }
 
-  /** Documentation intégrée : espace pilote + handoff (e-mail annuaire). */
+// Nouvelle méthode
+navigateConges(sub: 'mes-conges' | 'equipe'): void {
+  this.congesSubView = sub;
+}
   openDocumentationApp(): void {
     const queryParams: Record<string, string> = { handoff: 'pilote' };
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}') as { email?: string };
       const email = u?.email?.trim();
-      if (email) {
-        queryParams['email'] = email;
-      }
-    } catch {
-      /* ignore */
-    }
+      if (email) queryParams['email'] = email;
+    } catch { /* ignore */ }
     void this.router.navigate(['/documentation'], { queryParams });
   }
-  // ── Planning ──
+
+  // ── Planning ──────────────────────────────────────────────────────────────
   loadCurrentPlanning(): void {
     this.loading = true;
     this.planningService.getMyCurrentPlanning(this.userId).subscribe({
@@ -204,29 +206,28 @@ navigateTo(view: 'home' | 'planning' | 'conges' | 'settings' | 'newsletters' | '
     });
   }
 
-  // ── Notifications ──
+  // ── Notifications ─────────────────────────────────────────────────────────
   toggleNotifications(): void {
     this.showNotifications = !this.showNotifications;
     if (this.showNotifications) this.notificationService.markAllRead();
   }
-   
+
   onNotifClick(n: PlanningNotification): void {
-  this.showNotifications = false;
-  // Si c'est une notification réclamation → naviguer vers la vue réclamations
-  if (n.type === 'reclamation') {
-    this.navigateTo('reclamations');
-  } else {
-    // Comportement existant pour planning
-    this.navigateTo('planning');
+    this.showNotifications = false;
+    if (n.type === 'reclamation') {
+      this.navigateTo('reclamations');
+    } else {
+      this.navigateTo('planning');
+    }
   }
-}
+
   showToastMessage(msg: string): void {
     this.toastMessage = msg;
     this.showToast    = true;
     setTimeout(() => this.showToast = false, 5000);
   }
 
-  // ── Helpers ──
+  // ── Helpers ───────────────────────────────────────────────────────────────
   getDayLabel(day: string): string { return this.dayLabels[day] || day; }
 
   getDateForDay(assignedDate: string): string {
@@ -276,46 +277,34 @@ navigateTo(view: 'home' | 'planning' | 'conges' | 'settings' | 'newsletters' | '
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     });
   }
-loadMyNewsletters(): void {
-  this.nlLoading = true;
-  console.log('🔵 loadMyNewsletters START');
-  this.newsletterSvc.getMyNewsletters('Employees').subscribe({
-    next: (data) => {
-      console.log('✅ DATA:', data);
-      console.log('✅ IS ARRAY:', Array.isArray(data));
-      this.myNewsletters = data ?? [];
-      this.unreadNewsletters = this.myNewsletters.filter(n => !n.isRead).length;
-      this.nlLoading = false;
-    },
-    error: (err) => {
-      console.log('❌ ERREUR:', err);
-      this.nlLoading = false;
-    }
-  });
-}
- 
-openNewsletter(nl: EmployeeNewsletter): void {
-  this.selectedNewsletter = nl;
-  if (!nl.isRead) {
-    this.newsletterSvc.markAsRead(nl.analyticsId).subscribe({
-      next: () => {
-        nl.isRead = true;
-        nl.readAt = new Date().toISOString();
-        this.unreadNewsletters = Math.max(0, this.unreadNewsletters - 1);
-      }
+
+  // ── Newsletters ───────────────────────────────────────────────────────────
+  loadMyNewsletters(): void {
+    this.nlLoading = true;
+    this.newsletterSvc.getMyNewsletters('Employees').subscribe({
+      next: (data) => {
+        this.myNewsletters     = data ?? [];
+        this.unreadNewsletters = this.myNewsletters.filter(n => !n.isRead).length;
+        this.nlLoading         = false;
+      },
+      error: () => { this.nlLoading = false; }
     });
   }
-}
- 
-closeNewsletter(): void {
-  this.selectedNewsletter = null;
-}
- 
-getReadCount(): number {
-  return this.myNewsletters.filter(n => n.isRead).length;
-}
- 
-getUnreadCount(): number {
-  return this.myNewsletters.filter(n => !n.isRead).length;
-}
+
+  openNewsletter(nl: EmployeeNewsletter): void {
+    this.selectedNewsletter = nl;
+    if (!nl.isRead) {
+      this.newsletterSvc.markAsRead(nl.analyticsId).subscribe({
+        next: () => {
+          nl.isRead = true;
+          nl.readAt = new Date().toISOString();
+          this.unreadNewsletters = Math.max(0, this.unreadNewsletters - 1);
+        }
+      });
+    }
+  }
+
+  closeNewsletter(): void { this.selectedNewsletter = null; }
+  getReadCount(): number   { return this.myNewsletters.filter(n => n.isRead).length; }
+  getUnreadCount(): number { return this.myNewsletters.filter(n => !n.isRead).length; }
 }

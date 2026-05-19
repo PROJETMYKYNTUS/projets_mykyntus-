@@ -1,7 +1,4 @@
-/* ══════════════════════════════════════════════════
-   reclamation-employee.component.css
-   ══════════════════════════════════════════════════ */
-
+@import "../styles/reclamation-shared.css";
 /* ── Root ─────────────────────────────────────────── */
 .rp-root {
   padding: 24px;

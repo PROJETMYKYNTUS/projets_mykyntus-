@@ -1,74 +1,208 @@
 .page-wrapper {
-  background: #f1f5f9;
   min-height: 100vh;
-  padding: 3rem 1rem;
+  padding: 32px 20px;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 22%),
+    linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
 }
 
 .form-card {
   width: 100%;
-  max-width: 650px;
-  background: white;
-  border-radius: 16px;
-  padding: 2.5rem;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
-  border: 1px solid #e2e8f0;
+  max-width: 760px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(8px);
 }
 
-/* HEADER */
+.form-header {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
 .form-header h1 {
+  margin: 0;
+  font-size: 1.95rem;
+  font-weight: 700;
   color: #0f172a;
+  letter-spacing: -0.02em;
 }
 
 .form-header p {
+  margin: 6px 0 0;
   color: #64748b;
+  font-size: 0.96rem;
 }
 
 .btn-back {
-  color: #3b82f6;
+  align-self: flex-start;
+  border: 1px solid #dbe7f5;
+  background: #ffffff;
+  color: #2563eb;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.btn-back:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.form-body {
+  display: grid;
+  gap: 22px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-group label {
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+input,
+textarea {
+  width: 100%;
+  background: #f8fafc;
+  border: 1px solid #dbe3ee;
+  border-radius: 16px;
+  padding: 14px 16px;
+  color: #0f172a;
+  font-size: 0.96rem;
+  transition: all 0.25s ease;
+  outline: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8;
+}
+
+input:focus,
+textarea:focus {
+  background: #ffffff;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.field-error {
+  color: #dc2626;
+  font-size: 0.85rem;
   font-weight: 500;
 }
 
-/* INPUT */
-input, textarea {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 12px;
-  color: #0f172a;
-}
-
-input:focus, textarea:focus {
-  border-color: #3b82f6;
-  background: #fff;
-}
-
-/* LABEL */
-.form-group label {
-  color: #475569;
-}
-
-/* ERROR */
-.field-error {
-  color: #ef4444;
-}
-
-/* ACTIONS */
 .form-actions {
-  margin-top: 2rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.btn-secondary,
+.btn-primary {
+  border: none;
+  padding: 12px 20px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
 }
 
 .btn-secondary {
-  background: #e2e8f0;
+  background: #eef2f7;
   color: #334155;
+  border: 1px solid #dbe3ee;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
 }
 
 .btn-primary {
-  background: #3b82f6;
-  color: white;
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
 }
 
-.btn-primary:hover {
-  background: #2563eb;
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.22);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.state {
+  padding: 24px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+.state.loading {
+  background: #f8fafc;
+  color: #475569;
+  text-align: center;
+}
+
+.state.error {
+  background: #fff1f2;
+  color: #b91c1c;
+  border-color: #fecdd3;
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 12px;
+  border: 3px solid #dbeafe;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .form-card {
+    padding: 22px;
+    border-radius: 18px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .btn-secondary,
+  .btn-primary {
+    width: 100%;
+  }
 }

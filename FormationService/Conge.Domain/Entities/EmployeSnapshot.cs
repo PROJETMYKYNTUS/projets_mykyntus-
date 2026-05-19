@@ -18,7 +18,9 @@ public class EmployeSnapshot
     public bool EstMineur { get; private set; }
     public DateTime DerniereModification { get; private set; }
 
-    // EF Core constructor
+    // ✅ AJOUT
+    public string Role { get; private set; } = string.Empty;
+
     private EmployeSnapshot() { }
 
     public static EmployeSnapshot Creer(
@@ -30,7 +32,8 @@ public class EmployeSnapshot
         Guid serviceId,
         string serviceNom,
         DateTime dateEmbauche,
-        bool estMineur = false)
+        bool estMineur = false,
+        string role = "Employee")  // ✅ AJOUT
     {
         return new EmployeSnapshot
         {
@@ -44,6 +47,7 @@ public class EmployeSnapshot
             ServiceNom = serviceNom,
             DateEmbauche = dateEmbauche,
             EstMineur = estMineur,
+            Role = role,          // ✅ AJOUT
             DerniereModification = DateTime.UtcNow
         };
     }
@@ -54,7 +58,8 @@ public class EmployeSnapshot
         string email,
         Guid managerId,
         Guid serviceId,
-        string serviceNom)
+        string serviceNom,
+        string role = "Employee")  // ✅ AJOUT
     {
         Nom = nom;
         Prenom = prenom;
@@ -62,12 +67,10 @@ public class EmployeSnapshot
         ManagerId = managerId;
         ServiceId = serviceId;
         ServiceNom = serviceNom;
+        Role = role;              // ✅ AJOUT
         DerniereModification = DateTime.UtcNow;
     }
 
-    /// <summary>
-    /// Calcule l'ancienneté en années complètes.
-    /// </summary>
     public int GetAncienneteAnnees()
     {
         var today = DateTime.Today;
@@ -76,9 +79,6 @@ public class EmployeSnapshot
         return years;
     }
 
-    /// <summary>
-    /// Vérifie si l'employé a au moins 6 mois d'ancienneté (éligibilité congé annuel).
-    /// </summary>
     public bool EstEligibleCongeAnnuel()
     {
         return DateTime.Today >= DateEmbauche.AddMonths(6);

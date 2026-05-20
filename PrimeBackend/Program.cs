@@ -84,6 +84,8 @@ if (!string.IsNullOrWhiteSpace(conn))
 
     builder.Services.AddScoped<PrimeBackend.Services.AnomalyDetectionService>();
     builder.Services.AddScoped<PrimeValidationWorkflowRuntime>();
+    builder.Services.AddScoped<PrimeFicheValidationSubmissionService>();
+    builder.Services.AddScoped<PrimeValidationListService>();
     builder.Services.AddScoped<PrimeRbacReadService>();
     builder.Services.AddScoped<IPrimeRequestUserResolver, PrimeRequestUserResolver>();
     builder.Services.AddScoped<GlobalPoolWorkflowService>();

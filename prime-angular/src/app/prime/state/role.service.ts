@@ -1,59 +1,56 @@
 import { Injectable, computed, signal } from '@angular/core';
 import type { Employee, Role } from '../models';
 import { PRIME_AUTHORIZED_ROLES } from '../models';
+import {
+  employeesForUiRole,
+  pickDefaultEmployeeForRole,
+  resolveEmployeeForRole,
+} from '../lib/prime-demo-users';
 import { primeApiGet } from '../services/prime-http';
 
-/** Utilisé uniquement si la liste employés est vide ou sans correspondance de rôle (ex. chargement initial). */
-const fallbackUser: Employee = {
-  id: 'e-admin',
-  firstName: 'Système',
-  lastName: 'Admin',
-  role: 'Admin',
-  serviceId: 'c1',
-  poleId: 'd1',
-  celluleId: 'p1',
-  email: 'admin@local',
-};
-
 const ROLE_STORAGE_KEY = 'prime.demoRole';
+const USER_STORAGE_KEY = 'prime.demoUserId';
 
 @Injectable({ providedIn: 'root' })
 export class RoleService {
   readonly currentRole = signal<Role>(RoleService.readStoredRole());
   readonly employees = signal<Employee[]>([]);
+  /** Identité démo sélectionnée dans la barre (mode développeur). */
+  readonly selectedUserId = signal<string | null>(RoleService.readStoredUserId());
+
+  readonly employeesForCurrentRole = computed(() =>
+    employeesForUiRole(this.employees(), this.currentRole()),
+  );
 
   readonly currentUser = computed<Employee>(() => {
     const role = this.currentRole();
     const list = this.employees();
-    const exactMatch = list.find((employee) => employee.role === role);
-    if (exactMatch) return exactMatch;
-    if (role === 'Référent technique') {
-      const coach = list.find((employee) => employee.role === 'Coach');
-      if (coach) return coach;
-    }
-    if (role === 'Coach') {
-      const referent = list.find((employee) => employee.role === 'Référent technique');
-      if (referent) return referent;
-    }
-    if (role === 'Chef de projet') {
-      const legacyRp = list.find((employee) => employee.role === 'RP');
-      if (legacyRp) return legacyRp;
-    }
-    if (role === 'RP') {
-      const chef = list.find((employee) => employee.role === 'Chef de projet');
-      if (chef) return chef;
-    }
-    return list[0] ?? fallbackUser;
+    return resolveEmployeeForRole(list, role, this.selectedUserId());
   });
 
   constructor() {
-    void primeApiGet<Employee[]>('/api/prime/employees').then((rows) => this.employees.set(rows));
+    void primeApiGet<Employee[]>('/api/prime/employees').then((rows) => {
+      this.employees.set(rows);
+      this.ensureUserMatchesRole();
+    });
   }
 
   setRole(role: Role): void {
     this.currentRole.set(role);
     try {
       sessionStorage.setItem(ROLE_STORAGE_KEY, role);
+    } catch {
+      /* ignore */
+    }
+    this.applyDefaultUserForRole(role);
+  }
+
+  setUserId(userId: string): void {
+    const id = userId.trim();
+    this.selectedUserId.set(id || null);
+    try {
+      if (id) sessionStorage.setItem(USER_STORAGE_KEY, id);
+      else sessionStorage.removeItem(USER_STORAGE_KEY);
     } catch {
       /* ignore */
     }
@@ -64,6 +61,22 @@ export class RoleService {
     if (this.currentRole() !== 'RH') this.setRole('RH');
   }
 
+  private applyDefaultUserForRole(role: Role): void {
+    const list = this.employees();
+    if (list.length === 0) return;
+    const picked = pickDefaultEmployeeForRole(list, role);
+    if (picked) this.setUserId(picked.id);
+  }
+
+  private ensureUserMatchesRole(): void {
+    const role = this.currentRole();
+    const list = this.employees();
+    if (list.length === 0) return;
+    const stored = this.selectedUserId();
+    const resolved = resolveEmployeeForRole(list, role, stored);
+    if (!stored || stored !== resolved.id) this.setUserId(resolved.id);
+  }
+
   private static readStoredRole(): Role {
     try {
       const saved = sessionStorage.getItem(ROLE_STORAGE_KEY) as Role | null;
@@ -72,5 +85,13 @@ export class RoleService {
       /* ignore */
     }
     return 'Superviseur';
+  }
+
+  private static readStoredUserId(): string | null {
+    try {
+      return sessionStorage.getItem(USER_STORAGE_KEY);
+    } catch {
+      return null;
+    }
   }
 }

@@ -142,7 +142,7 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.Property(x => x.Period).HasMaxLength(16);
             e.Property(x => x.FillingStatus).HasMaxLength(32);
             // ---- Phase 1.1 : workflow validation ----
-            e.Property(x => x.ValidationStatus).HasMaxLength(64).IsRequired();
+            e.Property(x => x.ValidationStatus).HasMaxLength(64).IsRequired().HasDefaultValue("AwaitingData");
             e.Property(x => x.LastApproverUserId).HasMaxLength(128);
             e.Property(x => x.RejectedByUserId).HasMaxLength(128);
             e.Property(x => x.RejectionReason).HasMaxLength(2048);

@@ -42,6 +42,7 @@ import {
   type PrimeFicheTemplateSchema,
 } from '../models/prime-fiche-template.schema';
 import {
+  PRIME_EXCEL_DIRECT_COMMON_TEMPLATE_ID,
   buildStoredTemplateForDirectCommonUpload,
   loadStoredTemplates,
   serializeTemplateCalcSnapshotV1,
@@ -1269,20 +1270,6 @@ export class PrimeSaisieComponent {
     });
 
     effect(() => {
-      if (!this.session.useWizardFlow()) return;
-      if (this.session.step() !== 'entry') return;
-      if (this.poleAutoNavigated()) return;
-      if (!this.polePartFullyValid()) return;
-      untracked(() => this.poleAutoNavigated.set(true));
-      queueMicrotask(() => {
-        void (async () => {
-          await this.persistPoleDraftToDb(true);
-          this.session.goResult();
-        })();
-      });
-    });
-
-    effect(() => {
       if (!this.isSuperviseur()) return;
       const step = this.session.step();
       if (step !== 'setup' && step !== 'preview') return;
@@ -1478,7 +1465,11 @@ export class PrimeSaisieComponent {
       return;
     }
     const ok = this.session.startWizardFromExistingDraft(draft);
-    if (!ok) this.wizardEarlySaveMessage.set('Schéma ou snapshot manquant pour cette fiche.');
+    if (!ok) {
+      this.wizardEarlySaveMessage.set('Schéma ou snapshot manquant pour cette fiche.');
+      return;
+    }
+    this.session.goEntry();
   }
 
   async persistPoleDraftToDb(silent: boolean): Promise<void> {
@@ -1594,6 +1585,23 @@ export class PrimeSaisieComponent {
       }
       return n;
     });
+
+    // Fiche préremplie (import Excel direct) : après hydratation réussie depuis l’API, si tout le pôle
+    // est déjà valide, aller tout de suite à l’écran de validation — sans passer par une saisie ligne à ligne.
+    // Pour un template enregistré, on reste en saisie jusqu’à un clic « Aperçu calculé ».
+    const excelPrempli = tpl.id.trim() === PRIME_EXCEL_DIRECT_COMMON_TEMPLATE_ID;
+    if (
+      excelPrempli &&
+      this.session.useWizardFlow() &&
+      this.session.step() === 'entry' &&
+      !this.poleAutoNavigated() &&
+      this.polePartFullyValid()
+    ) {
+      untracked(() => this.poleAutoNavigated.set(true));
+      await this.persistPoleDraftToDb(true);
+      this.session.goResult();
+      this.poleAutoNavigated.set(false);
+    }
   }
 
   navItemClass(_key: string, selected: boolean): string {

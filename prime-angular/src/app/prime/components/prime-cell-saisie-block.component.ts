@@ -124,7 +124,7 @@ export interface CellIndicatorRun {
       } @else if (hasNoActiveIndicators()) {
         <app-prime-card
           title="Aucun indicateur configuré"
-          description="Configurez d’abord les indicateurs pour la cellule de cet employé."
+          description="Configurez d’abord les indicateurs pour le service de cet employé (écran « Indicateurs PRIME »)."
         >
           <button
             type="button"
@@ -594,7 +594,13 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
         next: (f) => {
           this.fillingStatus.set(f.fillingStatus);
           this.saving.set(false);
-          this.saveBanner.set('Enregistré.');
+          const submitted =
+            (f.validationStatus ?? '').trim().toLowerCase() === 'pending';
+          this.saveBanner.set(
+            submitted
+              ? 'Enregistré — fiche soumise au workflow de validation.'
+              : 'Enregistré.',
+          );
           this.saved.emit();
         },
         error: (e) => {

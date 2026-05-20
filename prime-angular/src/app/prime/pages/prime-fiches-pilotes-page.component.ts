@@ -20,6 +20,7 @@ import {
   type CellPilotageSummaryDto,
   type EmployeePrimeCellFicheListItemDto,
 } from '../services/prime-cell-prime-api.service';
+import { PrimeOrgApiService } from '../services/prime-org-api.service';
 import { PrimeCellSaisieContextService } from '../services/prime-cell-saisie-context.service';
 import { RoleService } from '../state/role.service';
 import { parsePrimeSchemaFromDraftJson } from '../lib/prime-cell-schema-merge';
@@ -52,17 +53,28 @@ interface PilotSelection {
   firstName: string;
   lastName: string;
   email: string;
-  /** Cellule métier (clé brouillon partie commune). */
   celluleId: string;
-  /** Équipe / service (ligne pilotage). */
   serviceId: string;
-  /** Libellé affiché (nom d’équipe). */
+  serviceName: string;
   celluleName: string;
-  /** Même valeur que `celluleId` : id passé à `getPoleDraft` (brouillon partie commune). */
+  poleName: string;
+  /** Clé brouillon partie commune (`getPoleDraft`). */
   poleId: string;
   linkedTemplateId: string | null;
   fillingStatus: string;
   linkedTemplateDisplayName: string | null;
+}
+
+/** Regroupement pilotage : une cellule RH → plusieurs services → pilotes. */
+interface PilotageCelluleGroup {
+  celluleId: string;
+  celluleName: string;
+  poleName: string;
+  complete: number;
+  inProgress: number;
+  notStarted: number;
+  aggregateState: string;
+  services: CellPilotageSummaryDto[];
 }
 
 @Component({
@@ -79,9 +91,9 @@ interface PilotSelection {
               Fiches PRIME — pilotage
             </h1>
             <p class="text-slate-400 mt-2 max-w-2xl text-sm leading-relaxed">
-              Choisissez la <strong class="text-slate-200">période</strong> : le même brouillon pôle (partie commune
-              RACC/SAV) s’applique automatiquement à la partie cellule. À gauche, cellules et pilotes avec code couleur ;
-              à droite, la saisie du pilote sélectionné (dans l’ordre qui vous convient).
+              Choisissez la <strong class="text-slate-200">période</strong> : le brouillon pôle (partie commune RACC/SAV)
+              s’applique à toute la cellule. À gauche : <strong class="text-slate-200">Pôle → Cellule → Service → Pilote</strong>
+              (pilotes uniquement, depuis les affectations RH). À droite : saisie du pilote sélectionné.
             </p>
           </div>
           <button
@@ -133,68 +145,90 @@ interface PilotSelection {
               <div
                 class="px-4 py-3 border-b border-navy-700 text-xs font-semibold uppercase tracking-wide text-slate-500"
               >
-                Cellules & pilotes
+                Cellule, services et pilotes
               </div>
               <div class="overflow-y-auto flex-1 p-3 space-y-4">
-                @for (c of summary(); track c.serviceId) {
-                  <section class="rounded-lg border border-navy-700/80 bg-navy-950/60 overflow-hidden">
-                    <div class="flex items-center gap-2 px-3 py-2 bg-navy-900/80">
-                      <span [class]="cellRollupDot(c.serviceAggregateState)" aria-hidden="true"></span>
+                @for (grp of pilotageTree(); track grp.celluleId) {
+                  <section class="rounded-lg border border-navy-600/80 bg-navy-950/60 overflow-hidden">
+                    <div class="flex items-center gap-2 px-3 py-2.5 bg-navy-900 border-b border-navy-700">
+                      <span [class]="cellRollupDot(grp.aggregateState)" aria-hidden="true"></span>
                       <div class="min-w-0 flex-1">
-                        <div class="font-semibold text-slate-100 text-sm truncate">{{ c.serviceName }}</div>
+                        <div class="text-[10px] uppercase tracking-wide text-slate-500">Cellule</div>
+                        <div class="font-semibold text-slate-100 text-sm truncate">{{ grp.celluleName }}</div>
+                        @if (grp.poleName) {
+                          <div class="text-[11px] text-slate-500 truncate">Pôle : {{ grp.poleName }}</div>
+                        }
                         <div class="text-[11px] text-slate-500 mt-0.5">
-                          {{ c.complete }} OK · {{ c.inProgress }} en cours · {{ c.notStarted }} pas commencé
+                          {{ grp.complete }} OK · {{ grp.inProgress }} en cours · {{ grp.notStarted }} pas commencé
                         </div>
                       </div>
                       <span class="text-[10px] font-medium text-slate-500 shrink-0">{{
-                        stateShortLabel(c.serviceAggregateState)
+                        stateShortLabel(grp.aggregateState)
                       }}</span>
                     </div>
-                    <ul class="divide-y divide-navy-800">
-                      @for (emp of employeesForService(c.serviceId); track emp.employeeId) {
-                        <li class="flex items-stretch gap-0.5">
-                          <button
-                            type="button"
-                            (click)="selectPilot(emp, c)"
-                            [class]="pilotRowClass(emp.employeeId) + ' flex-1 min-w-0 rounded-none border-0'"
-                          >
-                            <span [class]="pilotDotClass(emp.fillingStatus)" aria-hidden="true"></span>
-                            <span class="min-w-0 flex-1 text-left">
-                              <span class="block text-sm font-medium text-slate-100 truncate"
-                                >{{ emp.firstName }} {{ emp.lastName }}</span
-                              >
-                              <span class="block text-[11px] text-slate-500 truncate">{{ emp.email }}</span>
-                            </span>
-                            <span class="text-[10px] text-slate-500 shrink-0">{{ statusShort(emp.fillingStatus) }}</span>
-                            <app-lucide-icon [icon]="icons.chev" className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                          </button>
-                          <div class="flex flex-col justify-center gap-0.5 py-1 pr-1 shrink-0 border-l border-navy-800">
-                            <button
-                              type="button"
-                              [title]="mergedActionsHint(emp, c) || 'Aperçu fiche fusionnée (pôle + cellule)'"
-                              (click)="openMergedPreview($event, emp, c)"
-                              [disabled]="!mergedActionsEnabled(emp, c)"
-                              class="rounded px-1.5 py-1 text-[10px] font-medium text-blue-300 hover:bg-navy-800 disabled:opacity-30 disabled:pointer-events-none"
-                            >
-                              <app-lucide-icon [icon]="icons.eye" className="w-4 h-4 mx-auto" />
-                            </button>
-                            <button
-                              type="button"
-                              [title]="mergedActionsHint(emp, c) || 'Télécharger .xlsx (une feuille)'"
-                              (click)="downloadMergedXlsx($event, emp, c)"
-                              [disabled]="!mergedActionsEnabled(emp, c)"
-                              class="rounded px-1.5 py-1 text-[10px] font-medium text-emerald-300 hover:bg-navy-800 disabled:opacity-30 disabled:pointer-events-none"
-                            >
-                              <app-lucide-icon [icon]="icons.download" className="w-4 h-4 mx-auto" />
-                            </button>
+                    @for (svc of grp.services; track svc.serviceId) {
+                      <div class="border-t border-navy-800">
+                        <div class="flex items-center gap-2 px-3 py-2 bg-navy-900/50">
+                          <span [class]="cellRollupDot(svc.serviceAggregateState)" aria-hidden="true"></span>
+                          <div class="min-w-0 flex-1">
+                            <div class="text-[10px] uppercase tracking-wide text-slate-600">Service</div>
+                            <div class="font-medium text-slate-200 text-sm truncate">{{ svc.serviceName }}</div>
+                            <div class="text-[11px] text-slate-500 mt-0.5">
+                              {{ svc.complete }} OK · {{ svc.inProgress }} en cours · {{ svc.notStarted }} pas commencé
+                            </div>
                           </div>
-                        </li>
-                      }
-                    </ul>
+                        </div>
+                        <ul class="divide-y divide-navy-800">
+                          @for (emp of employeesForService(svc.serviceId); track emp.employeeId) {
+                            <li class="flex items-stretch gap-0.5">
+                              <button
+                                type="button"
+                                (click)="selectPilot(emp, svc)"
+                                [class]="pilotRowClass(emp.employeeId) + ' flex-1 min-w-0 rounded-none border-0'"
+                              >
+                                <span [class]="pilotDotClass(emp.fillingStatus)" aria-hidden="true"></span>
+                                <span class="min-w-0 flex-1 text-left">
+                                  <span class="block text-sm font-medium text-slate-100 truncate"
+                                    >{{ emp.firstName }} {{ emp.lastName }}</span
+                                  >
+                                  <span class="block text-[11px] text-slate-500 truncate">{{ emp.email }}</span>
+                                </span>
+                                <span class="text-[10px] text-slate-500 shrink-0" [title]="pilotValidationTitle(emp)">{{
+                                  pilotValidationShort(emp)
+                                }}</span>
+                                <app-lucide-icon [icon]="icons.chev" className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                              </button>
+                              <div class="flex flex-col justify-center gap-0.5 py-1 pr-1 shrink-0 border-l border-navy-800">
+                                <button
+                                  type="button"
+                                  [title]="mergedActionsHint(emp, svc) || 'Aperçu fiche fusionnée (pôle + cellule)'"
+                                  (click)="openMergedPreview($event, emp, svc)"
+                                  [disabled]="!mergedActionsEnabled(emp, svc)"
+                                  class="rounded px-1.5 py-1 text-[10px] font-medium text-blue-300 hover:bg-navy-800 disabled:opacity-30 disabled:pointer-events-none"
+                                >
+                                  <app-lucide-icon [icon]="icons.eye" className="w-4 h-4 mx-auto" />
+                                </button>
+                                <button
+                                  type="button"
+                                  [title]="mergedActionsHint(emp, svc) || 'Télécharger .xlsx (une feuille)'"
+                                  (click)="downloadMergedXlsx($event, emp, svc)"
+                                  [disabled]="!mergedActionsEnabled(emp, svc)"
+                                  class="rounded px-1.5 py-1 text-[10px] font-medium text-emerald-300 hover:bg-navy-800 disabled:opacity-30 disabled:pointer-events-none"
+                                >
+                                  <app-lucide-icon [icon]="icons.download" className="w-4 h-4 mx-auto" />
+                                </button>
+                              </div>
+                            </li>
+                          } @empty {
+                            <li class="px-3 py-3 text-xs text-slate-500">Aucun pilote sur ce service.</li>
+                          }
+                        </ul>
+                      </div>
+                    }
                   </section>
                 }
-                @if (summary().length === 0) {
-                  <p class="text-sm text-slate-500 px-2">Aucune cellule pour votre périmètre superviseur.</p>
+                @if (pilotageTree().length === 0) {
+                  <p class="text-sm text-slate-500 px-2">Aucune cellule ou aucun service dans votre périmètre superviseur.</p>
                 }
               </div>
             </aside>
@@ -206,7 +240,15 @@ interface PilotSelection {
                 <div class="min-w-0 flex-1 space-y-2">
                   <h2 class="text-sm font-semibold text-slate-200">Saisie cellule</h2>
                   @if (selectedPilot(); as sp) {
-                    <div class="flex flex-col sm:flex-row gap-2 min-w-0">
+                    <div class="flex flex-col sm:flex-row flex-wrap gap-2 min-w-0">
+                      @if (sp.poleName) {
+                        <div
+                          class="min-w-[8rem] flex-1 rounded-lg border border-navy-700/80 bg-navy-900/40 px-3 py-2.5"
+                        >
+                          <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Pôle</div>
+                          <div class="text-sm font-medium text-slate-100 truncate">{{ sp.poleName }}</div>
+                        </div>
+                      }
                       <div
                         class="flex-1 min-w-0 rounded-lg border border-slate-600/80 bg-slate-800/50 px-3 py-2.5 shadow-sm"
                       >
@@ -215,6 +257,12 @@ interface PilotSelection {
                           <app-lucide-icon [icon]="icons.grid" className="w-4 h-4 text-slate-400 shrink-0" />
                           <span class="truncate">{{ sp.celluleName }}</span>
                         </div>
+                      </div>
+                      <div
+                        class="min-w-[8rem] flex-1 rounded-lg border border-indigo-500/30 bg-indigo-950/30 px-3 py-2.5"
+                      >
+                        <div class="text-[10px] font-semibold uppercase tracking-wide text-indigo-300/80 mb-1">Service</div>
+                        <div class="text-sm font-medium text-slate-100 truncate">{{ sp.serviceName }}</div>
                       </div>
                       <div
                         class="flex-1 min-w-0 rounded-lg border border-blue-500/35 bg-blue-950/40 px-3 py-2.5 ring-1 ring-inset ring-blue-500/25 shadow-sm"
@@ -341,6 +389,7 @@ interface PilotSelection {
 })
 export class PrimeFichesPilotesPageComponent implements OnInit {
   private readonly api = inject(PrimeCellPrimeApiService);
+  private readonly orgApi = inject(PrimeOrgApiService);
   private readonly role = inject(RoleService);
   private readonly nav = inject(PrimeNavRequestService);
   private readonly cellCtx = inject(PrimeCellSaisieContextService);
@@ -384,6 +433,49 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     return withId?.linkedTemplateId?.trim() ?? null;
   });
 
+  readonly pilotageTree = computed((): PilotageCelluleGroup[] => {
+    const rows = this.summary();
+    const byCell = new Map<string, CellPilotageSummaryDto[]>();
+    for (const r of rows) {
+      const cid = r.celluleId?.trim() || '';
+      if (!cid) continue;
+      const list = byCell.get(cid) ?? [];
+      list.push(r);
+      byCell.set(cid, list);
+    }
+    const groups: PilotageCelluleGroup[] = [];
+    for (const [celluleId, services] of byCell) {
+      const sorted = [...services].sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+      const first = sorted[0];
+      let complete = 0;
+      let inProgress = 0;
+      let notStarted = 0;
+      for (const s of sorted) {
+        complete += s.complete;
+        inProgress += s.inProgress;
+        notStarted += s.notStarted;
+      }
+      const total = complete + inProgress + notStarted;
+      let aggregateState = 'Empty';
+      if (total > 0) {
+        if (notStarted === total) aggregateState = 'NotStarted';
+        else if (complete === total) aggregateState = 'Done';
+        else aggregateState = 'InProgress';
+      }
+      groups.push({
+        celluleId,
+        celluleName: (first?.celluleName ?? '').trim() || celluleId,
+        poleName: (first?.poleName ?? '').trim(),
+        complete,
+        inProgress,
+        notStarted,
+        aggregateState,
+        services: sorted,
+      });
+    }
+    return groups.sort((a, b) => a.celluleName.localeCompare(b.celluleName));
+  });
+
   ngOnInit(): void {
     // Si une période a été demandée par la liste fiches communes, l'appliquer
     // avant le premier chargement.
@@ -420,8 +512,11 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     const u = this.role.currentUser();
     this.loading.set(true);
     this.error.set(null);
-    this.api.cellsSummary(u.id, this.period()).subscribe({
-      next: (rows) => {
+    forkJoin({
+      summary: this.api.cellsSummary(u.id, this.period()),
+      scope: this.orgApi.getSupervisorScope(u.id).pipe(catchError(() => of([]))),
+    }).subscribe({
+      next: ({ summary: rows }) => {
         this.summary.set(rows);
         if (rows.length === 0) {
           this.employeesByServiceId.set({});
@@ -429,11 +524,12 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
           this.syncSelectionAfterReload();
           return;
         }
+        const serviceIds = [...new Set(rows.map((c) => c.serviceId))];
         forkJoin(
-          rows.map((c) =>
-            this.api.listEmployeeFiches(this.period(), u.id, { serviceId: c.serviceId }).pipe(
-              map((emps) => ({ id: c.serviceId, emps })),
-              catchError(() => of({ id: c.serviceId, emps: [] as EmployeePrimeCellFicheListItemDto[] })),
+          serviceIds.map((sid) =>
+            this.api.listEmployeeFiches(this.period(), u.id, { serviceId: sid }).pipe(
+              map((emps) => ({ id: sid, emps })),
+              catchError(() => of({ id: sid, emps: [] as EmployeePrimeCellFicheListItemDto[] })),
             ),
           ),
         ).subscribe({
@@ -478,7 +574,9 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
       email: emp.email,
       celluleId: cell.celluleId,
       serviceId: cell.serviceId,
-      celluleName: cell.serviceName,
+      serviceName: cell.serviceName,
+      celluleName: (cell.celluleName ?? '').trim() || cell.celluleId,
+      poleName: (cell.poleName ?? '').trim(),
       poleId: cell.celluleId,
       linkedTemplateId: (cell.linkedTemplateId ?? '').trim() || null,
       fillingStatus: emp.fillingStatus,
@@ -632,6 +730,32 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     if (s === 'complete') return 'OK';
     if (s === 'inprogress') return '…';
     return '·';
+  }
+
+  pilotValidationShort(emp: EmployeePrimeCellFicheListItemDto): string {
+    const val = (emp.validationStatus ?? 'AwaitingData').trim().toLowerCase();
+    const fill = emp.fillingStatus.trim().toLowerCase();
+    if (emp.isReadyForValidation === true && val === 'pending') return 'Valid.';
+    if (val === 'pending') return 'Valid.';
+    if (fill === 'complete' && emp.isReadyForValidation !== true) return 'Commune';
+    if (emp.isReadyForValidation === true) return 'Prête';
+    return this.statusShort(emp.fillingStatus);
+  }
+
+  pilotValidationTitle(emp: EmployeePrimeCellFicheListItemDto): string {
+    const val = (emp.validationStatus ?? 'AwaitingData').trim().toLowerCase();
+    const fill = emp.fillingStatus.trim().toLowerCase();
+    if (emp.isReadyForValidation === true && val === 'pending') {
+      return 'Fiche complète — en attente du premier valideur (workflow admin)';
+    }
+    if (val === 'pending') return 'Fiche soumise au workflow de validation';
+    if (fill === 'complete' && emp.isReadyForValidation !== true) {
+      return 'Partie cellule complète — validez la partie commune pour lancer la validation';
+    }
+    if (emp.isReadyForValidation === true) {
+      return 'Partie commune validée et partie cellule complète — actualisez si la soumission n’apparaît pas';
+    }
+    return this.statusShort(emp.fillingStatus);
   }
 
   onPilotSaved(): void {

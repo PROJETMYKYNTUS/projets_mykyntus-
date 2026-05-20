@@ -6,9 +6,10 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { PRIME_AUTHORIZED_ROLES } from '../models';
+import { PRIME_AUTHORIZED_ROLES, type Role } from '../models';
 import { isProjectLeadRole } from '../lib/projectLeadRole';
 import { isPrimePathAllowedForRole } from '../lib/prime-nav-access';
+import { getRoleHomeTarget, identityKey, resolveAllowedHomePath } from '../lib/prime-role-home';
 import { RoleService } from '../state/role.service';
 import { PrimeSectionService } from '../state/prime-section.service';
 import { PrimeSidebarComponent } from '../components/prime-sidebar.component';
@@ -314,7 +315,20 @@ export class PrimeLayoutComponent {
     () => this.role.currentRole() === 'Audit' && this.primeSection.activeAuditSection() === 'notifications',
   );
 
+  /** Dernière identité (rôle + utilisateur) pour détecter un vrai changement mode développeur. */
+  private lastDeveloperIdentityKey: string | null = null;
+
   constructor() {
+    effect(() => {
+      const role = this.role.currentRole();
+      const userId = this.role.currentUser().id;
+      const key = identityKey(role, userId);
+      if (this.lastDeveloperIdentityKey !== null && this.lastDeveloperIdentityKey !== key) {
+        this.navigateToIdentityHome(role);
+      }
+      this.lastDeveloperIdentityKey = key;
+    });
+
     effect(() => {
       const path = this.navRequest.pendingPath();
       if (path) {
@@ -349,5 +363,16 @@ export class PrimeLayoutComponent {
   setView(v: string): void {
     if (!isPrimePathAllowedForRole(v, this.role.currentRole())) return;
     this.currentView.set(v);
+  }
+
+  /** Redirection complète vers l’interface d’accueil du rôle (sans conserver la page précédente). */
+  private navigateToIdentityHome(role: Role): void {
+    this.session.forceIdle();
+    this.navRequest.clearAll();
+    this.primeSection.resetShellForRole(role);
+
+    const home = getRoleHomeTarget(role);
+    const path = resolveAllowedHomePath(role, home);
+    this.currentView.set(path);
   }
 }

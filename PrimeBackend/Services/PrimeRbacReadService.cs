@@ -56,9 +56,39 @@ public sealed class PrimeRbacReadService(PrimeDbContext db)
         return steps.Any(s => RolesMatchWorkflowApprover(actor.Role, s.ApproverRole));
     }
 
+    private static bool IsReferentTechniqueRole(string role) =>
+        string.Equals(role, PrimeFicheValidationRoles.ReferentTechnique, StringComparison.Ordinal) ||
+        string.Equals(role, "Coach", StringComparison.Ordinal);
+
+    /// <summary>Pilote rattaché au référent technique courant (hiérarchie admin).</summary>
+    public async Task<bool> IsPiloteUnderReferentAsync(
+        EmployeeEntity referent,
+        EmployeePrimeServiceFicheEntity fiche,
+        CancellationToken ct = default)
+    {
+        if (!IsReferentTechniqueRole(referent.Role)) return false;
+        var pilote = await db.Employees.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == fiche.EmployeeId, ct);
+        if (pilote is null) return false;
+        return string.Equals(pilote.Role, "Pilote", StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(pilote.ParentId, referent.Id, StringComparison.Ordinal);
+    }
+
     public async Task<bool> CanAccessFicheAsync(EmployeeEntity actor, EmployeePrimeServiceFicheEntity fiche, string action, CancellationToken ct)
     {
         if (!await RoleHasActionAsync(actor.Role, action, ct)) return false;
+
+        if (IsReferentTechniqueRole(actor.Role))
+        {
+            if (!await IsPiloteUnderReferentAsync(actor, fiche, ct))
+                return false;
+            if (string.Equals(action, "Read", StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (string.Equals(action, "Validate", StringComparison.OrdinalIgnoreCase) &&
+                await IsWorkflowValidationTurnAsync(actor, fiche, ct))
+                return true;
+            return false;
+        }
 
         // Tour de validation workflow : le graphe (FromStatus + ApproverRole) prime sur le périmètre RBAC
         // (ex. RH valide en Global puis Chef de projet doit voir les fiches « RH Approved »).

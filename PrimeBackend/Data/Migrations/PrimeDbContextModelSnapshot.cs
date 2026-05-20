@@ -311,8 +311,10 @@ namespace PrimeBackend.Data.Migrations
 
                     b.Property<string>("ValidationStatus")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("AwaitingData");
 
                     b.HasKey("Id");
 

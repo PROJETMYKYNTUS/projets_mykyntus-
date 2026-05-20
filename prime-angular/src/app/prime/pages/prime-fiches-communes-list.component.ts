@@ -288,7 +288,7 @@ function httpErrMessage(err: unknown): string {
                           (click)="onOpen(item)"
                           [disabled]="busyDraftId() === item.id"
                           class="inline-flex items-center gap-1.5 rounded-lg border border-default bg-card px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-navy-700/50 disabled:opacity-50"
-                          title="Rouvrir le wizard de la partie commune"
+                          title="Reprendre la saisie détaillée RACC / SAV (template)"
                         >
                           <app-lucide-icon [icon]="icons.pen" className="w-3.5 h-3.5" />
                           Modifier la partie commune
@@ -536,8 +536,12 @@ export class PrimeFichesCommunesListComponent implements OnInit {
   }
 
   cellPartButtonTitle(item: SupervisorPolePrimeDraftListItemDto): string {
+    const isValidated = (item.status ?? '').toLowerCase() === 'validated';
     if (this.isActionRequired(item)) {
       return 'Action requise — compléter la saisie des cellules pour cette période';
+    }
+    if (isValidated) {
+      return 'Partie commune validée — chaque pilote complété est soumis automatiquement au workflow de validation';
     }
     return 'Poursuivre la saisie de la partie cellules pour cette période';
   }
@@ -611,6 +615,9 @@ export class PrimeFichesCommunesListComponent implements OnInit {
         this.banner.set(
           'Impossible de reconstruire le template depuis ce brouillon (schéma ou snapshot manquant). Réimportez le template.',
         );
+      } else {
+        // Flux template : aller directement à la saisie structurée RACC/SAV (éviter l’étape « aperçu »).
+        this.session.goEntry();
       }
     } finally {
       this.busyDraftId.set(null);

@@ -36,12 +36,19 @@ public sealed class EmployeePrimeServiceFicheValidationDto
 {
     public Guid Id { get; init; }
     public string EmployeeId { get; init; } = "";
+    public string EmployeeDisplayName { get; init; } = "";
+    public string EmployeeRole { get; init; } = "";
     public string SupervisorUserId { get; init; } = "";
     public string ServiceId { get; init; } = "";
+    public string ServiceName { get; init; } = "";
     public string CelluleId { get; init; } = "";
+    public string CelluleName { get; init; } = "";
+    public string? PoleName { get; init; }
     public string Period { get; init; } = "";
     public string FillingStatus { get; init; } = "";
     public string ValidationStatus { get; init; } = "";
+    public string? CommonPartStatus { get; init; }
+    public bool IsReadyForValidation { get; init; }
     public string? LastApproverUserId { get; init; }
     public DateTimeOffset? LastApprovedAt { get; init; }
     public string? RejectedByUserId { get; init; }

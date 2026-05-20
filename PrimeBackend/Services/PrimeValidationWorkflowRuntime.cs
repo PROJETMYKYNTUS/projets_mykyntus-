@@ -56,6 +56,8 @@ public sealed class PrimeValidationWorkflowRuntime(PrimeDbContext db)
 
     public async Task<bool> IsValidFilterStatusAsync(string status, CancellationToken ct)
     {
+        if (string.Equals(status, PrimeValidationWorkflowService.AwaitingData, StringComparison.Ordinal))
+            return true;
         if (string.Equals(status, PrimeValidationWorkflowService.Rejected, StringComparison.Ordinal))
             return true;
         var inWorkflow = await db.WorkflowSteps.AsNoTracking()

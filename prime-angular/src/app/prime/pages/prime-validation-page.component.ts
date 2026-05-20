@@ -14,7 +14,8 @@ import {
   PrimeFilterBarComponent,
   type PrimeFilterBarFilter,
 } from '../components/prime-filter-bar.component';
-import type { Employee, Role } from '../models';
+import type { Department, Employee, Role } from '../models';
+import { PrimeService } from '../services/prime.service';
 import { RoleService } from '../state/role.service';
 import {
   PrimeFicheResultService,
@@ -195,7 +196,7 @@ function mapRoleForApi(role: string): string {
                 @if (filteredResults().length === 0) {
                   <tr>
                     <td colspan="6" class="px-6 py-8 text-center text-slate-500">
-                      Aucune fiche à afficher pour ces critères.
+                      {{ emptyListMessage() }}
                     </td>
                   </tr>
                 } @else {
@@ -205,15 +206,19 @@ function mapRoleForApi(role: string): string {
                         @let emp = getEmployee(item.employeeId);
                         <div>
                           <div class="font-medium text-slate-200">
-                            {{ displayName(emp, item.employeeId) }}
+                            {{ displayPilotName(item, emp) }}
                           </div>
-                          <div class="text-xs text-slate-500">{{ emp?.role || '—' }}</div>
+                          <div class="text-xs text-slate-500">{{ item.employeeRole || emp?.role || '—' }}</div>
                         </div>
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap text-slate-300">
+                        @let org = orgLabels(item);
                         <div class="text-xs uppercase tracking-wider text-slate-500">Cellule</div>
-                        <div class="font-medium">{{ item.celluleId }}</div>
-                        <div class="text-xs text-slate-500 mt-1">Service: {{ item.serviceId }}</div>
+                        <div class="font-medium">{{ org.cellule }}</div>
+                        <div class="text-xs text-slate-500 mt-1">Service: {{ org.service }}</div>
+                        @if (org.pole) {
+                          <div class="text-xs text-slate-600 mt-0.5">Pôle: {{ org.pole }}</div>
+                        }
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap font-mono text-slate-200">{{ item.period }}</td>
                       <td class="px-6 py-4 whitespace-nowrap">
@@ -279,6 +284,7 @@ export class PrimeValidationPageComponent {
 
   readonly workflowMeta = signal<WorkflowValidationMetaDto | null>(null);
   readonly summaryDto = signal<WorkflowValidationSummaryDto | null>(null);
+  readonly departments = signal<Department[]>([]);
   readonly periodOptions = signal<{ label: string; value: string }[]>([]);
   readonly results = signal<EmployeePrimeServiceFicheValidationDto[]>([]);
   readonly loading = signal(true);
@@ -405,6 +411,14 @@ export class PrimeValidationPageComponent {
     return rows;
   });
 
+  readonly emptyListMessage = computed(() => {
+    const cfg = this.roleConfig();
+    if ((cfg.fromStatuses?.length ?? 0) > 0) {
+      return 'Aucune fiche prête dans votre périmètre pour cette période (partie commune validée et saisie cellule complète).';
+    }
+    return 'Aucune fiche à afficher pour ces critères.';
+  });
+
   readonly filterBarFilters = computed<PrimeFilterBarFilter[]>(() => {
     const opts = this.periodOptions();
     const list = opts.length > 0 ? opts : [{ label: '—', value: '' }];
@@ -431,17 +445,28 @@ export class PrimeValidationPageComponent {
     this.loading.set(true);
     this.errorMessage.set(null);
     const u = this.roleService.currentUser();
-    const r = mapRoleForApi(this.roleService.currentRole() as string);
+    const uiRole = this.roleService.currentRole() as string;
+    const r = mapRoleForApi(uiRole);
     const period = this.periodFilter() || undefined;
+    const isReferent = uiRole === 'Référent technique' || uiRole === 'Coach';
+    const listFilters = {
+      period,
+      userId: u.id,
+      role: r,
+      readyOnly: true as const,
+      ...(isReferent && u.serviceId ? { serviceId: u.serviceId } : {}),
+    };
     forkJoin({
       meta: this.api.workflowMeta(r),
       periods: this.api.periods(),
-      rows: this.api.list({ period, userId: u.id, role: r }),
-      summary: this.api.summary({ period, userId: u.id, role: r }),
+      rows: this.api.list(listFilters),
+      summary: this.api.summary(listFilters),
+      departments: PrimeService.getDepartments(),
     }).subscribe({
-      next: ({ meta, periods, rows, summary }) => {
+      next: ({ meta, periods, rows, summary, departments }) => {
         this.workflowMeta.set(meta);
         this.summaryDto.set(summary);
+        this.departments.set(departments);
         const opts = periods.map((p) => ({ label: p, value: p }));
         this.periodOptions.set(opts);
         if (!this.periodFilter() && periods.length > 0) this.periodFilter.set(periods[0]!);
@@ -466,8 +491,40 @@ export class PrimeValidationPageComponent {
     return this.roleService.employees().find((e) => e.id === id);
   }
 
-  displayName(emp: Employee | undefined, fallback: string): string {
-    return emp ? `${emp.firstName} ${emp.lastName}` : fallback;
+  displayPilotName(
+    item: EmployeePrimeServiceFicheValidationDto,
+    emp: Employee | undefined,
+  ): string {
+    const fromDto = (item.employeeDisplayName ?? '').trim();
+    if (fromDto) return fromDto;
+    return emp ? `${emp.firstName} ${emp.lastName}` : item.employeeId;
+  }
+
+  orgLabels(item: EmployeePrimeServiceFicheValidationDto): {
+    cellule: string;
+    service: string;
+    pole: string | null;
+  } {
+    const cellFromDto = (item.celluleName ?? '').trim();
+    const svcFromDto = (item.serviceName ?? '').trim();
+    if (cellFromDto && svcFromDto) {
+      return {
+        cellule: cellFromDto,
+        service: svcFromDto,
+        pole: item.poleName?.trim() || null,
+      };
+    }
+    const emp = this.getEmployee(item.employeeId);
+    const deptById = new Map(this.departments().map((d) => [d.id, d]));
+    const dept = deptById.get(emp?.departementId ?? emp?.poleId ?? '');
+    const pole = dept?.poles.find((p) => p.id === (emp?.poleId ?? item.celluleId));
+    const cellule = pole?.cells.find((c) => c.id === item.celluleId);
+    const service = cellule?.teams.find((t) => t.id === item.serviceId);
+    return {
+      cellule: cellule?.name ?? item.celluleId,
+      service: service?.name ?? item.serviceId,
+      pole: item.poleName?.trim() || pole?.name || null,
+    };
   }
 
   statusLabel(status: string): string {

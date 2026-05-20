@@ -19,29 +19,11 @@ public sealed class PrimeValidationController(
     IPrimeRequestUserResolver? userResolver,
     PrimeValidationWorkflowRuntime? wfRuntime,
     PrimeRbacReadService? rbac,
+    PrimeValidationListService? validationList,
+    PrimeFicheValidationSubmissionService? submission,
     AnomalyDetectionService? anomalies,
     GlobalPoolWorkflowService? poolWf) : ControllerBase
 {
-    private static EmployeePrimeServiceFicheValidationDto Map(EmployeePrimeServiceFicheEntity e) => new()
-    {
-        Id = e.Id,
-        EmployeeId = e.EmployeeId,
-        SupervisorUserId = e.SupervisorUserId,
-        ServiceId = e.ServiceId,
-        CelluleId = e.CelluleId,
-        Period = e.Period,
-        FillingStatus = e.FillingStatus,
-        ValidationStatus = e.ValidationStatus,
-        LastApproverUserId = e.LastApproverUserId,
-        LastApprovedAt = e.LastApprovedAt,
-        RejectedByUserId = e.RejectedByUserId,
-        RejectedAt = e.RejectedAt,
-        RejectionReason = e.RejectionReason,
-        PrimeAmount = e.PrimeAmount,
-        ChallengeAmount = e.ChallengeAmount,
-        TotalAmount = e.TotalAmount,
-        UpdatedAt = e.UpdatedAt,
-    };
 
     private const string GlobalPoolRoleFicheErrorMessage =
         "Ce rôle valide le fichier synthèse globale PRIME (écran « Synthèse globale »), pas les fiches individuelles.";
@@ -87,13 +69,20 @@ public sealed class PrimeValidationController(
         [FromQuery] string? celluleId,
         [FromQuery] string? userId,
         [FromQuery] string? role,
+        [FromQuery] bool? readyOnly,
         CancellationToken ct)
     {
-        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        if (db == null || validationList is null)
+            return StatusCode(503, new { error = "Base de données non configurée." });
 
         var ruEarly = userResolver is null ? null : await userResolver.TryResolveAsync(Request, userId, role, ct);
         if (ruEarly is not null && IsBlockedGlobalPoolRoleOnFicheApi(ruEarly.Role))
             return BadRequest(new { error = GlobalPoolRoleFicheErrorMessage });
+
+        var applyReadyOnly = readyOnly ?? PrimeValidationListService.ShouldDefaultReadyOnly(role);
+
+        if (submission is not null)
+            await submission.ReconcileReadySubmissionsAsync(ct);
 
         var query = db.EmployeePrimeServiceFiches.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(period)) query = query.Where(f => f.Period == period.Trim());
@@ -103,6 +92,14 @@ public sealed class PrimeValidationController(
                 return BadRequest(new { error = "Statut invalide ou inconnu du workflow." });
             query = query.Where(f => f.ValidationStatus == status.Trim());
         }
+        else
+        {
+            query = query.Where(f => f.ValidationStatus != PrimeValidationWorkflowService.AwaitingData);
+        }
+
+        if (applyReadyOnly)
+            query = validationList.ApplyReadyForValidationFilter(query);
+
         if (!string.IsNullOrWhiteSpace(serviceId)) query = query.Where(f => f.ServiceId == serviceId.Trim());
         if (!string.IsNullOrWhiteSpace(celluleId)) query = query.Where(f => f.CelluleId == celluleId.Trim());
 
@@ -120,7 +117,7 @@ public sealed class PrimeValidationController(
             items = filtered;
         }
 
-        return Ok(items.Select(Map).ToList());
+        return Ok(await validationList.MapValidationDtosAsync(items, ct));
     }
 
     [HttpGet("summary")]
@@ -130,14 +127,24 @@ public sealed class PrimeValidationController(
         [FromQuery] string? celluleId,
         [FromQuery] string? userId,
         [FromQuery] string? role,
+        [FromQuery] bool? readyOnly,
         CancellationToken ct)
     {
-        if (db == null || wfRuntime == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        if (db == null || wfRuntime == null || validationList is null)
+            return StatusCode(503, new { error = "Base de données non configurée." });
+
+        var applyReadyOnly = readyOnly ?? PrimeValidationListService.ShouldDefaultReadyOnly(role);
+
+        if (submission is not null)
+            await submission.ReconcileReadySubmissionsAsync(ct);
 
         var query = db.EmployeePrimeServiceFiches.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(period)) query = query.Where(f => f.Period == period.Trim());
         if (!string.IsNullOrWhiteSpace(serviceId)) query = query.Where(f => f.ServiceId == serviceId.Trim());
         if (!string.IsNullOrWhiteSpace(celluleId)) query = query.Where(f => f.CelluleId == celluleId.Trim());
+        query = query.Where(f => f.ValidationStatus != PrimeValidationWorkflowService.AwaitingData);
+        if (applyReadyOnly && validationList is not null)
+            query = validationList.ApplyReadyForValidationFilter(query);
 
         var items = await query.Take(5000).ToListAsync(ct);
         var ru = userResolver is null ? null : await userResolver.TryResolveAsync(Request, userId, role, ct);
@@ -221,7 +228,8 @@ public sealed class PrimeValidationController(
         await db.SaveChangesAsync(ct);
         if (anomalies is not null)
             await anomalies.RecomputeForFicheAsync(fiche.Id, ct);
-        return Ok(Map(fiche));
+        if (validationList is null) return StatusCode(503, new { error = "Base de données non configurée." });
+        return Ok(await validationList.MapValidationDtoAsync(fiche, ct));
     }
 
     [HttpPost("{id:guid}/reject")]
@@ -264,7 +272,8 @@ public sealed class PrimeValidationController(
         await db.SaveChangesAsync(ct);
         if (anomalies is not null)
             await anomalies.RecomputeForFicheAsync(fiche.Id, ct);
-        return Ok(Map(fiche));
+        if (validationList is null) return StatusCode(503, new { error = "Base de données non configurée." });
+        return Ok(await validationList.MapValidationDtoAsync(fiche, ct));
     }
 
     [HttpPost("bulk-approve")]

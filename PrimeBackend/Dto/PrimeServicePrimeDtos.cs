@@ -100,6 +100,8 @@ public sealed class EmployeePrimeServiceFicheResponseDto
     public string Period { get; init; } = "";
     public string ServiceSaisieJson { get; init; } = "{}";
     public string FillingStatus { get; init; } = "";
+    public string ValidationStatus { get; init; } = "";
+    public bool IsReadyForValidation { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
 }
 
@@ -126,6 +128,8 @@ public sealed class EmployeePrimeServiceFicheListItemDto
     public Guid? FicheId { get; init; }
     public Guid? CellulePrimeDraftId { get; init; }
     public string FillingStatus { get; init; } = "NotStarted";
+    public string? ValidationStatus { get; init; }
+    public bool? IsReadyForValidation { get; init; }
     public string ServiceSaisieJson { get; init; } = "{}";
     public DateTimeOffset? UpdatedAt { get; init; }
 }
@@ -135,6 +139,8 @@ public sealed class ServicePilotageSummaryDto
     public string ServiceId { get; init; } = "";
     public string ServiceName { get; init; } = "";
     public string CelluleId { get; init; } = "";
+    public string CelluleName { get; init; } = "";
+    public string PoleName { get; init; } = "";
     public int TotalEmployees { get; init; }
     public int NotStarted { get; init; }
     public int InProgress { get; init; }

@@ -10,6 +10,7 @@ import {
 import {
   ChevronDown,
   ChevronRight,
+  Copy,
   ListChecks,
   Pencil,
   Plus,
@@ -17,7 +18,8 @@ import {
   SlidersHorizontal,
   Trash2,
 } from 'lucide';
-import { catchError, of } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
 import { PrimeCardComponent } from '../components/prime-card.component';
 import { getCellTemplateLinesOrDerived, parsePrimeSchemaFromDraftJson } from '../lib/prime-cell-schema-merge';
@@ -29,6 +31,7 @@ import {
 import {
   PrimeOrgApiService,
   type SupervisorOrgScopeCellule,
+  type SupervisorOrgScopePole,
 } from '../services/prime-org-api.service';
 import { selectValueOrEmpty } from '../lib/prime-select-options';
 import { RoleService } from '../state/role.service';
@@ -53,31 +56,50 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-primary sm:text-3xl flex items-center gap-2">
           <app-lucide-icon [icon]="icons.sliders" className="w-8 h-8 text-blue-600 shrink-0" />
-          Indicateurs PRIME par service
+          Indicateurs PRIME — par service
         </h1>
         <p class="text-muted mt-2 max-w-2xl text-sm">
-          Choisissez une cellule RH puis un service : les indicateurs sont enregistrés par service et s’appliquent aux
-          fiches pilotes de ce service. Utilisez le rôle Superviseur (ex. e9) pour voir votre périmètre.
+          Choisissez la <strong>cellule</strong> puis le <strong>service</strong> de votre pôle superviseur : les
+          indicateurs sont enregistrés pour ce service. La saisie pilote affiche ceux du service de l’employé choisi.
+          « Appliquer à toute la cellule » duplique la grille sur tous les services de la cellule courante.
         </p>
       </div>
 
       <app-prime-card
         title="Cellule et service"
-        description="Indicateurs par service (prime_service). Les stableId viennent du gabarit Excel du pôle pour la période de référence."
+        description="Périmètre = pôle d’affectation du superviseur (défini en RH). Les stableId viennent du gabarit Excel de ce pôle pour la période de référence."
       >
+        @if (supervisorPole(); as pole) {
+          <p class="mb-4 text-sm text-primary">
+            <span class="text-muted">Pôle superviseur :</span>
+            <strong class="ml-1">{{ pole.name }}</strong>
+          </p>
+        } @else if (scopePoles().length === 0 && !scopeLoading()) {
+          <p class="mb-4 text-sm text-muted">Aucun pôle dans votre périmètre (vérifiez le rôle Superviseur).</p>
+        }
         <div class="flex flex-wrap gap-4 items-end">
           <div class="flex-1 min-w-[12rem]">
-            <label class="block text-sm font-medium text-muted mb-1">Cellule (RH)</label>
-            <select
-              [value]="selectRhCelluleValue()"
-              (change)="onRhCelluleChange($any($event.target).value)"
-              class="w-full rounded-lg border border-default bg-input px-3 py-2 text-sm text-primary"
-            >
-              <option value="">— Choisir —</option>
-              @for (c of rhCelluleOptions(); track c.id) {
-                <option [value]="c.id">{{ c.name }}</option>
-              }
-            </select>
+            <label class="block text-sm font-medium text-muted mb-1">Cellule</label>
+            @if (rhCelluleReadOnly(); as cellName) {
+              <div
+                class="w-full rounded-lg border border-default bg-input/60 px-3 py-2 text-sm text-primary"
+                aria-readonly="true"
+              >
+                {{ cellName }}
+              </div>
+            } @else {
+              <select
+                [value]="selectRhCelluleValue()"
+                (change)="onRhCelluleChange($any($event.target).value)"
+                [disabled]="!supervisorPole()"
+                class="w-full rounded-lg border border-default bg-input px-3 py-2 text-sm text-primary disabled:opacity-50"
+              >
+                <option value="">— Choisir —</option>
+                @for (c of rhCelluleOptions(); track c.id) {
+                  <option [value]="c.id">{{ c.name }}</option>
+                }
+              </select>
+            }
           </div>
           <div class="flex-1 min-w-[12rem]">
             <label class="block text-sm font-medium text-muted mb-1">Service</label>
@@ -96,7 +118,7 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
           <button
             type="button"
             (click)="addRow()"
-            [disabled]="!selectedServiceId()"
+            [disabled]="!selectedServiceId() || saving() || bulkApplying()"
             class="inline-flex items-center gap-2 rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-navy-700/40 disabled:opacity-50"
           >
             <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
@@ -105,11 +127,21 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
           <button
             type="button"
             (click)="save()"
-            [disabled]="!selectedServiceId() || saving()"
+            [disabled]="!selectedServiceId() || saving() || bulkApplying()"
             class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
           >
             <app-lucide-icon [icon]="icons.save" className="w-4 h-4" />
             Enregistrer
+          </button>
+          <button
+            type="button"
+            (click)="applyToAllServicesInCell()"
+            [disabled]="!canBulkApplyToCell() || saving() || bulkApplying()"
+            [title]="bulkApplyDisabledReason()"
+            class="inline-flex items-center gap-2 rounded-lg border border-blue-500/50 bg-blue-600/15 px-4 py-2 text-sm font-semibold text-primary hover:bg-blue-600/25 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <app-lucide-icon [icon]="icons.copy" className="w-4 h-4" />
+            Appliquer à toute la cellule
           </button>
         </div>
       </app-prime-card>
@@ -251,7 +283,7 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
                   </button>
                   <button
                     type="button"
-                    (click)="selectAndEditService(e.celluleId, e.serviceId)"
+                    (click)="selectAndEditService(e.poleId, e.celluleId, e.serviceId)"
                     class="inline-flex items-center gap-1.5 rounded-md border border-default bg-card px-2.5 py-1 text-xs font-semibold text-primary hover:bg-navy-700/50"
                     [class.border-blue-500]="selectedServiceId() === e.serviceId"
                     [class.text-blue-400]="selectedServiceId() === e.serviceId"
@@ -275,7 +307,7 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
                           </p>
                           <button
                             type="button"
-                            (click)="selectAndEditService(e.celluleId, e.serviceId)"
+                            (click)="selectAndEditService(e.poleId, e.celluleId, e.serviceId)"
                             class="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700"
                           >
                             <app-lucide-icon [icon]="icons.plus" className="w-3.5 h-3.5" />
@@ -355,6 +387,7 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
     sliders: SlidersHorizontal,
     plus: Plus,
     save: Save,
+    copy: Copy,
     trash: Trash2,
     chevronDown: ChevronDown,
     chevronRight: ChevronRight,
@@ -362,13 +395,15 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
     listChecks: ListChecks,
   };
 
-  readonly scopeCellules = signal<SupervisorOrgScopeCellule[]>([]);
+  readonly scopePoles = signal<SupervisorOrgScopePole[]>([]);
+  readonly scopeLoading = signal(true);
   readonly period = signal(this.defaultPeriod());
   readonly templateStableOptions = signal<{ value: string; label: string }[]>([]);
   readonly selectedRhCelluleId = signal('');
   readonly selectedServiceId = signal('');
   readonly rows = signal<DraftRow[]>([]);
   readonly saving = signal(false);
+  readonly bulkApplying = signal(false);
   readonly banner = signal<string | null>(null);
   readonly bannerIsError = signal(false);
 
@@ -376,27 +411,65 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
   readonly cellIndicatorsLoading = signal<ReadonlySet<string>>(new Set<string>());
   readonly cellIndicatorsMap = signal<ReadonlyMap<string, ServicePrimeIndicatorDto[]>>(new Map());
 
-  readonly rhCelluleOptions = computed(() => this.scopeCellules());
+  /** Pôle d’affectation du superviseur (un seul périmètre côté API). */
+  readonly supervisorPole = computed(() => this.scopePoles()[0] ?? null);
+
+  readonly rhCelluleOptions = computed(() => this.supervisorPole()?.cellules ?? []);
+
+  /** Une seule cellule dans le périmètre → affichage lecture seule (nom RH). */
+  readonly rhCelluleReadOnly = computed((): string | null => {
+    const opts = this.rhCelluleOptions();
+    if (opts.length !== 1) return null;
+    const sel = this.selectedRhCelluleId().trim();
+    const c = opts.find((x) => x.id === sel) ?? opts[0];
+    return (c?.name ?? '').trim() || null;
+  });
+
   readonly serviceOptions = computed(() => {
     const cid = this.selectedRhCelluleId();
-    return this.scopeCellules().find((c) => c.id === cid)?.services ?? [];
+    return this.rhCelluleOptions().find((c) => c.id === cid)?.services ?? [];
   });
-  readonly previewEntries = computed(() =>
-    this.scopeCellules().flatMap((c) =>
+  readonly previewEntries = computed(() => {
+    const p = this.supervisorPole();
+    if (!p) return [];
+    return p.cellules.flatMap((c) =>
       c.services.map((s) => ({
-        serviceId: s.id,
+        poleId: p.id,
         celluleId: c.id,
-        label: c.services.length > 1 ? `${c.name} — ${s.name}` : s.name || c.name,
+        celluleName: c.name,
+        serviceId: s.id,
+        serviceName: s.name,
+        label: `${c.name} — ${s.name}`,
       })),
-    ),
-  );
+    );
+  });
 
   readonly bannerClass = computed(() => {
     if (!this.banner()) return '';
-    return this.bannerIsError()
-      ? 'rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-800 dark:text-rose-200'
-      : 'rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200';
+    const wrap = 'whitespace-pre-wrap break-words ';
+    return (
+      wrap +
+      (this.bannerIsError()
+        ? 'rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-800 dark:text-rose-200'
+        : 'rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200')
+    );
   });
+
+  /** Au moins 2 services : utile uniquement pour la réplication intra-cellule. */
+  readonly canBulkApplyToCell = computed(() => {
+    const cellId = this.selectedRhCelluleId().trim();
+    const svcIds = this.serviceOptions();
+    const hasSourceService = !!this.selectedServiceId().trim();
+    return !!cellId && svcIds.length >= 2 && hasSourceService;
+  });
+
+  bulkApplyDisabledReason(): string {
+    if (!this.supervisorPole()) return 'Périmètre superviseur indisponible.';
+    if (!this.selectedRhCelluleId().trim()) return 'Choisissez une cellule.';
+    if (!this.selectedServiceId().trim()) return 'Choisissez un service dont la grille source est affichée.';
+    if (this.serviceOptions().length < 2) return 'Réplication disponible lorsqu’une cellule a au moins deux services.';
+    return '';
+  }
 
   ngOnInit(): void {
     this.reloadScope();
@@ -421,38 +494,64 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
 
   private reloadScope(): void {
     const u = this.role.currentUser();
+    this.scopeLoading.set(true);
     this.cellIndicatorsMap.set(new Map());
     this.cellIndicatorsLoading.set(new Set());
     this.expandedCellIds.set(new Set());
     this.orgApi.getSupervisorScope(u.id).subscribe({
-      next: (list) => {
-        this.scopeCellules.set(list);
-        const serviceIds = list.flatMap((c) => c.services.map((s) => s.id));
+      next: (poles) => {
+        this.scopePoles.set(poles);
+        const pole = poles[0];
+        const serviceIds = pole
+          ? pole.cellules.flatMap((c) => c.services.map((s) => s.id))
+          : [];
+        const celluleIds = pole ? pole.cellules.map((c) => c.id) : [];
         const curSvc = this.selectedServiceId();
-        if (curSvc && !serviceIds.includes(curSvc)) {
+        const curCell = this.selectedRhCelluleId();
+        if (curCell && !celluleIds.includes(curCell)) {
           this.selectedRhCelluleId.set('');
           this.selectedServiceId.set('');
           this.rows.set([]);
           this.templateStableOptions.set([]);
+        } else if (curSvc && !serviceIds.includes(curSvc)) {
+          this.selectedServiceId.set('');
+          this.rows.set([]);
+          this.templateStableOptions.set([]);
         }
+        this.applyDefaultRhCelluleSelection();
         this.preloadAllCellIndicators(serviceIds);
+        this.scopeLoading.set(false);
       },
       error: () => {
-        this.scopeCellules.set([]);
+        this.scopePoles.set([]);
+        this.scopeLoading.set(false);
       },
     });
   }
 
+  /** Présélection : cellule d’affectation du superviseur, sinon unique cellule du périmètre. */
+  private applyDefaultRhCelluleSelection(): void {
+    const opts = this.rhCelluleOptions();
+    if (opts.length === 0) return;
+    const userCell = (this.role.currentUser().celluleId ?? '').trim();
+    let pick = '';
+    if (userCell && opts.some((c) => c.id === userCell)) pick = userCell;
+    else if (opts.length === 1) pick = opts[0].id;
+    if (!pick) return;
+    const cur = this.selectedRhCelluleId().trim();
+    if (cur === pick) return;
+    if (cur && opts.some((c) => c.id === cur)) return;
+    this.onRhCelluleChange(pick);
+  }
+
   /**
-   * Lance en parallèle un GET indicators par cellule, hydrate le cache et permet
-   * à la liste d'aperçu d'afficher le nombre d'indicateurs et le contenu déplié
-   * sans attendre un clic utilisateur (les pôles ont typiquement ≤ 20 cellules).
+   * Précharge les indicateurs par serviceId (clé API) pour l’aperçu déplié.
    */
-  private preloadAllCellIndicators(celluleIds: readonly string[]): void {
+  private preloadAllCellIndicators(serviceIds: readonly string[]): void {
     const u = this.role.currentUser();
-    if (!u?.id || celluleIds.length === 0) return;
-    this.cellIndicatorsLoading.set(new Set(celluleIds));
-    for (const id of celluleIds) {
+    if (!u?.id || serviceIds.length === 0) return;
+    this.cellIndicatorsLoading.set(new Set(serviceIds));
+    for (const id of serviceIds) {
       this.api
         .getIndicators(id, u.id)
         .pipe(catchError(() => of<ServicePrimeIndicatorDto[]>([])))
@@ -481,7 +580,7 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
       this.templateStableOptions.set([]);
       return;
     }
-    const cell = this.scopeCellules().find((c) => c.id === celluleId);
+    const cell = this.rhCelluleOptions().find((c) => c.id === celluleId);
     const firstSvc = cell?.services[0]?.id ?? '';
     this.onServiceChange(firstSvc);
   }
@@ -531,7 +630,7 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
    * Sélectionne la cellule dans le formulaire du haut et fait remonter la page
    * pour que l'utilisateur puisse éditer ses indicateurs en contexte.
    */
-  selectAndEditService(celluleId: string, serviceId: string): void {
+  selectAndEditService(_poleId: string, celluleId: string, serviceId: string): void {
     this.selectedRhCelluleId.set(celluleId);
     this.onServiceChange(serviceId);
     if (typeof window !== 'undefined') {
@@ -658,14 +757,15 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
   }
 
   private findRhCelluleForService(serviceId: string): SupervisorOrgScopeCellule | undefined {
-    return this.scopeCellules().find((c) => c.services.some((s) => s.id === serviceId));
+    for (const p of this.scopePoles()) {
+      const cell = p.cellules.find((c) => c.services.some((s) => s.id === serviceId));
+      if (cell) return cell;
+    }
+    return undefined;
   }
 
-  save(): void {
-    const cellId = this.selectedServiceId();
-    if (!cellId) return;
-    const u = this.role.currentUser();
-    const indicators: PutServicePrimeIndicatorItem[] = this.rows()
+  private rowsToPutIndicators(): PutServicePrimeIndicatorItem[] {
+    return this.rows()
       .filter((r) => r.label.trim().length > 0)
       .map((r) => ({
         sortOrder: r.sortOrder,
@@ -675,16 +775,89 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
         isActive: r.isActive,
         templateStableId: r.templateStableId ?? null,
       }));
+  }
+
+  /** Met à jour le cache indicateurs après un PUT réussi pour un ou plusieurs services. */
+  private mergeIndicatorsIntoCache(updates: ReadonlyArray<{ serviceId: string; list: ServicePrimeIndicatorDto[] }>): void {
+    if (!updates.length) return;
+    this.cellIndicatorsMap.update((m) => {
+      const next = new Map(m);
+      for (const { serviceId, list } of updates) {
+        next.set(serviceId, list);
+      }
+      return next;
+    });
+  }
+
+  applyToAllServicesInCell(): void {
+    if (!this.canBulkApplyToCell()) return;
+    const services = this.serviceOptions();
+    const u = this.role.currentUser();
+    if (!u?.id) return;
+    const svcLines = services.map((s) => `• ${(s.name || '').trim() || s.id}`);
+    const confirmed = window.confirm(
+      [
+        `Répliquer la grille affichée (service « source » sélectionné) sur les ${services.length} services suivants ?`,
+        '',
+        ...svcLines,
+        '',
+        'Les listes d’indicateurs existantes pour chaque service seront remplacées.',
+      ].join('\n'),
+    );
+    if (!confirmed) return;
+
+    const payload = this.rowsToPutIndicators();
+    const targetIds = services.map((s) => s.id);
+    this.bulkApplying.set(true);
+    this.banner.set(null);
+
+    forkJoin(
+      targetIds.map((serviceId) =>
+        this.api.putIndicators(serviceId, u.id, payload).pipe(
+          map((list) => ({ ok: true as const, serviceId, list })),
+          catchError((err: unknown) => of({ ok: false as const, serviceId, err })),
+        ),
+      ),
+    ).subscribe({
+      next: (outcomes) => {
+        const ok = outcomes.filter((o): o is { ok: true; serviceId: string; list: ServicePrimeIndicatorDto[] } => o.ok);
+        const failures = outcomes.filter((o): o is { ok: false; serviceId: string; err: unknown } => !o.ok);
+        this.mergeIndicatorsIntoCache(ok.map(({ serviceId, list }) => ({ serviceId, list })));
+        this.bulkApplying.set(false);
+        if (failures.length === 0) {
+          this.banner.set(
+            `Indicateurs uniformisés sur ${ok.length} service${ok.length > 1 ? 's' : ''} dans la cellule.`,
+          );
+          this.bannerIsError.set(false);
+          return;
+        }
+        const msgs = failures.map((f) => `${f.serviceId}: ${httpErr(f.err)}`);
+        this.banner.set(
+          failures.length === outcomes.length
+            ? `Échec réplication :\n${msgs.join('\n')}`
+            : `Réplication partielle — ${failures.length} échec(s) :\n${msgs.join('\n')}`,
+        );
+        this.bannerIsError.set(true);
+      },
+      error: () => {
+        this.bulkApplying.set(false);
+        this.banner.set('Réplication impossible (erreur inattendue).');
+        this.bannerIsError.set(true);
+      },
+    });
+  }
+
+  save(): void {
+    const cellId = this.selectedServiceId();
+    if (!cellId) return;
+    const u = this.role.currentUser();
+    const indicators = this.rowsToPutIndicators();
     this.saving.set(true);
     this.banner.set(null);
     this.api.putIndicators(cellId, u.id, indicators).subscribe({
       next: (list) => {
         this.rows.set(list.map((x) => this.fromDto(x)));
-        this.cellIndicatorsMap.update((m) => {
-          const next = new Map(m);
-          next.set(cellId, list);
-          return next;
-        });
+        this.mergeIndicatorsIntoCache([{ serviceId: cellId, list }]);
         this.saving.set(false);
         this.banner.set('Indicateurs enregistrés.');
         this.bannerIsError.set(false);

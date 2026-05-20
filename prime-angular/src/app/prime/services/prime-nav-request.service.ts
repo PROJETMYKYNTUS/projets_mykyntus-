@@ -33,4 +33,10 @@ export class PrimeNavRequestService {
   clearRequestedPeriod(): void {
     this._requestedPeriod.set(null);
   }
+
+  /** Annule toute navigation en attente (changement d’identité mode développeur). */
+  clearAll(): void {
+    this._pendingPath.set(null);
+    this._requestedPeriod.set(null);
+  }
 }

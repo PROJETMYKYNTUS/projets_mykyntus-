@@ -81,9 +81,22 @@ import { Bell, Moon, Search, Settings, Shield, Sun } from 'lucide';
               <option [value]="r">{{ roleLabel[r] }}</option>
             }
           </select>
-          <span class="text-xs text-slate-500 hidden lg:inline truncate max-w-[10rem]" [title]="role.currentUser().email">
-            {{ role.currentUser().firstName }} {{ role.currentUser().lastName }}
-          </span>
+          @if (role.employeesForCurrentRole().length > 0) {
+            <select
+              class="bg-transparent text-xs font-medium text-slate-300 focus:outline-none cursor-pointer max-w-[11rem] truncate"
+              [value]="role.currentUser().id"
+              (change)="onUserChange($event)"
+              title="Utilisateur démo (mode développeur)"
+            >
+              @for (u of role.employeesForCurrentRole(); track u.id) {
+                <option [value]="u.id">{{ u.firstName }} {{ u.lastName }}</option>
+              }
+            </select>
+          } @else {
+            <span class="text-xs text-slate-500 hidden lg:inline truncate max-w-[10rem]" [title]="role.currentUser().email">
+              {{ role.currentUser().firstName }} {{ role.currentUser().lastName }}
+            </span>
+          }
         </div>
       </div>
     </header>
@@ -118,5 +131,10 @@ export class TopbarComponent {
   onRoleChange(ev: Event): void {
     const v = (ev.target as HTMLSelectElement).value as Role;
     this.role.setRole(v);
+  }
+
+  onUserChange(ev: Event): void {
+    const id = (ev.target as HTMLSelectElement).value;
+    this.role.setUserId(id);
   }
 }

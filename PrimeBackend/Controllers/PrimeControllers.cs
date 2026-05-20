@@ -257,7 +257,7 @@ public class PrimeOrgAssignmentsController(
 
     /// <summary>Cellules supervisées et services (structure RH) pour les écrans indicateurs / filtres.</summary>
     [HttpGet("supervisor-scope")]
-    public async Task<ActionResult<List<SupervisorOrgScopeCelluleDto>>> GetSupervisorScope(
+    public async Task<ActionResult<List<SupervisorOrgScopePoleDto>>> GetSupervisorScope(
         [FromQuery] string supervisorUserId,
         CancellationToken ct)
     {

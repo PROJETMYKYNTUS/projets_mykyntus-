@@ -100,8 +100,8 @@ public class EmployeePrimeServiceFicheEntity
     // Pending → Superviseur Approved → Chef de projet Approved → RH Approved
     // (Référent technique = lecture seule, pas de transition depuis Pending)
     // ============================================================
-    /// <summary>Pending | Superviseur Approved | Chef de projet Approved | RH Approved | Rejected</summary>
-    public string ValidationStatus { get; set; } = "Pending";
+    /// <summary>AwaitingData | Pending | Superviseur Approved | Chef de projet Approved | RH Approved | Rejected</summary>
+    public string ValidationStatus { get; set; } = "AwaitingData";
     /// <summary>UserId du dernier valideur (Superviseur, Chef de projet ou RH).</summary>
     public string? LastApproverUserId { get; set; }
     public DateTimeOffset? LastApprovedAt { get; set; }

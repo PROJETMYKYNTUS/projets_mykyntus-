@@ -66,6 +66,12 @@ export interface SupervisorOrgScopeCellule {
   services: SupervisorOrgScopeService[];
 }
 
+export interface SupervisorOrgScopePole {
+  id: string;
+  name: string;
+  cellules: SupervisorOrgScopeCellule[];
+}
+
 export interface OrgAssignmentsOverview {
   etages: EtageNodeDto[];
   services: ServiceNodeDto[];
@@ -82,9 +88,9 @@ export interface OrgAssignmentsOverview {
 export class PrimeOrgApiService {
   private readonly http = inject(HttpClient);
 
-  getSupervisorScope(supervisorUserId: string): Observable<SupervisorOrgScopeCellule[]> {
+  getSupervisorScope(supervisorUserId: string): Observable<SupervisorOrgScopePole[]> {
     const params = { supervisorUserId };
-    return this.http.get<SupervisorOrgScopeCellule[]>(`${orgBase}/supervisor-scope`, { params });
+    return this.http.get<SupervisorOrgScopePole[]>(`${orgBase}/supervisor-scope`, { params });
   }
 
   loadOverview(): Observable<OrgAssignmentsOverview> {

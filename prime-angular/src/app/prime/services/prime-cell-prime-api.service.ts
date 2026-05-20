@@ -118,6 +118,8 @@ export interface EmployeePrimeCellFicheDto {
   period: string;
   serviceSaisieJson: string;
   fillingStatus: string;
+  validationStatus: string;
+  isReadyForValidation: boolean;
   updatedAt: string;
 }
 
@@ -146,6 +148,8 @@ export interface EmployeePrimeCellFicheListItemDto {
   ficheId: string | null;
   cellulePrimeDraftId: string | null;
   fillingStatus: string;
+  validationStatus?: string | null;
+  isReadyForValidation?: boolean | null;
   serviceSaisieJson: string;
   updatedAt: string | null;
 }
@@ -169,6 +173,8 @@ export interface CellPilotageSummaryDto {
   serviceId: string;
   serviceName: string;
   celluleId: string;
+  celluleName?: string;
+  poleName?: string;
   totalEmployees: number;
   notStarted: number;
   inProgress: number;

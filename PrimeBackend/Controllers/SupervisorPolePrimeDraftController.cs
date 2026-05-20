@@ -10,7 +10,10 @@ namespace PrimeBackend.Controllers;
 [ApiController]
 [Route("api/prime/supervisor-cellule-prime-drafts")]
 [Route("api/prime/supervisor-pole-prime-drafts")] // alias : clients encore sur l’ancien chemin (ex. module Angular 4202)
-public sealed class SupervisorCellulePrimeDraftController(PrimeDbContext? db, PrimeOrgScopeService org) : ControllerBase
+public sealed class SupervisorCellulePrimeDraftController(
+    PrimeDbContext? db,
+    PrimeOrgScopeService org,
+    PrimeFicheValidationSubmissionService? submission) : ControllerBase
 {
     private static SupervisorCellulePrimeDraftResponseDto Map(SupervisorCellulePrimeDraftEntity e) =>
         new()
@@ -227,6 +230,12 @@ public sealed class SupervisorCellulePrimeDraftController(PrimeDbContext? db, Pr
         catch (DbUpdateException ex)
         {
             return Conflict(new { error = DbExceptionMessages.FromSaveChanges(ex) });
+        }
+
+        if (submission is not null)
+        {
+            await submission.SyncForDraftAsync(entity.Id, ct);
+            await db.SaveChangesAsync(ct);
         }
 
         return Ok(Map(entity));

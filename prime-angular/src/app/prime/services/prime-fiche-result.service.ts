@@ -9,12 +9,19 @@ export type PrimeFicheValidationStatus = string;
 export interface EmployeePrimeServiceFicheValidationDto {
   id: string;
   employeeId: string;
+  employeeDisplayName?: string;
+  employeeRole?: string;
   supervisorUserId: string;
   serviceId: string;
+  serviceName?: string;
   celluleId: string;
+  celluleName?: string;
+  poleName?: string | null;
   period: string;
   fillingStatus: string;
   validationStatus: PrimeFicheValidationStatus;
+  commonPartStatus?: string | null;
+  isReadyForValidation?: boolean;
   lastApproverUserId?: string | null;
   lastApprovedAt?: string | null;
   rejectedByUserId?: string | null;
@@ -88,6 +95,8 @@ export interface FicheValidationListFilters {
   celluleId?: string;
   userId?: string;
   role?: string;
+  /** Fiches prêtes uniquement (commune validée + cellule complète). Défaut true côté API pour validateurs. */
+  readyOnly?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -103,6 +112,8 @@ export class PrimeFicheResultService {
     if (filters.celluleId) params = params.set('celluleId', filters.celluleId);
     if (filters.userId) params = params.set('userId', filters.userId);
     if (filters.role) params = params.set('role', filters.role);
+    if (filters.readyOnly === true) params = params.set('readyOnly', 'true');
+    if (filters.readyOnly === false) params = params.set('readyOnly', 'false');
     return params;
   }
 

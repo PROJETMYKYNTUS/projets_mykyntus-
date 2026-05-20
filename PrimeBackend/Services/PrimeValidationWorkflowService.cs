@@ -12,6 +12,9 @@ namespace PrimeBackend.Services;
 /// </summary>
 public static class PrimeValidationWorkflowService
 {
+    /// <summary>Hors file de validation : partie commune ou cellule incomplète.</summary>
+    public const string AwaitingData = "AwaitingData";
+
     public const string Pending = "Pending";
     /// <summary>Conservé pour compatibilité données / API ; n’est plus une étape du flux ordonné.</summary>
     public const string ReferentTechniqueApproved = "Référent technique Approved";
@@ -32,7 +35,8 @@ public static class PrimeValidationWorkflowService
     public static IReadOnlyList<string> Flow => OrderedFlow;
 
     /// <summary>Tous les statuts valides (flux + Rejected + ancien statut RT pour filtres / données historiques).</summary>
-    public static IReadOnlyList<string> AllStatuses => [.. OrderedFlow, Rejected, ReferentTechniqueApproved];
+    public static IReadOnlyList<string> AllStatuses =>
+        [AwaitingData, .. OrderedFlow, Rejected, ReferentTechniqueApproved];
 
     /// <summary>Rôle attendu pour faire la prochaine validation depuis l'état courant.</summary>
     public static string? RequiredApproverRole(string currentStatus) => currentStatus switch
@@ -68,7 +72,8 @@ public static class PrimeValidationWorkflowService
     }
 
     public static bool IsValidStatus(string status) =>
-        AllStatuses.Contains(status, StringComparer.Ordinal);
+        AllStatuses.Contains(status, StringComparer.Ordinal) ||
+        string.Equals(status, AwaitingData, StringComparison.Ordinal);
 
     /// <summary>Applique l'approbation et met à jour les champs de validation de la fiche.</summary>
     public static void ApproveOrThrow(EmployeePrimeServiceFicheEntity fiche, string approverUserId, string approverRole, DateTimeOffset now)

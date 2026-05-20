@@ -122,7 +122,7 @@ const pathNavEntries: NavPathEntry[] = [
   },
   {
     type: 'link',
-    name: 'Indicateurs PRIME par cellule',
+    name: 'Indicateurs PRIME (services / cellule)',
     path: '/prime-cellule-indicateurs',
     icon: List,
     roles: ['Superviseur'],

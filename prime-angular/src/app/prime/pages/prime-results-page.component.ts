@@ -24,7 +24,7 @@ import {
   type FicheValidationListFilters,
   type PrimeFicheValidationStatus,
 } from '../services/prime-fiche-result.service';
-import { primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
+import { PRIME_USER_LOAD_ERROR, primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
 
 /** Données agrégées `/api/prime/results` (sans périmètre fiche validation) → même grille que l’API validation. */
 function mapPrimeResultToFicheDto(
@@ -67,11 +67,11 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
   standalone: true,
   imports: [LucideIconComponent, PrimeCardComponent, PrimeFilterBarComponent],
   template: `
-    <div class="p-8 space-y-6">
+    <div class="prime-page-shell">
       <div class="flex justify-between items-start gap-4">
         <div>
-          <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Résultats PRIME</h1>
-          <p class="text-slate-500 mt-1">
+          <h1 class="prime-page-title">Résultats PRIME</h1>
+          <p class="prime-page-subtitle">
             Suivi des fiches PRIME calculées et de leur statut de validation.
           </p>
         </div>
@@ -79,7 +79,7 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
           type="button"
           [disabled]="filteredResults().length === 0"
           (click)="exportCsv()"
-          class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          class="prime-btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <app-lucide-icon [icon]="icons.download" className="w-4 h-4" />
           Exporter CSV
@@ -419,7 +419,7 @@ export class PrimeResultsPageComponent implements OnInit {
     this.errorMessage.set(
       detail
         ? `Impossible de charger les fiches PRIME. ${detail}`
-        : 'Impossible de charger les fiches PRIME depuis le backend. Vérifiez que le service est démarré.',
+        : PRIME_USER_LOAD_ERROR,
     );
     this.results.set([]);
     this.loading.set(false);

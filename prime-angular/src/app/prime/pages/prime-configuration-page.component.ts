@@ -15,17 +15,17 @@ import type { Department } from '../models';
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     } @else {
-      <div class="p-8 space-y-6">
+      <div class="prime-page-shell">
         <div class="flex justify-between items-center">
           <div>
-            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Configuration</h1>
-            <p class="text-slate-500 mt-1">
+            <h1 class="prime-page-title">Configuration</h1>
+            <p class="prime-page-subtitle">
               Manage organizational structure and system settings.
             </p>
           </div>
           <button
             type="button"
-            class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+            class="prime-btn-secondary"
           >
             <app-lucide-icon [icon]="icons.settings" className="w-4 h-4" />
             System Settings
@@ -38,7 +38,7 @@ import type { Department } from '../models';
               <div class="space-y-4">
                 @for (dept of departments(); track dept.id) {
                   <div
-                    class="p-4 border border-slate-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50/50 transition-colors cursor-pointer"
+                    class="p-4 border border-default rounded-xl hover:border-indigo-500/40 hover:bg-navy-800/60 transition-colors cursor-pointer"
                   >
                     <div class="flex items-center gap-3">
                       <div
@@ -47,8 +47,8 @@ import type { Department } from '../models';
                         <app-lucide-icon [icon]="icons.building" className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 class="font-semibold text-slate-900">{{ dept.name }}</h4>
-                        <p class="text-xs text-slate-500">{{ dept.poles.length }} Pôles</p>
+                        <h4 class="font-semibold text-primary">{{ dept.name }}</h4>
+                        <p class="text-xs text-muted">{{ dept.poles.length }} Pôles</p>
                       </div>
                     </div>
                   </div>
@@ -68,11 +68,11 @@ import type { Department } from '../models';
             <app-prime-card title="Structure Details" description="Operations Department">
               <div class="space-y-6">
                 @for (pole of firstDeptPoles(); track pole.id) {
-                  <div class="bg-slate-50 rounded-xl p-5 border border-slate-200">
+                  <div class="bg-navy-900 rounded-xl p-5 border border-default">
                     <div class="flex items-center justify-between mb-4">
                       <div class="flex items-center gap-2">
                         <app-lucide-icon [icon]="icons.tree" className="w-5 h-5 text-indigo-500" />
-                        <h3 class="text-lg font-semibold text-slate-900">{{ pole.name }}</h3>
+                        <h3 class="text-lg font-semibold text-primary">{{ pole.name }}</h3>
                       </div>
                       <button
                         type="button"
@@ -84,13 +84,13 @@ import type { Department } from '../models';
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                       @for (cell of pole.cells; track cell.id) {
-                        <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                        <div class="bg-card p-4 rounded-lg border border-default shadow-sm">
                           <div class="flex items-center gap-2 mb-3">
                             <app-lucide-icon
                               [icon]="icons.network"
                               className="w-4 h-4 text-emerald-500"
                             />
-                            <h4 class="font-medium text-slate-800">{{ cell.name }}</h4>
+                            <h4 class="font-medium text-primary">{{ cell.name }}</h4>
                           </div>
                           <div class="space-y-2 pl-6 border-l-2 border-slate-100">
                             @for (team of cell.teams; track team.id) {

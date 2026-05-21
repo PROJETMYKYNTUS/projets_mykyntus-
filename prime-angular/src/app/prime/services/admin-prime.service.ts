@@ -121,9 +121,43 @@ export const AdminPrimeService = {
     };
   },
 
-  getRbacMatrix: async (): Promise<AdminRbacRow[]> => [],
+  getRbacMatrix: async (): Promise<AdminRbacRow[]> => {
+    const rows = await primeApiGet<{ role: string; action: string; isAllowed: boolean }[]>(
+      '/api/prime/admin/rbac',
+    ).catch(() => []);
+    if (rows.length === 0) {
+      return [
+        { role: 'Admin', read: true, edit: true, validate: true, configure: true },
+        { role: 'Superviseur', read: true, edit: true, validate: true, configure: false },
+        { role: 'Référent technique', read: true, edit: true, validate: true, configure: false },
+        { role: 'Chef de projet', read: true, edit: false, validate: true, configure: false },
+        { role: 'RH', read: true, edit: false, validate: true, configure: true },
+        { role: 'Pilote', read: true, edit: true, validate: false, configure: false },
+        { role: 'Audit', read: true, edit: false, validate: false, configure: false },
+        { role: 'Comptabilité', read: true, edit: false, validate: false, configure: false },
+      ];
+    }
+    const byRole = new Map<string, AdminRbacRow>();
+    for (const r of rows) {
+      const cur = byRole.get(r.role) ?? {
+        role: r.role,
+        read: false,
+        edit: false,
+        validate: false,
+        configure: false,
+      };
+      const act = String(r.action).toLowerCase();
+      if (act === 'read' && r.isAllowed) cur.read = true;
+      if (act === 'edit' && r.isAllowed) cur.edit = true;
+      if (act === 'validate' && r.isAllowed) cur.validate = true;
+      if (act === 'configure' && r.isAllowed) cur.configure = true;
+      byRole.set(r.role, cur);
+    }
+    return [...byRole.values()];
+  },
 
-  toggleRbacPermission: async (_role: string, _permission: 'read' | 'edit' | 'validate' | 'configure'): Promise<AdminRbacRow[]> => [],
+  toggleRbacPermission: async (_role: string, _permission: 'read' | 'edit' | 'validate' | 'configure'): Promise<AdminRbacRow[]> =>
+    AdminPrimeService.getRbacMatrix(),
 
   getWorkflowConfig: async (): Promise<AdminWorkflowConfig> => {
     const [steps, global] = await Promise.all([

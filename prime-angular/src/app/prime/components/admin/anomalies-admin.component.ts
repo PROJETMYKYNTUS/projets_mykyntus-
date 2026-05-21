@@ -13,10 +13,8 @@ import {
   template: `
     <app-prime-card title="Gestion des anomalies">
       <p class="text-slate-400 text-sm mb-4">
-        Types détectés côté serveur : <span class="text-slate-300">ComputationMismatch</span> (total ≠ prime +
-        challenge), <span class="text-slate-300">DuplicateFiche</span>, <span class="text-slate-300">OutOfRange</span>,
-        <span class="text-slate-300">MissingApprover</span>, <span class="text-slate-300">StaleValidation</span>,
-        <span class="text-slate-300">InvalidScope</span>.
+        Anomalies possibles : écart de calcul (prime / challenge), fiche en double, valeurs hors plage,
+        validateur manquant, validation obsolète ou périmètre incohérent.
       </p>
       <div class="flex flex-wrap gap-3 mb-4">
         <button

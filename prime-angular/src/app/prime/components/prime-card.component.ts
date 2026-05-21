@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
           }
         </div>
       }
-      <div class="p-6 text-primary">
+      <div [class]="contentClass">
         <ng-content />
       </div>
     </div>
@@ -41,5 +41,10 @@ export class PrimeCardComponent {
       'bg-card border border-default rounded-xl shadow-sm overflow-hidden min-w-0 w-full',
       this.className,
     );
+  }
+
+  /** Si la carte est en `p-0`, le contenu (tableaux) reste bord à bord sans bande claire. */
+  get contentClass(): string {
+    return cn('text-primary', this.className.includes('p-0') ? 'p-0' : 'p-6');
   }
 }

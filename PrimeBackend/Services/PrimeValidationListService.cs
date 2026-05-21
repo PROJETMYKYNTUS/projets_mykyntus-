@@ -11,9 +11,15 @@ public sealed class PrimeValidationListService(PrimeDbContext db)
         IQueryable<EmployeePrimeServiceFicheEntity> query) =>
         query.Where(f =>
             EF.Functions.ILike(f.FillingStatus, "complete") &&
-            db.SupervisorCellulePrimeDrafts.Any(d =>
-                d.Id == f.CellulePrimeDraftId &&
-                EF.Functions.ILike(d.Status, "validated")));
+            (
+                (f.ValidationStatus != PrimeValidationWorkflowService.AwaitingData &&
+                 f.ValidationStatus != "NotStarted") ||
+                db.SupervisorCellulePrimeDrafts.Any(d =>
+                    d.SupervisorUserId == f.SupervisorUserId &&
+                    d.Period == f.Period &&
+                    EF.Functions.ILike(d.Status, "validated") &&
+                    (d.Id == f.CellulePrimeDraftId ||
+                     d.CelluleId == f.CelluleId))));
 
     public static bool ShouldDefaultReadyOnly(string? role) =>
         !string.IsNullOrWhiteSpace(role) && PrimeFicheValidationRoles.IsOperationalApprover(role.Trim());

@@ -28,7 +28,26 @@ import type { Department, Employee, LegacyCellule as Cellule, LegacyPole as Pole
 import { employeesForSelect, selectValueOrEmpty } from '../lib/prime-select-options';
 import { RoleService } from '../state/role.service';
 
-const PROTECTED_ROLES: readonly Role[] = ['RH', 'Admin', 'Audit', 'RP', 'Chef de projet'];
+const PROTECTED_ROLES: readonly Role[] = ['RH', 'Admin', 'Audit'];
+
+function employeesByRoles(all: Employee[], roles: readonly Role[], selectedUserId?: string | null): Employee[] {
+  const set = new Set<Role>(roles);
+  const base = all.filter((e) => set.has(e.role));
+  return employeesForSelect(base, selectedUserId);
+}
+
+function matchAssignmentUserId(
+  assignments: { userId: string; etageId?: string; serviceId?: string; celluleId?: string; sousServiceId?: string }[],
+  keys: string[],
+): string | undefined {
+  const keySet = new Set(keys.filter(Boolean));
+  if (keySet.size === 0) return undefined;
+  for (const a of assignments) {
+    const candidates = [a.etageId, a.serviceId, a.celluleId, a.sousServiceId].filter(Boolean) as string[];
+    if (candidates.some((c) => keySet.has(c))) return a.userId;
+  }
+  return undefined;
+}
 
 export type OrgTreeSelection =
   | { kind: 'department'; id: string; name: string }
@@ -56,7 +75,7 @@ function httpErrMessage(err: unknown): string {
     const body = err.error as { error?: string } | string | null;
     if (body && typeof body === 'object' && typeof body.error === 'string') return body.error;
     if (typeof body === 'string' && body.length) return body;
-    return err.message || `Erreur HTTP ${err.status}`;
+    return 'Une erreur est survenue. Réessayez ultérieurement.';
   }
   return err instanceof Error ? err.message : 'Erreur inconnue';
 }
@@ -78,11 +97,8 @@ function httpErrMessage(err: unknown): string {
             <div class="mt-3 max-w-3xl space-y-2 text-sm leading-relaxed text-slate-400">
               <p>
                 <span class="font-medium text-slate-300">Gestion par listes</span> — tous les pôles, cellules et
-                services, avec affectation ligne par ligne.
-              </p>
-              <p>
-                L’API aligne automatiquement les rôles et la hiérarchie via
-                <code class="rounded bg-navy-900 px-1.5 py-0.5 text-slate-300">/api/prime/org/structure/…</code>.
+                services, avec affectation ligne par ligne. Les rôles et la hiérarchie sont alignés automatiquement
+                lors de chaque enregistrement.
               </p>
             </div>
           </div>
@@ -169,42 +185,43 @@ function httpErrMessage(err: unknown): string {
                 Un pôle sans structure ne permet pas encore d’affecter un chef de projet : ajoutez au moins une cellule puis un service
                 depuis les onglets dédiés.
               </p>
-              <div class="overflow-x-auto -m-6">
-                <table class="w-full text-sm text-left">
-                  <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
+              <p class="px-4 sm:px-6 py-2 text-xs text-slate-400 border-b border-navy-800">
+                {{ filteredDepartmentsForTable().length }} pôle(s) affiché(s)
+              </p>
+              <div class="overflow-x-auto">
+                <table class="prime-table prime-table--dense w-full text-sm text-left">
+                  <thead>
                     <tr>
-                      <th class="px-4 py-3 font-medium">Pôle</th>
-                      <th class="px-4 py-3 font-medium">Chef de projet</th>
-                      <th class="px-4 py-3 font-medium min-w-[200px]">Employé</th>
-                      <th class="px-4 py-3 font-medium w-44">Actions</th>
+                      <th class="font-medium max-w-[min(100%,20rem)]">Pôle</th>
+                      <th class="font-medium">Chef de projet actuel</th>
+                      <th class="font-medium min-w-[220px]">Nouveau chef de projet</th>
+                      <th class="font-medium w-40 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody class="divide-y divide-navy-800">
+                  <tbody>
                     @for (dept of filteredDepartmentsForTable(); track dept.id) {
-                      <tr class="bg-navy-900/60 hover:bg-navy-800/50">
-                        <td class="px-4 py-3 text-slate-100 font-medium">{{ dept.name }}</td>
-                        <td class="px-4 py-3 text-slate-300">
-                          {{ managerLabel(dept.id) }}
-                        </td>
-                        <td class="px-4 py-3">
+                      <tr>
+                        <td class="px-4 py-2.5"><span class="prime-cell-strong">{{ dept.name }}</span></td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ managerLabel(dept.id) }}</span></td>
+                        <td class="px-4 py-2.5">
                           <select
-                            class="w-full max-w-xs rounded-lg border border-navy-700 bg-navy-950 px-2 py-2 text-slate-200"
+                            class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
                             [value]="selectManagerValue(dept.id)"
                             (change)="patchDraftManager(dept.id, selectVal($event))"
                           >
-                            <option value="">— Choisir —</option>
+                            <option value="">— Sélectionner —</option>
                             @for (e of employeesForManagerRow(dept.id); track e.id) {
-                              <option [value]="e.id">{{ e.firstName }} {{ e.lastName }} ({{ e.role }})</option>
+                              <option [value]="e.id">{{ e.firstName }} {{ e.lastName }}</option>
                             }
                           </select>
                         </td>
-                        <td class="px-4 py-3">
-                          <div class="flex flex-wrap gap-2">
+                        <td class="px-4 py-2.5 text-right">
+                          <div class="inline-flex flex-wrap justify-end gap-2">
                             <button
                               type="button"
                               (click)="saveDepartmentManagerRow(dept.id)"
                               [disabled]="saving() || !draftManagerDept(dept.id)"
-                              class="rounded-md bg-indigo-600 px-2 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                              class="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                             >
                               Enregistrer
                             </button>
@@ -212,11 +229,17 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="clearDepartmentManagerRow(dept.id)"
                               [disabled]="saving() || !managerUserId(dept.id)"
-                              class="rounded-md border border-navy-600 px-2 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
+                              class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
                             >
                               Retirer
                             </button>
                           </div>
+                        </td>
+                      </tr>
+                    } @empty {
+                      <tr>
+                        <td colspan="4" class="px-4 py-10 text-center text-slate-500 text-sm">
+                          Aucun pôle à afficher. Créez un pôle ou modifiez la recherche.
                         </td>
                       </tr>
                     }
@@ -265,42 +288,45 @@ function httpErrMessage(err: unknown): string {
               <p class="px-4 sm:px-6 pb-3 text-xs text-slate-500 border-b border-navy-800 bg-navy-950/40">
                 Vous pouvez affecter un superviseur dès qu’une cellule existe ; les services peuvent être ajoutés ensuite.
               </p>
-              <div class="overflow-x-auto -m-6">
-                <table class="w-full text-sm text-left">
-                  <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
+              <p class="px-4 sm:px-6 py-2 text-xs text-slate-400 border-b border-navy-800">
+                {{ filteredPolesForTable().length }} cellule(s) affichée(s)
+              </p>
+              <div class="overflow-x-auto">
+                <table class="prime-table prime-table--dense w-full text-sm text-left">
+                  <thead>
                     <tr>
-                      <th class="px-4 py-3 font-medium">Pôle</th>
-                      <th class="px-4 py-3 font-medium">Cellule</th>
-                      <th class="px-4 py-3 font-medium">Superviseur actuel</th>
-                      <th class="px-4 py-3 font-medium min-w-[200px]">Employé</th>
-                      <th class="px-4 py-3 font-medium w-44">Actions</th>
+                      <th class="font-medium">Pôle</th>
+                      <th class="font-medium">Cellule</th>
+                      <th class="px-4 py-2.5 font-medium">Superviseur actuel</th>
+                      <th class="px-4 py-2.5 font-medium min-w-[220px]">Nouveau superviseur</th>
+                      <th class="px-4 py-2.5 font-medium w-40 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody class="divide-y divide-navy-800">
+                  <tbody>
                     @for (row of filteredPolesForTable(); track row.poleId) {
-                      <tr class="bg-navy-900/60 hover:bg-navy-800/50">
-                        <td class="px-4 py-3 text-slate-400">{{ row.departmentName }}</td>
-                        <td class="px-4 py-3 text-slate-100 font-medium">{{ row.poleName }}</td>
-                        <td class="px-4 py-3 text-slate-300">{{ supervisorLabel(row.poleId) }}</td>
-                        <td class="px-4 py-3">
+                      <tr>
+                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.departmentName }}</span></td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-strong">{{ row.poleName }}</span></td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ supervisorLabel(row.poleId) }}</span></td>
+                        <td class="px-4 py-2.5">
                           <select
-                            class="w-full max-w-xs rounded-lg border border-navy-700 bg-navy-950 px-2 py-2 text-slate-200"
+                            class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
                             [value]="selectSupervisorValue(row.poleId)"
                             (change)="patchDraftSupervisor(row.poleId, selectVal($event))"
                           >
-                            <option value="">— Choisir —</option>
+                            <option value="">— Sélectionner —</option>
                             @for (e of employeesForSupervisorRow(row.poleId); track e.id) {
-                              <option [value]="e.id">{{ e.firstName }} {{ e.lastName }} ({{ e.role }})</option>
+                              <option [value]="e.id">{{ e.firstName }} {{ e.lastName }}</option>
                             }
                           </select>
                         </td>
-                        <td class="px-4 py-3">
-                          <div class="flex flex-wrap gap-2">
+                        <td class="px-4 py-2.5 text-right">
+                          <div class="inline-flex flex-wrap justify-end gap-2">
                             <button
                               type="button"
                               (click)="savePoleSupervisorRow(row.poleId)"
                               [disabled]="saving() || !draftSupervisorPole(row.poleId)"
-                              class="rounded-md bg-indigo-600 px-2 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                              class="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                             >
                               Enregistrer
                             </button>
@@ -308,11 +334,17 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="clearPoleSupervisorRow(row.poleId)"
                               [disabled]="saving() || !supervisorUserId(row.poleId)"
-                              class="rounded-md border border-navy-600 px-2 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
+                              class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
                             >
                               Retirer
                             </button>
                           </div>
+                        </td>
+                      </tr>
+                    } @empty {
+                      <tr>
+                        <td colspan="5" class="px-4 py-10 text-center text-slate-500 text-sm">
+                          Aucune cellule à afficher. Créez une cellule ou modifiez la recherche.
                         </td>
                       </tr>
                     }
@@ -325,7 +357,7 @@ function httpErrMessage(err: unknown): string {
             <app-prime-card
               className="p-0"
               title="Gestion des services"
-              description="Référent technique par service (affectation encore liée à la cellule métier dans l’API mock) ; pilotes listés par ligne."
+              description="Référent technique par service ; pilotes rattachés listés par ligne."
             >
               <div
                 class="px-4 py-3 sm:px-6 border-b border-navy-800 bg-navy-950/40 flex flex-col xl:flex-row xl:flex-wrap gap-3 xl:items-end"
@@ -380,23 +412,26 @@ function httpErrMessage(err: unknown): string {
                   ici pour ajouter un service.
                 </p>
               }
-              <div class="overflow-x-auto -m-6">
-                <table class="w-full text-sm text-left">
-                  <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
+              <p class="px-4 sm:px-6 py-2 text-xs text-slate-400 border-b border-navy-800">
+                {{ filteredCellulesForTable().length }} service(s) affiché(s)
+              </p>
+              <div class="overflow-x-auto">
+                <table class="prime-table prime-table--dense w-full text-sm text-left">
+                  <thead>
                     <tr>
-                      <th class="px-4 py-3 font-medium w-10"></th>
-                      <th class="px-4 py-3 font-medium">Pôle</th>
-                      <th class="px-4 py-3 font-medium">Cellule</th>
-                      <th class="px-4 py-3 font-medium">Service</th>
-                      <th class="px-4 py-3 font-medium">Référent technique</th>
-                      <th class="px-4 py-3 font-medium min-w-[200px]">Employé</th>
-                      <th class="px-4 py-3 font-medium w-44">Actions</th>
+                      <th class="font-medium w-10"></th>
+                      <th class="px-4 py-2.5 font-medium">Pôle</th>
+                      <th class="px-4 py-2.5 font-medium">Cellule</th>
+                      <th class="px-4 py-2.5 font-medium">Service</th>
+                      <th class="px-4 py-2.5 font-medium">Réf. technique actuel</th>
+                      <th class="px-4 py-2.5 font-medium min-w-[220px]">Nouveau référent</th>
+                      <th class="px-4 py-2.5 font-medium w-40 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody class="divide-y divide-navy-800">
+                  <tbody>
                     @for (row of filteredCellulesForTable(); track row.celluleId) {
-                      <tr class="bg-navy-900/60 hover:bg-navy-800/50 align-top">
-                        <td class="px-2 py-3">
+                      <tr class="align-top">
+                        <td class="px-2 py-2.5">
                           <button
                             type="button"
                             class="p-1 rounded text-slate-400 hover:bg-navy-800"
@@ -410,29 +445,29 @@ function httpErrMessage(err: unknown): string {
                             />
                           </button>
                         </td>
-                        <td class="px-4 py-3 text-slate-400">{{ row.departmentName }}</td>
-                        <td class="px-4 py-3 text-slate-400">{{ row.poleName }}</td>
-                        <td class="px-4 py-3 text-slate-100 font-medium">{{ row.celluleName }}</td>
-                        <td class="px-4 py-3 text-slate-300">{{ coachLabel(row.celluleId) }}</td>
-                        <td class="px-4 py-3">
+                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.departmentName }}</span></td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.poleName }}</span></td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-strong">{{ row.celluleName }}</span></td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ coachLabel(row.celluleId) }}</span></td>
+                        <td class="px-4 py-2.5">
                           <select
-                            class="w-full max-w-xs rounded-lg border border-navy-700 bg-navy-950 px-2 py-2 text-slate-200"
+                            class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
                             [value]="selectCoachValue(row.celluleId)"
                             (change)="patchDraftCoach(row.celluleId, selectVal($event))"
                           >
-                            <option value="">— Choisir —</option>
+                            <option value="">— Sélectionner —</option>
                             @for (e of employeesForCoachRow(row.celluleId); track e.id) {
-                              <option [value]="e.id">{{ e.firstName }} {{ e.lastName }} ({{ e.role }})</option>
+                              <option [value]="e.id">{{ e.firstName }} {{ e.lastName }}</option>
                             }
                           </select>
                         </td>
-                        <td class="px-4 py-3">
-                          <div class="flex flex-wrap gap-2">
+                        <td class="px-4 py-2.5 text-right">
+                          <div class="inline-flex flex-wrap justify-end gap-2">
                             <button
                               type="button"
                               (click)="saveCellCoachRow(row.celluleId)"
                               [disabled]="saving() || !draftCoachCell(row.celluleId)"
-                              class="rounded-md bg-indigo-600 px-2 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                              class="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                             >
                               Enregistrer
                             </button>
@@ -440,7 +475,7 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="clearCellCoachRow(row.celluleId)"
                               [disabled]="saving() || !coachUserId(row.celluleId)"
-                              class="rounded-md border border-navy-600 px-2 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
+                              class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
                             >
                               Retirer
                             </button>
@@ -506,6 +541,12 @@ function httpErrMessage(err: unknown): string {
                           </td>
                         </tr>
                       }
+                    } @empty {
+                      <tr>
+                        <td colspan="7" class="px-4 py-10 text-center text-slate-500 text-sm">
+                          Aucun service à afficher. Créez un service ou modifiez la recherche.
+                        </td>
+                      </tr>
                     }
                   </tbody>
                 </table>
@@ -1196,11 +1237,17 @@ export class OrganisationManagementComponent implements OnInit {
     const pilotTeam: Record<string, string> = {};
 
     for (const dept of d.departments) {
-      mgr[dept.id] = d.managerEtage.find((a) => a.etageId === dept.id)?.userId ?? '';
+      mgr[dept.id] =
+        matchAssignmentUserId(d.managerEtage, [dept.id, ...dept.poles.map((p) => p.id)]) ?? '';
       for (const pole of dept.poles) {
-        sup[pole.id] = d.supervisorService.find((a) => a.serviceId === pole.id)?.userId ?? '';
+        const cellIds = pole.cells.map((c) => c.id);
+        const teamIds = pole.cells.flatMap((c) => (c.teams ?? []).map((t) => t.id));
+        sup[pole.id] =
+          matchAssignmentUserId(d.supervisorService, [pole.id, ...cellIds, ...teamIds]) ?? '';
         for (const cell of pole.cells) {
-          coach[cell.id] = d.coachSousService.find((a) => a.sousServiceId === cell.id)?.userId ?? '';
+          const teamIdsForCell = (cell.teams ?? []).map((t) => t.id);
+          coach[cell.id] =
+            matchAssignmentUserId(d.coachSousService, [cell.id, ...teamIdsForCell]) ?? '';
           pilotPick[cell.id] = '';
           const teams = cell.teams ?? [];
           pilotTeam[cell.id] = teams[0]?.id ?? '';
@@ -1496,15 +1543,30 @@ export class OrganisationManagementComponent implements OnInit {
   }
 
   employeesForManagerRow(deptId: string): Employee[] {
-    return employeesForSelect(this.assignableEmployees(), this.draftManagerDept(deptId));
+    const emps = this.data()?.employees ?? [];
+    return employeesByRoles(
+      emps,
+      ['Chef de projet', 'RP', 'Manager'],
+      this.draftManagerDept(deptId) || this.managerUserId(deptId),
+    );
   }
 
   employeesForSupervisorRow(poleId: string): Employee[] {
-    return employeesForSelect(this.assignableEmployees(), this.draftSupervisorPole(poleId));
+    const emps = this.data()?.employees ?? [];
+    return employeesByRoles(
+      emps,
+      ['Superviseur'],
+      this.draftSupervisorPole(poleId) || this.supervisorUserId(poleId),
+    );
   }
 
   employeesForCoachRow(cellId: string): Employee[] {
-    return employeesForSelect(this.assignableEmployees(), this.draftCoachCell(cellId));
+    const emps = this.data()?.employees ?? [];
+    return employeesByRoles(
+      emps,
+      ['Référent technique', 'Coach'],
+      this.draftCoachCell(cellId) || this.coachUserId(cellId),
+    );
   }
 
   selectManagerValue(deptId: string): string {
@@ -1523,7 +1585,8 @@ export class OrganisationManagementComponent implements OnInit {
   }
 
   employeesForPilotRow(cellId: string): Employee[] {
-    return employeesForSelect(this.assignableEmployees(), this.draftPilotCell(cellId));
+    const emps = this.data()?.employees ?? [];
+    return employeesByRoles(emps, ['Pilote'], this.draftPilotCell(cellId));
   }
 
   selectPilotValue(cellId: string): string {
@@ -1697,15 +1760,40 @@ export class OrganisationManagementComponent implements OnInit {
   }
 
   managerUserId(deptId: string): string | undefined {
-    return this.data()?.managerEtage.find((a) => a.etageId === deptId)?.userId;
+    const d = this.data();
+    if (!d) return undefined;
+    const dept = d.departments.find((x) => x.id === deptId);
+    if (!dept) return undefined;
+    return matchAssignmentUserId(d.managerEtage, [dept.id, ...dept.poles.map((p) => p.id)]);
   }
 
   supervisorUserId(poleId: string): string | undefined {
-    return this.data()?.supervisorService.find((a) => a.serviceId === poleId)?.userId;
+    const d = this.data();
+    if (!d) return undefined;
+    for (const dept of d.departments) {
+      const pole = dept.poles.find((p) => p.id === poleId);
+      if (pole) {
+        const cellIds = pole.cells.map((c) => c.id);
+        const teamIds = pole.cells.flatMap((c) => (c.teams ?? []).map((t) => t.id));
+        return matchAssignmentUserId(d.supervisorService, [pole.id, ...cellIds, ...teamIds]);
+      }
+    }
+    return matchAssignmentUserId(d.supervisorService, [poleId]);
   }
 
   coachUserId(cellId: string): string | undefined {
-    return this.data()?.coachSousService.find((a) => a.sousServiceId === cellId)?.userId;
+    const d = this.data();
+    if (!d) return undefined;
+    for (const dept of d.departments) {
+      for (const pole of dept.poles) {
+        const cell = pole.cells.find((c) => c.id === cellId);
+        if (cell) {
+          const teamIds = (cell.teams ?? []).map((t) => t.id);
+          return matchAssignmentUserId(d.coachSousService, [cell.id, ...teamIds]);
+        }
+      }
+    }
+    return matchAssignmentUserId(d.coachSousService, [cellId]);
   }
 
   employeeLabel(id: string): string {

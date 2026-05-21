@@ -67,7 +67,7 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
 
       <app-prime-card
         title="Cellule et service"
-        description="Périmètre = pôle d’affectation du superviseur (défini en RH). Les stableId viennent du gabarit Excel de ce pôle pour la période de référence."
+        description="Périmètre = pôle d’affectation du superviseur (défini en RH). Les lignes de gabarit proviennent du modèle Excel de ce pôle pour la période de référence."
       >
         @if (supervisorPole(); as pole) {
           <p class="mb-4 text-sm text-primary">
@@ -160,7 +160,7 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
                 <tr>
                   <th class="px-3 py-2">Ordre</th>
                   <th class="px-3 py-2">Libellé</th>
-                  <th class="px-3 py-2 min-w-[12rem]">Ligne template (stableId)</th>
+                  <th class="px-3 py-2 min-w-[12rem]">Ligne de gabarit</th>
                   <th class="px-3 py-2">Pond. Prime %</th>
                   <th class="px-3 py-2">Pond. Challenge %</th>
                   <th class="px-3 py-2">Actif</th>
@@ -670,7 +670,7 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
                 this.templateStableOptions.set(
                   lines.map((l) => ({
                     value: l.stableId,
-                    label: `${l.stableId} — ${(l.indicator ?? '').trim() || '(sans libellé)'}`,
+                    label: (l.indicator ?? '').trim() || '(sans libellé)',
                   })),
                 );
               });

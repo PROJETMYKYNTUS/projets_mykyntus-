@@ -40,7 +40,7 @@ export function formatWorkflowPipeline(steps: PipelineStep[] | undefined): strin
     .filter((s) => s.isActive && FICHE_OPERATIONAL_ROLES.has(s.approverRole))
     .sort((a, b) => a.sortOrder - b.sortOrder);
   if (active.length === 0) {
-    return 'Aucune étape active en base — configurez le workflow dans Paramètres.';
+    return 'Circuit non configuré';
   }
-  return active.map((s, i) => `${s.approverRole} (niveau ${i + 1})`).join(' → ');
+  return active.map((s) => s.approverRole).join(' → ');
 }

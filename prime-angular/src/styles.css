@@ -205,3 +205,133 @@ body.theme-dark {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ——— Pages PRIME : lisibles en theme-light et theme-dark (pas de texte slate-900 sur fond sombre) ——— */
+.prime-page-shell {
+  @apply p-8 space-y-6 bg-navy-950 min-h-full;
+}
+
+.prime-page-title {
+  color: var(--text-primary);
+  @apply text-3xl font-bold tracking-tight;
+}
+
+.prime-page-subtitle {
+  color: var(--text-muted);
+  @apply mt-1 text-sm;
+}
+
+.prime-table {
+  @apply w-full text-sm text-left;
+}
+
+.prime-table thead {
+  @apply text-xs uppercase;
+  background-color: var(--navy-900);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-muted);
+}
+
+.prime-table thead th {
+  @apply px-6 py-3 font-medium tracking-wider;
+}
+
+.prime-table tbody {
+  @apply divide-y;
+  border-color: var(--border-color);
+}
+
+.prime-table tbody tr {
+  background-color: var(--navy-900);
+  @apply transition-colors;
+}
+
+.prime-table tbody tr:hover {
+  background-color: var(--navy-700);
+}
+
+.prime-table tbody td {
+  @apply px-6 py-4 whitespace-nowrap;
+  color: var(--text-primary);
+}
+
+.prime-table tbody td .prime-cell-muted {
+  color: var(--text-muted);
+}
+
+.prime-table tbody td .prime-cell-strong {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* Tableaux d’affectation RH : lignes plus compactes, libellés longs autorisés */
+.prime-table.prime-table--dense thead th {
+  @apply px-4 py-2 text-xs;
+}
+
+.prime-table.prime-table--dense tbody td {
+  @apply px-4 py-2 align-middle;
+  white-space: normal;
+}
+
+.prime-table.prime-table--dense tbody tr.align-top td {
+  vertical-align: top;
+}
+
+.prime-kpi-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  @apply p-6 rounded-2xl shadow-sm flex items-center gap-4;
+}
+
+.prime-kpi-card .prime-kpi-label {
+  color: var(--text-muted);
+  @apply text-sm font-medium;
+}
+
+.prime-kpi-card .prime-kpi-value {
+  color: var(--text-primary);
+  @apply text-2xl font-bold;
+}
+
+.prime-callout-info {
+  background-color: color-mix(in srgb, var(--soft-blue) 10%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--soft-blue) 35%, var(--border-color));
+  @apply rounded-xl p-4 flex items-start gap-3;
+}
+
+.prime-callout-info .prime-callout-title {
+  color: var(--text-primary);
+  @apply text-sm font-semibold;
+}
+
+.prime-callout-info .prime-callout-body {
+  color: var(--text-muted);
+  @apply text-sm mt-1;
+}
+
+.prime-btn-secondary {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  @apply px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm;
+}
+
+.prime-btn-secondary:hover:not(:disabled) {
+  background-color: var(--navy-700);
+}
+
+.prime-btn-secondary:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.prime-status-badge {
+  background-color: var(--navy-800);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+body.theme-light .prime-status-badge {
+  background-color: var(--navy-700);
+}

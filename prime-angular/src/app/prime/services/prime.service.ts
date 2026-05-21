@@ -71,7 +71,7 @@ export const PrimeService = {
     _status: PrimeResult['status'],
     _approvedBy?: string,
   ): Promise<PrimeResult> => {
-    throw new Error('Utilisez /api/prime/validation pour valider ou rejeter une fiche.');
+    throw new Error('Utilisez l’écran de validation pour valider ou rejeter une fiche.');
   },
 
   getDashboardStats: () => primeApiGet<PrimeDashboardStats>('/api/prime/dashboard-stats'),

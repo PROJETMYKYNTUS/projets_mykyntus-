@@ -1,8 +1,10 @@
 import type { Employee, Role } from '../models';
 
-/** Profils démo pour tests workflow (noms issus du périmètre RH / enrichissement). */
-export const PRIME_DEMO_SUPERVISOR = { firstName: 'Abeline', lastName: 'Fernandez' } as const;
-export const PRIME_DEMO_REFERENT_TECHNIQUE = { firstName: 'Fantine', lastName: 'Petit' } as const;
+/** Profils démo Kyntus Maroc — site Oujda (soutenance / mock data). */
+export const PRIME_DEMO_SUPERVISOR = { firstName: 'Nadia', lastName: 'Benjelloun' } as const;
+export const PRIME_DEMO_REFERENT_TECHNIQUE = { firstName: 'Youssef', lastName: 'Idrissi' } as const;
+/** Profil RT alternatif (import RH) — visible en mode développeur si rôle Référent technique. */
+export const PRIME_DEMO_REFERENT_KENZA = { firstName: 'Kenza', lastName: 'Alami' } as const;
 
 function nameEq(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -40,6 +42,13 @@ export function findDemoSupervisor(list: Employee[]): Employee | undefined {
 /** Référent rattaché au superviseur démo (Fantine → Abeline), sinon 1er RT de la liste. */
 export function findDemoReferentTechnique(list: Employee[]): Employee | undefined {
   const supervisor = findDemoSupervisor(list);
+  const kenzaRt = list.find(
+    (e) =>
+      employeeMatchesUiRole(e, 'Référent technique') &&
+      employeeMatchesDemoProfile(e, PRIME_DEMO_REFERENT_KENZA),
+  );
+  if (kenzaRt) return kenzaRt;
+
   const fantine = list.find(
     (e) =>
       employeeMatchesUiRole(e, 'Référent technique') &&
@@ -102,12 +111,12 @@ export function resolveEmployeeForRole(
 function fallbackDevUser(role: Role): Employee {
   return {
     id: 'e-admin',
-    firstName: 'Système',
-    lastName: 'Admin',
+    firstName: 'Yassine',
+    lastName: 'Touimi',
     role: role === 'Admin' ? 'Admin' : 'Superviseur',
-    serviceId: 'c1',
-    poleId: 'd1',
-    celluleId: 'p1',
-    email: 'admin@local',
+    serviceId: 'svc-crm-core',
+    poleId: 'pole-apps',
+    celluleId: 'cell-crm',
+    email: 'yassine.touimi@kyntus.ma',
   };
 }

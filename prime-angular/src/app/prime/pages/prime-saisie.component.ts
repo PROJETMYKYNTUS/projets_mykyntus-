@@ -642,7 +642,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
         <main class="flex-1 overflow-y-auto p-4 sm:p-6">
           <app-prime-card
             title="Fiche enregistrée"
-            description="Brouillon pôle (RACC/SAV) enregistré côté serveur si la base est disponible. Complétez la partie cellule depuis le pilotage."
+            description="Brouillon pôle (RACC/SAV) enregistré automatiquement. Complétez la partie cellule depuis le pilotage."
           >
             <p class="text-sm text-primary">{{ saveMessage() }}</p>
             <div class="mt-6 flex flex-wrap gap-2">
@@ -1378,7 +1378,7 @@ export class PrimeSaisieComponent {
     for (const ln of s.lines) {
       if (!isPoleContract(ln.contract)) continue;
       const err = this.validateDynamicRow(ln.stableId);
-      if (err) return `${ln.stableId} (${ln.indicator}) : ${err}`;
+      if (err) return `${ln.indicator || 'Ligne'} : ${err}`;
     }
     return null;
   }
@@ -1461,7 +1461,7 @@ export class PrimeSaisieComponent {
       this.cellPrimeApi.getPoleDraft(u.id, org, item.period, item.templateId).pipe(catchError(() => of(null))),
     );
     if (!draft) {
-      this.wizardEarlySaveMessage.set('Impossible de charger cette fiche depuis le serveur.');
+      this.wizardEarlySaveMessage.set('Impossible de charger cette fiche pour le moment.');
       return;
     }
     const ok = this.session.startWizardFromExistingDraft(draft);
@@ -1502,7 +1502,7 @@ export class PrimeSaisieComponent {
       );
       this.session.setPolePrimeDraftId(saved.id);
       if (!silent) {
-        this.saveMessage.set('Partie pôle enregistrée sur le serveur.');
+        this.saveMessage.set('Partie pôle enregistrée.');
         this.validationMessage.set(null);
       }
       this.session.bumpDraftListRefresh();
@@ -1827,7 +1827,7 @@ export class PrimeSaisieComponent {
       for (const ln of s.lines) {
         const err = this.validateDynamicRow(ln.stableId);
         if (err) {
-          return `${ln.stableId} (${ln.indicator}) : ${err}`;
+          return `${ln.indicator || 'Ligne'} : ${err}`;
         }
       }
       return null;
@@ -2057,7 +2057,7 @@ export class PrimeSaisieComponent {
         `Partie pôle validée par le superviseur et enregistrée en base (${saved.id}). Utilisez le pilotage pour la partie cellule.`,
       );
     } catch (e: unknown) {
-      let msg = 'Erreur lors de l’enregistrement (réseau ou serveur).';
+      let msg = 'Erreur lors de l’enregistrement. Réessayez ultérieurement.';
       if (e && typeof e === 'object' && 'message' in e && typeof (e as Error).message === 'string') {
         msg = (e as Error).message;
       }

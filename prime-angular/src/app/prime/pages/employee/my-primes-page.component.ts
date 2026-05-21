@@ -107,7 +107,7 @@ import { RoleService } from '../../state/role.service';
           </div>
         </app-prime-card>
 
-        <app-prime-card title="Fiches service PRIME (API)" className="p-0 card-navy">
+        <app-prime-card title="Fiches service PRIME" className="p-0 card-navy">
           <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
               <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">

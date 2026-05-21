@@ -145,6 +145,10 @@ public sealed class ServicePilotageSummaryDto
     public int NotStarted { get; init; }
     public int InProgress { get; init; }
     public int Complete { get; init; }
+    /// <summary>Pilotes éligibles validation : cellule Complete + partie commune Validated (ou déjà Pending).</summary>
+    public int ReadyForValidation { get; init; }
+    /// <summary>Statut brouillon partie commune pour la cellule / période (Draft | Validated).</summary>
+    public string? CommonPartStatus { get; init; }
     /// <summary>Done | InProgress | NotStarted | Empty</summary>
     public string ServiceAggregateState { get; init; } = "";
     /// <summary>Brouillon cellule (partie commune) le plus récent pour cette cellule et cette période — même lien que la saisie RACC/SAV.</summary>

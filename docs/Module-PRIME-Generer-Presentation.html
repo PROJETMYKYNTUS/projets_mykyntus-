@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Générer — Module PRIME (Présentation Managers)</title>
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", Calibri, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1a2b4a 0%, #0d7c8c 100%);
+      color: #fff;
+      padding: 2rem;
+    }
+    .card {
+      background: #fff;
+      color: #1a2b4a;
+      border-radius: 16px;
+      padding: 2.5rem 3rem;
+      max-width: 520px;
+      box-shadow: 0 24px 48px rgba(0,0,0,.25);
+      text-align: center;
+    }
+    h1 { font-size: 1.5rem; margin: 0 0 .5rem; }
+    p { color: #5a6b7d; line-height: 1.5; margin: 0 0 1.5rem; font-size: .95rem; }
+    button {
+      background: #0d7c8c;
+      color: #fff;
+      border: none;
+      padding: 1rem 2rem;
+      font-size: 1.05rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:hover { background: #096570; }
+    button:disabled { opacity: .6; cursor: wait; }
+    .hint { font-size: .8rem; margin-top: 1rem; color: #5a6b7d; }
+    .ok { color: #2e7d4a; font-weight: 600; display: none; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Module PRIME</h1>
+    <p>Présentation managers (11 slides · 7 min max). Cliquez pour télécharger le fichier PowerPoint.</p>
+    <button id="btn" type="button">Télécharger la présentation (.pptx)</button>
+    <p class="ok" id="done">Fichier généré — ouvrez-le dans PowerPoint.</p>
+    <p class="hint">Connexion Internet requise (chargement de la bibliothèque). Remplacez ensuite les zones « INSÉRER CAPTURE ICI » par vos captures d’écran.</p>
+  </div>
+  <script>
+(function () {
+  const C = {
+    navy: "1A2B4A",
+    teal: "0D7C8C",
+    gold: "C9A227",
+    slate: "5A6B7D",
+    light: "F4F7FA",
+    white: "FFFFFF",
+    red: "C43939",
+    green: "2E7D4A",
+    pale: "D0E8EE",
+  };
+
+  function master(pptx) {
+    pptx.layout = "LAYOUT_WIDE";
+    pptx.author = "Module PRIME";
+    pptx.title = "Module PRIME — Présentation Managers";
+    pptx.theme = { headFontFace: "Calibri", bodyFontFace: "Calibri" };
+    pptx.defineSlideMaster({
+      title: "PRIME_MASTER",
+      background: { color: C.white },
+      objects: [
+        { rect: { x: 0, y: 0, w: 0.12, h: "100%", fill: { color: C.teal } } },
+      ],
+    });
+    pptx.defineSlideMaster({
+      title: "PRIME_COVER",
+      background: { color: C.navy },
+    });
+    pptx.defineSlideMaster({
+      title: "PRIME_END",
+      background: { color: C.navy },
+    });
+  }
+
+  function bar(slide, y, text, opts) {
+    slide.addShape(pptx.ShapeType.rect, {
+      x: 0.55, y: y, w: 12.2, h: 0.75,
+      fill: { color: C.teal },
+    });
+    slide.addText(text, {
+      x: 0.75, y: y + 0.1, w: 11.8, h: 0.55,
+      fontSize: 14, bold: true, color: C.white, align: "center",
+      ...opts,
+    });
+  }
+
+  function header(slide, title, sub) {
+    slide.addText(title, {
+      x: 0.55, y: 0.35, w: 12, h: 0.75,
+      fontSize: 28, bold: true, color: C.navy,
+    });
+    if (sub) {
+      slide.addText(sub, {
+        x: 0.55, y: 0.95, w: 12, h: 0.4,
+        fontSize: 13, color: C.slate,
+      });
+    }
+  }
+
+  function bullets(slide, items, opts) {
+    const rows = items.map((t) => ({
+      text: (opts?.cross ? "❌ " : "✔ ") + t,
+      options: { fontSize: opts?.size || 15, color: opts?.color || C.navy, breakLine: true },
+    }));
+    slide.addText(rows, {
+      x: opts?.x ?? 0.65, y: opts?.y ?? 1.55, w: opts?.w ?? 5.8, h: opts?.h ?? 4.5,
+      valign: "top",
+    });
+  }
+
+  function placeholder(slide, x, y, w, h, label) {
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x, y, w, h, fill: { color: C.light }, line: { color: C.teal, width: 1 },
+    });
+    slide.addText(label, {
+      x: x + 0.1, y: y + 0.12, w: w - 0.2, h: 0.35,
+      fontSize: 11, bold: true, color: C.slate, align: "center",
+    });
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x: x + 0.15, y: y + 0.55, w: w - 0.3, h: h - 0.85,
+      fill: { color: C.white }, line: { color: C.slate, width: 0.5 },
+    });
+    slide.addText("INSÉRER CAPTURE ICI", {
+      x: x + 0.2, y: y + h / 2 - 0.15, w: w - 0.4, h: 0.35,
+      fontSize: 10, color: C.slate, align: "center", italic: true,
+    });
+  }
+
+  function kpiCard(slide, x, y, value, label) {
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x, y, w: 1.95, h: 1.55, fill: { color: C.light }, line: { color: C.teal, width: 1 },
+    });
+    slide.addText(value, {
+      x, y: y + 0.2, w: 1.95, h: 0.65, fontSize: 26, bold: true, color: C.teal, align: "center",
+    });
+    slide.addText(label, {
+      x, y: y + 0.9, w: 1.95, h: 0.45, fontSize: 10, color: C.slate, align: "center",
+    });
+  }
+
+  function build() {
+    const pptx = new PptxGenJS();
+    master(pptx);
+
+    // --- SLIDE 1 : Garde ---
+    let s = pptx.addSlide({ masterName: "PRIME_COVER" });
+    s.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: "100%", h: 0.08, fill: { color: C.gold } });
+    s.addShape(pptx.ShapeType.rect, { x: 8.5, y: 0, w: 4.85, h: "100%", fill: { color: "143D52" } });
+    [[9.2, 1.2, 1.8, C.teal], [10.5, 3.5, 1.2, C.gold], [8.8, 5.2, 2, "255A6E"]].forEach(([x, y, sz, col]) => {
+      s.addShape(pptx.ShapeType.ellipse, { x, y, w: sz, h: sz, fill: { color: col, transparency: 55 } });
+    });
+    s.addText("Module PRIME", { x: 0.75, y: 1.8, w: 7.5, h: 1, fontSize: 40, bold: true, color: C.white });
+    s.addText("Solution intelligente de gestion\ndes performances et des primes", {
+      x: 0.75, y: 2.85, w: 7.2, h: 1, fontSize: 18, color: C.pale,
+    });
+    s.addShape(pptx.ShapeType.rect, { x: 0.75, y: 4, w: 1.8, h: 0.06, fill: { color: C.gold } });
+    s.addText("[ LOGO ENTREPRISE ]", { x: 0.75, y: 4.35, w: 3, h: 0.45, fontSize: 11, color: C.slate });
+    s.addText("Nom entreprise", { x: 0.75, y: 5.5, w: 5, h: 0.35, fontSize: 14, color: C.white });
+    s.addText("Équipe / Direction", { x: 0.75, y: 5.9, w: 5, h: 0.35, fontSize: 12, color: C.slate });
+    s.addText("Mai 2026", { x: 0.75, y: 6.35, w: 3, h: 0.35, fontSize: 11, color: C.slate });
+    s.addText("Pilotage performance · Primes · Décision", {
+      x: 9, y: 6, w: 3.8, h: 0.45, fontSize: 10, color: "A0C4CE", align: "right",
+    });
+
+    // --- SLIDE 2 : Problématique ---
+    s = pptx.addSlide({ masterName: "PRIME_MASTER" });
+    header(s, "Pourquoi changer les méthodes classiques ?", "Les limites de la gestion manuelle");
+    bullets(s, [
+      "Fichiers Excel complexes",
+      "Temps perdu dans les calculs",
+      "Risques d'erreurs humaines",
+      "Difficulté de suivi des performances",
+      "Manque de visibilité pour les managers",
+      "Processus longs et répétitifs",
+    ], { cross: true, w: 5.5 });
+    s.addText("AVANT", { x: 6.4, y: 1.55, w: 2.5, h: 0.35, fontSize: 13, bold: true, color: C.red, align: "center" });
+    placeholder(s, 6.2, 2, 2.9, 2, "Excel · emails · fichiers dispersés");
+    s.addText("APRÈS", { x: 9.6, y: 1.55, w: 2.5, h: 0.35, fontSize: 13, bold: true, color: C.green, align: "center" });
+    placeholder(s, 9.4, 2, 2.9, 2, "Plateforme PRIME centralisée");
+    s.addShape(pptx.ShapeType.rightArrow, { x: 9.05, y: 2.85, w: 0.45, h: 0.35, fill: { color: C.teal } });
+    bar(s, 6.35, "Plus l'entreprise grandit, plus la gestion manuelle devient difficile.");
+
+    // --- SLIDE 3 : Solution ---
+    s = pptx.addSlide({ masterName: "PRIME_MASTER" });
+    header(s, "Une plateforme centralisée et intelligente", "Le Module PRIME en une vision");
+    bullets(s, [
+      "Centralisation des données",
+      "Calcul automatique des primes",
+      "Suivi des performances",
+      "Dashboards clairs",
+      "Gestion hiérarchique",
+      "Visualisation rapide des KPI",
+      "Historique et traçabilité",
+    ], { w: 4.8 });
+    s.addShape(pptx.ShapeType.roundRect, { x: 6, y: 2.6, w: 2.2, h: 1.1, fill: { color: C.teal } });
+    s.addText("PRIME", { x: 6.15, y: 2.85, w: 1.9, h: 0.5, fontSize: 17, bold: true, color: C.white, align: "center" });
+    [["Données", 5, 1.8], ["KPI", 8.5, 1.8], ["Primes", 5, 4.5], ["Managers", 8.5, 4.5]].forEach(([lbl, x, y]) => {
+      s.addShape(pptx.ShapeType.roundRect, { x, y, w: 1.5, h: 0.65, fill: { color: C.light }, line: { color: C.teal, width: 1 } });
+      s.addText(lbl, { x, y: y + 0.15, w: 1.5, h: 0.4, fontSize: 11, bold: true, color: C.navy, align: "center" });
+    });
+    placeholder(s, 10, 1.55, 2.9, 2.3, "Capture — Dashboard");
+    placeholder(s, 10, 4.05, 2.9, 2, "Capture — Fiches primes");
+    bar(s, 6.35, "Une seule plateforme pour piloter efficacement les performances.");
+
+    // --- SLIDE 4 : Gains entreprise ---
+    s = pptx.addSlide({ masterName: "PRIME_MASTER" });
+    header(s, "Valeur ajoutée concrète", "Les gains pour l'entreprise");
+    bullets(s, [
+      "Gain de temps important",
+      "Réduction des erreurs humaines",
+      "Meilleure productivité",
+      "Suivi plus rapide des équipes",
+      "Décisions plus rapides",
+      "Données centralisées",
+      "Organisation plus professionnelle",
+      "Meilleure visibilité des performances",
+    ], { w: 5.8, size: 14 });
+    kpiCard(s, 6.3, 1.7, "-70%", "tâches manuelles*");
+    kpiCard(s, 8.45, 1.7, "-85%", "risque d'erreur*");
+    kpiCard(s, 10.6, 1.7, "+40%", "réactivité décision*");
+    s.addText("* Ordres de grandeur illustratifs — à adapter avec vos données réelles", {
+      x: 6.2, y: 3.45, w: 6.5, h: 0.35, fontSize: 8, color: C.slate,
+    });
+    [0.35, 0.55, 0.75, 0.95, 1.15].forEach((bx, i) => {
+      const h = [2.8, 3.4, 2.5, 3.8, 4.2][i];
+      s.addShape(pptx.ShapeType.rect, {
+        x: 6.5 + bx * 2, y: 6 - h * 0.35, w: 0.35, h: h * 0.35,
+        fill: { color: h > 3 ? C.teal : "6BB8C4" },
+      });
+    });
+    s.addText("Évolution productivité", { x: 6.5, y: 6.05, w: 3, h: 0.3, fontSize: 9, color: C.slate });
+    bar(s, 6.35, "Moins de tâches manuelles, plus de pilotage intelligent.");
+
+    // --- SLIDE 5 : Managers ---
+    s = pptx.addSlide({ masterName: "PRIME_MASTER" });
+    header(s, "Une meilleure expérience managériale", "Plus de pilotage, moins d'administratif");
+    bullets(s, [
+      "Accès rapide aux KPI",
+      "Suivi des équipes en temps réel",
+      "Identification rapide des performances",
+      "Historique clair et traçable",
+      "Réduction des tâches administratives",
+      "Meilleure prise de décision",
+    ], { w: 5.2 });
+    placeholder(s, 6, 1.55, 6.9, 3.5, "Capture — Dashboard manager / KPI");
+    [["Taux validation", "87%"], ["Équipes suivies", "24"], ["Délai moyen", "-3 j"]].forEach(([t, v], i) => {
+      const x = 6.2 + i * 2.25;
+      s.addShape(pptx.ShapeType.roundRect, { x, y: 5.25, w: 2.05, h: 0.95, fill: { color: C.navy } });
+      s.addText(t, { x: x + 0.1, y: 5.35, w: 1.85, h: 0.3, fontSize: 9, color: "A0C4CE" });
+      s.addText(v, { x: x + 0.1, y: 5.65, w: 1.85, h: 0.4, fontSize: 18, bold: true, color: C.white, align: "center" });
+    });
+    bar(s, 6.35, "Les managers passent moins de temps à chercher l'information et plus de temps à piloter.");
+
+    // --- SLIDE 6 : Automatisation ---
+    s = pptx.addSlide({ masterName: "PRIME_MASTER" });
+    header(s, "Automatiser avec plus de fiabilité", "Qualité et cohérence, pas seulement la vitesse");
+    bullets(s, [
+      "Réduction des erreurs Excel",
+      "Standardisation des calculs",
+      "Traitement plus rapide",
+      "Cohérence des résultats",
+      "Réduction des oublis manuels",
+      "Génération rapide des fiches de primes",
+    ], { w: 5.5 });
+    ["Saisie\nstructurée", "Calculs\nautomatisés", "Contrôles\nintégrés", "Fiches\nprimes"].forEach((txt, i) => {
+      const x = 6 + i * 1.55;
+      const fill = i % 2 ? C.light : C.teal;
+      const col = i % 2 ? C.navy : C.white;
+      s.addShape(pptx.ShapeType.roundRect, { x, y: 2.2, w: 1.35, h: 1.1, fill: { color: fill }, line: { color: C.teal, width: 1 } });
+      s.addText(txt, { x: x + 0.05, y: 2.45, w: 1.25, h: 0.8, fontSize: 10, bold: true, color: col, align: "center" });
+      if (i < 3) {
+        s.addShape(pptx.ShapeType.chevron, { x: x + 1.38, y: 2.55, w: 0.2, h: 0.35, fill: { color: C.gold } });
+      }
+    });
+    placeholder(s, 6, 4, 6.9, 1.85, "Capture — Fiche de prime générée");
+    bar(s, 6.35, "L'objectif n'est pas seulement d'automatiser, mais d'améliorer la qualité du traitement.");
+
+    // --- SLIDE 7 : Flexibilité ---
+    s = pptx.addSlide({ masterName: "PRIME_MASTER" });
+    header(s, "Une solution pensée pour le futur", "Flexibilité & évolutivité");
+    bullets(s, [
+      "Hiérarchie adaptable",
+      "Ajout facile de nouveaux rôles",
+      "Adaptation aux changements organisationnels",
+      "Évolutivité long terme",
+      "Possibilité d'ajouter de nouvelles fonctionnalités",
+      "Solution scalable",
+    ], { w: 5, size: 14 });
+    s.addText("Aujourd'hui", { x: 5.9, y: 1.55, w: 6.8, h: 0.35, fontSize: 12, bold: true, color: C.teal });
+    s.addText("Manager → Superviseur → Coach → Pilote", { x: 5.9, y: 1.95, w: 6.8, h: 0.45, fontSize: 13, color: C.navy });
+    s.addText("Demain (exemple)", { x: 5.9, y: 2.65, w: 6.8, h: 0.35, fontSize: 12, bold: true, color: C.gold });
+    s.addText("Manager → Responsable Région → Superviseur → Coach → Pilote", {
+      x: 5.9, y: 3.05, w: 6.8, h: 0.65, fontSize: 12, color: C.navy,
+    });
+    s.addShape(pptx.ShapeType.rect, { x: 6, y: 4.2, w: 6.5, h: 0.06, fill: { color: C.teal } });
+    ["2026", "2027", "2028+"].forEach((lbl, i) => {
+      s.addShape(pptx.ShapeType.ellipse, { x: 6.2 + i * 3, y: 4.05, w: 0.22, h: 0.22, fill: { color: i === 2 ? C.gold : C.teal } });
+      s.addText(lbl, { x: 5.9 + i * 3, y: 4.35, w: 1, h: 0.35, fontSize: 10, color: C.slate, align: "center" });
+    });
+    bar(s, 6.35, "La solution peut évoluer avec l'entreprise sans refonte complète.");
+
+    // --- SLIDE 8 : Vision ---
+    s = pptx.addSlide({ masterName: "PRIME_MASTER" });
+    header(s, "Vision cible du Module PRIME", "Déjà en place · Prochaines étapes");
+    s.addText("✅ Déjà pris en charge aujourd'hui", { x: 0.65, y: 1.55, w: 5.8, h: 0.4, fontSize: 14, bold: true, color: C.green });
+    bullets(s, [
+      "Traitement automatique des calculs",
+      "Génération rapide des fiches de primes",
+      "Suivi clair et traçable",
+    ], { w: 5.5, size: 13, h: 2 });
+    s.addText("Vision future", { x: 6.8, y: 1.55, w: 5.5, h: 0.4, fontSize: 14, bold: true, color: C.teal });
+    bullets(s, [
+      "Import automatique multi-sources",
+      "Centralisation complète des données",
+      "Analyses intelligentes",
+      "Dashboards avancés",
+      "Reporting automatique",
+      "Évolutions IA",
+    ], { x: 6.8, y: 2, w: 5.8, size: 13 });
+    s.addShape(pptx.ShapeType.roundRect, { x: 0.65, y: 4.5, w: 12, h: 1.35, fill: { color: C.light }, line: { color: C.teal, width: 1 } });
+    s.addText("Feuille de route : accompagner la croissance sans rupture opérationnelle", {
+      x: 0.85, y: 4.85, w: 11.5, h: 0.6, fontSize: 13, bold: true, color: C.navy, align: "center",
+    });
+    bar(s, 6.35, "Le système a été conçu pour accompagner les besoins futurs de l'entreprise.");
+
+    // --- SLIDE 9 : Démo interfaces ---
+    s = pptx.addSlide({ masterName: "PRIME_MASTER" });
+    header(s, "Aperçu des interfaces", "Un produit prêt à l'emploi");
+    placeholder(s, 0.55, 1.45, 2.75, 2.35, "Capture — Dashboard");
+    placeholder(s, 3.45, 1.45, 2.75, 2.35, "Capture — Gestion KPI");
+    placeholder(s, 0.55, 4.05, 2.75, 2.35, "Capture — Classements");
+    placeholder(s, 3.45, 4.05, 2.75, 2.35, "Capture — Fiches de primes");
+    placeholder(s, 6.5, 1.45, 6.2, 4.95, "Capture — Vue validation / workflow");
+    s.addText("Remplacez les zones grises par vos captures réelles avant la présentation.", {
+      x: 0.55, y: 6.55, w: 12, h: 0.35, fontSize: 9, color: C.slate, align: "center",
+    });
+
+    // --- SLIDE 10 : Conclusion ---
+    s = pptx.addSlide({ masterName: "PRIME_END" });
+    s.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: "100%", h: 0.08, fill: { color: C.gold } });
+    s.addText("Un outil pensé pour la performance", { x: 0.75, y: 0.6, w: 11, h: 0.8, fontSize: 32, bold: true, color: C.white });
+    [
+      "Gain de temps", "Réduction des erreurs", "Centralisation intelligente",
+      "Meilleure visibilité", "Pilotage plus efficace", "Solution évolutive",
+    ].forEach((p, i) => {
+      const col = i % 2, row = Math.floor(i / 2);
+      const x = 0.75 + col * 5.8, y = 1.7 + row * 0.85;
+      s.addShape(pptx.ShapeType.roundRect, { x, y, w: 5.2, h: 0.65, fill: { color: "243D5C" }, line: { color: C.teal, width: 1 } });
+      s.addText("✔  " + p, { x: x + 0.25, y: y + 0.12, w: 4.8, h: 0.45, fontSize: 15, color: C.white });
+    });
+    s.addText(
+      "Le Module PRIME transforme la gestion des performances en un processus\nplus intelligent, plus fiable et plus efficace.",
+      { x: 0.75, y: 4.5, w: 11.5, h: 1.2, fontSize: 18, bold: true, color: C.gold, align: "center" },
+    );
+
+    // --- SLIDE 11 : Merci ---
+    s = pptx.addSlide({ masterName: "PRIME_MASTER" });
+    s.addShape(pptx.ShapeType.rect, { x: 0, y: 6.9, w: "100%", h: 0.6, fill: { color: C.navy } });
+    s.addText("Merci pour votre attention", {
+      x: 0.75, y: 2.2, w: 11.5, h: 1, fontSize: 36, bold: true, color: C.navy, align: "center",
+    });
+    s.addText("Questions & échanges", {
+      x: 0.75, y: 3.4, w: 11.5, h: 0.6, fontSize: 20, color: C.teal, align: "center",
+    });
+    s.addText("[ Nom du présentateur ]  ·  [ Contact ]  ·  [ Entreprise ]", {
+      x: 0.75, y: 4.5, w: 11.5, h: 0.5, fontSize: 13, color: C.slate, align: "center",
+    });
+    s.addText("Module PRIME — Pilotage des performances et des primes", {
+      x: 0.75, y: 5.2, w: 11.5, h: 0.4, fontSize: 11, color: C.slate, align: "center",
+    });
+
+    return pptx;
+  }
+
+  document.getElementById("btn").addEventListener("click", function () {
+    const btn = this;
+    btn.disabled = true;
+    try {
+      if (typeof PptxGenJS === "undefined") {
+        alert("Bibliothèque non chargée. Vérifiez votre connexion Internet.");
+        return;
+      }
+      const pptx = build();
+      pptx.writeFile({ fileName: "Module-PRIME-Presentation-Managers.pptx" });
+      document.getElementById("done").style.display = "block";
+    } catch (e) {
+      alert("Erreur : " + (e.message || e));
+      console.error(e);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+  </script>
+</body>
+</html>

@@ -8,7 +8,10 @@ namespace PrimeBackend.Controllers;
 
 [ApiController]
 [Route("api/prime/pilotage")]
-public sealed class PrimePilotageController(PrimeDbContext? db, PrimeOrgScopeService org) : ControllerBase
+public sealed class PrimePilotageController(
+    PrimeDbContext? db,
+    PrimeOrgScopeService org,
+    PrimeFicheValidationSubmissionService? submission) : ControllerBase
 {
     private static string AggregateState(int total, int notStarted, int inProgress, int complete)
     {
@@ -16,6 +19,19 @@ public sealed class PrimePilotageController(PrimeDbContext? db, PrimeOrgScopeSer
         if (notStarted == total) return "NotStarted";
         if (complete == total) return "Done";
         return "InProgress";
+    }
+
+    private static SupervisorCellulePrimeDraftEntity? PickDraftForCellule(
+        string celluleId,
+        IReadOnlyList<SupervisorCellulePrimeDraftEntity> draftsForPeriod)
+    {
+        var forCell = draftsForPeriod
+            .Where(d => string.Equals(d.CelluleId, celluleId, StringComparison.Ordinal))
+            .OrderByDescending(d => d.UpdatedAt)
+            .ToList();
+        if (forCell.Count == 0) return null;
+        return forCell.FirstOrDefault(d => PrimeFicheValidationSubmissionService.IsDraftValidated(d.Status))
+               ?? forCell[0];
     }
 
     [HttpGet("cells-summary")]
@@ -28,23 +44,24 @@ public sealed class PrimePilotageController(PrimeDbContext? db, PrimeOrgScopeSer
         if (string.IsNullOrWhiteSpace(supervisorUserId) || string.IsNullOrWhiteSpace(period))
             return BadRequest(new { error = "supervisorUserId et period sont requis." });
 
-        var celluleIds = await org.GetSupervisedCelluleIdsAsync(supervisorUserId, ct);
+        var supTrim = supervisorUserId.Trim();
+        var per = period.Trim();
+
+        if (submission is not null)
+            await submission.ReconcileReadySubmissionsForSupervisorPeriodAsync(supTrim, per, ct);
+
+        var celluleIds = await org.GetSupervisedCelluleIdsAsync(supTrim, ct);
         if (celluleIds.Count == 0) return Ok(new List<ServicePilotageSummaryDto>());
 
-        var per = period.Trim();
         var cells = await org.GetServicesForCellulesAsync(celluleIds, ct);
 
         var fiches = await db.EmployeePrimeServiceFiches.AsNoTracking()
             .Where(f => f.Period == per && celluleIds.Contains(f.CelluleId))
             .ToListAsync(ct);
 
-        var supTrim = supervisorUserId.Trim();
         var poleDrafts = await db.SupervisorCellulePrimeDrafts.AsNoTracking()
-            .Where(d => d.SupervisorUserId == supTrim && d.Period == per && celluleIds.Contains(d.CelluleId))
+            .Where(d => d.SupervisorUserId == supTrim && d.Period == per)
             .ToListAsync(ct);
-        var linkedDraftByCellule = new Dictionary<string, SupervisorCellulePrimeDraftEntity>(StringComparer.Ordinal);
-        foreach (var g in poleDrafts.GroupBy(d => d.CelluleId, StringComparer.Ordinal))
-            linkedDraftByCellule[g.Key] = g.OrderByDescending(x => x.UpdatedAt).First();
 
         var distinctCelluleIds = cells.Select(c => c.CelluleId).Distinct(StringComparer.Ordinal).ToList();
         var celluleEntities = await db.Cellules.AsNoTracking()
@@ -66,9 +83,12 @@ public sealed class PrimePilotageController(PrimeDbContext? db, PrimeOrgScopeSer
             var pilotIds = pilots.Select(e => e.Id).ToHashSet(StringComparer.Ordinal);
             var serviceFiches = fiches.Where(f => pilotIds.Contains(f.EmployeeId)).ToList();
 
+            var cellDraft = PickDraftForCellule(celluleId, poleDrafts);
+
             var notStarted = 0;
             var inProgress = 0;
             var complete = 0;
+            var readyForValidation = 0;
             foreach (var p in pilots)
             {
                 var f = serviceFiches.FirstOrDefault(x => x.EmployeeId == p.Id);
@@ -76,11 +96,17 @@ public sealed class PrimePilotageController(PrimeDbContext? db, PrimeOrgScopeSer
                 if (string.Equals(st, "Complete", StringComparison.OrdinalIgnoreCase)) complete++;
                 else if (string.Equals(st, "InProgress", StringComparison.OrdinalIgnoreCase)) inProgress++;
                 else notStarted++;
+
+                if (f is not null && cellDraft is not null &&
+                    PrimeFicheValidationSubmissionService.ComputeIsReadyForValidation(cellDraft, f))
+                    readyForValidation++;
+                else if (f is not null &&
+                         string.Equals(f.ValidationStatus, PrimeValidationWorkflowService.Pending, StringComparison.Ordinal))
+                    readyForValidation++;
             }
 
-            linkedDraftByCellule.TryGetValue(celluleId, out var linkedDraft);
-            var poolOk = linkedDraft is not null && linkedDraft.GlobalPoolManagerApprovedAt.HasValue &&
-                         linkedDraft.GlobalPoolRhApprovedAt.HasValue;
+            var poolOk = cellDraft is not null && cellDraft.GlobalPoolManagerApprovedAt.HasValue &&
+                         cellDraft.GlobalPoolRhApprovedAt.HasValue;
 
             cellulesById.TryGetValue(celluleId, out var cellEnt);
             var poleName = cellEnt is not null && polesById.TryGetValue(cellEnt.PoleId, out var pole)
@@ -98,10 +124,12 @@ public sealed class PrimePilotageController(PrimeDbContext? db, PrimeOrgScopeSer
                 NotStarted = notStarted,
                 InProgress = inProgress,
                 Complete = complete,
+                ReadyForValidation = readyForValidation,
+                CommonPartStatus = cellDraft?.Status,
                 ServiceAggregateState = AggregateState(total, notStarted, inProgress, complete),
-                LinkedCellulePrimeDraftId = linkedDraft?.Id,
-                LinkedTemplateId = linkedDraft?.TemplateId,
-                LinkedTemplateDisplayName = linkedDraft?.TemplateDisplayName,
+                LinkedCellulePrimeDraftId = cellDraft?.Id,
+                LinkedTemplateId = cellDraft?.TemplateId,
+                LinkedTemplateDisplayName = cellDraft?.TemplateDisplayName,
                 PoolDistributionUnlocked = poolOk,
             });
         }

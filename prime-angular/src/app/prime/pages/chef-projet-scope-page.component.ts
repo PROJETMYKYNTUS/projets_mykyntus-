@@ -23,49 +23,39 @@ interface ScopeRow {
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     } @else {
-      <div class="p-8 space-y-6 bg-navy-950 min-h-full">
+      <div class="prime-page-shell">
         <div>
-          <h1 class="text-3xl font-bold text-white tracking-tight">Périmètre Chef de projet</h1>
-          <p class="text-slate-400 mt-1">
+          <h1 class="prime-page-title">Périmètre Chef de projet</h1>
+          <p class="prime-page-subtitle">
             Collaborateurs du même pôle que votre affectation (superviseurs, référents techniques, pilotes).
           </p>
         </div>
 
         <app-prime-card title="Vue pôle" className="p-0">
           <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left">
-              <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
+            <table class="prime-table">
+              <thead>
                 <tr>
-                  <th class="px-6 py-3 font-medium tracking-wider">Collaborateur</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Rôle</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Pôle</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Cellule</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Service</th>
+                  <th>Collaborateur</th>
+                  <th>Rôle</th>
+                  <th>Pôle</th>
+                  <th>Cellule</th>
+                  <th>Service</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-navy-800">
+              <tbody>
                 @if (rows().length === 0) {
                   <tr>
-                    <td colspan="5" class="px-6 py-8 text-center text-slate-500">Aucune donnée.</td>
+                    <td colspan="5" class="text-center prime-cell-muted py-8">Aucune donnée.</td>
                   </tr>
                 } @else {
                   @for (item of rows(); track item.id) {
-                    <tr class="bg-navy-900 hover:bg-navy-800 transition-colors">
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
-                        <span class="font-medium text-slate-100">{{ item.fullName }}</span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
-                        <span class="text-slate-300">{{ item.role }}</span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
-                        <span class="text-slate-300">{{ item.pole }}</span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
-                        <span class="text-slate-300">{{ item.cellule }}</span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
-                        <span class="text-slate-300">{{ item.service }}</span>
-                      </td>
+                    <tr>
+                      <td><span class="prime-cell-strong">{{ item.fullName }}</span></td>
+                      <td><span class="prime-cell-muted">{{ item.role }}</span></td>
+                      <td><span class="prime-cell-muted">{{ item.pole }}</span></td>
+                      <td><span class="prime-cell-muted">{{ item.cellule }}</span></td>
+                      <td><span class="prime-cell-muted">{{ item.service }}</span></td>
                     </tr>
                   }
                 }

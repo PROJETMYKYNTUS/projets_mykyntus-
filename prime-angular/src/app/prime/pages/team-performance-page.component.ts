@@ -19,7 +19,7 @@ import {
   PrimeFicheResultService,
   type EmployeePrimeServiceFicheValidationDto,
 } from '../services/prime-fiche-result.service';
-import { primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
+import { PRIME_USER_LOAD_ERROR, primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
 
 @Component({
   selector: 'app-team-performance-page',
@@ -31,11 +31,11 @@ import { primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     } @else {
-      <div class="p-8 space-y-6">
+      <div class="prime-page-shell">
         <div class="flex justify-between items-center">
           <div>
-            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Performance service</h1>
-            <p class="text-slate-500 mt-1">
+            <h1 class="prime-page-title">Performance service</h1>
+            <p class="prime-page-subtitle">
               Synthèse des fiches PRIME et montants pour votre périmètre (pas de tâches externes / ticketing).
             </p>
           </div>
@@ -50,43 +50,37 @@ import { primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
         <app-prime-filter-bar [filters]="filterBarFilters()" />
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div
-            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4"
-          >
+          <div class="prime-kpi-card">
             <div
-              class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center"
+              class="w-12 h-12 bg-indigo-500/15 text-indigo-400 rounded-xl flex items-center justify-center"
             >
               <app-lucide-icon [icon]="icons.users" className="w-6 h-6" />
             </div>
             <div>
-              <p class="text-sm font-medium text-slate-500">Pilotes (fiches)</p>
-              <p class="text-2xl font-bold text-slate-900">{{ distinctPilotCount() }}</p>
+              <p class="prime-kpi-label">Pilotes (fiches)</p>
+              <p class="prime-kpi-value">{{ distinctPilotCount() }}</p>
             </div>
           </div>
-          <div
-            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4"
-          >
+          <div class="prime-kpi-card">
             <div
-              class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center"
+              class="w-12 h-12 bg-emerald-500/15 text-emerald-400 rounded-xl flex items-center justify-center"
             >
               <app-lucide-icon [icon]="icons.award" className="w-6 h-6" />
             </div>
             <div>
-              <p class="text-sm font-medium text-slate-500">Montant total (période)</p>
-              <p class="text-2xl font-bold text-slate-900">{{ totalAmount() }} MAD</p>
+              <p class="prime-kpi-label">Montant total (période)</p>
+              <p class="prime-kpi-value">{{ totalAmount() }} MAD</p>
             </div>
           </div>
-          <div
-            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4"
-          >
+          <div class="prime-kpi-card">
             <div
-              class="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center"
+              class="w-12 h-12 bg-amber-500/15 text-amber-400 rounded-xl flex items-center justify-center"
             >
               <app-lucide-icon [icon]="icons.trending" className="w-6 h-6" />
             </div>
             <div>
-              <p class="text-sm font-medium text-slate-500">Taux validation RH</p>
-              <p class="text-2xl font-bold text-slate-900">{{ rhCompletionRate() }}%</p>
+              <p class="prime-kpi-label">Taux validation RH</p>
+              <p class="prime-kpi-value">{{ rhCompletionRate() }}%</p>
             </div>
           </div>
         </div>
@@ -237,7 +231,7 @@ export class TeamPerformancePageComponent {
         this.errorMessage.set(
           detail
             ? `Impossible de charger les fiches PRIME. ${detail}`
-            : 'Impossible de charger les fiches PRIME depuis le backend. Vérifiez que le service est démarré.',
+            : PRIME_USER_LOAD_ERROR,
         );
         this.results.set([]);
         this.loading.set(false);

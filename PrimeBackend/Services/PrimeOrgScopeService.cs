@@ -93,6 +93,52 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
     public static bool IsPilotRole(string? role) =>
         string.Equals(role?.Trim(), "Pilote", StringComparison.OrdinalIgnoreCase);
 
+    public static bool IsReferentTechniqueRole(string? role)
+    {
+        var r = role?.Trim() ?? "";
+        return string.Equals(r, "Référent technique", StringComparison.Ordinal) ||
+               string.Equals(r, "Coach", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Périmètre validation RT : pilote direct (ParentId) ou pilote d’un RT du même superviseur / même cellule.
+    /// </summary>
+    public async Task<bool> IsPilotInReferentValidationScopeAsync(
+        string referentUserId,
+        string pilotEmployeeId,
+        CancellationToken ct = default)
+    {
+        if (db == null) return false;
+        var referent = await GetEmployeeAsync(referentUserId, ct);
+        var pilote = await GetEmployeeAsync(pilotEmployeeId, ct);
+        if (referent is null || pilote is null || !IsPilotRole(pilote.Role)) return false;
+        if (!IsReferentTechniqueRole(referent.Role)) return false;
+
+        if (string.Equals(pilote.ParentId, referent.Id, StringComparison.Ordinal))
+            return true;
+
+        if (!string.IsNullOrWhiteSpace(referent.ParentId))
+        {
+            var supervisorId = referent.ParentId.Trim();
+            var referentIds = await db.Employees.AsNoTracking()
+                .Where(e =>
+                    e.ParentId == supervisorId &&
+                    (e.Role == "Référent technique" || e.Role == "Coach"))
+                .Select(e => e.Id)
+                .ToListAsync(ct);
+            referentIds.Add(referent.Id);
+            if (!string.IsNullOrWhiteSpace(pilote.ParentId) &&
+                referentIds.Contains(pilote.ParentId, StringComparer.Ordinal))
+                return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(referent.CelluleId) &&
+            string.Equals(pilote.CelluleId, referent.CelluleId, StringComparison.Ordinal))
+            return true;
+
+        return false;
+    }
+
     public async Task<List<EmployeeEntity>> GetEmployeesInServiceAsync(string serviceId, CancellationToken ct = default)
     {
         if (db == null) return [];

@@ -22,7 +22,7 @@ import {
               </div>
             }
           </div>
-          <p class="text-xs text-slate-500 mt-2">Total : {{ s.total }} fiches (période courante filtrée côté API).</p>
+          <p class="text-xs text-slate-500 mt-2">Total : {{ s.total }} fiches sur la période sélectionnée.</p>
         } @else {
           <p class="text-slate-500 text-sm">Chargement…</p>
         }

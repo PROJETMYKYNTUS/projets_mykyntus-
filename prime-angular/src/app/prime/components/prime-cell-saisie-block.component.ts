@@ -546,7 +546,7 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
       const warnings: string[] = [];
       if (usedIndexFallback && !(ind.templateStableId ?? '').trim()) {
         warnings.push(
-          `Indicateur « ${ind.label} » non rattaché à une ligne précise du gabarit : association par ordre d’apparition. Sélectionnez le stableId de la ligne Cellule dans « Indicateurs par cellule » pour figer le mapping.`,
+          `Indicateur « ${ind.label} » non rattaché à une ligne précise du gabarit : association par ordre d’apparition. Associez-le à une ligne dans « Indicateurs PRIME ».`,
         );
       }
       let row = ligneDynamicFromTemplateLine(tl);

@@ -31,6 +31,15 @@ public sealed class PrimeValidationController(
     private static bool IsBlockedGlobalPoolRoleOnFicheApi(string role) =>
         PrimeFicheValidationRoles.IsGlobalPoolStakeholder(role);
 
+    /// <summary>Force la soumission Pending des fiches prêtes (partie commune validée + cellule complète).</summary>
+    [HttpPost("reconcile-ready")]
+    public async Task<ActionResult<object>> ReconcileReady(CancellationToken ct)
+    {
+        if (submission is null) return StatusCode(503, new { error = "Base de données non configurée." });
+        var n = await submission.ReconcileReadySubmissionsAsync(ct);
+        return Ok(new { reconciled = n });
+    }
+
     [HttpGet("workflow-meta")]
     public async Task<ActionResult<WorkflowValidationMetaDto>> WorkflowMeta([FromQuery] string? role, CancellationToken ct)
     {

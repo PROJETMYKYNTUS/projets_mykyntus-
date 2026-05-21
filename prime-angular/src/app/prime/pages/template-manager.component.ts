@@ -32,9 +32,8 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
             Template Builder — fiche PRIME
           </h1>
           <p class="text-muted mt-2 max-w-3xl">
-            Importez une fiche exemplaire (.xlsx). Le fichier est analysé localement : feuilles, aperçu,
-            formules et indices de structure (RACC / SAV). La sauvegarde est locale (navigateur) en attendant
-            l’API métier.
+            Importez une fiche exemplaire (.xlsx). Le fichier est analysé sur votre poste : feuilles, aperçu,
+            formules et indices de structure (RACC / SAV). Vous pouvez enregistrer le gabarit pour la réutiliser en saisie.
           </p>
         </div>
       </div>
@@ -243,7 +242,7 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
         <app-prime-card
           className="mt-6"
           title="Formules détectées"
-          description="Liste des cellules contenant une formule Excel (extrait pour intégration backend / moteur)"
+          description="Liste des cellules contenant une formule Excel détectée dans le classeur"
         >
           @if (!p.formulas.length) {
             <p class="text-sm text-muted">Aucune formule — vérifiez que le fichier n’est pas exporté « valeurs uniquement ».</p>
@@ -276,7 +275,7 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
           }
         </app-prime-card>
 
-        <app-prime-card className="mt-6" title="Sauvegarder le template" description="Stockage local du navigateur (clé prime:fiche-templates:v1)">
+        <app-prime-card className="mt-6" title="Sauvegarder le template" description="Enregistrement sur cet appareil pour réutilisation ultérieure">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-end">
             <div class="flex-1">
               <label class="mb-1 block text-sm font-medium text-muted">Nom du template</label>
@@ -316,7 +315,7 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
         </app-prime-card>
       }
 
-      <app-prime-card title="Templates enregistrés (local)" description="Liste des sauvegardes sur cet appareil">
+      <app-prime-card title="Templates enregistrés" description="Gabarits déjà sauvegardés sur cet appareil">
         @if (!stored().length) {
           <p class="text-sm text-muted">Aucun template sauvegardé pour le moment.</p>
         } @else {

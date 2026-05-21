@@ -367,7 +367,7 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
           <app-lucide-icon [icon]="icons.inbox" className="w-5 h-5 text-muted" />
           <div>
             <p class="text-primary text-sm">Aucune entrée dans le journal d’audit</p>
-            <p class="text-xs text-muted">Les événements enregistrés par l’API apparaîtront ici.</p>
+            <p class="text-xs text-muted">Les événements du journal apparaîtront ici dès qu’ils seront disponibles.</p>
           </div>
         </div>
       }
@@ -712,10 +712,10 @@ export class AuditRootComponent implements OnInit {
   readonly accessRows: AccessRow[] = [
     {
       id: 'acc-1',
-      user: 'sophie.leroy@mykyntus.com',
+      user: 'siham.lahlou@kyntus.ma',
       datetime: '2026-03-30 09:16:05',
       ip: '105.66.12.99',
-      location: 'Casablanca, MA',
+      location: 'Oujda, MA',
       success: false,
       type: 'LOGIN_FAILED',
       role: 'RP',
@@ -723,10 +723,10 @@ export class AuditRootComponent implements OnInit {
     },
     {
       id: 'acc-2',
-      user: 'sophie.leroy@mykyntus.com',
+      user: 'siham.lahlou@kyntus.ma',
       datetime: '2026-03-30 09:16:20',
       ip: '105.66.12.99',
-      location: 'Casablanca, MA',
+      location: 'Oujda, MA',
       success: false,
       type: 'LOGIN_FAILED',
       role: 'RP',
@@ -734,10 +734,10 @@ export class AuditRootComponent implements OnInit {
     },
     {
       id: 'acc-3',
-      user: 'sophie.leroy@mykyntus.com',
+      user: 'siham.lahlou@kyntus.ma',
       datetime: '2026-03-30 09:16:35',
       ip: '105.66.12.99',
-      location: 'Casablanca, MA',
+      location: 'Oujda, MA',
       success: false,
       type: 'LOGIN_FAILED',
       role: 'RP',
@@ -745,10 +745,10 @@ export class AuditRootComponent implements OnInit {
     },
     {
       id: 'acc-4',
-      user: 'sophie.leroy@mykyntus.com',
+      user: 'siham.lahlou@kyntus.ma',
       datetime: '2026-03-30 09:16:55',
       ip: '105.66.12.99',
-      location: 'Casablanca, MA',
+      location: 'Oujda, MA',
       success: false,
       type: 'LOGIN_FAILED',
       role: 'RP',
@@ -756,10 +756,10 @@ export class AuditRootComponent implements OnInit {
     },
     {
       id: 'acc-5',
-      user: 'sophie.leroy@mykyntus.com',
+      user: 'siham.lahlou@kyntus.ma',
       datetime: '2026-03-30 09:17:05',
       ip: '105.66.12.99',
-      location: 'Casablanca, MA',
+      location: 'Oujda, MA',
       success: false,
       type: 'SUSPICIOUS',
       role: 'RP',
@@ -767,10 +767,10 @@ export class AuditRootComponent implements OnInit {
     },
     {
       id: 'acc-6',
-      user: 'jean.dupont@mykyntus.com',
+      user: 'nadia.benjelloun@kyntus.ma',
       datetime: '2026-03-30 08:12:04',
       ip: '105.66.12.44',
-      location: 'Casablanca, MA',
+      location: 'Oujda, MA',
       success: true,
       type: 'LOGIN_SUCCESS',
       role: 'Manager',
@@ -778,7 +778,7 @@ export class AuditRootComponent implements OnInit {
     },
     {
       id: 'acc-7',
-      user: 'admin@mykyntus.com',
+      user: 'yassine.touimi@kyntus.ma',
       datetime: '2026-03-30 09:15:00',
       ip: '10.0.0.5',
       location: 'Réseau interne',
@@ -792,8 +792,8 @@ export class AuditRootComponent implements OnInit {
   readonly anomalyCards: AnomalyCard[] = [
     {
       id: 'a1',
-      text: 'Utilisateur Bob Martin a supprimé 10 éléments en 2 min',
-      user: 'Bob Martin',
+      text: 'Utilisateur Mehdi Tazi a supprimé 10 éléments en 2 min',
+      user: 'Mehdi Tazi',
       severity: 'CRITICAL',
     },
     {
@@ -805,7 +805,7 @@ export class AuditRootComponent implements OnInit {
     {
       id: 'a3',
       text: 'Activité audit en dehors des horaires (week-end)',
-      user: 'sophie.leroy@mykyntus.com',
+      user: 'siham.lahlou@kyntus.ma',
       severity: 'WARNING',
     },
   ];
@@ -1032,7 +1032,7 @@ export class AuditRootComponent implements OnInit {
 
   isBruteForce(r: AccessRow): boolean {
     return (
-      r.user === 'sophie.leroy@mykyntus.com' &&
+      r.user === 'siham.lahlou@kyntus.ma' &&
       (r.type === 'LOGIN_FAILED' || r.type === 'SUSPICIOUS')
     );
   }

@@ -3,7 +3,7 @@ using PrimeBackend.Data;
 
 namespace PrimeBackend.Services;
 
-public sealed class PrimeRbacReadService(PrimeDbContext db)
+public sealed class PrimeRbacReadService(PrimeDbContext db, PrimeOrgScopeService org)
 {
     public async Task<bool> RoleHasActionAsync(string role, string action, CancellationToken ct = default)
     {
@@ -60,19 +60,12 @@ public sealed class PrimeRbacReadService(PrimeDbContext db)
         string.Equals(role, PrimeFicheValidationRoles.ReferentTechnique, StringComparison.Ordinal) ||
         string.Equals(role, "Coach", StringComparison.Ordinal);
 
-    /// <summary>Pilote rattaché au référent technique courant (hiérarchie admin).</summary>
-    public async Task<bool> IsPiloteUnderReferentAsync(
+    /// <summary>Pilote dans le périmètre du référent technique (hiérarchie RH + cellule).</summary>
+    public Task<bool> IsPiloteUnderReferentAsync(
         EmployeeEntity referent,
         EmployeePrimeServiceFicheEntity fiche,
-        CancellationToken ct = default)
-    {
-        if (!IsReferentTechniqueRole(referent.Role)) return false;
-        var pilote = await db.Employees.AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Id == fiche.EmployeeId, ct);
-        if (pilote is null) return false;
-        return string.Equals(pilote.Role, "Pilote", StringComparison.OrdinalIgnoreCase) &&
-               string.Equals(pilote.ParentId, referent.Id, StringComparison.Ordinal);
-    }
+        CancellationToken ct = default) =>
+        org.IsPilotInReferentValidationScopeAsync(referent.Id, fiche.EmployeeId, ct);
 
     public async Task<bool> CanAccessFicheAsync(EmployeeEntity actor, EmployeePrimeServiceFicheEntity fiche, string action, CancellationToken ct)
     {

@@ -26,7 +26,7 @@ const DEFAULT_SCOPES = ['Global', 'Pole', 'Cellule', 'Service', 'Self'] as const
       } @else {
         <p class="text-slate-400 text-sm mb-4">
           Choisissez un rôle puis modifiez la grille <span class="text-slate-300">Action × Périmètre</span>. Les
-          changements sont persistés via l’API (prise en compte sur les routes protégées, ex. validation fiche).
+          changements sont enregistrés et appliqués aux écrans du module PRIME.
         </p>
 
         <label class="text-slate-300 text-sm flex flex-wrap items-center gap-3 mb-4">

@@ -24,7 +24,7 @@ import {
   type WorkflowValidationMetaDto,
   type WorkflowValidationSummaryDto,
 } from '../services/prime-fiche-result.service';
-import { primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
+import { PRIME_USER_LOAD_ERROR, primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
 import { formatWorkflowPipeline } from '../lib/workflow-step-rechain';
 import { rolesMatchWorkflowApprover } from '../lib/workflow-role-match';
 
@@ -127,12 +127,13 @@ function mapRoleForApi(role: string): string {
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     } @else {
-      <div class="p-8 space-y-6">
+      <div class="prime-page-shell">
         <div class="flex justify-between items-start gap-4">
           <div>
-            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Validation des fiches PRIME</h1>
-            <p class="text-slate-500 mt-1">
-              Fiches : {{ workflowPipelineLabel() }}. RH / Manager / Comptabilité : fichier synthèse globale.
+            <h1 class="prime-page-title">Validation des fiches PRIME</h1>
+            <p class="prime-page-subtitle">
+              Validez les fiches de votre périmètre selon le circuit
+              {{ workflowPipelineLabel() }}. RH, Manager et Comptabilité traitent la synthèse globale.
             </p>
           </div>
           @if (canBulkApprove()) {
@@ -148,11 +149,11 @@ function mapRoleForApi(role: string): string {
           }
         </div>
 
-        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-          <app-lucide-icon [icon]="icons.alert" className="w-5 h-5 text-blue-600 mt-0.5" />
+        <div class="prime-callout-info">
+          <app-lucide-icon [icon]="icons.alert" className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" />
           <div>
-            <h4 class="text-sm font-semibold text-blue-900">Rôle : {{ roleService.currentRole() }}</h4>
-            <p class="text-sm text-blue-700 mt-1">{{ roleHelper() }}</p>
+            <h4 class="prime-callout-title">Rôle : {{ roleService.currentRole() }}</h4>
+            <p class="prime-callout-body">{{ roleHelper() }}</p>
           </div>
         </div>
 
@@ -181,57 +182,57 @@ function mapRoleForApi(role: string): string {
 
         <app-prime-card className="p-0">
           <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left">
-              <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
+            <table class="prime-table">
+              <thead>
                 <tr>
-                  <th class="px-6 py-3 font-medium tracking-wider">Pilote</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Périmètre</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Période</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Montant</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Statut</th>
-                  <th class="px-6 py-3 font-medium tracking-wider text-right">Actions</th>
+                  <th>Pilote</th>
+                  <th>Périmètre</th>
+                  <th>Période</th>
+                  <th>Montant</th>
+                  <th>Statut</th>
+                  <th class="text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-navy-800">
+              <tbody>
                 @if (filteredResults().length === 0) {
                   <tr>
-                    <td colspan="6" class="px-6 py-8 text-center text-slate-500">
+                    <td colspan="6" class="text-center prime-cell-muted py-8">
                       {{ emptyListMessage() }}
                     </td>
                   </tr>
                 } @else {
                   @for (item of filteredResults(); track item.id) {
-                    <tr class="bg-navy-900 hover:bg-navy-800 transition-colors">
-                      <td class="px-6 py-4 whitespace-nowrap">
+                    <tr>
+                      <td>
                         @let emp = getEmployee(item.employeeId);
                         <div>
-                          <div class="font-medium text-slate-200">
+                          <div class="prime-cell-strong">
                             {{ displayPilotName(item, emp) }}
                           </div>
-                          <div class="text-xs text-slate-500">{{ item.employeeRole || emp?.role || '—' }}</div>
+                          <div class="text-xs prime-cell-muted">{{ item.employeeRole || emp?.role || '—' }}</div>
                         </div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-300">
+                      <td>
                         @let org = orgLabels(item);
-                        <div class="text-xs uppercase tracking-wider text-slate-500">Cellule</div>
-                        <div class="font-medium">{{ org.cellule }}</div>
-                        <div class="text-xs text-slate-500 mt-1">Service: {{ org.service }}</div>
+                        <div class="text-xs uppercase tracking-wider prime-cell-muted">Cellule</div>
+                        <div class="prime-cell-strong">{{ org.cellule }}</div>
+                        <div class="text-xs prime-cell-muted mt-1">Service: {{ org.service }}</div>
                         @if (org.pole) {
-                          <div class="text-xs text-slate-600 mt-0.5">Pôle: {{ org.pole }}</div>
+                          <div class="text-xs prime-cell-muted mt-0.5">Pôle: {{ org.pole }}</div>
                         }
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap font-mono text-slate-200">{{ item.period }}</td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="font-semibold text-slate-200">
+                      <td class="font-mono">{{ item.period }}</td>
+                      <td>
+                        <div class="font-semibold">
                           {{ formatAmount(item.totalAmount) }}
                         </div>
-                        <div class="text-xs text-slate-500">
+                        <div class="text-xs prime-cell-muted">
                           Prime {{ formatAmount(item.primeAmount) }} • Chal.
                           {{ formatAmount(item.challengeAmount) }}
                         </div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+                      <td>
+                        <span class="prime-status-badge">
                           {{ statusLabel(item.validationStatus) }}
                         </span>
                         @if (item.validationStatus === 'Rejected' && item.rejectionReason) {
@@ -247,7 +248,7 @@ function mapRoleForApi(role: string): string {
                               type="button"
                               [disabled]="busyId() === item.id"
                               (click)="approve(item.id)"
-                              class="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors border border-transparent hover:border-emerald-200 disabled:opacity-50"
+                              class="p-1.5 text-muted hover:text-emerald-400 hover:bg-navy-800 rounded-md transition-colors border border-transparent hover:border-emerald-500/40 disabled:opacity-50"
                               title="Approuver"
                             >
                               <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
@@ -256,7 +257,7 @@ function mapRoleForApi(role: string): string {
                               type="button"
                               [disabled]="busyId() === item.id"
                               (click)="reject(item.id)"
-                              class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors border border-transparent hover:border-rose-200 disabled:opacity-50"
+                              class="p-1.5 text-muted hover:text-rose-400 hover:bg-navy-800 rounded-md transition-colors border border-transparent hover:border-rose-500/40 disabled:opacity-50"
                               title="Rejeter (motif obligatoire)"
                             >
                               <app-lucide-icon [icon]="icons.x" className="w-4 h-4" />
@@ -309,7 +310,6 @@ export class PrimeValidationPageComponent {
     const uiRole = this.roleService.currentRole() as string;
     const r = mapRoleForApi(uiRole);
     const meta = this.workflowMeta();
-    const pipeline = this.workflowPipelineLabel();
     const actionable =
       meta?.actionableFromStatuses?.length
         ? meta.actionableFromStatuses
@@ -326,15 +326,11 @@ export class PrimeValidationPageComponent {
           .filter((s) => s.isActive)
           .sort((a, b) => a.sortOrder - b.sortOrder)
           .findIndex((s) => s.id === step.id) + 1;
-      const statusHint =
-        fromStatuses.length > 1
-          ? fromStatuses.map((s) => `« ${s} »`).join(' ou ')
-          : `« ${step.fromStatus} »`;
       return {
         fromStatuses,
         fromStatus: (fromStatuses[0] ?? step.fromStatus) as PrimeFicheValidationStatus,
         toStatus: step.toStatus as PrimeFicheValidationStatus,
-        helper: `Niveau ${level} — validez les fiches au statut ${statusHint} (après approbation : « ${step.toStatus} »). Chaîne active : ${pipeline}.`,
+        helper: `Niveau ${level} — validez les fiches en attente à votre étape du circuit de validation.`,
       };
     }
     const fallback = ROLE_STEP_MAP[uiRole];
@@ -343,14 +339,14 @@ export class PrimeValidationPageComponent {
       return {
         ...fallback,
         fromStatuses: fs,
-        helper: `${fallback.helper} Chaîne active : ${pipeline}.`,
+        helper: fallback.helper,
       };
     }
     return {
       fromStatuses: [],
       fromStatus: null,
       toStatus: null,
-      helper: `Aucune étape de validation pour ce rôle. Chaîne active : ${pipeline}.`,
+      helper: 'Aucune étape de validation pour ce rôle.',
     };
   });
 
@@ -448,13 +444,11 @@ export class PrimeValidationPageComponent {
     const uiRole = this.roleService.currentRole() as string;
     const r = mapRoleForApi(uiRole);
     const period = this.periodFilter() || undefined;
-    const isReferent = uiRole === 'Référent technique' || uiRole === 'Coach';
     const listFilters = {
       period,
       userId: u.id,
       role: r,
       readyOnly: true as const,
-      ...(isReferent && u.serviceId ? { serviceId: u.serviceId } : {}),
     };
     forkJoin({
       meta: this.api.workflowMeta(r),
@@ -479,7 +473,7 @@ export class PrimeValidationPageComponent {
         this.errorMessage.set(
           detail
             ? `Impossible de charger les fiches PRIME. ${detail}`
-            : 'Impossible de charger les fiches PRIME depuis le backend. Vérifiez que le service est démarré.',
+            : PRIME_USER_LOAD_ERROR,
         );
         this.results.set([]);
         this.loading.set(false);

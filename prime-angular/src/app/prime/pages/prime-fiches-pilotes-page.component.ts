@@ -70,7 +70,9 @@ interface PilotageCelluleGroup {
   celluleId: string;
   celluleName: string;
   poleName: string;
+  commonPartStatus: string;
   complete: number;
+  readyForValidation: number;
   inProgress: number;
   notStarted: number;
   aggregateState: string;
@@ -131,6 +133,15 @@ interface PilotageCelluleGroup {
           </div>
         }
 
+        @if (showCommonPartValidationBanner()) {
+          <div
+            class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
+            role="status"
+          >
+            {{ commonPartValidationBannerText() }}
+          </div>
+        }
+
         @if (loading()) {
           <div class="flex justify-center py-16">
             <div class="animate-spin rounded-full h-10 w-10 border-2 border-blue-500 border-t-transparent"></div>
@@ -159,8 +170,13 @@ interface PilotageCelluleGroup {
                           <div class="text-[11px] text-slate-500 truncate">Pôle : {{ grp.poleName }}</div>
                         }
                         <div class="text-[11px] text-slate-500 mt-0.5">
-                          {{ grp.complete }} OK · {{ grp.inProgress }} en cours · {{ grp.notStarted }} pas commencé
+                          {{ rollupCountsLabel(grp) }}
                         </div>
+                        @if (grp.commonPartStatus) {
+                          <div class="text-[10px] text-slate-600 mt-0.5">
+                            Partie commune : {{ commonPartStatusLabel(grp.commonPartStatus) }}
+                          </div>
+                        }
                       </div>
                       <span class="text-[10px] font-medium text-slate-500 shrink-0">{{
                         stateShortLabel(grp.aggregateState)
@@ -174,7 +190,7 @@ interface PilotageCelluleGroup {
                             <div class="text-[10px] uppercase tracking-wide text-slate-600">Service</div>
                             <div class="font-medium text-slate-200 text-sm truncate">{{ svc.serviceName }}</div>
                             <div class="text-[11px] text-slate-500 mt-0.5">
-                              {{ svc.complete }} OK · {{ svc.inProgress }} en cours · {{ svc.notStarted }} pas commencé
+                              {{ serviceCountsLabel(svc) }}
                             </div>
                           </div>
                         </div>
@@ -186,7 +202,7 @@ interface PilotageCelluleGroup {
                                 (click)="selectPilot(emp, svc)"
                                 [class]="pilotRowClass(emp.employeeId) + ' flex-1 min-w-0 rounded-none border-0'"
                               >
-                                <span [class]="pilotDotClass(emp.fillingStatus)" aria-hidden="true"></span>
+                                <span [class]="pilotEmployeeDotClass(emp)" aria-hidden="true"></span>
                                 <span class="min-w-0 flex-1 text-left">
                                   <span class="block text-sm font-medium text-slate-100 truncate"
                                     >{{ emp.firstName }} {{ emp.lastName }}</span
@@ -448,10 +464,12 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
       const sorted = [...services].sort((a, b) => a.serviceName.localeCompare(b.serviceName));
       const first = sorted[0];
       let complete = 0;
+      let readyForValidation = 0;
       let inProgress = 0;
       let notStarted = 0;
       for (const s of sorted) {
         complete += s.complete;
+        readyForValidation += s.readyForValidation ?? 0;
         inProgress += s.inProgress;
         notStarted += s.notStarted;
       }
@@ -466,7 +484,9 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
         celluleId,
         celluleName: (first?.celluleName ?? '').trim() || celluleId,
         poleName: (first?.poleName ?? '').trim(),
+        commonPartStatus: (first?.commonPartStatus ?? '').trim(),
         complete,
+        readyForValidation,
         inProgress,
         notStarted,
         aggregateState,
@@ -474,6 +494,14 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
       });
     }
     return groups.sort((a, b) => a.celluleName.localeCompare(b.celluleName));
+  });
+
+  readonly showCommonPartValidationBanner = computed(() => {
+    const tree = this.pilotageTree();
+    if (tree.length === 0) return false;
+    const complete = tree.reduce((a, g) => a + g.complete, 0);
+    const ready = tree.reduce((a, g) => a + g.readyForValidation, 0);
+    return complete > 0 && ready === 0;
   });
 
   ngOnInit(): void {
@@ -696,13 +724,39 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     this.previewRows.set([]);
   }
 
-  pilotDotClass(st: string): string {
-    const s = st.toLowerCase();
-    if (s === 'complete')
-      return 'inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_0_1px_rgba(16,185,129,0.35)]';
-    if (s === 'inprogress')
-      return 'inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]';
-    return 'inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500 shadow-[0_0_0_1px_rgba(244,63,94,0.35)]';
+  pilotEmployeeDotClass(emp: EmployeePrimeCellFicheListItemDto): string {
+    const val = (emp.validationStatus ?? 'AwaitingData').trim().toLowerCase();
+    const fill = emp.fillingStatus.trim().toLowerCase();
+    const green =
+      'inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_0_1px_rgba(16,185,129,0.35)]';
+    const amber =
+      'inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]';
+    const rose =
+      'inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500 shadow-[0_0_0_1px_rgba(244,63,94,0.35)]';
+    if (emp.isReadyForValidation === true || val === 'pending') return green;
+    if (fill === 'complete') return amber;
+    if (fill === 'inprogress') return amber;
+    return rose;
+  }
+
+  rollupCountsLabel(grp: PilotageCelluleGroup): string {
+    return `${grp.complete} cellule OK · ${grp.readyForValidation} soumise(s) validation · ${grp.inProgress} en cours · ${grp.notStarted} pas commencé`;
+  }
+
+  serviceCountsLabel(svc: CellPilotageSummaryDto): string {
+    const ready = svc.readyForValidation ?? 0;
+    return `${svc.complete} cellule OK · ${ready} soumise(s) validation · ${svc.inProgress} en cours · ${svc.notStarted} pas commencé`;
+  }
+
+  commonPartStatusLabel(status: string): string {
+    const s = status.trim().toLowerCase();
+    if (s === 'validated') return 'Validée';
+    if (s === 'draft') return 'Brouillon';
+    return status || '—';
+  }
+
+  commonPartValidationBannerText(): string {
+    return 'Des pilotes ont la partie cellule complète, mais la partie commune n’est pas encore validée. Validez-la dans « Fiche PRIME — saisie » (liste fiches communes) pour envoyer les fiches au référent technique.';
   }
 
   cellRollupDot(state: string): string {

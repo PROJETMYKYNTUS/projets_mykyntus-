@@ -84,6 +84,8 @@ public sealed class WorkflowValidationSummaryDto
     public List<WorkflowStatusCountDto> StatusCounts { get; set; } = [];
     public List<string> TerminalStatuses { get; set; } = [];
     public int Total { get; set; }
+    /// <summary>Fiches prêtes mais encore en attente de données (soumission auto non passée).</summary>
+    public int ReadyNotSubmittedCount { get; init; }
 }
 
 public sealed class WorkflowValidationMetaDto

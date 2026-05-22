@@ -1,11 +1,14 @@
-/** Active le repli mock pour la démo / soutenance (désactiver : localStorage `prime.demoMockData` = `false`). */
+/**
+ * Repli mock pour soutenance locale uniquement.
+ * Par défaut : désactivé (données PostgreSQL / API réelles).
+ * Activer : `localStorage.setItem('prime.demoMockData', 'true')` puis recharger la page.
+ */
 const STORAGE_KEY = 'prime.demoMockData';
 
 export function isPrimeDemoMockEnabled(): boolean {
-  if (typeof localStorage === 'undefined') return true;
+  if (typeof localStorage === 'undefined') return false;
   const v = localStorage.getItem(STORAGE_KEY);
-  if (v === 'false' || v === '0') return false;
-  return true;
+  return v === 'true' || v === '1';
 }
 
 export function setPrimeDemoMockEnabled(enabled: boolean): void {

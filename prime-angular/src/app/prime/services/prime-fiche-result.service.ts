@@ -42,6 +42,8 @@ export interface WorkflowValidationSummaryDto {
   statusCounts: WorkflowStatusCountDto[];
   terminalStatuses: string[];
   total: number;
+  /** Fiches prêtes mais pas encore passées en Pending (soumission auto). */
+  readyNotSubmittedCount?: number;
 }
 
 export interface WorkflowStepMetaDto {
@@ -115,6 +117,11 @@ export class PrimeFicheResultService {
     if (filters.readyOnly === true) params = params.set('readyOnly', 'true');
     if (filters.readyOnly === false) params = params.set('readyOnly', 'false');
     return params;
+  }
+
+  /** Soumet automatiquement les fiches prêtes (Pending) avant lecture de la liste. */
+  reconcileReady(): Observable<{ reconciled: number }> {
+    return this.http.post<{ reconciled: number }>(`${base}/reconcile-ready`, {});
   }
 
   list(filters?: FicheValidationListFilters): Observable<EmployeePrimeServiceFicheValidationDto[]> {

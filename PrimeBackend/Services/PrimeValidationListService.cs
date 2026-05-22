@@ -5,7 +5,9 @@ using PrimeBackend.Dto;
 namespace PrimeBackend.Services;
 
 /// <summary>Requêtes et projection pour les listes de validation (fiches prêtes, libellés RH).</summary>
-public sealed class PrimeValidationListService(PrimeDbContext db)
+public sealed class PrimeValidationListService(
+    PrimeDbContext db,
+    PrimeFicheValidationSubmissionService submission)
 {
     public IQueryable<EmployeePrimeServiceFicheEntity> ApplyReadyForValidationFilter(
         IQueryable<EmployeePrimeServiceFicheEntity> query) =>
@@ -15,7 +17,6 @@ public sealed class PrimeValidationListService(PrimeDbContext db)
                 (f.ValidationStatus != PrimeValidationWorkflowService.AwaitingData &&
                  f.ValidationStatus != "NotStarted") ||
                 db.SupervisorCellulePrimeDrafts.Any(d =>
-                    d.SupervisorUserId == f.SupervisorUserId &&
                     d.Period == f.Period &&
                     EF.Functions.ILike(d.Status, "validated") &&
                     (d.Id == f.CellulePrimeDraftId ||
@@ -54,7 +55,10 @@ public sealed class PrimeValidationListService(PrimeDbContext db)
                 .Where(p => poleIds.Contains(p.Id))
                 .ToDictionaryAsync(p => p.Id, ct);
 
-        return fiches.Select(f => MapOne(f, drafts, employees, services, cellules, poles)).ToList();
+        var result = new List<EmployeePrimeServiceFicheValidationDto>(fiches.Count);
+        foreach (var f in fiches)
+            result.Add(await MapOneAsync(f, drafts, employees, services, cellules, poles, ct));
+        return result;
     }
 
     public async Task<EmployeePrimeServiceFicheValidationDto> MapValidationDtoAsync(
@@ -65,15 +69,18 @@ public sealed class PrimeValidationListService(PrimeDbContext db)
         return list[0];
     }
 
-    private static EmployeePrimeServiceFicheValidationDto MapOne(
+    private async Task<EmployeePrimeServiceFicheValidationDto> MapOneAsync(
         EmployeePrimeServiceFicheEntity f,
         IReadOnlyDictionary<Guid, SupervisorCellulePrimeDraftEntity> drafts,
         IReadOnlyDictionary<string, EmployeeEntity> employees,
         IReadOnlyDictionary<string, ServiceEntity> services,
         IReadOnlyDictionary<string, CelluleEntity> cellules,
-        IReadOnlyDictionary<string, PoleEntity> poles)
+        IReadOnlyDictionary<string, PoleEntity> poles,
+        CancellationToken ct)
     {
-        drafts.TryGetValue(f.CellulePrimeDraftId, out var draft);
+        var resolvedDraft = await submission.ResolveDraftForFicheAsync(f, ct);
+        drafts.TryGetValue(f.CellulePrimeDraftId, out var linkedDraft);
+        var draft = resolvedDraft ?? linkedDraft;
         employees.TryGetValue(f.EmployeeId, out var emp);
         services.TryGetValue(f.ServiceId, out var svc);
         cellules.TryGetValue(f.CelluleId, out var cell);

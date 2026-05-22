@@ -68,6 +68,13 @@ export interface CellIndicatorRun {
   warnings: string[];
 }
 
+export interface CellSaisieSaveResult {
+  message: string;
+  fillingStatus: string;
+  validationStatus: string;
+  isReadyForValidation: boolean;
+}
+
 @Component({
   selector: 'app-prime-cell-saisie-block',
   standalone: true,
@@ -274,6 +281,24 @@ export interface CellIndicatorRun {
           }
         </div>
 
+        @if (saveBanner()) {
+          <div
+            class="rounded-lg border border-emerald-500/45 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-100 flex items-start gap-2"
+            role="status"
+          >
+            <app-lucide-icon [icon]="icons.check" className="w-5 h-5 shrink-0 mt-0.5" />
+            <span>{{ saveBanner() }}</span>
+          </div>
+        }
+        @if (saveError()) {
+          <div
+            class="rounded-lg border border-rose-500/45 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-200"
+            role="alert"
+          >
+            {{ saveError() }}
+          </div>
+        }
+
         <div
           [class]="
             embedded()
@@ -288,17 +313,8 @@ export interface CellIndicatorRun {
             class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm sm:text-base font-semibold text-white shadow-lg hover:bg-blue-700 disabled:opacity-50"
           >
             <app-lucide-icon [icon]="icons.save" className="w-5 h-5" />
-            Enregistrer la saisie cellule
+            {{ saving() ? 'Enregistrement…' : 'Enregistrer la saisie cellule' }}
           </button>
-          @if (saveError()) {
-            <span class="text-sm font-medium text-rose-600 dark:text-rose-400">{{ saveError() }}</span>
-          }
-          @if (saveBanner()) {
-            <span class="text-sm font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-              <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
-              {{ saveBanner() }}
-            </span>
-          }
         </div>
       }
     </div>
@@ -322,7 +338,7 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
   readonly linkedTemplateId = input<string | null>(null);
   readonly celluleName = input<string | null>(null);
   readonly embedded = input(false);
-  readonly saved = output<void>();
+  readonly saved = output<CellSaisieSaveResult>();
 
   readonly primeFieldLabels = PRIME_FIELD_LABELS;
   readonly challengeFieldLabels = CHALLENGE_FIELD_LABELS;
@@ -596,12 +612,21 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
           this.saving.set(false);
           const submitted =
             (f.validationStatus ?? '').trim().toLowerCase() === 'pending';
-          this.saveBanner.set(
-            submitted
-              ? 'Enregistré — fiche soumise au workflow de validation.'
-              : 'Enregistré.',
-          );
-          this.saved.emit();
+          const complete =
+            (f.fillingStatus ?? '').trim().toLowerCase() === 'complete';
+          const message = submitted
+            ? 'Fiche enregistrée et soumise au workflow de validation (référent technique).'
+            : complete
+              ? 'Partie cellule enregistrée et complète. Validez la partie commune dans « Fiche PRIME — saisie » pour activer le point vert « Prête » et l’envoi au référent technique.'
+              : 'Saisie cellule enregistrée.';
+          this.saveBanner.set(message);
+          const result: CellSaisieSaveResult = {
+            message,
+            fillingStatus: f.fillingStatus,
+            validationStatus: f.validationStatus ?? 'AwaitingData',
+            isReadyForValidation: f.isReadyForValidation === true,
+          };
+          this.saved.emit(result);
         },
         error: (e) => {
           this.saving.set(false);

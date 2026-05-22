@@ -20,7 +20,10 @@ function withMockBody<T>(url: string, method: string, body: T): T {
   return body;
 }
 
-/** Repli données démo marocaines si l’API PRIME est vide ou indisponible (soutenance). */
+/**
+ * Repli mock (désactivé par défaut — voir `isPrimeDemoMockEnabled`).
+ * Si activé : remplace les GET vides ou en erreur sur /api/prime et /api/rp.
+ */
 export const primeDemoInterceptor: HttpInterceptorFn = (req, next) => {
   if (!isPrimeDemoMockEnabled() || !shouldDemo(req.url) || req.method !== 'GET') {
     return next(req);

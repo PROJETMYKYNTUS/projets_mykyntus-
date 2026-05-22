@@ -113,21 +113,13 @@ public sealed class EmployeePrimeServiceFicheController(
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First(), StringComparer.Ordinal);
         }
 
-        var draftIdsAfter = fiches.Select(f => f.CellulePrimeDraftId).Distinct().ToList();
-        var draftsByIdAfter = draftIdsAfter.Count == 0
-            ? new Dictionary<Guid, SupervisorCellulePrimeDraftEntity>()
-            : await db.SupervisorCellulePrimeDrafts.AsNoTracking()
-                .Where(d => draftIdsAfter.Contains(d.Id))
-                .ToDictionaryAsync(d => d.Id, ct);
-
         var result = new List<EmployeePrimeServiceFicheListItemDto>();
         foreach (var e in emps)
         {
             if (byEmp.TryGetValue(e.Id, out var f))
             {
-                draftsByIdAfter.TryGetValue(f.CellulePrimeDraftId, out var draft);
-                var ready = draft is not null &&
-                            PrimeFicheValidationSubmissionService.ComputeIsReadyForValidation(draft, f);
+                var ready = submission is not null &&
+                            await submission.ComputeIsReadyForValidationAsync(f, ct);
                 result.Add(new EmployeePrimeServiceFicheListItemDto
                 {
                     EmployeeId = e.Id,

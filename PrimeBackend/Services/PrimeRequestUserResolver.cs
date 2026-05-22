@@ -24,6 +24,30 @@ public sealed class PrimeRequestUserResolver(PrimeDbContext db) : IPrimeRequestU
         return new PrimeResolvedUser(emp.Id, emp.Role.Trim(), emp);
     }
 
+    public async Task<PrimeResolvedUser?> TryResolveForValidationAsync(
+        HttpRequest request,
+        string? queryUserId,
+        string? queryRole,
+        CancellationToken ct = default)
+    {
+        var userId = FirstNonEmpty(
+            request.Headers[IPrimeRequestUserResolver.HeaderUserId].FirstOrDefault(),
+            queryUserId);
+        var roleRaw = FirstNonEmpty(
+            request.Headers[IPrimeRequestUserResolver.HeaderRole].FirstOrDefault(),
+            queryRole);
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(roleRaw))
+            return null;
+
+        var actingRole = IPrimeRequestUserResolver.ExpandRole(roleRaw);
+        var emp = await db.Employees.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == userId.Trim(), ct);
+        if (emp is null)
+            return null;
+
+        return new PrimeResolvedUser(emp.Id, actingRole, emp);
+    }
+
     private static string? FirstNonEmpty(string? a, string? b)
     {
         if (!string.IsNullOrWhiteSpace(a)) return a.Trim();

@@ -147,6 +147,49 @@ public static class PrimeSchemaPatches
             END $$;
             """,
             ct);
+
+        await EnsureValidationQueueRepairAsync(db, ct);
+    }
+
+    /// <summary>Rattrapage SQL : fiches complètes + brouillon Validated (même superviseur / cellule / période) → Pending.</summary>
+    public static async Task EnsureValidationQueueRepairAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_employee_prime_service_fiche", ct) ||
+            !await TableExistsAsync(db, "prime_supervisor_cellule_prime_draft", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE prime_employee_prime_service_fiche f
+            SET "ValidationStatus" = 'Pending', "UpdatedAt" = NOW()
+            FROM prime_supervisor_cellule_prime_draft d
+            WHERE f."CellulePrimeDraftId" = d."Id"
+              AND f."ValidationStatus" IN ('AwaitingData', 'NotStarted')
+              AND UPPER(TRIM(f."FillingStatus")) = 'COMPLETE'
+              AND UPPER(TRIM(d."Status")) = 'VALIDATED';
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE prime_employee_prime_service_fiche f
+            SET "ValidationStatus" = 'Pending',
+                "CellulePrimeDraftId" = d."Id",
+                "UpdatedAt" = NOW()
+            FROM prime_supervisor_cellule_prime_draft d
+            WHERE f."SupervisorUserId" = d."SupervisorUserId"
+              AND f."CelluleId" = d."CelluleId"
+              AND f."Period" = d."Period"
+              AND f."ValidationStatus" IN ('AwaitingData', 'NotStarted')
+              AND UPPER(TRIM(f."FillingStatus")) = 'COMPLETE'
+              AND UPPER(TRIM(d."Status")) = 'VALIDATED'
+              AND NOT EXISTS (
+                SELECT 1 FROM prime_supervisor_cellule_prime_draft d2
+                WHERE d2."Id" = f."CellulePrimeDraftId"
+                  AND UPPER(TRIM(d2."Status")) = 'VALIDATED'
+              );
+            """,
+            ct);
     }
 
     private static Task<bool> TableExistsAsync(PrimeDbContext db, string tableName, CancellationToken ct) =>
@@ -166,6 +209,14 @@ public static class PrimeSchemaPatches
                 SELECT EXISTS (
                   SELECT 1 FROM information_schema.tables
                   WHERE table_schema = 'public' AND table_name = 'prime_supervisor_cellule_prime_draft');
+                """,
+                ct),
+            "prime_employee_prime_service_fiche" => ScalarBoolAsync(
+                db,
+                """
+                SELECT EXISTS (
+                  SELECT 1 FROM information_schema.tables
+                  WHERE table_schema = 'public' AND table_name = 'prime_employee_prime_service_fiche');
                 """,
                 ct),
             _ => Task.FromResult(false),

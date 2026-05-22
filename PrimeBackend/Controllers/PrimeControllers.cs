@@ -383,24 +383,35 @@ public class PrimeOrgAssignmentsController(
     }
 
     [HttpPost("assignments/coach-sous-service")]
-    public ActionResult<ReferentTechniqueServiceAssignment> AssignCoachSousService([FromBody] AssignReferentTechniqueServiceRequest req)
+    public async Task<ActionResult<ReferentTechniqueServiceAssignment>> AssignCoachSousService(
+        [FromBody] AssignReferentTechniqueServiceRequest req,
+        CancellationToken ct)
     {
         try
         {
-            return Ok(store.AssignCoachSousService(req.UserId, req.ServiceId));
+            ReferentTechniqueServiceAssignment? created = null;
+            await ExecuteOrgStructureMutationAsync(ct, () =>
+                created = store.AssignCoachSousService(req.UserId, req.ServiceId));
+            return Ok(created!);
         }
         catch (InvalidOperationException e) { return Conflict(new { error = e.Message }); }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
     }
 
     [HttpPost("assignments/coach-pilot")]
-    public ActionResult<ReferentTechniquePilotLink> AssignCoachPilot([FromBody] AssignReferentTechniquePilotRequest req)
+    public async Task<ActionResult<ReferentTechniquePilotLink>> AssignCoachPilot(
+        [FromBody] AssignReferentTechniquePilotRequest req,
+        CancellationToken ct)
     {
         try
         {
-            return Ok(store.AssignCoachPilot(req.ReferentTechniqueUserId, req.PilotUserId));
+            ReferentTechniquePilotLink? created = null;
+            await ExecuteOrgStructureMutationAsync(ct, () =>
+                created = store.AssignCoachPilot(req.ReferentTechniqueUserId, req.PilotUserId));
+            return Ok(created!);
         }
         catch (InvalidOperationException e) { return Conflict(new { error = e.Message }); }
+        catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
     }
 
     [HttpDelete("assignments/manager-etage/{assignmentId}")]

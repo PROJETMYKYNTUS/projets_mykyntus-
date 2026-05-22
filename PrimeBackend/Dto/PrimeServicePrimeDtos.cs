@@ -145,7 +145,11 @@ public sealed class ServicePilotageSummaryDto
     public int NotStarted { get; init; }
     public int InProgress { get; init; }
     public int Complete { get; init; }
-    /// <summary>Pilotes éligibles validation : cellule Complete + partie commune Validated (ou déjà Pending).</summary>
+    /// <summary>Prêtes (commune validée + cellule complète) pas encore soumises au workflow.</summary>
+    public int ReadyCount { get; init; }
+    /// <summary>Fiches soumises au workflow (<c>Pending</c> chez le référent technique).</summary>
+    public int SubmittedForValidationCount { get; init; }
+    /// <summary>Total prêtes + soumises (rétrocompatibilité).</summary>
     public int ReadyForValidation { get; init; }
     /// <summary>Statut brouillon partie commune pour la cellule / période (Draft | Validated).</summary>
     public string? CommonPartStatus { get; init; }

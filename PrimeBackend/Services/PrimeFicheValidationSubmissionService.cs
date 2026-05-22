@@ -7,7 +7,10 @@ namespace PrimeBackend.Services;
 /// Soumission automatique des fiches employé au workflow de validation lorsque
 /// la partie commune est validée (brouillon <c>Validated</c>) et la partie cellule est complète.
 /// </summary>
-public sealed class PrimeFicheValidationSubmissionService(PrimeDbContext db, PrimeValidationWorkflowRuntime wfRuntime)
+public sealed class PrimeFicheValidationSubmissionService(
+    PrimeDbContext db,
+    PrimeValidationWorkflowRuntime wfRuntime,
+    PrimeOrgScopeService org)
 {
     public static bool IsDraftValidated(string? draftStatus) =>
         string.Equals(draftStatus?.Trim(), "Validated", StringComparison.OrdinalIgnoreCase);
@@ -23,6 +26,26 @@ public sealed class PrimeFicheValidationSubmissionService(PrimeDbContext db, Pri
     public static bool ComputeIsReadyForValidation(
         SupervisorCellulePrimeDraftEntity draft,
         EmployeePrimeServiceFicheEntity fiche) => IsReadyForValidation(draft, fiche);
+
+    /// <summary>Calcule « prête » via <see cref="ResolveDraftForFicheAsync"/> (même logique que le reconcile).</summary>
+    public async Task<bool> ComputeIsReadyForValidationAsync(
+        EmployeePrimeServiceFicheEntity fiche,
+        CancellationToken ct = default)
+    {
+        var draft = await ResolveDraftForFicheAsync(fiche, ct);
+        return draft is not null && IsReadyForValidation(draft, fiche);
+    }
+
+    /// <summary>Aligne la fiche sur le brouillon validé résolu (lien + superviseur).</summary>
+    public static void ApplyResolvedDraftToFiche(
+        EmployeePrimeServiceFicheEntity fiche,
+        SupervisorCellulePrimeDraftEntity draft)
+    {
+        if (fiche.CellulePrimeDraftId != draft.Id)
+            fiche.CellulePrimeDraftId = draft.Id;
+        if (!string.Equals(fiche.SupervisorUserId, draft.SupervisorUserId, StringComparison.Ordinal))
+            fiche.SupervisorUserId = draft.SupervisorUserId;
+    }
 
     private static bool IsPreSubmissionStatus(string? validationStatus)
     {
@@ -67,43 +90,67 @@ public sealed class PrimeFicheValidationSubmissionService(PrimeDbContext db, Pri
     public async Task SyncForDraftAsync(Guid draftId, CancellationToken ct = default)
     {
         var draft = await db.SupervisorCellulePrimeDrafts.FirstOrDefaultAsync(x => x.Id == draftId, ct);
-        if (draft is null) return;
+        if (draft is null || !IsDraftValidated(draft.Status)) return;
 
-        var fiches = await db.EmployeePrimeServiceFiches
-            .Where(f => f.CellulePrimeDraftId == draftId)
-            .ToListAsync(ct);
+        var fiches = await GetFichesInValidatedDraftScopeAsync(draft, ct);
         var now = DateTimeOffset.UtcNow;
         foreach (var fiche in fiches)
+        {
+            ApplyResolvedDraftToFiche(fiche, draft);
             await SyncValidationSubmissionStatusAsync(fiche, draft, now, ct);
-
-        await ReconcileOrphanReadyFichesForDraftAsync(draft, now, ct);
+        }
     }
 
     /// <summary>
-    /// Fiches complètes (même superviseur / cellule / période) encore liées à un autre brouillon ou sans soumission.
+    /// Toutes les fiches pilotes du périmètre du brouillon validé (même superviseur, période, cellule ou pôle racine).
     /// </summary>
-    private async Task ReconcileOrphanReadyFichesForDraftAsync(
+    private async Task<List<EmployeePrimeServiceFicheEntity>> GetFichesInValidatedDraftScopeAsync(
         SupervisorCellulePrimeDraftEntity draft,
-        DateTimeOffset now,
         CancellationToken ct)
     {
-        if (!IsDraftValidated(draft.Status)) return;
+        var per = draft.Period.Trim();
+        var rootPole = draft.RootPoleId.Trim();
+        var draftCell = draft.CelluleId.Trim();
 
-        var orphans = await db.EmployeePrimeServiceFiches
-            .Where(f =>
-                f.SupervisorUserId == draft.SupervisorUserId &&
-                f.CelluleId == draft.CelluleId &&
-                f.Period == draft.Period &&
-                EF.Functions.ILike(f.FillingStatus, "complete") &&
-                (f.ValidationStatus == PrimeValidationWorkflowService.AwaitingData ||
-                 f.ValidationStatus == "NotStarted"))
+        var celluleIds = await db.Cellules.AsNoTracking()
+            .Where(c => c.Id == draftCell || c.PoleId == rootPole)
+            .Select(c => c.Id)
             .ToListAsync(ct);
+        if (celluleIds.Count == 0)
+            celluleIds = [draftCell];
 
-        foreach (var fiche in orphans)
-        {
-            fiche.CellulePrimeDraftId = draft.Id;
-            await SyncValidationSubmissionStatusAsync(fiche, draft, now, ct);
-        }
+        // Tous les pilotes des cellules du périmètre (pas un seul employé en dur).
+        return await db.EmployeePrimeServiceFiches
+            .Where(f => f.Period == per && celluleIds.Contains(f.CelluleId))
+            .ToListAsync(ct);
+    }
+
+    /// <summary>Synchronise chaque brouillon Validated avec les fiches pilotes de son périmètre.</summary>
+    public async Task<int> SyncAllValidatedDraftsAsync(CancellationToken ct = default)
+    {
+        var draftIds = await db.SupervisorCellulePrimeDrafts.AsNoTracking()
+            .Where(d => EF.Functions.ILike(d.Status, "validated"))
+            .Select(d => d.Id)
+            .ToListAsync(ct);
+        foreach (var id in draftIds)
+            await SyncForDraftAsync(id, ct);
+        if (draftIds.Count > 0)
+            await db.SaveChangesAsync(ct);
+        return draftIds.Count;
+    }
+
+    public async Task<int> SyncValidatedDraftsForPeriodAsync(string period, CancellationToken ct = default)
+    {
+        var per = period.Trim();
+        var draftIds = await db.SupervisorCellulePrimeDrafts.AsNoTracking()
+            .Where(d => d.Period == per && EF.Functions.ILike(d.Status, "validated"))
+            .Select(d => d.Id)
+            .ToListAsync(ct);
+        foreach (var id in draftIds)
+            await SyncForDraftAsync(id, ct);
+        if (draftIds.Count > 0)
+            await db.SaveChangesAsync(ct);
+        return draftIds.Count;
     }
 
     /// <summary>Résout le brouillon pôle validé pour une fiche (lien direct, cellule, ou pôle racine / période).</summary>
@@ -111,14 +158,54 @@ public sealed class PrimeFicheValidationSubmissionService(PrimeDbContext db, Pri
         EmployeePrimeServiceFicheEntity fiche,
         CancellationToken ct = default)
     {
-        var candidates = await db.SupervisorCellulePrimeDrafts
+        var per = fiche.Period.Trim();
+        var ficheCell = fiche.CelluleId.Trim();
+
+        var bySupervisor = await db.SupervisorCellulePrimeDrafts
             .Where(d =>
                 d.SupervisorUserId == fiche.SupervisorUserId &&
-                d.Period == fiche.Period &&
+                d.Period == per &&
                 EF.Functions.ILike(d.Status, "validated"))
             .OrderByDescending(d => d.UpdatedAt)
             .ToListAsync(ct);
 
+        var fichePoleId = await db.Cellules.AsNoTracking()
+            .Where(c => c.Id == ficheCell)
+            .Select(c => c.PoleId)
+            .FirstOrDefaultAsync(ct);
+
+        var picked = PickValidatedDraft(fiche, bySupervisor, fichePoleId);
+        if (picked is not null) return picked;
+
+        var byCellule = await db.SupervisorCellulePrimeDrafts
+            .Where(d =>
+                d.Period == per &&
+                d.CelluleId == ficheCell &&
+                EF.Functions.ILike(d.Status, "validated"))
+            .OrderByDescending(d => d.UpdatedAt)
+            .ToListAsync(ct);
+
+        picked = PickValidatedDraft(fiche, byCellule, fichePoleId);
+        if (picked is not null) return picked;
+
+        if (string.IsNullOrWhiteSpace(fichePoleId)) return null;
+
+        var byRootPole = await db.SupervisorCellulePrimeDrafts
+            .Where(d =>
+                d.Period == per &&
+                d.RootPoleId == fichePoleId &&
+                EF.Functions.ILike(d.Status, "validated"))
+            .OrderByDescending(d => d.UpdatedAt)
+            .ToListAsync(ct);
+
+        return PickValidatedDraft(fiche, byRootPole, fichePoleId);
+    }
+
+    private static SupervisorCellulePrimeDraftEntity? PickValidatedDraft(
+        EmployeePrimeServiceFicheEntity fiche,
+        IReadOnlyList<SupervisorCellulePrimeDraftEntity> candidates,
+        string? fichePoleId)
+    {
         if (candidates.Count == 0) return null;
 
         if (fiche.CellulePrimeDraftId != Guid.Empty)
@@ -132,17 +219,11 @@ public sealed class PrimeFicheValidationSubmissionService(PrimeDbContext db, Pri
             string.Equals(d.CelluleId, ficheCell, StringComparison.Ordinal));
         if (byCell is not null) return byCell;
 
-        var poleId = await db.Cellules.AsNoTracking()
-            .Where(c => c.Id == ficheCell)
-            .Select(c => c.PoleId)
-            .FirstOrDefaultAsync(ct);
-        if (!string.IsNullOrWhiteSpace(poleId))
+        if (!string.IsNullOrWhiteSpace(fichePoleId))
         {
-            var poleTrim = poleId.Trim();
-            var byPole = candidates.FirstOrDefault(d =>
-                string.Equals(d.RootPoleId, poleTrim, StringComparison.Ordinal) ||
-                string.Equals(d.CelluleId, poleTrim, StringComparison.Ordinal));
-            if (byPole is not null) return byPole;
+            var byRoot = candidates.FirstOrDefault(d =>
+                string.Equals(d.RootPoleId, fichePoleId, StringComparison.Ordinal));
+            if (byRoot is not null) return byRoot;
         }
 
         return candidates[0];
@@ -160,25 +241,7 @@ public sealed class PrimeFicheValidationSubmissionService(PrimeDbContext db, Pri
                 EF.Functions.ILike(f.FillingStatus, "complete"))
             .ToListAsync(ct);
 
-        if (fiches.Count == 0) return 0;
-
-        var changed = 0;
-        var now = DateTimeOffset.UtcNow;
-        foreach (var fiche in fiches)
-        {
-            var draft = await ResolveDraftForFicheAsync(fiche, ct);
-            if (draft is null) continue;
-            if (fiche.CellulePrimeDraftId != draft.Id)
-                fiche.CellulePrimeDraftId = draft.Id;
-            var before = fiche.ValidationStatus;
-            await SyncValidationSubmissionStatusAsync(fiche, draft, now, ct);
-            if (!string.Equals(before, fiche.ValidationStatus, StringComparison.Ordinal))
-                changed++;
-        }
-
-        if (changed > 0)
-            await db.SaveChangesAsync(ct);
-        return changed;
+        return await ReconcileFichesCoreAsync(fiches, ct);
     }
 
     public async Task<int> ReconcileReadySubmissionsForSupervisorPeriodAsync(
@@ -188,15 +251,43 @@ public sealed class PrimeFicheValidationSubmissionService(PrimeDbContext db, Pri
     {
         var sup = supervisorUserId.Trim();
         var per = period.Trim();
+        var celluleIds = await org.GetSupervisedCelluleIdsAsync(sup, ct);
+        if (celluleIds.Count == 0) return 0;
+
         var fiches = await db.EmployeePrimeServiceFiches
             .Where(f =>
-                f.SupervisorUserId == sup &&
+                f.Period == per &&
+                celluleIds.Contains(f.CelluleId) &&
+                (f.ValidationStatus == PrimeValidationWorkflowService.AwaitingData ||
+                 f.ValidationStatus == "NotStarted") &&
+                EF.Functions.ILike(f.FillingStatus, "complete"))
+            .ToListAsync(ct);
+
+        return await ReconcileFichesCoreAsync(fiches, ct);
+    }
+
+    /// <summary>
+    /// Passe en <see cref="PrimeValidationWorkflowService.Pending"/> les fiches prêtes de la période
+    /// encore en attente de données (toutes cellules / superviseurs).
+    /// </summary>
+    public async Task<int> ReconcileReadySubmissionsForPeriodAsync(string period, CancellationToken ct = default)
+    {
+        var per = period.Trim();
+        var fiches = await db.EmployeePrimeServiceFiches
+            .Where(f =>
                 f.Period == per &&
                 (f.ValidationStatus == PrimeValidationWorkflowService.AwaitingData ||
                  f.ValidationStatus == "NotStarted") &&
                 EF.Functions.ILike(f.FillingStatus, "complete"))
             .ToListAsync(ct);
 
+        return await ReconcileFichesCoreAsync(fiches, ct);
+    }
+
+    private async Task<int> ReconcileFichesCoreAsync(
+        List<EmployeePrimeServiceFicheEntity> fiches,
+        CancellationToken ct)
+    {
         if (fiches.Count == 0) return 0;
 
         var changed = 0;
@@ -205,8 +296,7 @@ public sealed class PrimeFicheValidationSubmissionService(PrimeDbContext db, Pri
         {
             var draft = await ResolveDraftForFicheAsync(fiche, ct);
             if (draft is null) continue;
-            if (fiche.CellulePrimeDraftId != draft.Id)
-                fiche.CellulePrimeDraftId = draft.Id;
+            ApplyResolvedDraftToFiche(fiche, draft);
             var before = fiche.ValidationStatus;
             await SyncValidationSubmissionStatusAsync(fiche, draft, now, ct);
             if (!string.Equals(before, fiche.ValidationStatus, StringComparison.Ordinal))
@@ -218,4 +308,4 @@ public sealed class PrimeFicheValidationSubmissionService(PrimeDbContext db, Pri
         return changed;
     }
 }
-
+

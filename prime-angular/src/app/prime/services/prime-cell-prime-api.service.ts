@@ -179,7 +179,11 @@ export interface CellPilotageSummaryDto {
   notStarted: number;
   inProgress: number;
   complete: number;
-  /** Pilotes prêts pour le workflow validation (cellule complète + partie commune validée). */
+  /** Prêtes, pas encore soumises au workflow. */
+  readyCount?: number;
+  /** Déjà en Pending (référent technique). */
+  submittedForValidationCount?: number;
+  /** Total prêtes + soumises (rétrocompatibilité). */
   readyForValidation: number;
   /** Draft | Validated — partie commune. */
   commonPartStatus?: string | null;

@@ -253,6 +253,8 @@ public static class PrimeDbEnrichmentSeeder
 
         var statuses = new[]
         {
+            PrimeValidationWorkflowService.AwaitingData,
+            PrimeValidationWorkflowService.AwaitingData,
             PrimeValidationWorkflowService.Pending,
             PrimeValidationWorkflowService.ReferentTechniqueApproved,
             PrimeValidationWorkflowService.SuperviseurApproved,
@@ -293,7 +295,7 @@ public static class PrimeDbEnrichmentSeeder
                         CelluleId = celluleId,
                         Period = period,
                         ServiceSaisieJson = perf,
-                        FillingStatus = status == PrimeValidationWorkflowService.Pending ? "InProgress" : "Complete",
+                        FillingStatus = "Complete",
                         UpdatedAt = now.AddDays(-faker.Random.Int(1, 20)),
                         ValidationStatus = status,
                         PrimeAmount = prime,
@@ -341,7 +343,7 @@ public static class PrimeDbEnrichmentSeeder
             TemplateId = EnrichTemplateId,
             TemplateDisplayName = $"Grille prime enrichie — {period}",
             TemplateFormatVersion = 1,
-            Status = "Draft",
+            Status = "Validated",
             SchemaJson = """{"fields":[{"id":"nps","label":"NPS (%)","type":"number"},{"id":"aht","label":"AHT","type":"number"}]}""",
             CelluleSaisieJson = """{"nps":72,"aht":285,"commentaire":"Saisie cellule démo enrichie"}""",
             TemplateCalcSnapshotJson = """{"previewSheetName":"Synthèse","calcSheets":[]}""",

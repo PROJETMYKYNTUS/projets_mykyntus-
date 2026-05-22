@@ -6,7 +6,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { forkJoin } from 'rxjs';
+import { forkJoin, switchMap } from 'rxjs';
 import { AlertCircle, Check, CheckCheck, X } from 'lucide';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
 import { PrimeCardComponent } from '../components/prime-card.component';
@@ -409,61 +409,85 @@ export class PrimeValidationPageComponent {
 
   readonly emptyListMessage = computed(() => {
     const cfg = this.roleConfig();
+    const pendingNotSubmitted = this.summaryDto()?.readyNotSubmittedCount ?? 0;
     if ((cfg.fromStatuses?.length ?? 0) > 0) {
-      return 'Aucune fiche prête dans votre périmètre pour cette période (partie commune validée et saisie cellule complète).';
+      if (pendingNotSubmitted > 0) {
+        return `${pendingNotSubmitted} fiche(s) prête(s) dans votre périmètre n’ont pas encore été soumises au workflow (statut Pending). Demandez au superviseur d’actualiser le pilotage ou contactez l’administrateur.`;
+      }
+      return 'Aucune fiche en attente de votre validation pour ce filtre (statut Pending, partie commune validée et saisie cellule complète).';
     }
     return 'Aucune fiche à afficher pour ces critères.';
   });
 
   readonly filterBarFilters = computed<PrimeFilterBarFilter[]>(() => {
     const opts = this.periodOptions();
-    const list = opts.length > 0 ? opts : [{ label: '—', value: '' }];
+    const list = opts.length > 0 ? opts : [];
+    const current = this.periodFilter();
     return [
       {
-        name: 'Période',
-        value: this.periodFilter() || list[0]?.value || '',
+        name: 'périodes',
+        value: current,
         onChange: this.setPeriodFilter,
         options: list,
+        allOptionLabel: 'Toutes les périodes',
       },
     ];
   });
 
   constructor() {
+    void this.api.periods().subscribe({
+      next: (periods) => {
+        const opts = periods.map((p) => ({ label: p, value: p }));
+        this.periodOptions.set(opts);
+      },
+      error: () => {
+        this.periodOptions.set([]);
+      },
+    });
+
     effect(() => {
       void this.roleService.currentRole();
       void this.roleService.currentUser().id;
-      void this.periodFilter();
-      this.fetch();
+      this.fetch(this.periodFilter().trim());
     });
   }
 
-  private fetch(): void {
+  private fetch(period: string): void {
     this.loading.set(true);
     this.errorMessage.set(null);
     const u = this.roleService.currentUser();
     const uiRole = this.roleService.currentRole() as string;
     const r = mapRoleForApi(uiRole);
-    const period = this.periodFilter() || undefined;
     const listFilters = {
-      period,
+      ...(period ? { period } : {}),
       userId: u.id,
       role: r,
       readyOnly: true as const,
     };
-    forkJoin({
-      meta: this.api.workflowMeta(r),
-      periods: this.api.periods(),
-      rows: this.api.list(listFilters),
-      summary: this.api.summary(listFilters),
-      departments: PrimeService.getDepartments(),
-    }).subscribe({
+    this.api
+      .reconcileReady()
+      .pipe(
+        switchMap(() =>
+          forkJoin({
+            meta: this.api.workflowMeta(r),
+            periods: this.api.periods(),
+            rows: this.api.list(listFilters),
+            summary: this.api.summary(listFilters),
+            departments: PrimeService.getDepartments(),
+          }),
+        ),
+      )
+      .subscribe({
       next: ({ meta, periods, rows, summary, departments }) => {
         this.workflowMeta.set(meta);
         this.summaryDto.set(summary);
         this.departments.set(departments);
         const opts = periods.map((p) => ({ label: p, value: p }));
         this.periodOptions.set(opts);
-        if (!this.periodFilter() && periods.length > 0) this.periodFilter.set(periods[0]!);
+        if (period && !periods.includes(period) && periods.length > 0) {
+          this.periodFilter.set('');
+          return;
+        }
         this.results.set(rows);
         this.loading.set(false);
       },
@@ -588,7 +612,7 @@ export class PrimeValidationPageComponent {
       .subscribe({
         next: () => {
           this.bulkBusy.set(false);
-          this.fetch();
+          this.fetch(this.periodFilter().trim());
         },
         error: (err) => {
           console.error('[PrimeValidationPage] bulkApprove error', err);

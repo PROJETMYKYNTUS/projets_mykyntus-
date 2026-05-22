@@ -106,13 +106,17 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
     public async Task<bool> IsPilotInReferentValidationScopeAsync(
         string referentUserId,
         string pilotEmployeeId,
+        string? actingReferentRole = null,
         CancellationToken ct = default)
     {
         if (db == null) return false;
         var referent = await GetEmployeeAsync(referentUserId, ct);
         var pilote = await GetEmployeeAsync(pilotEmployeeId, ct);
         if (referent is null || pilote is null || !IsPilotRole(pilote.Role)) return false;
-        if (!IsReferentTechniqueRole(referent.Role)) return false;
+        var roleForScope = string.IsNullOrWhiteSpace(actingReferentRole)
+            ? referent.Role
+            : actingReferentRole.Trim();
+        if (!IsReferentTechniqueRole(roleForScope)) return false;
 
         if (string.Equals(pilote.ParentId, referent.Id, StringComparison.Ordinal))
             return true;
@@ -134,6 +138,10 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
 
         if (!string.IsNullOrWhiteSpace(referent.CelluleId) &&
             string.Equals(pilote.CelluleId, referent.CelluleId, StringComparison.Ordinal))
+            return true;
+
+        if (!string.IsNullOrWhiteSpace(referent.ServiceId) &&
+            string.Equals(pilote.ServiceId, referent.ServiceId, StringComparison.Ordinal))
             return true;
 
         return false;

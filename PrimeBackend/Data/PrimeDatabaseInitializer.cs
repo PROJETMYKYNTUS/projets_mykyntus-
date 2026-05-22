@@ -36,6 +36,19 @@ public sealed class PrimeDatabaseInitializer(
 
         await EnsurePrimeMetierTablesExistAsync(db, cancellationToken);
 
+        var submission = scope.ServiceProvider.GetService<PrimeFicheValidationSubmissionService>();
+        if (submission is not null)
+        {
+            try
+            {
+                await PrimeValidationDemoRepair.ApplyAsync(db, submission, logger, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "PRIME : repair validation (sync) ignoré — nouvel essai via POST reconcile-ready.");
+            }
+        }
+
         // Seed / enrichissement en arrière-plan : ne bloque pas Kestrel (évite 502 gateway pendant l’enrichissement).
         _ = Task.Run(
             async () =>
@@ -82,6 +95,10 @@ public sealed class PrimeDatabaseInitializer(
 
             await PrimeDbEnrichmentSeeder.EnrichAsync(db, forceRepair, cancellationToken, logger);
         }
+
+        var submission = scope.ServiceProvider.GetService<PrimeFicheValidationSubmissionService>();
+        if (submission is not null)
+            await PrimeValidationDemoRepair.ApplyAsync(db, submission, logger, cancellationToken);
 
         var store = scope.ServiceProvider.GetRequiredService<PrimeInMemoryStore>();
         store.HydrateOrganizationFromDatabase(db);

@@ -34,6 +34,16 @@ public interface IPrimeRequestUserResolver
         string.Equals(ExpandRole(roleA), ExpandRole(roleB), StringComparison.Ordinal);
 
     Task<PrimeResolvedUser?> TryResolveAsync(HttpRequest request, string? bodyUserId, string? bodyRole, CancellationToken ct = default);
+
+    /// <summary>
+    /// Résolution pour les écrans de validation : employé par id, rôle d’action = rôle déclaré (UI / query),
+    /// sans exiger la cohérence avec <see cref="EmployeeEntity.Role"/> en base.
+    /// </summary>
+    Task<PrimeResolvedUser?> TryResolveForValidationAsync(
+        HttpRequest request,
+        string? queryUserId,
+        string? queryRole,
+        CancellationToken ct = default);
 }
 
 public sealed record PrimeResolvedUser(string UserId, string Role, EmployeeEntity Employee);

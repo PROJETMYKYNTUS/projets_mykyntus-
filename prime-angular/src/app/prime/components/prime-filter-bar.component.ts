@@ -7,6 +7,10 @@ export interface PrimeFilterBarFilter {
   options: { label: string; value: string }[];
   value: string;
   onChange: (val: string) => void;
+  /** Masque l’option « toutes ». */
+  hideAllOption?: boolean;
+  /** Libellé de l’option « toutes » (valeur vide). Ex. « Toutes les périodes ». */
+  allOptionLabel?: string;
 }
 
 @Component({
@@ -43,7 +47,9 @@ export interface PrimeFilterBarFilter {
               [value]="filter.value"
               (change)="filter.onChange($any($event.target).value)"
             >
-              <option value="">All {{ filter.name }}</option>
+              @if (!filter.hideAllOption) {
+                <option value="">{{ filter.allOptionLabel ?? ('Toutes les ' + filter.name.toLowerCase()) }}</option>
+              }
               @for (opt of filter.options; track opt.value) {
                 <option [value]="opt.value">{{ opt.label }}</option>
               }

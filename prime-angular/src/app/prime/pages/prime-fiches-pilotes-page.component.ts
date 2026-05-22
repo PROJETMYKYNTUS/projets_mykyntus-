@@ -7,10 +7,23 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ClipboardList, ChevronRight, Download, ExternalLink, Eye, Grid3x3, RefreshCw, User } from 'lucide';
+import {
+  Check,
+  ChevronRight,
+  ClipboardList,
+  Download,
+  ExternalLink,
+  Eye,
+  Grid3x3,
+  RefreshCw,
+  User,
+} from 'lucide';
 import { catchError, forkJoin, map, of, type Observable } from 'rxjs';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
-import { PrimeCellSaisieBlockComponent } from '../components/prime-cell-saisie-block.component';
+import {
+  PrimeCellSaisieBlockComponent,
+  type CellSaisieSaveResult,
+} from '../components/prime-cell-saisie-block.component';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
 import {
   draftResponseSaisieJson,
@@ -73,6 +86,8 @@ interface PilotageCelluleGroup {
   commonPartStatus: string;
   complete: number;
   readyForValidation: number;
+  readyCount: number;
+  submittedForValidationCount: number;
   inProgress: number;
   notStarted: number;
   aggregateState: string;
@@ -130,6 +145,16 @@ interface PilotageCelluleGroup {
         @if (error()) {
           <div class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200" role="alert">
             {{ error() }}
+          </div>
+        }
+
+        @if (pageNotice()) {
+          <div
+            class="rounded-lg border border-emerald-500/45 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-100 flex items-start gap-2"
+            role="status"
+          >
+            <app-lucide-icon [icon]="icons.check" className="w-5 h-5 shrink-0 mt-0.5" />
+            <span>{{ pageNotice() }}</span>
           </div>
         }
 
@@ -320,7 +345,7 @@ interface PilotageCelluleGroup {
                     [linkedTemplateId]="p.linkedTemplateId"
                     [celluleName]="p.celluleName"
                     [embedded]="true"
-                    (saved)="onPilotSaved()"
+                    (saved)="onPilotSaved($event)"
                   />
                 }
                 @if (!selectedPilot()) {
@@ -414,6 +439,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     board: ClipboardList,
     refresh: RefreshCw,
     chev: ChevronRight,
+    check: Check,
     external: ExternalLink,
     grid: Grid3x3,
     user: User,
@@ -434,6 +460,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
   readonly previewRows = signal<string[][]>([]);
   readonly previewErrors = signal<string[]>([]);
   readonly previewBanner = signal<string | null>(null);
+  readonly pageNotice = signal<string | null>(null);
 
   readonly pilotBlockRows = computed(() => {
     const s = this.selectedPilot();
@@ -465,11 +492,15 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
       const first = sorted[0];
       let complete = 0;
       let readyForValidation = 0;
+      let readyCount = 0;
+      let submittedForValidationCount = 0;
       let inProgress = 0;
       let notStarted = 0;
       for (const s of sorted) {
         complete += s.complete;
         readyForValidation += s.readyForValidation ?? 0;
+        readyCount += s.readyCount ?? 0;
+        submittedForValidationCount += s.submittedForValidationCount ?? 0;
         inProgress += s.inProgress;
         notStarted += s.notStarted;
       }
@@ -487,6 +518,8 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
         commonPartStatus: (first?.commonPartStatus ?? '').trim(),
         complete,
         readyForValidation,
+        readyCount,
+        submittedForValidationCount,
         inProgress,
         notStarted,
         aggregateState,
@@ -527,6 +560,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
   onPeriodChange(ev: Event): void {
     const v = (ev.target as HTMLInputElement).value;
     if (!v) return;
+    this.pageNotice.set(null);
     this.period.set(v);
     this.selectedPilot.set(null);
     void this.reload();
@@ -537,9 +571,20 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
   }
 
   reload(): void {
+    void this.loadPilotData(true);
+  }
+
+  /** Rafraîchit la liste sans masquer l’écran (après enregistrement cellule). */
+  private refreshPilotListOnly(): void {
+    void this.loadPilotData(false);
+  }
+
+  private loadPilotData(fullPageSpinner: boolean): void {
     const u = this.role.currentUser();
-    this.loading.set(true);
-    this.error.set(null);
+    if (fullPageSpinner) {
+      this.loading.set(true);
+      this.error.set(null);
+    }
     forkJoin({
       summary: this.api.cellsSummary(u.id, this.period()),
       scope: this.orgApi.getSupervisorScope(u.id).pipe(catchError(() => of([]))),
@@ -548,7 +593,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
         this.summary.set(rows);
         if (rows.length === 0) {
           this.employeesByServiceId.set({});
-          this.loading.set(false);
+          if (fullPageSpinner) this.loading.set(false);
           this.syncSelectionAfterReload();
           return;
         }
@@ -565,18 +610,18 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
             const m: Record<string, EmployeePrimeCellFicheListItemDto[]> = {};
             for (const p of parts) m[p.id] = p.emps;
             this.employeesByServiceId.set(m);
-            this.loading.set(false);
+            if (fullPageSpinner) this.loading.set(false);
             this.syncSelectionAfterReload();
           },
           error: (e) => {
             this.error.set(httpErr(e));
-            this.loading.set(false);
+            if (fullPageSpinner) this.loading.set(false);
           },
         });
       },
       error: (e) => {
         this.error.set(httpErr(e));
-        this.loading.set(false);
+        if (fullPageSpinner) this.loading.set(false);
       },
     });
   }
@@ -585,12 +630,19 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     const cur = this.selectedPilot();
     if (!cur) return;
     const list = this.employeesForService(cur.serviceId);
-    if (!list.some((e) => e.employeeId === cur.employeeId)) {
+    const updated = list.find((e) => e.employeeId === cur.employeeId);
+    if (!updated) {
       this.selectedPilot.set(null);
+      return;
     }
+    this.selectedPilot.set({
+      ...cur,
+      fillingStatus: updated.fillingStatus,
+    });
   }
 
   selectPilot(emp: EmployeePrimeCellFicheListItemDto, cell: CellPilotageSummaryDto): void {
+    this.pageNotice.set(null);
     const name =
       (cell.linkedTemplateDisplayName ?? '').trim() ||
       (cell.linkedTemplateId ?? '').trim() ||
@@ -729,23 +781,28 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     const fill = emp.fillingStatus.trim().toLowerCase();
     const green =
       'inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_0_1px_rgba(16,185,129,0.35)]';
+    const greenSoft =
+      'inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400/90 shadow-[0_0_0_1px_rgba(52,211,153,0.35)]';
     const amber =
       'inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]';
     const rose =
       'inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500 shadow-[0_0_0_1px_rgba(244,63,94,0.35)]';
     if (emp.isReadyForValidation === true || val === 'pending') return green;
-    if (fill === 'complete') return amber;
+    if (fill === 'complete') return greenSoft;
     if (fill === 'inprogress') return amber;
     return rose;
   }
 
   rollupCountsLabel(grp: PilotageCelluleGroup): string {
-    return `${grp.complete} cellule OK · ${grp.readyForValidation} soumise(s) validation · ${grp.inProgress} en cours · ${grp.notStarted} pas commencé`;
+    const ready = grp.readyCount ?? 0;
+    const submitted = grp.submittedForValidationCount ?? 0;
+    return `${grp.complete} cellule OK · ${ready} prête(s) · ${submitted} soumise(s) validation · ${grp.inProgress} en cours · ${grp.notStarted} pas commencé`;
   }
 
   serviceCountsLabel(svc: CellPilotageSummaryDto): string {
-    const ready = svc.readyForValidation ?? 0;
-    return `${svc.complete} cellule OK · ${ready} soumise(s) validation · ${svc.inProgress} en cours · ${svc.notStarted} pas commencé`;
+    const ready = svc.readyCount ?? 0;
+    const submitted = svc.submittedForValidationCount ?? 0;
+    return `${svc.complete} cellule OK · ${ready} prête(s) · ${submitted} soumise(s) validation · ${svc.inProgress} en cours · ${svc.notStarted} pas commencé`;
   }
 
   commonPartStatusLabel(status: string): string {
@@ -791,7 +848,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     const fill = emp.fillingStatus.trim().toLowerCase();
     if (emp.isReadyForValidation === true && val === 'pending') return 'Valid.';
     if (val === 'pending') return 'Valid.';
-    if (fill === 'complete' && emp.isReadyForValidation !== true) return 'Commune';
+    if (fill === 'complete' && emp.isReadyForValidation !== true) return 'Cellule OK';
     if (emp.isReadyForValidation === true) return 'Prête';
     return this.statusShort(emp.fillingStatus);
   }
@@ -807,13 +864,14 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
       return 'Partie cellule complète — validez la partie commune pour lancer la validation';
     }
     if (emp.isReadyForValidation === true) {
-      return 'Partie commune validée et partie cellule complète — actualisez si la soumission n’apparaît pas';
+      return 'Prête — soumission au workflow en attente. Actualisez la page ; la fiche doit passer en « Valid. » puis apparaître chez le référent technique.';
     }
     return this.statusShort(emp.fillingStatus);
   }
 
-  onPilotSaved(): void {
-    void this.reload();
+  onPilotSaved(result: CellSaisieSaveResult): void {
+    this.pageNotice.set(result.message);
+    this.refreshPilotListOnly();
   }
 
   openFullPage(): void {

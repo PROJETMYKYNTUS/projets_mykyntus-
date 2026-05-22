@@ -88,7 +88,8 @@ public sealed class PrimePilotageController(
             var notStarted = 0;
             var inProgress = 0;
             var complete = 0;
-            var readyForValidation = 0;
+            var readyCount = 0;
+            var submittedForValidation = 0;
             foreach (var p in pilots)
             {
                 var f = serviceFiches.FirstOrDefault(x => x.EmployeeId == p.Id);
@@ -97,13 +98,29 @@ public sealed class PrimePilotageController(
                 else if (string.Equals(st, "InProgress", StringComparison.OrdinalIgnoreCase)) inProgress++;
                 else notStarted++;
 
-                if (f is not null && cellDraft is not null &&
-                    PrimeFicheValidationSubmissionService.ComputeIsReadyForValidation(cellDraft, f))
-                    readyForValidation++;
-                else if (f is not null &&
-                         string.Equals(f.ValidationStatus, PrimeValidationWorkflowService.Pending, StringComparison.Ordinal))
-                    readyForValidation++;
+                if (f is null) continue;
+
+                var isPending = string.Equals(
+                    f.ValidationStatus,
+                    PrimeValidationWorkflowService.Pending,
+                    StringComparison.Ordinal);
+                if (isPending)
+                {
+                    submittedForValidation++;
+                    continue;
+                }
+
+                var ready = false;
+                if (submission is not null)
+                    ready = await submission.ComputeIsReadyForValidationAsync(f, ct);
+                else if (cellDraft is not null)
+                    ready = PrimeFicheValidationSubmissionService.ComputeIsReadyForValidation(cellDraft, f);
+
+                if (ready)
+                    readyCount++;
             }
+
+            var readyForValidation = readyCount + submittedForValidation;
 
             var poolOk = cellDraft is not null && cellDraft.GlobalPoolManagerApprovedAt.HasValue &&
                          cellDraft.GlobalPoolRhApprovedAt.HasValue;
@@ -124,6 +141,8 @@ public sealed class PrimePilotageController(
                 NotStarted = notStarted,
                 InProgress = inProgress,
                 Complete = complete,
+                ReadyCount = readyCount,
+                SubmittedForValidationCount = submittedForValidation,
                 ReadyForValidation = readyForValidation,
                 CommonPartStatus = cellDraft?.Status,
                 ServiceAggregateState = AggregateState(total, notStarted, inProgress, complete),

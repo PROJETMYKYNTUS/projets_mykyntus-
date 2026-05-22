@@ -20,12 +20,16 @@ public class ApiExceptionMiddleware(RequestDelegate next)
                 InvalidOperationException => HttpStatusCode.Conflict,
                 _ => HttpStatusCode.InternalServerError
             };
+            var message = ex.Message;
+            if (ex is Microsoft.EntityFrameworkCore.DbUpdateException dbEx && dbEx.InnerException?.Message is { } inner)
+                message = $"{dbEx.Message} — {inner}";
+
             context.Response.StatusCode = (int)status;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsJsonAsync(new
             {
                 success = false,
-                error = ex.Message,
+                error = message,
                 code = status.ToString()
             });
         }

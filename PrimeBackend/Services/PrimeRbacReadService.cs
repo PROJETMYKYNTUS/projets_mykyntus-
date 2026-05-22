@@ -65,7 +65,23 @@ public sealed class PrimeRbacReadService(PrimeDbContext db, PrimeOrgScopeService
         EmployeeEntity referent,
         EmployeePrimeServiceFicheEntity fiche,
         CancellationToken ct = default) =>
-        org.IsPilotInReferentValidationScopeAsync(referent.Id, fiche.EmployeeId, ct);
+        org.IsPilotInReferentValidationScopeAsync(referent.Id, fiche.EmployeeId, referent.Role, ct);
+
+    /// <summary>Clone employé avec le rôle d’action UI (validation en mode changement de rôle).</summary>
+    public static EmployeeEntity WithActingRole(EmployeeEntity source, string actingRole) =>
+        new()
+        {
+            Id = source.Id,
+            FirstName = source.FirstName,
+            LastName = source.LastName,
+            Role = actingRole.Trim(),
+            ParentId = source.ParentId,
+            ServiceId = source.ServiceId,
+            CelluleId = source.CelluleId,
+            PoleId = source.PoleId,
+            Email = source.Email,
+            Avatar = source.Avatar,
+        };
 
     public async Task<bool> CanAccessFicheAsync(EmployeeEntity actor, EmployeePrimeServiceFicheEntity fiche, string action, CancellationToken ct)
     {

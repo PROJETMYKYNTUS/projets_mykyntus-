@@ -22,7 +22,8 @@ public sealed class PrimeValidationController(
     PrimeValidationListService? validationList,
     PrimeFicheValidationSubmissionService? submission,
     AnomalyDetectionService? anomalies,
-    GlobalPoolWorkflowService? poolWf) : ControllerBase
+    GlobalPoolWorkflowService? poolWf,
+    ILogger<PrimeValidationController> logger) : ControllerBase
 {
 
     private const string GlobalPoolRoleFicheErrorMessage =
@@ -35,9 +36,17 @@ public sealed class PrimeValidationController(
     [HttpPost("reconcile-ready")]
     public async Task<ActionResult<object>> ReconcileReady(CancellationToken ct)
     {
-        if (submission is null) return StatusCode(503, new { error = "Base de données non configurée." });
-        var n = await submission.ReconcileReadySubmissionsAsync(ct);
-        return Ok(new { reconciled = n });
+        if (db is null || submission is null)
+            return StatusCode(503, new { error = "Base de données non configurée." });
+        var repair = await RunValidationRepairAsync(ct);
+        return Ok(new
+        {
+            reconciled = repair.ReconciledGlobal + repair.ReconciledByPeriod,
+            draftsValidated = repair.DraftsValidated,
+            fichesEnsured = repair.FichesEnsured,
+            reconciledGlobal = repair.ReconciledGlobal,
+            reconciledByPeriod = repair.ReconciledByPeriod,
+        });
     }
 
     [HttpGet("workflow-meta")]
@@ -84,14 +93,15 @@ public sealed class PrimeValidationController(
         if (db == null || validationList is null)
             return StatusCode(503, new { error = "Base de données non configurée." });
 
-        var ruEarly = userResolver is null ? null : await userResolver.TryResolveAsync(Request, userId, role, ct);
+        var applyReadyOnly = readyOnly ?? PrimeValidationListService.ShouldDefaultReadyOnly(role);
+
+        var ruEarly = await ResolveValidationUserOrNullAsync(userId, role, ct);
+        if (ruEarly is null && ValidationIdentityRequired(userId, role))
+            return Unauthorized(ValidationIdentityError);
         if (ruEarly is not null && IsBlockedGlobalPoolRoleOnFicheApi(ruEarly.Role))
             return BadRequest(new { error = GlobalPoolRoleFicheErrorMessage });
 
-        var applyReadyOnly = readyOnly ?? PrimeValidationListService.ShouldDefaultReadyOnly(role);
-
-        if (submission is not null)
-            await submission.ReconcileReadySubmissionsAsync(ct);
+        await ReconcileForValidationReadAsync(period, ct);
 
         var query = db.EmployeePrimeServiceFiches.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(period)) query = query.Where(f => f.Period == period.Trim());
@@ -101,7 +111,7 @@ public sealed class PrimeValidationController(
                 return BadRequest(new { error = "Statut invalide ou inconnu du workflow." });
             query = query.Where(f => f.ValidationStatus == status.Trim());
         }
-        else
+        else if (!applyReadyOnly)
         {
             query = query.Where(f => f.ValidationStatus != PrimeValidationWorkflowService.AwaitingData);
         }
@@ -113,18 +123,8 @@ public sealed class PrimeValidationController(
         if (!string.IsNullOrWhiteSpace(celluleId)) query = query.Where(f => f.CelluleId == celluleId.Trim());
 
         var items = await query.OrderByDescending(f => f.UpdatedAt).Take(5000).ToListAsync(ct);
-        var ru = userResolver is null ? null : await userResolver.TryResolveAsync(Request, userId, role, ct);
-        if (ru is not null && rbac is not null)
-        {
-            var filtered = new List<EmployeePrimeServiceFicheEntity>();
-            foreach (var f in items)
-            {
-                if (await rbac.CanAccessFicheAsync(ru.Employee, f, "Read", ct) ||
-                    await rbac.CanAccessFicheAsync(ru.Employee, f, "Validate", ct))
-                    filtered.Add(f);
-            }
-            items = filtered;
-        }
+        var ru = ruEarly ?? await ResolveValidationUserOrNullAsync(userId, role, ct);
+        items = await FilterItemsByValidationRbacAsync(items, ru, ct);
 
         return Ok(await validationList.MapValidationDtosAsync(items, ct));
     }
@@ -144,41 +144,61 @@ public sealed class PrimeValidationController(
 
         var applyReadyOnly = readyOnly ?? PrimeValidationListService.ShouldDefaultReadyOnly(role);
 
-        if (submission is not null)
-            await submission.ReconcileReadySubmissionsAsync(ct);
+        var ruEarly = await ResolveValidationUserOrNullAsync(userId, role, ct);
+        if (ruEarly is null && ValidationIdentityRequired(userId, role))
+            return Unauthorized(ValidationIdentityError);
+
+        await ReconcileForValidationReadAsync(period, ct);
 
         var query = db.EmployeePrimeServiceFiches.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(period)) query = query.Where(f => f.Period == period.Trim());
         if (!string.IsNullOrWhiteSpace(serviceId)) query = query.Where(f => f.ServiceId == serviceId.Trim());
         if (!string.IsNullOrWhiteSpace(celluleId)) query = query.Where(f => f.CelluleId == celluleId.Trim());
-        query = query.Where(f => f.ValidationStatus != PrimeValidationWorkflowService.AwaitingData);
-        if (applyReadyOnly && validationList is not null)
+        if (!applyReadyOnly)
+            query = query.Where(f => f.ValidationStatus != PrimeValidationWorkflowService.AwaitingData);
+        if (applyReadyOnly)
             query = validationList.ApplyReadyForValidationFilter(query);
 
         var items = await query.Take(5000).ToListAsync(ct);
-        var ru = userResolver is null ? null : await userResolver.TryResolveAsync(Request, userId, role, ct);
-        if (ru is not null && rbac is not null)
-        {
-            var filtered = new List<EmployeePrimeServiceFicheEntity>();
-            foreach (var f in items)
-            {
-                if (await rbac.CanAccessFicheAsync(ru.Employee, f, "Read", ct) ||
-                    await rbac.CanAccessFicheAsync(ru.Employee, f, "Validate", ct))
-                    filtered.Add(f);
-            }
-            items = filtered;
-        }
+        var ru = ruEarly ?? await ResolveValidationUserOrNullAsync(userId, role, ct);
+        items = await FilterItemsByValidationRbacAsync(items, ru, ct);
 
         var grouped = items.GroupBy(f => f.ValidationStatus)
             .Select(g => new WorkflowStatusCountDto { Status = g.Key, Count = g.Count() })
             .OrderBy(x => x.Status)
             .ToList();
         var terminals = await wfRuntime.GetTerminalStatusesAsync(ct);
+
+        var readyNotSubmitted = 0;
+        if (submission is not null && rbac is not null && ru is not null)
+        {
+            var actor = PrimeRbacReadService.WithActingRole(ru.Employee, ru.Role);
+            var preQuery = db.EmployeePrimeServiceFiches.AsNoTracking().AsQueryable();
+            if (!string.IsNullOrWhiteSpace(period)) preQuery = preQuery.Where(f => f.Period == period.Trim());
+            if (!string.IsNullOrWhiteSpace(serviceId)) preQuery = preQuery.Where(f => f.ServiceId == serviceId.Trim());
+            if (!string.IsNullOrWhiteSpace(celluleId)) preQuery = preQuery.Where(f => f.CelluleId == celluleId.Trim());
+            preQuery = preQuery.Where(f =>
+                (f.ValidationStatus == PrimeValidationWorkflowService.AwaitingData ||
+                 f.ValidationStatus == "NotStarted") &&
+                EF.Functions.ILike(f.FillingStatus, "complete"));
+            if (applyReadyOnly)
+                preQuery = validationList.ApplyReadyForValidationFilter(preQuery);
+
+            var preItems = await preQuery.Take(5000).ToListAsync(ct);
+            foreach (var f in preItems)
+            {
+                if (!await rbac.CanAccessFicheAsync(actor, f, "Read", ct)) continue;
+                if (await submission.ComputeIsReadyForValidationAsync(f, ct))
+                    readyNotSubmitted++;
+            }
+        }
+
         return Ok(new WorkflowValidationSummaryDto
         {
             StatusCounts = grouped,
             TerminalStatuses = terminals,
             Total = items.Count,
+            ReadyNotSubmittedCount = readyNotSubmitted,
         });
     }
 
@@ -202,9 +222,9 @@ public sealed class PrimeValidationController(
         CancellationToken ct)
     {
         if (db == null || wfRuntime == null) return StatusCode(503, new { error = "Base de données non configurée." });
-        var ru = userResolver is null ? null : await userResolver.TryResolveAsync(Request, body.UserId, body.Role, ct);
+        var ru = await ResolveValidationUserOrNullAsync(body.UserId, body.Role, ct);
         if (ru is null)
-            return Unauthorized(new { error = "Utilisateur / rôle invalides ou incohérents avec la base." });
+            return Unauthorized(ValidationIdentityError);
 
         if (IsBlockedGlobalPoolRoleOnFicheApi(ru.Role))
             return BadRequest(new { error = GlobalPoolRoleFicheErrorMessage });
@@ -214,11 +234,12 @@ public sealed class PrimeValidationController(
         var fiche = await db.EmployeePrimeServiceFiches.FirstOrDefaultAsync(f => f.Id == id, ct);
         if (fiche == null) return NotFound();
 
+        var actor = PrimeRbacReadService.WithActingRole(ru.Employee, ru.Role);
         if (rbac is not null)
         {
             if (!await rbac.RoleHasActionAsync(ru.Role, "Validate", ct))
                 return StatusCode(403, new { error = "Action « Validate » non autorisée pour ce rôle (RBAC)." });
-            if (!await rbac.CanAccessFicheAsync(ru.Employee, fiche, "Validate", ct))
+            if (!await rbac.CanAccessFicheAsync(actor, fiche, "Validate", ct))
                 return StatusCode(403, new { error = "Périmètre RBAC insuffisant pour cette fiche." });
         }
 
@@ -252,9 +273,9 @@ public sealed class PrimeValidationController(
         if (global?.RequireRejectReason == true && string.IsNullOrWhiteSpace(body.Reason))
             return BadRequest(new { error = "Un motif de rejet est obligatoire." });
 
-        var ru = userResolver is null ? null : await userResolver.TryResolveAsync(Request, body.UserId, body.Role, ct);
+        var ru = await ResolveValidationUserOrNullAsync(body.UserId, body.Role, ct);
         if (ru is null)
-            return Unauthorized(new { error = "Utilisateur / rôle invalides ou incohérents avec la base." });
+            return Unauthorized(ValidationIdentityError);
 
         if (IsBlockedGlobalPoolRoleOnFicheApi(ru.Role))
             return BadRequest(new { error = GlobalPoolRoleFicheErrorMessage });
@@ -264,11 +285,12 @@ public sealed class PrimeValidationController(
         var fiche = await db.EmployeePrimeServiceFiches.FirstOrDefaultAsync(f => f.Id == id, ct);
         if (fiche == null) return NotFound();
 
+        var actor = PrimeRbacReadService.WithActingRole(ru.Employee, ru.Role);
         if (rbac is not null)
         {
             if (!await rbac.RoleHasActionAsync(ru.Role, "Validate", ct))
                 return StatusCode(403, new { error = "Action « Validate » non autorisée pour ce rôle (RBAC)." });
-            if (!await rbac.CanAccessFicheAsync(ru.Employee, fiche, "Validate", ct))
+            if (!await rbac.CanAccessFicheAsync(actor, fiche, "Validate", ct))
                 return StatusCode(403, new { error = "Périmètre RBAC insuffisant pour cette fiche." });
         }
 
@@ -295,9 +317,9 @@ public sealed class PrimeValidationController(
         if (global?.AllowBulkApprove == false)
             return BadRequest(new { error = "L'approbation groupée est désactivée dans la configuration workflow." });
 
-        var ru = userResolver is null ? null : await userResolver.TryResolveAsync(Request, body.UserId, body.Role, ct);
+        var ru = await ResolveValidationUserOrNullAsync(body.UserId, body.Role, ct);
         if (ru is null)
-            return Unauthorized(new { error = "Utilisateur / rôle invalides ou incohérents avec la base." });
+            return Unauthorized(ValidationIdentityError);
 
         if (IsBlockedGlobalPoolRoleOnFicheApi(ru.Role))
             return BadRequest(new { error = GlobalPoolRoleFicheErrorMessage });
@@ -313,6 +335,7 @@ public sealed class PrimeValidationController(
         if (body.FicheIds is null || body.FicheIds.Count == 0)
             return BadRequest(new { error = "Aucune fiche fournie." });
 
+        var actor = PrimeRbacReadService.WithActingRole(ru.Employee, ru.Role);
         var fiches = await db.EmployeePrimeServiceFiches
             .Where(f => body.FicheIds.Contains(f.Id))
             .ToListAsync(ct);
@@ -322,7 +345,7 @@ public sealed class PrimeValidationController(
         var ignored = new List<Guid>();
         foreach (var f in fiches)
         {
-            if (rbac is not null && !await rbac.CanAccessFicheAsync(ru.Employee, f, "Validate", ct))
+            if (rbac is not null && !await rbac.CanAccessFicheAsync(actor, f, "Validate", ct))
             {
                 ignored.Add(f.Id);
                 continue;
@@ -437,5 +460,72 @@ public sealed class PrimeValidationController(
         if (s.Contains(',') || s.Contains('"') || s.Contains('\n'))
             return $"\"{s.Replace("\"", "\"\"")}\"";
         return s;
+    }
+
+    private const string ValidationIdentityError =
+        "Utilisateur introuvable ou identité de validation incomplète (userId / rôle requis).";
+
+    private static bool ValidationIdentityRequired(string? userId, string? role) =>
+        !string.IsNullOrWhiteSpace(userId) || !string.IsNullOrWhiteSpace(role);
+
+    private async Task<PrimeResolvedUser?> ResolveValidationUserOrNullAsync(
+        string? userId,
+        string? role,
+        CancellationToken ct) =>
+        userResolver is null
+            ? null
+            : await userResolver.TryResolveForValidationAsync(Request, userId, role, ct);
+
+    private async Task ReconcileForValidationReadAsync(string? period, CancellationToken ct)
+    {
+        try
+        {
+            if (submission is not null)
+            {
+                if (!string.IsNullOrWhiteSpace(period))
+                    await submission.SyncValidatedDraftsForPeriodAsync(period.Trim(), ct);
+                else
+                    await submission.SyncAllValidatedDraftsAsync(ct);
+            }
+
+            await RunValidationReconcileOnlyAsync(ct);
+            if (!string.IsNullOrWhiteSpace(period) && submission is not null)
+                await submission.ReconcileReadySubmissionsForPeriodAsync(period.Trim(), ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "PRIME validation : reconcile lecture ignoré (période {Period}).", period);
+        }
+    }
+
+    private async Task<PrimeValidationDemoRepair.Result> RunValidationRepairAsync(CancellationToken ct)
+    {
+        if (db is null || submission is null)
+            return new PrimeValidationDemoRepair.Result(0, 0, 0, 0);
+        return await PrimeValidationDemoRepair.ApplyAsync(db, submission, logger, ct);
+    }
+
+    private async Task<PrimeValidationDemoRepair.Result> RunValidationReconcileOnlyAsync(CancellationToken ct)
+    {
+        if (db is null || submission is null)
+            return new PrimeValidationDemoRepair.Result(0, 0, 0, 0);
+        return await PrimeValidationDemoRepair.ReconcileOnlyAsync(db, submission, logger, ct);
+    }
+
+    private async Task<List<EmployeePrimeServiceFicheEntity>> FilterItemsByValidationRbacAsync(
+        List<EmployeePrimeServiceFicheEntity> items,
+        PrimeResolvedUser? ru,
+        CancellationToken ct)
+    {
+        if (ru is null || rbac is null) return items;
+        var actor = PrimeRbacReadService.WithActingRole(ru.Employee, ru.Role);
+        var filtered = new List<EmployeePrimeServiceFicheEntity>();
+        foreach (var f in items)
+        {
+            if (await rbac.CanAccessFicheAsync(actor, f, "Read", ct) ||
+                await rbac.CanAccessFicheAsync(actor, f, "Validate", ct))
+                filtered.Add(f);
+        }
+        return filtered;
     }
 }

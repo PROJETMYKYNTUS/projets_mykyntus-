@@ -58,6 +58,8 @@ export interface DemandeCongeDto {
   commentaireManager: string | null;
   dateDemande:        string;
   dateDecision:       string | null;
+  nomEmploye?: string;
+prenomEmploye?: string;
 }
 
 export interface SoldeCongeDto {

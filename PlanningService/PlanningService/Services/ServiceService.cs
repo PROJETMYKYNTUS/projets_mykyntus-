@@ -185,6 +185,33 @@ public class ServiceService : IServiceService
             SubServicesCount = service.SubServices.Count
         };
     }
+    public async Task<List<ServiceDetailDto>> GetAllServicesWithSubServicesAsync()
+    {
+        return await _context.Services
+            .Include(s => s.Floor)
+            .Include(s => s.SubServices)
+            .OrderBy(s => s.Floor.Name)
+            .ThenBy(s => s.Name)
+            .Select(s => new ServiceDetailDto
+            {
+                Id = s.Id,
+                FloorId = s.FloorId,
+                FloorName = s.Floor.Name,
+                Name = s.Name,
+                Code = s.Code,
+                SubServices = s.SubServices
+                    .OrderBy(ss => ss.Name)
+                    .Select(ss => new SubServiceDto
+                    {
+                        Id = ss.Id,
+                        ServiceId = ss.ServiceId,
+                        ServiceName = s.Name,
+                        Name = ss.Name,
+                        Code = ss.Code
+                    }).ToList()
+            })
+            .ToListAsync();
+    }
 
     public async Task<bool> DeleteServiceAsync(int id)
     {

@@ -36,6 +36,13 @@ export class ServiceService {
       catchError(err => throwError(() => err))
     );
   }
+  
+  getAllServicesWithSubServices(): Observable<ServiceDetail[]> {
+  return this.http.get<ServiceDetail[]>(`${this.apiUrl}/with-subservices`).pipe(
+    tap(data => console.log('Services with subservices:', data)),
+    catchError(err => throwError(() => err))
+  );
+}
 
   getServiceDetails(id: number): Observable<ServiceDetail> {
     return this.http.get<ServiceDetail>(`${this.apiUrl}/${id}/details`).pipe(

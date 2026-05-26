@@ -59,7 +59,7 @@ export class CongeEmployeComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.userSvc.getUserById(this.authSvc.getAuthUserId()).subscribe({
+   this.userSvc.getUserByAuthId(this.authSvc.getAuthUserId()).subscribe({
       next: (user) => {
         this.employeId = user.guid;
         console.log('✅ employeId GUID :', this.employeId);

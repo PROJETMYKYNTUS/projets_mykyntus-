@@ -80,15 +80,20 @@
 </td>
                 <td><span class="badge badge-role">{{ user.roleName }}</span></td>
                 <td>{{ user.subServiceName || '—' }}</td>
-                <td>
-                  <div class="tags-container">
-                    @for (sub of user.managedSubServices; track sub.id) {
-                      <span class="tag">{{ sub.name }}</span>
-                    } @empty {
-                      <span class="muted">—</span>
-                    }
-                  </div>
-                </td>
+           <!-- ✅ AFFICHE services + subservices -->
+<td>
+  <div class="tags-container">
+    @for (svc of user.managedServices; track svc.id) {
+      <span class="tag tag-service">🏢 {{ svc.name }}</span>
+    }
+    @for (sub of user.managedSubServices; track sub.id) {
+      <span class="tag tag-sub">📂 {{ sub.name }}</span>
+    }
+    @if (user.managedServices.length === 0 && user.managedSubServices.length === 0) {
+      <span class="muted">—</span>
+    }
+  </div>
+</td>
                 <td>{{ user.hireDate | date:'dd/MM/yyyy' }}</td>
                 <td><span class="text-small">{{ getAnciennete(user.hireDate) }}</span></td>
                 <td>

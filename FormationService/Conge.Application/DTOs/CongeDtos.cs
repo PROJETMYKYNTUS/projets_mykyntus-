@@ -16,7 +16,9 @@ public record DemandeCongeDto(
     string? Motif,
     string? CommentaireManager,
     DateTime DateDemande,
-    DateTime? DateDecision
+    DateTime? DateDecision,
+    string? NomEmploye,      // ✅ AJOUTER
+    string? PrenomEmploye    // ✅ AJOUTER
 );
 
 public record SoldeCongeDto(

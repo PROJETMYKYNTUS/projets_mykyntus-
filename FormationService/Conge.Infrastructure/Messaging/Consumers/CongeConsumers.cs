@@ -31,27 +31,26 @@ public class EmployeCreatedConsumer : IConsumer<EmployeCreatedMessage>
     {
         var msg = context.Message;
 
-        // Idempotence : vérifier si le snapshot existe déjà
         var exists = await _employeRepo.ExistsAsync(msg.EmployeId, context.CancellationToken);
-        if (exists) return;
+        if (!exists)
+        {
+            var snapshot = EmployeSnapshot.Creer(
+                msg.EmployeId,
+                msg.Nom,
+                msg.Prenom,
+                msg.Email,
+                msg.ManagerId,
+                msg.ServiceId,
+                msg.ServiceNom,
+                msg.DateEmbauche,
+                msg.EstMineur);
+            await _employeRepo.AddAsync(snapshot, context.CancellationToken);
+            await _unitOfWork.SaveChangesAsync(context.CancellationToken);
+        }
 
-        // Créer le snapshot
-        var snapshot = EmployeSnapshot.Creer(
-            msg.EmployeId,
-            msg.Nom,
-            msg.Prenom,
-            msg.Email,
-            msg.ManagerId,
-            msg.ServiceId,
-            msg.ServiceNom,
-            msg.DateEmbauche,
-            msg.EstMineur);
-
-        await _employeRepo.AddAsync(snapshot, context.CancellationToken);
-        await _unitOfWork.SaveChangesAsync(context.CancellationToken);
-
-        // Initialiser le solde de l'année courante via MediatR
-        var anciennete = snapshot.GetAncienneteAnnees();
+        // ✅ Toujours initialiser le solde (idempotent côté handler)
+        var employe = await _employeRepo.GetByEmployeIdAsync(msg.EmployeId, context.CancellationToken);
+        var anciennete = employe!.GetAncienneteAnnees();
         await _mediator.Send(new InitialiserSoldeCommand(
             msg.EmployeId,
             anciennete,

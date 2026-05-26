@@ -19,4 +19,6 @@ public class Service
     public string Code { get; set; }
 
     public ICollection<SubService> SubServices { get; set; }
+    // 🆕 AJOUTER cette ligne dans Service.cs
+    public ICollection<UserManagedService> ManagedByUsers { get; set; } = new List<UserManagedService>();
 }

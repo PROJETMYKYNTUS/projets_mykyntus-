@@ -28,19 +28,21 @@ public class GetDemandesByEmployeQueryHandler
             demandes = demandes.Where(d => d.Statut == request.Statut.Value);
 
         return demandes.Select(d => new DemandeCongeDto(
-            d.Id,
-            d.EmployeId,
-            d.ManagerId,
-            d.TypeConge,
-            d.TypeExceptionnel,
-            d.DateDebut,
-            d.DateFin,
-            d.NombreJours,
-            d.Statut,
-            d.Motif,
-            d.CommentaireManager,
-            d.DateDemande,
-            d.DateDecision
-        ));
+           d.Id,
+           d.EmployeId,
+           d.ManagerId,
+           d.TypeConge,
+           d.TypeExceptionnel,
+           d.DateDebut,
+           d.DateFin,
+           d.NombreJours,
+           d.Statut,
+           d.Motif,
+           d.CommentaireManager,
+           d.DateDemande,
+           d.DateDecision,
+           null,   // ✅ NomEmploye
+           null    // ✅ PrenomEmploye
+       ));
     }
 }

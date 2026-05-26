@@ -123,10 +123,12 @@
       </thead>
       <tbody>
         <tr *ngFor="let d of demandesFiltrees" [class.row-pending]="d.statut === StatutDemande.EnAttente">
-          <td class="cm-td-employe">
-            <div class="cm-avatar">{{ d.employeId.substring(0,2).toUpperCase() }}</div>
-            <span>{{ d.employeId | slice:0:8 }}…</span>
-          </td>
+      <td class="cm-td-employe">
+    <div class="cm-avatar">
+        {{ (d.prenomEmploye || d.employeId).substring(0,1).toUpperCase() }}{{ (d.nomEmploye || '').substring(0,1).toUpperCase() }}
+    </div>
+    <span>{{ d.prenomEmploye || '' }} {{ d.nomEmploye || (d.employeId | slice:0:8) + '…' }}</span>
+</td>
           <td>
             {{ typeCongeLabels[d.typeConge] }}
             <small *ngIf="d.typeExceptionnel" class="cm-sub-type">{{ exceptionnelLabels[d.typeExceptionnel] }}</small>

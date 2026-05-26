@@ -15,5 +15,6 @@ namespace AuthService.DTO
         [Required(ErrorMessage = "Le mot de passe est requis")]
         [StringLength(100, MinimumLength = 6, ErrorMessage = "Le mot de passe doit contenir au moins 6 caractères")]
         public required string Password { get; set; }
+        public int? RoleId { get; set; }
     }
 }

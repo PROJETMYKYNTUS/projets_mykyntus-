@@ -5,10 +5,16 @@ import { catchError, tap } from 'rxjs/operators';
 import { User, CreateUserDto, UpdateUserDto } from '../users-module';
 import { environment } from '../../../../environments/environment';
 
+
+
+export interface RoleOption {
+  id: number;
+  name: string;
+}
 @Injectable({ providedIn: 'root' })
 export class UserService {
   private apiUrl = `${environment.apiUrl}/users`;
-
+  private rolesUrl = `${environment.apiUrl}/roles`;
   constructor(private http: HttpClient) {}
 
   getAllUsers(): Observable<User[]> {
@@ -41,6 +47,12 @@ export class UserService {
       catchError(err => throwError(() => err))
     );
   }
+  // Ajouter cette méthode
+getUserByAuthId(authId: number): Observable<User> {
+  return this.http.get<User>(`${this.apiUrl}/by-auth/${authId}`).pipe(
+    catchError(err => throwError(() => err))
+  );
+}
 
   deleteUser(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`).pipe(
@@ -51,6 +63,11 @@ export class UserService {
   checkEmailUnique(email: string, excludeId?: number): Observable<{ isUnique: boolean }> {
     const params = excludeId ? `?excludeId=${excludeId}` : '';
     return this.http.get<{ isUnique: boolean }>(`${this.apiUrl}/check-email/${email}${params}`).pipe(
+      catchError(err => throwError(() => err))
+    );
+  }
+  getRoles(): Observable<RoleOption[]> {
+    return this.http.get<RoleOption[]>(this.rolesUrl).pipe(
       catchError(err => throwError(() => err))
     );
   }

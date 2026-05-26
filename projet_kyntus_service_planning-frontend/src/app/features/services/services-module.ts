@@ -13,7 +13,16 @@ export interface ServiceDetail {
   floorName: string;
   name: string;
   code: string;
-  subServices: any[];
+  subServices: SubServiceSimple[];  // 🆕 typé
+}
+
+// 🆕 AJOUTER
+export interface SubServiceSimple {
+  id: number;
+  serviceId: number;
+  serviceName: string;
+  name: string;
+  code: string;
 }
 
 export interface CreateServiceDto {

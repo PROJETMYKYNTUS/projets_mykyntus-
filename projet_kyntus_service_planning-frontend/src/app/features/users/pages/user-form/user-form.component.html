@@ -1,147 +1,228 @@
 <div class="page">
-  <div class="page-header">
-    <div class="header-left">
-      <button class="btn btn-back" (click)="goBack()">← Retour</button>
-      <div>
-        <h1>{{ isEditMode ? "Modifier l'Employé" : 'Nouvel Employé' }}</h1>
-        <p class="subtitle">{{ isEditMode ? 'Mettre à jour les informations' : 'Créer un nouveau compte employé' }}</p>
+  <div class="page-shell">
+    <div class="page-header">
+      <div class="header-left">
+        <button class="btn btn-back" type="button" (click)="goBack()">
+          <span class="btn-back-icon">←</span>
+          <span>Retour</span>
+        </button>
+
+        <div class="header-copy">
+          <span class="eyebrow">Gestion des employés</span>
+          <h1>{{ isEditMode ? "Modifier l'Employé" : "Nouvel Employé" }}</h1>
+          <p class="subtitle">
+            {{ isEditMode ? "Mettre à jour les informations du collaborateur" : "Créer un nouveau compte employé et définir ses accès" }}
+          </p>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="card">
-    @if (loading) {
-      <div class="state-box">
-        <div class="spinner"></div>
-        <p>Chargement...</p>
-      </div>
-    } @else {
-      @if (error) {
-        <div class="alert-error">{{ error }}</div>
-      }
-      @if (!isEditMode) {
-        <div class="info-banner">
-          🔑 Mot de passe par défaut : <strong>Azerty@123</strong>
+    <div class="card">
+      @if (loading) {
+        <div class="state-box">
+          <div class="spinner"></div>
+          <p>Chargement des informations...</p>
         </div>
-      }
-
-      <form class="form">
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>Nom <span class="required">*</span></label>
-            <input name="lastName" type="text" [(ngModel)]="form.lastName" placeholder="Nom de famille" />
-          </div>
-          <div class="form-group">
-            <label>Prénom <span class="required">*</span></label>
-            <input name="firstName" type="text" [(ngModel)]="form.firstName" placeholder="Prénom" />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>Email <span class="required">*</span></label>
-            <input name="email" type="email" [(ngModel)]="form.email" placeholder="email@exemple.com" (blur)="checkEmail()" />
-            @if (emailError) {
-              <span class="input-error">{{ emailError }}</span>
-            }
-          </div>
-          <div class="form-group">
-            <label>Date d'embauche <span class="required">*</span></label>
-            <input name="hireDate" type="date" [(ngModel)]="form.hireDate" />
-          </div>
-        </div>
-
-<div class="form-row">
-  <div class="form-group">
-    <label>Niveau <span class="required">*</span></label>
-    <div class="level-selector">
-      <button type="button"
-              class="level-btn"
-              [class.active]="form.level === 1"
-              (click)="form.level = 1">
-        <span class="level-num">1</span>
-        <span class="level-lbl">Débutant</span>
-      </button>
-      <button type="button"
-              class="level-btn"
-              [class.active]="form.level === 2"
-              (click)="form.level = 2">
-        <span class="level-num">2</span>
-        <span class="level-lbl">Intermédiaire</span>
-      </button>
-      <button type="button"
-              class="level-btn"
-              [class.active]="form.level === 3"
-              (click)="form.level = 3">
-        <span class="level-num">3</span>
-        <span class="level-lbl">Expert</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>Rôle <span class="required">*</span></label>
-        <select name="roleId" [(ngModel)]="form.roleId" (ngModelChange)="onRoleChange($event)">
-  <option [value]="0" disabled>-- Sélectionner un rôle --</option>
-  @for (role of roles; track role.id) {
-    <option [value]="role.id">{{ role.name }}</option>
-  }
-</select>
-          </div>
-          <div class="form-group">
-            <label>Sous-service</label>
-            <select name="subServiceId" [(ngModel)]="form.subServiceId">
-              <option [value]="null">-- Aucun (RH) --</option>
-              @for (sub of subServices; track sub.id) {
-                <option [value]="sub.id">{{ sub.name }}</option>
-              }
-            </select>
-          </div>
-        </div>
-<!-- Ajouter après la form-row avec Rôle et Sous-service -->
-
-@if (isManagerOrCoach) {
-  <div class="form-group">
-    <label>Sous-services gérés</label>
-    <p class="hint">Sélectionnez les sous-services supervisés par cet employé</p>
-    <div class="checkbox-list">
-      @for (sub of subServices; track sub.id) {
-        <label class="checkbox-item" [class.checked]="isManagedSubService(sub.id)">
-          <input
-            type="checkbox"
-            [checked]="isManagedSubService(sub.id)"
-            (change)="toggleManagedSubService(sub.id)"
-          />
-          <span class="checkbox-text">
-            {{ sub.name }}
-            <small class="service-name">{{ sub.serviceName }}</small>
-          </span>
-        </label>
-      }
-    </div>
-  </div>
-}
-
-        @if (isEditMode) {
-          <div class="form-group checkbox-group">
-            <label class="checkbox-label">
-              <input name="isActive" type="checkbox" [(ngModel)]="form.isActive" />
-              Compte actif
-            </label>
+      } @else {
+        @if (error) {
+          <div class="alert alert-error">
+            <strong>Erreur :</strong> {{ error }}
           </div>
         }
 
-        <div class="form-actions">
-          <button class="btn btn-outline" type="button" (click)="goBack()" [disabled]="submitting">Annuler</button>
-          <button class="btn btn-primary" type="button" (click)="submit()" [disabled]="submitting || !!emailError">
-            {{ submitting ? 'Enregistrement...' : (isEditMode ? 'Modifier' : 'Créer') }}
-          </button>
-        </div>
+        @if (!isEditMode) {
+          <div class="alert alert-info">
+            <div class="alert-icon">🔐</div>
+            <div>
+              <strong>Mot de passe par défaut</strong>
+              <p>Le compte sera créé avec le mot de passe : <strong>Azerty@123</strong></p>
+            </div>
+          </div>
+        }
 
-      </form>
-    }
+        <form class="form">
+          <section class="form-section">
+            <div class="section-heading">
+              <h2>Informations personnelles</h2>
+              <p>Renseignez l’identité et les coordonnées de l’employé.</p>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="lastName">Nom <span class="required">*</span></label>
+                <input id="lastName" name="lastName" type="text" [(ngModel)]="form.lastName" placeholder="Nom de famille" />
+              </div>
+
+              <div class="form-group">
+                <label for="firstName">Prénom <span class="required">*</span></label>
+                <input id="firstName" name="firstName" type="text" [(ngModel)]="form.firstName" placeholder="Prénom" />
+              </div>
+
+              <div class="form-group">
+                <label for="email">Email <span class="required">*</span></label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  [(ngModel)]="form.email"
+                  placeholder="email@exemple.com"
+                  (blur)="checkEmail()"
+                />
+                @if (emailError) {
+                  <span class="input-error">{{ emailError }}</span>
+                }
+              </div>
+
+              <div class="form-group">
+                <label for="hireDate">Date d'embauche <span class="required">*</span></label>
+                <input id="hireDate" name="hireDate" type="date" [(ngModel)]="form.hireDate" />
+              </div>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <div class="section-heading">
+              <h2>Positionnement</h2>
+              <p>Définissez le niveau, le rôle et l’affectation de l’employé.</p>
+            </div>
+
+            <div class="form-group">
+              <label>Niveau <span class="required">*</span></label>
+              <div class="level-selector">
+                <button
+                  type="button"
+                  class="level-btn"
+                  [class.active]="form.level === 1"
+                  (click)="form.level = 1"
+                >
+                  <span class="level-badge">1</span>
+                  <span class="level-content">
+                    <span class="level-title">Débutant</span>
+                    <span class="level-text">Prise de poste ou montée en compétence</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  class="level-btn"
+                  [class.active]="form.level === 2"
+                  (click)="form.level = 2"
+                >
+                  <span class="level-badge">2</span>
+                  <span class="level-content">
+                    <span class="level-title">Intermédiaire</span>
+                    <span class="level-text">Autonome sur les tâches courantes</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  class="level-btn"
+                  [class.active]="form.level === 3"
+                  (click)="form.level = 3"
+                >
+                  <span class="level-badge">3</span>
+                  <span class="level-content">
+                    <span class="level-title">Expert</span>
+                    <span class="level-text">Référent métier ou opérationnel</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="roleId">Rôle <span class="required">*</span></label>
+                <select id="roleId" name="roleId" [(ngModel)]="form.roleId" (ngModelChange)="onRoleChange($event)">
+                  <option [value]="0" disabled>-- Sélectionner un rôle --</option>
+                  @for (role of roles; track role.id) {
+                    <option [value]="role.id">{{ role.name }}</option>
+                  }
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="subServiceId">Sous-service</label>
+                <select id="subServiceId" name="subServiceId" [(ngModel)]="form.subServiceId">
+                  <option [value]="null">-- Aucun (RH) --</option>
+                  @for (sub of subServices; track sub.id) {
+                    <option [value]="sub.id">{{ sub.name }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          </section>
+
+          @if (canManageHierarchy) {
+            <section class="form-section">
+              <div class="section-heading">
+                <h2>Hiérarchie gérée</h2>
+                <p>Sélectionnez les services et sous-services supervisés par cet employé.</p>
+              </div>
+
+              <div class="tree-container">
+                @for (service of servicesTree; track service.id) {
+                  <div class="tree-service">
+                    <label class="tree-service-label" [class.checked]="isManagedService(service.id)">
+                      <div class="tree-main">
+                        <input
+                          type="checkbox"
+                          [checked]="isManagedService(service.id)"
+                          (change)="toggleManagedService(service.id)"
+                        />
+                        <span class="service-icon">🏢</span>
+                        <div class="tree-copy">
+                          <span class="tree-title">{{ service.name }}</span>
+                          <span class="tree-meta">{{ service.floorName }}</span>
+                        </div>
+                      </div>
+                    </label>
+
+                    <div class="tree-subservices">
+                      @for (sub of service.subServices; track sub.id) {
+                        <label class="tree-sub-label" [class.checked]="isManagedSubService(sub.id)">
+                          <div class="tree-main">
+                            <input
+                              type="checkbox"
+                              [checked]="isManagedSubService(sub.id)"
+                              (change)="toggleManagedSubService(sub.id)"
+                            />
+                            <span class="sub-icon">📁</span>
+                            <div class="tree-copy">
+                              <span class="tree-title">{{ sub.name }}</span>
+                              <span class="tree-meta">Code : {{ sub.code }}</span>
+                            </div>
+                          </div>
+                        </label>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            </section>
+          }
+
+          @if (isEditMode) {
+            <section class="form-section compact">
+              <div class="form-group checkbox-group">
+                <label class="checkbox-label">
+                  <input name="isActive" type="checkbox" [(ngModel)]="form.isActive" />
+                  <span>Compte actif</span>
+                </label>
+              </div>
+            </section>
+          }
+
+          <div class="form-actions">
+            <button class="btn btn-outline" type="button" (click)="goBack()" [disabled]="submitting">
+              Annuler
+            </button>
+            <button class="btn btn-primary" type="button" (click)="submit()" [disabled]="submitting || !!emailError">
+              {{ submitting ? "Enregistrement..." : (isEditMode ? "Enregistrer les modifications" : "Créer l'employé") }}
+            </button>
+          </div>
+        </form>
+      }
+    </div>
   </div>
 </div>

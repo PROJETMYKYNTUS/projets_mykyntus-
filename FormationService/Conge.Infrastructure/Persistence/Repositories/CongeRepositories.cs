@@ -43,7 +43,6 @@ public class DemandeCongeRepository : IDemandeCongeRepository
 
     public void Update(DemandeConge demande)
         => _context.DemandeConges.Update(demande);
-
     public async Task<bool> ExistsCongeEnChevauchementAsync(Guid employeId, DateTime debut, DateTime fin, CancellationToken ct = default)
         => await _context.DemandeConges.AnyAsync(d =>
             d.EmployeId == employeId &&

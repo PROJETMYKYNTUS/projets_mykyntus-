@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PlanningService.Data;
@@ -11,9 +12,11 @@ using PlanningService.Data;
 namespace PlanningService.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260520113621_AddAuthUserIdToUser")]
+    partial class AddAuthUserIdToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -853,21 +856,6 @@ namespace PlanningService.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("PlanningService.Models.UserManagedService", b =>
-                {
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ServiceId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("UserId", "ServiceId");
-
-                    b.HasIndex("ServiceId");
-
-                    b.ToTable("UserManagedServices");
-                });
-
             modelBuilder.Entity("PlanningService.Models.UserSubService", b =>
                 {
                     b.Property<int>("UserId")
@@ -1238,25 +1226,6 @@ namespace PlanningService.Migrations
                     b.Navigation("SubService");
                 });
 
-            modelBuilder.Entity("PlanningService.Models.UserManagedService", b =>
-                {
-                    b.HasOne("Service", "Service")
-                        .WithMany("ManagedByUsers")
-                        .HasForeignKey("ServiceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("PlanningService.Models.User", "User")
-                        .WithMany("ManagedServices")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Service");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("PlanningService.Models.UserSubService", b =>
                 {
                     b.HasOne("PlanningService.Models.SubService", "SubService")
@@ -1404,8 +1373,6 @@ namespace PlanningService.Migrations
                 {
                     b.Navigation("Declarations");
 
-                    b.Navigation("ManagedServices");
-
                     b.Navigation("ManagedSubServices");
 
                     b.Navigation("ShiftAssignments");
@@ -1413,8 +1380,6 @@ namespace PlanningService.Migrations
 
             modelBuilder.Entity("Service", b =>
                 {
-                    b.Navigation("ManagedByUsers");
-
                     b.Navigation("SubServices");
                 });
 

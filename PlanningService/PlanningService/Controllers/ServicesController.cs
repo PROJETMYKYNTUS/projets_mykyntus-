@@ -110,6 +110,15 @@ public class ServicesController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+    /// <summary>
+    /// Récupérer tous les services avec leurs sous-services (pour formulaire employee)
+    /// </summary>
+    [HttpGet("with-subservices")]
+    public async Task<ActionResult<List<ServiceDetailDto>>> GetAllServicesWithSubServices()
+    {
+        var services = await _serviceService.GetAllServicesWithSubServicesAsync();
+        return Ok(services);
+    }
 
     /// <summary>
     /// Supprimer un service

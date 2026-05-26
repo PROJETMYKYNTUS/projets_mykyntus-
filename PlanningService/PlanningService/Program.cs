@@ -78,7 +78,11 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<IFloorService, FloorService>();
 builder.Services.AddScoped<IServiceService, ServiceService>();
 builder.Services.AddScoped<ISubServiceService, SubServiceService>();
-builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddHttpClient<IUserService, UserService>(client =>
+{
+    client.BaseAddress = new Uri("http://kyntus_auth_backend:8080/");
+    client.Timeout = TimeSpan.FromSeconds(10); 
+});
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<IPlanningService, PlanningServiceImpl>();
 builder.Services.AddScoped<IReclamationService, ReclamationService>();

@@ -15,7 +15,7 @@
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public int Level { get; set; }
-  
+    public List<ServiceSimpleDto> ManagedServices { get; set; } = new();
 }
 
 public class SubServiceSimpleDto
@@ -35,6 +35,7 @@ public class CreateUserDto
     public DateTime HireDate { get; set; }
     public string Email { get; set; } = string.Empty;
     public int Level { get; set; } = 1;
+    public List<int> ManagedServiceIds { get; set; } = new();
 }
 
 public class UpdateUserDto
@@ -48,4 +49,11 @@ public class UpdateUserDto
     public string Email { get; set; } = string.Empty;
     public bool IsActive { get; set; }
     public int Level { get; set; } = 1;
+    public List<int> ManagedServiceIds { get; set; } = new();
+}
+public class ServiceSimpleDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string FloorName { get; set; } = string.Empty;
 }

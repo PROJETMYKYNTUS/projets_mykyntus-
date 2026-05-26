@@ -13,7 +13,7 @@ public interface IServiceService
     /// Récupérer les services d'un étage spécifique
     /// </summary>
     Task<List<ServiceDto>> GetServicesByFloorIdAsync(int floorId);
-
+    Task<List<ServiceDetailDto>> GetAllServicesWithSubServicesAsync();
     /// <summary>
     /// Récupérer un service par ID
     /// </summary>

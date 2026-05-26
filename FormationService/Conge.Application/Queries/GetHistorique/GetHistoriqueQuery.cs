@@ -33,7 +33,9 @@ public class GetHistoriqueHandler : IRequestHandler<GetHistoriqueQuery, IEnumera
             d.Motif,
             d.CommentaireManager,
             d.DateDemande,
-            d.DateDecision
+            d.DateDecision,
+            null,   // ✅ NomEmploye
+            null    // ✅ PrenomEmploye
         ));
     }
 }

@@ -433,6 +433,30 @@
         }
       ]
     },
+{
+  "UpstreamPathTemplate": "/api/roles",
+  "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+  "DownstreamPathTemplate": "/api/roles",
+  "DownstreamScheme": "http",
+  "DownstreamHostAndPorts": [
+    {
+      "Host": "planning-backend",
+      "Port": 8080
+    }
+  ]
+},
+{
+  "UpstreamPathTemplate": "/api/roles/{everything}",
+  "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+  "DownstreamPathTemplate": "/api/roles/{everything}",
+  "DownstreamScheme": "http",
+  "DownstreamHostAndPorts": [
+    {
+      "Host": "planning-backend",
+      "Port": 8080
+    }
+  ]
+},
     {
       "UpstreamPathTemplate": "/api/userimportexport",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],

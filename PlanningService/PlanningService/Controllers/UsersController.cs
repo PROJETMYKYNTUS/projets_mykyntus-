@@ -97,6 +97,14 @@ public class UsersController : ControllerBase
             hireDate = user.HireDate
         });
     }
+    [HttpGet("by-auth/{authUserId:int}")]
+    public async Task<ActionResult<UserDto>> GetByAuthId(int authUserId)
+    {
+        var user = await _userService.GetUserByAuthIdAsync(authUserId);
+        if (user == null)
+            return NotFound(new { message = "Utilisateur introuvable." });
+        return Ok(user);
+    }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<UserDto>> GetById(int id)
@@ -138,6 +146,8 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+
+
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)

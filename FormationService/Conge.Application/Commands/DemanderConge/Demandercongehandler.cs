@@ -1,5 +1,7 @@
-﻿using Conge.Domain.Entities;
+﻿using Conge.Application.Contracts;
+using Conge.Domain.Entities;
 using Conge.Domain.Enums;
+using Conge.Domain.Events;
 using Conge.Domain.Exceptions;
 using Conge.Domain.Interfaces;
 using MediatR;
@@ -12,17 +14,22 @@ public class DemanderCongeHandler : IRequestHandler<DemanderCongeCommand, Guid>
     private readonly ISoldeCongeRepository _soldeRepo;
     private readonly IEmployeSnapshotRepository _employeRepo;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICongeEventPublisher _eventPublisher;
+
 
     public DemanderCongeHandler(
         IDemandeCongeRepository demandeRepo,
         ISoldeCongeRepository soldeRepo,
         IEmployeSnapshotRepository employeRepo,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+          ICongeEventPublisher eventPublisher)
+        
     {
         _demandeRepo = demandeRepo;
         _soldeRepo = soldeRepo;
         _employeRepo = employeRepo;
         _unitOfWork = unitOfWork;
+        _eventPublisher = eventPublisher;
     }
 
     public async Task<Guid> Handle(DemanderCongeCommand request, CancellationToken ct)
@@ -39,7 +46,7 @@ public class DemanderCongeHandler : IRequestHandler<DemanderCongeCommand, Guid>
         if (employe.Role == "Manager")
         {
             var adminRh = await _employeRepo.GetAdminOuRhAsync(ct)
-                ?? throw new EmployeNotFoundException(Guid.Empty, "Aucun Admin/RH disponible.");
+                ?? throw new EmployeNotFoundException(Guid.Empty);
             validateurId = adminRh.EmployeId;
         }
         else
@@ -93,7 +100,18 @@ public class DemanderCongeHandler : IRequestHandler<DemanderCongeCommand, Guid>
 
         await _demandeRepo.AddAsync(demande, ct);
         await _unitOfWork.SaveChangesAsync(ct);
-
+        foreach (var domainEvent in demande.DomainEvents)
+        {
+            if (domainEvent is CongeDemandeEvent e)
+                await _eventPublisher.PublishCongeDemandeAsync(
+                    demande.EmployeId,
+                    demande.Id,
+                    demande.ManagerId,
+                    demande.DateDebut,
+                    demande.DateFin,
+                    ct);
+        }
+        demande.ClearDomainEvents();
         return demande.Id;
     }
 }

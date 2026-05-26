@@ -39,6 +39,9 @@ public class AppDbContext : DbContext
   
     public DbSet<CampaignAnalytics> CampaignAnalytics { get; set; } = null!;
 
+    // 🆕 Ajouter le DbSet
+    public DbSet<UserManagedService> UserManagedServices { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -77,6 +80,19 @@ public class AppDbContext : DbContext
             .WithMany(s => s.Managers)
             .HasForeignKey(us => us.SubServiceId);
 
+        // ── UserManagedService ──
+        modelBuilder.Entity<UserManagedService>()
+            .HasKey(us => new { us.UserId, us.ServiceId });
+
+        modelBuilder.Entity<UserManagedService>()
+            .HasOne(us => us.User)
+            .WithMany(u => u.ManagedServices)
+            .HasForeignKey(us => us.UserId);
+
+        modelBuilder.Entity<UserManagedService>()
+            .HasOne(us => us.Service)
+            .WithMany(s => s.ManagedByUsers)
+            .HasForeignKey(us => us.ServiceId);
         // ── ShiftAssignment ──
         modelBuilder.Entity<ShiftAssignment>()
             .HasIndex(sa => new { sa.UserId, sa.AssignedDate })

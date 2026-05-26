@@ -7,15 +7,24 @@ using PlanningService.Models;
 
 namespace PlanningService.Services;
 
+file record AuthRegisterResult(int Id, string Email);
 public class UserService : IUserService
 {
     private readonly AppDbContext _context;
     private readonly IEmployePublisher _employePublisher; // 🆕
+    private readonly HttpClient _httpClient;           // 🆕
+    private readonly ILogger<UserService> _logger;     // 🆕
 
-    public UserService(AppDbContext context, IEmployePublisher employePublisher) // 🆕
+    public UserService(
+           AppDbContext context,
+           IEmployePublisher employePublisher,
+           HttpClient httpClient,                         // 🆕
+           ILogger<UserService> logger)                   // 🆕
     {
         _context = context;
-        _employePublisher = employePublisher; // 🆕
+        _employePublisher = employePublisher;
+        _httpClient = httpClient;                      // 🆕
+        _logger = logger;                              // 🆕
     }
 
     public async Task<List<UserDto>> GetAllUsersAsync()
@@ -26,11 +35,14 @@ public class UserService : IUserService
             .Include(u => u.ManagedSubServices)
                 .ThenInclude(us => us.SubService)
                     .ThenInclude(s => s.Service)
+            // 🆕 AJOUTER
+            .Include(u => u.ManagedServices)
+                .ThenInclude(us => us.Service)
+                    .ThenInclude(s => s.Floor)
             .ToListAsync();
 
         return users.Select(ToDto).ToList();
     }
-
     public async Task<List<UserDto>> GetUsersBySubServiceAsync(int subServiceId)
     {
         var users = await _context.Users
@@ -54,6 +66,10 @@ public class UserService : IUserService
             .Include(u => u.ManagedSubServices)
                 .ThenInclude(us => us.SubService)
                     .ThenInclude(s => s.Service)
+            // 🆕 AJOUTER
+            .Include(u => u.ManagedServices)
+                .ThenInclude(us => us.Service)
+                    .ThenInclude(s => s.Floor)
             .FirstOrDefaultAsync(u => u.Id == id);
 
         return user == null ? null : ToDto(user);
@@ -78,7 +94,10 @@ public class UserService : IUserService
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        // Ajouter les sous-services gérés (Manager/Coach)
+        // 🆕 Sync vers Auth Service (ne bloque pas si Auth est down)
+        await SyncToAuthServiceAsync(user);
+
+        // ✅ TOUT LE RESTE EXACTEMENT INCHANGÉ
         if (dto.ManagedSubServiceIds.Any())
         {
             foreach (var subId in dto.ManagedSubServiceIds)
@@ -91,15 +110,25 @@ public class UserService : IUserService
             }
             await _context.SaveChangesAsync();
         }
-
-        // 🆕 Récupérer le sous-service pour avoir le nom du service
+        // 🆕 Ajouter les services gérés
+        if (dto.ManagedServiceIds.Any())
+        {
+            foreach (var serviceId in dto.ManagedServiceIds)
+            {
+                _context.UserManagedServices.Add(new UserManagedService
+                {
+                    UserId = user.Id,
+                    ServiceId = serviceId
+                });
+            }
+            await _context.SaveChangesAsync();
+        }
         var subService = dto.SubServiceId.HasValue
             ? await _context.SubServices
                 .Include(ss => ss.Service)
                 .FirstOrDefaultAsync(ss => ss.Id == dto.SubServiceId.Value)
             : null;
 
-        // 🆕 Récupérer le manager du sous-service (premier manager trouvé)
         var manager = dto.SubServiceId.HasValue
             ? await _context.UserSubServices
                 .Include(us => us.User)
@@ -110,19 +139,15 @@ public class UserService : IUserService
                 .FirstOrDefaultAsync()
             : null;
 
-        // 🆕 Publier l'event vers Conge Service via RabbitMQ
-        // CreateUserAsync — utiliser user.Guid au lieu du faux Guid
         await _employePublisher.PublishEmployeCreatedAsync(
-            employeId: user.Guid,          // ← REMPLACER le PadLeft
+            employeId: user.Guid,
             nom: user.LastName,
             prenom: user.FirstName,
             email: user.Email,
-            managerId: manager != null
-                          ? manager.Guid  // ← REMPLACER le PadLeft
-                          : Guid.Empty,
+            managerId: manager != null ? manager.Guid : Guid.Empty,
             serviceId: subService != null
-                          ? Guid.Parse(subService.ServiceId.ToString().PadLeft(32, '0'))
-                          : Guid.Empty,
+                            ? Guid.Parse(subService.ServiceId.ToString().PadLeft(32, '0'))
+                            : Guid.Empty,
             serviceNom: subService?.Service?.Name ?? string.Empty,
             dateEmbauche: user.HireDate,
             estMineur: false
@@ -130,6 +155,45 @@ public class UserService : IUserService
 
         return await GetUserByIdAsync(user.Id)
             ?? throw new Exception("Erreur création utilisateur.");
+    }
+    // 🆕 Méthode privée : sync vers Auth Service
+    private async Task SyncToAuthServiceAsync(User user)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(
+                "api/auth/register-from-planning",
+                new
+                {
+                    Email = user.Email,
+                    DefaultPassword = "Azerty@123",
+                    RoleId = user.RoleId
+                });
+
+            if (response.IsSuccessStatusCode)
+            {
+                // ✅ Récupérer l'Auth ID et le sauvegarder
+                var result = await response.Content
+                    .ReadFromJsonAsync<AuthRegisterResult>();
+                if (result != null)
+                {
+                    user.AuthUserId = result.Id;
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation(
+                        "✅ Auth Service → User {Email} créé avec AuthId={Id}",
+                        user.Email, result.Id);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("⚠️ Auth Service → {Status} pour {Email}",
+                    response.StatusCode, user.Email);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("❌ Auth Service inaccessible : {Message}", ex.Message);
+        }
     }
     public async Task SyncAllEmployesToCongeAsync()
     {
@@ -180,20 +244,22 @@ public class UserService : IUserService
         user.IsActive = dto.IsActive;
         user.Level = dto.Level;
 
-        // Mettre à jour les sous-services gérés
+        // ✅ SubServices inchangé
         var existing = _context.UserSubServices.Where(us => us.UserId == id);
         _context.UserSubServices.RemoveRange(existing);
-
         if (dto.ManagedSubServiceIds.Any())
         {
             foreach (var subId in dto.ManagedSubServiceIds)
-            {
-                _context.UserSubServices.Add(new UserSubService
-                {
-                    UserId = id,
-                    SubServiceId = subId
-                });
-            }
+                _context.UserSubServices.Add(new UserSubService { UserId = id, SubServiceId = subId });
+        }
+
+        // 🆕 Services gérés
+        var existingServices = _context.UserManagedServices.Where(us => us.UserId == id);
+        _context.UserManagedServices.RemoveRange(existingServices);
+        if (dto.ManagedServiceIds.Any())
+        {
+            foreach (var serviceId in dto.ManagedServiceIds)
+                _context.UserManagedServices.Add(new UserManagedService { UserId = id, ServiceId = serviceId });
         }
 
         await _context.SaveChangesAsync();
@@ -239,9 +305,13 @@ public class UserService : IUserService
         var user = await _context.Users.FindAsync(id);
         if (user == null) return false;
 
-        // Supprimer les liaisons Manager/Coach
+        // ✅ inchangé
         var managedLinks = _context.UserSubServices.Where(us => us.UserId == id);
         _context.UserSubServices.RemoveRange(managedLinks);
+
+        // 🆕 AJOUTER
+        var managedServiceLinks = _context.UserManagedServices.Where(us => us.UserId == id);
+        _context.UserManagedServices.RemoveRange(managedServiceLinks);
 
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
@@ -253,7 +323,22 @@ public class UserService : IUserService
         return !await _context.Users
             .AnyAsync(u => u.Email == email && u.Id != excludeId);
     }
+    public async Task<UserDto?> GetUserByAuthIdAsync(int authUserId)
+    {
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .Include(u => u.SubService)
+                .ThenInclude(ss => ss != null ? ss.Service : null)
+            .Include(u => u.ManagedSubServices)
+                .ThenInclude(us => us.SubService)
+                    .ThenInclude(s => s.Service)
+            .Include(u => u.ManagedServices)
+                .ThenInclude(us => us.Service)
+                    .ThenInclude(s => s.Floor)
+            .FirstOrDefaultAsync(u => u.AuthUserId == authUserId);
 
+        return user == null ? null : ToDto(user);
+    }
     private static UserDto ToDto(User u) => new()
     {
         Id = u.Id,
@@ -267,6 +352,13 @@ public class UserService : IUserService
             Id = us.SubService.Id,
             Name = us.SubService.Name,
             ServiceName = us.SubService.Service?.Name ?? string.Empty
+        }).ToList() ?? new(),
+        // 🆕 AJOUTER
+        ManagedServices = u.ManagedServices?.Select(us => new ServiceSimpleDto
+        {
+            Id = us.Service.Id,
+            Name = us.Service.Name,
+            FloorName = us.Service.Floor?.Name ?? string.Empty
         }).ToList() ?? new(),
         FirstName = u.FirstName,
         LastName = u.LastName,

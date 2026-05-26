@@ -28,14 +28,18 @@ export class UserDetailComponent implements OnInit {
     this.loadUser(id);
   }
 
-  loadUser(id: number): void {
+loadUser(id: number): void {
     this.loading = true;
     this.error = null;
-    this.userService.getUserById(id).subscribe({
+    this.userService.getUserByAuthId(id).subscribe({  // ← changer ici
       next: (user) => { this.user = user; this.loading = false; this.cdr.detectChanges(); },
-      error: (err) => { this.error = `Erreur: ${err.status}`; this.loading = false; this.cdr.detectChanges(); }
+      error: (err) => { 
+        this.error = 'Impossible de récupérer le profil.'; 
+        this.loading = false; 
+        this.cdr.detectChanges(); 
+      }
     });
-  }
+}
 
   getAnciennete(hireDate: string): string {
     const debut = new Date(hireDate);

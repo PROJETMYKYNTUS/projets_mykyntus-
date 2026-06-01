@@ -89,6 +89,8 @@ public sealed class PrimeValidationListService(
         var ready = draft is not null &&
                     PrimeFicheValidationSubmissionService.ComputeIsReadyForValidation(draft, f);
 
+        var amounts = PrimeEmployeeFicheAmountService.ExtractFromFiche(f);
+
         return new EmployeePrimeServiceFicheValidationDto
         {
             Id = f.Id,
@@ -111,9 +113,9 @@ public sealed class PrimeValidationListService(
             RejectedByUserId = f.RejectedByUserId,
             RejectedAt = f.RejectedAt,
             RejectionReason = f.RejectionReason,
-            PrimeAmount = f.PrimeAmount,
-            ChallengeAmount = f.ChallengeAmount,
-            TotalAmount = f.TotalAmount,
+            PrimeAmount = amounts.PrimeAmount,
+            ChallengeAmount = amounts.ChallengeAmount,
+            TotalAmount = amounts.TotalAmount,
             UpdatedAt = f.UpdatedAt,
         };
     }

@@ -85,6 +85,25 @@ import { PRIME_USER_LOAD_ERROR, primeHttpErrorDetail } from '../lib/primeHttpErr
           </div>
         </div>
 
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="rounded-xl border border-default bg-card p-4">
+            <p class="text-xs uppercase tracking-wider text-muted">Taux rejet</p>
+            <p class="mt-1 text-2xl font-bold text-rose-400">{{ rejectionRate() }}%</p>
+          </div>
+          <div class="rounded-xl border border-default bg-card p-4">
+            <p class="text-xs uppercase tracking-wider text-muted">Montant moyen / pilote</p>
+            <p class="mt-1 text-2xl font-bold text-primary">{{ averageAmountPerPilot() }} MAD</p>
+          </div>
+          <div class="rounded-xl border border-default bg-card p-4">
+            <p class="text-xs uppercase tracking-wider text-muted">Part Prime</p>
+            <p class="mt-1 text-2xl font-bold text-primary">{{ primeSharePct() }}%</p>
+          </div>
+          <div class="rounded-xl border border-default bg-card p-4">
+            <p class="text-xs uppercase tracking-wider text-muted">Part Challenge</p>
+            <p class="mt-1 text-2xl font-bold text-primary">{{ challengeSharePct() }}%</p>
+          </div>
+        </div>
+
         <app-prime-card title="Détail par pilote" className="p-0">
           <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
@@ -93,14 +112,17 @@ import { PRIME_USER_LOAD_ERROR, primeHttpErrorDetail } from '../lib/primeHttpErr
                   <th class="px-6 py-3 font-medium tracking-wider">Pilote</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Service</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Période</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Prime</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Challenge</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Total</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Prête</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Statut</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-navy-800">
                 @if (scopedResults().length === 0) {
                   <tr>
-                    <td colspan="5" class="px-6 py-8 text-center text-slate-500">
+                    <td colspan="8" class="px-6 py-8 text-center text-slate-500">
                       Aucune fiche dans votre périmètre pour cette période.
                     </td>
                   </tr>
@@ -123,10 +145,27 @@ import { PRIME_USER_LOAD_ERROR, primeHttpErrorDetail } from '../lib/primeHttpErr
                       <td class="px-6 py-4 whitespace-nowrap text-slate-300">{{ item.serviceId }}</td>
                       <td class="px-6 py-4 whitespace-nowrap font-mono text-slate-200">{{ item.period }}</td>
                       <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                        {{ formatAmount(item.primeAmount) }}
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                        {{ formatAmount(item.challengeAmount) }}
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
                         <div class="font-semibold text-emerald-400">{{ formatAmount(item.totalAmount) }}</div>
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap">
-                        <span [class]="statusBadgeClass(item.validationStatus)">{{ item.validationStatus }}</span>
+                        @if (item.isReadyForValidation === true) {
+                          <span class="inline-flex px-2 py-1 rounded-md text-xs border border-emerald-300 bg-emerald-50 text-emerald-700">
+                            Oui
+                          </span>
+                        } @else {
+                          <span class="inline-flex px-2 py-1 rounded-md text-xs border border-slate-300 bg-slate-50 text-slate-600">
+                            Non
+                          </span>
+                        }
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span [class]="statusBadgeClass(item.validationStatus)">{{ statusLabel(item.validationStatus) }}</span>
                       </td>
                     </tr>
                   }
@@ -208,6 +247,35 @@ export class TeamPerformancePageComponent {
     return Math.round((done / rows.length) * 100);
   });
 
+  readonly rejectionRate = computed(() => {
+    const rows = this.scopedResults();
+    if (rows.length === 0) return 0;
+    const rejected = rows.filter((r) => r.validationStatus === 'Rejected').length;
+    return Math.round((rejected / rows.length) * 100);
+  });
+
+  readonly averageAmountPerPilot = computed(() => {
+    const pilots = this.distinctPilotCount();
+    if (pilots === 0) return '0.00';
+    return (this.totalAmount() / pilots).toFixed(2);
+  });
+
+  readonly primeSharePct = computed(() => {
+    const rows = this.scopedResults();
+    const totalPrime = rows.reduce((acc, r) => acc + (r.primeAmount ?? 0), 0);
+    const total = rows.reduce((acc, r) => acc + (r.totalAmount ?? 0), 0);
+    if (total <= 0) return 0;
+    return Math.round((100 * totalPrime) / total);
+  });
+
+  readonly challengeSharePct = computed(() => {
+    const rows = this.scopedResults();
+    const totalChallenge = rows.reduce((acc, r) => acc + (r.challengeAmount ?? 0), 0);
+    const total = rows.reduce((acc, r) => acc + (r.totalAmount ?? 0), 0);
+    if (total <= 0) return 0;
+    return Math.round((100 * totalChallenge) / total);
+  });
+
   constructor() {
     effect(() => {
       void this.roleService.currentRole();
@@ -245,7 +313,7 @@ export class TeamPerformancePageComponent {
 
   formatAmount(value: number | null | undefined): string {
     if (value === null || value === undefined) return '—';
-    return `${value.toFixed(2)}`;
+    return `${value.toFixed(2)} MAD`;
   }
 
   statusBadgeClass(status: string): string {
@@ -254,5 +322,15 @@ export class TeamPerformancePageComponent {
     if (status === 'Rejected') return base + 'bg-rose-100 text-rose-800';
     if (status === 'Pending') return base + 'bg-amber-100 text-amber-800';
     return base + 'bg-sky-100 text-sky-800';
+  }
+
+  statusLabel(status: string): string {
+    if (status === 'RH Approved') return 'RH validé';
+    if (status === 'Rejected') return 'Rejeté';
+    if (status === 'Pending') return 'En attente';
+    if (status === 'Référent technique Approved') return 'Réf. technique validé';
+    if (status === 'Superviseur Approved') return 'Superviseur validé';
+    if (status === 'Chef de projet Approved') return 'Chef de projet validé';
+    return status;
   }
 }

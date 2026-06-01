@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Data;
 using PrimeBackend.Dto;
+using PrimeBackend.Infrastructure;
 using PrimeBackend.Services;
 
 namespace PrimeBackend.Controllers;
@@ -12,7 +13,8 @@ namespace PrimeBackend.Controllers;
 public sealed class EmployeePrimeServiceFicheController(
     PrimeDbContext? db,
     PrimeOrgScopeService org,
-    PrimeFicheValidationSubmissionService? submission) : ControllerBase
+    PrimeFicheValidationSubmissionService? submission,
+    AnomalyDetectionService? anomalies) : ControllerBase
 {
     private static EmployeePrimeServiceFicheResponseDto Map(
         EmployeePrimeServiceFicheEntity e,
@@ -258,6 +260,8 @@ public sealed class EmployeePrimeServiceFicheController(
             .Where(i => i.ServiceId == emp.ServiceId)
             .OrderBy(i => i.SortOrder)
             .ToListAsync(ct);
+        if (PrimeEmployeeFicheAmountService.HasNegativeFinancialValuesInServiceSaisieJson(body.ServiceSaisieJson))
+            return BadRequest(new { error = DbExceptionMessages.NonNegativePrimeAmountsRequired });
         var status = PrimeServiceFicheStatusHelper.ComputeFillingStatus(body.ServiceSaisieJson, indicators);
         var now = DateTimeOffset.UtcNow;
 
@@ -296,7 +300,56 @@ public sealed class EmployeePrimeServiceFicheController(
         if (submission is not null)
             await submission.SyncValidationSubmissionStatusAsync(entity, draft, now, ct);
 
+        // Ne pas ecraser un snapshot deja en place (notamment les montants calcules par le
+        // frontend via le moteur de formules) avec une extraction brute qui ne sait pas evaluer
+        // les formules (renverrait 0/valeur parasite). On ne calcule l'extraction que lorsqu'aucun
+        // montant n'a encore ete enregistre.
+        var hasExistingSnapshot =
+            entity.PrimeAmount.HasValue || entity.ChallengeAmount.HasValue || entity.TotalAmount.HasValue;
+        if (!hasExistingSnapshot)
+        {
+            var amounts = PrimeEmployeeFicheAmountService.ExtractFromFiche(entity);
+            PrimeEmployeeFicheAmountService.ApplySnapshotToEntity(entity, amounts);
+        }
+
         await db.SaveChangesAsync(ct);
         return Ok(Map(entity, draft));
+    }
+
+    /// <summary>
+    /// Persiste les montants finaux (Prime / Challenge / Total) calcules par le frontend
+    /// (ligne « TOTAL General » de la fiche fusionnee) sur la fiche identifiee.
+    /// </summary>
+    [HttpPost("{ficheId:guid}/amounts")]
+    public async Task<ActionResult<EmployeePrimeServiceFicheResponseDto>> PersistAmounts(
+        Guid ficheId,
+        [FromBody] PersistFicheAmountsRequest body,
+        CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        if (string.IsNullOrWhiteSpace(body.SupervisorUserId))
+            return BadRequest(new { error = "supervisorUserId est requis." });
+
+        var entity = await db.EmployeePrimeServiceFiches.FirstOrDefaultAsync(x => x.Id == ficheId, ct);
+        if (entity is null) return NotFound(new { error = "Fiche introuvable." });
+
+        if (!await org.SupervisorOwnsCelluleAsync(body.SupervisorUserId, entity.CelluleId, ct))
+            return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
+
+        if (!PrimeEmployeeFicheAmountService.IsNonNegative(body.PrimeAmount) ||
+            !PrimeEmployeeFicheAmountService.IsNonNegative(body.ChallengeAmount) ||
+            !PrimeEmployeeFicheAmountService.IsNonNegative(body.TotalAmount))
+            return BadRequest(new { error = DbExceptionMessages.NonNegativePrimeAmountsRequired });
+
+        entity.PrimeAmount = body.PrimeAmount;
+        entity.ChallengeAmount = body.ChallengeAmount;
+        entity.TotalAmount = body.TotalAmount;
+        entity.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        if (anomalies is not null)
+            await anomalies.RecomputeForFicheAsync(entity.Id, ct);
+
+        var draft = await db.SupervisorCellulePrimeDrafts.FirstOrDefaultAsync(x => x.Id == entity.CellulePrimeDraftId, ct);
+        return draft is null ? Ok(new { ok = true }) : Ok(Map(entity, draft));
     }
 }

@@ -42,9 +42,11 @@ public sealed class PrimeValidationWorkflowRuntime(PrimeDbContext db)
         return steps.Any(s => PrimeRbacReadService.RolesMatchWorkflowApprover(rejecterRole, s.ApproverRole));
     }
 
-    /// <summary>Pas d’arête sortante active (ou Rejected).</summary>
+    /// <summary>Pas d’arête sortante active (ou Rejected). Hors circuit workflow : jamais terminal.</summary>
     public async Task<bool> IsTerminalStatusAsync(string status, CancellationToken ct)
     {
+        if (PrimeValidationWorkflowService.IsPreWorkflowStatus(status))
+            return false;
         if (string.Equals(status, PrimeValidationWorkflowService.Rejected, StringComparison.Ordinal))
             return true;
         var anySteps = await db.WorkflowSteps.AsNoTracking().AnyAsync(s => s.IsActive, ct);

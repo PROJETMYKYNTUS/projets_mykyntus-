@@ -92,9 +92,15 @@ if (!string.IsNullOrWhiteSpace(conn))
     builder.Services.AddScoped<PrimeValidationWorkflowRuntime>();
     builder.Services.AddScoped<PrimeFicheValidationSubmissionService>();
     builder.Services.AddScoped<PrimeValidationListService>();
+    builder.Services.AddScoped<PrimeFicheValidationHistoryService>();
     builder.Services.AddScoped<PrimeRbacReadService>();
     builder.Services.AddScoped<IPrimeRequestUserResolver, PrimeRequestUserResolver>();
     builder.Services.AddScoped<GlobalPoolWorkflowService>();
+    builder.Services.AddScoped<PrimeGlobalSynthesisReadinessService>();
+    builder.Services.AddScoped<PrimeGlobalSynthesisService>();
+    builder.Services.AddScoped<PrimeGlobalSynthesisLineService>();
+    builder.Services.AddScoped<PrimeGlobalSynthesisPaymentService>();
+    builder.Services.AddScoped<PrimeFicheMergedPreviewAccessService>();
 }
 
 var app = builder.Build();

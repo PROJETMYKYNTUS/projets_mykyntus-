@@ -549,6 +549,12 @@ function buildDynamicByStableId(
   return m;
 }
 
+export interface MergedFicheTotals {
+  primeAmount: number;
+  challengeAmount: number;
+  totalAmount: number;
+}
+
 export interface MergedEmployeeFichePreviewResult {
   rows: string[][];
   errors: string[];
@@ -557,6 +563,21 @@ export interface MergedEmployeeFichePreviewResult {
   previewSheetName: string | null;
   effectiveSchema: PrimeFicheTemplateSchema | null;
   parsedCell: ParsedCellSaisie | null;
+  totals: MergedFicheTotals | null;
+}
+
+/** Montants de la ligne « TOTAL Général » (colonnes Montant Prime / Montant Challenge). */
+export function extractMergedFicheTotals(
+  rows: string[][],
+  schema: PrimeFicheTemplateSchema,
+): MergedFicheTotals | null {
+  const cols = resolveSummaryColumns(schema);
+  if (!cols) return null;
+  const totalRow = rows.find((r) => isTotalGeneralRowLabel(r[COL_INDICATOR]));
+  if (!totalRow) return null;
+  const primeAmount = parseNumLoose(totalRow[cols.mntPrimeCol]);
+  const challengeAmount = parseNumLoose(totalRow[cols.mntChCol]);
+  return { primeAmount, challengeAmount, totalAmount: primeAmount + challengeAmount };
 }
 
 export function computeMergedEmployeeFichePreview(params: {
@@ -577,6 +598,7 @@ export function computeMergedEmployeeFichePreview(params: {
       previewSheetName: null,
       effectiveSchema: null,
       parsedCell: null,
+      totals: null,
     };
   }
 
@@ -590,6 +612,7 @@ export function computeMergedEmployeeFichePreview(params: {
       previewSheetName: snap.previewSheetName,
       effectiveSchema: null,
       parsedCell: null,
+      totals: null,
     };
   }
 
@@ -621,6 +644,7 @@ export function computeMergedEmployeeFichePreview(params: {
       previewSheetName: snap.previewSheetName,
       effectiveSchema,
       parsedCell,
+      totals: null,
     };
   }
 
@@ -662,5 +686,6 @@ export function computeMergedEmployeeFichePreview(params: {
     previewSheetName: mainName,
     effectiveSchema,
     parsedCell,
+    totals: extractMergedFicheTotals(rows, effectiveSchema),
   };
 }

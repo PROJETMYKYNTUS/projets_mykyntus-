@@ -118,6 +118,15 @@ public sealed class UpsertEmployeePrimeServiceFicheRequest
     public string? CellSaisieJson { get; set; }
 }
 
+/// <summary>Montants finaux (ligne « TOTAL Général » de la fiche fusionnée) persistés sur la fiche.</summary>
+public sealed class PersistFicheAmountsRequest
+{
+    public string SupervisorUserId { get; set; } = "";
+    public decimal? PrimeAmount { get; set; }
+    public decimal? ChallengeAmount { get; set; }
+    public decimal? TotalAmount { get; set; }
+}
+
 public sealed class EmployeePrimeServiceFicheListItemDto
 {
     public string EmployeeId { get; init; } = "";

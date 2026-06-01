@@ -29,6 +29,8 @@ import {
 import {
   emptyPrimeFicheLigne,
   emptySecteurPairValues,
+  isEmptyOrNonNegativeNumberString,
+  sanitizeNonNegativeNumberInput,
   type PrimeFicheLigneSaisie,
   PRIME_FICHE_NUMERIC_FIELDS,
   type PrimeFicheSecteurPairValues,
@@ -36,6 +38,7 @@ import {
 import {
   emptyPrimeFicheLigneDynamic,
   flattenDynamicLigneForPayload,
+  SECTOR_PAIR_NUMERIC_KEYS,
   ligneDynamicFromFlatPayload,
   ligneDynamicFromTemplateLine,
   type PrimeFicheLigneDynamic,
@@ -131,8 +134,6 @@ const SAV_SECTIONS: SectionMeta[] = [
 const RACC_LIGNE_KEYS = RACC_SECTIONS.flatMap((s) => s.lignes).map((l) => l.key);
 
 const SAV_LIGNE_KEYS = SAV_SECTIONS.flatMap((s) => s.lignes).map((l) => l.key);
-
-const SECTOR_PAIR_NUMERIC_KEYS = PRIME_FICHE_NUMERIC_FIELDS.filter((f) => f !== 'repartitionRdv') as (keyof PrimeFicheSecteurPairValues)[];
 
 function buildInitialLignes(keys: string[]): Record<LigneKey, PrimeFicheLigneSaisie> {
   const o: Record<LigneKey, PrimeFicheLigneSaisie> = {};
@@ -734,6 +735,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                           <input
                             type="number"
                             step="any"
+                            min="0"
                             [class]="inputFieldClass"
                             [value]="dynRow(k).repartitionRdv"
                             (input)="onDynRepartition(k, $any($event.target).value)"
@@ -760,6 +762,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                                 <input
                                   type="number"
                                   step="any"
+                                  min="0"
                                   [class]="inputFieldClass"
                                   [value]="dynSector(k, s.sectorIndex)[fl.key]"
                                   (input)="onDynSectorInput(k, s.sectorIndex, fl.key, $any($event.target).value)"
@@ -781,6 +784,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                                 <input
                                   type="number"
                                   step="any"
+                                  min="0"
                                   [class]="inputFieldClass"
                                   [value]="dynSector(k, s.sectorIndex)[fl.key]"
                                   (input)="onDynSectorInput(k, s.sectorIndex, fl.key, $any($event.target).value)"
@@ -806,6 +810,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                                   <input
                                     type="number"
                                     step="any"
+                                    min="0"
                                     [class]="inputFieldClass"
                                     [value]="dynCustomValue(k, s.sectorIndex, ck.id)"
                                     (input)="onDynCustomInput(k, s.sectorIndex, ck.id, $any($event.target).value)"
@@ -874,6 +879,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                           <input
                             type="number"
                             step="any"
+                            min="0"
                             [class]="inputFieldClass"
                             [value]="ligne(k).repartitionRdv"
                             (input)="onLigneInput(k, 'repartitionRdv', $any($event.target).value)"
@@ -893,6 +899,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         <input
                           type="number"
                           step="any"
+                          min="0"
                           [class]="inputFieldClass"
                           [value]="ligne(k).resultatPrime"
                           (input)="onLigneInput(k, 'resultatPrime', $any($event.target).value)"
@@ -903,6 +910,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         <input
                           type="number"
                           step="any"
+                          min="0"
                           [class]="inputFieldClass"
                           [value]="ligne(k).kpiPointMin"
                           (input)="onLigneInput(k, 'kpiPointMin', $any($event.target).value)"
@@ -913,6 +921,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         <input
                           type="number"
                           step="any"
+                          min="0"
                           [class]="inputFieldClass"
                           [value]="ligne(k).kpiPointMax"
                           (input)="onLigneInput(k, 'kpiPointMax', $any($event.target).value)"
@@ -923,6 +932,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         <input
                           type="number"
                           step="any"
+                          min="0"
                           [class]="inputFieldClass"
                           [value]="ligne(k).ponderationPrime"
                           (input)="onLigneInput(k, 'ponderationPrime', $any($event.target).value)"
@@ -933,6 +943,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         <input
                           type="number"
                           step="any"
+                          min="0"
                           [class]="inputFieldClass"
                           [value]="ligne(k).bonusAtteintPrime"
                           (input)="onLigneInput(k, 'bonusAtteintPrime', $any($event.target).value)"
@@ -943,6 +954,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         <input
                           type="number"
                           step="any"
+                          min="0"
                           [class]="inputFieldClass"
                           [value]="ligne(k).montantPrime"
                           (input)="onLigneInput(k, 'montantPrime', $any($event.target).value)"
@@ -961,6 +973,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         <input
                           type="number"
                           step="any"
+                          min="0"
                           [class]="inputFieldClass"
                           [value]="ligne(k).resultatChallenge"
                           (input)="onLigneInput(k, 'resultatChallenge', $any($event.target).value)"
@@ -971,6 +984,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         <input
                           type="number"
                           step="any"
+                          min="0"
                           [class]="inputFieldClass"
                           [value]="ligne(k).kpiChallenge"
                           (input)="onLigneInput(k, 'kpiChallenge', $any($event.target).value)"
@@ -981,6 +995,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         <input
                           type="number"
                           step="any"
+                          min="0"
                           [class]="inputFieldClass"
                           [value]="ligne(k).ponderationChallenge"
                           (input)="onLigneInput(k, 'ponderationChallenge', $any($event.target).value)"
@@ -991,6 +1006,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         <input
                           type="number"
                           step="any"
+                          min="0"
                           [class]="inputFieldClass"
                           [value]="ligne(k).bonusAtteintChallenge"
                           (input)="onLigneInput(k, 'bonusAtteintChallenge', $any($event.target).value)"
@@ -1001,6 +1017,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         <input
                           type="number"
                           step="any"
+                          min="0"
                           [class]="inputFieldClass"
                           [value]="ligne(k).montantChallenge"
                           (input)="onLigneInput(k, 'montantChallenge', $any($event.target).value)"
@@ -1680,20 +1697,22 @@ export class PrimeSaisieComponent {
   }
 
   onDynRepartition(key: string, value: string): void {
+    const next = sanitizeNonNegativeNumberInput(value);
     this.lignesDynamic.update((m) => {
       const cur = m[key] ?? this.dynRow(key);
-      return { ...m, [key]: { ...cur, repartitionRdv: value } };
+      return { ...m, [key]: { ...cur, repartitionRdv: next } };
     });
     this.bumpProgress(key);
     this.saveMessage.set(null);
   }
 
   onDynSectorInput(key: string, sectorIndex: number, field: keyof PrimeFicheSecteurPairValues, value: string): void {
+    const next = sanitizeNonNegativeNumberInput(value);
     this.lignesDynamic.update((m) => {
       const cur = { ...(m[key] ?? this.dynRow(key)) };
       const sects = [...cur.secteurValues];
       const prev = sects[sectorIndex] ?? { core: emptySecteurPairValues(), custom: {} };
-      sects[sectorIndex] = { ...prev, core: { ...prev.core, [field]: value } };
+      sects[sectorIndex] = { ...prev, core: { ...prev.core, [field]: next } };
       return { ...m, [key]: { ...cur, secteurValues: sects } };
     });
     this.bumpProgress(key);
@@ -1701,11 +1720,12 @@ export class PrimeSaisieComponent {
   }
 
   onDynCustomInput(key: string, sectorIndex: number, customId: string, value: string): void {
+    const next = sanitizeNonNegativeNumberInput(value);
     this.lignesDynamic.update((m) => {
       const cur = { ...(m[key] ?? this.dynRow(key)) };
       const sects = [...cur.secteurValues];
       const prev = sects[sectorIndex] ?? { core: emptySecteurPairValues(), custom: {} };
-      sects[sectorIndex] = { ...prev, custom: { ...prev.custom, [customId]: value } };
+      sects[sectorIndex] = { ...prev, custom: { ...prev.custom, [customId]: next } };
       return { ...m, [key]: { ...cur, secteurValues: sects } };
     });
     this.bumpProgress(key);
@@ -1726,9 +1746,10 @@ export class PrimeSaisieComponent {
   }
 
   onLigneInput(key: LigneKey, field: keyof PrimeFicheLigneSaisie, value: string): void {
+    const next = sanitizeNonNegativeNumberInput(value);
     this.lignes.update((m) => ({
       ...m,
-      [key]: { ...(m[key] ?? emptyPrimeFicheLigne()), [field]: value },
+      [key]: { ...(m[key] ?? emptyPrimeFicheLigne()), [field]: next },
     }));
     this.bumpProgress(key);
     this.saveMessage.set(null);
@@ -1740,19 +1761,23 @@ export class PrimeSaisieComponent {
     return Number.isFinite(n);
   }
 
+  private isValidNonNegativeNumberString(s: string): boolean {
+    return s.trim() !== '' && isEmptyOrNonNegativeNumberString(s);
+  }
+
   /** Nombre simple ou pourcentage façon Excel (« 92,50 % », « 15.44% »). */
   private isValidRepartitionInputValue(raw: string): boolean {
     const t = raw.replace(/\u00a0/g, ' ').trim();
     if (t === '') return false;
     if (this.isValidNumberString(t)) return true;
     const compact = t.replace(/\s+/g, '');
-    const m = /^(-?\d+(?:[.,]\d+)?)\s*%$/.exec(compact);
+    const m = /^(\d+(?:[.,]\d+)?)\s*%$/.exec(compact);
     if (m) {
       const n = parseFloat(m[1].replace(',', '.'));
-      return Number.isFinite(n);
+      return Number.isFinite(n) && n >= 0;
     }
     const n = Number(t.replace(/\s/g, '').replace(',', '.'));
-    return Number.isFinite(n);
+    return Number.isFinite(n) && n >= 0;
   }
 
   private validateDynamicRow(key: string): string | null {
@@ -1764,20 +1789,20 @@ export class PrimeSaisieComponent {
       const repRaw = row.repartitionRdv.replace(/\u00a0/g, ' ');
       const rep = repRaw.trim();
       if (rep === '' || !this.isValidRepartitionInputValue(row.repartitionRdv)) {
-        return 'La répartition RDV est obligatoire et doit être numérique (nombre ou pourcentage).';
+        return 'La répartition RDV est obligatoire et doit être numérique (nombre ou pourcentage) avec une valeur >= 0.';
       }
     }
     /* SAV : indicateur répartition RDV absent du formulaire — ne pas valider (résidus Excel ignorés). */
     for (let si = 0; si < row.secteurValues.length; si++) {
       const sv = row.secteurValues[si];
       for (const f of SECTOR_PAIR_NUMERIC_KEYS) {
-        if (!this.isValidNumberString(sv.core[f])) {
-          return `Secteur ${si + 1} : le champ « ${String(f)} » est obligatoire et doit être numérique.`;
+        if (!this.isValidNonNegativeNumberString(sv.core[f])) {
+          return `Secteur ${si + 1} : le champ « ${String(f)} » est obligatoire et doit être numérique avec une valeur >= 0.`;
         }
       }
       for (const [cid, val] of Object.entries(sv.custom)) {
-        if (!this.isValidNumberString(val)) {
-          return `Secteur ${si + 1} : KPI additionnel « ${cid} » obligatoire et numérique.`;
+        if (!this.isValidNonNegativeNumberString(val)) {
+          return `Secteur ${si + 1} : KPI additionnel « ${cid} » obligatoire et numérique avec une valeur >= 0.`;
         }
       }
     }
@@ -1796,8 +1821,8 @@ export class PrimeSaisieComponent {
         ? PRIME_FICHE_NUMERIC_FIELDS.filter((f) => f !== 'repartitionRdv')
         : PRIME_FICHE_NUMERIC_FIELDS;
     for (const f of numericFields) {
-      if (!this.isValidNumberString(row[f])) {
-        return `Le champ "${String(f)}" est obligatoire et doit être numérique.`;
+      if (!this.isValidNonNegativeNumberString(row[f])) {
+        return `Le champ "${String(f)}" est obligatoire et doit être numérique avec une valeur >= 0.`;
       }
     }
     /* SAV legacy : répartition RDV masquée — pas de contrôle sur ce champ. */
@@ -1840,10 +1865,10 @@ export class PrimeSaisieComponent {
       const row = this.lignes()[key];
       if (!row) return `Ligne manquante : ${key}`;
       for (const f of numericFields) {
-        if (!this.isValidNumberString(row[f])) {
+        if (!this.isValidNonNegativeNumberString(row[f])) {
           const meta = findMeta(ctx, key);
           const title = meta ? navLabel(meta) : key;
-          return `${title} : champ "${String(f)}" manquant ou non numérique.`;
+          return `${title} : champ "${String(f)}" manquant, non numérique, ou inférieur à 0.`;
         }
       }
       /* SAV legacy : pas de validation répartition RDV (champ non saisi). */

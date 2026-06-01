@@ -359,7 +359,7 @@ public static class PrimeDbSeeder
     }
 
     /// <summary>Ajoute les permissions Manager / Comptable sur bases déjà initialisées sans ces rôles.</summary>
-    private static async Task SeedMissingManagerComptableRbacAsync(PrimeDbContext db, CancellationToken cancellationToken)
+    public static async Task SeedMissingManagerComptableRbacAsync(PrimeDbContext db, CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
         static RbacPermissionEntity P(string role, string action, string scope, DateTimeOffset n) =>

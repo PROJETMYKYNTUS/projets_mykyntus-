@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { PrimeCardComponent } from '../prime-card.component';
 import {
   PrimeAdminService,
@@ -34,6 +34,50 @@ import {
         </button>
       </div>
 
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
+        <div class="rounded-lg border border-default bg-card p-3">
+          <p class="text-[11px] uppercase tracking-wider text-muted">Total</p>
+          <p class="text-xl font-semibold text-primary">{{ rows().length }}</p>
+        </div>
+        <div class="rounded-lg border border-default bg-card p-3">
+          <p class="text-[11px] uppercase tracking-wider text-muted">Ouvertes</p>
+          <p class="text-xl font-semibold text-amber-300">{{ counters().open }}</p>
+        </div>
+        <div class="rounded-lg border border-default bg-card p-3">
+          <p class="text-[11px] uppercase tracking-wider text-muted">Critiques/High</p>
+          <p class="text-xl font-semibold text-rose-300">{{ counters().critical }}</p>
+        </div>
+        <div class="rounded-lg border border-default bg-card p-3">
+          <p class="text-[11px] uppercase tracking-wider text-muted">Résolues</p>
+          <p class="text-xl font-semibold text-emerald-300">{{ counters().resolved }}</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-3 mb-4">
+        <select
+          [value]="statusFilter()"
+          (change)="statusFilter.set($any($event.target).value)"
+          class="px-3 py-2 rounded-lg border border-default bg-app text-sm text-primary"
+        >
+          <option value="">Tous statuts</option>
+          <option value="Open">Open</option>
+          <option value="InReview">InReview</option>
+          <option value="Resolved">Resolved</option>
+          <option value="Ignored">Ignored</option>
+        </select>
+        <select
+          [value]="severityFilter()"
+          (change)="severityFilter.set($any($event.target).value)"
+          class="px-3 py-2 rounded-lg border border-default bg-app text-sm text-primary"
+        >
+          <option value="">Toutes gravités</option>
+          <option value="Critical">Critical</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+      </div>
+
       @if (loading()) {
         <div class="py-12 flex justify-center">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
@@ -53,14 +97,14 @@ import {
               </tr>
             </thead>
             <tbody>
-              @for (row of rows(); track row.id) {
+              @for (row of filteredRows(); track row.id) {
                 <tr class="border-b border-default/60">
                   <td class="py-3 text-slate-200">{{ row.type }}</td>
-                  <td class="py-3 text-slate-400">{{ row.severity }}</td>
+                  <td class="py-3 text-slate-400">{{ severityLabel(row.severity) }}</td>
                   <td class="py-3 text-slate-300 max-w-md">{{ row.description }}</td>
                   <td class="py-3">
                     <span class="text-xs px-2 py-1 rounded-full" [class]="statusClass(row.status)">
-                      {{ row.status }}
+                      {{ statusLabel(row.status) }}
                     </span>
                   </td>
                   <td class="py-3 text-right">
@@ -89,7 +133,7 @@ import {
               }
             </tbody>
           </table>
-          @if (rows().length === 0) {
+          @if (filteredRows().length === 0) {
             <p class="text-slate-500 text-sm py-6 text-center">Aucune anomalie détectée.</p>
           }
         </div>
@@ -106,6 +150,25 @@ export class AnomaliesAdminComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly busyId = signal<string | null>(null);
   readonly recomputing = signal(false);
+  readonly statusFilter = signal('');
+  readonly severityFilter = signal('');
+
+  readonly filteredRows = computed(() =>
+    this.rows().filter((row) => {
+      const statusOk = !this.statusFilter() || row.status === this.statusFilter();
+      const severityOk = !this.severityFilter() || row.severity === this.severityFilter();
+      return statusOk && severityOk;
+    }),
+  );
+
+  readonly counters = computed(() => {
+    const rows = this.rows();
+    return {
+      open: rows.filter((r) => r.status === 'Open' || r.status === 'InReview').length,
+      critical: rows.filter((r) => r.severity === 'Critical' || r.severity === 'High').length,
+      resolved: rows.filter((r) => r.status === 'Resolved').length,
+    };
+  });
 
   ngOnInit(): void {
     this.reload();
@@ -166,5 +229,21 @@ export class AnomaliesAdminComponent implements OnInit {
     if (status === 'InReview') return 'bg-sky-500/20 text-sky-300';
     if (status === 'Resolved') return 'bg-emerald-500/20 text-emerald-300';
     return 'bg-slate-500/20 text-slate-300';
+  }
+
+  statusLabel(status: string): string {
+    if (status === 'Open') return 'Ouverte';
+    if (status === 'InReview') return 'En revue';
+    if (status === 'Resolved') return 'Résolue';
+    if (status === 'Ignored') return 'Ignorée';
+    return status;
+  }
+
+  severityLabel(severity: string): string {
+    if (severity === 'Critical') return 'Critique';
+    if (severity === 'High') return 'Haute';
+    if (severity === 'Medium') return 'Moyenne';
+    if (severity === 'Low') return 'Faible';
+    return severity;
   }
 }

@@ -339,6 +339,23 @@ export class PrimeCellPrimeApiService {
     return this.http.get<CellPilotageSummaryDto[]>(`${base}/pilotage/cells-summary`, { params: q });
   }
 
+  /** Persiste les montants finaux (TOTAL Général) calculés côté frontend sur la fiche. */
+  persistFicheAmounts(
+    ficheId: string,
+    supervisorUserId: string,
+    totals: { primeAmount: number; challengeAmount: number; totalAmount: number },
+  ): Observable<unknown> {
+    return this.http.post<unknown>(
+      `${base}/employee-prime-cell-fiches/${encodeURIComponent(ficheId)}/amounts`,
+      {
+        supervisorUserId,
+        primeAmount: totals.primeAmount,
+        challengeAmount: totals.challengeAmount,
+        totalAmount: totals.totalAmount,
+      },
+    );
+  }
+
   getGlobalPoolState(supervisorUserId: string, draftId: string): Observable<CelluleDraftGlobalPoolStateDto> {
     const q = new HttpParams().set('supervisorUserId', supervisorUserId.trim());
     return this.http.get<CelluleDraftGlobalPoolStateDto>(

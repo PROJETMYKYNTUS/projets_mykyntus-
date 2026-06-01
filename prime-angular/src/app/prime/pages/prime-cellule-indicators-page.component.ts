@@ -173,6 +173,8 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
                     <td class="px-3 py-2">
                       <input
                         type="number"
+                        min="0"
+                        step="1"
                         [value]="r.sortOrder"
                         (input)="patchRow(r.localId, { sortOrder: num($any($event.target).value) })"
                         class="w-20 rounded border border-default bg-input px-2 py-1 text-primary"
@@ -200,7 +202,10 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
                     </td>
                     <td class="px-3 py-2">
                       <input
-                        type="text"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
                         [value]="r.ponderationPrimePct ?? ''"
                         (input)="patchRow(r.localId, { ponderationPrimePct: parsePct($any($event.target).value) })"
                         class="w-20 rounded border border-default bg-input px-2 py-1 text-primary"
@@ -209,7 +214,10 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
                     </td>
                     <td class="px-3 py-2">
                       <input
-                        type="text"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
                         [value]="r.ponderationChallengePct ?? ''"
                         (input)="patchRow(r.localId, { ponderationChallengePct: parsePct($any($event.target).value) })"
                         class="w-20 rounded border border-default bg-input px-2 py-1 text-primary"
@@ -746,14 +754,16 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
 
   num(v: string): number {
     const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.trunc(n));
   }
 
   parsePct(v: string): number | null {
     const t = v.trim();
     if (!t) return null;
     const n = Number(t.replace(',', '.'));
-    return Number.isFinite(n) ? n : null;
+    if (!Number.isFinite(n) || n < 0 || n > 100) return null;
+    return n;
   }
 
   private findRhCelluleForService(serviceId: string): SupervisorOrgScopeCellule | undefined {

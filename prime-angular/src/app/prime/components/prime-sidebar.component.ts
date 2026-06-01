@@ -99,10 +99,24 @@ const pathNavEntries: NavPathEntry[] = [
   },
   {
     type: 'link',
+    name: 'Suivi validation',
+    path: '/validation-history',
+    icon: History,
+    roles: ['Admin', 'RP', 'Chef de projet', 'Superviseur', 'Coach', 'Référent technique'],
+  },
+  {
+    type: 'link',
     name: 'Synthèse globale PRIME',
     path: '/global-pool',
     icon: FileSpreadsheet,
     roles: ['Admin', 'RH', 'Manager', 'Comptabilité'],
+  },
+  {
+    type: 'link',
+    name: 'Suivi synthèse',
+    path: '/synthesis-tracking',
+    icon: History,
+    roles: ['Admin', 'RH', 'Manager'],
   },
   { type: 'link', name: 'Historique', path: '/history', icon: History, roles: ['Admin', 'RH', 'RP'] },
   {

@@ -109,7 +109,30 @@ public class EmployeePrimeServiceFicheEntity
     public string? RejectedByUserId { get; set; }
     public DateTimeOffset? RejectedAt { get; set; }
     public string? RejectionReason { get; set; }
-    /// <summary>Montant prime calculé (issu de ComputedJson supervisor draft, snapshoté ici à la validation).</summary>
+    /// <summary>Montants snapshot (export) ; affichage validation = extraction live depuis ServiceSaisieJson.</summary>
+    public decimal? PrimeAmount { get; set; }
+    public decimal? ChallengeAmount { get; set; }
+    public decimal? TotalAmount { get; set; }
+
+    public ICollection<EmployeePrimeFicheValidationHistoryEntity> ValidationHistory { get; set; } =
+        new List<EmployeePrimeFicheValidationHistoryEntity>();
+}
+
+/// <summary>Historique immuable des transitions de validation d'une fiche pilote.</summary>
+public class EmployeePrimeFicheValidationHistoryEntity
+{
+    public Guid Id { get; set; }
+    public Guid FicheId { get; set; }
+    public EmployeePrimeServiceFicheEntity Fiche { get; set; } = null!;
+    public DateTimeOffset At { get; set; }
+    /// <summary>Approved | Rejected</summary>
+    public string Action { get; set; } = "";
+    public string FromStatus { get; set; } = "";
+    public string ToStatus { get; set; } = "";
+    public string ActorUserId { get; set; } = "";
+    public string ActorRole { get; set; } = "";
+    public string? ActorDisplayName { get; set; }
+    public string? Comment { get; set; }
     public decimal? PrimeAmount { get; set; }
     public decimal? ChallengeAmount { get; set; }
     public decimal? TotalAmount { get; set; }

@@ -6,26 +6,28 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { CheckCircle2, CircleX, Clock3, Wallet } from 'lucide';
+import { DatePipe, DecimalPipe } from '@angular/common';
+import { CheckCircle2, Clock3, Wallet } from 'lucide';
 import { LucideIconComponent } from '../../../shared/lucide-icon.component';
 import { PrimeCardComponent } from '../../components/prime-card.component';
-import {
-  PrimeFilterBarComponent,
-  type PrimeFilterBarFilter,
-} from '../../components/prime-filter-bar.component';
 import { firstValueFrom } from 'rxjs';
-import { PrimeService } from '../../services/prime.service';
 import {
-  PrimeFicheResultService,
-  type EmployeePrimeServiceFicheValidationDto,
-} from '../../services/prime-fiche-result.service';
-import type { PrimeResult, PrimeType } from '../../models';
+  PrimeGlobalPoolApiService,
+  type EmployeePrimePaymentTrackingDto,
+} from '../../services/prime-global-pool-api.service';
+import { PrimeEmployeeFichePreviewActionsComponent } from '../../components/prime-employee-fiche-preview-actions.component';
 import { RoleService } from '../../state/role.service';
 
 @Component({
   selector: 'app-my-primes-page',
   standalone: true,
-  imports: [LucideIconComponent, PrimeCardComponent, PrimeFilterBarComponent],
+  imports: [
+    LucideIconComponent,
+    PrimeCardComponent,
+    PrimeEmployeeFichePreviewActionsComponent,
+    DatePipe,
+    DecimalPipe,
+  ],
   template: `
     @if (loading()) {
       <div class="p-8 text-slate-400">Loading your primes...</div>
@@ -34,7 +36,7 @@ import { RoleService } from '../../state/role.service';
         <div class="flex items-start justify-between">
           <div>
             <h1 class="text-3xl font-bold text-slate-100">Mes primes</h1>
-            <p class="text-slate-400 mt-1">Historique des primes et fiches service PRIME par période.</p>
+            <p class="text-slate-400 mt-1">Fiche de prime et suivi du paiement par période.</p>
           </div>
           <div
             class="inline-flex items-center gap-2 bg-navy-900/80 border border-navy-800 rounded-lg px-3 py-2 text-slate-300 text-sm"
@@ -44,99 +46,73 @@ import { RoleService } from '../../state/role.service';
           </div>
         </div>
 
-        <app-prime-filter-bar [filters]="filterBarFilters()" />
-
-        <app-prime-card className="p-0 card-navy">
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left">
-              <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
-                <tr>
-                  <th class="px-6 py-3 font-medium tracking-wider">Prime Type</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Period</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Score</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Amount</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-navy-800">
-                @if (filtered().length === 0) {
-                  <tr>
-                    <td colspan="5" class="px-6 py-8 text-center text-slate-500">No primes yet</td>
-                  </tr>
-                } @else {
-                  @for (item of filtered(); track item.id) {
-                    <tr class="bg-navy-900 hover:bg-navy-800 transition-colors">
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
-                        <span class="font-medium text-slate-200">{{ getTypeName(item.primeTypeId) }}</span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">{{ item.period }}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">{{ item.score }}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
-                        <span class="font-semibold text-emerald-400">{{ item.amount }} MAD</span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
-                        @switch (normalize(item.status)) {
-                          @case ('Approved') {
-                            <span
-                              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            >
-                              <app-lucide-icon [icon]="icons.check" className="w-3.5 h-3.5" /> Approved
-                            </span>
-                          }
-                          @case ('Pending') {
-                            <span
-                              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200"
-                            >
-                              <app-lucide-icon [icon]="icons.clock" className="w-3.5 h-3.5" /> Pending
-                            </span>
-                          }
-                          @default {
-                            <span
-                              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200"
-                            >
-                              <app-lucide-icon [icon]="icons.cross" className="w-3.5 h-3.5" /> Rejected
-                            </span>
-                          }
-                        }
-                      </td>
-                    </tr>
-                  }
-                }
-              </tbody>
-            </table>
-          </div>
-        </app-prime-card>
-
-        <app-prime-card title="Fiches service PRIME" className="p-0 card-navy">
+        <app-prime-card title="Ma fiche de prime & paiement" className="p-0 card-navy">
+          <p class="px-6 pt-4 text-xs text-slate-400">
+            Votre fiche devient consultable et téléchargeable une fois validée par RH + Manager. Le suivi du paiement
+            est mis à jour par la comptabilité.
+          </p>
           <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
               <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
                 <tr>
                   <th class="px-6 py-3 font-medium tracking-wider">Période</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Statut validation</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Remplissage</th>
-                  <th class="px-6 py-3 font-medium tracking-wider text-right">Export</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Service / Cellule</th>
+                  <th class="px-6 py-3 font-medium tracking-wider text-right">Montant</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Validation</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Paiement</th>
+                  <th class="px-6 py-3 font-medium tracking-wider text-right">Fiche</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-navy-800">
-                @if (serviceFiches().length === 0) {
+                @if (tracking().length === 0) {
                   <tr>
-                    <td colspan="4" class="px-6 py-8 text-center text-slate-500">Aucune fiche service pour le moment.</td>
+                    <td colspan="6" class="px-6 py-8 text-center text-slate-500">Aucune prime en synthèse pour le moment.</td>
                   </tr>
                 } @else {
-                  @for (f of serviceFiches(); track f.id) {
+                  @for (row of tracking(); track row.ficheId) {
                     <tr class="bg-navy-900 hover:bg-navy-800 transition-colors">
-                      <td class="px-6 py-4 font-mono text-slate-200">{{ f.period }}</td>
-                      <td class="px-6 py-4 text-slate-300">{{ f.validationStatus }}</td>
-                      <td class="px-6 py-4 text-slate-400">{{ f.fillingStatus }}</td>
+                      <td class="px-6 py-4 font-mono text-slate-200">{{ row.period }}</td>
+                      <td class="px-6 py-4 text-slate-300">
+                        <div class="text-slate-200">{{ row.serviceName }}</div>
+                        <div class="text-xs text-slate-500">{{ row.celluleName }}</div>
+                      </td>
+                      <td class="px-6 py-4 text-right whitespace-nowrap">
+                        @if (row.totalAmount != null) {
+                          <span class="font-semibold text-emerald-400">{{ row.totalAmount | number: '1.0-2' }} MAD</span>
+                        } @else {
+                          <span class="text-slate-500">—</span>
+                        }
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border" [class]="validationBadgeClass(row.lineStatus)">
+                          {{ validationLabel(row.lineStatus) }}
+                        </span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        @if (row.paymentStatus === 'Paid') {
+                          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+                            <app-lucide-icon [icon]="icons.check" className="w-3.5 h-3.5" /> Payé
+                          </span>
+                          @if (row.paidAt) {
+                            <div class="text-[11px] text-slate-500 mt-1">{{ row.paidAt | date: 'dd/MM/yyyy' }}</div>
+                          }
+                          @if (row.paymentReference) {
+                            <div class="text-[11px] text-slate-500">Réf. {{ row.paymentReference }}</div>
+                          }
+                        } @else {
+                          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-500/10 text-slate-300 border border-slate-500/30">
+                            <app-lucide-icon [icon]="icons.clock" className="w-3.5 h-3.5" /> Non payé
+                          </span>
+                        }
+                      </td>
                       <td class="px-6 py-4 text-right">
-                        <button
-                          type="button"
-                          (click)="downloadFicheCsv(f.id)"
-                          class="text-cyan-400 hover:text-cyan-300 text-sm underline"
-                        >
-                          CSV
-                        </button>
+                        <app-prime-employee-fiche-preview-actions
+                          [ficheId]="row.ficheId"
+                          [employeeLabel]="user().firstName + ' ' + user().lastName"
+                          [period]="row.period"
+                          [disabled]="!row.canViewFiche"
+                          [disabledHint]="row.canViewFiche ? '' : 'Disponible après validation RH + Manager.'"
+                        />
                       </td>
                     </tr>
                   }
@@ -152,60 +128,14 @@ import { RoleService } from '../../state/role.service';
 })
 export class MyPrimesPageComponent {
   private readonly roleService = inject(RoleService);
-  private readonly ficheApi = inject(PrimeFicheResultService);
+  private readonly poolApi = inject(PrimeGlobalPoolApiService);
 
-  readonly icons = { wallet: Wallet, check: CheckCircle2, clock: Clock3, cross: CircleX };
+  readonly icons = { wallet: Wallet, check: CheckCircle2, clock: Clock3 };
 
   readonly user = computed(() => this.roleService.currentUser());
 
-  readonly results = signal<PrimeResult[]>([]);
-  readonly types = signal<PrimeType[]>([]);
-  readonly serviceFiches = signal<EmployeePrimeServiceFicheValidationDto[]>([]);
+  readonly tracking = signal<EmployeePrimePaymentTrackingDto[]>([]);
   readonly loading = signal(true);
-  readonly statusFilter = signal('');
-  readonly periodFilter = signal('');
-
-  readonly setStatusFilter = (value: string): void => {
-    this.statusFilter.set(value);
-  };
-
-  readonly setPeriodFilter = (value: string): void => {
-    this.periodFilter.set(value);
-  };
-
-  readonly periods = computed(() =>
-    [...new Set(this.results().map((r) => r.period))].sort(),
-  );
-
-  readonly filterBarFilters = computed<PrimeFilterBarFilter[]>(() => [
-    {
-      name: 'Status',
-      value: this.statusFilter(),
-      onChange: this.setStatusFilter,
-      options: [
-        { label: 'Approved', value: 'Approved' },
-        { label: 'Pending', value: 'Pending' },
-        { label: 'Rejected', value: 'Rejected' },
-      ],
-    },
-    {
-      name: 'Period',
-      value: this.periodFilter(),
-      onChange: this.setPeriodFilter,
-      options: this.periods().map((p) => ({ label: p, value: p })),
-    },
-  ]);
-
-  readonly filtered = computed(() => {
-    const sf = this.statusFilter();
-    const pf = this.periodFilter();
-    return this.results().filter((r) => {
-      const normalized = this.normalize(r.status);
-      const statusMatch = sf ? normalized === sf : true;
-      const periodMatch = pf ? r.period === pf : true;
-      return statusMatch && periodMatch;
-    });
-  });
 
   constructor() {
     effect(() => {
@@ -218,34 +148,39 @@ export class MyPrimesPageComponent {
     this.loading.set(true);
     const userId = this.user().id;
     void (async () => {
-      const [myResults, primeTypes] = await Promise.all([
-        PrimeService.getMyPrimeResults(userId),
-        PrimeService.getPrimeTypes(),
-      ]);
-      this.results.set(myResults);
-      this.types.set(primeTypes);
       try {
-        const fiches = await firstValueFrom(this.ficheApi.list({}));
-        this.serviceFiches.set(fiches.filter((f) => f.employeeId === userId));
+        const rows = await firstValueFrom(this.poolApi.myPaymentTracking(userId, this.user().role));
+        this.tracking.set(rows);
       } catch {
-        this.serviceFiches.set([]);
+        this.tracking.set([]);
       }
       this.loading.set(false);
     })();
   }
 
-  downloadFicheCsv(id: string): void {
-    const u = this.user();
-    window.open(this.ficheApi.exportCsvUrl(id, u.id, u.role), '_blank', 'noopener');
+  validationLabel(lineStatus?: string | null): string {
+    switch (lineStatus) {
+      case 'Approved':
+        return 'Validée';
+      case 'LineRejected':
+        return 'Rejetée';
+      case 'PendingReview':
+        return 'En attente';
+      default:
+        return 'Non soumise';
+    }
   }
 
-  getTypeName(id: string): string {
-    return this.types().find((t) => t.id === id)?.name ?? 'Unknown';
-  }
-
-  normalize(status: PrimeResult['status']): 'Approved' | 'Pending' | 'Rejected' {
-    if (status === 'Rejected') return 'Rejected';
-    if (status === 'Pending') return 'Pending';
-    return 'Approved';
+  validationBadgeClass(lineStatus?: string | null): string {
+    switch (lineStatus) {
+      case 'Approved':
+        return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
+      case 'LineRejected':
+        return 'bg-rose-500/10 text-rose-300 border-rose-500/30';
+      case 'PendingReview':
+        return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
+      default:
+        return 'bg-slate-500/10 text-slate-300 border-slate-500/30';
+    }
   }
 }

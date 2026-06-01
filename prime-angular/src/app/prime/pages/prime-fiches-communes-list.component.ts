@@ -31,6 +31,10 @@ import {
   type SupervisorPolePrimeDraftListItemDto,
 } from '../services/prime-cell-prime-api.service';
 import { PrimeFicheSessionService } from '../services/prime-fiche-session.service';
+import {
+  PrimeGlobalPoolApiService,
+  type SupervisorSynthesisTrackingItemDto,
+} from '../services/prime-global-pool-api.service';
 import { RoleService } from '../state/role.service';
 
 interface PeriodGroup {
@@ -409,6 +413,62 @@ function httpErrMessage(err: unknown): string {
                             </div>
                             }
                           }
+
+                          <div class="mt-2 border-t border-default/60 pt-2">
+                            <p class="mb-1 font-semibold text-primary">Suivi synthèse &amp; paiement (par employé)</p>
+                            @if (synthTrackingLoading()) {
+                              <p class="text-muted">Chargement du suivi…</p>
+                            } @else if (synthTracking().length === 0) {
+                              <p class="text-muted">Aucune fiche pour cette période.</p>
+                            } @else {
+                              <div class="max-h-48 overflow-auto rounded border border-default/60">
+                                <table class="w-full border-collapse text-[11px]">
+                                  <thead class="sticky top-0 bg-card">
+                                    <tr class="text-left text-muted">
+                                      <th class="px-2 py-1 font-medium">Employé</th>
+                                      <th class="px-2 py-1 font-medium">Fiche</th>
+                                      <th class="px-2 py-1 font-medium">Synthèse</th>
+                                      <th class="px-2 py-1 font-medium">Paiement</th>
+                                      <th class="px-2 py-1 font-medium text-right">Fiche finale</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    @for (t of synthTracking(); track t.ficheId) {
+                                      <tr class="border-t border-default/40">
+                                        <td class="px-2 py-1">
+                                          <div class="text-primary">{{ t.employeeDisplayName }}</div>
+                                          <div class="text-[10px] text-muted">{{ t.celluleName }} · {{ t.serviceName }}</div>
+                                        </td>
+                                        <td class="px-2 py-1 text-muted">{{ t.validationStatus }}</td>
+                                        <td class="px-2 py-1">{{ trackingSynthLabel(t) }}</td>
+                                        <td class="px-2 py-1">
+                                          <span [class.text-emerald-400]="t.paymentStatus === 'Paid'" [class.text-muted]="t.paymentStatus !== 'Paid'">
+                                            {{ trackingPaymentLabel(t) }}
+                                          </span>
+                                          @if (t.paidAt) {
+                                            <div class="text-[10px] text-muted">{{ formatDate(t.paidAt) }}</div>
+                                          }
+                                        </td>
+                                        <td class="px-2 py-1 text-right">
+                                          @if (t.poolDistributionUnlocked && t.scopeSynthesisId) {
+                                            <button
+                                              type="button"
+                                              (click)="downloadFinalizedFiche(t)"
+                                              class="rounded border border-default px-2 py-0.5 font-medium text-blue-300 hover:bg-navy-700/40"
+                                            >
+                                              Télécharger
+                                            </button>
+                                          } @else {
+                                            <span class="text-[10px] text-muted">verrouillée</span>
+                                          }
+                                        </td>
+                                      </tr>
+                                    }
+                                  </tbody>
+                                </table>
+                              </div>
+                            }
+                          </div>
                         </div>
                       }
                     </div>
@@ -426,6 +486,7 @@ function httpErrMessage(err: unknown): string {
 export class PrimeFichesCommunesListComponent implements OnInit {
   readonly draftListOrganizationalKey = draftListOrganizationalKey;
   readonly api = inject(PrimeCellPrimeApiService);
+  readonly poolApi = inject(PrimeGlobalPoolApiService);
   readonly session = inject(PrimeFicheSessionService);
   readonly role = inject(RoleService);
   private readonly nav = inject(PrimeNavRequestService);
@@ -455,6 +516,8 @@ export class PrimeFichesCommunesListComponent implements OnInit {
   readonly globalPoolState = signal<CelluleDraftGlobalPoolStateDto | null>(null);
   readonly globalPoolActionBusy = signal(false);
   readonly globalPoolPreviewRows = signal<string[][]>([]);
+  readonly synthTracking = signal<SupervisorSynthesisTrackingItemDto[]>([]);
+  readonly synthTrackingLoading = signal(false);
 
   readonly groups = computed<PeriodGroup[]>(() => {
     const byPeriod = new Map<string, SupervisorPolePrimeDraftListItemDto[]>();
@@ -673,6 +736,7 @@ export class PrimeFichesCommunesListComponent implements OnInit {
       this.globalPoolPanelDraftId.set(null);
       this.globalPoolState.set(null);
       this.globalPoolPreviewRows.set([]);
+      this.synthTracking.set([]);
       return;
     }
     this.globalPoolPanelDraftId.set(item.id);
@@ -684,6 +748,7 @@ export class PrimeFichesCommunesListComponent implements OnInit {
     const sup = this.draftSupervisorId(item);
     if (!sup) return;
     this.globalPoolLoading.set(true);
+    void this.reloadSynthTracking(item);
     try {
       const st = await firstValueFrom(
         this.api.getGlobalPoolState(sup, item.id).pipe(catchError(() => of<CelluleDraftGlobalPoolStateDto | null>(null))),
@@ -692,6 +757,61 @@ export class PrimeFichesCommunesListComponent implements OnInit {
     } finally {
       this.globalPoolLoading.set(false);
     }
+  }
+
+  private async reloadSynthTracking(item: SupervisorPolePrimeDraftListItemDto): Promise<void> {
+    const sup = this.draftSupervisorId(item);
+    if (!sup || !item.period) {
+      this.synthTracking.set([]);
+      return;
+    }
+    this.synthTrackingLoading.set(true);
+    try {
+      const list = await firstValueFrom(
+        this.poolApi
+          .supervisorSynthesisTracking(sup, item.period)
+          .pipe(catchError(() => of<SupervisorSynthesisTrackingItemDto[]>([]))),
+      );
+      this.synthTracking.set(list);
+    } finally {
+      this.synthTrackingLoading.set(false);
+    }
+  }
+
+  trackingPaymentLabel(t: SupervisorSynthesisTrackingItemDto): string {
+    return t.paymentStatus === 'Paid' ? 'Payé' : 'Non payé';
+  }
+
+  trackingSynthLabel(t: SupervisorSynthesisTrackingItemDto): string {
+    if (!t.scopeSynthesisId) return 'Synthèse non préparée';
+    if (t.lineStatus === 'LineRejected') {
+      const reason = t.rhRejectionReason || t.managerRejectionReason;
+      const who = t.rejectedByRole ? ` (${t.rejectedByRole})` : '';
+      return reason ? `Rejetée${who} : ${reason}` : `Rejetée${who}`;
+    }
+    if (t.lineStatus === 'Approved') return 'Ligne validée (RH + Manager)';
+    const rh = t.rhDecision === 'Approved' ? 'RH OK' : t.rhDecision === 'Rejected' ? 'RH rejet' : 'RH …';
+    const mgr = t.managerDecision === 'Approved' ? 'Manager OK' : t.managerDecision === 'Rejected' ? 'Manager rejet' : 'Manager …';
+    return `${rh} · ${mgr}`;
+  }
+
+  downloadFinalizedFiche(t: SupervisorSynthesisTrackingItemDto): void {
+    const uid = this.role.currentUser()?.id;
+    if (!uid || !t.scopeSynthesisId) return;
+    this.poolApi.downloadScopeExcel(t.scopeSynthesisId, uid).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `synthese-${t.celluleName}-${t.serviceName}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.bannerKind.set('error');
+        this.banner.set('Téléchargement indisponible (validations en attente).');
+      },
+    });
   }
 
   async generateGlobalPoolExcel(item: SupervisorPolePrimeDraftListItemDto): Promise<void> {

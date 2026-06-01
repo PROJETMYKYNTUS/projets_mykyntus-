@@ -12,6 +12,8 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
     public DbSet<ServicePrimeIndicatorEntity> ServicePrimeIndicators => Set<ServicePrimeIndicatorEntity>();
     public DbSet<SupervisorCellulePrimeDraftEntity> SupervisorCellulePrimeDrafts => Set<SupervisorCellulePrimeDraftEntity>();
     public DbSet<EmployeePrimeServiceFicheEntity> EmployeePrimeServiceFiches => Set<EmployeePrimeServiceFicheEntity>();
+    public DbSet<EmployeePrimeFicheValidationHistoryEntity> EmployeePrimeFicheValidationHistories =>
+        Set<EmployeePrimeFicheValidationHistoryEntity>();
     // ---- Phase 1.3 : Administration ----
     public DbSet<RbacPermissionEntity> RbacPermissions => Set<RbacPermissionEntity>();
     public DbSet<WorkflowStepConfigEntity> WorkflowSteps => Set<WorkflowStepConfigEntity>();
@@ -20,6 +22,10 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
     public DbSet<AnomalyEntity> Anomalies => Set<AnomalyEntity>();
     public DbSet<GlobalPoolWorkflowStepEntity> GlobalPoolWorkflowSteps => Set<GlobalPoolWorkflowStepEntity>();
     public DbSet<GlobalPoolApprovalEntity> GlobalPoolApprovals => Set<GlobalPoolApprovalEntity>();
+    public DbSet<GlobalPoolScopeSynthesisEntity> GlobalPoolScopeSyntheses => Set<GlobalPoolScopeSynthesisEntity>();
+    public DbSet<GlobalPoolSynthesisLineEntity> GlobalPoolSynthesisLines => Set<GlobalPoolSynthesisLineEntity>();
+    public DbSet<GlobalPoolSynthesisLineHistoryEntity> GlobalPoolSynthesisLineHistories =>
+        Set<GlobalPoolSynthesisLineHistoryEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -159,6 +165,27 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<EmployeePrimeFicheValidationHistoryEntity>(e =>
+        {
+            e.ToTable("prime_employee_fiche_validation_history");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Action).HasMaxLength(32).IsRequired();
+            e.Property(x => x.FromStatus).HasMaxLength(64).IsRequired();
+            e.Property(x => x.ToStatus).HasMaxLength(64).IsRequired();
+            e.Property(x => x.ActorUserId).HasMaxLength(128).IsRequired();
+            e.Property(x => x.ActorRole).HasMaxLength(64).IsRequired();
+            e.Property(x => x.ActorDisplayName).HasMaxLength(256);
+            e.Property(x => x.Comment).HasMaxLength(2048);
+            e.Property(x => x.PrimeAmount).HasPrecision(12, 2);
+            e.Property(x => x.ChallengeAmount).HasPrecision(12, 2);
+            e.Property(x => x.TotalAmount).HasPrecision(12, 2);
+            e.HasIndex(x => new { x.FicheId, x.At });
+            e.HasOne(x => x.Fiche)
+                .WithMany(x => x.ValidationHistory)
+                .HasForeignKey(x => x.FicheId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         // ---- Phase 1.3 : Administration ----
         modelBuilder.Entity<RbacPermissionEntity>(e =>
         {
@@ -189,16 +216,89 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.HasIndex(x => x.SortOrder);
         });
 
+        modelBuilder.Entity<GlobalPoolScopeSynthesisEntity>(e =>
+        {
+            e.ToTable("prime_global_pool_scope_synthesis");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Period).HasMaxLength(16).IsRequired();
+            e.Property(x => x.ScopeType).HasMaxLength(16).IsRequired();
+            e.Property(x => x.ScopeId).HasMaxLength(128).IsRequired();
+            e.Property(x => x.ScopeDisplayName).HasMaxLength(512);
+            e.Property(x => x.FileName).HasMaxLength(512);
+            e.Property(x => x.GeneratedByUserId).HasMaxLength(128);
+            e.Property(x => x.ManagerApprovedByUserId).HasMaxLength(128);
+            e.Property(x => x.RhApprovedByUserId).HasMaxLength(128);
+            e.Property(x => x.ComptaAckByUserId).HasMaxLength(128);
+            e.HasIndex(x => new { x.Period, x.ScopeType, x.ScopeId }).IsUnique();
+            e.HasMany(x => x.Lines)
+                .WithOne(x => x.ScopeSynthesis)
+                .HasForeignKey(x => x.ScopeSynthesisId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.GlobalPoolApprovals)
+                .WithOne(x => x.ScopeSynthesis)
+                .HasForeignKey(x => x.ScopeSynthesisId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GlobalPoolSynthesisLineEntity>(e =>
+        {
+            e.ToTable("prime_global_pool_synthesis_line");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.EmployeeId).HasMaxLength(128).IsRequired();
+            e.Property(x => x.ServiceId).HasMaxLength(128).IsRequired();
+            e.Property(x => x.LineStatus).HasMaxLength(32).IsRequired();
+            e.Property(x => x.RhDecision).HasMaxLength(32).IsRequired();
+            e.Property(x => x.RhDecidedByUserId).HasMaxLength(128);
+            e.Property(x => x.RhRejectionReason).HasMaxLength(2048);
+            e.Property(x => x.ManagerDecision).HasMaxLength(32).IsRequired();
+            e.Property(x => x.ManagerDecidedByUserId).HasMaxLength(128);
+            e.Property(x => x.ManagerRejectionReason).HasMaxLength(2048);
+            e.Property(x => x.RejectedByUserId).HasMaxLength(128);
+            e.Property(x => x.RejectedByRole).HasMaxLength(64);
+            e.Property(x => x.RejectionReason).HasMaxLength(2048);
+            e.Property(x => x.PaymentStatus).HasMaxLength(32).IsRequired();
+            e.Property(x => x.PaidByUserId).HasMaxLength(128);
+            e.Property(x => x.PaymentReference).HasMaxLength(256);
+            e.Property(x => x.PrimeAmount).HasPrecision(12, 2);
+            e.Property(x => x.ChallengeAmount).HasPrecision(12, 2);
+            e.Property(x => x.TotalAmount).HasPrecision(12, 2);
+            e.HasIndex(x => new { x.ScopeSynthesisId, x.FicheId }).IsUnique();
+        });
+
+        modelBuilder.Entity<GlobalPoolSynthesisLineHistoryEntity>(e =>
+        {
+            e.ToTable("prime_global_pool_synthesis_line_history");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Action).HasMaxLength(32).IsRequired();
+            e.Property(x => x.ActorUserId).HasMaxLength(128).IsRequired();
+            e.Property(x => x.ActorRole).HasMaxLength(64).IsRequired();
+            e.Property(x => x.Comment).HasMaxLength(2048);
+            e.HasIndex(x => new { x.LineId, x.At });
+            e.HasOne(x => x.Line)
+                .WithMany(x => x.History)
+                .HasForeignKey(x => x.LineId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<GlobalPoolApprovalEntity>(e =>
         {
             e.ToTable("prime_global_pool_approval");
             e.HasKey(x => x.Id);
             e.Property(x => x.UserId).HasMaxLength(128).IsRequired();
-            e.HasIndex(x => new { x.DraftId, x.StepId }).IsUnique();
+            e.HasIndex(x => new { x.DraftId, x.StepId })
+                .IsUnique()
+                .HasFilter("\"DraftId\" IS NOT NULL");
+            e.HasIndex(x => new { x.ScopeSynthesisId, x.StepId })
+                .IsUnique()
+                .HasFilter("\"ScopeSynthesisId\" IS NOT NULL");
             e.HasOne(x => x.Step)
                 .WithMany()
                 .HasForeignKey(x => x.StepId)
                 .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Draft)
+                .WithMany(x => x.GlobalPoolApprovals)
+                .HasForeignKey(x => x.DraftId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<WorkflowGlobalConfigEntity>(e =>

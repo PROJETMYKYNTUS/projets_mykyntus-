@@ -71,6 +71,15 @@ public static class PrimeValidationWorkflowService
         return OrderedFlow[idx + 1];
     }
 
+    /// <summary>Hors circuit de validation (saisie / attente de soumission automatique en Pending).</summary>
+    public static bool IsPreWorkflowStatus(string? status)
+    {
+        var s = status?.Trim() ?? "";
+        return string.Equals(s, AwaitingData, StringComparison.Ordinal) ||
+               string.Equals(s, "NotStarted", StringComparison.OrdinalIgnoreCase) ||
+               string.IsNullOrEmpty(s);
+    }
+
     public static bool IsValidStatus(string status) =>
         AllStatuses.Contains(status, StringComparer.Ordinal) ||
         string.Equals(status, AwaitingData, StringComparison.Ordinal);

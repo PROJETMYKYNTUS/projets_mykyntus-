@@ -1,4 +1,9 @@
-import { emptySecteurPairValues, type PrimeFicheLigneSaisie, type PrimeFicheSecteurPairValues } from './prime-fiche-ligne.model';
+import {
+  emptySecteurPairValues,
+  isEmptyOrNonNegativeNumberString,
+  type PrimeFicheLigneSaisie,
+  type PrimeFicheSecteurPairValues,
+} from './prime-fiche-ligne.model';
 
 export const PRIME_FICHE_TEMPLATE_FORMAT_V1 = 1 as const;
 export const PRIME_FICHE_TEMPLATE_FORMAT_V2 = 2 as const;
@@ -151,6 +156,21 @@ const sectorCoreKeys: (keyof PrimeFicheSecteurPairValues)[] = [
   'bonusAtteintChallenge',
   'montantChallenge',
 ];
+
+export const SECTOR_PAIR_NUMERIC_KEYS: readonly (keyof PrimeFicheSecteurPairValues)[] = sectorCoreKeys;
+
+export function hasNegativeDynamicValues(row: PrimeFicheLigneDynamic): boolean {
+  if (!isEmptyOrNonNegativeNumberString(row.repartitionRdv)) return true;
+  for (const sector of row.secteurValues) {
+    for (const key of sectorCoreKeys) {
+      if (!isEmptyOrNonNegativeNumberString(sector.core[key])) return true;
+    }
+    for (const val of Object.values(sector.custom)) {
+      if (!isEmptyOrNonNegativeNumberString(val)) return true;
+    }
+  }
+  return false;
+}
 
 /** Reconstruit une ligne dynamique à partir du JSON aplati produit par {@link flattenDynamicLigneForPayload}. */
 export function ligneDynamicFromFlatPayload(

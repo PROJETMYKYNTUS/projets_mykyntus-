@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Data;
 using PrimeBackend.Dto;
+using PrimeBackend.Infrastructure;
 using PrimeBackend.Services;
 
 namespace PrimeBackend.Controllers;
@@ -21,8 +22,11 @@ public sealed class PrimeValidationController(
     PrimeRbacReadService? rbac,
     PrimeValidationListService? validationList,
     PrimeFicheValidationSubmissionService? submission,
+    PrimeFicheValidationHistoryService? validationHistory,
+    PrimeAuditLogService? auditWriter,
     AnomalyDetectionService? anomalies,
     GlobalPoolWorkflowService? poolWf,
+    PrimeFicheMergedPreviewAccessService? previewAccess,
     ILogger<PrimeValidationController> logger) : ControllerBase
 {
 
@@ -202,6 +206,43 @@ public sealed class PrimeValidationController(
         });
     }
 
+    [HttpGet("history-feed")]
+    public async Task<ActionResult<List<PrimeFicheValidationHistoryFeedItemDto>>> HistoryFeed(
+        [FromQuery] string? userId,
+        [FromQuery] string? role,
+        [FromQuery] string? period,
+        [FromQuery] bool? mineOnly,
+        [FromQuery] string? action,
+        CancellationToken ct)
+    {
+        if (db is null || validationHistory is null || rbac is null)
+            return StatusCode(503, new { error = "Base de données non configurée." });
+
+        var ru = await ResolveValidationUserOrNullAsync(userId, role, ct);
+        if (ru is null && ValidationIdentityRequired(userId, role))
+            return Unauthorized(ValidationIdentityError);
+        if (ru is not null && IsBlockedGlobalPoolRoleOnFicheApi(ru.Role))
+            return BadRequest(new { error = GlobalPoolRoleFicheErrorMessage });
+
+        if (!string.IsNullOrWhiteSpace(action))
+        {
+            var a = action.Trim();
+            if (!string.Equals(a, PrimeFicheValidationHistoryActions.Approved, StringComparison.Ordinal) &&
+                !string.Equals(a, PrimeFicheValidationHistoryActions.Rejected, StringComparison.Ordinal))
+                return BadRequest(new { error = "Filtre action invalide (Approved ou Rejected)." });
+        }
+
+        var items = await validationHistory.ListFeedAsync(
+            ru,
+            rbac,
+            period,
+            mineOnly ?? true,
+            action,
+            500,
+            ct);
+        return Ok(items);
+    }
+
     [HttpGet("periods")]
     public async Task<ActionResult<List<string>>> Periods(CancellationToken ct)
     {
@@ -213,6 +254,33 @@ public sealed class PrimeValidationController(
             .Take(120)
             .ToListAsync(ct);
         return Ok(list);
+    }
+
+    [HttpGet("{id:guid}/history")]
+    public async Task<ActionResult<List<PrimeFicheValidationHistoryDto>>> History(
+        Guid id,
+        [FromQuery] string? userId,
+        [FromQuery] string? role,
+        CancellationToken ct)
+    {
+        if (db == null || validationHistory is null)
+            return StatusCode(503, new { error = "Base de données non configurée." });
+
+        var ru = await ResolveValidationUserOrNullAsync(userId, role, ct);
+        if (ru is null && ValidationIdentityRequired(userId, role))
+            return Unauthorized(ValidationIdentityError);
+
+        var fiche = await db.EmployeePrimeServiceFiches.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id, ct);
+        if (fiche is null) return NotFound();
+
+        if (ru is not null && rbac is not null)
+        {
+            var actor = PrimeRbacReadService.WithActingRole(ru.Employee, ru.Role);
+            if (!await rbac.CanAccessFicheAsync(actor, fiche, "Read", ct))
+                return StatusCode(403, new { error = "Périmètre RBAC insuffisant pour cette fiche." });
+        }
+
+        return Ok(await validationHistory.ListForFicheAsync(id, ct));
     }
 
     [HttpPost("{id:guid}/approve")]
@@ -230,6 +298,10 @@ public sealed class PrimeValidationController(
             return BadRequest(new { error = GlobalPoolRoleFicheErrorMessage });
         if (!PrimeFicheValidationRoles.IsOperationalApprover(ru.Role))
             return StatusCode(403, new { error = "Seuls les rôles opérationnels (Référent technique, Superviseur, Chef de projet) valident les fiches." });
+        if (!PrimeEmployeeFicheAmountService.IsNonNegative(body.PrimeAmount) ||
+            !PrimeEmployeeFicheAmountService.IsNonNegative(body.ChallengeAmount) ||
+            !PrimeEmployeeFicheAmountService.IsNonNegative(body.TotalAmount))
+            return BadRequest(new { error = DbExceptionMessages.NonNegativePrimeAmountsRequired });
 
         var fiche = await db.EmployeePrimeServiceFiches.FirstOrDefaultAsync(f => f.Id == id, ct);
         if (fiche == null) return NotFound();
@@ -246,14 +318,17 @@ public sealed class PrimeValidationController(
         var (ok, err, next, step) = await wfRuntime.TryResolveApprovalAsync(fiche, ru.Role, ct);
         if (!ok || next is null) return BadRequest(new { error = err ?? "Transition impossible." });
 
+        var fromStatus = fiche.ValidationStatus;
         PrimeValidationWorkflowService.ApplyApproval(fiche, next, ru.UserId, DateTimeOffset.UtcNow);
-
+        var amounts = PrimeEmployeeFicheAmountService.ExtractFromFiche(fiche);
+        if (!PrimeEmployeeFicheAmountService.AreNonNegative(amounts))
+            return BadRequest(new { error = DbExceptionMessages.NonNegativePrimeAmountsRequired });
         if (step?.CapturesAmountsOnApproval == true)
-        {
-            if (fiche.PrimeAmount is null && body.PrimeAmount is not null) fiche.PrimeAmount = body.PrimeAmount;
-            if (fiche.ChallengeAmount is null && body.ChallengeAmount is not null) fiche.ChallengeAmount = body.ChallengeAmount;
-            if (fiche.TotalAmount is null && body.TotalAmount is not null) fiche.TotalAmount = body.TotalAmount;
-        }
+            PrimeEmployeeFicheAmountService.ApplySnapshotToEntity(fiche, amounts);
+
+        if (validationHistory is not null)
+            await validationHistory.AppendApprovedAsync(fiche, fromStatus, next, ru, amounts, ct);
+        await RecordValidationAuditAsync(ru, fiche.Id, "ValidationApproved", fromStatus, next, amounts, ct);
 
         await db.SaveChangesAsync(ct);
         if (anomalies is not null)
@@ -298,7 +373,16 @@ public sealed class PrimeValidationController(
             return BadRequest(new { error = $"Le rôle « {ru.Role} » ne peut pas rejeter depuis l'état « {fiche.ValidationStatus} »." });
         if (string.IsNullOrWhiteSpace(body.Reason))
             return BadRequest(new { error = "Un motif de rejet est obligatoire." });
-        PrimeValidationWorkflowService.ApplyReject(fiche, ru.UserId, body.Reason.Trim(), DateTimeOffset.UtcNow);
+
+        var fromStatus = fiche.ValidationStatus;
+        var reason = body.Reason.Trim();
+        PrimeValidationWorkflowService.ApplyReject(fiche, ru.UserId, reason, DateTimeOffset.UtcNow);
+        var amounts = PrimeEmployeeFicheAmountService.ExtractFromFiche(fiche);
+
+        if (validationHistory is not null)
+            await validationHistory.AppendRejectedAsync(
+                fiche, fromStatus, PrimeValidationWorkflowService.Rejected, ru, reason, amounts, ct);
+        await RecordValidationAuditAsync(ru, fiche.Id, "ValidationRejected", fromStatus, PrimeValidationWorkflowService.Rejected, amounts, ct);
 
         await db.SaveChangesAsync(ct);
         if (anomalies is not null)
@@ -350,13 +434,25 @@ public sealed class PrimeValidationController(
                 ignored.Add(f.Id);
                 continue;
             }
-            var (ok, _, next, _) = await wfRuntime.TryResolveApprovalAsync(f, ru.Role, ct);
+            var (ok, _, next, step) = await wfRuntime.TryResolveApprovalAsync(f, ru.Role, ct);
             if (!ok || next is null)
             {
                 ignored.Add(f.Id);
                 continue;
             }
+            var fromStatus = f.ValidationStatus;
             PrimeValidationWorkflowService.ApplyApproval(f, next, ru.UserId, now);
+            var amounts = PrimeEmployeeFicheAmountService.ExtractFromFiche(f);
+            if (!PrimeEmployeeFicheAmountService.AreNonNegative(amounts))
+            {
+                ignored.Add(f.Id);
+                continue;
+            }
+            if (step?.CapturesAmountsOnApproval == true)
+                PrimeEmployeeFicheAmountService.ApplySnapshotToEntity(f, amounts);
+            if (validationHistory is not null)
+                await validationHistory.AppendApprovedAsync(f, fromStatus, next, ru, amounts, ct);
+            await RecordValidationAuditAsync(ru, f.Id, "ValidationApproved", fromStatus, next, amounts, ct);
             approved.Add(f.Id);
         }
         await db.SaveChangesAsync(ct);
@@ -366,17 +462,6 @@ public sealed class PrimeValidationController(
                 await anomalies.RecomputeForFicheAsync(id, ct);
         }
         return Ok(new { approvedIds = approved, ignoredIds = ignored });
-    }
-
-    private async Task<bool> PoolDistributionUnlockedForFicheAsync(EmployeePrimeServiceFicheEntity fiche, CancellationToken ct)
-    {
-        if (db == null || poolWf == null) return false;
-        var draft = await db.SupervisorCellulePrimeDrafts.AsNoTracking()
-            .Where(d => d.Period == fiche.Period && d.CelluleId == fiche.CelluleId)
-            .OrderByDescending(d => d.UpdatedAt)
-            .FirstOrDefaultAsync(ct);
-        if (draft is null) return false;
-        return await poolWf.PoolDistributionUnlockedAsync(draft, ct);
     }
 
     private async Task<IActionResult?> GuardPiloteExportAsync(
@@ -389,8 +474,9 @@ public sealed class PrimeValidationController(
         var actorRole = ru?.Role ?? role;
         if (!PrimeFicheDistributionAccess.RoleMustWaitForPrimeDistribution(actorRole))
             return null;
-        var unlocked = await PoolDistributionUnlockedForFicheAsync(fiche, ct);
-        if (!PrimeFicheDistributionAccess.CanAccessMergedFicheLivrable(actorRole, unlocked))
+        // Pilote : export disponible seulement quand sa ligne est validée par les deux workflows (RH + Manager).
+        var approved = previewAccess is not null && await previewAccess.FicheApprovedByBothWorkflowsAsync(fiche, ct);
+        if (!approved)
             return StatusCode(403, new { error = "Export indisponible : validations PRIME en cours." });
         return null;
     }
@@ -475,6 +561,28 @@ public sealed class PrimeValidationController(
         userResolver is null
             ? null
             : await userResolver.TryResolveForValidationAsync(Request, userId, role, ct);
+
+    private async Task RecordValidationAuditAsync(
+        PrimeResolvedUser actor,
+        Guid ficheId,
+        string action,
+        string fromStatus,
+        string toStatus,
+        PrimeEmployeeFicheAmounts amounts,
+        CancellationToken ct)
+    {
+        if (auditWriter is null) return;
+        var display = $"{actor.Employee.FirstName} {actor.Employee.LastName}".Trim();
+        await auditWriter.RecordAsync(
+            actor.UserId,
+            display,
+            actor.Role,
+            action,
+            nameof(EmployeePrimeServiceFicheEntity),
+            ficheId.ToString("D"),
+            PrimeFicheValidationHistoryService.BuildAuditDetailJson(fromStatus, toStatus, amounts),
+            ct);
+    }
 
     private async Task ReconcileForValidationReadAsync(string? period, CancellationToken ct)
     {

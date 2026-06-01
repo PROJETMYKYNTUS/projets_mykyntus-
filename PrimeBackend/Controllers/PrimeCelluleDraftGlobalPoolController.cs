@@ -122,7 +122,17 @@ public sealed class PrimeCelluleDraftGlobalPoolController(
     /// l’enregistre sur le brouillon et réinitialise les validations Manager / RH / Compta.
     /// </summary>
     [HttpPost("{draftId:guid}/global-pool/generate")]
-    public async Task<IActionResult> GenerateGlobalPoolExcel(
+    public Task<IActionResult> GenerateGlobalPoolExcel(
+        Guid draftId,
+        [FromQuery] string supervisorUserId,
+        CancellationToken ct) =>
+        Task.FromResult<IActionResult>(StatusCode(410, new
+        {
+            error = "Génération par brouillon superviseur désactivée. Utilisez POST /api/prime/global-pool/synthesis/generate avec period, scopeType et scopeId.",
+        }));
+
+    [HttpPost("{draftId:guid}/global-pool/generate-legacy")]
+    public async Task<IActionResult> GenerateGlobalPoolExcelLegacy(
         Guid draftId,
         [FromQuery] string supervisorUserId,
         CancellationToken ct)

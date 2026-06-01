@@ -25,16 +25,12 @@ import {
   type OrgAssignmentsOverview,
 } from '../services/prime-org-api.service';
 import type { Department, Employee, LegacyCellule as Cellule, LegacyPole as Pole, Role, Team } from '../models';
-import { employeesForSelect, selectValueOrEmpty } from '../lib/prime-select-options';
+import {
+  employeeSelectOptionLabel,
+  employeesForOrgAssignmentSelect,
+  selectValueOrEmpty,
+} from '../lib/prime-select-options';
 import { RoleService } from '../state/role.service';
-
-const PROTECTED_ROLES: readonly Role[] = ['RH', 'Admin', 'Audit'];
-
-function employeesByRoles(all: Employee[], roles: readonly Role[], selectedUserId?: string | null): Employee[] {
-  const set = new Set<Role>(roles);
-  const base = all.filter((e) => set.has(e.role));
-  return employeesForSelect(base, selectedUserId);
-}
 
 function matchAssignmentUserId(
   assignments: { userId: string; etageId?: string; serviceId?: string; celluleId?: string; sousServiceId?: string }[],
@@ -211,7 +207,7 @@ function httpErrMessage(err: unknown): string {
                           >
                             <option value="">— Sélectionner —</option>
                             @for (e of employeesForManagerRow(dept.id); track e.id) {
-                              <option [value]="e.id">{{ e.firstName }} {{ e.lastName }}</option>
+                              <option [value]="e.id">{{ employeeOptionLabel(e) }}</option>
                             }
                           </select>
                         </td>
@@ -316,7 +312,7 @@ function httpErrMessage(err: unknown): string {
                           >
                             <option value="">— Sélectionner —</option>
                             @for (e of employeesForSupervisorRow(row.poleId); track e.id) {
-                              <option [value]="e.id">{{ e.firstName }} {{ e.lastName }}</option>
+                              <option [value]="e.id">{{ employeeOptionLabel(e) }}</option>
                             }
                           </select>
                         </td>
@@ -457,7 +453,7 @@ function httpErrMessage(err: unknown): string {
                           >
                             <option value="">— Sélectionner —</option>
                             @for (e of employeesForCoachRow(row.celluleId); track e.id) {
-                              <option [value]="e.id">{{ e.firstName }} {{ e.lastName }}</option>
+                              <option [value]="e.id">{{ employeeOptionLabel(e) }}</option>
                             }
                           </select>
                         </td>
@@ -515,7 +511,7 @@ function httpErrMessage(err: unknown): string {
                               >
                                 <option value="">— Pilote —</option>
                                 @for (e of employeesForPilotRow(row.celluleId); track e.id) {
-                                  <option [value]="e.id">{{ e.firstName }} {{ e.lastName }}</option>
+                                  <option [value]="e.id">{{ employeeOptionLabel(e) }}</option>
                                 }
                               </select>
                               @if (teamsForCell(row.celluleId).length > 1) {
@@ -985,9 +981,12 @@ function httpErrMessage(err: unknown): string {
                                         class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-600/40 text-[11px] font-semibold text-slate-100"
                                         >{{ employeeInitials(e) }}</span
                                       >
-                                      <span class="min-w-0 truncate font-medium text-slate-100"
-                                        >{{ e.firstName }} {{ e.lastName }}</span
-                                      >
+                                      <span class="min-w-0">
+                                        <span class="block font-medium text-slate-100 truncate"
+                                          >{{ e.firstName }} {{ e.lastName }}</span
+                                        >
+                                        <span class="block text-xs text-slate-500 truncate">{{ e.role }}</span>
+                                      </span>
                                     </button>
                                   </li>
                                 } @empty {
@@ -1422,7 +1421,7 @@ export class OrganisationManagementComponent implements OnInit {
 
   assignableEmployees = computed((): Employee[] => {
     const list = this.data()?.employees ?? [];
-    return list.filter((e) => !PROTECTED_ROLES.includes(e.role));
+    return employeesForOrgAssignmentSelect(list);
   });
 
   readonly filteredDetailAssignables = computed((): Employee[] => {
@@ -1542,29 +1541,28 @@ export class OrganisationManagementComponent implements OnInit {
     return this.draftPilotTeamByCell()[id] ?? '';
   }
 
+  readonly employeeOptionLabel = employeeSelectOptionLabel;
+
   employeesForManagerRow(deptId: string): Employee[] {
     const emps = this.data()?.employees ?? [];
-    return employeesByRoles(
+    return employeesForOrgAssignmentSelect(
       emps,
-      ['Chef de projet', 'RP', 'Manager'],
       this.draftManagerDept(deptId) || this.managerUserId(deptId),
     );
   }
 
   employeesForSupervisorRow(poleId: string): Employee[] {
     const emps = this.data()?.employees ?? [];
-    return employeesByRoles(
+    return employeesForOrgAssignmentSelect(
       emps,
-      ['Superviseur'],
       this.draftSupervisorPole(poleId) || this.supervisorUserId(poleId),
     );
   }
 
   employeesForCoachRow(cellId: string): Employee[] {
     const emps = this.data()?.employees ?? [];
-    return employeesByRoles(
+    return employeesForOrgAssignmentSelect(
       emps,
-      ['Référent technique', 'Coach'],
       this.draftCoachCell(cellId) || this.coachUserId(cellId),
     );
   }
@@ -1586,7 +1584,7 @@ export class OrganisationManagementComponent implements OnInit {
 
   employeesForPilotRow(cellId: string): Employee[] {
     const emps = this.data()?.employees ?? [];
-    return employeesByRoles(emps, ['Pilote'], this.draftPilotCell(cellId));
+    return employeesForOrgAssignmentSelect(emps, this.draftPilotCell(cellId));
   }
 
   selectPilotValue(cellId: string): string {
@@ -1798,7 +1796,7 @@ export class OrganisationManagementComponent implements OnInit {
 
   employeeLabel(id: string): string {
     const e = this.data()?.employees.find((x) => x.id === id);
-    return e ? `${e.firstName} ${e.lastName}` : id;
+    return e ? employeeSelectOptionLabel(e) : id;
   }
 
   managerLabel(deptId: string): string {

@@ -45,6 +45,40 @@ export const PRIME_FICHE_NUMERIC_FIELDS: (keyof PrimeFicheLigneSaisie)[] = [
   'montantChallenge',
 ];
 
+/** Champs financiers strictement non négatifs dans les formulaires PRIME. */
+export const PRIME_FICHE_NON_NEGATIVE_FIELDS = new Set<keyof PrimeFicheLigneSaisie>([
+  'repartitionRdv',
+  'resultatPrime',
+  'kpiPointMin',
+  'kpiPointMax',
+  'ponderationPrime',
+  'bonusAtteintPrime',
+  'montantPrime',
+  'resultatChallenge',
+  'kpiChallenge',
+  'ponderationChallenge',
+  'bonusAtteintChallenge',
+  'montantChallenge',
+]);
+
+/** Valeur vide autorisée en saisie ; sinon impose un nombre fini >= 0. */
+export function isEmptyOrNonNegativeNumberString(raw: string): boolean {
+  const t = raw.trim();
+  if (t.length === 0) return true;
+  const normalized = t.replace(',', '.');
+  const n = Number(normalized);
+  return Number.isFinite(n) && n >= 0;
+}
+
+/** Retourne vide pour une valeur négative/invalides, sinon garde la saisie utilisateur. */
+export function sanitizeNonNegativeNumberInput(raw: string): string {
+  const t = raw.trim();
+  if (t.length === 0) return '';
+  const n = Number(t.replace(',', '.'));
+  if (!Number.isFinite(n) || n < 0) return '';
+  return raw;
+}
+
 export function emptyPrimeFicheLigne(): PrimeFicheLigneSaisie {
   return {
     repartitionRdv: '',

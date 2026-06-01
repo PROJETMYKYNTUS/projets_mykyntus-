@@ -612,6 +612,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
             this.employeesByServiceId.set(m);
             if (fullPageSpinner) this.loading.set(false);
             this.syncSelectionAfterReload();
+            this.backfillMergedTotals(rows);
           },
           error: (e) => {
             this.error.set(httpErr(e));
@@ -714,6 +715,44 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     );
   }
 
+  /** Persiste les montants Prime/Challenge/Total calcules dans l'apercu fusionne sur la fiche. */
+  private persistMergedTotals(emp: EmployeePrimeCellFicheListItemDto, res: MergedEmployeeFichePreviewResult): void {
+    const ficheId = (emp.ficheId ?? '').trim();
+    if (!ficheId || !res.totals) return;
+    const u = this.role.currentUser();
+    this.api.persistFicheAmounts(ficheId, u.id, res.totals).subscribe({ error: () => undefined });
+  }
+
+  /**
+   * Recalcule et persiste les montants des fiches deja completes pour que la synthese et la
+   * validation affichent les vrais montants sans action manuelle. Best-effort, erreurs ignorees.
+   */
+  private backfillMergedTotals(cells: CellPilotageSummaryDto[]): void {
+    const byService = this.employeesByServiceId();
+    const role = this.role.currentRole() as string;
+    const tasks: Observable<unknown>[] = [];
+    for (const cell of cells) {
+      const emps = byService[cell.serviceId] ?? [];
+      for (const emp of emps) {
+        const ficheId = (emp.ficheId ?? '').trim();
+        if (!ficheId) continue;
+        if ((emp.fillingStatus ?? '').trim().toLowerCase() !== 'complete') continue;
+        if (!mergedFicheActionsEnabled(role, emp, cell, !!ficheListDraftId(emp))) continue;
+        tasks.push(
+          this.fetchMerged$(emp, cell).pipe(
+            map((res) => {
+              if (res.totals) this.persistMergedTotals(emp, res);
+              return null;
+            }),
+            catchError(() => of(null)),
+          ),
+        );
+      }
+    }
+    if (tasks.length === 0) return;
+    forkJoin(tasks).subscribe({ error: () => undefined });
+  }
+
   openMergedPreview(ev: Event, emp: EmployeePrimeCellFicheListItemDto, cell: CellPilotageSummaryDto): void {
     ev.stopPropagation();
     if (!this.mergedActionsEnabled(emp, cell)) return;
@@ -725,6 +764,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     this.previewTitle.set(`Aperçu — ${emp.firstName} ${emp.lastName} — ${this.period()}`);
     this.fetchMerged$(emp, cell).subscribe({
       next: (res) => {
+        this.persistMergedTotals(emp, res);
         this.previewRows.set(res.rows);
         this.previewErrors.set(res.errors);
         if (res.missingSnapshot) this.previewBanner.set(MERGED_PREVIEW_MISSING_SNAPSHOT_HINT);
@@ -744,6 +784,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     if (!this.mergedActionsEnabled(emp, cell)) return;
     this.fetchMerged$(emp, cell).subscribe({
       next: (res) => {
+        this.persistMergedTotals(emp, res);
         if (res.missingSnapshot) {
           window.alert(MERGED_PREVIEW_MISSING_SNAPSHOT_HINT);
           return;

@@ -7,7 +7,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { CheckCircle2, Clock, Download, ShieldCheck, XCircle } from 'lucide';
+import { Download } from 'lucide';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
 import { PrimeCardComponent } from '../components/prime-card.component';
 import {
@@ -101,6 +101,25 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
         }
       </div>
 
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="rounded-xl border border-default bg-card p-3">
+          <div class="text-xs uppercase tracking-wider text-muted">Total fiches</div>
+          <div class="mt-1 text-2xl font-bold text-primary">{{ resultIndicators().total }}</div>
+        </div>
+        <div class="rounded-xl border border-default bg-card p-3">
+          <div class="text-xs uppercase tracking-wider text-muted">Prêtes validation</div>
+          <div class="mt-1 text-2xl font-bold text-primary">{{ resultIndicators().ready }}</div>
+        </div>
+        <div class="rounded-xl border border-default bg-card p-3">
+          <div class="text-xs uppercase tracking-wider text-muted">Montant total</div>
+          <div class="mt-1 text-2xl font-bold text-primary">{{ formatAmount(resultIndicators().sumTotalAmount) }}</div>
+        </div>
+        <div class="rounded-xl border border-default bg-card p-3">
+          <div class="text-xs uppercase tracking-wider text-muted">Rejets</div>
+          <div class="mt-1 text-2xl font-bold text-rose-400">{{ resultIndicators().rejected }}</div>
+        </div>
+      </div>
+
       <app-prime-filter-bar [onSearch]="setSearch" [filters]="filterBarFilters()" />
 
       @if (loading()) {
@@ -120,6 +139,8 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
                   <th class="px-6 py-3 font-medium tracking-wider">Pilote</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Périmètre</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Période</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Avancement</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Prête</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Prime</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Challenge</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Total</th>
@@ -129,7 +150,7 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
               <tbody class="divide-y divide-navy-800">
                 @if (filteredResults().length === 0) {
                   <tr>
-                    <td colspan="7" class="px-6 py-8 text-center text-slate-500">
+                    <td colspan="9" class="px-6 py-8 text-center text-slate-500">
                       Aucune fiche pour ces critères.
                     </td>
                   </tr>
@@ -160,6 +181,20 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
                       <td class="px-6 py-4 whitespace-nowrap font-mono text-slate-200">
                         {{ item.period }}
                       </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-slate-300">
+                        {{ item.fillingStatus || '—' }}
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        @if (item.isReadyForValidation === true) {
+                          <span class="inline-flex px-2 py-1 rounded-md text-xs border border-emerald-300 bg-emerald-50 text-emerald-700">
+                            Oui
+                          </span>
+                        } @else {
+                          <span class="inline-flex px-2 py-1 rounded-md text-xs border border-slate-300 bg-slate-50 text-slate-600">
+                            Non
+                          </span>
+                        }
+                      </td>
                       <td class="px-6 py-4 whitespace-nowrap text-slate-200">
                         {{ formatAmount(item.primeAmount) }}
                       </td>
@@ -172,55 +207,12 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
                         </div>
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap">
-                        @switch (item.validationStatus) {
-                          @case ('Pending') {
-                            <span
-                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200"
-                            >
-                              <app-lucide-icon [icon]="icons.clock" className="w-3.5 h-3.5" />
-                              En attente
-                            </span>
-                          }
-                          @case ('Référent technique Approved') {
-                            <span
-                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-cyan-50 text-cyan-800 border border-cyan-200"
-                            >
-                              <app-lucide-icon [icon]="icons.check" className="w-3.5 h-3.5" /> Réf. tech.
-                            </span>
-                          }
-                          @case ('Superviseur Approved') {
-                            <span
-                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-sky-50 text-sky-800 border border-sky-200"
-                            >
-                              <app-lucide-icon [icon]="icons.check" className="w-3.5 h-3.5" /> Sup. validé
-                            </span>
-                          }
-                          @case ('Chef de projet Approved') {
-                            <span
-                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200"
-                            >
-                              <app-lucide-icon [icon]="icons.shield" className="w-3.5 h-3.5" /> CdP validé
-                            </span>
-                          }
-                          @case ('RH Approved') {
-                            <span
-                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            >
-                              <app-lucide-icon [icon]="icons.check" className="w-3.5 h-3.5" /> RH validé
-                            </span>
-                          }
-                          @case ('Rejected') {
-                            <span
-                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200"
-                              [title]="item.rejectionReason || ''"
-                            >
-                              <app-lucide-icon [icon]="icons.xCircle" className="w-3.5 h-3.5" /> Rejeté
-                            </span>
-                          }
-                          @default {
-                            <span class="text-slate-400">{{ item.validationStatus }}</span>
-                          }
-                        }
+                        <span
+                          [class]="statusBadgeClass(item.validationStatus)"
+                          [title]="item.validationStatus === 'Rejected' ? item.rejectionReason || '' : ''"
+                        >
+                          {{ statusLabel(item.validationStatus) }}
+                        </span>
                       </td>
                     </tr>
                   }
@@ -240,10 +232,6 @@ export class PrimeResultsPageComponent implements OnInit {
 
   readonly icons = {
     download: Download,
-    clock: Clock,
-    check: CheckCircle2,
-    shield: ShieldCheck,
-    xCircle: XCircle,
   };
 
   readonly results = signal<EmployeePrimeServiceFicheValidationDto[]>([]);
@@ -279,6 +267,16 @@ export class PrimeResultsPageComponent implements OnInit {
       label: s.label,
       count: rows.filter((r) => r.validationStatus === s.value).length,
     }));
+  });
+
+  readonly resultIndicators = computed(() => {
+    const rows = this.filteredResults();
+    return {
+      total: rows.length,
+      ready: rows.filter((r) => r.isReadyForValidation === true).length,
+      rejected: rows.filter((r) => r.validationStatus === 'Rejected').length,
+      sumTotalAmount: rows.reduce((acc, r) => acc + (r.totalAmount ?? 0), 0),
+    };
   });
 
   readonly filteredResults = computed(() => {
@@ -441,6 +439,24 @@ export class PrimeResultsPageComponent implements OnInit {
   formatAmount(value: number | null | undefined): string {
     if (value === null || value === undefined) return '—';
     return `${value.toFixed(2)} MAD`;
+  }
+
+  statusBadgeClass(status: string): string {
+    const base = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ';
+    if (status === 'RH Approved') return base + 'bg-emerald-100 text-emerald-800';
+    if (status === 'Rejected') return base + 'bg-rose-100 text-rose-800';
+    if (status === 'Pending') return base + 'bg-amber-100 text-amber-800';
+    return base + 'bg-sky-100 text-sky-800';
+  }
+
+  statusLabel(status: string): string {
+    if (status === 'RH Approved') return 'RH validé';
+    if (status === 'Rejected') return 'Rejeté';
+    if (status === 'Pending') return 'En attente';
+    if (status === 'Référent technique Approved') return 'Réf. technique validé';
+    if (status === 'Superviseur Approved') return 'Superviseur validé';
+    if (status === 'Chef de projet Approved') return 'Chef de projet validé';
+    return status;
   }
 
   exportCsv(): void {

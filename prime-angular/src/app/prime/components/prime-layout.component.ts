@@ -23,6 +23,7 @@ import { PrimeTypesPageComponent } from '../pages/prime-types-page.component';
 import { PrimeRulesPageComponent } from '../pages/prime-rules-page.component';
 import { PrimeResultsPageComponent } from '../pages/prime-results-page.component';
 import { PrimeValidationPageComponent } from '../pages/prime-validation-page.component';
+import { PrimeValidationHistoryPageComponent } from '../pages/prime-validation-history-page.component';
 import { PrimeHistoryPageComponent } from '../pages/prime-history-page.component';
 import { TeamPerformancePageComponent } from '../pages/team-performance-page.component';
 import { PrimeConfigurationPageComponent } from '../pages/prime-configuration-page.component';
@@ -38,6 +39,7 @@ import { PrimeCelluleIndicatorsPageComponent } from '../pages/prime-cellule-indi
 import { PrimeSaisieCellulePageComponent } from '../pages/prime-saisie-cellule-page.component';
 import { PrimeFichesCommunesListComponent } from '../pages/prime-fiches-communes-list.component';
 import { PrimeGlobalPoolPageComponent } from '../pages/prime-global-pool-page.component';
+import { PrimeSynthesisTrackingPageComponent } from '../pages/prime-synthesis-tracking-page.component';
 import { ChefProjetScopePageComponent } from '../pages/chef-projet-scope-page.component';
 import { PrimeFicheSessionService } from '../services/prime-fiche-session.service';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
@@ -58,6 +60,7 @@ import { PrimeAdminService } from '../services/prime-admin.service';
     PrimeRulesPageComponent,
     PrimeResultsPageComponent,
     PrimeValidationPageComponent,
+    PrimeValidationHistoryPageComponent,
     PrimeHistoryPageComponent,
     TeamPerformancePageComponent,
     PrimeConfigurationPageComponent,
@@ -73,6 +76,7 @@ import { PrimeAdminService } from '../services/prime-admin.service';
     PrimeSaisieCellulePageComponent,
     PrimeFichesCommunesListComponent,
     PrimeGlobalPoolPageComponent,
+    PrimeSynthesisTrackingPageComponent,
     ChefProjetScopePageComponent,
   ],
   template: `
@@ -192,11 +196,17 @@ import { PrimeAdminService } from '../services/prime-admin.service';
                 @case ('/validation') {
                   <app-prime-validation-page />
                 }
+                @case ('/validation-history') {
+                  <app-prime-validation-history-page />
+                }
                 @case ('/chef-projet/scope') {
                   <app-chef-projet-scope-page />
                 }
                 @case ('/global-pool') {
                   <app-prime-global-pool-page />
+                }
+                @case ('/synthesis-tracking') {
+                  <app-prime-synthesis-tracking-page />
                 }
                 @case ('/history') {
                   <app-prime-history-page />
@@ -288,7 +298,9 @@ export class PrimeLayoutComponent {
   /** Zone principale « dashboard embarqué » : Admin, Audit, RP legacy (shell sectionné). */
   readonly isAdminRpOrAudit = computed(() => {
     const r = this.role.currentRole();
-    if (r === 'Admin' && this.currentView() === '/rh/organisation') return false;
+    const v = this.effectiveView();
+    if (v === '/validation' || v === '/validation-history') return false;
+    if (r === 'Admin' && v === '/rh/organisation') return false;
     return r === 'Admin' || r === 'RP' || r === 'Audit';
   });
 
@@ -317,6 +329,7 @@ export class PrimeLayoutComponent {
 
   /** Dernière identité (rôle + utilisateur) pour détecter un vrai changement mode développeur. */
   private lastDeveloperIdentityKey: string | null = null;
+  private lastAuditTraceKey: string | null = null;
 
   constructor() {
     effect(() => {
@@ -344,6 +357,9 @@ export class PrimeLayoutComponent {
       const u = this.role.currentUser();
       const r = this.role.currentRole();
       if (!u?.id || !route) return;
+      const traceKey = `${u.id}|${r}|${route}`;
+      if (this.lastAuditTraceKey === traceKey) return;
+      this.lastAuditTraceKey = traceKey;
       const sub = this.primeAdmin
         .recordAuditNavigation({
           userId: u.id,

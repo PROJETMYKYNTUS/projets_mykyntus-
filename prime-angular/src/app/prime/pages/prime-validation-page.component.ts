@@ -7,8 +7,11 @@ import {
   signal,
 } from '@angular/core';
 import { forkJoin, switchMap } from 'rxjs';
-import { AlertCircle, Check, CheckCheck, X } from 'lucide';
+import { PrimeNavRequestService } from '../services/prime-nav-request.service';
+import { AlertCircle, Check, CheckCheck, History, X } from 'lucide';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
+import { PrimeFicheValidationTimelineComponent } from '../components/prime-fiche-validation-timeline.component';
+import { PrimeEmployeeFichePreviewActionsComponent } from '../components/prime-employee-fiche-preview-actions.component';
 import { PrimeCardComponent } from '../components/prime-card.component';
 import {
   PrimeFilterBarComponent,
@@ -21,6 +24,7 @@ import {
   PrimeFicheResultService,
   type EmployeePrimeServiceFicheValidationDto,
   type PrimeFicheValidationStatus,
+  type PrimeFicheValidationHistoryDto,
   type WorkflowValidationMetaDto,
   type WorkflowValidationSummaryDto,
 } from '../services/prime-fiche-result.service';
@@ -117,10 +121,22 @@ function mapRoleForApi(role: string): string {
   return role;
 }
 
+/** Fiche pilote complète mais pas encore passée en Pending (soumission workflow). */
+function isPreWorkflowSubmissionStatus(status: string): boolean {
+  const s = (status ?? '').trim();
+  return s === 'AwaitingData' || s === 'NotStarted' || !s;
+}
+
 @Component({
   selector: 'app-prime-validation-page',
   standalone: true,
-  imports: [LucideIconComponent, PrimeCardComponent, PrimeFilterBarComponent],
+  imports: [
+    LucideIconComponent,
+    PrimeCardComponent,
+    PrimeFilterBarComponent,
+    PrimeFicheValidationTimelineComponent,
+    PrimeEmployeeFichePreviewActionsComponent,
+  ],
   template: `
     @if (loading()) {
       <div class="p-8 flex justify-center">
@@ -134,6 +150,13 @@ function mapRoleForApi(role: string): string {
             <p class="prime-page-subtitle">
               Validez les fiches de votre périmètre selon le circuit
               {{ workflowPipelineLabel() }}. RH, Manager et Comptabilité traitent la synthèse globale.
+              <button
+                type="button"
+                (click)="goToValidationHistory()"
+                class="text-indigo-400 hover:text-indigo-300 underline ml-1"
+              >
+                Voir toutes vos actions sur Suivi validation
+              </button>.
             </p>
           </div>
           @if (canBulkApprove()) {
@@ -161,6 +184,34 @@ function mapRoleForApi(role: string): string {
           <app-prime-card>
             <div class="p-4 text-rose-600 text-sm">{{ errorMessage() }}</div>
           </app-prime-card>
+        }
+
+        @if (readyNotSubmittedCount() > 0) {
+          <div
+            class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-primary flex flex-wrap items-start justify-between gap-3"
+            role="status"
+          >
+            <div class="min-w-0 space-y-1">
+              <p class="font-semibold text-amber-200">
+                {{ readyNotSubmittedCount() }} fiche(s) prête(s) — bascule en Pending en cours
+              </p>
+              <p class="text-muted text-xs leading-relaxed">
+                Partie commune validée et saisie pilote complète : la fiche doit passer automatiquement en
+                <span class="font-mono text-amber-200/90">Pending</span> pour entrer dans le circuit de validation
+                (le statut
+                <span class="font-mono text-amber-200/90">AwaitingData</span> signifie seulement « hors circuit », pas
+                « données manquantes »). Si le compteur persiste, cliquez « Réessayer la soumission ».
+              </p>
+            </div>
+            <button
+              type="button"
+              (click)="retryWorkflowSubmission()"
+              [disabled]="reconcileBusy()"
+              class="shrink-0 rounded-lg border border-amber-500/50 bg-amber-600/20 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-600/30 disabled:opacity-50"
+            >
+              {{ reconcileBusy() ? 'Actualisation…' : 'Réessayer la soumission' }}
+            </button>
+          </div>
         }
 
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -230,6 +281,7 @@ function mapRoleForApi(role: string): string {
                           Prime {{ formatAmount(item.primeAmount) }} • Chal.
                           {{ formatAmount(item.challengeAmount) }}
                         </div>
+                        <div class="text-[10px] text-muted/80 mt-0.5">Issus de la fiche employé</div>
                       </td>
                       <td>
                         <span class="prime-status-badge">
@@ -241,31 +293,117 @@ function mapRoleForApi(role: string): string {
                           </div>
                         }
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-right">
-                        <div class="flex items-center justify-end gap-2">
+                      <td class="px-6 py-4 text-right align-top">
+                        <div class="flex flex-col items-end gap-2">
+                          <app-prime-employee-fiche-preview-actions
+                            [ficheId]="item.id"
+                            [employeeLabel]="displayPilotName(item, emp)"
+                            [period]="item.period"
+                            [disabled]="!canPreviewFiche(item)"
+                            [disabledHint]="previewDisabledHint(item)"
+                          />
+                          <button
+                            type="button"
+                            (click)="toggleHistoryPanel(item)"
+                            [class]="historyButtonClass(item.id)"
+                            title="Historique de validation"
+                          >
+                            <app-lucide-icon [icon]="icons.history" className="w-3.5 h-3.5" />
+                            Historique
+                          </button>
                           @if (canApproveRow(item)) {
-                            <button
-                              type="button"
-                              [disabled]="busyId() === item.id"
-                              (click)="approve(item.id)"
-                              class="p-1.5 text-muted hover:text-emerald-400 hover:bg-navy-800 rounded-md transition-colors border border-transparent hover:border-emerald-500/40 disabled:opacity-50"
-                              title="Approuver"
+                            <div class="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                [disabled]="busyId() === item.id"
+                                (click)="approve(item.id)"
+                                class="p-1.5 text-muted hover:text-emerald-400 hover:bg-navy-800 rounded-md transition-colors border border-transparent hover:border-emerald-500/40 disabled:opacity-50"
+                                title="Approuver"
+                              >
+                                <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                [disabled]="busyId() === item.id"
+                                (click)="startReject(item)"
+                                class="p-1.5 text-muted hover:text-rose-400 hover:bg-navy-800 rounded-md transition-colors border border-transparent hover:border-rose-500/40 disabled:opacity-50"
+                                title="Rejeter (motif obligatoire)"
+                              >
+                                <app-lucide-icon [icon]="icons.x" className="w-4 h-4" />
+                              </button>
+                            </div>
+                            @if (rejectingFicheId() === item.id) {
+                              <div
+                                class="w-full max-w-xs text-left rounded-lg border border-default bg-navy-900/80 p-3 space-y-2"
+                              >
+                                <label
+                                  class="text-[11px] text-muted"
+                                  [attr.for]="'rej-reason-' + item.id"
+                                >
+                                  Motif de rejet <span class="text-rose-400">*</span>
+                                </label>
+                                <textarea
+                                  [id]="'rej-reason-' + item.id"
+                                  name="rejectReason"
+                                  rows="3"
+                                  class="w-full text-xs bg-navy-950 border border-default rounded-lg p-2 text-primary resize-none outline-none focus:border-rose-500/50"
+                                  [value]="rejectReason()"
+                                  (input)="onRejectReasonInput($event)"
+                                  placeholder="Obligatoire"
+                                ></textarea>
+                                <div class="flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    class="whitespace-nowrap rounded-lg border border-default px-3 py-2 text-xs font-semibold text-muted hover:bg-navy-800 disabled:opacity-50"
+                                    [disabled]="busyId() === item.id"
+                                    (click)="cancelReject()"
+                                  >
+                                    Annuler
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="inline-flex items-center gap-2 whitespace-nowrap rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-40"
+                                    [disabled]="busyId() === item.id || !rejectReason().trim()"
+                                    (click)="confirmReject()"
+                                  >
+                                    @if (busyId() === item.id) {
+                                      <span
+                                        class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-r-transparent"
+                                        aria-hidden="true"
+                                      ></span>
+                                    }
+                                    <span>Confirmer le rejet</span>
+                                  </button>
+                                </div>
+                              </div>
+                            }
+                          } @else if (isAwaitingWorkflowSubmission(item)) {
+                            <p
+                              class="max-w-[14rem] text-right text-[11px] leading-snug text-amber-300/95"
+                              [title]="submissionHoldReason(item)"
                             >
-                              <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              [disabled]="busyId() === item.id"
-                              (click)="reject(item.id)"
-                              class="p-1.5 text-muted hover:text-rose-400 hover:bg-navy-800 rounded-md transition-colors border border-transparent hover:border-rose-500/40 disabled:opacity-50"
-                              title="Rejeter (motif obligatoire)"
-                            >
-                              <app-lucide-icon [icon]="icons.x" className="w-4 h-4" />
-                            </button>
+                              {{ submissionHoldReason(item) }}
+                            </p>
                           }
                         </div>
                       </td>
                     </tr>
+                    @if (expandedFicheId() === item.id) {
+                      <tr class="bg-navy-950/60">
+                        <td colspan="6" class="px-6 py-4">
+                          @if (historyLoadingId() === item.id) {
+                            <p class="text-xs text-muted">Chargement de l'historique…</p>
+                          } @else {
+                            <app-prime-fiche-validation-timeline
+                              [workflowMeta]="workflowMeta()"
+                              [history]="historyForFiche(item.id)"
+                              [currentStatus]="item.validationStatus"
+                              [currentUserId]="roleService.currentUser().id"
+                            />
+                          }
+                        </td>
+                      </tr>
+                    }
                   }
                 }
               </tbody>
@@ -280,8 +418,9 @@ function mapRoleForApi(role: string): string {
 export class PrimeValidationPageComponent {
   readonly roleService = inject(RoleService);
   private readonly api = inject(PrimeFicheResultService);
+  private readonly nav = inject(PrimeNavRequestService);
 
-  readonly icons = { alert: AlertCircle, check: Check, x: X, checkAll: CheckCheck };
+  readonly icons = { alert: AlertCircle, check: Check, x: X, checkAll: CheckCheck, history: History };
 
   readonly workflowMeta = signal<WorkflowValidationMetaDto | null>(null);
   readonly summaryDto = signal<WorkflowValidationSummaryDto | null>(null);
@@ -292,8 +431,14 @@ export class PrimeValidationPageComponent {
   readonly errorMessage = signal<string | null>(null);
   readonly busyId = signal<string | null>(null);
   readonly bulkBusy = signal(false);
+  readonly reconcileBusy = signal(false);
+  readonly expandedFicheId = signal<string | null>(null);
+  readonly historyByFicheId = signal<Record<string, PrimeFicheValidationHistoryDto[]>>({});
+  readonly historyLoadingId = signal<string | null>(null);
   readonly statusFilter = signal<PrimeFicheValidationStatus | ''>('');
   readonly periodFilter = signal('');
+  readonly rejectingFicheId = signal<string | null>(null);
+  readonly rejectReason = signal('');
 
   readonly setStatusFilter = (value: PrimeFicheValidationStatus | '') => {
     this.statusFilter.set(this.statusFilter() === value ? '' : value);
@@ -301,6 +446,10 @@ export class PrimeValidationPageComponent {
   readonly setPeriodFilter = (value: string): void => {
     this.periodFilter.set(value);
   };
+
+  goToValidationHistory(): void {
+    this.nav.requestView('/validation-history');
+  }
 
   readonly workflowPipelineLabel = computed(() =>
     formatWorkflowPipeline(this.workflowMeta()?.steps),
@@ -389,6 +538,10 @@ export class PrimeValidationPageComponent {
     }));
   });
 
+  readonly readyNotSubmittedCount = computed(
+    () => this.summaryDto()?.readyNotSubmittedCount ?? 0,
+  );
+
   readonly filteredResults = computed(() => {
     const status = this.statusFilter();
     const rows = this.results();
@@ -397,7 +550,11 @@ export class PrimeValidationPageComponent {
     const statuses = cfg.fromStatuses ?? [];
     if (statuses.length > 0) {
       const set = new Set(statuses);
-      return rows.filter((r) => set.has(r.validationStatus));
+      return rows.filter(
+        (r) =>
+          set.has(r.validationStatus) ||
+          (r.isReadyForValidation === true && isPreWorkflowSubmissionStatus(r.validationStatus)),
+      );
     }
     if (cfg.readOnlyScope === 'service') {
       const sid = this.roleService.currentUser().serviceId;
@@ -409,12 +566,11 @@ export class PrimeValidationPageComponent {
 
   readonly emptyListMessage = computed(() => {
     const cfg = this.roleConfig();
-    const pendingNotSubmitted = this.summaryDto()?.readyNotSubmittedCount ?? 0;
     if ((cfg.fromStatuses?.length ?? 0) > 0) {
-      if (pendingNotSubmitted > 0) {
-        return `${pendingNotSubmitted} fiche(s) prête(s) dans votre périmètre n’ont pas encore été soumises au workflow (statut Pending). Demandez au superviseur d’actualiser le pilotage ou contactez l’administrateur.`;
+      if (this.readyNotSubmittedCount() > 0) {
+        return 'Aucune fiche en statut Pending à valider pour ce filtre. Des fiches prêtes peuvent être listées sous AwaitingData — voir le bandeau ci-dessus.';
       }
-      return 'Aucune fiche en attente de votre validation pour ce filtre (statut Pending, partie commune validée et saisie cellule complète).';
+      return 'Aucune fiche en attente de votre validation (statut Pending, partie commune validée et saisie cellule complète).';
     }
     return 'Aucune fiche à afficher pour ces critères.';
   });
@@ -561,7 +717,155 @@ export class PrimeValidationPageComponent {
     return statuses.includes(row.validationStatus);
   }
 
+  canPreviewFiche(row: EmployeePrimeServiceFicheValidationDto): boolean {
+    return (row.fillingStatus ?? '').trim().toLowerCase() === 'complete';
+  }
+
+  previewDisabledHint(row: EmployeePrimeServiceFicheValidationDto): string {
+    if (this.canPreviewFiche(row)) return '';
+    return 'Fiche pilote non complète.';
+  }
+
+  isAwaitingWorkflowSubmission(row: EmployeePrimeServiceFicheValidationDto): boolean {
+    return (
+      row.isReadyForValidation === true && isPreWorkflowSubmissionStatus(row.validationStatus)
+    );
+  }
+
+  submissionHoldReason(row: EmployeePrimeServiceFicheValidationDto): string {
+    const common = (row.commonPartStatus ?? '').trim().toLowerCase();
+    if (common && common !== 'validated') {
+      return 'Partie commune non validée (superviseur : valider la fiche RACC/SAV).';
+    }
+    if (!row.isReadyForValidation) {
+      return 'Saisie cellule ou partie commune incomplète.';
+    }
+    return 'En attente de passage en Pending — superviseur : pilotage ou validation commune.';
+  }
+
+  historyForFiche(ficheId: string): PrimeFicheValidationHistoryDto[] {
+    return this.historyByFicheId()[ficheId] ?? [];
+  }
+
+  historyButtonClass(ficheId: string): string {
+    const base =
+      'inline-flex items-center gap-1 rounded-md border border-default px-2 py-1 text-[11px] font-medium text-muted hover:text-primary hover:bg-navy-800/50';
+    return this.expandedFicheId() === ficheId ? `${base} border-indigo-500/50` : base;
+  }
+
+  toggleHistoryPanel(item: EmployeePrimeServiceFicheValidationDto): void {
+    this.cancelReject();
+    if (this.expandedFicheId() === item.id) {
+      this.expandedFicheId.set(null);
+      return;
+    }
+    this.expandedFicheId.set(item.id);
+    const cached = this.historyByFicheId()[item.id];
+    if (cached) return;
+    const u = this.roleService.currentUser();
+    const role = mapRoleForApi(this.roleService.currentRole() as string);
+    this.historyLoadingId.set(item.id);
+    this.api.history(item.id, { userId: u.id, role }).subscribe({
+      next: (rows) => {
+        this.historyByFicheId.update((m) => ({ ...m, [item.id]: rows }));
+        this.historyLoadingId.set(null);
+      },
+      error: () => {
+        this.historyByFicheId.update((m) => ({ ...m, [item.id]: [] }));
+        this.historyLoadingId.set(null);
+      },
+    });
+  }
+
+  private invalidateHistoryCache(ficheId: string): void {
+    this.historyByFicheId.update((m) => {
+      const next = { ...m };
+      delete next[ficheId];
+      return next;
+    });
+    if (this.expandedFicheId() === ficheId) {
+      const row = this.results().find((r) => r.id === ficheId);
+      if (row) this.reloadHistory(row);
+    }
+  }
+
+  private reloadHistory(item: EmployeePrimeServiceFicheValidationDto): void {
+    const u = this.roleService.currentUser();
+    const role = mapRoleForApi(this.roleService.currentRole() as string);
+    this.historyLoadingId.set(item.id);
+    this.api.history(item.id, { userId: u.id, role }).subscribe({
+      next: (rows) => {
+        this.historyByFicheId.update((m) => ({ ...m, [item.id]: rows }));
+        this.historyLoadingId.set(null);
+      },
+      error: () => this.historyLoadingId.set(null),
+    });
+  }
+
+  retryWorkflowSubmission(): void {
+    this.reconcileBusy.set(true);
+    this.errorMessage.set(null);
+    this.api.reconcileReady().subscribe({
+      next: () => {
+        this.reconcileBusy.set(false);
+        this.fetch(this.periodFilter().trim());
+      },
+      error: (err) => {
+        console.error('[PrimeValidationPage] reconcile error', err);
+        this.errorMessage.set(
+          primeHttpErrorDetail(err) ?? 'Impossible de relancer la soumission au workflow.',
+        );
+        this.reconcileBusy.set(false);
+      },
+    });
+  }
+
+  onRejectReasonInput(event: Event): void {
+    const el = event.target as HTMLTextAreaElement;
+    this.rejectReason.set(el.value);
+  }
+
+  startReject(item: EmployeePrimeServiceFicheValidationDto): void {
+    this.rejectingFicheId.set(item.id);
+    this.rejectReason.set('');
+    if (this.expandedFicheId() === item.id) {
+      this.expandedFicheId.set(null);
+    }
+  }
+
+  cancelReject(): void {
+    this.rejectingFicheId.set(null);
+    this.rejectReason.set('');
+  }
+
+  confirmReject(): void {
+    const id = this.rejectingFicheId();
+    const reason = this.rejectReason().trim();
+    if (!id || !reason || this.busyId()) return;
+
+    const role = mapRoleForApi(this.roleService.currentRole() as string);
+    const user = this.roleService.currentUser();
+    this.busyId.set(id);
+    this.api
+      .reject(id, { userId: user.id, role, reason })
+      .subscribe({
+        next: (updated) => {
+          this.results.update((rows) => rows.map((r) => (r.id === id ? updated : r)));
+          this.invalidateHistoryCache(id);
+          this.busyId.set(null);
+          this.cancelReject();
+          void this.fetch(this.periodFilter().trim());
+        },
+        error: (err) => {
+          console.error('[PrimeValidationPage] reject error', err);
+          this.errorMessage.set(err?.error?.error || 'Erreur lors du rejet.');
+          this.busyId.set(null);
+        },
+      });
+  }
+
   approve(id: string): void {
+    this.cancelReject();
     const role = mapRoleForApi(this.roleService.currentRole() as string);
     const user = this.roleService.currentUser();
     this.busyId.set(id);
@@ -570,32 +874,13 @@ export class PrimeValidationPageComponent {
       .subscribe({
         next: (updated) => {
           this.results.update((rows) => rows.map((r) => (r.id === id ? updated : r)));
+          this.invalidateHistoryCache(id);
           this.busyId.set(null);
+          void this.fetch(this.periodFilter().trim());
         },
         error: (err) => {
           console.error('[PrimeValidationPage] approve error', err);
           this.errorMessage.set(err?.error?.error || 'Erreur lors de l’approbation.');
-          this.busyId.set(null);
-        },
-      });
-  }
-
-  reject(id: string): void {
-    const role = mapRoleForApi(this.roleService.currentRole() as string);
-    const user = this.roleService.currentUser();
-    const reason = (window.prompt('Motif de rejet (obligatoire) :') ?? '').trim();
-    if (!reason) return;
-    this.busyId.set(id);
-    this.api
-      .reject(id, { userId: user.id, role, reason })
-      .subscribe({
-        next: (updated) => {
-          this.results.update((rows) => rows.map((r) => (r.id === id ? updated : r)));
-          this.busyId.set(null);
-        },
-        error: (err) => {
-          console.error('[PrimeValidationPage] reject error', err);
-          this.errorMessage.set(err?.error?.error || 'Erreur lors du rejet.');
           this.busyId.set(null);
         },
       });

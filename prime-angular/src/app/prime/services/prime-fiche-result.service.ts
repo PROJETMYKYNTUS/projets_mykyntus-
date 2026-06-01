@@ -65,6 +65,42 @@ export interface WorkflowValidationMetaDto {
   actionableFromStatuses: string[];
 }
 
+export interface PrimeFicheValidationHistoryDto {
+  id: string;
+  ficheId: string;
+  at: string;
+  action: string;
+  fromStatus: string;
+  toStatus: string;
+  actorUserId: string;
+  actorRole: string;
+  actorDisplayName?: string | null;
+  comment?: string | null;
+  primeAmount?: number | null;
+  challengeAmount?: number | null;
+  totalAmount?: number | null;
+}
+
+export interface PrimeFicheValidationHistoryFeedItemDto extends PrimeFicheValidationHistoryDto {
+  employeeId: string;
+  employeeDisplayName: string;
+  period: string;
+  celluleName: string;
+  serviceName: string;
+  currentValidationStatus: string;
+  phase?: string;
+  scopeLabel?: string | null;
+  lineRejectionReason?: string | null;
+}
+
+export interface ValidationHistoryFeedFilters {
+  userId?: string;
+  role?: string;
+  period?: string;
+  mineOnly?: boolean;
+  action?: 'Approved' | 'Rejected' | '';
+}
+
 export interface ApproveServiceFicheRequest {
   userId: string;
   role: string;
@@ -126,6 +162,29 @@ export class PrimeFicheResultService {
 
   list(filters?: FicheValidationListFilters): Observable<EmployeePrimeServiceFicheValidationDto[]> {
     return this.http.get<EmployeePrimeServiceFicheValidationDto[]>(base, { params: this.buildParams(filters) });
+  }
+
+  historyFeed(filters?: ValidationHistoryFeedFilters): Observable<PrimeFicheValidationHistoryFeedItemDto[]> {
+    let params = new HttpParams();
+    if (filters?.userId) params = params.set('userId', filters.userId);
+    if (filters?.role) params = params.set('role', filters.role);
+    if (filters?.period) params = params.set('period', filters.period);
+    if (filters?.mineOnly === true) params = params.set('mineOnly', 'true');
+    if (filters?.mineOnly === false) params = params.set('mineOnly', 'false');
+    if (filters?.action) params = params.set('action', filters.action);
+    return this.http.get<PrimeFicheValidationHistoryFeedItemDto[]>(`${base}/history-feed`, { params });
+  }
+
+  history(
+    ficheId: string,
+    filters?: Pick<FicheValidationListFilters, 'userId' | 'role'>,
+  ): Observable<PrimeFicheValidationHistoryDto[]> {
+    let params = new HttpParams();
+    if (filters?.userId) params = params.set('userId', filters.userId);
+    if (filters?.role) params = params.set('role', filters.role);
+    return this.http.get<PrimeFicheValidationHistoryDto[]>(`${base}/${encodeURIComponent(ficheId)}/history`, {
+      params,
+    });
   }
 
   summary(filters?: Omit<FicheValidationListFilters, 'status'>): Observable<WorkflowValidationSummaryDto> {

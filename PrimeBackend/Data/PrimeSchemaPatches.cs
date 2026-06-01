@@ -149,6 +149,257 @@ public static class PrimeSchemaPatches
             ct);
 
         await EnsureValidationQueueRepairAsync(db, ct);
+        await EnsureFicheValidationHistoryTableAsync(db, ct);
+        await EnsureGlobalPoolScopeSynthesisTablesAsync(db, ct);
+    }
+
+    /// <summary>Ajoute les colonnes paiement à la table ligne de synthèse (bases déjà créées).</summary>
+    public static async Task EnsureSynthesisLinePaymentColumnsAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_global_pool_synthesis_line", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "PaymentStatus" character varying(32) NOT NULL DEFAULT 'Unpaid';
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "PaidAt" timestamp with time zone;
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "PaidByUserId" character varying(128);
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "PaymentReference" character varying(256);
+            """,
+            ct);
+    }
+
+    /// <summary>Ajoute les colonnes double validation RH/Manager sur les lignes de synthèse (bases déjà créées).</summary>
+    public static async Task EnsureSynthesisLineDualDecisionColumnsAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_global_pool_synthesis_line", ct))
+            return;
+
+        // Colonne par colonne (IF NOT EXISTS) : évite les états partiels si RhDecision existe sans ManagerDecidedAt.
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "RhDecision" character varying(32) NOT NULL DEFAULT 'Pending';
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "RhDecidedByUserId" character varying(128);
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "RhDecidedAt" timestamp with time zone;
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "RhRejectionReason" character varying(2048);
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "ManagerDecision" character varying(32) NOT NULL DEFAULT 'Pending';
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "ManagerDecidedByUserId" character varying(128);
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "ManagerDecidedAt" timestamp with time zone;
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "ManagerRejectionReason" character varying(2048);
+            """,
+            ct);
+    }
+
+    /// <summary>Correctifs colonnes ligne synthèse (paiement + double validation) — idempotent au démarrage.</summary>
+    public static async Task EnsureGlobalPoolSynthesisLineSchemaAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        await EnsureSynthesisLinePaymentColumnsAsync(db, ct);
+        await EnsureSynthesisLineDualDecisionColumnsAsync(db, ct);
+    }
+
+    public static async Task EnsureGlobalPoolScopeSynthesisTablesAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_employee_prime_service_fiche", ct))
+            return;
+        if (await TableExistsAsync(db, "prime_global_pool_scope_synthesis", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE prime_global_pool_scope_synthesis (
+                "Id" uuid NOT NULL,
+                "Period" character varying(16) NOT NULL,
+                "ScopeType" character varying(16) NOT NULL,
+                "ScopeId" character varying(128) NOT NULL,
+                "ScopeDisplayName" character varying(512) NOT NULL DEFAULT '',
+                "ExcelContent" bytea,
+                "FileName" character varying(512),
+                "GeneratedAt" timestamp with time zone,
+                "GeneratedByUserId" character varying(128),
+                "ManagerApprovedAt" timestamp with time zone,
+                "ManagerApprovedByUserId" character varying(128),
+                "RhApprovedAt" timestamp with time zone,
+                "RhApprovedByUserId" character varying(128),
+                "ComptaAckAt" timestamp with time zone,
+                "ComptaAckByUserId" character varying(128),
+                "UpdatedAt" timestamp with time zone NOT NULL,
+                CONSTRAINT "PK_prime_global_pool_scope_synthesis" PRIMARY KEY ("Id")
+            );
+            CREATE UNIQUE INDEX "IX_prime_global_pool_scope_synthesis_Period_ScopeType_ScopeId"
+                ON prime_global_pool_scope_synthesis ("Period", "ScopeType", "ScopeId");
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE prime_global_pool_synthesis_line (
+                "Id" uuid NOT NULL,
+                "ScopeSynthesisId" uuid NOT NULL,
+                "FicheId" uuid NOT NULL,
+                "EmployeeId" character varying(128) NOT NULL,
+                "ServiceId" character varying(128) NOT NULL,
+                "PrimeAmount" numeric(12,2),
+                "ChallengeAmount" numeric(12,2),
+                "TotalAmount" numeric(12,2),
+                "LineStatus" character varying(32) NOT NULL DEFAULT 'PendingReview',
+                "RhDecision" character varying(32) NOT NULL DEFAULT 'Pending',
+                "RhDecidedByUserId" character varying(128),
+                "RhDecidedAt" timestamp with time zone,
+                "RhRejectionReason" character varying(2048),
+                "ManagerDecision" character varying(32) NOT NULL DEFAULT 'Pending',
+                "ManagerDecidedByUserId" character varying(128),
+                "ManagerDecidedAt" timestamp with time zone,
+                "ManagerRejectionReason" character varying(2048),
+                "RejectedByUserId" character varying(128),
+                "RejectedByRole" character varying(64),
+                "RejectedAt" timestamp with time zone,
+                "RejectionReason" character varying(2048),
+                "PaymentStatus" character varying(32) NOT NULL DEFAULT 'Unpaid',
+                "PaidAt" timestamp with time zone,
+                "PaidByUserId" character varying(128),
+                "PaymentReference" character varying(256),
+                CONSTRAINT "PK_prime_global_pool_synthesis_line" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_prime_global_pool_synthesis_line_scope"
+                    FOREIGN KEY ("ScopeSynthesisId") REFERENCES prime_global_pool_scope_synthesis ("Id") ON DELETE CASCADE
+            );
+            CREATE UNIQUE INDEX "IX_prime_global_pool_synthesis_line_ScopeSynthesisId_FicheId"
+                ON prime_global_pool_synthesis_line ("ScopeSynthesisId", "FicheId");
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE prime_global_pool_synthesis_line_history (
+                "Id" uuid NOT NULL,
+                "LineId" uuid NOT NULL,
+                "At" timestamp with time zone NOT NULL,
+                "Action" character varying(32) NOT NULL,
+                "ActorUserId" character varying(128) NOT NULL,
+                "ActorRole" character varying(64) NOT NULL,
+                "Comment" character varying(2048),
+                CONSTRAINT "PK_prime_global_pool_synthesis_line_history" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_prime_global_pool_synthesis_line_history_line"
+                    FOREIGN KEY ("LineId") REFERENCES prime_global_pool_synthesis_line ("Id") ON DELETE CASCADE
+            );
+            CREATE INDEX "IX_prime_global_pool_synthesis_line_history_LineId_At"
+                ON prime_global_pool_synthesis_line_history ("LineId", "At");
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'prime_global_pool_approval'
+                  AND column_name = 'ScopeSynthesisId'
+              ) THEN
+                ALTER TABLE prime_global_pool_approval ADD COLUMN "ScopeSynthesisId" uuid;
+                ALTER TABLE prime_global_pool_approval ALTER COLUMN "DraftId" DROP NOT NULL;
+              END IF;
+            END $$;
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname = 'FK_prime_global_pool_approval_scope_synthesis'
+              ) THEN
+                ALTER TABLE prime_global_pool_approval
+                  ADD CONSTRAINT "FK_prime_global_pool_approval_scope_synthesis"
+                  FOREIGN KEY ("ScopeSynthesisId")
+                  REFERENCES prime_global_pool_scope_synthesis ("Id") ON DELETE CASCADE;
+              END IF;
+            END $$;
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_prime_global_pool_approval_ScopeSynthesisId_StepId"
+                ON prime_global_pool_approval ("ScopeSynthesisId", "StepId")
+                WHERE "ScopeSynthesisId" IS NOT NULL;
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+            SELECT '20260524140000_GlobalPoolScopeSynthesis', '8.0.11'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM "__EFMigrationsHistory"
+                WHERE "MigrationId" = '20260524140000_GlobalPoolScopeSynthesis');
+            """,
+            ct);
+    }
+
+    /// <summary>
+    /// Table historique validation fiche (migration <c>20260524120000</c> sans Designer / base déjà migrée).
+    /// </summary>
+    public static async Task EnsureFicheValidationHistoryTableAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_employee_prime_service_fiche", ct))
+            return;
+        if (await TableExistsAsync(db, "prime_employee_fiche_validation_history", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE prime_employee_fiche_validation_history (
+                "Id" uuid NOT NULL,
+                "FicheId" uuid NOT NULL,
+                "At" timestamp with time zone NOT NULL,
+                "Action" character varying(32) NOT NULL,
+                "FromStatus" character varying(64) NOT NULL,
+                "ToStatus" character varying(64) NOT NULL,
+                "ActorUserId" character varying(128) NOT NULL,
+                "ActorRole" character varying(64) NOT NULL,
+                "ActorDisplayName" character varying(256),
+                "Comment" character varying(2048),
+                "PrimeAmount" numeric(12,2),
+                "ChallengeAmount" numeric(12,2),
+                "TotalAmount" numeric(12,2),
+                CONSTRAINT "PK_prime_employee_fiche_validation_history" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_prime_employee_fiche_validation_history_prime_employee_prime_~"
+                    FOREIGN KEY ("FicheId")
+                    REFERENCES prime_employee_prime_service_fiche ("Id")
+                    ON DELETE CASCADE
+            );
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX "IX_prime_employee_fiche_validation_history_FicheId_At"
+                ON prime_employee_fiche_validation_history ("FicheId", "At");
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+            SELECT '20260524120000_EmployeeFicheValidationHistory', '8.0.11'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM "__EFMigrationsHistory"
+                WHERE "MigrationId" = '20260524120000_EmployeeFicheValidationHistory');
+            """,
+            ct);
     }
 
     /// <summary>Rattrapage SQL : fiches complètes + brouillon Validated (même superviseur / cellule / période) → Pending.</summary>
@@ -217,6 +468,30 @@ public static class PrimeSchemaPatches
                 SELECT EXISTS (
                   SELECT 1 FROM information_schema.tables
                   WHERE table_schema = 'public' AND table_name = 'prime_employee_prime_service_fiche');
+                """,
+                ct),
+            "prime_employee_fiche_validation_history" => ScalarBoolAsync(
+                db,
+                """
+                SELECT EXISTS (
+                  SELECT 1 FROM information_schema.tables
+                  WHERE table_schema = 'public' AND table_name = 'prime_employee_fiche_validation_history');
+                """,
+                ct),
+            "prime_global_pool_scope_synthesis" => ScalarBoolAsync(
+                db,
+                """
+                SELECT EXISTS (
+                  SELECT 1 FROM information_schema.tables
+                  WHERE table_schema = 'public' AND table_name = 'prime_global_pool_scope_synthesis');
+                """,
+                ct),
+            "prime_global_pool_synthesis_line" => ScalarBoolAsync(
+                db,
+                """
+                SELECT EXISTS (
+                  SELECT 1 FROM information_schema.tables
+                  WHERE table_schema = 'public' AND table_name = 'prime_global_pool_synthesis_line');
                 """,
                 ct),
             _ => Task.FromResult(false),

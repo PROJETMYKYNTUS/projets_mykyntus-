@@ -26,6 +26,27 @@ export class PrimeNavRequestService {
     this._pendingPath.set(path);
   }
 
+  private readonly _requestedSynthesisScope = signal<{
+    period: string;
+    scopeType: string;
+    scopeId: string;
+  } | null>(null);
+
+  readonly requestedSynthesisScope = this._requestedSynthesisScope.asReadonly();
+
+  /** Navigation vers la synthèse globale avec périmètre pré-sélectionné. */
+  requestViewWithSynthesisScope(
+    path: string,
+    scope: { period: string; scopeType: string; scopeId: string },
+  ): void {
+    this._requestedSynthesisScope.set(scope);
+    this._pendingPath.set(path);
+  }
+
+  clearRequestedSynthesisScope(): void {
+    this._requestedSynthesisScope.set(null);
+  }
+
   clearPending(): void {
     this._pendingPath.set(null);
   }
@@ -38,5 +59,6 @@ export class PrimeNavRequestService {
   clearAll(): void {
     this._pendingPath.set(null);
     this._requestedPeriod.set(null);
+    this._requestedSynthesisScope.set(null);
   }
 }

@@ -60,6 +60,56 @@ public sealed class EmployeePrimeServiceFicheValidationDto
     public DateTimeOffset UpdatedAt { get; init; }
 }
 
+/// <summary>Entrée d'historique de validation (timeline par partie prenante).</summary>
+public sealed class PrimeFicheValidationHistoryDto
+{
+    public Guid Id { get; init; }
+    public Guid FicheId { get; init; }
+    public DateTimeOffset At { get; init; }
+    public string Action { get; init; } = "";
+    public string FromStatus { get; init; } = "";
+    public string ToStatus { get; init; } = "";
+    public string ActorUserId { get; init; } = "";
+    public string ActorRole { get; init; } = "";
+    public string? ActorDisplayName { get; init; }
+    public string? Comment { get; init; }
+    public decimal? PrimeAmount { get; init; }
+    public decimal? ChallengeAmount { get; init; }
+    public decimal? TotalAmount { get; init; }
+}
+
+/// <summary>Action de validation + contexte fiche (écran Suivi validation).</summary>
+public sealed class PrimeFicheValidationHistoryFeedItemDto
+{
+    public Guid Id { get; init; }
+    public Guid FicheId { get; init; }
+    public DateTimeOffset At { get; init; }
+    public string Action { get; init; } = "";
+    public string FromStatus { get; init; } = "";
+    public string ToStatus { get; init; } = "";
+    public string ActorUserId { get; init; } = "";
+    public string ActorRole { get; init; } = "";
+    public string? ActorDisplayName { get; init; }
+    public string? Comment { get; init; }
+    public decimal? PrimeAmount { get; init; }
+    public decimal? ChallengeAmount { get; init; }
+    public decimal? TotalAmount { get; init; }
+    public string EmployeeId { get; init; } = "";
+    public string EmployeeDisplayName { get; init; } = "";
+    public string Period { get; init; } = "";
+    public string CelluleName { get; init; } = "";
+    public string ServiceName { get; init; } = "";
+    public string CurrentValidationStatus { get; init; } = "";
+    /// <summary>Fiche | GlobalPool</summary>
+    public string Phase { get; init; } = "Fiche";
+    public string? ScopeLabel { get; init; }
+    public string? LineRejectionReason { get; init; }
+    public string? RejectedByRole { get; init; }
+    /// <summary>Ligne synthèse globale (Phase GlobalPool uniquement).</summary>
+    public Guid? LineId { get; init; }
+    public string? LineStatus { get; init; }
+}
+
 /// <summary>Récapitulatif par statut (utilisé par les dashboards Validation/Résultats).</summary>
 public sealed class WorkflowStatusSummaryDto
 {
@@ -101,4 +151,21 @@ public sealed class RbacCatalogDto
     public List<string> Actions { get; set; } = [];
     public List<string> Scopes { get; set; } = [];
     public List<string> Roles { get; set; } = [];
+}
+
+/// <summary>Données brutes pour recalcul client de l'aperçu fusionné (pôle + cellule).</summary>
+public sealed class MergedFichePreviewContextDto
+{
+    public Guid FicheId { get; init; }
+    public string EmployeeId { get; init; } = "";
+    public string EmployeeDisplayName { get; init; } = "";
+    public string Period { get; init; } = "";
+    public string TemplateId { get; init; } = "";
+    public string SchemaJson { get; init; } = "{}";
+    public string PoleSaisieJson { get; init; } = "{}";
+    public string CellSaisieJson { get; init; } = "{}";
+    public string? TemplateCalcSnapshotJson { get; init; }
+    public List<ServicePrimeIndicatorDto> Indicators { get; init; } = [];
+    public bool PreviewAvailable { get; init; }
+    public string? PreviewUnavailableReason { get; init; }
 }

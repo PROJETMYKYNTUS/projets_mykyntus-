@@ -22,7 +22,8 @@ import {
   PrimeSectionService,
   type AuditSection,
 } from '../../state/prime-section.service';
-import { PrimeAdminService, type AuditLogDto } from '../../services/prime-admin.service';
+import { PrimeAdminService, type AnomalyDto, type AuditLogDto } from '../../services/prime-admin.service';
+import { AuditPrimeService } from '../../services/audit-prime.service';
 import { getAuditOrgTree } from '../../lib/auditOrgUi';
 import { LucideIconComponent } from '../../../shared/lucide-icon.component';
 
@@ -77,6 +78,13 @@ interface AnomalyCard {
   text: string;
   user: string;
   severity: 'CRITICAL' | 'WARNING';
+}
+
+interface AuditDashboardState {
+  totalPrimes: number;
+  validations: number;
+  anomalies: number;
+  conformityRate: number;
 }
 
 const toCsv = (headers: string[], rows: Array<Array<string | number>>) =>
@@ -177,8 +185,8 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
               <app-lucide-icon [icon]="icons.database" className="w-4 h-4 text-blue-300" />
               <p class="text-xs">Nombre total</p>
             </div>
-            <p class="text-2xl text-primary font-bold mt-2">{{ rows().length }}</p>
-            <p class="text-xs text-muted">elements audites</p>
+            <p class="text-2xl text-primary font-bold mt-2">{{ dashboard().totalPrimes }}</p>
+            <p class="text-xs text-muted">fiches auditées</p>
           </div>
           <div
             class="bg-card border border-default rounded-xl p-4 bg-gradient-to-br from-emerald-950/30 to-app shadow-sm hover:shadow-[0_10px_25px_rgba(16,185,129,0.16)] hover:scale-[1.03] transition-all duration-300"
@@ -187,8 +195,8 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
               <app-lucide-icon [icon]="icons.checkCircle" className="w-4 h-4 text-emerald-300" />
               <p class="text-xs">Nombre valide</p>
             </div>
-            <p class="text-2xl text-primary font-bold mt-2">{{ validatedCount() }}</p>
-            <p class="text-xs text-muted">primes conformes</p>
+            <p class="text-2xl text-primary font-bold mt-2">{{ dashboard().validations }}</p>
+            <p class="text-xs text-muted">validations enregistrées</p>
           </div>
           <div
             class="bg-card border border-default rounded-xl p-4 bg-gradient-to-br from-amber-950/30 to-app shadow-sm hover:shadow-[0_10px_25px_rgba(245,158,11,0.16)] hover:scale-[1.03] transition-all duration-300"
@@ -197,8 +205,8 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
               <app-lucide-icon [icon]="icons.clock" className="w-4 h-4 text-amber-300" />
               <p class="text-xs">Nombre en attente</p>
             </div>
-            <p class="text-2xl text-primary font-bold mt-2">{{ pendingCount() }}</p>
-            <p class="text-xs text-muted">dossiers a valider</p>
+            <p class="text-2xl text-primary font-bold mt-2">{{ dashboard().conformityRate }}%</p>
+            <p class="text-xs text-muted">taux de conformité</p>
           </div>
           <div
             class="bg-card border border-default rounded-xl p-4 bg-gradient-to-br from-rose-950/30 to-app shadow-sm hover:shadow-[0_10px_25px_rgba(244,63,94,0.16)] hover:scale-[1.03] transition-all duration-300"
@@ -207,25 +215,35 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
               <app-lucide-icon [icon]="icons.alert" className="w-4 h-4 text-rose-300" />
               <p class="text-xs">Nombre d anomalies</p>
             </div>
-            <p class="text-2xl text-primary font-bold mt-2">3</p>
-            <p class="text-xs text-muted">alertes critiques</p>
+            <p class="text-2xl text-primary font-bold mt-2">{{ dashboard().anomalies }}</p>
+            <p class="text-xs text-muted">alertes ouvertes</p>
           </div>
         </div>
       }
 
-      @if (showDataTable() && primeSection.activeAuditSection() === 'reporting') {
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      @if (primeSection.activeAuditSection() === 'reporting') {
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div class="bg-card border border-default rounded-xl p-4">
-            <p class="text-sm text-primary">Statistiques globales</p>
-            <p class="text-xs text-muted mt-1">
-              Lignes filtrées: {{ filtered().length }} sur {{ rows().length }}
-            </p>
+            <p class="text-sm text-primary">Conformité des validations</p>
+            <p class="text-xs text-muted mt-1">Taux conforme: {{ dashboard().conformityRate }}%</p>
+            <p class="text-xs text-muted">Validations: {{ dashboard().validations }} / {{ dashboard().totalPrimes }}</p>
           </div>
           <div class="bg-card border border-default rounded-xl p-4">
-            <p class="text-sm text-primary">Graphiques</p>
-            <p class="text-xs text-muted mt-1">Anomalies et activités (synthèse)</p>
+            <p class="text-sm text-primary">Anomalies</p>
+            <p class="text-xs text-muted mt-1">Ouvertes: {{ dashboard().anomalies }}</p>
+            <p class="text-xs text-muted">Résolues: {{ resolvedAnomalyCount() }}</p>
+          </div>
+          <div class="bg-card border border-default rounded-xl p-4">
+            <p class="text-sm text-primary">Journal exploitable</p>
+            <p class="text-xs text-muted mt-1">Entrées audit: {{ rows().length }}</p>
+            <p class="text-xs text-muted">Filtrées: {{ filtered().length }}</p>
           </div>
         </div>
+        @if (reportingError()) {
+          <div class="bg-card border border-rose-500/40 rounded-xl p-4 text-sm text-rose-300">
+            {{ reportingError() }}
+          </div>
+        }
       }
 
       @if (showDataTable()) {
@@ -435,7 +453,9 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
                     </span>
                   </td>
                   <td class="px-4 py-3 text-muted">{{ r.item }}</td>
-                  <td class="px-4 py-3 text-primary">{{ r.status }}</td>
+                  <td class="px-4 py-3">
+                    <span [class]="workflowStatusBadgeClass(r.status)">{{ workflowStatusLabel(r.status) }}</span>
+                  </td>
                   <td class="px-4 py-3">
                     <button
                       type="button"
@@ -485,7 +505,7 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
             <app-lucide-icon [icon]="icons.alert" className="w-4 h-4 text-rose-300" />
             Suppression massive, accès hors horaires et IP inhabituelle détectés.
           </div>
-          @for (a of anomalyCards; track a.id) {
+          @for (a of anomalyCards(); track a.id) {
             <div
               class="bg-card border border-rose-900/40 rounded-xl p-4 flex items-center justify-between gap-3"
             >
@@ -619,7 +639,7 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
               </div>
               <div>
                 <span class="text-muted">Statut</span>
-                <p class="text-primary">{{ sel.status }}</p>
+                <p><span [class]="workflowStatusBadgeClass(sel.status)">{{ workflowStatusLabel(sel.status) }}</span></p>
               </div>
               <div>
                 <span class="text-muted">IP / Device</span>
@@ -789,28 +809,15 @@ export class AuditRootComponent implements OnInit {
     },
   ];
 
-  readonly anomalyCards: AnomalyCard[] = [
-    {
-      id: 'a1',
-      text: 'Utilisateur Mehdi Tazi a supprimé 10 éléments en 2 min',
-      user: 'Mehdi Tazi',
-      severity: 'CRITICAL',
-    },
-    {
-      id: 'a2',
-      text: 'Connexion depuis IP/pays inhabituel pour ce compte',
-      user: 'unknown@evil.test',
-      severity: 'CRITICAL',
-    },
-    {
-      id: 'a3',
-      text: 'Activité audit en dehors des horaires (week-end)',
-      user: 'siham.lahlou@kyntus.ma',
-      severity: 'WARNING',
-    },
-  ];
-
   readonly auditLogs = signal<AuditLogDto[]>([]);
+  readonly anomalies = signal<AnomalyDto[]>([]);
+  readonly dashboard = signal<AuditDashboardState>({
+    totalPrimes: 0,
+    validations: 0,
+    anomalies: 0,
+    conformityRate: 0,
+  });
+  readonly reportingError = signal<string | null>(null);
   readonly search = signal('');
   readonly dateFilter = signal('');
   readonly userFilter = signal('Tous');
@@ -886,12 +893,23 @@ export class AuditRootComponent implements OnInit {
   );
 
   readonly hasNoData = computed(() => this.auditLogs().length === 0);
+  readonly anomalyCards = computed<AnomalyCard[]>(() =>
+    this.anomalies().slice(0, 8).map((a) => ({
+      id: a.id,
+      text: a.description,
+      user: a.resolvedByUserId || a.targetEntityId || '—',
+      severity: a.severity === 'Critical' || a.severity === 'High' ? 'CRITICAL' : 'WARNING',
+    })),
+  );
 
   readonly title = computed(() => auditPageTitles[this.primeSection.activeAuditSection()] ?? 'Journal d’audit');
   readonly showDataTable = computed(() => this.primeSection.activeAuditSection() === 'journal');
 
   readonly validatedCount = computed(() => this.rows().filter((r) => r.status === 'Validé').length);
   readonly pendingCount = computed(() => this.rows().filter((r) => r.status !== 'Validé').length);
+  readonly resolvedAnomalyCount = computed(
+    () => this.anomalies().filter((a) => String(a.status).toLowerCase() === 'resolved').length,
+  );
 
   readonly timelineRows = computed(() => {
     const u = this.timelineUser();
@@ -932,6 +950,26 @@ export class AuditRootComponent implements OnInit {
       next: (logs) => this.auditLogs.set(logs),
       error: () => this.auditLogs.set([]),
     });
+    this.admin.listAnomalies({}).subscribe({
+      next: (rows) => this.anomalies.set(rows),
+      error: () => this.anomalies.set([]),
+    });
+    void this.loadAuditDashboard();
+  }
+
+  private async loadAuditDashboard(): Promise<void> {
+    try {
+      const data = await AuditPrimeService.getDashboard();
+      this.dashboard.set({
+        totalPrimes: data.kpis.totalPrimes ?? 0,
+        validations: data.kpis.validations ?? 0,
+        anomalies: data.kpis.anomalies ?? 0,
+        conformityRate: data.kpis.conformityRate ?? 0,
+      });
+      this.reportingError.set(null);
+    } catch {
+      this.reportingError.set('Reporting audit indisponible temporairement (source API).');
+    }
   }
 
   resetHierarchyFilters(): void {
@@ -1038,17 +1076,39 @@ export class AuditRootComponent implements OnInit {
   }
 
   severityBadgeClass(s: SeverityLevel): string {
-    const base = 'px-2 py-0.5 rounded text-[10px] border ';
-    if (s === 'CRITICAL') return base + 'border-rose-500/50 text-rose-200';
-    if (s === 'WARNING') return base + 'border-amber-500/50 text-amber-200';
-    return base + 'border-emerald-500/50 text-emerald-200';
+    const base = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ';
+    if (s === 'CRITICAL') return base + 'bg-rose-100 text-rose-800';
+    if (s === 'WARNING') return base + 'bg-amber-100 text-amber-800';
+    return base + 'bg-emerald-100 text-emerald-800';
   }
 
   anomalyBadgeClass(severity: 'CRITICAL' | 'WARNING'): string {
-    const base = 'inline-block mr-2 px-2 py-0.5 rounded text-[10px] border ';
+    const base = 'inline-flex mr-2 items-center px-2.5 py-0.5 rounded-full text-xs font-medium ';
     return severity === 'CRITICAL'
-      ? base + 'border-rose-500/50 text-rose-200'
-      : base + 'border-amber-500/50 text-amber-200';
+      ? base + 'bg-rose-100 text-rose-800'
+      : base + 'bg-amber-100 text-amber-800';
+  }
+
+  workflowStatusBadgeClass(status: string): string {
+    const normalized = status.trim().toLowerCase();
+    const base = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ';
+    if (normalized.includes('rejet') || normalized.includes('reject'))
+      return base + 'bg-rose-100 text-rose-800';
+    if (normalized.includes('valid') || normalized.includes('approved'))
+      return base + 'bg-emerald-100 text-emerald-800';
+    if (normalized.includes('pending') || normalized.includes('attente'))
+      return base + 'bg-amber-100 text-amber-800';
+    return base + 'bg-sky-100 text-sky-800';
+  }
+
+  workflowStatusLabel(status: string): string {
+    if (status === 'Pending') return 'En attente';
+    if (status === 'Rejected') return 'Rejeté';
+    if (status === 'RH Approved') return 'RH validé';
+    if (status === 'Référent technique Approved') return 'Réf. technique validé';
+    if (status === 'Superviseur Approved') return 'Superviseur validé';
+    if (status === 'Chef de projet Approved') return 'Chef de projet validé';
+    return status;
   }
 
   actionChipClass(c: (typeof ACTION_CHIPS)[number]): string {
@@ -1089,7 +1149,7 @@ export class AuditRootComponent implements OnInit {
         r.pole,
         r.cellule,
         r.roleMetier,
-        1200,
+        this.resolveAmount(r),
         'Prime performance',
         r.date,
         r.status,
@@ -1118,12 +1178,24 @@ export class AuditRootComponent implements OnInit {
         r.pole,
         r.cellule,
         r.roleMetier,
-        1200,
+        this.resolveAmount(r),
         'Prime performance',
         r.date,
         r.status,
       ]),
     );
     downloadFile('prime_validees_audit.xls', tsv, 'application/vnd.ms-excel');
+  }
+
+  private resolveAmount(row: JournalRow): number {
+    const m = row.metadata;
+    const total = Number((m['totalAmount'] as number | string | undefined) ?? NaN);
+    if (Number.isFinite(total)) return total;
+    const prime = Number((m['primeAmount'] as number | string | undefined) ?? NaN);
+    const challenge = Number((m['challengeAmount'] as number | string | undefined) ?? NaN);
+    if (Number.isFinite(prime) || Number.isFinite(challenge)) {
+      return (Number.isFinite(prime) ? prime : 0) + (Number.isFinite(challenge) ? challenge : 0);
+    }
+    return 0;
   }
 }

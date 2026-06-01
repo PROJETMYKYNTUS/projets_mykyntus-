@@ -26,14 +26,20 @@ public static class PrimeFicheDistributionAccess
     /// Synthèse globale Excel : superviseur et validateurs dès que le fichier existe ;
     /// comptabilité après Manager + RH ; pilote après diffusion complète.
     /// </summary>
-    public static bool CanDownloadGlobalPoolSynthesis(string? role, bool legacyManagerRhUnlocked, bool poolDistributionFullyUnlocked)
+    public static bool CanDownloadGlobalPoolSynthesis(
+        string? role,
+        bool legacyManagerRhUnlocked,
+        bool poolDistributionFullyUnlocked,
+        bool hasApprovedLines = false)
     {
         if (string.IsNullOrWhiteSpace(role)) return false;
         var r = role.Trim();
         if (string.Equals(r, "Pilote", StringComparison.Ordinal))
             return poolDistributionFullyUnlocked;
+        // Comptabilité : l'export des primes validées (par les deux workflows) est disponible
+        // dès qu'au moins une ligne est approuvée, sans attendre la fin de tout le périmètre.
         if (IsComptabiliteRole(r))
-            return legacyManagerRhUnlocked || poolDistributionFullyUnlocked;
+            return legacyManagerRhUnlocked || poolDistributionFullyUnlocked || hasApprovedLines;
         if (string.Equals(r, "Superviseur", StringComparison.Ordinal) ||
             string.Equals(r, "Admin", StringComparison.Ordinal) ||
             string.Equals(r, "RH", StringComparison.Ordinal) ||

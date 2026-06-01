@@ -31,8 +31,14 @@ import {
   schemaHasExcelNativeCellRows,
   templateLineForCellIndicator,
 } from '../lib/prime-cell-schema-merge';
-import { emptySecteurPairValues, type PrimeFicheSecteurPairValues } from '../models/prime-fiche-ligne.model';
 import {
+  emptySecteurPairValues,
+  isEmptyOrNonNegativeNumberString,
+  sanitizeNonNegativeNumberInput,
+  type PrimeFicheSecteurPairValues,
+} from '../models/prime-fiche-ligne.model';
+import {
+  hasNegativeDynamicValues,
   ligneDynamicFromTemplateLine,
   type PrimeFicheLigneDynamic,
   type PrimeFicheTemplateLine,
@@ -154,9 +160,11 @@ export interface CellSaisieSaveResult {
               <div>
                 <label class="block text-sm font-medium text-muted mb-2">Plafond Prime</label>
                 <input
-                  type="text"
+                  type="number"
+                  min="0"
+                  step="any"
                   [value]="plafondPrime()"
-                  (input)="plafondPrime.set($any($event.target).value); saveBanner.set(null)"
+                  (input)="onPlafondPrimeInput($any($event.target).value)"
                   [class]="inputFieldClass"
                   autocomplete="off"
                 />
@@ -164,9 +172,11 @@ export interface CellSaisieSaveResult {
               <div>
                 <label class="block text-sm font-medium text-muted mb-2">Plafond Challenge</label>
                 <input
-                  type="text"
+                  type="number"
+                  min="0"
+                  step="any"
                   [value]="plafondChallenge()"
-                  (input)="plafondChallenge.set($any($event.target).value); saveBanner.set(null)"
+                  (input)="onPlafondChallengeInput($any($event.target).value)"
                   [class]="inputFieldClass"
                   autocomplete="off"
                 />
@@ -211,6 +221,7 @@ export interface CellSaisieSaveResult {
                               <input
                                 type="number"
                                 step="any"
+                                min="0"
                                 [class]="inputFieldClass"
                                 [value]="dynSector(run.indicator.id, s.sectorIndex)[fl.key]"
                                 (input)="onSectorInput(run.indicator.id, s.sectorIndex, fl.key, $any($event.target).value)"
@@ -239,6 +250,7 @@ export interface CellSaisieSaveResult {
                               <input
                                 type="number"
                                 step="any"
+                                min="0"
                                 [class]="inputFieldClass"
                                 [value]="dynSector(run.indicator.id, s.sectorIndex)[fl.key]"
                                 (input)="onSectorInput(run.indicator.id, s.sectorIndex, fl.key, $any($event.target).value)"
@@ -263,6 +275,7 @@ export interface CellSaisieSaveResult {
                               <input
                                 type="number"
                                 step="any"
+                                min="0"
                                 [class]="inputFieldClass"
                                 [value]="dynCustom(run.indicator.id, s.sectorIndex, ck.id)"
                                 (input)="
@@ -411,24 +424,36 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
     return row.secteurValues[sectorIndex]?.custom[customId] ?? '';
   }
 
+  onPlafondPrimeInput(value: string): void {
+    this.plafondPrime.set(sanitizeNonNegativeNumberInput(value));
+    this.saveBanner.set(null);
+  }
+
+  onPlafondChallengeInput(value: string): void {
+    this.plafondChallenge.set(sanitizeNonNegativeNumberInput(value));
+    this.saveBanner.set(null);
+  }
+
   onSectorInput(indicatorId: string, sectorIndex: number, field: keyof PrimeFicheSecteurPairValues, value: string): void {
     if (field === 'ponderationPrime' || field === 'ponderationChallenge') return;
+    const next = sanitizeNonNegativeNumberInput(value);
     this.dynamicByIndicator.update((m) => {
       const cur = { ...(m[indicatorId] ?? this.dynRow(indicatorId)) };
       const sects = [...cur.secteurValues];
       const prev = sects[sectorIndex] ?? { core: emptySecteurPairValues(), custom: {} };
-      sects[sectorIndex] = { ...prev, core: { ...prev.core, [field]: value } };
+      sects[sectorIndex] = { ...prev, core: { ...prev.core, [field]: next } };
       return { ...m, [indicatorId]: { ...cur, secteurValues: sects } };
     });
     this.saveBanner.set(null);
   }
 
   onCustomInput(indicatorId: string, sectorIndex: number, customId: string, value: string): void {
+    const next = sanitizeNonNegativeNumberInput(value);
     this.dynamicByIndicator.update((m) => {
       const cur = { ...(m[indicatorId] ?? this.dynRow(indicatorId)) };
       const sects = [...cur.secteurValues];
       const prev = sects[sectorIndex] ?? { core: emptySecteurPairValues(), custom: {} };
-      const custom = { ...prev.custom, [customId]: value };
+      const custom = { ...prev.custom, [customId]: next };
       sects[sectorIndex] = { ...prev, custom };
       return { ...m, [indicatorId]: { ...cur, secteurValues: sects } };
     });
@@ -593,6 +618,15 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
     const period = this.period();
     if (!draftId || !empId || !period) return;
     const sup = this.role.currentUser();
+    if (!isEmptyOrNonNegativeNumberString(this.plafondPrime()) || !isEmptyOrNonNegativeNumberString(this.plafondChallenge())) {
+      this.saveError.set('Les plafonds Prime / Challenge doivent être des nombres supérieurs ou égaux à 0.');
+      return;
+    }
+    const invalidRow = this.runs().find((r) => hasNegativeDynamicValues(this.dynRow(r.indicator.id)));
+    if (invalidRow) {
+      this.saveError.set(`L'indicateur « ${invalidRow.indicator.label} » contient une valeur négative ou invalide.`);
+      return;
+    }
     const rows = this.runs().map((r) => cellRowPayloadForJson(r.indicator.id, this.dynRow(r.indicator.id)));
     const cellSaisieJson = buildCellSaisieJsonV2(this.plafondPrime(), this.plafondChallenge(), rows);
     this.saving.set(true);

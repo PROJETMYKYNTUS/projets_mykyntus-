@@ -13,12 +13,14 @@ public class GlobalPoolWorkflowStepEntity
     public DateTimeOffset? UpdatedAt { get; set; }
 }
 
-/// <summary>Validation effectuée d’une étape pool global pour un brouillon donné.</summary>
+/// <summary>Validation effectuée d’une étape pool global (brouillon historique ou synthèse par périmètre).</summary>
 public class GlobalPoolApprovalEntity
 {
     public Guid Id { get; set; }
-    public Guid DraftId { get; set; }
-    public SupervisorCellulePrimeDraftEntity Draft { get; set; } = null!;
+    public Guid? DraftId { get; set; }
+    public SupervisorCellulePrimeDraftEntity? Draft { get; set; }
+    public Guid? ScopeSynthesisId { get; set; }
+    public GlobalPoolScopeSynthesisEntity? ScopeSynthesis { get; set; }
     public Guid StepId { get; set; }
     public GlobalPoolWorkflowStepEntity Step { get; set; } = null!;
     public string UserId { get; set; } = "";

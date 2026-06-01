@@ -30,12 +30,20 @@ public partial class OrgOptionalAndDraftRootPole : Migration
             oldClrType: typeof(string),
             oldType: "text");
 
-        migrationBuilder.AddColumn<string>(
-            name: "RootPoleId",
-            table: "prime_supervisor_cellule_prime_draft",
-            type: "character varying(128)",
-            maxLength: 128,
-            nullable: true);
+        migrationBuilder.Sql(
+            """
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'prime_supervisor_cellule_prime_draft'
+                  AND column_name = 'RootPoleId'
+              ) THEN
+                ALTER TABLE prime_supervisor_cellule_prime_draft
+                  ADD COLUMN "RootPoleId" character varying(128);
+              END IF;
+            END $$;
+            """);
 
         migrationBuilder.Sql(
             """
@@ -60,13 +68,20 @@ public partial class OrgOptionalAndDraftRootPole : Migration
                OR NOT EXISTS (SELECT 1 FROM prime_pole p WHERE p."Id" = "RootPoleId");
             """);
 
-        migrationBuilder.AlterColumn<string>(
-            name: "RootPoleId",
-            table: "prime_supervisor_cellule_prime_draft",
-            type: "character varying(128)",
-            maxLength: 128,
-            nullable: false,
-            defaultValue: "");
+        migrationBuilder.Sql(
+            """
+            DO $$
+            BEGIN
+              IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'prime_supervisor_cellule_prime_draft'
+                  AND column_name = 'RootPoleId' AND is_nullable = 'YES'
+              ) THEN
+                ALTER TABLE prime_supervisor_cellule_prime_draft
+                  ALTER COLUMN "RootPoleId" SET NOT NULL;
+              END IF;
+            END $$;
+            """);
 
         migrationBuilder.Sql(
             """
@@ -78,29 +93,26 @@ public partial class OrgOptionalAndDraftRootPole : Migration
               AND a."Period" = b."Period";
             """);
 
-        migrationBuilder.CreateIndex(
-            name: "IX_prime_supervisor_cellule_prime_draft_SupervisorUserId_RootPoleId_Period",
-            table: "prime_supervisor_cellule_prime_draft",
-            columns: new[] { "SupervisorUserId", "RootPoleId", "Period" },
-            unique: true);
-
-        migrationBuilder.CreateIndex(
-            name: "IX_prime_supervisor_cellule_prime_draft_SupervisorUserId_CelluleId_Period_TemplateId",
-            table: "prime_supervisor_cellule_prime_draft",
-            columns: new[] { "SupervisorUserId", "CelluleId", "Period", "TemplateId" });
-
-        migrationBuilder.CreateIndex(
-            name: "IX_prime_supervisor_cellule_prime_draft_RootPoleId",
-            table: "prime_supervisor_cellule_prime_draft",
-            column: "RootPoleId");
-
-        migrationBuilder.AddForeignKey(
-            name: "FK_prime_supervisor_cellule_prime_draft_prime_pole_RootPoleId",
-            table: "prime_supervisor_cellule_prime_draft",
-            column: "RootPoleId",
-            principalTable: "prime_pole",
-            principalColumn: "Id",
-            onDelete: ReferentialAction.Restrict);
+        migrationBuilder.Sql(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_prime_supervisor_cellule_prime_draft_SupervisorUserId_RootPoleId_Period"
+              ON prime_supervisor_cellule_prime_draft ("SupervisorUserId", "RootPoleId", "Period");
+            CREATE INDEX IF NOT EXISTS "IX_prime_supervisor_cellule_prime_draft_SupervisorUserId_CelluleId_Period_TemplateId"
+              ON prime_supervisor_cellule_prime_draft ("SupervisorUserId", "CelluleId", "Period", "TemplateId");
+            CREATE INDEX IF NOT EXISTS "IX_prime_supervisor_cellule_prime_draft_RootPoleId"
+              ON prime_supervisor_cellule_prime_draft ("RootPoleId");
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'FK_prime_supervisor_cellule_prime_draft_prime_pole_RootPoleId'
+              ) THEN
+                ALTER TABLE prime_supervisor_cellule_prime_draft
+                  ADD CONSTRAINT "FK_prime_supervisor_cellule_prime_draft_prime_pole_RootPoleId"
+                  FOREIGN KEY ("RootPoleId") REFERENCES prime_pole ("Id") ON DELETE RESTRICT;
+              END IF;
+            END $$;
+            """);
     }
 
     /// <inheritdoc />

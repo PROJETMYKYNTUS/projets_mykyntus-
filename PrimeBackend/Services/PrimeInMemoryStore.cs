@@ -1145,8 +1145,14 @@ public class PrimeInMemoryStore
         var onTeamUnderCell = cell.Services.Any(t => string.Equals(t.Id, emp.ServiceId, StringComparison.Ordinal));
         if (!onLeaf && !onTeamUnderCell)
             throw new InvalidOperationException("Ce pilote n’est pas rattaché à cette cellule.");
+
+        // Détacher complètement le pilote du périmètre : sinon il reste rattaché (Role=Pilote +
+        // ServiceId=cellule) et réapparaît dans la liste des pilotes au rechargement.
         _coachPilotLinks.RemoveAll(a => a.PilotUserId == emp.Id);
         emp.ParentId = null;
+        emp.ServiceId = null;
+        emp.CelluleId = null;
+        emp.PoleId = "";
     }
 
     public List<SupervisorPrimeRow> GetSupervisorPrimes(string supervisorUserId, string? period = null)

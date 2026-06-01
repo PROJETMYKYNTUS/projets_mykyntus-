@@ -34,6 +34,17 @@ public sealed class PrimeDatabaseInitializer(
             throw;
         }
 
+        try
+        {
+            await PrimeSchemaPatches.EnsureGlobalPoolSynthesisLineSchemaAsync(db, cancellationToken);
+            logger.LogInformation("PRIME : correctif schéma lignes synthèse globale appliqué.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "PRIME : correctif schéma lignes synthèse globale non appliqué.");
+            throw;
+        }
+
         await EnsurePrimeMetierTablesExistAsync(db, cancellationToken);
 
         var submission = scope.ServiceProvider.GetService<PrimeFicheValidationSubmissionService>();
@@ -71,6 +82,7 @@ public sealed class PrimeDatabaseInitializer(
         var db = scope.ServiceProvider.GetRequiredService<PrimeDbContext>();
 
         await PrimeDbSeeder.EnsureOperationalFicheWorkflowOnlyAsync(db, cancellationToken: cancellationToken);
+        await PrimeDbSeeder.SeedMissingManagerComptableRbacAsync(db, cancellationToken);
         await PrimeDbSeeder.SeedMissingReferentTechnicalValidateRbacAsync(db, cancellationToken);
         if (!await db.Poles.AnyAsync(cancellationToken))
         {

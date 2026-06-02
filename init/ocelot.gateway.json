@@ -624,6 +624,24 @@
       "DownstreamHostAndPorts": [
         { "Host": "prime-backend", "Port": 8080 }
       ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/parrainage",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
+      "DownstreamPathTemplate": "/api/parrainage",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "parrainage-backend", "Port": 8080 }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/parrainage/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS" ],
+      "DownstreamPathTemplate": "/api/parrainage/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "parrainage-backend", "Port": 8080 }
+      ]
     }
   ],
   "GlobalConfiguration": {

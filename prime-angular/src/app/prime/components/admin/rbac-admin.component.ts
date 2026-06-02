@@ -7,6 +7,8 @@ import {
   type RbacPermissionDto,
   type UpsertRbacPermissionRequest,
 } from '../../services/prime-admin.service';
+import { RoleService } from '../../state/role.service';
+import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.service';
 
 const DEFAULT_ACTIONS = ['Read', 'Edit', 'Validate', 'Configure'] as const;
 const DEFAULT_SCOPES = ['Global', 'Pole', 'Cellule', 'Service', 'Self'] as const;
@@ -41,6 +43,55 @@ const DEFAULT_SCOPES = ['Global', 'Pole', 'Cellule', 'Service', 'Self'] as const
             }
           </select>
         </label>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
+          <div class="rounded-xl border border-navy-800 bg-navy-950/60 p-4">
+            <p class="text-[11px] uppercase tracking-wider text-slate-500">Couverture RBAC</p>
+            <p class="mt-1 text-2xl font-bold text-slate-100">{{ permissions.coverage().allowedRules }}/{{ permissions.coverage().totalRules }}</p>
+            <p class="mt-1 text-xs text-slate-500">Règles autorisées chargées côté interface.</p>
+          </div>
+          <div class="rounded-xl border border-navy-800 bg-navy-950/60 p-4">
+            <p class="text-[11px] uppercase tracking-wider text-slate-500">Périmètre principal</p>
+            <p class="mt-1 text-2xl font-bold text-cyan-300">{{ permissions.primaryScopeForRole(selectedRole()) }}</p>
+            <p class="mt-1 text-xs text-slate-500">Utilisé par menus, pages et actions rapides.</p>
+          </div>
+          <div class="rounded-xl border border-navy-800 bg-navy-950/60 p-4">
+            <p class="text-[11px] uppercase tracking-wider text-slate-500">Simulation utilisateur</p>
+            <select
+              class="mt-2 w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-slate-200 text-sm"
+              [value]="simulatedUserId()"
+              (change)="simulatedUserId.set($any($event.target).value)"
+            >
+              <option value="">Rôle uniquement</option>
+              @for (user of simulatedUsers(); track user.id) {
+                <option [value]="user.id">{{ user.firstName }} {{ user.lastName }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-navy-800 bg-navy-950/60 p-4 mb-4">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <div>
+              <p class="text-sm font-semibold text-slate-100">Prévisualisation des actions</p>
+              <p class="text-xs text-slate-500">Ce résumé vérifie les actions visibles avant d'entrer dans un écran métier.</p>
+            </div>
+            @if (simulatedUserId()) {
+              <span class="text-xs px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-300">Utilisateur: {{ simulatedUserId() }}</span>
+            }
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+            @for (item of accessPreview(); track item.label) {
+              <div
+                class="rounded-lg border px-3 py-2 text-xs"
+                [class]="item.allowed ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-rose-500/30 bg-rose-500/10 text-rose-200'"
+              >
+                <span class="block font-semibold">{{ item.allowed ? 'Autorisé' : 'Bloqué' }}</span>
+                <span class="text-slate-300">{{ item.label }}</span>
+              </div>
+            }
+          </div>
+        </div>
 
         <div class="overflow-x-auto">
           <table class="w-full text-sm border border-navy-800 rounded-lg overflow-hidden">
@@ -81,6 +132,8 @@ const DEFAULT_SCOPES = ['Global', 'Pole', 'Cellule', 'Service', 'Self'] as const
 })
 export class RbacAdminComponent implements OnInit {
   private readonly admin = inject(PrimeAdminService);
+  private readonly roleService = inject(RoleService);
+  readonly permissions = inject(PrimeUiPermissionsService);
 
   readonly rbacCatalog = signal<RbacCatalogDto | null>(null);
   readonly actions = signal<string[]>([...DEFAULT_ACTIONS]);
@@ -91,11 +144,28 @@ export class RbacAdminComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly busyKey = signal<string | null>(null);
   readonly selectedRole = signal<string>('Superviseur');
+  readonly simulatedUserId = signal('');
 
   readonly roleOptions = computed(() => {
     const catRoles = this.rbacCatalog()?.roles ?? [];
     const fromRows = [...new Set(this.rows().map((r) => r.role))];
     return [...new Set([...catRoles, ...fromRows])].sort((a, b) => a.localeCompare(b, 'fr'));
+  });
+
+  readonly simulatedUsers = computed(() =>
+    this.roleService.employees().filter((e) => e.role === this.selectedRole()),
+  );
+
+  readonly accessPreview = computed(() => {
+    const role = this.selectedRole();
+    const scope = this.permissions.primaryScopeForRole(role);
+    return [
+      { label: 'Voir résultats', allowed: this.permissions.can(role, 'Read', scope) },
+      { label: 'Valider / rejeter', allowed: this.permissions.can(role, 'Validate', scope) },
+      { label: 'Exporter', allowed: this.permissions.can(role, 'Export', scope) },
+      { label: 'Configurer', allowed: this.permissions.can(role, 'Configure', 'Global') },
+      { label: 'Accéder synthèse globale', allowed: this.permissions.can(role, 'Read', 'Global') },
+    ];
   });
 
   ngOnInit(): void {
@@ -154,6 +224,7 @@ export class RbacAdminComponent implements OnInit {
     this.busyKey.set(this.cellKey(action, scope));
     this.admin.upsertRbac(body).subscribe({
       next: (updated) => {
+        this.permissions.applyPermission(updated);
         this.rows.update((list) => {
           const idx = list.findIndex((r) => r.role === role && r.action === action && r.scope === scope);
           if (idx >= 0) {

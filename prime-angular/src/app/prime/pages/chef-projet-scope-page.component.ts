@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { PrimeCardComponent } from '../components/prime-card.component';
+import { resolveEmployeeOrgLabels } from '../lib/org-display-labels';
 import { PrimeService } from '../services/prime.service';
 import { RoleService } from '../state/role.service';
-import type { Employee } from '../models';
 
 interface ScopeRow {
   id: string;
@@ -88,27 +88,17 @@ export class ChefProjetScopePageComponent {
     void Promise.all([PrimeService.getEmployees(), PrimeService.getDepartments()]).then(([employees, departments]) => {
       const scopeEmployees = employees.filter((e) => e.poleId === poleId);
 
-      const deptById = new Map(departments.map((d) => [d.id, d]));
-      const poleLabel = (employee: Employee) => {
-        const dept = deptById.get(employee.departementId ?? employee.poleId);
-        const pole = dept?.poles.find((p) => p.id === employee.poleId);
-        return pole?.name ?? employee.poleId;
-      };
-      const celluleLabel = (employee: Employee) => {
-        const dept = deptById.get(employee.departementId ?? employee.poleId);
-        const pole = dept?.poles.find((p) => p.id === employee.poleId);
-        const cellule = pole?.cells.find((c) => c.id === employee.celluleId);
-        return cellule?.name ?? employee.celluleId;
-      };
-
-      const mapped: ScopeRow[] = scopeEmployees.map((e) => ({
-        id: e.id,
-        fullName: `${e.firstName} ${e.lastName}`,
-        role: e.role,
-        service: e.serviceId ?? '—',
-        cellule: celluleLabel(e),
-        pole: poleLabel(e),
-      }));
+      const mapped: ScopeRow[] = scopeEmployees.map((e) => {
+        const labels = resolveEmployeeOrgLabels(e, departments);
+        return {
+          id: e.id,
+          fullName: `${e.firstName} ${e.lastName}`,
+          role: e.role,
+          pole: labels.pole,
+          cellule: labels.cellule,
+          service: labels.service,
+        };
+      });
 
       mapped.sort((a, b) => a.fullName.localeCompare(b.fullName));
       this.rows.set(mapped);

@@ -45,6 +45,7 @@ import {
   type AuditSection,
   type RpSection,
 } from '../state/prime-section.service';
+import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.service';
 import type { Role } from '../models';
 import { isProjectLeadRole } from '../lib/projectLeadRole';
 import type { IconNode } from 'lucide';
@@ -358,6 +359,7 @@ export class PrimeSidebarComponent implements OnChanges {
   readonly role = inject(RoleService);
   readonly i18n = inject(I18nService);
   readonly primeSection = inject(PrimeSectionService);
+  readonly permissions = inject(PrimeUiPermissionsService);
 
   /** Exposé au template (même logique que pour le layout / dashboard RP). */
   protected readonly isProjectLeadRole = isProjectLeadRole;
@@ -418,7 +420,11 @@ export class PrimeSidebarComponent implements OnChanges {
     if (this.currentRole === 'RP' || this.currentRole === 'Admin' || this.currentRole === 'Audit') {
       return null;
     }
-    return pathNavEntries.filter((item) => item.roles.includes(this.currentRole));
+    return pathNavEntries.filter((item) => {
+      if (!item.roles.includes(this.currentRole)) return false;
+      if (item.type === 'link') return this.permissions.canViewPath(this.currentRole, item.path);
+      return item.children.some((child) => this.permissions.canViewPath(this.currentRole, child.path));
+    });
   }
 
   entryTrackKey(entry: NavPathEntry): string {

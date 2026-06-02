@@ -6,6 +6,12 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import * as echarts from 'echarts/core';
+import type { EChartsCoreOption } from 'echarts/core';
+import { BarChart, LineChart } from 'echarts/charts';
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
+import { NgxEchartsDirective, provideEchartsCore } from 'ngx-echarts';
 import { Award, TrendingUp, Users } from 'lucide';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
 import { PrimeCardComponent } from '../components/prime-card.component';
@@ -21,10 +27,13 @@ import {
 } from '../services/prime-fiche-result.service';
 import { PRIME_USER_LOAD_ERROR, primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
 
+echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
+
 @Component({
   selector: 'app-team-performance-page',
   standalone: true,
-  imports: [LucideIconComponent, PrimeCardComponent, PrimeFilterBarComponent],
+  imports: [LucideIconComponent, PrimeCardComponent, PrimeFilterBarComponent, NgxEchartsDirective],
+  providers: [provideEchartsCore({ echarts })],
   template: `
     @if (loading()) {
       <div class="p-8 flex justify-center">
@@ -102,6 +111,32 @@ import { PRIME_USER_LOAD_ERROR, primeHttpErrorDetail } from '../lib/primeHttpErr
             <p class="text-xs uppercase tracking-wider text-muted">Part Challenge</p>
             <p class="mt-1 text-2xl font-bold text-primary">{{ challengeSharePct() }}%</p>
           </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <app-prime-card title="Avancement workflow par étape">
+            <p class="text-sm text-muted mb-3">
+              Visualise où les fiches s'accumulent dans le cycle de validation.
+            </p>
+            <div class="h-80 w-full" echarts [options]="workflowChartOptions()" [initOpts]="chartInit"></div>
+          </app-prime-card>
+
+          <app-prime-card title="Écart d'avancement par agent">
+            <p class="text-sm text-muted mb-3">
+              Compare les fiches validées, en attente et rejetées pour détecter les agents à accompagner.
+            </p>
+            <div class="h-80 w-full" echarts [options]="agentChartOptions()" [initOpts]="chartInit"></div>
+          </app-prime-card>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          @for (item of teamInsights(); track item.label) {
+            <div class="rounded-xl border border-default bg-card p-4">
+              <p class="text-xs uppercase tracking-wider text-muted">{{ item.label }}</p>
+              <p class="mt-1 text-xl font-bold text-primary">{{ item.value }}</p>
+              <p class="mt-1 text-sm text-muted">{{ item.detail }}</p>
+            </div>
+          }
         </div>
 
         <app-prime-card title="Détail par pilote" className="p-0">
@@ -184,6 +219,7 @@ export class TeamPerformancePageComponent {
   private readonly api = inject(PrimeFicheResultService);
 
   readonly icons = { users: Users, award: Award, trending: TrendingUp };
+  readonly chartInit = { renderer: 'canvas' as const };
 
   readonly results = signal<EmployeePrimeServiceFicheValidationDto[]>([]);
   readonly loading = signal(true);
@@ -274,6 +310,91 @@ export class TeamPerformancePageComponent {
     const total = rows.reduce((acc, r) => acc + (r.totalAmount ?? 0), 0);
     if (total <= 0) return 0;
     return Math.round((100 * totalChallenge) / total);
+  });
+
+  readonly workflowBreakdown = computed(() => {
+    const rows = this.scopedResults();
+    const statuses = [
+      'Pending',
+      'Référent technique Approved',
+      'Superviseur Approved',
+      'Chef de projet Approved',
+      'RH Approved',
+      'Rejected',
+    ];
+    return statuses.map((status) => ({
+      status,
+      label: this.statusLabel(status),
+      count: rows.filter((r) => r.validationStatus === status).length,
+    }));
+  });
+
+  readonly agentPerformance = computed(() => {
+    const grouped = new Map<string, { name: string; approved: number; pending: number; rejected: number; total: number }>();
+    for (const row of this.scopedResults()) {
+      const emp = this.getEmployee(row.employeeId);
+      const name = emp ? `${emp.firstName} ${emp.lastName}` : row.employeeId;
+      const current = grouped.get(row.employeeId) ?? { name, approved: 0, pending: 0, rejected: 0, total: 0 };
+      current.total += 1;
+      if (row.validationStatus === 'RH Approved') current.approved += 1;
+      else if (row.validationStatus === 'Rejected') current.rejected += 1;
+      else current.pending += 1;
+      grouped.set(row.employeeId, current);
+    }
+    return [...grouped.values()]
+      .sort((a, b) => b.total - a.total || b.approved - a.approved)
+      .slice(0, 10);
+  });
+
+  readonly workflowChartOptions = computed<EChartsCoreOption>(() => {
+    const data = this.workflowBreakdown();
+    return {
+      tooltip: { trigger: 'axis' },
+      grid: { left: 24, right: 12, top: 24, bottom: 72, containLabel: true },
+      xAxis: { type: 'category', data: data.map((x) => x.label), axisLabel: { rotate: 30 } },
+      yAxis: { type: 'value' },
+      series: [{ type: 'bar', data: data.map((x) => x.count), itemStyle: { color: '#22d3ee' } }],
+    };
+  });
+
+  readonly agentChartOptions = computed<EChartsCoreOption>(() => {
+    const data = this.agentPerformance();
+    return {
+      tooltip: { trigger: 'axis' },
+      legend: { top: 0 },
+      grid: { left: 24, right: 12, top: 40, bottom: 76, containLabel: true },
+      xAxis: { type: 'category', data: data.map((x) => x.name), axisLabel: { rotate: 30 } },
+      yAxis: { type: 'value' },
+      series: [
+        { name: 'Validées RH', type: 'bar', stack: 'total', data: data.map((x) => x.approved) },
+        { name: 'En attente', type: 'bar', stack: 'total', data: data.map((x) => x.pending) },
+        { name: 'Rejetées', type: 'bar', stack: 'total', data: data.map((x) => x.rejected) },
+      ],
+    };
+  });
+
+  readonly teamInsights = computed(() => {
+    const agents = this.agentPerformance();
+    const weakest = [...agents].sort((a, b) => a.approved / Math.max(a.total, 1) - b.approved / Math.max(b.total, 1))[0];
+    const strongest = [...agents].sort((a, b) => b.approved / Math.max(b.total, 1) - a.approved / Math.max(a.total, 1))[0];
+    const blocked = this.scopedResults().filter((r) => r.validationStatus === 'Rejected' || r.isReadyForValidation !== true).length;
+    return [
+      {
+        label: 'Agent à accompagner',
+        value: weakest?.name ?? '—',
+        detail: weakest ? `${weakest.pending + weakest.rejected} fiche(s) à suivre` : 'Aucune donnée exploitable.',
+      },
+      {
+        label: 'Meilleur avancement',
+        value: strongest?.name ?? '—',
+        detail: strongest ? `${strongest.approved}/${strongest.total} fiche(s) validées RH` : 'Aucune donnée exploitable.',
+      },
+      {
+        label: 'Points de blocage',
+        value: `${blocked}`,
+        detail: 'Fiches rejetées ou non prêtes dans le périmètre.',
+      },
+    ];
   });
 
   constructor() {

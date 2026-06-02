@@ -18,6 +18,8 @@ import type { Employee, PrimeResult, Role } from '../models';
 import { isPrimeGlobalPoolStakeholderRole } from '../lib/prime-global-pool-stakeholder';
 import { RoleService } from '../state/role.service';
 import { PrimeService } from '../services/prime.service';
+import { PrimeNavRequestService } from '../services/prime-nav-request.service';
+import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.service';
 import {
   PrimeFicheResultService,
   type EmployeePrimeServiceFicheValidationDto,
@@ -77,7 +79,7 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
         </div>
         <button
           type="button"
-          [disabled]="filteredResults().length === 0"
+          [disabled]="filteredResults().length === 0 || !permissions.can(roleService.currentRole(), 'Export', permissions.primaryScopeForRole(roleService.currentRole()))"
           (click)="exportCsv()"
           class="prime-btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -120,6 +122,29 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
         </div>
       </div>
 
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
+        <button type="button" (click)="quickView.set('todo')" class="rounded-xl border border-default bg-card p-4 text-left hover:border-cyan-400">
+          <p class="text-xs uppercase tracking-wider text-muted">À traiter</p>
+          <p class="mt-1 text-2xl font-bold text-cyan-300">{{ resultIndicators().todo }}</p>
+          <p class="mt-1 text-xs text-muted">Fiches prêtes ou en attente d'une action.</p>
+        </button>
+        <button type="button" (click)="quickView.set('blocked')" class="rounded-xl border border-default bg-card p-4 text-left hover:border-amber-400">
+          <p class="text-xs uppercase tracking-wider text-muted">Bloquées / retard</p>
+          <p class="mt-1 text-2xl font-bold text-amber-300">{{ resultIndicators().blocked }}</p>
+          <p class="mt-1 text-xs text-muted">Non prêtes, rejetées ou inactives trop longtemps.</p>
+        </button>
+        <button type="button" (click)="quickView.set('approved')" class="rounded-xl border border-default bg-card p-4 text-left hover:border-emerald-400">
+          <p class="text-xs uppercase tracking-wider text-muted">Montant validé RH</p>
+          <p class="mt-1 text-2xl font-bold text-emerald-300">{{ formatAmount(resultIndicators().approvedAmount) }}</p>
+          <p class="mt-1 text-xs text-muted">Prêt pour consolidation / paiement.</p>
+        </button>
+        <button type="button" (click)="quickView.set('all')" class="rounded-xl border border-default bg-card p-4 text-left hover:border-indigo-400">
+          <p class="text-xs uppercase tracking-wider text-muted">Vue active</p>
+          <p class="mt-1 text-lg font-bold text-primary">{{ quickViewLabel() }}</p>
+          <p class="mt-1 text-xs text-muted">Cliquez pour réinitialiser la vue.</p>
+        </button>
+      </div>
+
       <app-prime-filter-bar [onSearch]="setSearch" [filters]="filterBarFilters()" />
 
       @if (loading()) {
@@ -140,17 +165,19 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
                   <th class="px-6 py-3 font-medium tracking-wider">Périmètre</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Période</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Avancement</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Prochaine action</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Prête</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Prime</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Challenge</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Total</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Statut</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Action</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-navy-800">
                 @if (filteredResults().length === 0) {
                   <tr>
-                    <td colspan="9" class="px-6 py-8 text-center text-slate-500">
+                    <td colspan="11" class="px-6 py-8 text-center text-slate-500">
                       Aucune fiche pour ces critères.
                     </td>
                   </tr>
@@ -182,7 +209,16 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
                         {{ item.period }}
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap text-slate-300">
-                        {{ item.fillingStatus || '—' }}
+                        <div class="min-w-[9rem]">
+                          <div class="h-2 rounded-full bg-navy-700 overflow-hidden">
+                            <div class="h-full rounded-full bg-cyan-500" [style.width.%]="workflowProgress(item.validationStatus)"></div>
+                          </div>
+                          <div class="mt-1 text-xs text-slate-500">{{ workflowProgress(item.validationStatus) }}% du workflow</div>
+                        </div>
+                      </td>
+                      <td class="px-6 py-4 text-slate-300">
+                        <div class="font-medium text-slate-200">{{ nextOwnerLabel(item) }}</div>
+                        <div class="text-xs text-slate-500">{{ resultSignal(item) }}</div>
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap">
                         @if (item.isReadyForValidation === true) {
@@ -214,6 +250,15 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
                           {{ statusLabel(item.validationStatus) }}
                         </span>
                       </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <button
+                          type="button"
+                          (click)="openResult(item)"
+                          class="px-2.5 py-1.5 rounded-lg bg-cyan-500/15 text-cyan-300 text-xs font-semibold hover:bg-cyan-500/25"
+                        >
+                          Ouvrir
+                        </button>
+                      </td>
                     </tr>
                   }
                 }
@@ -227,8 +272,10 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PrimeResultsPageComponent implements OnInit {
-  private readonly roleService = inject(RoleService);
+  readonly roleService = inject(RoleService);
   private readonly api = inject(PrimeFicheResultService);
+  private readonly nav = inject(PrimeNavRequestService);
+  readonly permissions = inject(PrimeUiPermissionsService);
 
   readonly icons = {
     download: Download,
@@ -243,6 +290,7 @@ export class PrimeResultsPageComponent implements OnInit {
   readonly statusFilter = signal<PrimeFicheValidationStatus | ''>('');
   readonly celluleFilter = signal('');
   readonly serviceFilter = signal('');
+  readonly quickView = signal<'all' | 'todo' | 'blocked' | 'approved' | 'rejected' | 'payment-ready'>('all');
 
   readonly setSearch = (value: string): void => {
     this.search.set(value);
@@ -275,6 +323,11 @@ export class PrimeResultsPageComponent implements OnInit {
       total: rows.length,
       ready: rows.filter((r) => r.isReadyForValidation === true).length,
       rejected: rows.filter((r) => r.validationStatus === 'Rejected').length,
+      todo: rows.filter((r) => this.isTodo(r)).length,
+      blocked: rows.filter((r) => this.isBlocked(r)).length,
+      approvedAmount: rows
+        .filter((r) => r.validationStatus === 'RH Approved')
+        .reduce((acc, r) => acc + (r.totalAmount ?? 0), 0),
       sumTotalAmount: rows.reduce((acc, r) => acc + (r.totalAmount ?? 0), 0),
     };
   });
@@ -284,6 +337,7 @@ export class PrimeResultsPageComponent implements OnInit {
     const status = this.statusFilter();
     return this.results().filter((r) => {
       if (status && r.validationStatus !== status) return false;
+      if (!this.matchesQuickView(r)) return false;
       if (!q) return true;
       const emp = this.getEmployee(r.employeeId);
       const name = emp ? `${emp.firstName} ${emp.lastName}` : r.employeeId;
@@ -459,7 +513,70 @@ export class PrimeResultsPageComponent implements OnInit {
     return status;
   }
 
+  workflowProgress(status: string): number {
+    if (status === 'RH Approved') return 100;
+    if (status === 'Chef de projet Approved') return 75;
+    if (status === 'Superviseur Approved') return 50;
+    if (status === 'Référent technique Approved' || status === 'Coach Approved') return 25;
+    if (status === 'Rejected') return 0;
+    return 10;
+  }
+
+  nextOwnerLabel(item: EmployeePrimeServiceFicheValidationDto): string {
+    if (item.validationStatus === 'Pending') return 'Référent technique';
+    if (item.validationStatus === 'Référent technique Approved' || item.validationStatus === 'Coach Approved') return 'Superviseur';
+    if (item.validationStatus === 'Superviseur Approved') return 'Chef de projet';
+    if (item.validationStatus === 'Chef de projet Approved') return 'RH';
+    if (item.validationStatus === 'Rejected') return 'Pilote / superviseur';
+    if (item.validationStatus === 'RH Approved') return 'Paiement / consolidation';
+    return 'Responsable workflow';
+  }
+
+  resultSignal(item: EmployeePrimeServiceFicheValidationDto): string {
+    if (item.validationStatus === 'Rejected') return item.rejectionReason || 'Rejet à retraiter';
+    if (item.isReadyForValidation !== true) return 'Fiche non prête ou données cellule incomplètes';
+    if (item.validationStatus === 'RH Approved') return 'Montant validé, prêt pour paiement';
+    return `Dernière mise à jour: ${this.formatDate(item.updatedAt)}`;
+  }
+
+  quickViewLabel(): string {
+    if (this.quickView() === 'todo') return 'À traiter';
+    if (this.quickView() === 'blocked') return 'Bloquées';
+    if (this.quickView() === 'approved') return 'Validées RH';
+    if (this.quickView() === 'rejected') return 'Rejetées';
+    if (this.quickView() === 'payment-ready') return 'Paiement prêt';
+    return 'Toutes les fiches';
+  }
+
+  openResult(item: EmployeePrimeServiceFicheValidationDto): void {
+    this.nav.requestViewWithPeriod('/validation', item.period);
+  }
+
+  private matchesQuickView(item: EmployeePrimeServiceFicheValidationDto): boolean {
+    const view = this.quickView();
+    if (view === 'todo') return this.isTodo(item);
+    if (view === 'blocked') return this.isBlocked(item);
+    if (view === 'approved' || view === 'payment-ready') return item.validationStatus === 'RH Approved';
+    if (view === 'rejected') return item.validationStatus === 'Rejected';
+    return true;
+  }
+
+  private isTodo(item: EmployeePrimeServiceFicheValidationDto): boolean {
+    return item.isReadyForValidation === true && item.validationStatus !== 'RH Approved' && item.validationStatus !== 'Rejected';
+  }
+
+  private isBlocked(item: EmployeePrimeServiceFicheValidationDto): boolean {
+    return item.validationStatus === 'Rejected' || item.isReadyForValidation !== true;
+  }
+
+  private formatDate(value: string | null | undefined): string {
+    if (!value) return '—';
+    return new Date(value).toLocaleDateString('fr-FR');
+  }
+
   exportCsv(): void {
+    const role = this.roleService.currentRole();
+    if (!this.permissions.can(role, 'Export', this.permissions.primaryScopeForRole(role))) return;
     const rows = this.filteredResults();
     if (rows.length === 0) return;
     const headers = [

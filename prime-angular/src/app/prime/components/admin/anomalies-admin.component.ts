@@ -5,6 +5,9 @@ import {
   type AnomalyDto,
   type AnomalyStatus,
 } from '../../services/prime-admin.service';
+import { PrimeNavRequestService } from '../../services/prime-nav-request.service';
+import { PrimeSectionService } from '../../state/prime-section.service';
+import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.service';
 
 @Component({
   selector: 'app-anomalies-admin',
@@ -78,6 +81,54 @@ import {
         </select>
       </div>
 
+      @if (selectedRow(); as selected) {
+        <div class="mb-4 rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-4">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-cyan-200">Détail de traitement</p>
+              <h3 class="mt-1 text-base font-semibold text-slate-100">{{ anomalyTitle(selected) }}</h3>
+              <p class="mt-1 text-sm text-slate-300">{{ selected.description }}</p>
+            </div>
+            <button
+              type="button"
+              (click)="openTarget(selected)"
+              class="px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold disabled:opacity-50"
+              [disabled]="!permissions.can('Admin', 'Read', 'Global')"
+            >
+              Traiter à la source
+            </button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4 text-sm">
+            <div class="rounded-lg bg-navy-950/60 border border-navy-700 p-3">
+              <p class="text-[11px] uppercase tracking-wider text-slate-500">Objet concerné</p>
+              <p class="mt-1 text-slate-200">{{ targetLabel(selected) }}</p>
+            </div>
+            <div class="rounded-lg bg-navy-950/60 border border-navy-700 p-3">
+              <p class="text-[11px] uppercase tracking-wider text-slate-500">Périmètre</p>
+              <p class="mt-1 text-slate-200">{{ scopeLabel(selected) }}</p>
+            </div>
+            <div class="rounded-lg bg-navy-950/60 border border-navy-700 p-3">
+              <p class="text-[11px] uppercase tracking-wider text-slate-500">Impact</p>
+              <p class="mt-1 text-slate-200">{{ impactLabel(selected) }}</p>
+            </div>
+            <div class="rounded-lg bg-navy-950/60 border border-navy-700 p-3">
+              <p class="text-[11px] uppercase tracking-wider text-slate-500">Action recommandée</p>
+              <p class="mt-1 text-slate-200">{{ recommendedAction(selected) }}</p>
+            </div>
+          </div>
+          <label class="block mt-4 text-xs uppercase tracking-wider text-slate-500">
+            Note de résolution
+            <textarea
+              class="mt-2 w-full rounded-lg border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-slate-200"
+              rows="2"
+              [value]="resolutionNote()"
+              (input)="resolutionNote.set($any($event.target).value)"
+              placeholder="Expliquer la correction effectuée ou la raison d'ignorance."
+            ></textarea>
+          </label>
+        </div>
+      }
+
       @if (loading()) {
         <div class="py-12 flex justify-center">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
@@ -91,6 +142,7 @@ import {
               <tr class="border-b border-default">
                 <th class="text-left py-3 text-slate-400">Type</th>
                 <th class="text-left py-3 text-slate-400">Gravité</th>
+                <th class="text-left py-3 text-slate-400">Objet concerné</th>
                 <th class="text-left py-3 text-slate-400">Description</th>
                 <th class="text-left py-3 text-slate-400">Statut</th>
                 <th class="text-right py-3 text-slate-400">Actions</th>
@@ -101,6 +153,16 @@ import {
                 <tr class="border-b border-default/60">
                   <td class="py-3 text-slate-200">{{ row.type }}</td>
                   <td class="py-3 text-slate-400">{{ severityLabel(row.severity) }}</td>
+                  <td class="py-3 text-slate-300">
+                    <button
+                      type="button"
+                      (click)="selectRow(row)"
+                      class="text-left hover:text-cyan-300"
+                    >
+                      <span class="block font-medium">{{ targetLabel(row) }}</span>
+                      <span class="block text-xs text-slate-500">{{ scopeLabel(row) }}</span>
+                    </button>
+                  </td>
                   <td class="py-3 text-slate-300 max-w-md">{{ row.description }}</td>
                   <td class="py-3">
                     <span class="text-xs px-2 py-1 rounded-full" [class]="statusClass(row.status)">
@@ -110,6 +172,14 @@ import {
                   <td class="py-3 text-right">
                     @if (row.status === 'Open' || row.status === 'InReview') {
                       <div class="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          [disabled]="busyId() === row.id"
+                          (click)="openTarget(row)"
+                          class="px-2 py-1 rounded bg-cyan-500/20 text-cyan-300 text-xs"
+                        >
+                          Traiter
+                        </button>
                         <button
                           type="button"
                           [disabled]="busyId() === row.id"
@@ -144,6 +214,9 @@ import {
 })
 export class AnomaliesAdminComponent implements OnInit {
   private readonly admin = inject(PrimeAdminService);
+  private readonly nav = inject(PrimeNavRequestService);
+  private readonly sections = inject(PrimeSectionService);
+  readonly permissions = inject(PrimeUiPermissionsService);
 
   readonly rows = signal<AnomalyDto[]>([]);
   readonly loading = signal(true);
@@ -152,6 +225,10 @@ export class AnomaliesAdminComponent implements OnInit {
   readonly recomputing = signal(false);
   readonly statusFilter = signal('');
   readonly severityFilter = signal('');
+  readonly selectedId = signal<string | null>(null);
+  readonly resolutionNote = signal('');
+
+  readonly selectedRow = computed(() => this.rows().find((row) => row.id === this.selectedId()) ?? null);
 
   readonly filteredRows = computed(() =>
     this.rows().filter((row) => {
@@ -205,16 +282,22 @@ export class AnomaliesAdminComponent implements OnInit {
   }
 
   setStatus(row: AnomalyDto, status: AnomalyStatus): void {
+    const note = this.resolutionNote().trim();
     this.busyId.set(row.id);
     this.admin
       .updateAnomalyStatus(row.id, {
         status,
         resolvedByUserId: 'admin-ui',
-        resolutionNote: status === 'Resolved' ? 'Traité depuis l’interface Admin' : 'Ignoré depuis l’interface Admin',
+        resolutionNote:
+          note ||
+          (status === 'Resolved'
+            ? `Traité depuis l'interface Admin: ${this.recommendedAction(row)}`
+            : `Ignoré depuis l'interface Admin: ${this.impactLabel(row)}`),
       })
       .subscribe({
         next: (updated) => {
           this.rows.update((list) => list.map((r) => (r.id === updated.id ? updated : r)));
+          this.resolutionNote.set('');
           this.busyId.set(null);
         },
         error: (err) => {
@@ -222,6 +305,81 @@ export class AnomaliesAdminComponent implements OnInit {
           this.busyId.set(null);
         },
       });
+  }
+
+  selectRow(row: AnomalyDto): void {
+    this.selectedId.set(row.id);
+    this.resolutionNote.set(row.resolutionNote ?? '');
+  }
+
+  openTarget(row: AnomalyDto): void {
+    this.selectRow(row);
+    if (row.status === 'Open') {
+      this.setStatus(row, 'InReview');
+    }
+    if (row.type === 'InvalidScope') {
+      this.nav.requestView('/rh/organisation');
+      return;
+    }
+    if (row.type === 'WorkflowBlocked') {
+      this.sections.setActiveAdminSection('workflows');
+      return;
+    }
+    const period = row.period?.trim();
+    if (period) {
+      this.nav.requestViewWithPeriod('/validation', period);
+      return;
+    }
+    this.nav.requestView('/validation');
+  }
+
+  anomalyTitle(row: AnomalyDto): string {
+    return `${this.severityLabel(row.severity)} - ${this.typeLabel(row.type)}`;
+  }
+
+  typeLabel(type: string): string {
+    if (type === 'ComputationMismatch') return 'Écart de calcul';
+    if (type === 'DuplicateFiche') return 'Fiche en double';
+    if (type === 'OutOfRange') return 'Montant hors plage';
+    if (type === 'MissingApprover') return 'Validateur manquant';
+    if (type === 'StaleValidation') return 'Validation en retard';
+    if (type === 'InvalidScope') return 'Périmètre incohérent';
+    if (type === 'WorkflowBlocked') return 'Workflow bloqué';
+    return type;
+  }
+
+  targetLabel(row: AnomalyDto): string {
+    const entity = row.targetEntityType ? `${row.targetEntityType}` : 'Fiche PRIME';
+    const id = row.targetEntityId ? ` #${row.targetEntityId}` : '';
+    const period = row.period ? ` - ${row.period}` : '';
+    return `${entity}${id}${period}`;
+  }
+
+  scopeLabel(row: AnomalyDto): string {
+    const chunks = [
+      row.poleId ? `Pôle ${row.poleId}` : '',
+      row.celluleId ? `Cellule ${row.celluleId}` : '',
+      row.serviceId ? `Service ${row.serviceId}` : '',
+    ].filter(Boolean);
+    return chunks.length ? chunks.join(' / ') : 'Périmètre à vérifier';
+  }
+
+  impactLabel(row: AnomalyDto): string {
+    if (row.severity === 'Critical') return 'Bloque la validation ou le paiement tant que non traité.';
+    if (row.severity === 'High') return 'Risque de montant incorrect ou de workflow incomplet.';
+    if (row.type === 'StaleValidation') return 'Retarde l’avancement du cycle PRIME.';
+    return 'À contrôler pour garder les résultats fiables.';
+  }
+
+  recommendedAction(row: AnomalyDto): string {
+    if (row.type === 'ComputationMismatch') return 'Ouvrir la fiche, contrôler prime/challenge et recalculer.';
+    if (row.type === 'DuplicateFiche') return 'Comparer les fiches de la période et conserver la bonne version.';
+    if (row.type === 'OutOfRange') return 'Vérifier les montants saisis avant validation.';
+    if (row.type === 'MissingApprover') return 'Contrôler l’historique et l’approbateur manquant.';
+    if (row.type === 'StaleValidation') return 'Relancer le responsable de l’étape courante.';
+    if (row.type === 'InvalidScope') return 'Corriger l’affectation organisationnelle.';
+    if (row.type === 'WorkflowBlocked') return 'Vérifier la configuration des transitions workflow.';
+    return 'Analyser le détail puis traiter dans l’écran source.';
   }
 
   statusClass(status: string): string {

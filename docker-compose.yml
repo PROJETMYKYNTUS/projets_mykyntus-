@@ -247,6 +247,65 @@ services:
     networks:
       - microservices-network
 
+  # One-shot : crée parrainage_db + parrainage_user si le volume Postgres existait avant l’ajout du bloc PARRAINAGE dans init.sql.
+  parrainage-db-bootstrap:
+    image: postgres:16-alpine
+    container_name: kyntus_parrainage_db_bootstrap
+    restart: "no"
+    environment:
+      PGPASSWORD: Postgres@2026
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./init/sql/parrainage_database.sql:/parrainage_database.sql:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        until pg_isready -h postgres -p 5432 -U postgres -q; do sleep 2; done
+        if psql -h postgres -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'parrainage_db'" | grep -qx 1; then
+          echo "parrainage_db: already exists"
+          exit 0
+        fi
+        psql -h postgres -U postgres -v ON_ERROR_STOP=1 -f /parrainage_database.sql
+        echo "parrainage_db: created"
+    networks:
+      - microservices-network
+
+  parrainage-backend:
+    build:
+      context: ./parrainage_service_backend
+      dockerfile: Dockerfile
+    container_name: kyntus_parrainage_backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=parrainage_db;Username=parrainage_user;Password=Parrainage@2026"
+      # Seed 15 parrainages + règles si tables vides (EF Migrate au démarrage).
+      Parrainage__SeedDemoData: "true"
+      # POST /api/parrainage/dev/seed (outil dev, calqué Prime).
+      Parrainage__AllowDemoSeedEndpoint: "true"
+      Parrainage__UploadPath: "/app/uploads/cv"
+    volumes:
+      - parrainage_cv_uploads:/app/uploads
+    ports:
+      - "5260:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/api/parrainage/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 90s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      parrainage-db-bootstrap:
+        condition: service_completed_successfully
+    networks:
+      - microservices-network
+
   # ─── API GATEWAY ──────────────────────────────────────
   # Point d’entrée unique côté HTTP pour /api/* et /hubs/* (Ocelot : init/ocelot.gateway.json).
   api-gateway:
@@ -274,6 +333,8 @@ services:
       documentation-backend:
         condition: service_started
       prime-backend:
+        condition: service_healthy
+      parrainage-backend:
         condition: service_healthy
     networks:
       - microservices-network
@@ -316,9 +377,27 @@ services:
     restart: unless-stopped
     # Module Prime (Angular) : http://localhost:4202 — pas le port 4200 (planning). Après changement UI : rebuild sans cache.
     #   docker compose build --no-cache prime-frontend && docker compose up -d prime-frontend
+    # Données démo Maroc (Bogus, org existante) : GET http://localhost:5000/api/prime/demo/enrichment-status
+    #   puis POST http://localhost:5000/api/prime/demo/enrich?force=true && docker compose restart prime-backend
     # Si 4202 est encore pris par un ancien conteneur : `docker compose down` puis `up`, ou remplacez par ex. "4207:80".
     ports:
       - "4202:80"
+    depends_on:
+      api-gateway:
+        condition: service_started
+    # Si /api/* renvoie 404 : vérifier que api-gateway tourne (port 5000) puis
+    #   docker compose up -d api-gateway && docker compose restart prime-frontend
+    networks:
+      - microservices-network
+
+  parrainage-frontend:
+    build:
+      context: ./parrainage-angular
+      dockerfile: Dockerfile
+    container_name: kyntus_parrainage_frontend
+    restart: unless-stopped
+    ports:
+      - "4203:80"
     depends_on:
       api-gateway:
         condition: service_started
@@ -341,6 +420,7 @@ services:
 volumes:
   postgres_data:
   rabbitmq_data:
+  parrainage_cv_uploads:
 
 networks:
   microservices-network:

@@ -38,7 +38,8 @@ public sealed class PrimeDemoSeedController(PrimeDbContext? db, IConfiguration c
             currentPeriodUtc = $"{DateTime.UtcNow:yyyy-MM}",
             hintSupervisor = "e9",
             hintChefDeProjet = "e6",
-            enrichTemplateId = "enrich-template-v2",
+            enrichTemplateId = PrimeDbEnrichmentSeeder.EnrichTemplateId,
+            enrichEmployeeIdPrefix = PrimeMoroccanDataFactory.EnrichEmployeeIdPrefix,
         });
     }
 

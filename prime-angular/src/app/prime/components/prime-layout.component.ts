@@ -44,6 +44,7 @@ import { ChefProjetScopePageComponent } from '../pages/chef-projet-scope-page.co
 import { PrimeFicheSessionService } from '../services/prime-fiche-session.service';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
 import { PrimeAdminService } from '../services/prime-admin.service';
+import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.service';
 
 @Component({
   selector: 'app-prime-layout',
@@ -273,6 +274,7 @@ export class PrimeLayoutComponent {
   readonly session = inject(PrimeFicheSessionService);
   private readonly navRequest = inject(PrimeNavRequestService);
   private readonly primeAdmin = inject(PrimeAdminService);
+  private readonly permissions = inject(PrimeUiPermissionsService);
 
   readonly collapsed = signal(false);
   readonly currentView = signal('/');
@@ -345,7 +347,8 @@ export class PrimeLayoutComponent {
     effect(() => {
       const path = this.navRequest.pendingPath();
       if (path) {
-        if (isPrimePathAllowedForRole(path, this.role.currentRole())) {
+        const role = this.role.currentRole();
+        if (isPrimePathAllowedForRole(path, role) && this.permissions.canViewPath(role, path)) {
           this.currentView.set(path);
         }
         this.navRequest.clearPending();
@@ -377,7 +380,8 @@ export class PrimeLayoutComponent {
   }
 
   setView(v: string): void {
-    if (!isPrimePathAllowedForRole(v, this.role.currentRole())) return;
+    const role = this.role.currentRole();
+    if (!isPrimePathAllowedForRole(v, role) || !this.permissions.canViewPath(role, v)) return;
     this.currentView.set(v);
   }
 

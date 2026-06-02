@@ -1,26 +1,33 @@
-# ─── Métadonnées (non consommées par Docker ; référence intégration Documentation) ───
-# API métier & temps réel : uniquement via api-gateway (hôte 5000 → conteneur 8080).
-# Les frontends nginx proxy /api/ et /hubs/ vers api-gateway — pas d’appel navigateur direct aux backends.
+version: '3.8'
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+# PRODUCTION DEPLOY - docker-compose.production.yml
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+# Serveur: 10.10.10.50
+# Version: mykyntus_v2
+# Usage: docker-compose -f docker-compose.production.yml up -d
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+
 x-documentation-integration:
-  public_gateway_base: "http://localhost:5000"
+  public_gateway_base: "http://10.10.10.50:6000"
   documentation_api_prefixes: "/api/documentation,/api/generate-document-ai"
   documentation_signalr_hub: "/hubs/documentation"
 
 services:
 
-  # ─── DATABASE UNIQUE ──────────────────────────────────
+  # ─── DATABASE UNIQUE ──────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
-    container_name: kyntus_db
+    container_name: kyntus_db_prod
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: Postgres@2026
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_prod:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5433:5432"
+      - "5545:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -28,21 +35,27 @@ services:
       retries: 10
       start_period: 30s
     networks:
-      - microservices-network
+      - kyntus-network-prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # ─── BACKENDS ─────────────────────────────────────────
+  # ─── BACKENDS ─────────────────────────────────────────────────
   auth-backend:
     build:
       context: ./AuthService/AuthService
       dockerfile: Dockerfile
-    container_name: kyntus_auth_backend
+    image: kyntus-auth-backend:latest
+    container_name: kyntus_auth_backend_prod
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=auth_db;Username=auth_user;Password=Auth@2026"
     ports:
-      - "5220:8080"
+      - "6220:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,13 +65,18 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-    networks:  
-      - microservices-network
+    networks:
+      - kyntus-network-prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # One-shot : insère 2 utilisateurs atlas-tech-demo dans auth_db."Users" après migrations auth-backend.
+  # One-shot : insère utilisateurs
   auth-atlas-doc-users-seed:
     image: postgres:16-alpine
-    container_name: kyntus_seed_auth_atlas_doc_users
+    container_name: kyntus_seed_auth_atlas_doc_users_prod
     restart: "no"
     environment:
       PGPASSWORD: Postgres@2026
@@ -78,29 +96,29 @@ services:
         while [ "$$i" -lt 90 ]; do
           if psql -h postgres -U postgres -d auth_db -tAc 'SELECT 1 FROM "Users" LIMIT 1' 2>/dev/null | grep -qx 1; then
             psql -h postgres -U postgres -d auth_db -v ON_ERROR_STOP=1 -f /seed.sql
-            echo "init: auth_insert_atlas_doc_users.sql applied"
+            echo "✅ init: auth_insert_atlas_doc_users.sql applied"
             exit 0
           fi
           i=$$((i + 1))
           sleep 2
         done
-        echo "init: timeout waiting for auth Users table" >&2
+        echo "❌ init: timeout waiting for auth Users table" >&2
         exit 1
     networks:
-      - microservices-network
+      - kyntus-network-prod
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
-    container_name: kyntus_rabbitmq
+    container_name: kyntus_rabbitmq_prod
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
-      RABBITMQ_ERLANG_COOKIE: kyntus-dev-erlang-cookie
+      RABBITMQ_ERLANG_COOKIE: kyntus-prod-erlang-cookie
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq_data_prod:/var/lib/rabbitmq
     ports:
-      - "5672:5672"
+      - "6672:5672"
       - "15672:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
@@ -109,13 +127,19 @@ services:
       retries: 15
       start_period: 60s
     networks:
-      - microservices-network
+      - kyntus-network-prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   planning-backend:
     build:
       context: ./PlanningService/PlanningService
       dockerfile: Dockerfile
-    container_name: kyntus_planning_backend
+    image: kyntus-planning-backend:latest
+    container_name: kyntus_planning_backend_prod
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -123,20 +147,26 @@ services:
       KYNTUS_PLANNING_DEMO_SEED: "true"
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=kyntus_db;Username=kyntus_user;Password=Kyntus@2026"
     ports:
-      - "5201:8080"
+      - "6201:8080"
     depends_on:
       postgres:
         condition: service_healthy
       auth-backend:
         condition: service_healthy
     networks:
-      - microservices-network
+      - kyntus-network-prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   formation-backend:
     build:
       context: ./FormationService
       dockerfile: projetformationconges/Dockerfile
-    container_name: kyntus_formation_backend
+    image: kyntus-formation-backend:latest
+    container_name: kyntus_formation_backend_prod
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -144,18 +174,24 @@ services:
       KYNTUS_FORMATION_DEMO_SEED: "true"
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=formation_db;Username=formation_user;Password=Formation@2026"
     ports:
-      - "5210:8080"
+      - "6210:8080"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - microservices-network
+      - kyntus-network-prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   documentation-backend:
     build:
       context: .
       dockerfile: init/DocumentationBackend.Dockerfile
-    container_name: kyntus_documentation_backend
+    image: kyntus-documentation-backend:latest
+    container_name: kyntus_documentation_backend_prod
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -166,40 +202,50 @@ services:
       DocumentationDb__Password: "Documentation@2026"
       ConnectionStrings__Documentation: "Host=postgres;Port=5432;Database=documentation_db;Username=documentation_user;Password=Documentation@2026"
     ports:
-      - "5230:8080"
+      - "6230:8080"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - microservices-network
+      - kyntus-network-prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   conge-backend:
     build:
       context: ./FormationService
       dockerfile: Conge.API/Dockerfile
-    container_name: kyntus_conge_backend
+    image: kyntus-conge-backend:latest
+    container_name: kyntus_conge_backend_prod
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      # /!\ Pense à changer "postgres" par "conge_user" si tu as créé l'utilisateur dédié
       ConnectionStrings__CongeDb: "Host=postgres;Port=5432;Database=conge_db;Username=postgres;Password=Postgres@2026"
       RabbitMQ__Host: rabbitmq
       RabbitMQ__Username: guest
       RabbitMQ__Password: guest
     ports:
-      - "5240:8080"
+      - "6240:8080"
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
     networks:
-      - microservices-network
+      - kyntus-network-prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   prime-db-bootstrap:
     image: postgres:16-alpine
-    container_name: kyntus_prime_db_bootstrap
+    container_name: kyntus_prime_db_bootstrap_prod
     restart: "no"
     environment:
       PGPASSWORD: Postgres@2026
@@ -214,46 +260,53 @@ services:
         set -e
         until pg_isready -h postgres -p 5432 -U postgres -q; do sleep 2; done
         if psql -h postgres -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'prime_db'" | grep -qx 1; then
-          echo "prime_db: already exists"
+          echo "✅ prime_db: already exists"
           exit 0
         fi
         psql -h postgres -U postgres -v ON_ERROR_STOP=1 -f /prime_database.sql
-        echo "prime_db: created"
+        echo "✅ prime_db: created"
     networks:
-      - microservices-network
+      - kyntus-network-prod
 
   prime-backend:
     build:
       context: ./PrimeBackend
       dockerfile: Dockerfile
-    container_name: kyntus_prime_backend
+    image: kyntus-prime-backend:latest
+    container_name: kyntus_prime_backend_prod
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=prime_db;Username=prime_user;Password=Prime@2026"
     ports:
-      - "5250:8080"
+      - "6250:8080"
     depends_on:
       postgres:
         condition: service_healthy
       prime-db-bootstrap:
         condition: service_completed_successfully
     networks:
-      - microservices-network
+      - kyntus-network-prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # ─── API GATEWAY ──────────────────────────────────────
+  # ─── API GATEWAY ──────────────────────────────────────────────
   api-gateway:
     build:
       context: ./ApiGateway.API/ApiGateway.API
       dockerfile: Dockerfile
-    container_name: kyntus_gateway
+    image: kyntus-gateway:latest
+    container_name: kyntus_gateway_prod
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
     ports:
-      - "5000:8080"
+      - "6000:8080"
     volumes:
       - ./init/ocelot.gateway.json:/app/ocelot.json:ro
     depends_on:
@@ -267,57 +320,79 @@ services:
         condition: service_started
       documentation-backend:
         condition: service_started
+      conge-backend:
+        condition: service_started
       prime-backend:
         condition: service_started
     networks:
-      - microservices-network
+      - kyntus-network-prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # ─── FRONTENDS ────────────────────────────────────────
+  # ─── FRONTENDS ────────────────────────────────────────────────
   auth-frontend:
     build:
       context: ./auth-frontend
       dockerfile: DockerFile
-    container_name: kyntus_auth_frontend
+    image: kyntus-auth-frontend:latest
+    container_name: kyntus_auth_frontend_prod
     restart: unless-stopped
     ports:
-      - "4201:4000"
+      - "6201:4000"
     environment:
-      - API_URL=http://api-gateway:8080
+      - API_URL=http://10.10.10.50:6000
     depends_on:
       api-gateway:
         condition: service_started
     networks:
-      - microservices-network
+      - kyntus-network-prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   planning-frontend:
     build:
       context: ./projet_kyntus_service_planning-frontend
       dockerfile: Dockerfile
-    container_name: kyntus_planning_frontend
+    image: kyntus-planning-frontend:latest
+    container_name: kyntus_planning_frontend_prod
     restart: unless-stopped
     ports:
-      - "4200:80"
+      - "6200:80"
+    environment:
+      - API_URL=http://10.10.10.50:6000
     depends_on:
       api-gateway:
         condition: service_started
     networks:
-      - microservices-network
+      - kyntus-network-prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   pgadmin:
     image: dpage/pgadmin4
-    container_name: kyntus_pgadmin
+    container_name: kyntus_pgadmin_prod
     restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@kyntus.ma
       PGADMIN_DEFAULT_PASSWORD: admin123
     ports:
-      - "5050:80"
+      - "5053:80"
     networks:
-      - microservices-network
+      - kyntus-network-prod
 
 volumes:
-  postgres_data:
-  rabbitmq_data:
+  postgres_data_prod:
+  rabbitmq_data_prod:
 
 networks:
-  microservices-network:
+  kyntus-network-prod:
     driver: bridge

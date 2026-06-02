@@ -183,6 +183,12 @@ using (var scope = app.Services.CreateScope())
     var planningDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await DockerComposePlanningDemoSeed.ApplyIfEnabledAsync(app.Configuration, planningDb);
 }
+// 🆕 Re-sync des users sans AuthUserId
+using (var scope = app.Services.CreateScope())
+{
+    var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
+    await userService.SyncMissingAuthUsersAsync();
+}
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())

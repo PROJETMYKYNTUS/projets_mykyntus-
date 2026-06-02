@@ -33,6 +33,7 @@ public class UsersController : ControllerBase
         return Ok(users);
     }
 
+
     // Managers et Coachs d'un sous-service
     [HttpGet("managers-by-subservice/{subServiceId}")]
     public async Task<ActionResult<List<UserDto>>> GetManagersBySubService(int subServiceId)

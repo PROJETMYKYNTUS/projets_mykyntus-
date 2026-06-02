@@ -3,6 +3,7 @@ using AuthService.Interfaces;
 using AuthService.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AuthService.Controllers
 {
@@ -51,6 +52,7 @@ namespace AuthService.Controllers
                 return StatusCode(500, new { message = "Une erreur est survenue lors de l'inscription" });
             }
         }
+ 
 
         [HttpPost("login")]
         [AllowAnonymous]

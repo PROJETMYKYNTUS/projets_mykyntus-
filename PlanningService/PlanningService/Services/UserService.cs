@@ -74,7 +74,17 @@ public class UserService : IUserService
 
         return user == null ? null : ToDto(user);
     }
+    public async Task SyncMissingAuthUsersAsync()
+    {
+        var users = await _context.Users
+            .Where(u => u.AuthUserId == null && u.IsActive)
+            .ToListAsync();
 
+        _logger.LogInformation("🔄 {Count} users sans AuthUserId à synchroniser", users.Count);
+
+        foreach (var user in users)
+            await SyncToAuthServiceAsync(user);
+    }
     public async Task<UserDto> CreateUserAsync(CreateUserDto dto)
     {
         var user = new User
@@ -159,41 +169,51 @@ public class UserService : IUserService
     // 🆕 Méthode privée : sync vers Auth Service
     private async Task SyncToAuthServiceAsync(User user)
     {
-        try
-        {
-            var response = await _httpClient.PostAsJsonAsync(
-                "api/auth/register-from-planning",
-                new
-                {
-                    Email = user.Email,
-                    DefaultPassword = "Azerty@123",
-                    RoleId = user.RoleId
-                });
+        var maxRetries = 3;
 
-            if (response.IsSuccessStatusCode)
-            {
-                // ✅ Récupérer l'Auth ID et le sauvegarder
-                var result = await response.Content
-                    .ReadFromJsonAsync<AuthRegisterResult>();
-                if (result != null)
-                {
-                    user.AuthUserId = result.Id;
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation(
-                        "✅ Auth Service → User {Email} créé avec AuthId={Id}",
-                        user.Email, result.Id);
-                }
-            }
-            else
-            {
-                _logger.LogWarning("⚠️ Auth Service → {Status} pour {Email}",
-                    response.StatusCode, user.Email);
-            }
-        }
-        catch (Exception ex)
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            _logger.LogError("❌ Auth Service inaccessible : {Message}", ex.Message);
+            try
+            {
+                var response = await _httpClient.PostAsJsonAsync(
+                    "api/auth/register-from-planning",
+                    new
+                    {
+                        Email = user.Email,
+                        DefaultPassword = "Azerty@123",
+                        RoleId = user.RoleId
+                    });
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content
+                        .ReadFromJsonAsync<AuthRegisterResult>();
+                    if (result != null)
+                    {
+                        user.AuthUserId = result.Id;
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation("✅ AuthUserId={Id} lié à {Email}",
+                            result.Id, user.Email);
+                        return;
+                    }
+                }
+
+                var body = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("⚠️ Tentative {Attempt} → {Status} : {Body}",
+                    attempt, response.StatusCode, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("❌ Tentative {Attempt}/{Max} : {Message}",
+                    attempt, maxRetries, ex.Message);
+            }
+
+            if (attempt < maxRetries)
+                await Task.Delay(TimeSpan.FromSeconds(attempt * 2)); // 2s, 4s
         }
+
+        _logger.LogError("❌ Sync Auth échouée après {Max} tentatives pour {Email}",
+            maxRetries, user.Email);
     }
     public async Task SyncAllEmployesToCongeAsync()
     {

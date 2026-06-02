@@ -10,6 +10,7 @@ public interface IUserService
     Task<UserDto> CreateUserAsync(CreateUserDto dto);
     Task<UserDto?> UpdateUserAsync(int id, UpdateUserDto dto);
     Task<bool> DeleteUserAsync(int id);
+    Task SyncMissingAuthUsersAsync();
     Task<UserDto?> GetUserByAuthIdAsync(int authUserId);
     Task<bool> IsEmailUniqueAsync(string email, int? excludeId = null);
     Task SyncAllEmployesToCongeAsync();

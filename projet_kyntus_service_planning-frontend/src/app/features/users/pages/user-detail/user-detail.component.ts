@@ -31,7 +31,7 @@ export class UserDetailComponent implements OnInit {
 loadUser(id: number): void {
     this.loading = true;
     this.error = null;
-    this.userService.getUserByAuthId(id).subscribe({  // ← changer ici
+    this.userService.getUserById(id).subscribe({  // ✅ getUserById au lieu de getUserByAuthId
       next: (user) => { this.user = user; this.loading = false; this.cdr.detectChanges(); },
       error: (err) => { 
         this.error = 'Impossible de récupérer le profil.'; 
@@ -40,7 +40,6 @@ loadUser(id: number): void {
       }
     });
 }
-
   getAnciennete(hireDate: string): string {
     const debut = new Date(hireDate);
     const now = new Date();

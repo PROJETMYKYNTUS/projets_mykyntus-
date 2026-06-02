@@ -44,7 +44,7 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 });
-
+builder.Services.AddHealthChecks();
 builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -90,7 +90,7 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
-
+app.MapHealthChecks("/health");
 // ? �TAPE 1 � Migrations
 // ? �TAPE 1 � Migrations + Seed
 using (var scope = app.Services.CreateScope())

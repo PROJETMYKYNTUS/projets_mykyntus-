@@ -17,7 +17,15 @@ public record EmployeCreatedMessage
     public DateTime DateEmbauche { get; init; }
     public bool EstMineur { get; init; }
 }
-
+/// <summary>
+/// Reçu depuis Auth Service après création du compte auth.
+/// → Planning Service met à jour AuthUserId sur l'employé.
+/// </summary>
+public record AuthUserCreatedMessage
+{
+    public string Email { get; init; } = string.Empty;
+    public int AuthUserId { get; init; }
+}
 /// <summary>
 /// Publié quand les infos d'un employé changent (manager, service, email...).
 /// → Conge Service met à jour le EmployeSnapshot local.

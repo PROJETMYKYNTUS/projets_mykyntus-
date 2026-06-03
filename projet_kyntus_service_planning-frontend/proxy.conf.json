@@ -1,13 +1,13 @@
 {
   "/hubs/*": {
-    "target": "http://localhost:5000",
+    "target": "http://localhost:8500",
     "secure": false,
     "ws": true,
     "changeOrigin": true,
     "logLevel": "debug"
   },
   "/api/*": {
-    "target": "http://localhost:5000",
+    "target": "http://localhost:8500",
     "secure": false,
     "changeOrigin": true
   }

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Data;
@@ -6,6 +7,7 @@ namespace PrimeBackend.Controllers;
 
 /// <summary>Diagnostic et déclenchement manuel de l'enrichissement démo (dev / Docker).</summary>
 [ApiController]
+[AllowAnonymous]
 [Route("api/prime/demo")]
 public sealed class PrimeDemoSeedController(PrimeDbContext? db, IConfiguration configuration) : ControllerBase
 {

@@ -1,3 +1,5 @@
+import { KyntusSessionService } from '../../../../core/session/kyntus-session.service';
+import { inject } from '@angular/core';
 import { Component, ViewEncapsulation, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
@@ -13,6 +15,7 @@ import { NotificationService } from '../../../../core/services/notification.serv
   encapsulation: ViewEncapsulation.None,
 })
 export class DashboardHomeComponent implements OnInit {
+  private readonly session = inject(KyntusSessionService);
 
   currentUser: any = null;
   sidebarOpen = false;
@@ -39,7 +42,7 @@ export class DashboardHomeComponent implements OnInit {
 
     const token = localStorage.getItem('token');
     if (!token) {
-      window.location.href = 'http://localhost:4201/login';
+      window.location.href = 'http://localhost:8201/login';
     }
      console.log('👤 currentUser:', this.currentUser);
      console.log('🔌 Appel connectAsManager — id:', this.currentUser?.id);
@@ -68,12 +71,12 @@ get congesLabel(): string {
   logout(): void {
     this.notificationService.disconnect(); // ← AJOUTEZ
     localStorage.clear();
-    window.location.href = 'http://localhost:4201/login';
+    window.location.href = 'http://localhost:8201/login';
   }
 
   /** Documentation intégrée : espace RH + handoff sans jeton (e-mail annuaire). */
   openDocumentationRhApp(): void {
-    const email = (this.currentUser?.email as string | undefined)?.trim();
+    const email = (this.session.getEmail() || this.currentUser?.email as string | undefined)?.trim();
     const queryParams: Record<string, string> = { handoff: 'rh' };
     if (email) {
       queryParams['email'] = email;

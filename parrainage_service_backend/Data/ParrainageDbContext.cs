@@ -15,6 +15,7 @@ public class ParrainageDbContext(DbContextOptions<ParrainageDbContext> options) 
     public DbSet<NotificationPreferenceEntity> NotificationPreferences => Set<NotificationPreferenceEntity>();
     public DbSet<SystemConfigEntity> SystemConfigs => Set<SystemConfigEntity>();
     public DbSet<AuditLogEntryEntity> AuditLogs => Set<AuditLogEntryEntity>();
+    public DbSet<ParrainagePortalUserEntity> PortalUsers => Set<ParrainagePortalUserEntity>();
 
     private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
@@ -30,6 +31,19 @@ public class ParrainageDbContext(DbContextOptions<ParrainageDbContext> options) 
             (a, b) => (a ?? new List<string>()).SequenceEqual(b ?? new List<string>()),
             v => v == null ? 0 : v.Aggregate(0, (acc, s) => HashCode.Combine(acc, s.GetHashCode())),
             v => v == null ? new List<string>() : v.ToList());
+
+        modelBuilder.Entity<ParrainagePortalUserEntity>(e =>
+        {
+            e.ToTable("parrainage_portal_user");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasMaxLength(128);
+            e.Property(x => x.Email).HasMaxLength(256);
+            e.Property(x => x.Name).HasMaxLength(256);
+            e.Property(x => x.Role).HasMaxLength(32);
+            e.Property(x => x.ProjectId).HasMaxLength(128);
+            e.Property(x => x.ParentId).HasMaxLength(128);
+            e.HasIndex(x => x.Email).IsUnique();
+        });
 
         modelBuilder.Entity<ReferralEntity>(e =>
         {

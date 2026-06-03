@@ -13,7 +13,7 @@ export class RedirectService {
     const token = localStorage.getItem('token');
 
     if (!token) {
-      window.location.href = 'http://localhost:4201/login';
+      window.location.href = 'http://localhost:8201/login';
       return;
     }
 

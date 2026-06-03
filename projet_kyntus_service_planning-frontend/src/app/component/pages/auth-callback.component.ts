@@ -37,7 +37,7 @@ export class AuthCallbackComponent implements OnInit {
 
     // ── Pas de token → retour login ─────────────────────────
     if (!token) {
-      window.location.href = 'http://localhost:4201/login';
+      window.location.href = 'http://localhost:8201/login';
       return;
     }
 

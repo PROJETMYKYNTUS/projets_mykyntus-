@@ -6,7 +6,7 @@ import { FormationDto, CreateFormationCommand, InscrireFormationCommand } from '
 @Injectable({ providedIn: 'root' })
 export class FormationService {
   // Via Ocelot Gateway
-  private readonly base = 'http://localhost:5000/api/formations';
+  private readonly base = '/api/formations';
 
   constructor(private http: HttpClient) {}
 

@@ -7,6 +7,9 @@ namespace AuthService.Models
         [Key]
         public int Id { get; set; }
 
+        /// <summary>Identifiant stable cross-microservices (claim JWT <c>sub</c>).</summary>
+        public Guid SubjectId { get; set; }
+
         [Required]
         [MaxLength(50)]
         public string Username { get; set; } = string.Empty;

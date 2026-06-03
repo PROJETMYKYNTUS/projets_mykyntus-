@@ -10,6 +10,8 @@ using DocumentationBackend.Infrastructure;
 using DocumentationBackend.Infrastructure.Storage;
 using DocumentationBackend.Middleware;
 using DocumentationBackend.Services;
+using Kyntus.Identity.Jwt;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,7 +37,7 @@ builder.Services.AddCors(options =>
         }
         else
         {
-            policy.WithOrigins("http://localhost:4200");
+            policy.WithOrigins("http://localhost:8200");
         }
 
         policy
@@ -52,6 +54,7 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddKyntusJwtAuthentication(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<DocumentationCorrelationContext>();
 builder.Services.AddScoped<DocumentationUserContext>();
@@ -176,8 +179,9 @@ void SafeAppendDebugLog(string payload)
 
 app.UseMiddleware<UnhandledExceptionMiddleware>();
 app.UseCors("devCors");
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseMiddleware<DocumentationCorrelationMiddleware>();
-// Identité par en-têtes (X-User-Id, X-User-Role, X-Tenant-Id) → DocumentationUserContext (scoped), sans JWT dans ce service.
 app.UseMiddleware<DocumentationUserContextMiddleware>();
 // #region agent log
 app.Use(async (context, next) =>

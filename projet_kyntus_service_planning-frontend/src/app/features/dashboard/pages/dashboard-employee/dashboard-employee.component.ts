@@ -1,3 +1,5 @@
+import { KyntusSessionService } from '../../../../core/session/kyntus-session.service';
+import { inject } from '@angular/core';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';

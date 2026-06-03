@@ -11,6 +11,17 @@ import { AppContextService } from '../services/app-context.service';
 import { DocumentationNavigationService } from '../services/documentation-navigation.service';
 import { SettingsStorageService } from '../services/settings-storage.service';
 import { DocIconComponent } from '../components/doc-icon/doc-icon.component';
+import { environment } from '../../../../../environments/environment';
+import { mapDocumentationRoleToApiRole } from '../lib/map-documentation-role-to-api';
+const DEMO_ROLE_OPTIONS: DocumentationRole[] = [
+  'Pilote',
+  'Coach',
+  'Manager',
+  'RP',
+  'RH',
+  'Admin',
+  'Audit',
+];
 
 const ROLE_LABEL_API: Record<string, string> = {
   pilote: 'Pilote',
@@ -43,6 +54,8 @@ export class SettingsPageComponent implements OnInit {
   compactMode = false;
 
   readonly notificationPrefRows = NOTIFICATION_PREF_ROWS;
+  readonly demoRoleOptions = DEMO_ROLE_OPTIONS;
+  readonly showDemoRolePicker = !environment.production;
   readonly role$ = this.nav.role$;
   readonly profile$ = this.identity.profile$;
   readonly directoryUsers$ = this.identity.directoryUsers$;
@@ -94,5 +107,20 @@ export class SettingsPageComponent implements OnInit {
 
   directoryUserLine(u: DirectoryUserDto): string {
     return `${u.prenom} ${u.nom} · ${this.roleLabelFromProfile(u)} · ${u.email}`;
+  }
+
+  onDemoRoleChange(event: Event): void {
+    const role = (event.target as HTMLSelectElement).value as DocumentationRole;
+    const apiRole = mapDocumentationRoleToApiRole(role).toLowerCase();
+    const users = this.identity.directoryUsers$.value;
+    const match =
+      users.find((u) => (u.role ?? '').trim().toLowerCase() === apiRole) ?? users[0];
+    if (match) {
+      if (!this.identity.getTenantId()) {
+        this.identity.setTenantId('atlas-tech-demo');
+      }
+      this.identity.selectDevUser(match);
+    }
+    this.nav.setRole(role);
   }
 }

@@ -1,10 +1,18 @@
-# ─── Métadonnées (non consommées par Docker ; référence intégration Documentation) ───
-# API métier & temps réel : uniquement via api-gateway (hôte 5000 → conteneur 8080).
-# Les frontends nginx proxy /api/ et /hubs/ vers api-gateway — pas d’appel navigateur direct aux backends.
+# ─── Ports hôte Kyntus (évite conflit avec un autre projet Docker sur 4200–5260) ───
+# UI login          8201   | SPA unifiée     8200   | Prime (secours) 8202   | Parrainage 8203
+# API Gateway       8500   | Postgres hôte   8433   | pgAdmin         8505
+# auth-backend      8520   | planning        8521   | formation       8522   | documentation 8530
+# conge             8540   | prime           8550   | parrainage      8560
+# RabbitMQ          8672   | RabbitMQ UI     18672
 x-documentation-integration:
-  public_gateway_base: "http://localhost:5000"
+  public_gateway_base: "http://localhost:8500"
   documentation_api_prefixes: "/api/documentation,/api/generate-document-ai"
   documentation_signalr_hub: "/hubs/documentation"
+
+x-kyntus-jwt: &kyntus-jwt
+  JwtSettings__Secret: "VotreCleSecreteTresLongueEtSecurisee123456789MinimumCaracteres"
+  JwtSettings__Issuer: "AuthService"
+  JwtSettings__Audience: "AuthServiceClient"
 
 services:
 
@@ -20,7 +28,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5433:5432"
+      - "8433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -41,8 +49,9 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=auth_db;Username=auth_user;Password=Auth@2026"
+      <<: *kyntus-jwt
     ports:
-      - "5220:8080"
+      - "8520:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -95,8 +104,8 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "8672:5672"
+      - "18672:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -117,8 +126,9 @@ services:
       ASPNETCORE_URLS: http://+:8080
       KYNTUS_PLANNING_DEMO_SEED: "true"
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=kyntus_db;Username=kyntus_user;Password=Kyntus@2026"
+      <<: *kyntus-jwt
     ports:
-      - "5201:8080"
+      - "8521:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -137,7 +147,7 @@ services:
       KYNTUS_FORMATION_DEMO_SEED: "true"
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=formation_db;Username=formation_user;Password=Formation@2026"
     ports:
-      - "5210:8080"
+      - "8522:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -160,8 +170,9 @@ services:
       Documentation__DefaultTenantId: "atlas-tech-demo"
       DocumentationDb__Password: "Documentation@2026"
       ConnectionStrings__Documentation: "Host=postgres;Port=5432;Database=documentation_db;Username=documentation_user;Password=Documentation@2026"
+      <<: *kyntus-jwt
     ports:
-      - "5230:8080"
+      - "8530:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -183,7 +194,7 @@ services:
       RabbitMQ__Username: guest
       RabbitMQ__Password: guest
     ports:
-      - "5240:8080"
+      - "8540:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -220,8 +231,8 @@ services:
 
   prime-backend:
     build:
-      context: ./PrimeBackend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: PrimeBackend/Dockerfile
     container_name: kyntus_prime_backend
     restart: unless-stopped
     environment:
@@ -231,8 +242,9 @@ services:
       Prime__SeedDemoData: "true"
       Prime__EnrichDemoData: "true"
       Prime__AllowDemoSeedEndpoint: "true"
+      <<: *kyntus-jwt
     ports:
-      - "5250:8080"
+      - "8550:8080"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/api/prime/health || exit 1"]
       interval: 15s
@@ -275,8 +287,8 @@ services:
 
   parrainage-backend:
     build:
-      context: ./parrainage_service_backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: parrainage_service_backend/Dockerfile
     container_name: kyntus_parrainage_backend
     restart: unless-stopped
     environment:
@@ -288,10 +300,11 @@ services:
       # POST /api/parrainage/dev/seed (outil dev, calqué Prime).
       Parrainage__AllowDemoSeedEndpoint: "true"
       Parrainage__UploadPath: "/app/uploads/cv"
+      <<: *kyntus-jwt
     volumes:
       - parrainage_cv_uploads:/app/uploads
     ports:
-      - "5260:8080"
+      - "8560:8080"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/api/parrainage/health || exit 1"]
       interval: 15s
@@ -318,7 +331,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
     ports:
-      - "5000:8080"
+      - "8500:8080"
     volumes:
       - ./init/ocelot.gateway.json:/app/ocelot.json:ro
     depends_on:
@@ -348,7 +361,7 @@ services:
     container_name: kyntus_auth_frontend
     restart: unless-stopped
     ports:
-      - "4201:4000"
+      - "8201:4000"
     environment:
       - API_URL=http://api-gateway:8080
     depends_on:
@@ -363,7 +376,7 @@ services:
     container_name: kyntus_planning_frontend
     restart: unless-stopped
     ports:
-      - "4200:80"
+      - "8200:80"
     depends_on:
       api-gateway:
         condition: service_started
@@ -380,7 +393,7 @@ services:
     container_name: kyntus_prime_frontend
     restart: unless-stopped
     ports:
-      - "4202:80"
+      - "8202:80"
     depends_on:
       api-gateway:
         condition: service_started
@@ -394,7 +407,7 @@ services:
     container_name: kyntus_parrainage_frontend
     restart: unless-stopped
     ports:
-      - "4203:80"
+      - "8203:80"
     depends_on:
       api-gateway:
         condition: service_started
@@ -410,7 +423,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@kyntus.ma
       PGADMIN_DEFAULT_PASSWORD: admin123
     ports:
-      - "5050:80"
+      - "8505:80"
     networks:
       - microservices-network
 

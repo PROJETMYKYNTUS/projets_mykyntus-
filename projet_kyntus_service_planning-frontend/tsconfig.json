@@ -17,7 +17,11 @@
     "module": "ES2022",
     "lib": ["ES2022", "dom"],
     "useDefineForClassFields": false,
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/app/*"]
+    }
   },
   "include": ["src/**/*"],
   "angularCompilerOptions": {

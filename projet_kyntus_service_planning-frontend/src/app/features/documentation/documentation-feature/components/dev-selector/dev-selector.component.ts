@@ -227,7 +227,7 @@ export class DevSelectorComponent implements OnInit, OnDestroy {
           status.includes('404')
             ? ' Les routes /api/documentation/data/organisation/* sont absentes : recompilez et redémarrez le projet DocumentationBackend depuis ce dépôt. '
             : ' ';
-        this.orgLoadHint = `Échec du chargement des pôles${status}.${hint404}Vérifiez l’URL d’API (${environment.apiBaseUrl}), X-Tenant-Id / X-User-Id. Sous Docker : gateway http://localhost:5000 ou image doc en build production (/api). Base : Postgres hôte port 5433, administration pgAdmin http://localhost:5050.`;
+        this.orgLoadHint = `Échec du chargement des pôles${status}.${hint404}Vérifiez l’URL d’API (${environment.apiBaseUrl}), X-Tenant-Id / X-User-Id. Sous Docker : gateway http://localhost:8500 ou image doc en build production (/api). Base : Postgres hôte port 8433, administration pgAdmin http://localhost:8505.`;
       },
     });
   }

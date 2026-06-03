@@ -1,4 +1,6 @@
-﻿using AuthService.DTO;
+﻿using System.Security.Claims;
+using AuthService.DTO;
+using AuthService.Helpers;
 using AuthService.Interfaces;
 using AuthService.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -96,6 +98,27 @@ namespace AuthService.Controllers
             }
         }
 
+        [HttpGet("me")]
+        [Authorize]
+        public IActionResult Me()
+        {
+            var sub = User.FindFirstValue("sub");
+            var email = User.FindFirstValue(ClaimTypes.Email) ?? "";
+            var role = User.FindFirstValue(ClaimTypes.Role) ?? "Employee";
+            var authUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(sub, out var subjectId) || subjectId == Guid.Empty)
+                return Unauthorized(new { message = "Claim sub manquant." });
+
+            return Ok(new AuthMeDto
+            {
+                SubjectId = subjectId,
+                AuthUserId = int.TryParse(authUserId, out var id) ? id : 0,
+                Email = email,
+                Role = role,
+                TenantId = "atlas-tech-demo",
+            });
+        }
+
         [HttpPost("logout")]
         [Authorize]
         public async Task<IActionResult> Logout([FromBody] RefreshTokenDto refreshTokenDto)
@@ -179,6 +202,7 @@ namespace AuthService.Controllers
                 {
                     Username = dto.Email,
                     Email = dto.Email,
+                    SubjectId = KyntusSubjectIdCatalog.ResolveForEmail(dto.Email),
                     PasswordHash = _passwordHasher.HashPassword(dto.DefaultPassword),
                     RoleId = role.Id,
                     IsActive = true,

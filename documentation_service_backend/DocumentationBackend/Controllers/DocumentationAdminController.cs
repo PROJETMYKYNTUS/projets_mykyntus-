@@ -1,6 +1,7 @@
 using DocumentationBackend.Api;
 using DocumentationBackend.Data;
 using DocumentationBackend.Data.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -9,6 +10,7 @@ namespace DocumentationBackend.Controllers;
 
 /// <summary>Administration DMS — persistance PostgreSQL (schéma documentation). Remplace l’ancien store mémoire.</summary>
 [ApiController]
+[Authorize]
 [Route("api/documentation")]
 public sealed class DocumentationAdminController(
     DocumentationDbContext db,

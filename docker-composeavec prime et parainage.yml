@@ -2,7 +2,7 @@
 # API métier & temps réel : uniquement via api-gateway (hôte 5000 → conteneur 8080).
 # Les frontends nginx proxy /api/ et /hubs/ vers api-gateway — pas d’appel navigateur direct aux backends.
 x-documentation-integration:
-  public_gateway_base: "http://localhost:5000"
+  public_gateway_base: "http://localhost:8500"
   documentation_api_prefixes: "/api/documentation,/api/generate-document-ai"
   documentation_signalr_hub: "/hubs/documentation"
 
@@ -20,7 +20,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5433:5432"
+      - "8433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -42,7 +42,7 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=auth_db;Username=auth_user;Password=Auth@2026"
     ports:
-      - "5220:8080"
+      - "8520:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -95,8 +95,8 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "8672:5672"
+      - "18672:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -118,7 +118,7 @@ services:
       KYNTUS_PLANNING_DEMO_SEED: "true"
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=kyntus_db;Username=kyntus_user;Password=Kyntus@2026"
     ports:
-      - "5201:8080"
+      - "8521:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -137,7 +137,7 @@ services:
       KYNTUS_FORMATION_DEMO_SEED: "true"
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=formation_db;Username=formation_user;Password=Formation@2026"
     ports:
-      - "5210:8080"
+      - "8522:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -161,7 +161,7 @@ services:
       DocumentationDb__Password: "Documentation@2026"
       ConnectionStrings__Documentation: "Host=postgres;Port=5432;Database=documentation_db;Username=documentation_user;Password=Documentation@2026"
     ports:
-      - "5230:8080"
+      - "8530:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -183,7 +183,7 @@ services:
       RabbitMQ__Username: guest
       RabbitMQ__Password: guest
     ports:
-      - "5240:8080"
+      - "8540:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -232,7 +232,7 @@ services:
       Prime__EnrichDemoData: "true"
       Prime__AllowDemoSeedEndpoint: "true"
     ports:
-      - "5250:8080"
+      - "8550:8080"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/api/prime/health || exit 1"]
       interval: 15s
@@ -291,7 +291,7 @@ services:
     volumes:
       - parrainage_cv_uploads:/app/uploads
     ports:
-      - "5260:8080"
+      - "8560:8080"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/api/parrainage/health || exit 1"]
       interval: 15s
@@ -318,7 +318,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
     ports:
-      - "5000:8080"
+      - "8500:8080"
     volumes:
       - ./init/ocelot.gateway.json:/app/ocelot.json:ro
     depends_on:
@@ -347,7 +347,7 @@ services:
     container_name: kyntus_auth_frontend
     restart: unless-stopped
     ports:
-      - "4201:4000"
+      - "8201:4000"
     environment:
       - API_URL=http://api-gateway:8080
     depends_on:
@@ -362,7 +362,7 @@ services:
     container_name: kyntus_planning_frontend
     restart: unless-stopped
     ports:
-      - "4200:80"
+      - "8200:80"
     depends_on:
       api-gateway:
         condition: service_started
@@ -381,7 +381,7 @@ services:
     #   puis POST http://localhost:5000/api/prime/demo/enrich?force=true && docker compose restart prime-backend
     # Si 4202 est encore pris par un ancien conteneur : `docker compose down` puis `up`, ou remplacez par ex. "4207:80".
     ports:
-      - "4202:80"
+      - "8202:80"
     depends_on:
       api-gateway:
         condition: service_started
@@ -397,7 +397,7 @@ services:
     container_name: kyntus_parrainage_frontend
     restart: unless-stopped
     ports:
-      - "4203:80"
+      - "8203:80"
     depends_on:
       api-gateway:
         condition: service_started
@@ -413,7 +413,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@kyntus.ma
       PGADMIN_DEFAULT_PASSWORD: admin123
     ports:
-      - "5050:80"
+      - "8505:80"
     networks:
       - microservices-network
 

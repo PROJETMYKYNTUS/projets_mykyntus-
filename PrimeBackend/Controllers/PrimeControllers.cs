@@ -1,5 +1,6 @@
 namespace PrimeBackend.Controllers;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ using PrimeBackend.Services;
 public class PrimeController(PrimeDbContext? db, PrimeOrgScopeService org) : ControllerBase
 {
     /// <summary>Diagnostic : vérifie que l’API écoute et que PostgreSQL répond (utile si 502 via gateway).</summary>
+    [AllowAnonymous]
     [HttpGet("health")]
     public async Task<IActionResult> Health(CancellationToken ct)
     {

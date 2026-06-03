@@ -527,4 +527,46 @@ public static class PrimeDbSeeder
         await db.SaveChangesAsync(cancellationToken);
         await SeedMissingReferentTechnicalValidateRbacAsync(db, cancellationToken);
     }
+
+    /// <summary>Employés alignés sur les comptes Auth/Planning (*@kyntus.ma) — idempotent par e-mail.</summary>
+    public static async Task EnsureKyntusAuthAlignedEmployeesAsync(PrimeDbContext db, CancellationToken cancellationToken = default)
+    {
+        if (!await db.Poles.AnyAsync(cancellationToken))
+            return;
+
+        var existing = await db.Employees.AsNoTracking().Select(e => e.Email.ToLower()).ToListAsync(cancellationToken);
+        var have = new HashSet<string>(existing, StringComparer.OrdinalIgnoreCase);
+
+        static EmployeeEntity E(string id, string fn, string ln, string role, string email) => new()
+        {
+            Id = id,
+            FirstName = fn,
+            LastName = ln,
+            Role = role,
+            ParentId = null,
+            PoleId = "d1",
+            CelluleId = "p1",
+            ServiceId = "c1",
+            Email = email
+        };
+
+        var rows = new List<EmployeeEntity>
+        {
+            E("kyntus-employee", "Employé", "Démo", "Pilote", "employee@kyntus.ma"),
+            E("kyntus-rh", "Rh", "Démo", "RH", "rh@kyntus.ma"),
+            E("kyntus-manager", "Manager", "Démo", "Manager", "manager@kyntus.ma"),
+            E("kyntus-coach", "Coach", "Démo", "Référent technique", "coach@kyntus.ma"),
+            E("kyntus-rp", "Rp", "Démo", "Chef de projet", "rp@kyntus.ma"),
+            E("kyntus-admin", "Admin", "Démo", "Admin", "admin@kyntus.ma"),
+            E("kyntus-audit", "Audit", "Démo", "Audit", "audit@kyntus.ma"),
+            E("kyntus-formation", "Formation", "Démo", "RH", "formation@kyntus.ma"),
+            E("kyntus-yasmine", "Yasmine", "El Amrani", "Pilote", "yasmine.elamrani@atlas-tech-demo.dev"),
+            E("kyntus-fatima", "Fatima", "Alaoui", "RH", "fatima.alaoui@atlas-tech-demo.dev"),
+        };
+
+        var toAdd = rows.Where(r => !have.Contains(r.Email)).ToList();
+        if (toAdd.Count == 0) return;
+        db.Employees.AddRange(toAdd);
+        await db.SaveChangesAsync(cancellationToken);
+    }
 }

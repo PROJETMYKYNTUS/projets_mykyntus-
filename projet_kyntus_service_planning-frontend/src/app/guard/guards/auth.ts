@@ -17,13 +17,13 @@ export class AuthGuard implements CanActivate {
   console.log('Route roles :', route.data?.['roles']);
   console.log('Role extrait :', token ? this.getRole(token) : 'N/A');
     if (!token) {
-      window.location.href = 'http://localhost:4201/login';
+      window.location.href = 'http://localhost:8201/login';
       return false;
     }
 
     if (this.isTokenExpired(token)) {
       localStorage.removeItem('token');
-      window.location.href = 'http://localhost:4201/login';
+      window.location.href = 'http://localhost:8201/login';
       return false;
     }
 
@@ -31,7 +31,9 @@ export class AuthGuard implements CanActivate {
     const allowedRoles = route.data?.['roles'] as string[];
     if (allowedRoles?.length) {
       const role = this.getRole(token);
-      if (!allowedRoles.includes(role)) {
+      const normalized = role.toLowerCase();
+      const ok = allowedRoles.some((r) => r.toLowerCase() === normalized);
+      if (!ok) {
         this.router.navigate(['/unauthorized']);
         return false;
       }

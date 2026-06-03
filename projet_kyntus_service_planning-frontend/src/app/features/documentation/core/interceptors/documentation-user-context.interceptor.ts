@@ -29,8 +29,7 @@ function newCorrelationId(): string {
 }
 
 /**
- * Ajoute les en-têtes de contexte utilisateur attendus par le backend.
- * En production, la gateway les pose en amont — cet intercepteur ne fusionne pas l’identité locale (évite tout mélange avec le mode dev).
+ * Ajoute les en-têtes de contexte utilisateur (profil annuaire / session) attendus par le backend.
  */
 @Injectable()
 export class DocumentationUserContextInterceptor implements HttpInterceptor {
@@ -46,12 +45,10 @@ export class DocumentationUserContextInterceptor implements HttpInterceptor {
       headers = headers.set(DocumentationHeaders.correlationId, newCorrelationId());
     }
 
-    if (!environment.production) {
-      const fromIdentity = this.identity.getHeaderMap();
-      for (const [key, value] of Object.entries(fromIdentity)) {
-        if (value) {
-          headers = headers.set(key, value);
-        }
+    const fromIdentity = this.identity.getHeaderMap();
+    for (const [key, value] of Object.entries(fromIdentity)) {
+      if (value) {
+        headers = headers.set(key, value);
       }
     }
 

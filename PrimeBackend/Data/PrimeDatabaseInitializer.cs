@@ -91,6 +91,8 @@ public sealed class PrimeDatabaseInitializer(
             await PrimeDbSeeder.SeedAsync(db, seedDemo, cancellationToken);
         }
 
+        await PrimeDbSeeder.EnsureKyntusAuthAlignedEmployeesAsync(db, cancellationToken);
+
         var enrichDemo = configuration.GetValue("Prime:EnrichDemoData", environment.IsDevelopment());
         logger.LogInformation(
             "PRIME : EnrichDemoData={EnrichDemo} (env={Environment})",

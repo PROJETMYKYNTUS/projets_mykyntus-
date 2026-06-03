@@ -21,6 +21,7 @@
     <PackageReference Include="QuestPDF" Version="2026.2.4" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\Kyntus.Identity.Jwt\Kyntus.Identity.Jwt.csproj" />
     <ProjectReference Include="..\Documentation.Contracts\Documentation.Contracts.csproj" />
   </ItemGroup>
 </Project>

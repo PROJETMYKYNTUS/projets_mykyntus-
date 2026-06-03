@@ -1,3 +1,9 @@
+import type { AdminSection, AuditSection, RpSection } from '../../features/prime/state/prime-section.service';
+import type { ParrainageView } from '../../features/parrainage/state/parrainage-nav.service';
+import type { AuditSectionId } from '../../features/parrainage/state/audit-section.service';
+import type { DocumentationTabId } from '../../features/documentation/documentation-feature/services/documentation-navigation.service';
+import type { AuditInterfaceSectionId } from '../../features/documentation/documentation-feature/services/audit-interface-nav.service';
+
 /**
  * Configuration centrale du menu latéral global des microservices.
  *
@@ -15,8 +21,19 @@ export interface MenuItem {
   route?: string;
   /** Lien externe (module non encore fusionné en lazy-loading) — ouvert dans un nouvel onglet. */
   externalUrl?: string;
-  /** Rôles autorisés. Vide/absent = visible par tous les utilisateurs authentifiés. */
+  /** Rôles JWT autorisés. Vide/absent = visible par tous les utilisateurs authentifiés. */
   roles?: string[];
+  /** Navigation interne Prime (vue signal, URL reste /prime). */
+  primePath?: string;
+  primeAdminSection?: AdminSection;
+  primeRpSection?: RpSection;
+  primeAuditSection?: AuditSection;
+  /** Navigation interne Parrainage (vue signal, URL reste /parrainage). */
+  parrainageView?: ParrainageView;
+  parrainageAuditSection?: AuditSectionId;
+  /** Onglet documentation (routes /documentation/...). */
+  documentationTab?: DocumentationTabId;
+  documentationAuditSection?: AuditInterfaceSectionId;
 }
 
 export interface Microservice {
@@ -26,9 +43,10 @@ export interface Microservice {
   icon: string;
   /** Rôles autorisés au niveau du groupe (optionnel — sinon dérivé des enfants). */
   roles?: string[];
+  /** Enfants générés dynamiquement par NavigationMenuService (Prime, Parrainage). */
+  dynamicChildren?: boolean;
   children: MenuItem[];
 }
-
 const ALL_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Employee'];
 const MANAGER_ROLES = ['Admin', 'RH', 'Manager'];
 const ADMIN_RH = ['Admin', 'RH'];
@@ -123,28 +141,23 @@ export const MICROSERVICES: Microservice[] = [
     id: 'documentation',
     label: 'Documentation',
     icon: ICONS.doc,
-    children: [
-      { label: 'Espace Documentation', route: '/documentation', roles: ALL_ROLES },
-    ],
+    dynamicChildren: true,
+    children: [],
   },
   {
     id: 'prime',
     label: 'Prime',
     icon: ICONS.award,
     roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Employee'],
-    children: [
-      // Intérimaire : module Prime servi par son frontend dédié (4202) le temps de la fusion SPA.
-      { label: 'Ouvrir le module Prime', externalUrl: 'http://localhost:4202', roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Employee'] },
-    ],
+    dynamicChildren: true,
+    children: [],
   },
   {
     id: 'parrainage',
     label: 'Parrainage',
     icon: ICONS.share,
-    roles: ['Admin', 'RH', 'Manager', 'Pilote', 'Audit'],
-    children: [
-      // Intérimaire : module Parrainage servi par son frontend dédié (4203) le temps de la fusion SPA.
-      { label: 'Ouvrir le module Parrainage', externalUrl: 'http://localhost:4203', roles: ['Admin', 'RH', 'Manager', 'Pilote', 'Audit'] },
-    ],
+    roles: ['Admin', 'RH', 'Manager', 'Pilote', 'Audit', 'Coach', 'RP', 'Employee'],
+    dynamicChildren: true,
+    children: [],
   },
 ];

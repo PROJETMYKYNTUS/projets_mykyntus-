@@ -2,6 +2,7 @@ using DocumentationBackend.Api;
 using DocumentationBackend.Context;
 using DocumentationBackend.Data;
 using DocumentationBackend.Data.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -10,6 +11,7 @@ namespace DocumentationBackend.Controllers;
 
 /// <summary>Gestion des clés API IA par tenant (admin uniquement).</summary>
 [ApiController]
+[Authorize]
 [Route("api/documentation/data/admin/ai-api-keys")]
 public sealed class AiApiKeysAdminController(
     DocumentationDbContext db,

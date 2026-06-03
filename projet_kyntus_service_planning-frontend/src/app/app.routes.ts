@@ -220,11 +220,29 @@ export const routes: Routes = [
         path: 'documentation',
         canActivate: [AuthGuard],
         data: {
-          roles: ['Admin', 'RH', 'Employee', 'employee', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'],
+          roles: ['Admin', 'RH', 'Employee', 'employee', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Equipe formation'],
         },
         loadChildren: () =>
           import('./features/documentation/documentation-feature/documentation-feature.module')
             .then(m => m.DocumentationFeatureModule),
+      },
+
+      // ─── PRIME ───────────────────────────────────
+      {
+        path: 'prime',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Employee'] },
+        loadChildren: () =>
+          import('./features/prime/prime.routes').then((m) => m.PRIME_ROUTES),
+      },
+
+      // ─── PARRAINAGE ──────────────────────────────
+      {
+        path: 'parrainage',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH', 'Manager', 'Pilote', 'Audit', 'Coach', 'RP'] },
+        loadChildren: () =>
+          import('./features/parrainage/parrainage.routes').then((m) => m.PARRAINAGE_ROUTES),
       },
 
       { path: '', redirectTo: 'home', pathMatch: 'full' },

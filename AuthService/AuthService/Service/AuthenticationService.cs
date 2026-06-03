@@ -1,4 +1,5 @@
 ﻿using AuthService.DTO;
+using AuthService.Helpers;
 using AuthService.Interfaces;
 using AuthService.Models;
 
@@ -52,6 +53,7 @@ namespace AuthService.Services
             {
                 Username = registerDto.Username,
                 Email = registerDto.Email,
+                SubjectId = KyntusSubjectIdCatalog.ResolveForEmail(registerDto.Email),
                 PasswordHash = _passwordHasher.HashPassword(registerDto.Password),
                 RoleId = role.Id,
                 RefreshToken = _jwtService.GenerateRefreshToken(),

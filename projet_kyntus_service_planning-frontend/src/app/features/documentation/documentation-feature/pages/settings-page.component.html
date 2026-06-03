@@ -11,6 +11,25 @@
       </div>
     }
 
+    @if (showDemoRolePicker) {
+      <section class="card-navy p-4 space-y-4">
+        <div class="flex items-center gap-3 pb-3 border-b border-navy-800">
+          <app-doc-icon name="layers" klass="w-5 h-5 text-blue-500"></app-doc-icon>
+          <h2 class="text-lg font-bold text-white">Rôle (démo)</h2>
+        </div>
+        <p class="text-xs text-slate-500">Simule un profil Documentation pour tester le menu global.</p>
+        <select
+          [value]="role"
+          (change)="onDemoRoleChange($event)"
+          class="w-full rounded-lg border border-navy-800 bg-navy-900 px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+        >
+          @for (r of demoRoleOptions; track r) {
+            <option [value]="r">{{ r }}</option>
+          }
+        </select>
+      </section>
+    }
+
     <section class="card-navy p-4 space-y-4">
       <div class="flex items-center gap-3 pb-3 border-b border-navy-800">
         <app-doc-icon name="user" klass="w-5 h-5 text-blue-500"></app-doc-icon>

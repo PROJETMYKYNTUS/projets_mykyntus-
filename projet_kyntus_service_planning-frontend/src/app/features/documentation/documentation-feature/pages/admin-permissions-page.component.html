@@ -11,6 +11,19 @@
         <p class="text-slate-300">Veuillez patienter.</p>
       </div>
     </app-admin-shell>
+  } @else if (loadError) {
+    <app-admin-shell title="Gestion des permissions" description="Échec du chargement" iconName="lock">
+      <div class="card-navy p-6 space-y-4">
+        <p class="text-red-300">{{ loadError }}</p>
+        <button
+          type="button"
+          (click)="retryLoad()"
+          class="px-6 py-3 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-500"
+        >
+          Réessayer
+        </button>
+      </div>
+    </app-admin-shell>
   } @else {
     <app-admin-shell
       title="Gestion des permissions"

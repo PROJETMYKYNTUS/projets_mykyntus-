@@ -2,7 +2,8 @@ import { Component, OnInit, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { MICROSERVICES, Microservice } from '../../../../core/navigation/microservices.config';
+import { Microservice } from '../../../../core/navigation/microservices.config';
+import { NavigationMenuService } from '../../../../core/navigation/navigation-menu.service';
 import { AuthService } from '../../../../core/services/auth.service';
 
 @Component({
@@ -24,6 +25,7 @@ export class LauncherComponent implements OnInit {
     private router: Router,
     private auth: AuthService,
     private sanitizer: DomSanitizer,
+    private menuService: NavigationMenuService,
   ) {}
 
   ngOnInit(): void {
@@ -34,16 +36,8 @@ export class LauncherComponent implements OnInit {
     this.groups = this.buildVisibleGroups();
   }
 
-  private roleAllowed(roles?: string[]): boolean {
-    if (!roles || roles.length === 0) return true;
-    const r = this.role.toLowerCase();
-    return roles.some((x) => x.toLowerCase() === r);
-  }
-
   private buildVisibleGroups(): Microservice[] {
-    return MICROSERVICES
-      .map((g) => ({ ...g, children: g.children.filter((c) => this.roleAllowed(c.roles)) }))
-      .filter((g) => this.roleAllowed(g.roles) && g.children.length > 0);
+    return this.menuService.buildVisibleGroups(this.role);
   }
 
   open(g: Microservice): void {

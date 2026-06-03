@@ -8,7 +8,7 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class CongeService {
-  private readonly base = 'http://localhost:5000/api/conges';
+  private readonly base = '/api/conges';
 
   constructor(private http: HttpClient) {}
 

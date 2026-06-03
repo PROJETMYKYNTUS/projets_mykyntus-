@@ -1,0 +1,63 @@
+/* Thème Prime/Parrainage — complète styles-documentation.css pour les modules embarqués. */
+
+body.theme-dark,
+body.dark {
+  color-scheme: dark;
+}
+
+body.theme-light {
+  --bg-primary: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+}
+
+body.theme-dark {
+  --bg-primary: #040b16;
+  --bg-sidebar: #020617;
+  --bg-card: #0a1526;
+  --bg-input: #0a1526;
+  --text-primary: #e5e7eb;
+  --text-muted: #9ca3af;
+  --border-color: #112240;
+}
+
+.page-enter {
+  animation: ky-page-enter 0.25s ease-out;
+}
+
+@keyframes ky-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ks-content.module-prime,
+.ks-content.module-parrainage,
+.ks-content.module-documentation {
+  padding: 0;
+  min-height: calc(100vh - 56px);
+}
+
+.ks-content.module-prime {
+  background: var(--bg-primary, #040b16);
+  color: var(--text-primary, #e5e7eb);
+}
+
+.ks-content.module-parrainage {
+  background: #040b16;
+  color: #e2e8f0;
+}
+
+.ks-content.module-documentation {
+  background: #020617;
+  color: #e2e8f0;
+}

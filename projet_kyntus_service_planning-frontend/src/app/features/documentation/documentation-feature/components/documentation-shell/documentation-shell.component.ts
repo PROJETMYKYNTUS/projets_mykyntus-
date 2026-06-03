@@ -14,10 +14,12 @@ import { DOCUMENTATION_ROUTE_BASE } from '../../lib/documentation-route-base';
 import { mapApiRoleToDocumentationRole } from '../../lib/map-api-documentation-role';
 import type { DirectoryUserDto } from '../../../shared/models/api.models';
 import { AppContextService } from '../../services/app-context.service';
+import { KyntusSessionService } from '../../../../../core/session/kyntus-session.service';
+import { KYNTUS_DEFAULT_TENANT } from '../../../../../core/session/kyntus-session.constants';
+import { mapJwtRoleToDocumentationRole } from '../../../../../core/navigation/documentation-menu.config';
 import { DocumentationNavigationService } from '../../services/documentation-navigation.service';
 import { DevSelectorComponent } from '../dev-selector/dev-selector.component';
 import { DocumentationHeaderComponent } from '../documentation-header/documentation-header.component';
-import { DocumentationSidebarComponent } from '../documentation-sidebar/documentation-sidebar.component';
 
 @Component({
   selector: 'app-documentation-shell',
@@ -26,11 +28,10 @@ import { DocumentationSidebarComponent } from '../documentation-sidebar/document
     CommonModule,
     RouterOutlet,
     DevSelectorComponent,
-    DocumentationSidebarComponent,
     DocumentationHeaderComponent,
   ],
   templateUrl: './documentation-shell.component.html',
-  styleUrl: './documentation-shell.component.css',
+  styleUrls: ['./documentation-shell.component.css', '../../../../../../styles-documentation.css'],
 })
 export class DocumentationShellComponent implements OnInit, OnDestroy {
   /** Bandeau dev : fixed plein écran en tête — la sidebar se cale dessous. */
@@ -48,6 +49,7 @@ export class DocumentationShellComponent implements OnInit, OnDestroy {
     private readonly identity: DocumentationIdentityService,
     private readonly notifications: DocumentationNotificationService,
     private readonly router: Router,
+    private readonly session: KyntusSessionService,
   ) {}
 
   ngOnInit(): void {
@@ -60,17 +62,45 @@ export class DocumentationShellComponent implements OnInit, OnDestroy {
 
     const devTools = environment.documentationDevToolsEnabled && !environment.production;
 
-    this.data.getDirectoryUsers().subscribe({
-      next: (list) => {
-        this.identity.setDirectoryUsers(list);
-        const handoffOk = this.tryApplyPlanningHandoff(list);
-        this.finishShellInitAfterDirectory(devTools, handoffOk);
-      },
-      error: () => {
-        this.identity.setDirectoryUsers([]);
-        this.finishShellInitAfterDirectory(devTools, false);
-      },
-    });
+    if (!this.identity.getTenantId()) {
+      this.identity.setTenantId(KYNTUS_DEFAULT_TENANT);
+    }
+
+    const jwtRole = this.session.getRole();
+    if (jwtRole) {
+      this.nav.syncRoleFromIdentity(mapJwtRoleToDocumentationRole(jwtRole));
+    }
+
+    const needsFullDirectory =
+      devTools ||
+      !!this.identity.parsePlanningHandoffQuery() ||
+      !!this.readPlanningLoginEmail();
+
+    if (needsFullDirectory) {
+      this.data.getDirectoryUsers().subscribe({
+        next: (list) => {
+          this.identity.setDirectoryUsers(list);
+          const linked = this.tryApplyPlanningHandoff(list) || this.tryApplyPlanningLoginEmail(list);
+          this.finishShellInitAfterDirectory(devTools, linked);
+        },
+        error: () => {
+          this.identity.setDirectoryUsers([]);
+          this.finishShellInitAfterDirectory(devTools, false);
+        },
+      });
+      return;
+    }
+
+    this.data
+      .getDirectoryUserMe()
+      .pipe(catchError(() => of(null)))
+      .subscribe((me) => {
+        if (me) {
+          this.identity.applyProfile(me);
+          this.nav.syncRoleFromIdentity(mapApiRoleToDocumentationRole(me.role));
+          this.identity.bumpContextRevision();
+        }
+      });
   }
 
   /** true = liaison planning appliquée (profil + route) ; false = pas de handoff ou échec (annuaire). */
@@ -111,6 +141,35 @@ export class DocumentationShellComponent implements OnInit, OnDestroy {
 
     this.identity.bumpContextRevision();
     return true;
+  }
+
+  /** Liaison e-mail utilisateur planning (localStorage) → annuaire documentation. */
+  private tryApplyPlanningLoginEmail(users: DirectoryUserDto[]): boolean {
+    const email = this.readPlanningLoginEmail();
+    if (!email) {
+      return false;
+    }
+    const needle = email.trim().toLowerCase();
+    const match = users.find((u) => (u.email ?? '').trim().toLowerCase() === needle);
+    if (!match) {
+      this.notifications.showError(
+        `Aucun utilisateur documentation pour « ${email} ». Vérifiez l’annuaire (tenant atlas-tech-demo / seed Docker).`,
+      );
+      return false;
+    }
+    this.identity.applyProfile(match);
+    try {
+      this.nav.syncRoleFromIdentity(mapApiRoleToDocumentationRole(match.role));
+    } catch {
+      this.nav.syncRoleFromIdentity('Pilote');
+    }
+    this.identity.bumpContextRevision();
+    return true;
+  }
+
+  private readPlanningLoginEmail(): string | null {
+    const email = this.session.getEmail();
+    return email.includes('@') ? email : null;
   }
 
   private finishShellInitAfterDirectory(devTools: boolean, handoffApplied: boolean): void {

@@ -2,12 +2,14 @@ using DocumentationBackend.Api;
 using DocumentationBackend.Context;
 using DocumentationBackend.Data;
 using DocumentationBackend.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DocumentationBackend.Controllers;
 
 /// <summary>API dédiée UI « Génération de documents » (IA directe, sans moteur local).</summary>
 [ApiController]
+[Authorize]
 [Route("api")]
 public sealed class GenerateDocumentAiController(
     DocumentationUserContext userContext,

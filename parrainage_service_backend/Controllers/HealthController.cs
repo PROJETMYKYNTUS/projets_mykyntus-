@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ParrainageBackend.Controllers;
 
 [ApiController]
+[AllowAnonymous]
 [Route("api/parrainage")]
 public sealed class HealthController : ControllerBase
 {

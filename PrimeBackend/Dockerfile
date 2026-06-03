@@ -1,11 +1,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /app
+WORKDIR /src
 
-COPY PrimeBackend.csproj ./
-RUN dotnet restore PrimeBackend.csproj
+COPY Kyntus.Identity.Jwt/Kyntus.Identity.Jwt.csproj Kyntus.Identity.Jwt/
+COPY PrimeBackend/PrimeBackend.csproj PrimeBackend/
+RUN dotnet restore PrimeBackend/PrimeBackend.csproj
 
-COPY . ./
-RUN dotnet publish PrimeBackend.csproj -c Release -o /out
+COPY Kyntus.Identity.Jwt/ Kyntus.Identity.Jwt/
+COPY PrimeBackend/ PrimeBackend/
+RUN dotnet publish PrimeBackend/PrimeBackend.csproj -c Release -o /out
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app

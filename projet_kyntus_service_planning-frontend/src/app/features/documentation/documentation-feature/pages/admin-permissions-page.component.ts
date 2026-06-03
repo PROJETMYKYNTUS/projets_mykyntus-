@@ -1,7 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { catchError, timeout } from 'rxjs/operators';
+import { firstValueFrom, forkJoin, of, type Observable } from 'rxjs';
 
+import { mapJwtRoleToDocumentationRole } from '../../../../core/navigation/documentation-menu.config';
+import { KyntusSessionService } from '../../../../core/session/kyntus-session.service';
 import type { DocumentationRole } from '../interfaces/documentation-role';
 import type {
   AdminDocType,
@@ -12,7 +16,10 @@ import type {
 import { AdminShellComponent } from '../components/admin-shell/admin-shell.component';
 import { AdminToggleComponent } from '../components/admin-toggle/admin-toggle.component';
 import { DocumentAdminService } from '../services/document-admin.service';
+import { DocumentationAdminApiService } from '../services/documentation-admin-api.service';
 import { DocumentationNavigationService } from '../services/documentation-navigation.service';
+
+const ADMIN_LOAD_TIMEOUT_MS = 15_000;
 
 type FilterValue = 'ALL' | string;
 
@@ -105,19 +112,35 @@ export class AdminPermissionsPageComponent implements OnInit {
   saving = false;
   successMessage: string | null = null;
   errorMessage: string | null = null;
+  loadError: string | null = null;
+
+  private readonly session = inject(KyntusSessionService);
 
   constructor(
     private readonly nav: DocumentationNavigationService,
-    private readonly admin: DocumentAdminService
+    private readonly admin: DocumentAdminService,
+    private readonly adminApi: DocumentationAdminApiService,
   ) {}
 
   ngOnInit(): void {
+    this.syncRoleFromSession();
     void this.bootstrap();
   }
 
+  private syncRoleFromSession(): void {
+    const jwtRole = this.session.getRole();
+    if (jwtRole) {
+      this.nav.syncRoleFromIdentity(mapJwtRoleToDocumentationRole(jwtRole));
+    }
+  }
+
   private async bootstrap(): Promise<void> {
+    this.loadError = null;
     try {
       await this.reload();
+    } catch {
+      this.loadError =
+        'Impossible de charger les permissions (délai dépassé ou service indisponible). Vérifiez la gateway et documentation-backend.';
     } finally {
       this.loading = false;
     }
@@ -155,14 +178,33 @@ export class AdminPermissionsPageComponent implements OnInit {
   }
 
   async reload(): Promise<void> {
-    const [types, policies, roles] = await Promise.all([
-      this.admin.getDocTypes(),
-      this.admin.getPermissionPolicies(),
-      this.admin.getAdminRoles(),
-    ]);
-    this.docTypes = types;
-    this.policiesDraft = policies;
-    this.adminRoles = roles;
+    const withTimeout = <T>(source: Observable<T>, fallback: T) =>
+      source.pipe(
+        timeout(ADMIN_LOAD_TIMEOUT_MS),
+        catchError(() => of(fallback)),
+      );
+
+    const result = await firstValueFrom(
+      forkJoin({
+        types: withTimeout(this.adminApi.getAdminDocTypes(), []),
+        policies: withTimeout(this.adminApi.getPermissionPolicies(), []),
+        roles: withTimeout(this.adminApi.getAdminRoles(), []),
+      }),
+    );
+
+    this.docTypes = result.types;
+    this.policiesDraft = result.policies;
+    this.adminRoles = result.roles as AdminRole[];
+
+    if (result.roles.length === 0) {
+      throw new Error('admin-roles unavailable');
+    }
+  }
+
+  retryLoad(): void {
+    this.loading = true;
+    this.loadError = null;
+    void this.bootstrap();
   }
 
   onToggle(roleKey: AdminRole, permKey: keyof AdminPermissionSet, nextVal: boolean): void {

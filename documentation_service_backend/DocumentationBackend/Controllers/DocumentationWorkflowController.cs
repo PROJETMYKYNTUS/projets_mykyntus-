@@ -1,11 +1,13 @@
 using DocumentationBackend.Api;
 using DocumentationBackend.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DocumentationBackend.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/documentation/data/workflow")]
 public class DocumentationWorkflowController(DocumentationWorkflowService workflow) : ControllerBase
 {

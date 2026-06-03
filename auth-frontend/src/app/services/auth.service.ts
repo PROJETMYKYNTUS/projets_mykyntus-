@@ -145,7 +145,7 @@ logout(): Observable<any> {
       localStorage.removeItem('user');
       localStorage.removeItem('token_type');
       // ✅ Redirection propre vers login
-      window.location.href = 'http://localhost:4201/login';
+      window.location.href = 'http://localhost:8201/login';
     }),
     catchError(error => {
       // ✅ Même chose en cas d'erreur API
@@ -154,7 +154,7 @@ logout(): Observable<any> {
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
       localStorage.removeItem('token_type');
-      window.location.href = 'http://localhost:4201/login';
+      window.location.href = 'http://localhost:8201/login';
       return throwError(() => error);
     })
   );

@@ -8,9 +8,10 @@ builder.Configuration.AddJsonFile("ocelot.json", optional: false, reloadOnChange
 builder.Services.AddCors(options => {
     options.AddPolicy("AllowAngular", policy => {
         policy.WithOrigins(
-            "http://localhost:4200",  // planning-frontend
-            "http://localhost:4201",  // auth-frontend
-            "http://localhost:4202"   // prime-frontend
+            "http://localhost:8200",  // planning-frontend
+            "http://localhost:8201",  // auth-frontend
+            "http://localhost:8202",  // prime-frontend
+            "http://localhost:8203"   // parrainage-frontend
         )
         .AllowAnyHeader()
         .AllowAnyMethod()

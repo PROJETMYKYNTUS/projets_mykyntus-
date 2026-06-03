@@ -1,11 +1,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-COPY ParrainageBackend.csproj ./
-RUN dotnet restore "./ParrainageBackend.csproj"
+COPY Kyntus.Identity.Jwt/Kyntus.Identity.Jwt.csproj Kyntus.Identity.Jwt/
+COPY parrainage_service_backend/ParrainageBackend.csproj parrainage_service_backend/
+RUN dotnet restore parrainage_service_backend/ParrainageBackend.csproj
 
-COPY . .
-RUN dotnet publish "./ParrainageBackend.csproj" -c Release -o /app/publish /p:UseAppHost=false
+COPY Kyntus.Identity.Jwt/ Kyntus.Identity.Jwt/
+COPY parrainage_service_backend/ parrainage_service_backend/
+RUN dotnet publish parrainage_service_backend/ParrainageBackend.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app

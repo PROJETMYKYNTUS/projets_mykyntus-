@@ -11,6 +11,7 @@ using DocumentationBackend.Context;
 using DocumentationBackend.Data;
 using DocumentationBackend.Data.Entities;
 using DocumentationBackend.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,7 @@ namespace DocumentationBackend.Controllers;
 /// Le contexte utilisateur est injecté par en-têtes (voir <see cref="DocumentationUserContextMiddleware"/>).
 /// </summary>
 [ApiController]
+[Authorize]
 [Route("api/documentation/data")]
 public class DocumentationDataController(
     DocumentationDbContext db,

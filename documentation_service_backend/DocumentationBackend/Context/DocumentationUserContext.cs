@@ -1,5 +1,6 @@
 using DocumentationBackend.Api;
 using DocumentationBackend.Data;
+using DocumentationBackend.Data.Entities;
 using Microsoft.Extensions.Primitives;
 
 namespace DocumentationBackend.Context;
@@ -24,6 +25,14 @@ public sealed class DocumentationUserContext
     public bool IsComplete => UserId.HasValue && Role.HasValue;
 
     public string? ValidationError { get; private set; }
+
+    public void ApplyFromDirectoryUser(DirectoryUser user, string? tenantIdOverride = null)
+    {
+        UserId = user.Id;
+        Role = user.Role;
+        TenantId = string.IsNullOrWhiteSpace(tenantIdOverride) ? user.TenantId : tenantIdOverride.Trim();
+        ValidationError = null;
+    }
 
     public void LoadFromHeaders(IHeaderDictionary headers, IHostEnvironment environment)
     {

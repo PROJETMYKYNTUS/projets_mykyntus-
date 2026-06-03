@@ -79,6 +79,9 @@ namespace AuthService.Migrations
                     b.Property<int>("RoleId")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -90,6 +93,9 @@ namespace AuthService.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RoleId");
+
+                    b.HasIndex("SubjectId")
+                        .IsUnique();
 
                     b.ToTable("Users");
                 });

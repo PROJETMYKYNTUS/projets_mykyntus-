@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Data;
+using Kyntus.Identity.Jwt;
 using PrimeBackend.Infrastructure;
 using PrimeBackend.Services;
 
@@ -24,8 +25,8 @@ static async Task RunEnrichDemoCliAsync(WebApplicationBuilder builder, string[] 
     var conn = builder.Configuration.GetConnectionString("DefaultConnection");
     if (string.IsNullOrWhiteSpace(conn))
     {
-        conn = "Host=localhost;Port=5433;Database=prime_db;Username=prime_user;Password=Prime@2026";
-        Console.WriteLine("ConnectionStrings:DefaultConnection absente — repli localhost:5433.");
+        conn = "Host=localhost;Port=8433;Database=prime_db;Username=prime_user;Password=Prime@2026";
+        Console.WriteLine("ConnectionStrings:DefaultConnection absente — repli localhost:8433.");
     }
 
     builder.Services.AddLogging(b => b.AddConsole());
@@ -50,7 +51,13 @@ static async Task RunEnrichDemoCliAsync(WebApplicationBuilder builder, string[] 
         : $"Enrichissement ignoré ({result.Reason}). Fiches={counts.Fiches}. Utilisez --force pour réappliquer.");
 }
 
-builder.Services.AddControllers().AddJsonOptions(o =>
+builder.Services.AddControllers(options =>
+{
+    var policy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+    options.Filters.Add(new Microsoft.AspNetCore.Mvc.Authorization.AuthorizeFilter(policy));
+}).AddJsonOptions(o =>
 {
     o.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
     o.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
@@ -62,10 +69,10 @@ builder.Services.AddCors(options =>
     {
         policy
             .WithOrigins(
-                "http://localhost:4200",
-                "http://localhost:4201",
-                "http://localhost:4202",
-                "http://localhost:4203",
+                "http://localhost:8200",
+                "http://localhost:8201",
+                "http://localhost:8202",
+                "http://localhost:8203",
                 "http://localhost:4207")
             .AllowAnyHeader()
             .AllowAnyMethod()
@@ -105,6 +112,8 @@ if (!string.IsNullOrWhiteSpace(conn))
 
 var app = builder.Build();
 app.UseCors("devCors");
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseMiddleware<ApiExceptionMiddleware>();
 app.MapControllers();
 app.Run();

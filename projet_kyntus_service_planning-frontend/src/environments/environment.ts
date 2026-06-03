@@ -15,7 +15,7 @@ export const environment = {
   documentationDevToolsEnabled: false,
   documentationUserContextHeaders: {} as Record<string, string>,
   /**
-   * La documentation est intégrée sous `/documentation` dans cette même SPA (port 4200).
+   * La documentation est intégrée sous `/documentation` dans cette même SPA (port 8200).
    */
   documentationAppBaseUrl: '',
 };

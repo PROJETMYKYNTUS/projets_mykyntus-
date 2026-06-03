@@ -6,7 +6,7 @@ import { DocumentationHeaders } from './documentation-headers';
  * UUID = utilisatrice démo « Yasmine » (profil pilote), aligné sur environment.documentationUserContextHeaders et l’annuaire seed.
  */
 export const DocumentationGatewayDefaultHeaders = {
-  [DocumentationHeaders.tenantId]: 'demo',
+  [DocumentationHeaders.tenantId]: 'atlas-tech-demo',
   [DocumentationHeaders.userId]: '11111111-1111-4111-8111-111111111101',
   [DocumentationHeaders.userRole]: 'pilote',
 } as const;

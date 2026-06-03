@@ -31,13 +31,15 @@ namespace AuthService.Services
 
         public string GenerateAccessToken(User user)
         {
+            var subjectId = user.SubjectId == Guid.Empty ? Guid.NewGuid() : user.SubjectId;
             var claims = new List<Claim>
             {
+                new Claim(JwtRegisteredClaimNames.Sub, subjectId.ToString()),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Role, user.Role?.Name ?? "User"),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));

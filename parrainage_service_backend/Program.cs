@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using ParrainageBackend.Data;
+using Kyntus.Identity.Jwt;
 using ParrainageBackend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -46,6 +47,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("devCors");
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapGet("/", () => Results.Ok(new
 {

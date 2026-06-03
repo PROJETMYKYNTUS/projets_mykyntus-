@@ -81,7 +81,7 @@ export class LoginComponent implements OnInit {
 
   // Rediriger vers planning
   window.location.href =
-    `http://localhost:4200/auth-callback?token=${response.accessToken}&refresh=${response.refreshToken}`;
+    `http://localhost:8200/auth-callback?token=${response.accessToken}&refresh=${response.refreshToken}`;
 },
       error: (error: any) => {
         console.error('Erreur de connexion', error);

@@ -24,10 +24,8 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
     public async Task<bool> SupervisorOwnsCelluleAsync(string supervisorUserId, string celluleId, CancellationToken ct = default)
     {
         if (db == null) return false;
-        var u = supervisorUserId.Trim();
-        var c = celluleId.Trim();
-        return await db.Employees.AsNoTracking()
-            .AnyAsync(e => e.Id == u && e.Role == "Superviseur" && e.CelluleId == c, ct);
+        var supervised = await GetSupervisedCelluleIdsAsync(supervisorUserId, ct);
+        return supervised.Contains(celluleId.Trim());
     }
 
     /// <summary>
@@ -53,16 +51,100 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
         return null;
     }
 
+    /// <summary>
+    /// Cellules RH du périmètre superviseur : toutes les cellules des pôles d’affectation (<see cref="EmployeeEntity.PoleId"/>).
+    /// </summary>
     public async Task<HashSet<string>> GetSupervisedCelluleIdsAsync(string supervisorUserId, CancellationToken ct = default)
     {
         if (db == null) return new HashSet<string>(StringComparer.Ordinal);
         var u = supervisorUserId.Trim();
-        var rows = await db.Employees.AsNoTracking()
-            .Where(e => e.Id == u && e.Role == "Superviseur")
-            .Select(e => e.CelluleId)
-            .Distinct()
+        var emp = await db.Employees.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == u && e.Role == "Superviseur", ct);
+        if (emp is null) return new HashSet<string>(StringComparer.Ordinal);
+
+        var poleIds = new HashSet<string>(StringComparer.Ordinal);
+        if (!string.IsNullOrWhiteSpace(emp.PoleId))
+            poleIds.Add(emp.PoleId.Trim());
+
+        if (poleIds.Count == 0 && !string.IsNullOrWhiteSpace(emp.CelluleId))
+        {
+            var poleFromCell = await db.Cellules.AsNoTracking()
+                .Where(c => c.Id == emp.CelluleId.Trim())
+                .Select(c => c.PoleId)
+                .FirstOrDefaultAsync(ct);
+            if (!string.IsNullOrWhiteSpace(poleFromCell))
+                poleIds.Add(poleFromCell.Trim());
+        }
+
+        if (poleIds.Count == 0)
+        {
+            if (!string.IsNullOrWhiteSpace(emp.CelluleId))
+                return new HashSet<string>(StringComparer.Ordinal) { emp.CelluleId.Trim() };
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        var celluleIds = await db.Cellules.AsNoTracking()
+            .Where(c => poleIds.Contains(c.PoleId))
+            .Select(c => c.Id)
             .ToListAsync(ct);
-        return rows.ToHashSet(StringComparer.Ordinal);
+        return celluleIds.ToHashSet(StringComparer.Ordinal);
+    }
+
+    public static bool IsPilotRole(string? role) =>
+        string.Equals(role?.Trim(), "Pilote", StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsReferentTechniqueRole(string? role)
+    {
+        var r = role?.Trim() ?? "";
+        return string.Equals(r, "Référent technique", StringComparison.Ordinal) ||
+               string.Equals(r, "Coach", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Périmètre validation RT : pilote direct (ParentId) ou pilote d’un RT du même superviseur / même cellule.
+    /// </summary>
+    public async Task<bool> IsPilotInReferentValidationScopeAsync(
+        string referentUserId,
+        string pilotEmployeeId,
+        string? actingReferentRole = null,
+        CancellationToken ct = default)
+    {
+        if (db == null) return false;
+        var referent = await GetEmployeeAsync(referentUserId, ct);
+        var pilote = await GetEmployeeAsync(pilotEmployeeId, ct);
+        if (referent is null || pilote is null || !IsPilotRole(pilote.Role)) return false;
+        var roleForScope = string.IsNullOrWhiteSpace(actingReferentRole)
+            ? referent.Role
+            : actingReferentRole.Trim();
+        if (!IsReferentTechniqueRole(roleForScope)) return false;
+
+        if (string.Equals(pilote.ParentId, referent.Id, StringComparison.Ordinal))
+            return true;
+
+        if (!string.IsNullOrWhiteSpace(referent.ParentId))
+        {
+            var supervisorId = referent.ParentId.Trim();
+            var referentIds = await db.Employees.AsNoTracking()
+                .Where(e =>
+                    e.ParentId == supervisorId &&
+                    (e.Role == "Référent technique" || e.Role == "Coach"))
+                .Select(e => e.Id)
+                .ToListAsync(ct);
+            referentIds.Add(referent.Id);
+            if (!string.IsNullOrWhiteSpace(pilote.ParentId) &&
+                referentIds.Contains(pilote.ParentId, StringComparer.Ordinal))
+                return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(referent.CelluleId) &&
+            string.Equals(pilote.CelluleId, referent.CelluleId, StringComparison.Ordinal))
+            return true;
+
+        if (!string.IsNullOrWhiteSpace(referent.ServiceId) &&
+            string.Equals(pilote.ServiceId, referent.ServiceId, StringComparison.Ordinal))
+            return true;
+
+        return false;
     }
 
     public async Task<List<EmployeeEntity>> GetEmployeesInServiceAsync(string serviceId, CancellationToken ct = default)
@@ -71,6 +153,34 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
         var sid = serviceId.Trim();
         return await db.Employees.AsNoTracking()
             .Where(e => e.ServiceId == sid)
+            .OrderBy(e => e.LastName)
+            .ThenBy(e => e.FirstName)
+            .ToListAsync(ct);
+    }
+
+    /// <summary>Employés en rôle Pilote pour un service (fiches PRIME partie personnalisée).</summary>
+    public async Task<List<EmployeeEntity>> GetPilotsInServiceAsync(string serviceId, CancellationToken ct = default)
+    {
+        if (db == null) return [];
+        var sid = serviceId.Trim();
+        return await db.Employees.AsNoTracking()
+            .Where(e => e.ServiceId == sid && e.Role == "Pilote")
+            .OrderBy(e => e.LastName)
+            .ThenBy(e => e.FirstName)
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<EmployeeEntity>> GetPilotsInCelluleAsync(string celluleId, CancellationToken ct = default)
+    {
+        if (db == null) return [];
+        var cid = celluleId.Trim();
+        var serviceIds = await db.Services.AsNoTracking()
+            .Where(s => s.CelluleId == cid)
+            .Select(s => s.Id)
+            .ToListAsync(ct);
+        if (serviceIds.Count == 0) return [];
+        return await db.Employees.AsNoTracking()
+            .Where(e => serviceIds.Contains(e.ServiceId) && e.Role == "Pilote")
             .OrderBy(e => e.LastName)
             .ThenBy(e => e.FirstName)
             .ToListAsync(ct);
@@ -106,7 +216,7 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
             .Select(s => s.Id)
             .ToListAsync(ct);
         if (serviceIds.Count == 0) return 0;
-        return await db.Employees.CountAsync(e => serviceIds.Contains(e.ServiceId), ct);
+        return await db.Employees.CountAsync(e => serviceIds.Contains(e.ServiceId) && e.Role == "Pilote", ct);
     }
 
     public async Task<Dictionary<string, int>> GetEmployeeCountsByCelluleAsync(
@@ -285,4 +395,123 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
             }).ToList(),
         };
     }
+
+    private static string NewOrgHierarchyChildId(string prefix) => $"{prefix}-{Guid.NewGuid():N}";
+
+    /// <summary>
+    /// Garantit qu’un pôle racine (<c>prime_pole</c>) possède au moins une cellule et un service feuille,
+    /// nécessaire pour l’affectation « chef de projet » (ancre hiérarchique dans <see cref="PrimeInMemoryStore"/>).
+    /// </summary>
+    public async Task EnsureRootPoleHasMinimalChildrenAsync(string rootPoleId, CancellationToken ct = default)
+    {
+        if (db == null) return;
+        var key = rootPoleId.Trim();
+        var pole = await db.Poles
+            .Include(p => p.Cellules)
+            .ThenInclude(c => c.Services)
+            .FirstOrDefaultAsync(p => p.Id == key, ct);
+        if (pole is null) return;
+
+        if (pole.Cellules.Any(c => c.Services.Count > 0))
+            return;
+
+        CelluleEntity targetCell;
+        if (pole.Cellules.Count == 0)
+        {
+            var cellId = NewOrgHierarchyChildId("p");
+            while (await db.Cellules.AnyAsync(c => c.Id == cellId, ct))
+                cellId = NewOrgHierarchyChildId("p");
+            targetCell = new CelluleEntity { Id = cellId, Name = "Cellule principale", PoleId = pole.Id };
+            db.Cellules.Add(targetCell);
+        }
+        else
+            targetCell = pole.Cellules.OrderBy(c => c.Id).First();
+
+        var srvId = NewOrgHierarchyChildId("c");
+        while (await db.Services.AnyAsync(s => s.Id == srvId, ct))
+            srvId = NewOrgHierarchyChildId("c");
+        db.Services.Add(new ServiceEntity { Id = srvId, Name = "Service principal", CelluleId = targetCell.Id });
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Résout le pôle racine EF (<c>prime_pole</c>) à partir d’un id cellule (<c>prime_cellule</c>).</summary>
+    public async Task<string?> ResolveRootPoleIdForCelluleAsync(string celluleId, CancellationToken ct = default)
+    {
+        if (db == null) return null;
+        var key = celluleId.Trim();
+        var fromCellule = await db.Cellules.AsNoTracking()
+            .Where(c => c.Id == key)
+            .Select(c => c.PoleId)
+            .FirstOrDefaultAsync(ct);
+        if (!string.IsNullOrWhiteSpace(fromCellule))
+            return fromCellule;
+        var isRootPole = await db.Poles.AsNoTracking().AnyAsync(p => p.Id == key, ct);
+        return isRootPole ? key : null;
+    }
+
+    /// <summary>Pôles supervisés (RH) avec cellules et services — pour indicateurs et filtres UI.</summary>
+    public async Task<List<SupervisorOrgScopePoleDto>> GetSupervisorOrganizationalScopeAsync(
+        string supervisorUserId,
+        CancellationToken ct = default)
+    {
+        if (db == null) return [];
+        var celluleIds = await GetSupervisedCelluleIdsAsync(supervisorUserId, ct);
+        if (celluleIds.Count == 0) return [];
+
+        var cellules = await db.Cellules.AsNoTracking()
+            .Where(c => celluleIds.Contains(c.Id))
+            .OrderBy(c => c.Name)
+            .ToListAsync(ct);
+
+        var services = await db.Services.AsNoTracking()
+            .Where(s => celluleIds.Contains(s.CelluleId))
+            .OrderBy(s => s.Name)
+            .ToListAsync(ct);
+
+        var poleIds = cellules.Select(c => c.PoleId).Distinct(StringComparer.Ordinal).ToList();
+        var poles = await db.Poles.AsNoTracking()
+            .Where(p => poleIds.Contains(p.Id))
+            .OrderBy(p => p.Name)
+            .ToListAsync(ct);
+
+        return poles.Select(p => new SupervisorOrgScopePoleDto
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Cellules = cellules
+                .Where(c => c.PoleId == p.Id)
+                .Select(c => new SupervisorOrgScopeCelluleDto
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    RootPoleId = p.Id,
+                    Services = services
+                        .Where(s => s.CelluleId == c.Id)
+                        .Select(s => new SupervisorOrgScopeServiceDto { Id = s.Id, Name = s.Name })
+                        .ToList(),
+                })
+                .ToList(),
+        }).ToList();
+    }
+}
+
+public sealed class SupervisorOrgScopePoleDto
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public List<SupervisorOrgScopeCelluleDto> Cellules { get; set; } = [];
+}
+
+public sealed class SupervisorOrgScopeCelluleDto
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string RootPoleId { get; set; } = "";
+    public List<SupervisorOrgScopeServiceDto> Services { get; set; } = [];
+}
+
+public sealed class SupervisorOrgScopeServiceDto
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
 }

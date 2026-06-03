@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PrimeBackend.Dto;
 
 public class UpdatePrimeResultStatusRequest
@@ -39,6 +41,7 @@ public class AssignReferentTechniqueServiceRequest
 
 public class AssignReferentTechniquePilotRequest
 {
+    [JsonPropertyName("coachUserId")]
     public string ReferentTechniqueUserId { get; set; } = "";
     public string PilotUserId { get; set; } = "";
 }
@@ -52,7 +55,10 @@ public class SetOrgResponsibleBody
 public class AddPilotToServiceBody
 {
     public string EmployeeId { get; set; } = "";
-    /// <summary>Si null, premier service de la cellule (règle stable).</summary>
+    /// <summary>Identifiant d’équipe (JSON <c>teamId</c> depuis le front Angular).</summary>
+    [JsonPropertyName("teamId")]
+    public string? TeamId { get; set; }
+    /// <summary>Alias historique : équipe ou repli.</summary>
     public string? ServiceId { get; set; }
 }
 

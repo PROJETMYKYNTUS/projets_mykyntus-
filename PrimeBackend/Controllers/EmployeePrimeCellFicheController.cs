@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Data;
 using PrimeBackend.Dto;
+using PrimeBackend.Infrastructure;
 using PrimeBackend.Services;
 
 namespace PrimeBackend.Controllers;
@@ -9,9 +10,15 @@ namespace PrimeBackend.Controllers;
 [ApiController]
 [Route("api/prime/employee-prime-service-fiches")]
 [Route("api/prime/employee-prime-cell-fiches")] // alias : clients encore sur l’ancien chemin (ex. Angular 4202)
-public sealed class EmployeePrimeServiceFicheController(PrimeDbContext? db, PrimeOrgScopeService org) : ControllerBase
+public sealed class EmployeePrimeServiceFicheController(
+    PrimeDbContext? db,
+    PrimeOrgScopeService org,
+    PrimeFicheValidationSubmissionService? submission,
+    AnomalyDetectionService? anomalies) : ControllerBase
 {
-    private static EmployeePrimeServiceFicheResponseDto Map(EmployeePrimeServiceFicheEntity e) =>
+    private static EmployeePrimeServiceFicheResponseDto Map(
+        EmployeePrimeServiceFicheEntity e,
+        SupervisorCellulePrimeDraftEntity draft) =>
         new()
         {
             Id = e.Id,
@@ -23,6 +30,8 @@ public sealed class EmployeePrimeServiceFicheController(PrimeDbContext? db, Prim
             Period = e.Period,
             ServiceSaisieJson = e.ServiceSaisieJson,
             FillingStatus = e.FillingStatus,
+            ValidationStatus = e.ValidationStatus,
+            IsReadyForValidation = PrimeFicheValidationSubmissionService.ComputeIsReadyForValidation(draft, e),
             UpdatedAt = e.UpdatedAt,
         };
 
@@ -59,7 +68,7 @@ public sealed class EmployeePrimeServiceFicheController(PrimeDbContext? db, Prim
             if (!await org.SupervisorOwnsCelluleAsync(sup, resolvedCellule, ct))
                 return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
 
-            emps = await org.GetEmployeesInServiceAsync(cid, ct);
+            emps = await org.GetPilotsInServiceAsync(cid, ct);
             fiches = await db.EmployeePrimeServiceFiches.AsNoTracking()
                 .Where(f => f.ServiceId == cid && f.Period == per)
                 .ToListAsync(ct);
@@ -70,17 +79,10 @@ public sealed class EmployeePrimeServiceFicheController(PrimeDbContext? db, Prim
             if (!await org.SupervisorOwnsCelluleAsync(sup, cTrim, ct))
                 return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
 
-            var serviceIds = await db.Services.AsNoTracking()
-                .Where(s => s.CelluleId == cTrim)
-                .Select(s => s.Id)
-                .ToListAsync(ct);
-            if (serviceIds.Count == 0) return Ok(new List<EmployeePrimeServiceFicheListItemDto>());
+            emps = await org.GetPilotsInCelluleAsync(cTrim, ct);
+            if (emps.Count == 0) return Ok(new List<EmployeePrimeServiceFicheListItemDto>());
 
-            emps = await db.Employees.AsNoTracking()
-                .Where(e => serviceIds.Contains(e.ServiceId))
-                .OrderBy(e => e.LastName)
-                .ThenBy(e => e.FirstName)
-                .ToListAsync(ct);
+            var serviceIds = emps.Select(e => e.ServiceId).Distinct(StringComparer.Ordinal).ToList();
             fiches = await db.EmployeePrimeServiceFiches.AsNoTracking()
                 .Where(f => f.Period == per && serviceIds.Contains(f.ServiceId))
                 .ToListAsync(ct);
@@ -90,11 +92,36 @@ public sealed class EmployeePrimeServiceFicheController(PrimeDbContext? db, Prim
             .GroupBy(f => f.EmployeeId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First(), StringComparer.Ordinal);
 
+        if (submission is not null && fiches.Count > 0)
+        {
+            await submission.ReconcileReadySubmissionsForSupervisorPeriodAsync(sup, per, ct);
+            if (hasService)
+            {
+                var sid = serviceId!.Trim();
+                fiches = await db.EmployeePrimeServiceFiches.AsNoTracking()
+                    .Where(f => f.ServiceId == sid && f.Period == per)
+                    .ToListAsync(ct);
+            }
+            else
+            {
+                var serviceIdsReload = emps.Select(e => e.ServiceId).Distinct(StringComparer.Ordinal).ToList();
+                fiches = await db.EmployeePrimeServiceFiches.AsNoTracking()
+                    .Where(f => f.Period == per && serviceIdsReload.Contains(f.ServiceId))
+                    .ToListAsync(ct);
+            }
+
+            byEmp = fiches
+                .GroupBy(f => f.EmployeeId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First(), StringComparer.Ordinal);
+        }
+
         var result = new List<EmployeePrimeServiceFicheListItemDto>();
         foreach (var e in emps)
         {
             if (byEmp.TryGetValue(e.Id, out var f))
             {
+                var ready = submission is not null &&
+                            await submission.ComputeIsReadyForValidationAsync(f, ct);
                 result.Add(new EmployeePrimeServiceFicheListItemDto
                 {
                     EmployeeId = e.Id,
@@ -105,6 +132,8 @@ public sealed class EmployeePrimeServiceFicheController(PrimeDbContext? db, Prim
                     FicheId = f.Id,
                     CellulePrimeDraftId = f.CellulePrimeDraftId,
                     FillingStatus = f.FillingStatus,
+                    ValidationStatus = f.ValidationStatus,
+                    IsReadyForValidation = ready,
                     ServiceSaisieJson = f.ServiceSaisieJson,
                     UpdatedAt = f.UpdatedAt,
                 });
@@ -188,11 +217,13 @@ public sealed class EmployeePrimeServiceFicheController(PrimeDbContext? db, Prim
                 Period = period.Trim(),
                 ServiceSaisieJson = "{}",
                 FillingStatus = "NotStarted",
+                ValidationStatus = PrimeValidationWorkflowService.AwaitingData,
+                IsReadyForValidation = false,
                 UpdatedAt = DateTimeOffset.UtcNow,
             });
         }
 
-        return Ok(Map(fiche));
+        return Ok(Map(fiche, draft));
     }
 
     [HttpPut]
@@ -229,6 +260,8 @@ public sealed class EmployeePrimeServiceFicheController(PrimeDbContext? db, Prim
             .Where(i => i.ServiceId == emp.ServiceId)
             .OrderBy(i => i.SortOrder)
             .ToListAsync(ct);
+        if (PrimeEmployeeFicheAmountService.HasNegativeFinancialValuesInServiceSaisieJson(body.ServiceSaisieJson))
+            return BadRequest(new { error = DbExceptionMessages.NonNegativePrimeAmountsRequired });
         var status = PrimeServiceFicheStatusHelper.ComputeFillingStatus(body.ServiceSaisieJson, indicators);
         var now = DateTimeOffset.UtcNow;
 
@@ -248,6 +281,7 @@ public sealed class EmployeePrimeServiceFicheController(PrimeDbContext? db, Prim
                 Period = body.Period.Trim(),
                 ServiceSaisieJson = body.ServiceSaisieJson,
                 FillingStatus = status,
+                ValidationStatus = PrimeValidationWorkflowService.AwaitingData,
                 UpdatedAt = now,
             };
             db.EmployeePrimeServiceFiches.Add(entity);
@@ -263,7 +297,59 @@ public sealed class EmployeePrimeServiceFicheController(PrimeDbContext? db, Prim
             entity.UpdatedAt = now;
         }
 
+        if (submission is not null)
+            await submission.SyncValidationSubmissionStatusAsync(entity, draft, now, ct);
+
+        // Ne pas ecraser un snapshot deja en place (notamment les montants calcules par le
+        // frontend via le moteur de formules) avec une extraction brute qui ne sait pas evaluer
+        // les formules (renverrait 0/valeur parasite). On ne calcule l'extraction que lorsqu'aucun
+        // montant n'a encore ete enregistre.
+        var hasExistingSnapshot =
+            entity.PrimeAmount.HasValue || entity.ChallengeAmount.HasValue || entity.TotalAmount.HasValue;
+        if (!hasExistingSnapshot)
+        {
+            var amounts = PrimeEmployeeFicheAmountService.ExtractFromFiche(entity);
+            PrimeEmployeeFicheAmountService.ApplySnapshotToEntity(entity, amounts);
+        }
+
         await db.SaveChangesAsync(ct);
-        return Ok(Map(entity));
+        return Ok(Map(entity, draft));
+    }
+
+    /// <summary>
+    /// Persiste les montants finaux (Prime / Challenge / Total) calcules par le frontend
+    /// (ligne « TOTAL General » de la fiche fusionnee) sur la fiche identifiee.
+    /// </summary>
+    [HttpPost("{ficheId:guid}/amounts")]
+    public async Task<ActionResult<EmployeePrimeServiceFicheResponseDto>> PersistAmounts(
+        Guid ficheId,
+        [FromBody] PersistFicheAmountsRequest body,
+        CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        if (string.IsNullOrWhiteSpace(body.SupervisorUserId))
+            return BadRequest(new { error = "supervisorUserId est requis." });
+
+        var entity = await db.EmployeePrimeServiceFiches.FirstOrDefaultAsync(x => x.Id == ficheId, ct);
+        if (entity is null) return NotFound(new { error = "Fiche introuvable." });
+
+        if (!await org.SupervisorOwnsCelluleAsync(body.SupervisorUserId, entity.CelluleId, ct))
+            return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
+
+        if (!PrimeEmployeeFicheAmountService.IsNonNegative(body.PrimeAmount) ||
+            !PrimeEmployeeFicheAmountService.IsNonNegative(body.ChallengeAmount) ||
+            !PrimeEmployeeFicheAmountService.IsNonNegative(body.TotalAmount))
+            return BadRequest(new { error = DbExceptionMessages.NonNegativePrimeAmountsRequired });
+
+        entity.PrimeAmount = body.PrimeAmount;
+        entity.ChallengeAmount = body.ChallengeAmount;
+        entity.TotalAmount = body.TotalAmount;
+        entity.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        if (anomalies is not null)
+            await anomalies.RecomputeForFicheAsync(entity.Id, ct);
+
+        var draft = await db.SupervisorCellulePrimeDrafts.FirstOrDefaultAsync(x => x.Id == entity.CellulePrimeDraftId, ct);
+        return draft is null ? Ok(new { ok = true }) : Ok(Map(entity, draft));
     }
 }

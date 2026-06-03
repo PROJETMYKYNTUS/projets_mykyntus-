@@ -100,6 +100,8 @@ public sealed class EmployeePrimeServiceFicheResponseDto
     public string Period { get; init; } = "";
     public string ServiceSaisieJson { get; init; } = "{}";
     public string FillingStatus { get; init; } = "";
+    public string ValidationStatus { get; init; } = "";
+    public bool IsReadyForValidation { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
 }
 
@@ -116,6 +118,15 @@ public sealed class UpsertEmployeePrimeServiceFicheRequest
     public string? CellSaisieJson { get; set; }
 }
 
+/// <summary>Montants finaux (ligne « TOTAL Général » de la fiche fusionnée) persistés sur la fiche.</summary>
+public sealed class PersistFicheAmountsRequest
+{
+    public string SupervisorUserId { get; set; } = "";
+    public decimal? PrimeAmount { get; set; }
+    public decimal? ChallengeAmount { get; set; }
+    public decimal? TotalAmount { get; set; }
+}
+
 public sealed class EmployeePrimeServiceFicheListItemDto
 {
     public string EmployeeId { get; init; } = "";
@@ -126,6 +137,8 @@ public sealed class EmployeePrimeServiceFicheListItemDto
     public Guid? FicheId { get; init; }
     public Guid? CellulePrimeDraftId { get; init; }
     public string FillingStatus { get; init; } = "NotStarted";
+    public string? ValidationStatus { get; init; }
+    public bool? IsReadyForValidation { get; init; }
     public string ServiceSaisieJson { get; init; } = "{}";
     public DateTimeOffset? UpdatedAt { get; init; }
 }
@@ -135,10 +148,20 @@ public sealed class ServicePilotageSummaryDto
     public string ServiceId { get; init; } = "";
     public string ServiceName { get; init; } = "";
     public string CelluleId { get; init; } = "";
+    public string CelluleName { get; init; } = "";
+    public string PoleName { get; init; } = "";
     public int TotalEmployees { get; init; }
     public int NotStarted { get; init; }
     public int InProgress { get; init; }
     public int Complete { get; init; }
+    /// <summary>Prêtes (commune validée + cellule complète) pas encore soumises au workflow.</summary>
+    public int ReadyCount { get; init; }
+    /// <summary>Fiches soumises au workflow (<c>Pending</c> chez le référent technique).</summary>
+    public int SubmittedForValidationCount { get; init; }
+    /// <summary>Total prêtes + soumises (rétrocompatibilité).</summary>
+    public int ReadyForValidation { get; init; }
+    /// <summary>Statut brouillon partie commune pour la cellule / période (Draft | Validated).</summary>
+    public string? CommonPartStatus { get; init; }
     /// <summary>Done | InProgress | NotStarted | Empty</summary>
     public string ServiceAggregateState { get; init; } = "";
     /// <summary>Brouillon cellule (partie commune) le plus récent pour cette cellule et cette période — même lien que la saisie RACC/SAV.</summary>

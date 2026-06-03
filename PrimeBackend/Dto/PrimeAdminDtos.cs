@@ -31,6 +31,8 @@ public sealed class WorkflowStepConfigDto
     public string ToStatus { get; init; } = "";
     public bool IsActive { get; init; }
     public int SlaHours { get; init; }
+    public bool CapturesAmountsOnApproval { get; init; }
+    public bool TerminalApproved { get; init; }
     public DateTimeOffset? UpdatedAt { get; init; }
 }
 
@@ -42,6 +44,8 @@ public sealed class UpsertWorkflowStepConfigRequest
     public string ToStatus { get; set; } = "";
     public bool IsActive { get; set; } = true;
     public int SlaHours { get; set; }
+    public bool CapturesAmountsOnApproval { get; set; }
+    public bool TerminalApproved { get; set; }
 }
 
 public sealed class WorkflowGlobalConfigDto
@@ -60,6 +64,14 @@ public sealed class UpdateWorkflowGlobalConfigRequest
     public int GlobalSlaHours { get; set; } = 72;
     public bool AllowBulkApprove { get; set; } = true;
     public bool RequireRejectReason { get; set; } = true;
+}
+
+public sealed class RecordAuditNavigationRequest
+{
+    public string UserId { get; set; } = "";
+    public string UserDisplayName { get; set; } = "";
+    public string Role { get; set; } = "";
+    public string Route { get; set; } = "";
 }
 
 public sealed class AuditLogDto

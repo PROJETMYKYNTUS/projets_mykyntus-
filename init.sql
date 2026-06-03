@@ -49,6 +49,18 @@ GRANT ALL PRIVILEGES ON DATABASE prime_db TO prime_user;
 GRANT ALL ON SCHEMA public TO prime_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO prime_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO prime_user;
+
+-- ─── BASE PARRAINAGE ───────────────────────────────
+\c postgres
+CREATE DATABASE parrainage_db;
+CREATE USER parrainage_user WITH PASSWORD 'Parrainage@2026';
+GRANT ALL PRIVILEGES ON DATABASE parrainage_db TO parrainage_user;
+\c parrainage_db
+GRANT ALL ON SCHEMA public TO parrainage_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO parrainage_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO parrainage_user;
+
+\c prime_db
 -- Schéma métier EF (DocumentationDbContext : HasDefaultSchema("documentation")).
 -- Sans cela : 42501 permission denied for schema documentation pour documentation_user.
 CREATE SCHEMA IF NOT EXISTS documentation AUTHORIZATION documentation_user;

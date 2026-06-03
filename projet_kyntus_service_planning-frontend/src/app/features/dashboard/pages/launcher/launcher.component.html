@@ -1,0 +1,24 @@
+<div class="launcher">
+  <div class="launcher-hero">
+    <div class="lh-badge">Plateforme unifiée</div>
+    <h1>Bonjour {{ username }} 👋</h1>
+    <p>Choisissez un microservice pour accéder à son menu détaillé. Seuls les modules autorisés pour votre rôle <strong>{{ role || '—' }}</strong> sont affichés.</p>
+  </div>
+
+  <div class="launcher-grid">
+    <button type="button" class="ms-card" *ngFor="let g of groups" (click)="open(g)">
+      <div class="ms-icon" [innerHTML]="icon(g.icon)"></div>
+      <div class="ms-body">
+        <h3>{{ g.label }}</h3>
+        <p>{{ g.children.length }} {{ g.children.length > 1 ? 'rubriques' : 'rubrique' }}</p>
+      </div>
+      <div class="ms-arrow">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </div>
+    </button>
+  </div>
+
+  <div class="launcher-empty" *ngIf="groups.length === 0">
+    <p>Aucun module n'est disponible pour votre rôle. Contactez un administrateur.</p>
+  </div>
+</div>

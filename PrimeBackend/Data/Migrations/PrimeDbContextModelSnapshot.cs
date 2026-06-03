@@ -190,7 +190,6 @@ namespace PrimeBackend.Data.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CelluleId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Email")
@@ -221,7 +220,6 @@ namespace PrimeBackend.Data.Migrations
                         .HasColumnType("character varying(64)");
 
                     b.Property<string>("ServiceId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -313,8 +311,10 @@ namespace PrimeBackend.Data.Migrations
 
                     b.Property<string>("ValidationStatus")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("AwaitingData");
 
                     b.HasKey("Id");
 
@@ -330,6 +330,69 @@ namespace PrimeBackend.Data.Migrations
                     b.HasIndex("SupervisorUserId", "Period");
 
                     b.ToTable("prime_employee_prime_service_fiche", (string)null);
+                });
+
+            modelBuilder.Entity("PrimeBackend.Data.GlobalPoolApprovalEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DraftId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StepId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StepId");
+
+                    b.HasIndex("DraftId", "StepId")
+                        .IsUnique();
+
+                    b.ToTable("prime_global_pool_approval", (string)null);
+                });
+
+            modelBuilder.Entity("PrimeBackend.Data.GlobalPoolWorkflowStepEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ApproverRole")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SortOrder");
+
+                    b.ToTable("prime_global_pool_workflow_step", (string)null);
                 });
 
             modelBuilder.Entity("PrimeBackend.Data.PoleEntity", b =>
@@ -477,36 +540,46 @@ namespace PrimeBackend.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("GlobalPoolComptaAckByUserId")
-                        .HasColumnType("text");
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
                     b.Property<byte[]>("GlobalPoolExcelContent")
                         .HasColumnType("bytea");
 
                     b.Property<string>("GlobalPoolFileName")
-                        .HasColumnType("text");
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
 
                     b.Property<DateTimeOffset?>("GlobalPoolManagerApprovedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("GlobalPoolManagerApprovedByUserId")
-                        .HasColumnType("text");
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
                     b.Property<DateTimeOffset?>("GlobalPoolRhApprovedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("GlobalPoolRhApprovedByUserId")
-                        .HasColumnType("text");
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
                     b.Property<DateTimeOffset?>("GlobalPoolUploadedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("GlobalPoolUploadedByUserId")
-                        .HasColumnType("text");
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
                     b.Property<string>("Period")
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
+
+                    b.Property<string>("RootPoleId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
                     b.Property<string>("SchemaJson")
                         .IsRequired()
@@ -543,9 +616,13 @@ namespace PrimeBackend.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("RootPoleId");
+
                     b.HasIndex("SupervisorUserId", "Period");
 
-                    b.HasIndex("SupervisorUserId", "CelluleId", "Period", "TemplateId")
+                    b.HasIndex("SupervisorUserId", "CelluleId", "Period", "TemplateId");
+
+                    b.HasIndex("SupervisorUserId", "RootPoleId", "Period")
                         .IsUnique();
 
                     b.ToTable("prime_supervisor_cellule_prime_draft", (string)null);
@@ -650,6 +727,9 @@ namespace PrimeBackend.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<bool>("CapturesAmountsOnApproval")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -667,6 +747,9 @@ namespace PrimeBackend.Data.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("TerminalApproved")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("ToStatus")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -679,7 +762,7 @@ namespace PrimeBackend.Data.Migrations
 
                     b.HasIndex("SortOrder");
 
-                    b.HasIndex("FromStatus", "ToStatus")
+                    b.HasIndex("FromStatus", "ApproverRole", "ToStatus")
                         .IsUnique();
 
                     b.ToTable("prime_workflow_step", (string)null);
@@ -714,6 +797,25 @@ namespace PrimeBackend.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("CellulePrimeDraft");
+                });
+
+            modelBuilder.Entity("PrimeBackend.Data.GlobalPoolApprovalEntity", b =>
+                {
+                    b.HasOne("PrimeBackend.Data.SupervisorCellulePrimeDraftEntity", "Draft")
+                        .WithMany("GlobalPoolApprovals")
+                        .HasForeignKey("DraftId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PrimeBackend.Data.GlobalPoolWorkflowStepEntity", "Step")
+                        .WithMany()
+                        .HasForeignKey("StepId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Draft");
+
+                    b.Navigation("Step");
                 });
 
             modelBuilder.Entity("PrimeBackend.Data.ServiceEntity", b =>
@@ -756,6 +858,8 @@ namespace PrimeBackend.Data.Migrations
             modelBuilder.Entity("PrimeBackend.Data.SupervisorCellulePrimeDraftEntity", b =>
                 {
                     b.Navigation("EmployeeFiches");
+
+                    b.Navigation("GlobalPoolApprovals");
                 });
 #pragma warning restore 612, 618
         }

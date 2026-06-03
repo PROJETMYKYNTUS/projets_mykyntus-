@@ -47,6 +47,8 @@ public class SupervisorCellulePrimeDraftEntity
 {
     public Guid Id { get; set; }
     public string SupervisorUserId { get; set; } = "";
+    /// <summary>Pôle racine EF (<c>prime_pole</c>) — unicité fiche commune par période.</summary>
+    public string RootPoleId { get; set; } = "";
     public string CelluleId { get; set; } = "";
     public string Period { get; set; } = "";
     public string TemplateId { get; set; } = "";
@@ -74,6 +76,7 @@ public class SupervisorCellulePrimeDraftEntity
     public string? GlobalPoolComptaAckByUserId { get; set; }
 
     public ICollection<EmployeePrimeServiceFicheEntity> EmployeeFiches { get; set; } = new List<EmployeePrimeServiceFicheEntity>();
+    public ICollection<GlobalPoolApprovalEntity> GlobalPoolApprovals { get; set; } = new List<GlobalPoolApprovalEntity>();
 }
 
 /// <summary>Partie « service » de la fiche PRIME pour un employé et une période.</summary>
@@ -97,8 +100,8 @@ public class EmployeePrimeServiceFicheEntity
     // Pending → Superviseur Approved → Chef de projet Approved → RH Approved
     // (Référent technique = lecture seule, pas de transition depuis Pending)
     // ============================================================
-    /// <summary>Pending | Superviseur Approved | Chef de projet Approved | RH Approved | Rejected</summary>
-    public string ValidationStatus { get; set; } = "Pending";
+    /// <summary>AwaitingData | Pending | Superviseur Approved | Chef de projet Approved | RH Approved | Rejected</summary>
+    public string ValidationStatus { get; set; } = "AwaitingData";
     /// <summary>UserId du dernier valideur (Superviseur, Chef de projet ou RH).</summary>
     public string? LastApproverUserId { get; set; }
     public DateTimeOffset? LastApprovedAt { get; set; }
@@ -106,7 +109,30 @@ public class EmployeePrimeServiceFicheEntity
     public string? RejectedByUserId { get; set; }
     public DateTimeOffset? RejectedAt { get; set; }
     public string? RejectionReason { get; set; }
-    /// <summary>Montant prime calculé (issu de ComputedJson supervisor draft, snapshoté ici à la validation).</summary>
+    /// <summary>Montants snapshot (export) ; affichage validation = extraction live depuis ServiceSaisieJson.</summary>
+    public decimal? PrimeAmount { get; set; }
+    public decimal? ChallengeAmount { get; set; }
+    public decimal? TotalAmount { get; set; }
+
+    public ICollection<EmployeePrimeFicheValidationHistoryEntity> ValidationHistory { get; set; } =
+        new List<EmployeePrimeFicheValidationHistoryEntity>();
+}
+
+/// <summary>Historique immuable des transitions de validation d'une fiche pilote.</summary>
+public class EmployeePrimeFicheValidationHistoryEntity
+{
+    public Guid Id { get; set; }
+    public Guid FicheId { get; set; }
+    public EmployeePrimeServiceFicheEntity Fiche { get; set; } = null!;
+    public DateTimeOffset At { get; set; }
+    /// <summary>Approved | Rejected</summary>
+    public string Action { get; set; } = "";
+    public string FromStatus { get; set; } = "";
+    public string ToStatus { get; set; } = "";
+    public string ActorUserId { get; set; } = "";
+    public string ActorRole { get; set; } = "";
+    public string? ActorDisplayName { get; set; }
+    public string? Comment { get; set; }
     public decimal? PrimeAmount { get; set; }
     public decimal? ChallengeAmount { get; set; }
     public decimal? TotalAmount { get; set; }
@@ -119,8 +145,8 @@ public class EmployeeEntity
     public string LastName { get; set; } = "";
     public string Role { get; set; } = "";
     public string? ParentId { get; set; }
-    public string ServiceId { get; set; } = "";
-    public string CelluleId { get; set; } = "";
+    public string? ServiceId { get; set; }
+    public string? CelluleId { get; set; }
     public string PoleId { get; set; } = "";
     public string Email { get; set; } = "";
     public string? Avatar { get; set; }

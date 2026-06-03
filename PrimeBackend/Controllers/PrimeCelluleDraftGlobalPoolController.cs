@@ -10,7 +10,10 @@ namespace PrimeBackend.Controllers;
 [ApiController]
 [Route("api/prime/supervisor-cellule-prime-drafts")]
 [Route("api/prime/supervisor-pole-prime-drafts")]
-public sealed class PrimeCelluleDraftGlobalPoolController(PrimeDbContext? db, PrimeOrgScopeService org) : ControllerBase
+public sealed class PrimeCelluleDraftGlobalPoolController(
+    PrimeDbContext? db,
+    PrimeOrgScopeService org,
+    GlobalPoolWorkflowService? poolWf) : ControllerBase
 {
     private static bool PoolUnlocked(SupervisorCellulePrimeDraftEntity d) =>
         d.GlobalPoolManagerApprovedAt.HasValue && d.GlobalPoolRhApprovedAt.HasValue;
@@ -76,12 +79,23 @@ public sealed class PrimeCelluleDraftGlobalPoolController(PrimeDbContext? db, Pr
 
         var uid = (actingUserId ?? supervisorUserId).Trim();
         var role = await RoleOfUserAsync(uid, ct);
-        var allow = string.Equals(role, "Superviseur", StringComparison.Ordinal) ||
-                    string.Equals(role, "Admin", StringComparison.Ordinal) ||
-                    string.Equals(role, "RH", StringComparison.Ordinal) ||
-                    string.Equals(role, "Manager", StringComparison.Ordinal) ||
-                    string.Equals(role, "Comptable", StringComparison.Ordinal);
-        if (!allow) return StatusCode(403, new { error = "Rôle non autorisé à télécharger le fichier global." });
+        if (string.IsNullOrWhiteSpace(role))
+            return BadRequest(new { error = "Utilisateur inconnu." });
+        var legacyOk = PoolUnlocked(d!);
+        var fullyUnlocked = poolWf is not null && await poolWf.UsesConfigurableWorkflowAsync(ct)
+            ? await poolWf.PoolDistributionUnlockedAsync(d!, ct)
+            : legacyOk;
+        var allowRole = string.Equals(role, "Superviseur", StringComparison.Ordinal) ||
+                        string.Equals(role, "Admin", StringComparison.Ordinal) ||
+                        string.Equals(role, "RH", StringComparison.Ordinal) ||
+                        string.Equals(role, "Manager", StringComparison.Ordinal) ||
+                        PrimeFicheValidationRoles.IsOperationalApprover(role) ||
+                        string.Equals(role, "Comptable", StringComparison.Ordinal) ||
+                        string.Equals(role, "Comptabilité", StringComparison.Ordinal);
+        if (!allowRole)
+            return StatusCode(403, new { error = "Rôle non autorisé à télécharger le fichier global." });
+        if (!PrimeFicheDistributionAccess.CanDownloadGlobalPoolSynthesis(role, legacyOk, fullyUnlocked))
+            return StatusCode(403, new { error = "Fichier non diffusé : en attente des validations PRIME." });
 
         var name = string.IsNullOrWhiteSpace(d.GlobalPoolFileName) ? "prime-global-pool.xlsx" : d.GlobalPoolFileName.Trim();
         return File(d.GlobalPoolExcelContent, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", name);
@@ -108,7 +122,17 @@ public sealed class PrimeCelluleDraftGlobalPoolController(PrimeDbContext? db, Pr
     /// l’enregistre sur le brouillon et réinitialise les validations Manager / RH / Compta.
     /// </summary>
     [HttpPost("{draftId:guid}/global-pool/generate")]
-    public async Task<IActionResult> GenerateGlobalPoolExcel(
+    public Task<IActionResult> GenerateGlobalPoolExcel(
+        Guid draftId,
+        [FromQuery] string supervisorUserId,
+        CancellationToken ct) =>
+        Task.FromResult<IActionResult>(StatusCode(410, new
+        {
+            error = "Génération par brouillon superviseur désactivée. Utilisez POST /api/prime/global-pool/synthesis/generate avec period, scopeType et scopeId.",
+        }));
+
+    [HttpPost("{draftId:guid}/global-pool/generate-legacy")]
+    public async Task<IActionResult> GenerateGlobalPoolExcelLegacy(
         Guid draftId,
         [FromQuery] string supervisorUserId,
         CancellationToken ct)

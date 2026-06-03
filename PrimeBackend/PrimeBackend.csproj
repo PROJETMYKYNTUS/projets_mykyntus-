@@ -7,6 +7,7 @@
     <RootNamespace>PrimeBackend</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Bogus" Version="35.6.1" />
     <PackageReference Include="ClosedXML" Version="0.104.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
       <PrivateAssets>all</PrivateAssets>

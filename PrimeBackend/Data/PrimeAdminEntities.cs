@@ -39,6 +39,10 @@ public class WorkflowStepConfigEntity
     public bool IsActive { get; set; } = true;
     /// <summary>SLA en heures avant alerte (0 = pas de SLA).</summary>
     public int SlaHours { get; set; }
+    /// <summary>Si vrai, après cette transition les montants du corps d’approbation sont appliqués à la fiche.</summary>
+    public bool CapturesAmountsOnApproval { get; set; }
+    /// <summary>Statut métier final (ex. RH Approved) — aide l’UI et les anomalies.</summary>
+    public bool TerminalApproved { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
 }

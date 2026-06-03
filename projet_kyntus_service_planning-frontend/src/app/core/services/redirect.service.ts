@@ -7,8 +7,6 @@ import { AuthGuard } from '../../guard/guards/auth';
 @Injectable({ providedIn: 'root' })
 export class RedirectService {
 
-  private readonly ADMIN_ROLES = ['Admin', 'RH'];
-
   constructor(private router: Router, private authGuard: AuthGuard) {}
 
   redirectAfterLogin(): void {
@@ -19,16 +17,7 @@ export class RedirectService {
       return;
     }
 
-    const role = this.authGuard.getRole(token);
-
-    console.log('=== RedirectService ===');
-    console.log('Rôle :', role);
-    console.log('Destination :', this.ADMIN_ROLES.includes(role) ? '/dashboard' : '/dashboard-employee');
-
-    if (this.ADMIN_ROLES.includes(role)) {
-      this.router.navigate(['/dashboard']);          // ← Admin + RH
-    } else {
-      this.router.navigate(['/dashboard-employee']); // ← tous les autres rôles
-    }
+    // Atterrissage unifié : le shell + menu global des microservices décide de l'affichage selon le rôle.
+    this.router.navigate(['/home']);
   }
 }

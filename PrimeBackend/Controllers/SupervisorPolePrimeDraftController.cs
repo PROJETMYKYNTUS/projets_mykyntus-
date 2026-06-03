@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Data;
 using PrimeBackend.Dto;
+using PrimeBackend.Infrastructure;
 using PrimeBackend.Services;
 
 namespace PrimeBackend.Controllers;
@@ -9,7 +10,10 @@ namespace PrimeBackend.Controllers;
 [ApiController]
 [Route("api/prime/supervisor-cellule-prime-drafts")]
 [Route("api/prime/supervisor-pole-prime-drafts")] // alias : clients encore sur l’ancien chemin (ex. module Angular 4202)
-public sealed class SupervisorCellulePrimeDraftController(PrimeDbContext? db, PrimeOrgScopeService org) : ControllerBase
+public sealed class SupervisorCellulePrimeDraftController(
+    PrimeDbContext? db,
+    PrimeOrgScopeService org,
+    PrimeFicheValidationSubmissionService? submission) : ControllerBase
 {
     private static SupervisorCellulePrimeDraftResponseDto Map(SupervisorCellulePrimeDraftEntity e) =>
         new()
@@ -90,7 +94,9 @@ public sealed class SupervisorCellulePrimeDraftController(PrimeDbContext? db, Pr
         var employeesByPole = await org.GetEmployeeCountsByCelluleAsync(celluleIds, ct);
 
         var result = new List<SupervisorCellulePrimeDraftListItemDto>();
-        foreach (var draft in drafts)
+        foreach (var draft in drafts
+                     .GroupBy(d => new { d.RootPoleId, d.Period })
+                     .Select(g => g.OrderByDescending(x => x.UpdatedAt).First()))
         {
             var total = employeesByPole.TryGetValue(draft.CelluleId, out var t) ? t : 0;
             fichesByDraft.TryGetValue(draft.Id, out var draftFiches);
@@ -168,19 +174,18 @@ public sealed class SupervisorCellulePrimeDraftController(PrimeDbContext? db, Pr
         var periodTrim = body.Period.Trim();
         var templateTrim = body.TemplateId.Trim();
 
+        var rootPoleId = await org.ResolveRootPoleIdForCelluleAsync(poleTrim, ct);
+        if (string.IsNullOrWhiteSpace(rootPoleId))
+            return BadRequest(new { error = "Impossible de résoudre le pôle racine pour cette cellule. Vérifiez la structure RH (prime_pole / prime_cellule)." });
         var now = DateTimeOffset.UtcNow;
         var entity = await db.SupervisorCellulePrimeDrafts.FirstOrDefaultAsync(
-            x => x.SupervisorUserId == supTrim && x.CelluleId == poleTrim &&
-                 x.Period == periodTrim && x.TemplateId == templateTrim, ct);
+            x => x.SupervisorUserId == supTrim && x.RootPoleId == rootPoleId && x.Period == periodTrim, ct);
 
         if (entity == null)
         {
-            // Unicité 1 fiche commune par (superviseur, pôle, période) :
-            // si une autre fiche existait avec un templateId différent, on l'écrase.
-            // Cascade FK supprime les EmployeeFiches enfants.
+            // Unicité : une fiche commune par (superviseur, pôle racine, période).
             var stale = await db.SupervisorCellulePrimeDrafts
-                .Where(x => x.SupervisorUserId == supTrim && x.CelluleId == poleTrim &&
-                            x.Period == periodTrim && x.TemplateId != templateTrim)
+                .Where(x => x.SupervisorUserId == supTrim && x.RootPoleId == rootPoleId && x.Period == periodTrim)
                 .ToListAsync(ct);
             if (stale.Count > 0) db.SupervisorCellulePrimeDrafts.RemoveRange(stale);
 
@@ -188,6 +193,7 @@ public sealed class SupervisorCellulePrimeDraftController(PrimeDbContext? db, Pr
             {
                 Id = Guid.NewGuid(),
                 SupervisorUserId = supTrim,
+                RootPoleId = rootPoleId,
                 CelluleId = poleTrim,
                 Period = periodTrim,
                 TemplateId = templateTrim,
@@ -204,6 +210,9 @@ public sealed class SupervisorCellulePrimeDraftController(PrimeDbContext? db, Pr
         }
         else
         {
+            entity.RootPoleId = rootPoleId;
+            entity.CelluleId = poleTrim;
+            entity.TemplateId = templateTrim;
             entity.TemplateDisplayName = (body.TemplateDisplayName ?? "").Trim();
             entity.TemplateFormatVersion = body.TemplateFormatVersion;
             if (!string.IsNullOrWhiteSpace(body.Status)) entity.Status = body.Status.Trim();
@@ -214,7 +223,21 @@ public sealed class SupervisorCellulePrimeDraftController(PrimeDbContext? db, Pr
             entity.UpdatedAt = now;
         }
 
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex)
+        {
+            return Conflict(new { error = DbExceptionMessages.FromSaveChanges(ex) });
+        }
+
+        if (submission is not null)
+        {
+            await submission.SyncForDraftAsync(entity.Id, ct);
+            await db.SaveChangesAsync(ct);
+        }
+
         return Ok(Map(entity));
     }
 

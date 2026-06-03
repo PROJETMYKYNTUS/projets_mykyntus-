@@ -1,0 +1,86 @@
+<div class="kyntus-shell" [class.sidebar-open]="sidebarOpen">
+
+  <!-- SIDEBAR GLOBALE -->
+  <aside class="ks-sidebar">
+    <div class="ks-brand">
+      <div class="ks-brand-logo">K</div>
+      <div class="ks-brand-text">
+        <strong>Kyntus</strong>
+        <span>Morocco — Plateforme RH</span>
+      </div>
+    </div>
+
+    <nav class="ks-nav">
+      <a class="ks-home" routerLink="/home" routerLinkActive="active" (click)="sidebarOpen = false">
+        <span class="ks-ic" [innerHTML]="icon(homeIcon)"></span>
+        Accueil
+      </a>
+
+      <span class="ks-nav-label">Microservices</span>
+
+      <div class="ks-group" *ngFor="let g of groups">
+        <button type="button" class="ks-group-head" [class.open]="isOpen(g.id)" (click)="toggleGroup(g.id)">
+          <span class="ks-ic" [innerHTML]="icon(g.icon)"></span>
+          <span class="ks-group-label">{{ g.label }}</span>
+          <span class="ks-chevron" [class.open]="isOpen(g.id)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+
+        <div class="ks-sub" *ngIf="isOpen(g.id)">
+          <a *ngFor="let item of g.children"
+             class="ks-sub-item"
+             [class.active]="isItemActive(item)"
+             (click)="onItemClick(item)">
+            <span class="ks-dot"></span>
+            {{ item.label }}
+            <span class="ks-ext" *ngIf="item.externalUrl" title="Ouvre dans un nouvel onglet">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </span>
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="ks-sidebar-footer">
+      <div class="ks-user-row">
+        <div class="ks-user-av">{{ userInitials }}</div>
+        <div class="ks-user-info">
+          <strong>{{ currentUser?.username || 'Utilisateur' }}</strong>
+          <span>{{ role || currentUser?.email || '—' }}</span>
+        </div>
+      </div>
+      <button class="ks-logout" (click)="logout()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Déconnexion
+      </button>
+    </div>
+  </aside>
+
+  <!-- OVERLAY MOBILE -->
+  <div class="ks-overlay" (click)="sidebarOpen = false"></div>
+
+  <!-- ZONE PRINCIPALE -->
+  <div class="ks-main">
+    <header class="ks-topbar">
+      <button class="ks-burger" (click)="toggleSidebar()" title="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="ks-topbar-title">
+        <strong>Plateforme unifiée Kyntus</strong>
+        <span>Gestion RH par microservices</span>
+      </div>
+      <div class="ks-topbar-right">
+        <div class="ks-pill">
+          <span class="ks-dot-pulse"></span>
+          Système actif
+        </div>
+        <div class="ks-tb-av">{{ userInitials }}</div>
+      </div>
+    </header>
+
+    <main class="ks-content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>

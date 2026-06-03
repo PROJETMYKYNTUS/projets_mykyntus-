@@ -2,236 +2,234 @@ import { Routes } from '@angular/router';
 import { AuthCallbackComponent } from './component/pages/auth-callback.component';
 import { AuthGuard } from './guard/guards/auth';
 import { NewsletterAdminComponent } from './features/Newsletter-admin/newsletter-admin.component';
+import { ShellLayoutComponent } from './features/shell/shell-layout.component';
 
 export const routes: Routes = [
 
-  // ─── AUTH ─────────────────────────────────────────
+  // ─── HORS SHELL (auth / erreurs) ──────────────────
   {
     path: 'auth-callback',
-    component: AuthCallbackComponent
+    component: AuthCallbackComponent,
+  },
+  {
+    path: 'unauthorized',
+    loadComponent: () =>
+      import('./features/dashboard/pages/unauthorized.component')
+        .then(m => m.UnauthorizedComponent),
   },
 
-  // ─── DASHBOARDS PAR RÔLE ──────────────────────────
+  // ─── ANCIENS DASHBOARDS (layout propre, accès direct conservé) ──
   {
     path: 'dashboard',
     canActivate: [AuthGuard],
     data: { roles: ['Admin', 'RH'] },
     loadComponent: () =>
       import('./features/dashboard/pages/dashboard-home/dashboard-home.component')
-        .then(m => m.DashboardHomeComponent)
+        .then(m => m.DashboardHomeComponent),
   },
   {
-    path: 'dashboard-employee',            // ✅ corrigé : dashboard-employee
+    path: 'dashboard-employee',
     canActivate: [AuthGuard],
     data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation'] },
     loadComponent: () =>
       import('./features/dashboard/pages/dashboard-employee/dashboard-employee.component')
-        .then(m => m.DashboardEmployeeComponent)
-  },
-{
-    path: 'reclamations',
-    canActivate: [AuthGuard],
-    data: {
-      roles: ['employee','RH','Manager','Coach','RP','Admin','Audit','Equipe_Formation']
-    },
-    loadComponent: () =>
-      import('./features/reclamation/employee/reclamation-employee.component')
-        .then(m => m.ReclamationEmployeeComponent)
-  },
- 
-  // Vue admin/gestion (RH, Manager, RP, Admin, Audit)
-  {
-    path: 'reclamations-admin',
-    canActivate: [AuthGuard],
-    data: { roles: ['RH','Manager','RP','Admin','Audit'] },
-    loadComponent: () =>
-      import('./features/reclamation/admin/reclamation-admin.component')
-        .then(m => m.ReclamationAdminComponent)
-  },
-  {
-  path: 'formations',
-  canActivate: [AuthGuard],
-  data: { roles: ['Admin', 'RH', 'Equipe_Formation'] },
-  loadComponent: () =>
-    import('./features/formation/admin/formation-admin.component')
-      .then(m => m.FormationAdminComponent)
-},
-
-// ─── FORMATION — Employé ──────────────────────────
-{
-  path: 'mes-formations',
-  canActivate: [AuthGuard],
-  data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation'] },
-  loadComponent: () =>
-    import('./features/formation/employee/formation-employee.component')
-      .then(m => m.FormationEmployeeComponent)
-},
-  // ─── NEWSLETTER — Admin + RH ──────────────────────
-  {
-    path: 'newsletter',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },      // ✅ RH ajouté
-    component: NewsletterAdminComponent
+        .then(m => m.DashboardEmployeeComponent),
   },
 
-  // ─── ORGANISATION — Admin + RH ────────────────────
+  // ─── SHELL UNIFIÉ (menu latéral global persistant) ──
   {
-    path: 'floors',
+    path: '',
+    component: ShellLayoutComponent,
     canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },
-    loadComponent: () =>
-      import('./features/floors/pages/floor-list/floor-list.component')
-        .then(m => m.FloorListComponent)
-  },
-  {
-    path: 'floors/create',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },
-    loadComponent: () =>
-      import('./features/floors/pages/floor-form/floor-form.component')
-        .then(m => m.FloorFormComponent)
-  },
-  {
-    path: 'floors/edit/:id',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },
-    loadComponent: () =>
-      import('./features/floors/pages/floor-form/floor-form.component')
-        .then(m => m.FloorFormComponent)
-  },
-  {
-    path: 'floors/:id',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },
-    loadComponent: () =>
-      import('./features/floors/pages/floor-detail/floor-detail.component')
-        .then(m => m.FloorDetailComponent)
-  },
-  {
-    path: 'services',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },
-    loadChildren: () =>
-      import('./features/services/services-routing-modules')
-        .then(m => m.ServicesRoutingModule)
-  },
-  {
-    path: 'sub-services',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },
-    loadChildren: () =>
-      import('./features/sub-services/sub-services-routing-module')
-        .then(m => m.SubServicesRoutingModule)
+    children: [
+
+      // Accueil — lanceur de microservices
+      {
+        path: 'home',
+        loadComponent: () =>
+          import('./features/dashboard/pages/launcher/launcher.component')
+            .then(m => m.LauncherComponent),
+      },
+
+      // ─── QUALITÉ & AMÉLIORATION ──────────────────
+      {
+        path: 'reclamations',
+        canActivate: [AuthGuard],
+        data: { roles: ['employee', 'RH', 'Manager', 'Coach', 'RP', 'Admin', 'Audit', 'Equipe_Formation'] },
+        loadComponent: () =>
+          import('./features/reclamation/employee/reclamation-employee.component')
+            .then(m => m.ReclamationEmployeeComponent),
+      },
+      {
+        path: 'reclamations-admin',
+        canActivate: [AuthGuard],
+        data: { roles: ['RH', 'Manager', 'RP', 'Admin', 'Audit'] },
+        loadComponent: () =>
+          import('./features/reclamation/admin/reclamation-admin.component')
+            .then(m => m.ReclamationAdminComponent),
+      },
+
+      // ─── FORMATION ───────────────────────────────
+      {
+        path: 'formations',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH', 'Equipe_Formation'] },
+        loadComponent: () =>
+          import('./features/formation/admin/formation-admin.component')
+            .then(m => m.FormationAdminComponent),
+      },
+      {
+        path: 'mes-formations',
+        canActivate: [AuthGuard],
+        data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation'] },
+        loadComponent: () =>
+          import('./features/formation/employee/formation-employee.component')
+            .then(m => m.FormationEmployeeComponent),
+      },
+
+      // ─── NEWSLETTER ──────────────────────────────
+      {
+        path: 'newsletter',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        component: NewsletterAdminComponent,
+      },
+
+      // ─── ORGANISATION ────────────────────────────
+      {
+        path: 'floors',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadComponent: () =>
+          import('./features/floors/pages/floor-list/floor-list.component')
+            .then(m => m.FloorListComponent),
+      },
+      {
+        path: 'floors/create',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadComponent: () =>
+          import('./features/floors/pages/floor-form/floor-form.component')
+            .then(m => m.FloorFormComponent),
+      },
+      {
+        path: 'floors/edit/:id',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadComponent: () =>
+          import('./features/floors/pages/floor-form/floor-form.component')
+            .then(m => m.FloorFormComponent),
+      },
+      {
+        path: 'floors/:id',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadComponent: () =>
+          import('./features/floors/pages/floor-detail/floor-detail.component')
+            .then(m => m.FloorDetailComponent),
+      },
+      {
+        path: 'services',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadChildren: () =>
+          import('./features/services/services-routing-modules')
+            .then(m => m.ServicesRoutingModule),
+      },
+      {
+        path: 'sub-services',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadChildren: () =>
+          import('./features/sub-services/sub-services-routing-module')
+            .then(m => m.SubServicesRoutingModule),
+      },
+
+      // ─── RH — Employés & Imports ─────────────────
+      {
+        path: 'users',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadChildren: () =>
+          import('./features/users/users-routing-module')
+            .then(m => m.UsersRoutingModule),
+      },
+      {
+        path: 'import',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadComponent: () =>
+          import('./features/users/pages/user-import/user-import.component')
+            .then(m => m.UserImportComponent),
+      },
+
+      // ─── CONTRATS & CONGÉS ───────────────────────
+      {
+        path: 'contracts',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH', 'Manager'] },
+        loadChildren: () =>
+          import('./features/contract/contract-routing-module')
+            .then(m => m.ContractRoutingModule),
+      },
+      {
+        path: 'new-employees',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH', 'Manager'] },
+        loadComponent: () =>
+          import('./features/planning/pages/new-employee-manager/new-employee-manager.component')
+            .then(m => m.NewEmployeeManagerComponent),
+      },
+      {
+        path: 'conge',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH', 'Manager'] },
+        loadComponent: () =>
+          import('./features/planning/pages/conge-manager/conge-manager.component')
+            .then(m => m.CongeManagerComponent),
+      },
+      {
+        path: 'conge-gestion',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH', 'Manager'] },
+        loadComponent: () =>
+          import('./features/conge/pages/conge-manager/conge-manager.component')
+            .then(m => m.CongeManagerComponent),
+      },
+      {
+        path: 'mes-conges',
+        canActivate: [AuthGuard],
+        data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation'] },
+        loadComponent: () =>
+          import('./features/conge/pages/conge-employe/conge-employe.component')
+            .then(m => m.CongeEmployeComponent),
+      },
+
+      // ─── PLANNING ────────────────────────────────
+      {
+        path: 'planning',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'] },
+        loadChildren: () =>
+          import('./features/planning/planning-routing-module')
+            .then(m => m.PlanningRoutingModule),
+      },
+
+      // ─── DOCUMENTATION (microservice intégré, lazy) ──
+      {
+        path: 'documentation',
+        canActivate: [AuthGuard],
+        data: {
+          roles: ['Admin', 'RH', 'Employee', 'employee', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'],
+        },
+        loadChildren: () =>
+          import('./features/documentation/documentation-feature/documentation-feature.module')
+            .then(m => m.DocumentationFeatureModule),
+      },
+
+      { path: '', redirectTo: 'home', pathMatch: 'full' },
+    ],
   },
 
-  // ─── RH — Employés & Imports ──────────────────────
-  {
-    path: 'users',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },      // ✅ RH gère les employés
-    loadChildren: () =>
-      import('./features/users/users-routing-module')
-        .then(m => m.UsersRoutingModule)
-  },
-  {
-    path: 'import',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },
-    loadComponent: () =>
-      import('./features/users/pages/user-import/user-import.component')
-        .then(m => m.UserImportComponent)
-  },
-
-  // ─── CONTRATS & CONGÉS — Admin + RH + Manager ─────
-  {
-    path: 'contracts',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH', 'Manager'] },
-    loadChildren: () =>
-      import('./features/contract/contract-routing-module')
-        .then(m => m.ContractRoutingModule)
-  },
-  {
-    path: 'new-employees',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH', 'Manager'] },
-    loadComponent: () =>
-      import('./features/planning/pages/new-employee-manager/new-employee-manager.component')
-        .then(m => m.NewEmployeeManagerComponent)
-  },
-  // ─── CONGÉS — Employé ─────────────────────────────────────────────
-// ✅ L'ANCIEN — votre bouton existant continue à fonctionner
-{
-  path: 'conge',                          // ← path inchangé, le bouton actuel pointe ici
-  canActivate: [AuthGuard],
-  data: { roles: ['Admin', 'RH', 'Manager'] },
-  loadComponent: () =>
-    import('./features/planning/pages/conge-manager/conge-manager.component')
-      .then(m => m.CongeManagerComponent)
-},
-
-// ✅ LE NOUVEAU — votre nouvelle gestion complète
-{
-  path: 'conge-gestion',                  // ← nouveau path distinct
-  canActivate: [AuthGuard],
-  data: { roles: ['Admin', 'RH', 'Manager'] },
-  loadComponent: () =>
-    import('./features/conge/pages/conge-manager/conge-manager.component')
-      .then(m => m.CongeManagerComponent)
-},
-
-// ✅ EMPLOYÉ — inchangé
-{
-  path: 'mes-conges',
-  canActivate: [AuthGuard],
-  data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation'] },
-  loadComponent: () =>
-    import('./features/conge/pages/conge-employe/conge-employe.component')
-      .then(m => m.CongeEmployeComponent)
-},
-
-  // ─── PLANNING — tous les rôles ────────────────────
-  {
-    path: 'planning',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'] }, // ✅ tous les vrais rôles
-    loadChildren: () =>
-      import('./features/planning/planning-routing-module')
-        .then(m => m.PlanningRoutingModule)
-  },
-
-  // ─── DOCUMENTATION (microservice UI intégré, lazy) ─────────────────
-  {
-    path: 'documentation',
-    canActivate: [AuthGuard],
-    data: {
-      roles: [
-        'Admin',
-        'RH',
-        'Employee',
-        'employee',
-        'Manager',
-        'Coach',
-        'RP',
-        'Pilote',
-        'Audit',
-        'Equipe_Formation',
-      ],
-    },
-    loadChildren: () =>
-      import('./features/documentation/documentation-feature/documentation-feature.module').then(
-        (m) => m.DocumentationFeatureModule,
-      ),
-  },
-
-  // ─── AUTRES ───────────────────────────────────────
-  {
-    path: 'unauthorized',
-    loadComponent: () =>
-      import('./features/dashboard/pages/unauthorized.component')
-        .then(m => m.UnauthorizedComponent)
-  },
-
-  { path: '', redirectTo: 'auth-callback', pathMatch: 'full' },
-  { path: '**', redirectTo: 'dashboard-employee' }   // ✅ corrigé
+  { path: '**', redirectTo: 'home' },
 ];

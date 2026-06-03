@@ -126,12 +126,28 @@ export class ReferralService {
     await this.refreshAfterMutation();
   }
 
+  async confirmPaymentEligibility(
+    id: string,
+    comment?: string,
+    actor?: Actor,
+  ): Promise<Referral | undefined> {
+    try {
+      const updated = await this.api.confirmPaymentEligibility(id, { comment, actor });
+      this.store.patchReferral(updated);
+      await this.refreshAfterMutation();
+      return updated;
+    } catch {
+      return undefined;
+    }
+  }
+
   paymentStatusLabel(referral: Referral): string {
     if (referral.status === 'REJECTED') return 'Rejeté';
     if (referral.status === 'SUBMITTED') return 'En attente RH';
     if (referral.status === 'PROCESSED') return 'Traité — attente entrée';
     if (referral.status === 'REWARDED') return 'Versé';
     if (referral.paymentStatus === 'READY') return 'Prêt compta';
+    if (referral.paymentStatus === 'AWAITING_RH') return 'À confirmer RH';
     if (referral.paymentStatus === 'NOT_ELIGIBLE') return 'Période en cours';
     return referral.paymentStatus;
   }
@@ -198,6 +214,7 @@ export class ReferralService {
       type: rule.type,
       value: rule.value,
       target: rule.target,
+      minDurationMonths: rule.minDurationMonths,
       status: rule.status === 'ACTIVE' ? 'ACTIVE' : 'PAUSED',
     });
     await this.store.refreshRules();
@@ -269,7 +286,43 @@ export class ReferralService {
 
   getSuggestedReward(referralId: string): number {
     const referral = this.getReferralById(referralId);
-    return referral ? this.computeSuggestedReward(referral, this.getRules()) : 0;
+    if (!referral) return 0;
+    if (referral.appliedRuleId) {
+      const rule = this.getRules().find((r) => r.id === referral.appliedRuleId);
+      if (rule) return rule.value;
+    }
+    return this.admin.getSystemConfig().defaultBonusAmount;
+  }
+
+  getSuggestedMinDuration(referralId: string): number {
+    const referral = this.getReferralById(referralId);
+    if (!referral) return this.admin.getSystemConfig().minDurationMonths;
+    if (referral.appliedRuleId) {
+      const rule = this.getRules().find((r) => r.id === referral.appliedRuleId);
+      if (rule?.minDurationMonths) return rule.minDurationMonths;
+    }
+    return this.admin.getSystemConfig().minDurationMonths;
+  }
+
+  getRuleLabelForReferral(referralId: string): string {
+    const referral = this.getReferralById(referralId);
+    if (!referral) return '';
+    if (referral.appliedRuleId) {
+      const rule = this.getRules().find((r) => r.id === referral.appliedRuleId);
+      if (rule) {
+        return `Poste ${rule.target} (${rule.value} DH, ${rule.minDurationMonths} mois)`;
+      }
+    }
+    const cfg = this.admin.getSystemConfig();
+    return `Règle générale (${cfg.defaultBonusAmount} DH, ${cfg.minDurationMonths} mois)`;
+  }
+
+  async getRulesCatalog() {
+    return this.api.getRulesCatalog();
+  }
+
+  async getRewardPreview(referralId: string) {
+    return this.api.getRewardPreview(referralId);
   }
 
   getTotalReferralBonusPotentialDH(referralId: string): number {
@@ -290,10 +343,11 @@ export class ReferralService {
     candidateName: string;
     candidateEmail: string;
     candidatePhone: string;
-    position: string;
+    ruleId?: string;
+    position?: string;
     project?: string;
     notes?: string;
-    cvFile?: File;
+    cvFile: File;
   }): Promise<Referral> {
     const created = await this.api.createReferral({
       referrerId: data.referrerId,
@@ -301,15 +355,13 @@ export class ReferralService {
       candidateName: data.candidateName,
       candidateEmail: data.candidateEmail,
       candidatePhone: data.candidatePhone,
+      ruleId: data.ruleId,
       position: data.position,
       project: data.project,
       notes: data.notes,
     });
-    let result = created;
-    if (data.cvFile) {
-      result = await this.api.uploadReferralCv(created.id, data.cvFile);
-      this.store.patchReferral(result);
-    }
+    const result = await this.api.uploadReferralCv(created.id, data.cvFile);
+    this.store.patchReferral(result);
     await this.refreshAfterMutation();
     return result;
   }
@@ -347,18 +399,5 @@ export class ReferralService {
   private async refreshAfterMutation(): Promise<void> {
     const u = this.roleSvc.user();
     await this.store.refreshCore(u.role, u.id, u.projectId);
-  }
-
-  private computeSuggestedReward(referral: Referral, rules: ReferralRule[]): number {
-    const cfg = this.admin.getSystemConfig();
-    const programRules = cfg.referralProgramRules!;
-    const fromProgram = accruedBonusDH(referral.createdAt, programRules);
-    if (fromProgram > 0) return fromProgram;
-    const active = rules.filter((r) => r.status === 'ACTIVE');
-    const perPosition = active.filter((r) => r.type === 'REWARD_PER_POSITION');
-    const hit = perPosition.find((r) => r.target && r.target === referral.position);
-    if (hit) return hit.value;
-    const fixed = active.find((r) => r.type === 'REWARD_AFTER_PROBATION');
-    return fixed ? fixed.value : totalPotentialBonusDH(programRules);
   }
 }

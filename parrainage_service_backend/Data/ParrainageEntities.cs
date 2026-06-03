@@ -14,6 +14,8 @@ public class ReferralEntity
     public string CandidateEmail { get; set; } = string.Empty;
     public string CandidatePhone { get; set; } = string.Empty;
     public string Position { get; set; } = string.Empty;
+    public string PositionMode { get; set; } = ReferralPositionMode.Custom;
+    public string? AppliedRuleId { get; set; }
     public string Status { get; set; } = "SUBMITTED";
     public decimal RewardAmount { get; set; }
     public string? CvUrl { get; set; }
@@ -50,6 +52,7 @@ public class ReferralRuleEntity
     public string Type { get; set; } = string.Empty;
     public decimal Value { get; set; }
     public string? Target { get; set; }
+    public int MinDurationMonths { get; set; } = 6;
     public string Status { get; set; } = "ACTIVE";
     public DateTimeOffset CreatedAt { get; set; }
 }

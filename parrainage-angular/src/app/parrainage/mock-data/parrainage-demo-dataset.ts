@@ -7,17 +7,29 @@ import type {
 } from '../models/referral.model';
 import { DEFAULT_SYSTEM_CONFIG, type AuditLogEntry, type SystemConfig } from '../models/system-config.model';
 
+function resolveAppliedRuleId(position: string): string | undefined {
+  if (position === 'Développeur') return 'rule-1';
+  if (position === 'Chef de projet') return 'rule-2';
+  return undefined;
+}
+
+function resolvePositionMode(position: string): 'CATALOG' | 'CUSTOM' {
+  return resolveAppliedRuleId(position) ? 'CATALOG' : 'CUSTOM';
+}
+
 function buildReferrals(): Referral[] {
   const now = Date.now();
   const base: Omit<Referral, 'createdAt' | 'rewardAmount'>[] = [
-    { id: 'ref-1001', referrerId: 'emp-1', referrerName: 'Jean Dupont', projectId: 'proj-1', projectName: 'Alpha Digital', teamId: 'team-a', candidateName: 'Claire Martin', candidateEmail: 'claire.martin@email.com', candidatePhone: '+33 6 12 34 56 78', position: 'Développeur Full-Stack', status: 'SUBMITTED', paymentStatus: 'NOT_ELIGIBLE' },
-    { id: 'ref-1002', referrerId: 'emp-1', referrerName: 'Jean Dupont', projectId: 'proj-1', projectName: 'Alpha Digital', teamId: 'team-a', candidateName: 'Paul Bernard', candidateEmail: 'paul.bernard@email.com', candidatePhone: '+33 6 98 76 54 32', position: 'Chef de projet', status: 'PROCESSED', paymentStatus: 'NOT_ELIGIBLE' },
-    { id: 'ref-1003', referrerId: 'emp-2', referrerName: 'Sophie Leroy', projectId: 'proj-2', projectName: 'Beta Ops', teamId: 'team-b', candidateName: 'Luc Petit', candidateEmail: 'luc.petit@email.com', candidatePhone: '+33 6 11 22 33 44', position: 'Analyste data', status: 'REJECTED', paymentStatus: 'NOT_ELIGIBLE' },
-    { id: 'ref-1004', referrerId: 'emp-2', referrerName: 'Sophie Leroy', projectId: 'proj-2', projectName: 'Beta Ops', teamId: 'team-b', candidateName: 'Nadia Kaci', candidateEmail: 'nadia.kaci@email.com', candidatePhone: '+33 6 55 66 77 88', position: 'Développeur', status: 'REWARDED', paymentStatus: 'PAID' },
-    { id: 'ref-1005', referrerId: 'emp-3', referrerName: 'Thomas Bernard', projectId: 'proj-3', projectName: 'Gamma Cloud', teamId: 'team-c', candidateName: 'Amélie Rousseau', candidateEmail: 'amelie.rousseau@email.com', candidatePhone: '+33 6 44 55 66 77', position: 'DevOps', status: 'SUBMITTED', paymentStatus: 'NOT_ELIGIBLE' },
+    { id: 'ref-1001', referrerId: 'emp-1', referrerName: 'Jean Dupont', projectId: 'proj-1', projectName: 'Alpha Digital', teamId: 'team-a', candidateName: 'Claire Martin', candidateEmail: 'claire.martin@email.com', candidatePhone: '+33 6 12 34 56 78', position: 'Développeur Full-Stack', positionMode: 'CUSTOM', status: 'SUBMITTED', paymentStatus: 'NOT_ELIGIBLE' },
+    { id: 'ref-1002', referrerId: 'emp-1', referrerName: 'Jean Dupont', projectId: 'proj-1', projectName: 'Alpha Digital', teamId: 'team-a', candidateName: 'Paul Bernard', candidateEmail: 'paul.bernard@email.com', candidatePhone: '+33 6 98 76 54 32', position: 'Chef de projet', positionMode: 'CATALOG', appliedRuleId: 'rule-2', status: 'PROCESSED', paymentStatus: 'NOT_ELIGIBLE' },
+    { id: 'ref-1003', referrerId: 'emp-2', referrerName: 'Sophie Leroy', projectId: 'proj-2', projectName: 'Beta Ops', teamId: 'team-b', candidateName: 'Luc Petit', candidateEmail: 'luc.petit@email.com', candidatePhone: '+33 6 11 22 33 44', position: 'Analyste data', positionMode: 'CUSTOM', status: 'REJECTED', paymentStatus: 'NOT_ELIGIBLE' },
+    { id: 'ref-1004', referrerId: 'emp-2', referrerName: 'Sophie Leroy', projectId: 'proj-2', projectName: 'Beta Ops', teamId: 'team-b', candidateName: 'Nadia Kaci', candidateEmail: 'nadia.kaci@email.com', candidatePhone: '+33 6 55 66 77 88', position: 'Développeur', positionMode: 'CATALOG', appliedRuleId: 'rule-1', status: 'REWARDED', paymentStatus: 'PAID' },
+    { id: 'ref-1005', referrerId: 'emp-3', referrerName: 'Thomas Bernard', projectId: 'proj-3', projectName: 'Gamma Cloud', teamId: 'team-c', candidateName: 'Amélie Rousseau', candidateEmail: 'amelie.rousseau@email.com', candidatePhone: '+33 6 44 55 66 77', position: 'DevOps', positionMode: 'CUSTOM', status: 'SUBMITTED', paymentStatus: 'NOT_ELIGIBLE' },
   ];
   return base.map((r, idx) => ({
     ...r,
+    appliedRuleId: r.appliedRuleId ?? resolveAppliedRuleId(r.position),
+    positionMode: r.positionMode ?? resolvePositionMode(r.position),
     rewardAmount: r.status === 'APPROVED' ? 750 : r.status === 'REWARDED' ? 600 + (idx % 3) * 50 : 0,
     createdAt: new Date(now - idx * 1000 * 60 * 60 * 12),
   }));
@@ -26,9 +38,9 @@ function buildReferrals(): Referral[] {
 function buildRules(): ReferralRule[] {
   const now = Date.now();
   return [
-    { id: 'rule-1', name: 'Récompense Développeur', type: 'REWARD_PER_POSITION', target: 'Développeur', value: 600, status: 'ACTIVE', createdAt: new Date(now - 86400000 * 30) },
-    { id: 'rule-2', name: 'Récompense Chef de projet', type: 'REWARD_PER_POSITION', target: 'Chef de projet', value: 750, status: 'ACTIVE', createdAt: new Date(now - 86400000 * 30) },
-    { id: 'rule-3', name: 'Récompense post-probatoire', type: 'REWARD_AFTER_PROBATION', value: 200, status: 'PAUSED', createdAt: new Date(now - 86400000 * 25) },
+    { id: 'rule-1', name: 'Récompense Développeur', type: 'REWARD_PER_POSITION', target: 'Développeur', value: 600, minDurationMonths: 6, status: 'ACTIVE', createdAt: new Date(now - 86400000 * 30) },
+    { id: 'rule-2', name: 'Récompense Chef de projet', type: 'REWARD_PER_POSITION', target: 'Chef de projet', value: 750, minDurationMonths: 3, status: 'ACTIVE', createdAt: new Date(now - 86400000 * 30) },
+    { id: 'rule-3', name: 'Récompense post-probatoire', type: 'REWARD_AFTER_PROBATION', value: 200, minDurationMonths: 6, status: 'PAUSED', createdAt: new Date(now - 86400000 * 25) },
   ];
 }
 

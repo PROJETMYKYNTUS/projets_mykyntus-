@@ -110,6 +110,8 @@ public static class ParrainageSeeder
                 CandidateEmail = r.CandidateEmail,
                 CandidatePhone = r.CandidatePhone,
                 Position = r.Position,
+                AppliedRuleId = ResolveAppliedRuleId(r.Position),
+                PositionMode = ResolvePositionMode(r.Position),
                 Status = r.Status,
                 RewardAmount = rewardAmount,
                 CreatedAt = createdAt,
@@ -119,14 +121,24 @@ public static class ParrainageSeeder
         return list;
     }
 
+    private static string? ResolveAppliedRuleId(string position) => position switch
+    {
+        "Développeur" => "rule-1",
+        "Chef de projet" => "rule-2",
+        _ => null,
+    };
+
+    private static string ResolvePositionMode(string position) =>
+        ResolveAppliedRuleId(position) != null ? ReferralPositionMode.Catalog : ReferralPositionMode.Custom;
+
     private static List<ReferralRuleEntity> BuildRules()
     {
         var now = DateTimeOffset.UtcNow;
         return new()
         {
-            new ReferralRuleEntity { Id = "rule-1", Name = "Récompense Développeur", Type = "REWARD_PER_POSITION", Target = "Développeur", Value = 600, Status = "ACTIVE", CreatedAt = now.AddMilliseconds(-DayMs * 30) },
-            new ReferralRuleEntity { Id = "rule-2", Name = "Récompense Chef de projet", Type = "REWARD_PER_POSITION", Target = "Chef de projet", Value = 750, Status = "ACTIVE", CreatedAt = now.AddMilliseconds(-DayMs * 30) },
-            new ReferralRuleEntity { Id = "rule-3", Name = "Récompense post-probatoire", Type = "REWARD_AFTER_PROBATION", Value = 200, Status = "PAUSED", CreatedAt = now.AddMilliseconds(-DayMs * 25) },
+            new ReferralRuleEntity { Id = "rule-1", Name = "Récompense Développeur", Type = "REWARD_PER_POSITION", Target = "Développeur", Value = 600, MinDurationMonths = 6, Status = "ACTIVE", CreatedAt = now.AddMilliseconds(-DayMs * 30) },
+            new ReferralRuleEntity { Id = "rule-2", Name = "Récompense Chef de projet", Type = "REWARD_PER_POSITION", Target = "Chef de projet", Value = 750, MinDurationMonths = 3, Status = "ACTIVE", CreatedAt = now.AddMilliseconds(-DayMs * 30) },
+            new ReferralRuleEntity { Id = "rule-3", Name = "Récompense post-probatoire", Type = "REWARD_AFTER_PROBATION", Value = 200, MinDurationMonths = 6, Status = "PAUSED", CreatedAt = now.AddMilliseconds(-DayMs * 25) },
         };
     }
 

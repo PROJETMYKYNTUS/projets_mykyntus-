@@ -68,6 +68,12 @@ type ToastType = 'success' | 'error' | 'info';
               </div>
             }
 
+            @if (ruleLabel()) {
+              <div class="card-navy p-4 border border-cyan-500/20 bg-cyan-500/5 text-sm text-cyan-100">
+                Règle appliquée : {{ ruleLabel() }}
+              </div>
+            }
+
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div class="card-navy p-5 md:p-6 space-y-4">
                 <div class="flex items-start justify-between gap-3">
@@ -176,8 +182,16 @@ type ToastType = 'success' | 'error' | 'info';
                 @if (ref.status === 'APPROVED') {
                   Période d'ancienneté jusqu'au {{ formatDate(ref.eligibleForPaymentAt) }} —
                   montant engagé {{ ref.rewardAmount }} DH.
+                  @if (ref.paymentStatus === 'NOT_ELIGIBLE') {
+                    <span class="block mt-1 text-slate-300">En attente de la fin de la période minimum.</span>
+                  }
+                  @if (ref.paymentStatus === 'AWAITING_RH') {
+                    <span class="block mt-1 text-amber-200">
+                      Période écoulée — confirmez que le candidat est toujours en poste avant transmission à la comptabilité.
+                    </span>
+                  }
                   @if (ref.paymentStatus === 'READY') {
-                    <span class="block mt-1 text-amber-200">Dossier éligible — en attente du service comptabilité.</span>
+                    <span class="block mt-1 text-amber-200">Éligibilité confirmée — en attente du service comptabilité.</span>
                   }
                 } @else {
                   Prime versée le {{ formatDate(ref.paidAt) }} ({{ ref.rewardAmount }} DH).
@@ -215,6 +229,16 @@ type ToastType = 'success' | 'error' | 'info';
                     class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
                   >
                     Valider l'entrée
+                  </button>
+                }
+                @if (canConfirmEligibility()) {
+                  <button
+                    type="button"
+                    (click)="handleConfirmEligibilityClick()"
+                    [disabled]="busy() || unauthorized"
+                    class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+                  >
+                    Confirmer l'éligibilité
                   </button>
                 }
                 <button
@@ -277,7 +301,7 @@ type ToastType = 'success' | 'error' | 'info';
                       [placeholder]="String(suggestedReward())"
                     />
                     <p class="text-xs text-slate-500 mt-2">
-                      Montant suggéré : {{ suggestedReward() }} DH (selon les règles)
+                      Montant suggéré : {{ suggestedReward() }} DH — ancienneté minimale {{ suggestedMinDuration() }} mois
                     </p>
                   </div>
                   <div>
@@ -298,6 +322,32 @@ type ToastType = 'success' | 'error' | 'info';
                     class="rounded-lg bg-soft-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50"
                   >
                     Valider le dossier
+                  </button>
+                </div>
+              }
+
+              @if (mode() === 'confirm-eligibility' && canConfirmEligibility()) {
+                <div class="space-y-4">
+                  <p class="text-xs text-slate-400">
+                    Vérifiez que le candidat recruté est toujours en poste avant de transmettre le dossier à la comptabilité.
+                  </p>
+                  <div>
+                    <label class="block text-xs font-medium uppercase tracking-wide text-slate-500 mb-1.5">
+                      Commentaire (facultatif)
+                    </label>
+                    <textarea
+                      class="w-full min-h-[70px] rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100"
+                      [(ngModel)]="eligibilityComment"
+                      placeholder="Ex. : candidat toujours en poste au {{ formatDate(referral()?.eligibleForPaymentAt) }}…"
+                    ></textarea>
+                  </div>
+                  <button
+                    type="button"
+                    (click)="confirmOpen.set('confirm-eligibility')"
+                    [disabled]="busy() || unauthorized"
+                    class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+                  >
+                    Confirmer et transmettre à la compta
                   </button>
                 </div>
               }
@@ -403,6 +453,39 @@ type ToastType = 'success' | 'error' | 'info';
       </div>
     }
 
+    @if (confirmOpen() === 'confirm-eligibility') {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <button type="button" class="absolute inset-0 bg-navy-950/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
+        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-navy-800">
+          <div class="flex items-start justify-between gap-4">
+            <h3 class="text-lg font-semibold text-slate-50">Confirmer l'éligibilité</h3>
+            <button type="button" class="rounded-lg p-1 text-slate-500 hover:text-slate-200 hover:bg-navy-800" (click)="confirmOpen.set(null)" aria-label="Fermer">
+              <app-lucide-icon [icon]="xIcon" className="h-5 w-5" />
+            </button>
+          </div>
+          <p class="mt-3 text-sm text-slate-400 leading-relaxed">
+            Candidat : {{ referral()?.candidateName ?? '' }}.
+            Vous confirmez que le candidat est toujours en poste et que la prime peut être transmise à la comptabilité ({{ referral()?.rewardAmount ?? 0 }} DH).
+          </p>
+          <div class="mt-6 flex flex-wrap justify-end gap-2">
+            <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-navy-800 px-4 py-2 text-sm text-slate-300 hover:bg-navy-800/80" [disabled]="busy()">
+              Annuler
+            </button>
+            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white" [disabled]="busy()">
+              @if (busy()) {
+                <span class="inline-flex items-center gap-2">
+                  <app-lucide-icon [icon]="loaderIcon" className="h-4 w-4 animate-spin" />
+                  Traitement…
+                </span>
+              } @else {
+                Confirmer
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     @if (confirmOpen() === 'reject') {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <button type="button" class="absolute inset-0 bg-navy-950/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
@@ -460,14 +543,15 @@ export class RhDetailsPageComponent {
     if (!rid) return [];
     return this.store.history().filter((h) => h.referralId === rid);
   });
-  readonly mode = signal<'none' | 'process' | 'approve' | 'reject'>('none');
+  readonly mode = signal<'none' | 'process' | 'approve' | 'confirm-eligibility' | 'reject'>('none');
   candidateStartDate = new Date().toISOString().slice(0, 10);
   rewardAmount = '';
   approveComment = '';
   processComment = '';
   rejectComment = '';
+  eligibilityComment = '';
   readonly busy = signal(false);
-  readonly confirmOpen = signal<null | 'process' | 'approve' | 'reject'>(null);
+  readonly confirmOpen = signal<null | 'process' | 'approve' | 'confirm-eligibility' | 'reject'>(null);
   readonly toast = signal<{ show: boolean; type: ToastType; message: string }>({ show: false, type: 'success', message: '' });
 
   get id(): string {
@@ -480,6 +564,9 @@ export class RhDetailsPageComponent {
 
   readonly canProcess = computed(() => this.referral()?.status === 'SUBMITTED');
   readonly canApprove = computed(() => this.referral()?.status === 'PROCESSED');
+  readonly canConfirmEligibility = computed(
+    () => this.referral()?.status === 'APPROVED' && this.referral()?.paymentStatus === 'AWAITING_RH',
+  );
   readonly canReject = computed(() => {
     const r = this.referral();
     return r ? r.status === 'SUBMITTED' || r.status === 'PROCESSED' : false;
@@ -495,6 +582,16 @@ export class RhDetailsPageComponent {
   readonly suggestedReward = computed(() => {
     if (!this.id) return 500;
     return this.referralService.getSuggestedReward(this.id);
+  });
+
+  readonly suggestedMinDuration = computed(() => {
+    if (!this.id) return 6;
+    return this.referralService.getSuggestedMinDuration(this.id);
+  });
+
+  readonly ruleLabel = computed(() => {
+    if (!this.id) return '';
+    return this.referralService.getRuleLabelForReferral(this.id);
   });
 
   toastBorder(): string {
@@ -533,6 +630,11 @@ export class RhDetailsPageComponent {
     this.rejectComment = '';
     this.rewardAmount = '';
     this.mode.set('reject');
+  }
+
+  handleConfirmEligibilityClick(): void {
+    this.eligibilityComment = '';
+    this.mode.set('confirm-eligibility');
   }
 
   async handleConfirm(): Promise<void> {
@@ -577,6 +679,18 @@ export class RhDetailsPageComponent {
         );
         if (!updated) throw new Error('Échec de la validation.');
         this.showToast('success', 'Dossier validé — période d\'ancienneté en cours.');
+        this.mode.set('none');
+        this.confirmOpen.set(null);
+        return;
+      }
+      if (this.confirmOpen() === 'confirm-eligibility') {
+        const updated = await this.referralService.confirmPaymentEligibility(
+          id,
+          this.eligibilityComment || undefined,
+          this.actor(),
+        );
+        if (!updated) throw new Error('Échec de la confirmation.');
+        this.showToast('success', 'Éligibilité confirmée — dossier transmis à la comptabilité.');
         this.mode.set('none');
         this.confirmOpen.set(null);
         return;

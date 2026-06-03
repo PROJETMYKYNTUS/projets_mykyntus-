@@ -16,6 +16,8 @@ public sealed class ReferralDto
     public string CandidateEmail { get; set; } = string.Empty;
     public string CandidatePhone { get; set; } = string.Empty;
     public string Position { get; set; } = string.Empty;
+    public string PositionMode { get; set; } = ReferralPositionMode.Custom;
+    public string? AppliedRuleId { get; set; }
     public string Status { get; set; } = "SUBMITTED";
     public decimal RewardAmount { get; set; }
     public string? CvUrl { get; set; }
@@ -51,8 +53,26 @@ public sealed class ReferralRuleDto
     public string Type { get; set; } = string.Empty;
     public decimal Value { get; set; }
     public string? Target { get; set; }
+    public int MinDurationMonths { get; set; } = 6;
     public string Status { get; set; } = "ACTIVE";
     public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed class ReferralRuleCatalogDto
+{
+    public string RuleId { get; set; } = string.Empty;
+    public string Target { get; set; } = string.Empty;
+    public decimal Value { get; set; }
+    public int MinDurationMonths { get; set; }
+}
+
+public sealed class ReferralRewardPreviewDto
+{
+    public decimal SuggestedAmount { get; set; }
+    public int MinDurationMonths { get; set; }
+    public string RuleLabel { get; set; } = string.Empty;
+    public string? AppliedRuleId { get; set; }
+    public string PositionMode { get; set; } = ReferralPositionMode.Custom;
 }
 
 public sealed class ReferralNotificationDto
@@ -132,6 +152,7 @@ public sealed class CreateReferralRequest
     public string CandidateName { get; set; } = string.Empty;
     public string CandidateEmail { get; set; } = string.Empty;
     public string CandidatePhone { get; set; } = string.Empty;
+    public string? RuleId { get; set; }
     public string Position { get; set; } = string.Empty;
     public string? Project { get; set; }
     public string? Notes { get; set; }
@@ -190,6 +211,12 @@ public sealed class ProcessReferralRequest
     public ActorDto? Actor { get; set; }
 }
 
+public sealed class ConfirmPaymentEligibilityRequest
+{
+    public string? Comment { get; set; }
+    public ActorDto? Actor { get; set; }
+}
+
 public sealed class MarkReferralPaymentRequest
 {
     public bool Paid { get; set; } = true;
@@ -220,6 +247,7 @@ public sealed class UpsertRuleRequest
     public string? Type { get; set; }
     public decimal? Value { get; set; }
     public string? Target { get; set; }
+    public int? MinDurationMonths { get; set; }
     public string? Status { get; set; }
 }
 

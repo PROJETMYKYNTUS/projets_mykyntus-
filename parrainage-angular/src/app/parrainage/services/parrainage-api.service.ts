@@ -6,7 +6,9 @@ import type {
   Referral,
   ReferralHistoryEntry,
   ReferralNotification,
+  ReferralRewardPreview,
   ReferralRule,
+  ReferralRuleCatalogItem,
   ReferralStatus,
   RoleFilter,
 } from '../models/referral.model';
@@ -25,8 +27,9 @@ interface RawReferral extends Omit<Referral, 'createdAt' | 'approvedAt' | 'eligi
 interface RawHistory extends Omit<ReferralHistoryEntry, 'createdAt'> {
   createdAt: string;
 }
-interface RawRule extends Omit<ReferralRule, 'createdAt'> {
+interface RawRule extends Omit<ReferralRule, 'createdAt' | 'minDurationMonths'> {
   createdAt: string;
+  minDurationMonths?: number;
 }
 interface RawNotification extends Omit<ReferralNotification, 'createdAt'> {
   createdAt: string;
@@ -70,7 +73,8 @@ export class ParrainageApiService {
     candidateName: string;
     candidateEmail: string;
     candidatePhone: string;
-    position: string;
+    ruleId?: string;
+    position?: string;
     project?: string;
     notes?: string;
   }): Promise<Referral> {
@@ -118,6 +122,17 @@ export class ParrainageApiService {
   async processReferral(id: string, body: { comment?: string; actor?: Actor }): Promise<Referral> {
     return reviveReferral(
       await firstValueFrom(this.http.post<RawReferral>(`${PREFIX}/referrals/${id}/process`, body)),
+    );
+  }
+
+  async confirmPaymentEligibility(
+    id: string,
+    body: { comment?: string; actor?: Actor },
+  ): Promise<Referral> {
+    return reviveReferral(
+      await firstValueFrom(
+        this.http.post<RawReferral>(`${PREFIX}/referrals/${id}/confirm-eligibility`, body),
+      ),
     );
   }
 
@@ -172,12 +187,20 @@ export class ParrainageApiService {
 
   async getRules(): Promise<ReferralRule[]> {
     const rows = await firstValueFrom(this.http.get<RawRule[]>(`${PREFIX}/rules`));
-    return rows.map((r) => ({ ...r, createdAt: new Date(r.createdAt) }));
+    return rows.map((r) => ({ ...r, minDurationMonths: r.minDurationMonths ?? 6, createdAt: new Date(r.createdAt) }));
+  }
+
+  async getRulesCatalog(): Promise<ReferralRuleCatalogItem[]> {
+    return firstValueFrom(this.http.get<ReferralRuleCatalogItem[]>(`${PREFIX}/rules/catalog`));
+  }
+
+  async getRewardPreview(id: string): Promise<ReferralRewardPreview> {
+    return firstValueFrom(this.http.get<ReferralRewardPreview>(`${PREFIX}/referrals/${id}/reward-preview`));
   }
 
   async upsertRule(id: string, body: Partial<ReferralRule>): Promise<ReferralRule> {
     const r = await firstValueFrom(this.http.put<RawRule>(`${PREFIX}/rules/${id}`, body));
-    return { ...r, createdAt: new Date(r.createdAt) };
+    return { ...r, minDurationMonths: r.minDurationMonths ?? 6, createdAt: new Date(r.createdAt) };
   }
 
   async deleteRule(id: string): Promise<void> {
@@ -257,7 +280,7 @@ export class ParrainageApiService {
       ...raw,
       referrals: raw.referrals.map(reviveReferral),
       history: raw.history.map((h) => ({ ...h, createdAt: new Date(h.createdAt) })),
-      rules: raw.rules.map((r) => ({ ...r, createdAt: new Date(r.createdAt) })),
+      rules: raw.rules.map((r) => ({ ...r, minDurationMonths: r.minDurationMonths ?? 6, createdAt: new Date(r.createdAt) })),
       notifications: raw.notifications.map((n) => ({ ...n, createdAt: new Date(n.createdAt) })),
       auditLog: raw.auditLog.map((e) => ({ ...e, timestamp: new Date(e.timestamp) })),
     };
@@ -267,6 +290,7 @@ export class ParrainageApiService {
 function reviveReferral(r: RawReferral): Referral {
   return {
     ...r,
+    positionMode: r.positionMode ?? 'CUSTOM',
     paymentStatus: r.paymentStatus ?? 'NOT_ELIGIBLE',
     createdAt: new Date(r.createdAt),
     approvedAt: r.approvedAt ? new Date(r.approvedAt) : undefined,

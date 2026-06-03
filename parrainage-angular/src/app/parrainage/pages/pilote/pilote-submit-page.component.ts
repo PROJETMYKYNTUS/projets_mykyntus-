@@ -1,11 +1,15 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FileUp, ArrowRight, X } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { ReferralService } from '../../services/referral.service';
+import { AdminService } from '../../services/admin.service';
 import { ParrainageRoleService } from '../../state/parrainage-role.service';
+import type { ReferralRuleCatalogItem } from '../../models/referral.model';
+
+const OTHER_POST_VALUE = '__OTHER__';
 
 const MAX_CV_BYTES = 10 * 1024 * 1024;
 const ALLOWED_CV_TYPES = new Set([
@@ -79,14 +83,43 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
             </div>
             <div class="space-y-1.5">
               <label class="text-xs text-slate-400">Poste ciblé</label>
-              <input
+              <select
                 required
                 class="w-full rounded-lg border border-navy-800 bg-navy-900 px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
-                placeholder="Ex : Développeur Full-Stack Senior"
-                [(ngModel)]="form.position"
-                name="position"
-              />
+                [(ngModel)]="selectedRuleId"
+                name="selectedRuleId"
+              >
+                <option value="" disabled>Sélectionnez un poste</option>
+                @for (item of catalog(); track item.ruleId) {
+                  <option [value]="item.ruleId">
+                    {{ item.target }} — {{ item.value }} DH ({{ item.minDurationMonths }} mois)
+                  </option>
+                }
+                <option [value]="otherPostValue">Autre poste</option>
+              </select>
+              @if (!isOtherPost && previewLabel) {
+                <p class="mt-2 text-xs text-cyan-200/90 rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">
+                  {{ previewLabel }}
+                </p>
+              }
             </div>
+            @if (isOtherPost) {
+              <div class="space-y-1.5 md:col-span-2">
+                <label class="text-xs text-slate-400">Poste</label>
+                <input
+                  required
+                  class="w-full rounded-lg border border-navy-800 bg-navy-900 px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                  placeholder="Ex : Développeur Full-Stack Senior"
+                  [(ngModel)]="customPosition"
+                  name="customPosition"
+                />
+                @if (previewLabel) {
+                  <p class="mt-2 text-xs text-cyan-200/90 rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">
+                    {{ previewLabel }}
+                  </p>
+                }
+              </div>
+            }
           </div>
 
           <div class="space-y-1.5">
@@ -115,7 +148,7 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
         <div class="space-y-4">
           <div class="card-navy p-4 flex flex-col gap-3">
             <p class="text-xs font-medium text-slate-400">
-              CV du candidat (PDF, DOCX)
+              CV du candidat (PDF, DOCX) <span class="text-rose-300">* obligatoire</span>
             </p>
             <input
               #fileInput
@@ -127,9 +160,11 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
             <div
               class="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-6 text-center transition-colors"
               [ngClass]="
-                dragOver()
-                  ? 'border-soft-blue bg-navy-800/60'
-                  : 'border-navy-800 bg-navy-900/60'
+                cvMissingHighlight()
+                  ? 'border-rose-500/60 bg-rose-500/5'
+                  : dragOver()
+                    ? 'border-soft-blue bg-navy-800/60'
+                    : 'border-navy-800 bg-navy-900/60'
               "
               (click)="fileInput.click()"
               (dragover)="onDragOver($event)"
@@ -156,15 +191,18 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
                   </span>
                 </p>
                 <p class="text-[11px] text-slate-500">
-                  Taille maximale 10 Mo • 1 fichier
+                  Taille maximale 10 Mo • 1 fichier • obligatoire
                 </p>
               }
             </div>
+            @if (cvMissingHighlight()) {
+              <p class="text-xs text-rose-300">Le CV du candidat est obligatoire pour soumettre.</p>
+            }
           </div>
 
           <button
             type="submit"
-            [disabled]="done() || busy()"
+            [disabled]="done() || busy() || !cvFile()"
             class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-500 transition-colors disabled:opacity-60"
           >
             @if (busy()) {
@@ -184,6 +222,7 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
               <li>
                 La prime est versée après validation de la période d'essai.
               </li>
+              <li>Le CV du candidat (PDF ou DOCX) est obligatoire.</li>
               <li>
                 Les informations partagées doivent être exactes et complètes.
               </li>
@@ -195,18 +234,51 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PiloteSubmitPageComponent {
+export class PiloteSubmitPageComponent implements OnInit {
   private readonly referrals = inject(ReferralService);
+  private readonly admin = inject(AdminService);
   private readonly role = inject(ParrainageRoleService);
+  readonly otherPostValue = OTHER_POST_VALUE;
+  readonly catalog = signal<ReferralRuleCatalogItem[]>([]);
+  selectedRuleId = '';
+  customPosition = '';
   readonly done = signal(false);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
   readonly cvFile = signal<File | null>(null);
+  readonly cvMissingHighlight = signal(false);
   readonly dragOver = signal(false);
   readonly fileUpIcon = FileUp;
   readonly arrowRightIcon = ArrowRight;
   readonly xIcon = X;
-  form = { candidateName: '', candidateEmail: '', candidatePhone: '', position: '', project: '', notes: '' };
+  form = { candidateName: '', candidateEmail: '', candidatePhone: '', project: '', notes: '' };
+
+  get isOtherPost(): boolean {
+    return this.selectedRuleId === OTHER_POST_VALUE;
+  }
+
+  get previewLabel(): string {
+    if (this.isOtherPost) {
+      const cfg = this.admin.getSystemConfig();
+      return `Règle générale : ${cfg.defaultBonusAmount} DH — ancienneté minimale ${cfg.minDurationMonths} mois`;
+    }
+    if (!this.selectedRuleId) return '';
+    const item = this.catalog().find((c) => c.ruleId === this.selectedRuleId);
+    if (!item) return '';
+    return `Prime poste : ${item.value} DH — ancienneté minimale ${item.minDurationMonths} mois`;
+  }
+
+  ngOnInit(): void {
+    void this.loadCatalog();
+  }
+
+  private async loadCatalog(): Promise<void> {
+    try {
+      this.catalog.set(await this.referrals.getRulesCatalog());
+    } catch {
+      this.catalog.set([]);
+    }
+  }
 
   onDragOver(e: DragEvent): void {
     e.preventDefault();
@@ -248,6 +320,7 @@ export class PiloteSubmitPageComponent {
     }
     this.error.set(null);
     this.cvFile.set(file);
+    this.cvMissingHighlight.set(false);
   }
 
   private validateCv(file: File): string | null {
@@ -260,14 +333,25 @@ export class PiloteSubmitPageComponent {
   async submit(): Promise<void> {
     if (this.busy() || this.done()) return;
     const cv = this.cvFile();
-    if (cv) {
-      const err = this.validateCv(cv);
-      if (err) {
-        this.error.set(err);
-        return;
-      }
+    if (!cv) {
+      this.cvMissingHighlight.set(true);
+      this.error.set('Le CV du candidat est obligatoire.');
+      return;
+    }
+    const err = this.validateCv(cv);
+    if (err) {
+      this.error.set(err);
+      return;
     }
     const user = this.role.user();
+    if (!this.selectedRuleId) {
+      this.error.set('Sélectionnez un poste dans la liste.');
+      return;
+    }
+    if (this.isOtherPost && !this.customPosition.trim()) {
+      this.error.set('Précisez le poste.');
+      return;
+    }
     this.busy.set(true);
     this.error.set(null);
     try {
@@ -277,10 +361,11 @@ export class PiloteSubmitPageComponent {
         candidateName: this.form.candidateName,
         candidateEmail: this.form.candidateEmail,
         candidatePhone: this.form.candidatePhone,
-        position: this.form.position,
+        ruleId: this.isOtherPost ? undefined : this.selectedRuleId,
+        position: this.isOtherPost ? this.customPosition.trim() : undefined,
         project: this.form.project || undefined,
         notes: this.form.notes.trim() || undefined,
-        cvFile: cv ?? undefined,
+        cvFile: cv,
       });
       this.done.set(true);
       this.cvFile.set(null);

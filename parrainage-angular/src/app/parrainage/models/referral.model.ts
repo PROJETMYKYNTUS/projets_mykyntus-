@@ -1,6 +1,8 @@
 export type ReferralStatus = 'SUBMITTED' | 'PROCESSED' | 'APPROVED' | 'REJECTED' | 'REWARDED';
 
-export type ReferralPaymentStatus = 'NOT_ELIGIBLE' | 'READY' | 'PAID';
+export type ReferralPaymentStatus = 'NOT_ELIGIBLE' | 'AWAITING_RH' | 'READY' | 'PAID';
+
+export type ReferralPositionMode = 'CATALOG' | 'CUSTOM';
 
 export interface Referral {
   id: string;
@@ -13,6 +15,8 @@ export interface Referral {
   candidateEmail: string;
   candidatePhone: string;
   position: string;
+  positionMode?: ReferralPositionMode;
+  appliedRuleId?: string;
   status: ReferralStatus;
   rewardAmount: number;
   cvUrl?: string;
@@ -34,6 +38,8 @@ export type ReferralHistoryAction =
   | 'APPROVED'
   | 'REJECTED'
   | 'REWARDED'
+  | 'ELIGIBILITY_DUE'
+  | 'ELIGIBILITY_CONFIRMED'
   | 'PAYMENT_READY'
   | 'PAYMENT_UNDONE';
 
@@ -62,7 +68,7 @@ export type NotificationAudienceRole =
 
 export interface ReferralNotification {
   id: string;
-  type: 'NEW_REFERRAL' | 'STATUS_CHANGED' | 'REFERRAL_REWARDED' | 'REFERRAL_PAYMENT_READY';
+  type: 'NEW_REFERRAL' | 'STATUS_CHANGED' | 'REFERRAL_REWARDED' | 'REFERRAL_ELIGIBILITY_DUE' | 'REFERRAL_PAYMENT_READY';
   message: string;
   createdAt: Date;
   read: boolean;
@@ -89,8 +95,24 @@ export interface ReferralRule {
   type: ReferralRuleType;
   value: number;
   target?: string;
+  minDurationMonths: number;
   status: ReferralRuleStatus;
   createdAt: Date;
+}
+
+export interface ReferralRuleCatalogItem {
+  ruleId: string;
+  target: string;
+  value: number;
+  minDurationMonths: number;
+}
+
+export interface ReferralRewardPreview {
+  suggestedAmount: number;
+  minDurationMonths: number;
+  ruleLabel: string;
+  appliedRuleId?: string;
+  positionMode: ReferralPositionMode;
 }
 
 export type ParrainageRole =

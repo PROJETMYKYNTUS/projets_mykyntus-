@@ -45,6 +45,8 @@ public class ParrainageDbContext(DbContextOptions<ParrainageDbContext> options) 
             e.Property(x => x.CandidateEmail).HasMaxLength(256);
             e.Property(x => x.CandidatePhone).HasMaxLength(64);
             e.Property(x => x.Position).HasMaxLength(256);
+            e.Property(x => x.PositionMode).HasMaxLength(16).HasDefaultValue(ReferralPositionMode.Custom);
+            e.Property(x => x.AppliedRuleId).HasMaxLength(128);
             e.Property(x => x.Status).HasMaxLength(32);
             e.Property(x => x.RewardAmount).HasPrecision(12, 2);
             e.Property(x => x.CvUrl).HasMaxLength(1024);
@@ -84,6 +86,7 @@ public class ParrainageDbContext(DbContextOptions<ParrainageDbContext> options) 
             e.Property(x => x.Type).HasMaxLength(64);
             e.Property(x => x.Value).HasPrecision(12, 2);
             e.Property(x => x.Target).HasMaxLength(256);
+            e.Property(x => x.MinDurationMonths).HasDefaultValue(6);
             e.Property(x => x.Status).HasMaxLength(32);
         });
 

@@ -26,6 +26,8 @@ public sealed class ReferralsController(
 
     ReferralEligibilityService eligibility,
 
+    ReferralRuleResolver ruleResolver,
+
     ReferralCvStorageService cvStorage,
 
     IParrainageRequestUserResolver userResolver) : ControllerBase
@@ -83,6 +85,38 @@ public sealed class ReferralsController(
         if (entity == null) return NotFound(new { error = $"Parrainage introuvable : {id}" });
 
         return Ok(entity.ToDto());
+
+    }
+
+
+
+    [HttpGet("{id}/reward-preview")]
+
+    public async Task<ActionResult<ReferralRewardPreviewDto>> RewardPreview(string id, CancellationToken ct)
+
+    {
+
+        var entity = await db.Referrals.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, ct);
+
+        if (entity == null) return NotFound(new { error = $"Parrainage introuvable : {id}" });
+
+        var defaults = await ruleResolver.ResolveRewardDefaultsAsync(entity, ct);
+
+        return Ok(new ReferralRewardPreviewDto
+
+        {
+
+            SuggestedAmount = defaults.SuggestedAmount,
+
+            MinDurationMonths = defaults.MinDurationMonths,
+
+            RuleLabel = defaults.RuleLabel,
+
+            AppliedRuleId = entity.AppliedRuleId,
+
+            PositionMode = entity.PositionMode,
+
+        });
 
     }
 
@@ -273,6 +307,54 @@ public sealed class ReferralsController(
         {
 
             var updated = await workflow.ApproveReferralAsync(id, body, ct);
+
+            if (updated == null) return NotFound(new { error = $"Parrainage introuvable : {id}" });
+
+            return Ok(updated.ToDto());
+
+        }
+
+        catch (InvalidOperationException ex)
+
+        {
+
+            return BadRequest(new { error = ex.Message });
+
+        }
+
+    }
+
+
+
+    [HttpPost("{id}/confirm-eligibility")]
+
+    public async Task<ActionResult<ReferralDto>> ConfirmEligibility(
+
+        string id,
+
+        [FromBody] ConfirmPaymentEligibilityRequest body,
+
+        CancellationToken ct)
+
+    {
+
+        var user = userResolver.Resolve(Request);
+
+        if (!ParrainageRoleGuard.IsRh(user.Role))
+
+            return Forbid();
+
+
+
+        body.Actor ??= new ActorDto { Id = user.UserId, Label = user.Role, Role = user.Role };
+
+
+
+        try
+
+        {
+
+            var updated = await workflow.ConfirmPaymentEligibilityAsync(id, body, ct);
 
             if (updated == null) return NotFound(new { error = $"Parrainage introuvable : {id}" });
 

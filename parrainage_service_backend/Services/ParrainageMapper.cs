@@ -18,6 +18,8 @@ public static class ParrainageMapper
         CandidateEmail = e.CandidateEmail,
         CandidatePhone = e.CandidatePhone,
         Position = e.Position,
+        PositionMode = e.PositionMode,
+        AppliedRuleId = e.AppliedRuleId,
         Status = e.Status,
         RewardAmount = e.RewardAmount,
         CvUrl = e.CvUrl,
@@ -53,6 +55,7 @@ public static class ParrainageMapper
         Type = e.Type,
         Value = e.Value,
         Target = e.Target,
+        MinDurationMonths = e.MinDurationMonths,
         Status = e.Status,
         CreatedAt = e.CreatedAt,
     };

@@ -8,7 +8,7 @@ namespace ParrainageBackend.Services;
 /// <summary>
 /// Workflow parrainage : soumission, validation RH (sans paiement), éligibilité, marquage payé compta.
 /// </summary>
-public sealed class ReferralWorkflowService(ParrainageDbContext db)
+public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRuleResolver ruleResolver, ReferralCvStorageService cvStorage)
 {
     private static readonly Dictionary<string, string> StatusLabelFr = new()
     {
@@ -32,6 +32,7 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db)
 
         var id = $"ref-{NowMs()}";
         var createdAt = DateTimeOffset.UtcNow;
+        var positionResolution = await ruleResolver.ResolveOnSubmitAsync(data.RuleId, data.Position, ct);
         var created = new ReferralEntity
         {
             Id = id,
@@ -43,7 +44,9 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db)
             CandidateName = data.CandidateName,
             CandidateEmail = data.CandidateEmail,
             CandidatePhone = data.CandidatePhone,
-            Position = data.Position,
+            Position = positionResolution.Position,
+            PositionMode = positionResolution.PositionMode,
+            AppliedRuleId = positionResolution.AppliedRuleId,
             Status = "SUBMITTED",
             RewardAmount = 0,
             PaymentStatus = ReferralPaymentStatus.NotEligible,
@@ -68,7 +71,7 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db)
         {
             Id = $"nt-{id}-sub",
             Type = "NEW_REFERRAL",
-            Message = $"Nouveau parrainage : {data.CandidateName} ({data.Position})",
+            Message = $"Nouveau parrainage : {data.CandidateName} ({positionResolution.Position})",
             CreatedAt = createdAt,
             Read = false,
             ReferralId = id,
@@ -90,6 +93,8 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db)
         if (current == null) return null;
         if (current.Status != "SUBMITTED")
             throw new InvalidOperationException("Seuls les dossiers en attente peuvent être marqués comme traités.");
+        if (string.IsNullOrWhiteSpace(current.CvUrl) && !cvStorage.Exists(current.Id))
+            throw new InvalidOperationException("Un CV candidat est obligatoire avant le traitement RH.");
 
         var now = DateTimeOffset.UtcNow;
         current.Status = "PROCESSED";
@@ -125,8 +130,7 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db)
         if (request.RewardAmount <= 0)
             throw new InvalidOperationException("Le montant engagé doit être supérieur à 0.");
 
-        var cfg = await db.SystemConfigs.AsNoTracking().FirstOrDefaultAsync(c => c.Id == 1, ct);
-        var minMonths = cfg?.MinDurationMonths ?? DefaultSystemConfig.MinDurationMonths;
+        var minMonths = await ruleResolver.ResolveMinDurationMonthsAsync(current, ct);
 
         var now = DateTimeOffset.UtcNow;
         var eligibleAt = ReferralEligibilityCalculator.ComputeEligibleForPayment(
@@ -138,9 +142,7 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db)
         current.CandidateStartDate = request.CandidateStartDate;
         current.ApprovedAt = now;
         current.EligibleForPaymentAt = eligibleAt;
-        current.PaymentStatus = eligibleAt <= now
-            ? ReferralPaymentStatus.Ready
-            : ReferralPaymentStatus.NotEligible;
+        current.PaymentStatus = ReferralPaymentStatus.NotEligible;
         current.EligibilityNotifiedAt = null;
 
         var actor = ResolveActor(request.Actor, "rh-1", "RH");
@@ -159,8 +161,43 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db)
 
         AddStatusNotification(current, "APPROVED", now);
 
-        if (current.PaymentStatus == ReferralPaymentStatus.Ready)
-            MarkPaymentReady(current, now);
+        await db.SaveChangesAsync(ct);
+        return current;
+    }
+
+    /// <summary>RH confirme que le candidat est toujours en poste — transmission à la comptabilité.</summary>
+    public async Task<ReferralEntity?> ConfirmPaymentEligibilityAsync(
+        string id,
+        ConfirmPaymentEligibilityRequest request,
+        CancellationToken ct)
+    {
+        var current = await db.Referrals.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (current == null) return null;
+        if (current.Status != "APPROVED")
+            throw new InvalidOperationException("Seuls les dossiers validés peuvent être confirmés pour le paiement.");
+        if (current.PaymentStatus != ReferralPaymentStatus.AwaitingRh)
+            throw new InvalidOperationException(
+                "Ce dossier n'est pas en attente de confirmation RH (période minimum non atteinte ou déjà transmis).");
+
+        var now = DateTimeOffset.UtcNow;
+        var actor = ResolveActor(request.Actor, "rh-1", "RH");
+        MarkPaymentReady(current, now, actor);
+
+        if (!string.IsNullOrWhiteSpace(request.Comment))
+        {
+            db.ReferralHistory.Add(new ReferralHistoryEntryEntity
+            {
+                Id = $"hist-{id}-elig-{NowMs()}",
+                ReferralId = id,
+                CandidateName = current.CandidateName,
+                Action = "ELIGIBILITY_CONFIRMED",
+                PerformedById = actor.Id,
+                PerformedByLabel = actor.Label,
+                CreatedAt = now,
+                Comment = request.Comment.Trim(),
+                RewardAmount = current.RewardAmount,
+            });
+        }
 
         await db.SaveChangesAsync(ct);
         return current;
@@ -302,13 +339,51 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db)
         return current;
     }
 
-    internal void MarkPaymentReady(ReferralEntity current, DateTimeOffset now)
+    internal void MarkAwaitingRhConfirmation(ReferralEntity current, DateTimeOffset now)
     {
-        if (current.EligibilityNotifiedAt.HasValue) return;
+        if (current.PaymentStatus != ReferralPaymentStatus.NotEligible) return;
+
+        current.PaymentStatus = ReferralPaymentStatus.AwaitingRh;
+
+        db.ReferralHistory.Add(new ReferralHistoryEntryEntity
+        {
+            Id = $"hist-{current.Id}-due-{NowMs()}",
+            ReferralId = current.Id,
+            CandidateName = current.CandidateName,
+            Action = "ELIGIBILITY_DUE",
+            PerformedById = "system",
+            PerformedByLabel = "Système",
+            CreatedAt = now,
+            RewardAmount = current.RewardAmount,
+        });
+
+        db.ReferralNotifications.Add(new ReferralNotificationEntity
+        {
+            Id = $"nt-{current.Id}-due-{NowMs()}",
+            Type = "REFERRAL_ELIGIBILITY_DUE",
+            Message =
+                $"Éligibilité à confirmer : {current.CandidateName} — vérifiez que le candidat est toujours en poste avant transmission compta ({current.RewardAmount} DH).",
+            CreatedAt = now,
+            Read = false,
+            ReferralId = current.Id,
+            ReferrerId = current.ReferrerId,
+            TargetRoles = new() { "RH", "ADMIN" },
+        });
+    }
+
+    internal void MarkPaymentReady(
+        ReferralEntity current,
+        DateTimeOffset now,
+        (string Id, string Label)? actor = null)
+    {
         if (current.PaymentStatus == ReferralPaymentStatus.Paid) return;
+        if (current.PaymentStatus == ReferralPaymentStatus.Ready && current.EligibilityNotifiedAt.HasValue)
+            return;
 
         current.PaymentStatus = ReferralPaymentStatus.Ready;
         current.EligibilityNotifiedAt = now;
+
+        var performedBy = actor ?? ("system", "Système");
 
         db.ReferralHistory.Add(new ReferralHistoryEntryEntity
         {
@@ -316,8 +391,8 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db)
             ReferralId = current.Id,
             CandidateName = current.CandidateName,
             Action = "PAYMENT_READY",
-            PerformedById = "system",
-            PerformedByLabel = "Système",
+            PerformedById = performedBy.Id,
+            PerformedByLabel = performedBy.Label,
             CreatedAt = now,
             RewardAmount = current.RewardAmount,
         });

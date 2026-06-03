@@ -5,7 +5,7 @@ using ParrainageBackend.Models;
 namespace ParrainageBackend.Services;
 
 /// <summary>
-/// Passe les dossiers approuvés en statut READY quand la période minimum est écoulée.
+/// Passe les dossiers approuvés en attente de confirmation RH quand la période minimum est écoulée.
 /// </summary>
 public sealed class ReferralEligibilityService(
     IServiceScopeFactory scopeFactory,
@@ -29,10 +29,10 @@ public sealed class ReferralEligibilityService(
         if (pending.Count == 0) return 0;
 
         foreach (var referral in pending)
-            workflow.MarkPaymentReady(referral, now);
+            workflow.MarkAwaitingRhConfirmation(referral, now);
 
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("PARRAINAGE : {Count} dossier(s) marqué(s) éligibles au paiement.", pending.Count);
+        logger.LogInformation("PARRAINAGE : {Count} dossier(s) en attente de confirmation RH.", pending.Count);
         return pending.Count;
     }
 }

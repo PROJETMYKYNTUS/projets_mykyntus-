@@ -1,5 +1,8 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.FileProviders;
 using Xunit;
 using Microsoft.EntityFrameworkCore;
 using ParrainageBackend.Data;
@@ -34,7 +37,9 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
             AdminWorkflow = DefaultSystemConfig.Workflow(),
         });
         _db.SaveChanges();
-        _workflow = new ReferralWorkflowService(_db);
+        var resolver = new ReferralRuleResolver(_db);
+        var cvStorage = new ReferralCvStorageService(new ConfigurationBuilder().Build(), new TestWebHostEnvironment());
+        _workflow = new ReferralWorkflowService(_db, resolver, cvStorage);
     }
 
     [Fact]
@@ -86,6 +91,7 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
             CandidatePhone = "+33",
             Position = "Dev",
         }, CancellationToken.None);
+        await SetCvUrlAsync(created.Id);
 
         var updated = await _workflow.ProcessReferralAsync(created.Id, new ProcessReferralRequest
         {
@@ -95,6 +101,23 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
         Assert.NotNull(updated);
         Assert.Equal("PROCESSED", updated!.Status);
         Assert.Contains(await _db.ReferralHistory.ToListAsync(), h => h.Action == "PROCESSED");
+    }
+
+    [Fact]
+    public async Task ProcessReferral_Throws_WhenCvMissing()
+    {
+        var created = await _workflow.SubmitReferralAsync(new CreateReferralRequest
+        {
+            ReferrerId = "emp-cv",
+            ReferrerName = "Jean",
+            CandidateName = "Bob",
+            CandidateEmail = "bob-cv@test.com",
+            CandidatePhone = "+33",
+            Position = "Dev",
+        }, CancellationToken.None);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _workflow.ProcessReferralAsync(created.Id, new ProcessReferralRequest(), CancellationToken.None));
     }
 
     [Fact]
@@ -131,6 +154,7 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
             Position = "Dev",
         }, CancellationToken.None);
 
+        await SetCvUrlAsync(created.Id);
         await _workflow.ProcessReferralAsync(created.Id, new ProcessReferralRequest(), CancellationToken.None);
 
         var start = new DateOnly(2026, 1, 15);
@@ -148,6 +172,99 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
             ReferralEligibilityCalculator.ComputeEligibleForPayment(start, 6),
             updated.EligibleForPaymentAt);
         Assert.Equal(ReferralPaymentStatus.NotEligible, updated.PaymentStatus);
+        Assert.Null(updated.AppliedRuleId);
+        Assert.Equal(ReferralPositionMode.Custom, updated.PositionMode);
+    }
+
+    [Fact]
+    public async Task SubmitReferral_WithRuleId_SetsAppliedRuleAndCatalogPosition()
+    {
+        _db.ReferralRules.Add(new ReferralRuleEntity
+        {
+            Id = "rule-dev",
+            Name = "Dev",
+            Type = ReferralRuleResolver.PositionRuleType,
+            Target = "Développeur",
+            Value = 600,
+            MinDurationMonths = 6,
+            Status = "ACTIVE",
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await _db.SaveChangesAsync();
+
+        var created = await _workflow.SubmitReferralAsync(new CreateReferralRequest
+        {
+            ReferrerId = "emp-rule",
+            ReferrerName = "Jean",
+            CandidateName = "Bob",
+            CandidateEmail = "bob-rule@test.com",
+            CandidatePhone = "+33",
+            RuleId = "rule-dev",
+        }, CancellationToken.None);
+
+        Assert.Equal("rule-dev", created.AppliedRuleId);
+        Assert.Equal(ReferralPositionMode.Catalog, created.PositionMode);
+        Assert.Equal("Développeur", created.Position);
+    }
+
+    [Fact]
+    public async Task SubmitReferral_CustomPosition_LeavesAppliedRuleNull()
+    {
+        var created = await _workflow.SubmitReferralAsync(new CreateReferralRequest
+        {
+            ReferrerId = "emp-custom",
+            ReferrerName = "Jean",
+            CandidateName = "Carla",
+            CandidateEmail = "carla-custom@test.com",
+            CandidatePhone = "+33",
+            Position = "Développeur",
+        }, CancellationToken.None);
+
+        Assert.Null(created.AppliedRuleId);
+        Assert.Equal(ReferralPositionMode.Custom, created.PositionMode);
+        Assert.Equal("Développeur", created.Position);
+    }
+
+    [Fact]
+    public async Task ApproveReferral_UsesRuleMinDuration_WhenCatalogRuleApplied()
+    {
+        _db.ReferralRules.Add(new ReferralRuleEntity
+        {
+            Id = "rule-3m",
+            Name = "Chef de projet",
+            Type = ReferralRuleResolver.PositionRuleType,
+            Target = "Chef de projet",
+            Value = 750,
+            MinDurationMonths = 3,
+            Status = "ACTIVE",
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await _db.SaveChangesAsync();
+
+        var created = await _workflow.SubmitReferralAsync(new CreateReferralRequest
+        {
+            ReferrerId = "emp-pm",
+            ReferrerName = "Jean",
+            CandidateName = "Paul",
+            CandidateEmail = "paul-pm@test.com",
+            CandidatePhone = "+33",
+            RuleId = "rule-3m",
+        }, CancellationToken.None);
+
+        await SetCvUrlAsync(created.Id);
+        await _workflow.ProcessReferralAsync(created.Id, new ProcessReferralRequest(), CancellationToken.None);
+
+        var start = new DateOnly(2026, 2, 1);
+        var updated = await _workflow.ApproveReferralAsync(created.Id, new ApproveReferralRequest
+        {
+            CandidateStartDate = start,
+            RewardAmount = 750m,
+        }, CancellationToken.None);
+
+        Assert.NotNull(updated);
+        Assert.Equal(
+            ReferralEligibilityCalculator.ComputeEligibleForPayment(start, 3),
+            updated!.EligibleForPaymentAt);
     }
 
     [Fact]
@@ -173,7 +290,7 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task EligibilityService_MarksReady_AndNotifiesOnce()
+    public async Task EligibilityService_MarksAwaitingRh_AndNotifiesRh()
     {
         var entity = await SeedReferralAsync("ref-elig", "emp-6", "APPROVED", ReferralPaymentStatus.NotEligible, 800m);
         entity.EligibleForPaymentAt = DateTimeOffset.UtcNow.AddDays(-1);
@@ -185,9 +302,33 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
         Assert.Equal(1, count);
 
         var refreshed = await _db.Referrals.FirstAsync(r => r.Id == entity.Id);
-        Assert.Equal(ReferralPaymentStatus.Ready, refreshed.PaymentStatus);
-        Assert.NotNull(refreshed.EligibilityNotifiedAt);
+        Assert.Equal(ReferralPaymentStatus.AwaitingRh, refreshed.PaymentStatus);
+        Assert.Contains(await _db.ReferralNotifications.ToListAsync(), n => n.Type == "REFERRAL_ELIGIBILITY_DUE");
+    }
+
+    [Fact]
+    public async Task ConfirmPaymentEligibility_SetsReady_ForCompta()
+    {
+        var entity = await SeedReferralAsync("ref-confirm", "emp-9", "APPROVED", ReferralPaymentStatus.AwaitingRh, 900m);
+        entity.EligibleForPaymentAt = DateTimeOffset.UtcNow.AddDays(-10);
+        await _db.SaveChangesAsync();
+
+        var updated = await _workflow.ConfirmPaymentEligibilityAsync(
+            entity.Id,
+            new ConfirmPaymentEligibilityRequest { Comment = "Toujours en poste" },
+            CancellationToken.None);
+
+        Assert.NotNull(updated);
+        Assert.Equal(ReferralPaymentStatus.Ready, updated!.PaymentStatus);
+        Assert.NotNull(updated.EligibilityNotifiedAt);
         Assert.Contains(await _db.ReferralNotifications.ToListAsync(), n => n.Type == "REFERRAL_PAYMENT_READY");
+    }
+
+    private async Task SetCvUrlAsync(string referralId)
+    {
+        var entity = await _db.Referrals.FirstAsync(r => r.Id == referralId);
+        entity.CvUrl = ReferralCvStorageService.CvApiPath(referralId);
+        await _db.SaveChangesAsync();
     }
 
     private async Task<ReferralEntity> SeedReferralAsync(
@@ -244,5 +385,15 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
             if (serviceType == typeof(ReferralWorkflowService)) return workflow;
             return null;
         }
+    }
+
+    private sealed class TestWebHostEnvironment : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "Tests";
+        public IFileProvider WebRootFileProvider { get; set; } = null!;
+        public string WebRootPath { get; set; } = Path.GetTempPath();
+        public string EnvironmentName { get; set; } = "Development";
+        public string ContentRootPath { get; set; } = Path.GetTempPath();
+        public IFileProvider ContentRootFileProvider { get; set; } = null!;
     }
 }

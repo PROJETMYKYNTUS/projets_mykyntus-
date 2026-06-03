@@ -28,6 +28,7 @@ var conn = builder.Configuration.GetConnectionString("DefaultConnection");
 if (!string.IsNullOrWhiteSpace(conn))
 {
     builder.Services.AddDbContext<ParrainageDbContext>(o => o.UseNpgsql(conn));
+    builder.Services.AddScoped<ReferralRuleResolver>();
     builder.Services.AddScoped<ReferralWorkflowService>();
     builder.Services.AddScoped<ReferralEligibilityService>();
     builder.Services.AddSingleton<ReferralCvStorageService>();

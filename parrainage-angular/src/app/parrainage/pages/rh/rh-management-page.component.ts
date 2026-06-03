@@ -25,6 +25,7 @@ const FILTER_OPTIONS = [
   { id: 'pending-rh', label: 'En attente RH' },
   { id: 'processed-rh', label: 'Traité — attente entrée' },
   { id: 'in-period', label: 'En période' },
+  { id: 'awaiting-rh', label: 'Éligibilité à confirmer' },
   { id: 'ready-compta', label: 'Prêt compta' },
   { id: 'paid', label: 'Versé' },
   { id: 'rejected', label: 'Rejeté' },
@@ -140,6 +141,7 @@ export class RhManagementPageComponent {
     if (filter === 'rejected') return all.filter((r) => r.status === 'REJECTED');
     if (filter === 'paid') return all.filter((r) => r.paymentStatus === 'PAID' || r.status === 'REWARDED');
     if (filter === 'ready-compta') return all.filter((r) => r.paymentStatus === 'READY');
+    if (filter === 'awaiting-rh') return all.filter((r) => r.paymentStatus === 'AWAITING_RH');
     if (filter === 'in-period') return all.filter((r) => r.status === 'APPROVED' && r.paymentStatus === 'NOT_ELIGIBLE');
     return all;
   });

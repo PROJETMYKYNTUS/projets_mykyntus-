@@ -76,11 +76,24 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
                   placeholder="Ex. : Développeur"
                 />
               </div>
+              <div>
+                <label class="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">
+                  Durée minimum (mois)
+                </label>
+                <select
+                  class="w-full rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                  [(ngModel)]="minDurationMonths"
+                >
+                  @for (m of durationOptions; track m) {
+                    <option [ngValue]="m">{{ m }} mois</option>
+                  }
+                </select>
+              </div>
             }
 
             <div>
               <label class="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">
-                Montant (€)
+                Montant (DH)
               </label>
               <input
                 class="w-full rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
@@ -124,6 +137,7 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
                     <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Intitulé</th>
                     <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Type</th>
                     <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Montant</th>
+                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Durée min.</th>
                     <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Statut</th>
                     <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                   </tr>
@@ -137,6 +151,9 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
                       </td>
                       <td class="px-6 py-4 text-sm text-slate-300 whitespace-nowrap">
                         {{ amountLabel(r) }}
+                      </td>
+                      <td class="px-6 py-4 text-sm text-slate-300 whitespace-nowrap">
+                        {{ durationLabel(r) }}
                       </td>
                       <td class="px-6 py-4">
                         <span [class]="'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ' + (r.status === 'ACTIVE' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40' : 'bg-yellow-500/15 text-yellow-300 border-yellow-500/40')">{{ r.status === 'ACTIVE' ? 'Actif' : 'En pause' }}</span>
@@ -201,10 +218,12 @@ export class RhRulesPageComponent {
   readonly rules = signal<ReferralRule[]>([]);
 
   readonly editingId = signal<string | null>(null);
+  readonly durationOptions = [3, 6, 9, 12];
   name = '';
   type: ReferralRuleType = 'REWARD_PER_POSITION';
   target = '';
   value = '';
+  minDurationMonths = 6;
   status: ReferralRuleStatus = 'ACTIVE';
 
   readonly deleteTargetId = signal<string | null>(null);
@@ -218,7 +237,12 @@ export class RhRulesPageComponent {
   }
 
   amountLabel(r: ReferralRule): string {
-    return r.type === 'REWARD_PER_POSITION' && r.target ? `${r.value} € (${r.target})` : `${r.value} €`;
+    return r.type === 'REWARD_PER_POSITION' && r.target ? `${r.value} DH (${r.target})` : `${r.value} DH`;
+  }
+
+  durationLabel(r: ReferralRule): string {
+    if (r.type !== 'REWARD_PER_POSITION') return '—';
+    return `${r.minDurationMonths ?? 6} mois`;
   }
 
   canSubmit(): boolean {
@@ -226,6 +250,7 @@ export class RhRulesPageComponent {
     if (!this.name.trim()) return false;
     if (!Number.isFinite(v) || v <= 0) return false;
     if (this.type === 'REWARD_PER_POSITION' && !this.target.trim()) return false;
+    if (this.type === 'REWARD_PER_POSITION' && !this.durationOptions.includes(this.minDurationMonths)) return false;
     return true;
   }
 
@@ -247,6 +272,7 @@ export class RhRulesPageComponent {
       type: this.type,
       value: v,
       target,
+      minDurationMonths: this.type === 'REWARD_PER_POSITION' ? this.minDurationMonths : 6,
       status: this.status,
     });
     this.editingId.set(saved.id);
@@ -254,6 +280,7 @@ export class RhRulesPageComponent {
     this.name = saved.name;
     this.type = saved.type;
     this.target = saved.target ?? '';
+    this.minDurationMonths = saved.minDurationMonths ?? 6;
     this.value = String(saved.value);
     this.refresh();
   }
@@ -264,6 +291,7 @@ export class RhRulesPageComponent {
     this.type = 'REWARD_PER_POSITION';
     this.target = '';
     this.value = '';
+    this.minDurationMonths = 6;
     this.status = 'ACTIVE';
   }
 
@@ -272,6 +300,7 @@ export class RhRulesPageComponent {
     this.name = r.name;
     this.type = r.type;
     this.target = r.target ?? '';
+    this.minDurationMonths = r.minDurationMonths ?? 6;
     this.value = String(r.value);
     this.status = r.status;
     this.deleteTargetId.set(null);

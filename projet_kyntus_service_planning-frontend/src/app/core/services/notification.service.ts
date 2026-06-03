@@ -24,7 +24,13 @@ export class NotificationService {
 
   private connection!: signalR.HubConnection;
   private reclamationConnection!: signalR.HubConnection;
-  private readonly TOKEN_KEY = 'token';
+ private getToken(): string {
+  // Cherche dans toutes les clés candidates
+  return localStorage.getItem('token')
+      || localStorage.getItem('access_token')
+      || localStorage.getItem('jwt')
+      || '';
+}
 
   private notificationsSubject = new BehaviorSubject<PlanningNotification[]>([]);
   public notifications$ = this.notificationsSubject.asObservable();
@@ -67,9 +73,7 @@ export class NotificationService {
 private connectPlanningHub(userId: number): void {
   this.connection = new signalR.HubConnectionBuilder()
     .withUrl('/hubs/planning', {
-      transport: signalR.HttpTransportType.WebSockets, // ← WebSocket
-      skipNegotiation: false,
-      accessTokenFactory: () => localStorage.getItem(this.TOKEN_KEY) || ''
+      accessTokenFactory: () => this.getToken()
     })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
     .build();
@@ -116,11 +120,9 @@ private connectPlanningHub(userId: number): void {
 private connectReclamationHub(userId: number, isManager: boolean): void {
   this.reclamationConnection = new signalR.HubConnectionBuilder()
     .withUrl('/hubs/reclamation', {
-      transport: signalR.HttpTransportType.WebSockets, // ← WebSocket
-      skipNegotiation: false,
       accessTokenFactory: () => {
-        const token = localStorage.getItem(this.TOKEN_KEY) || '';
-        console.log('🔑 Token envoyé au hub:', token ? 'OK' : 'VIDE ❌');
+        const token = this.getToken();
+        console.log('🔑 Token reclamation hub:', token ? 'OK ✅' : 'VIDE ❌');
         return token;
       }
     })

@@ -47,9 +47,15 @@ interface MyPlanning {
 export class DashboardEmployeeComponent implements OnInit, OnDestroy {
 
   // ── Vues ──
-  currentView: 'home' | 'planning' | 'conges' | 'settings' | 'newsletters' | 'reclamations' | 'formations' = 'home';
+ currentView: 'home' | 'planning' | 'conges' | 'settings' | 
+             'newsletters' | 'reclamations' | 'formations' | 
+             'equipe-planning' = 'home';
   congesSubView: 'mes-conges' | 'equipe' = 'mes-conges';
   // ── User ──
+
+  equipePlannings: any[] = [];          // 🆕
+  equipeLoading = false;                // 🆕
+  selectedEquipePlanning: any = null;   // 🆕
   planning: MyPlanning | null = null;
   history: MyPlanning[] = [];
   loading = false;
@@ -85,6 +91,13 @@ userRole = (() => {
  get isManager(): boolean {
   return this.userRole.toLowerCase().trim() === 'manager';
 }
+get isCoach(): boolean {
+  return this.userRole.toLowerCase().trim() === 'coach';
+}
+
+get isManagerOrCoach(): boolean {
+  return this.isManager || this.isCoach;
+}
 
   get congesLabel(): string {
     return this.isManager ? 'Congés Équipe' : 'Mes Congés';
@@ -95,6 +108,7 @@ userRole = (() => {
       ? 'Validez les demandes de congés de votre équipe'
       : 'Gérez vos demandes de congés et absences';
   }
+  
   // ─────────────────────────────────────────────────────────────────────────
 
   constructor(
@@ -149,13 +163,14 @@ userRole = (() => {
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────
-navigateTo(view: 'home' | 'planning' | 'conges' | 'settings' | 
-                 'newsletters' | 'reclamations' | 'formations'): void {
+navigateTo(view: 'home' | 'planning' | 'conges' | 'settings' |
+                 'newsletters' | 'reclamations' | 'formations' |
+                 'equipe-planning'): void {
   this.currentView = view;
   if (view === 'planning' && !this.planning) this.loadCurrentPlanning();
   if (view === 'newsletters') this.loadMyNewsletters();
-  // Reset sous-vue à chaque entrée
   if (view === 'conges') this.congesSubView = 'mes-conges';
+  if (view === 'equipe-planning') this.loadEquipePlannings(); // 🆕
 }
 
 // Nouvelle méthode
@@ -171,7 +186,18 @@ navigateConges(sub: 'mes-conges' | 'equipe'): void {
     } catch { /* ignore */ }
     void this.router.navigate(['/documentation'], { queryParams });
   }
-
+loadEquipePlannings(): void {
+  this.equipeLoading = true;
+  this.planningService.getEquipePlannings(this.userId).subscribe({
+    next: (data) => {
+      this.equipePlannings = data;
+      this.equipeLoading   = false;
+      // Sélectionner le plus récent par défaut
+      if (data.length > 0) this.selectedEquipePlanning = data[0];
+    },
+    error: () => { this.equipePlannings = []; this.equipeLoading = false; }
+  });
+}
   // ── Planning ──────────────────────────────────────────────────────────────
   loadCurrentPlanning(): void {
     this.loading = true;
@@ -193,7 +219,9 @@ navigateConges(sub: 'mes-conges' | 'equipe'): void {
       error: () => { this.planning = null; this.loading = false; }
     });
   }
-
+getEmpDay(emp: any, day: string): any {
+  return emp.days?.find((d: any) => d.day === day) ?? null;
+}
   onWeekChange(event: any): void {
     const weekCode = event.target.value;
     if (weekCode) this.loadWeek(weekCode);

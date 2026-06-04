@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { ThemeService } from '../state/theme.service';
+import { KyntusThemeService } from '../../../core/theme/kyntus-theme.service';
 import { I18nService } from '../state/i18n.service';
 import { NotificationUiService } from '../state/notification-ui.service';
 import { cn } from '@/lib/utils';
@@ -68,7 +68,7 @@ import { cn } from '@/lib/utils';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SettingsPanelComponent {
-  readonly theme = inject(ThemeService);
+  readonly theme = inject(KyntusThemeService);
   readonly i18n = inject(I18nService);
   readonly notificationUi = inject(NotificationUiService);
 

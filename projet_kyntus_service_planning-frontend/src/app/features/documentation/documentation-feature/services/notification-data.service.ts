@@ -224,15 +224,16 @@ export class NotificationDataService {
     }
     this.reloadFromApi();
     this.subscriptions.add(this.identity.contextRevision$.subscribe(() => this.reloadFromApi()));
-    this.subscriptions.add(interval(30000).subscribe(() => this.reloadFromApi()));
+    this.subscriptions.add(interval(120_000).subscribe(() => this.reloadFromApi()));
   }
 
   reloadFromApi(): void {
     const role = this.identity.getCurrentRole();
 
     if (role === 'rh' || role === 'admin') {
-      this.api.getAllDocumentRequests({ status: 'pending' }).subscribe({
-        next: (requests) => {
+      this.api.getDocumentRequestsPage(60, { status: 'pending', sortBy: 'createdAt', sortOrder: 'desc' }).subscribe({
+        next: (page) => {
+          const requests = page.items;
           this.items = sortByNewest(
             requests.filter((r) => normalizeStatus(r.status) === 'pending'),
             (r) => r.requestDate,
@@ -248,8 +249,11 @@ export class NotificationDataService {
     }
 
     if (role === 'pilote') {
-      this.api.getAllAssignedDocumentRequests().subscribe({
-        next: (requests) => {
+      this.api
+        .getAssignedDocumentRequestsPage(60, { sortBy: 'createdAt', sortOrder: 'desc' })
+        .subscribe({
+        next: (page) => {
+          const requests = page.items;
           const relevant = requests.filter((r) => {
             const status = normalizeStatus(r.status);
             return status === 'generated' || status === 'rejected';

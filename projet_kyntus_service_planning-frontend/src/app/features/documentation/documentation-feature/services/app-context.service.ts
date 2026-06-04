@@ -1,11 +1,18 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+import {
+  KyntusThemeService,
+  type KyntusTheme,
+} from '../../../../core/theme/kyntus-theme.service';
 
-export type AppTheme = 'dark' | 'light';
+export type AppTheme = KyntusTheme;
 
 @Injectable({ providedIn: 'root' })
 export class AppContextService {
-  private readonly themeSubject = new BehaviorSubject<AppTheme>('dark');
+  private readonly kyntusTheme = inject(KyntusThemeService);
+  private readonly themeSubject = new BehaviorSubject<AppTheme>(
+    this.kyntusTheme.theme(),
+  );
   readonly theme$ = this.themeSubject.asObservable();
 
   private readonly messages: Record<string, string> = {
@@ -56,7 +63,12 @@ export class AppContextService {
   };
 
   constructor() {
-    this.applyThemeToDocument(this.themeSubject.value);
+    this.syncFromGlobal();
+  }
+
+  private syncFromGlobal(): void {
+    const t = this.kyntusTheme.theme();
+    this.themeSubject.next(t);
   }
 
   t(key: string): string {
@@ -68,17 +80,15 @@ export class AppContextService {
   }
 
   toggleTheme(): void {
-    const next = this.themeSubject.value === 'dark' ? 'light' : 'dark';
-    this.themeSubject.next(next);
-    this.applyThemeToDocument(next);
+    this.kyntusTheme.toggleTheme();
+    this.themeSubject.next(this.kyntusTheme.theme());
+  }
+
+  setTheme(theme: AppTheme): void {
+    this.kyntusTheme.setTheme(theme);
+    this.themeSubject.next(theme);
   }
 
   /** Interface en français uniquement. */
   setLanguage(_: 'fr'): void {}
-
-  private applyThemeToDocument(theme: AppTheme): void {
-    if (typeof document === 'undefined') return;
-    document.documentElement.lang = 'fr';
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  }
 }

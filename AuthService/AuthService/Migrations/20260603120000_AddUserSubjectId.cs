@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace AuthService.Migrations;
 
+/// <inheritdoc />
 public partial class AddUserSubjectId : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

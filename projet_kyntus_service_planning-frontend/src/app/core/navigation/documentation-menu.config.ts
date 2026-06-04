@@ -44,15 +44,11 @@ const PILOTE_ITEMS: MenuItem[] = [
   item('nav.myDocs', 'my-docs'),
   item('nav.requestDoc', 'request'),
   item('nav.requestTracking', 'tracking'),
-  item('nav.notifications', 'notifications'),
-  item('nav.settings', 'settings'),
 ];
 
 const MANAGER_ITEMS: MenuItem[] = [
   item('nav.teamDocs', 'team-docs'),
   item('nav.teamRequests', 'team-requests'),
-  item('nav.notifications', 'notifications'),
-  item('nav.settings', 'settings'),
 ];
 
 const RH_ITEMS: MenuItem[] = [
@@ -60,8 +56,6 @@ const RH_ITEMS: MenuItem[] = [
   item('nav.hrDocHistory', 'hr-doc-history'),
   item('nav.docGen', 'doc-gen'),
   item('nav.templates', 'templates'),
-  item('nav.notifications', 'notifications'),
-  item('nav.settings', 'settings'),
 ];
 
 const RP_ITEMS: MenuItem[] = [
@@ -69,8 +63,6 @@ const RP_ITEMS: MenuItem[] = [
   item('nav.teamDocs', 'team-docs'),
   item('nav.allRequests', 'hr-mgmt'),
   item('nav.hrDocHistory', 'hr-doc-history'),
-  item('nav.notifications', 'notifications'),
-  item('nav.settings', 'settings'),
 ];
 
 const ADMIN_ITEMS: MenuItem[] = [
@@ -78,8 +70,6 @@ const ADMIN_ITEMS: MenuItem[] = [
   item('nav.docTypes', 'doc-types'),
   item('nav.permissions', 'permissions'),
   item('nav.storage', 'storage'),
-  item('nav.notifications', 'notifications'),
-  item('nav.settings', 'settings'),
 ];
 
 const AUDIT_ITEMS: MenuItem[] = [
@@ -107,8 +97,6 @@ const AUDIT_ITEMS: MenuItem[] = [
     documentationTab: 'audit-logs',
     documentationAuditSection: 'reporting',
   },
-  item('nav.notifications', 'notifications'),
-  item('nav.settings', 'settings'),
 ];
 
 export function buildDocumentationMenuItemsForRole(role: DocumentationRole): MenuItem[] {

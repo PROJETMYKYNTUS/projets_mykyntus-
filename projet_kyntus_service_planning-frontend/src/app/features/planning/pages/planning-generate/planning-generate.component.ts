@@ -9,16 +9,37 @@ import {
   SubServiceSimple,
   WeeklyPlanningResponse
 } from '../../services/planning.service';
+import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import {
+  AlertTriangle,
+  BarChart3,
+  Calendar,
+  CheckCircle,
+  ClipboardList,
+  Loader2,
+  Rocket,
+  Trash2,
+} from 'lucide';
 
 @Component({
   selector: 'app-planning-generate',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideIconComponent],
   templateUrl: './planning-generate.component.html',
   styleUrls: ['./planning-generate.component.css'],
   encapsulation: ViewEncapsulation.None
 })
 export class PlanningGenerateComponent implements OnInit {
+  readonly icons = {
+    calendar: Calendar,
+    chart: BarChart3,
+    warn: AlertTriangle,
+    success: CheckCircle,
+    rocket: Rocket,
+    list: ClipboardList,
+    trash: Trash2,
+    loader: Loader2,
+  };
 
   // ── Formulaire ──
   subServiceId  = 0;

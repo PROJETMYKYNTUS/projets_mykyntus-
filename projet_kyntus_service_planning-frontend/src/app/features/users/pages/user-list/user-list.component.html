@@ -38,7 +38,7 @@
       </div>
     } @else if (error) {
       <div class="state-box error">
-        <div class="icon-error">⚠️</div>
+        <div class="icon-error"><app-lucide-icon [icon]="icons.warn" className="w-5 h-5" /></div>
         <p>{{ error }}</p>
         <button class="btn btn-outline" (click)="loadUsers()">🔄 Réessayer</button>
       </div>
@@ -103,9 +103,9 @@
                 </td>
                 <td class="col-actions">
                   <div class="action-group">
-                    <button class="btn-action view" title="Voir" (click)="viewUser(user.id)">👁️</button>
-                    <button class="btn-action edit" title="Modifier" (click)="editUser(user.id)">✏️</button>
-                    <button class="btn-action delete" title="Supprimer" (click)="deleteUser(user.id)">🗑️</button>
+                    <button class="btn-action view" title="Voir" (click)="viewUser(user.id)"><app-lucide-icon [icon]="icons.eye" className="w-4 h-4" /></button>
+                    <button class="btn-action edit" title="Modifier" (click)="editUser(user.id)"><app-lucide-icon [icon]="icons.edit" className="w-4 h-4" /></button>
+                    <button class="btn-action delete" title="Supprimer" (click)="deleteUser(user.id)"><app-lucide-icon [icon]="icons.trash" className="w-4 h-4" /></button>
                   </div>
                 </td>
               </tr>

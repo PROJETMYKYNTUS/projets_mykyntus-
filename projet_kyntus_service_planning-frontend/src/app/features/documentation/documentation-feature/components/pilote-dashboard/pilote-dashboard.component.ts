@@ -47,13 +47,19 @@ export class PiloteDashboardComponent implements OnInit, OnDestroy {
     this.sub.add(
       switchMapOnDocumentationContext(this.identity, () =>
         forkJoin({
-          submitted: this.api.getAllMyDocumentRequests(),
-          assigned: this.api.getAllAssignedDocumentRequests(),
+          submitted: this.api.getMyDocumentRequestsPage(80, {
+            sortBy: 'createdAt',
+            sortOrder: 'desc',
+          }),
+          assigned: this.api.getAssignedDocumentRequestsPage(80, {
+            sortBy: 'createdAt',
+            sortOrder: 'desc',
+          }),
         }),
       ).subscribe({
         next: ({ submitted, assigned }) => {
-          const submittedUi = submitted.map(mapDocumentRequestDto);
-          const assignedUi = assigned.map(mapDocumentRequestDto);
+          const submittedUi = submitted.items.map(mapDocumentRequestDto);
+          const assignedUi = assigned.items.map(mapDocumentRequestDto);
           this.scopedReqs = submittedUi;
           const mergedByInternal = new Map<string, DocumentationRequest>();
           for (const r of [...submittedUi, ...assignedUi]) {
@@ -62,7 +68,7 @@ export class PiloteDashboardComponent implements OnInit, OnDestroy {
           this.myDocsCount = [...mergedByInternal.values()].filter((r) => r.status === 'Generated').length;
           const active = submittedUi.filter((r) => r.status === 'Pending').length;
           const approved = submittedUi.filter((r) => r.status === 'Approved').length;
-          const total = submittedUi.length;
+          const total = submitted.totalCount;
           this.stats = [
             {
               label: 'Mes documents',

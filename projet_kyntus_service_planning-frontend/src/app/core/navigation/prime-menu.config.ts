@@ -106,40 +106,6 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
   { label: 'Configuration', route: PRIME_ROUTE, primePath: '/configuration', primeRoles: ['Admin'] },
   { label: 'Mes primes', route: PRIME_ROUTE, primePath: '/employee/primes', primeRoles: ['Pilote'] },
   { label: 'Ma performance', route: PRIME_ROUTE, primePath: '/employee/performance', primeRoles: ['Pilote'] },
-  {
-    label: 'Notifications',
-    route: PRIME_ROUTE,
-    primePath: '/notifications',
-    primeRoles: [
-      'Admin',
-      'RH',
-      'RP',
-      'Chef de projet',
-      'Manager',
-      'Superviseur',
-      'Coach',
-      'Référent technique',
-      'Pilote',
-      'Audit',
-    ],
-  },
-  {
-    label: 'Paramètres',
-    route: PRIME_ROUTE,
-    primePath: '/settings',
-    primeRoles: [
-      'Admin',
-      'RH',
-      'RP',
-      'Chef de projet',
-      'Manager',
-      'Superviseur',
-      'Coach',
-      'Référent technique',
-      'Pilote',
-      'Audit',
-    ],
-  },
 ];
 
 export const PRIME_RP_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
@@ -147,8 +113,6 @@ export const PRIME_RP_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
   { label: 'Performance équipe', route: PRIME_ROUTE, primeRpSection: 'performance', primeRoles: ['RP'] },
   { label: 'Validation finale', route: PRIME_ROUTE, primeRpSection: 'validation', primeRoles: ['RP'] },
   { label: 'Avancement fiches PRIME', route: PRIME_ROUTE, primeRpSection: 'suivi-projet', primeRoles: ['RP'] },
-  { label: 'Notifications', route: PRIME_ROUTE, primeRpSection: 'notifications', primeRoles: ['RP'] },
-  { label: 'Paramètres', route: PRIME_ROUTE, primeRpSection: 'settings', primeRoles: ['RP'] },
 ];
 
 export const PRIME_ADMIN_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
@@ -157,8 +121,6 @@ export const PRIME_ADMIN_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = 
   { label: 'Configuration du flux', route: PRIME_ROUTE, primeAdminSection: 'workflows', primeRoles: ['Admin'] },
   { label: 'Supervision & logs', route: PRIME_ROUTE, primeAdminSection: 'logs', primeRoles: ['Admin'] },
   { label: 'Anomalies', route: PRIME_ROUTE, primeAdminSection: 'anomalies', primeRoles: ['Admin'] },
-  { label: 'Notifications', route: PRIME_ROUTE, primeAdminSection: 'notifications', primeRoles: ['Admin'] },
-  { label: 'Paramètres', route: PRIME_ROUTE, primeAdminSection: 'settings', primeRoles: ['Admin'] },
 ];
 
 export const PRIME_AUDIT_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
@@ -166,8 +128,6 @@ export const PRIME_AUDIT_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = 
   { label: 'Historique d’accès', route: PRIME_ROUTE, primeAuditSection: 'access-history', primeRoles: ['Audit'] },
   { label: 'Anomalies', route: PRIME_ROUTE, primeAuditSection: 'anomalies', primeRoles: ['Audit'] },
   { label: 'Reporting', route: PRIME_ROUTE, primeAuditSection: 'reporting', primeRoles: ['Audit'] },
-  { label: 'Notifications', route: PRIME_ROUTE, primeAuditSection: 'notifications', primeRoles: ['Audit'] },
-  { label: 'Paramètres', route: PRIME_ROUTE, primeAuditSection: 'settings', primeRoles: ['Audit'] },
 ];
 
 export function buildPrimeMenuItemsForRole(role: Role): MenuItem[] {

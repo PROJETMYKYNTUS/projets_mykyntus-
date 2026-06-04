@@ -12,8 +12,6 @@ const RH_ITEMS: ParrainageMenuDef[] = [
   { label: 'Gestion des parrainages', route: PARRAINAGE_ROUTE, parrainageView: 'rh-management', parrainageRoles: ['RH'] },
   { label: 'Règles de parrainage', route: PARRAINAGE_ROUTE, parrainageView: 'rh-rules', parrainageRoles: ['RH'] },
   { label: 'Historique', route: PARRAINAGE_ROUTE, parrainageView: 'rh-history', parrainageRoles: ['RH'] },
-  { label: 'Notifications', route: PARRAINAGE_ROUTE, parrainageView: 'notifications', parrainageRoles: ['RH'] },
-  { label: 'Paramètres', route: PARRAINAGE_ROUTE, parrainageView: 'settings', parrainageRoles: ['RH'] },
   { label: 'Configuration système', route: PARRAINAGE_ROUTE, parrainageView: 'admin-config', parrainageRoles: ['RH'] },
 ];
 
@@ -22,8 +20,6 @@ const PILOTE_ITEMS: ParrainageMenuDef[] = [
   { label: 'Soumettre un parrainage', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-submit', parrainageRoles: ['PILOTE'] },
   { label: 'Suivi des parrainages', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-referrals', parrainageRoles: ['PILOTE'] },
   { label: 'Suivi des primes', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-bonus', parrainageRoles: ['PILOTE'] },
-  { label: 'Notifications', route: PARRAINAGE_ROUTE, parrainageView: 'notifications', parrainageRoles: ['PILOTE'] },
-  { label: 'Paramètres', route: PARRAINAGE_ROUTE, parrainageView: 'settings', parrainageRoles: ['PILOTE'] },
 ];
 
 const ADMIN_ITEMS: ParrainageMenuDef[] = [
@@ -32,8 +28,6 @@ const ADMIN_ITEMS: ParrainageMenuDef[] = [
   { label: 'Configuration du flux', route: PARRAINAGE_ROUTE, parrainageView: 'admin-workflow', parrainageRoles: ['ADMIN'] },
   { label: 'Configuration système', route: PARRAINAGE_ROUTE, parrainageView: 'admin-config', parrainageRoles: ['ADMIN'] },
   { label: 'Paiements', route: PARRAINAGE_ROUTE, parrainageView: 'admin-payments', parrainageRoles: ['ADMIN'] },
-  { label: 'Notifications', route: PARRAINAGE_ROUTE, parrainageView: 'notifications', parrainageRoles: ['ADMIN'] },
-  { label: 'Paramètres', route: PARRAINAGE_ROUTE, parrainageView: 'settings', parrainageRoles: ['ADMIN'] },
   { label: "Journal d'audit", route: PARRAINAGE_ROUTE, parrainageView: 'admin-audit', parrainageRoles: ['ADMIN'] },
 ];
 
@@ -42,14 +36,10 @@ const PM_ITEMS: ParrainageMenuDef[] = [
   { label: "Membres de l'équipe", route: PARRAINAGE_ROUTE, parrainageView: 'pm-team', parrainageRoles: ['MANAGER', 'COACH', 'RP'] },
   { label: 'Parrainages', route: PARRAINAGE_ROUTE, parrainageView: 'pm-referrals', parrainageRoles: ['MANAGER', 'COACH', 'RP'] },
   { label: 'Performance', route: PARRAINAGE_ROUTE, parrainageView: 'pm-performance', parrainageRoles: ['MANAGER', 'COACH', 'RP'] },
-  { label: 'Notifications', route: PARRAINAGE_ROUTE, parrainageView: 'notifications', parrainageRoles: ['MANAGER', 'COACH', 'RP'] },
-  { label: 'Paramètres', route: PARRAINAGE_ROUTE, parrainageView: 'settings', parrainageRoles: ['MANAGER', 'COACH', 'RP'] },
 ];
 
 const COMPTA_ITEMS: ParrainageMenuDef[] = [
   { label: 'Primes à verser', route: PARRAINAGE_ROUTE, parrainageView: 'compta-payments', parrainageRoles: ['COMPTA'] },
-  { label: 'Notifications', route: PARRAINAGE_ROUTE, parrainageView: 'notifications', parrainageRoles: ['COMPTA'] },
-  { label: 'Paramètres', route: PARRAINAGE_ROUTE, parrainageView: 'settings', parrainageRoles: ['COMPTA'] },
 ];
 
 const AUDIT_ITEMS: ParrainageMenuDef[] = [
@@ -88,8 +78,6 @@ const AUDIT_ITEMS: ParrainageMenuDef[] = [
     parrainageAuditSection: 'reporting',
     parrainageRoles: ['AUDIT'],
   },
-  { label: 'Notifications', route: PARRAINAGE_ROUTE, parrainageView: 'notifications', parrainageRoles: ['AUDIT'] },
-  { label: 'Paramètres', route: PARRAINAGE_ROUTE, parrainageView: 'settings', parrainageRoles: ['AUDIT'] },
 ];
 
 const ALL_PARRAINAGE_ITEMS = [

@@ -61,9 +61,15 @@ export class MyDocumentsPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.sub.add(
-      switchMapOnDocumentationContext(this.identity, () => this.api.getAllAssignedDocumentRequests()).subscribe({
-        next: (rows) => {
-          const ui = rows.map(mapDocumentRequestDto);
+      switchMapOnDocumentationContext(this.identity, () =>
+        this.api.getAssignedDocumentRequestsPage(200, {
+          status: 'generated',
+          sortBy: 'createdAt',
+          sortOrder: 'desc',
+        }),
+      ).subscribe({
+        next: (page) => {
+          const ui = page.items.map(mapDocumentRequestDto);
           this.documents = ui
             .filter((r) => (r.status ?? '').trim().toLowerCase() === 'generated' || !!r.generatedDocumentId?.trim())
             .map(mapAssignedRequestToDocument);

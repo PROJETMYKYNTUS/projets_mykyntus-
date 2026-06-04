@@ -35,13 +35,14 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
     this.sub.add(
       switchMapOnDocumentationContext(this.identity, () =>
         forkJoin({
-          reqs: this.api.getAllDocumentRequests(),
+          reqs: this.api.getDocumentRequestsPage(80, { sortBy: 'createdAt', sortOrder: 'desc' }),
+          pending: this.api.getDocumentRequestsPage(1, { status: 'pending' }),
           types: this.api.getDocTypesForCatalog(),
         }),
       ).subscribe({
-        next: ({ reqs, types }) => {
-          this.requests = reqs.map(mapDocumentRequestDto);
-          const pending = this.requests.filter((r) => r.status === 'Pending').length;
+        next: ({ reqs, pending, types }) => {
+          this.requests = reqs.items.map(mapDocumentRequestDto);
+          const pendingCount = pending.totalCount;
           const today = new Date().toISOString().slice(0, 10);
           const generatedToday = this.requests.filter(
             (r) => r.status === 'Generated' && r.requestDate.slice(0, 10) === today,
@@ -49,14 +50,14 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
           this.stats = [
             {
               label: 'Total des demandes',
-              value: this.requests.length,
+              value: reqs.totalCount,
               icon: 'history',
               color: 'text-blue-500',
               bg: 'bg-blue-500/10',
             },
             {
               label: 'Validations en attente',
-              value: pending,
+              value: pendingCount,
               icon: 'clock',
               color: 'text-amber-500',
               bg: 'bg-amber-500/10',

@@ -25,6 +25,9 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 });
 
+builder.Services.AddKyntusJwtAuthentication(builder.Configuration);
+builder.Services.AddHttpContextAccessor();
+
 var conn = builder.Configuration.GetConnectionString("DefaultConnection");
 if (!string.IsNullOrWhiteSpace(conn))
 {

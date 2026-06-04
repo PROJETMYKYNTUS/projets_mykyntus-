@@ -120,17 +120,8 @@ ngOnInit(): void {
     this.closePanel();
   }
 
-  getIcon(type: string): string {
-    const icons: Record<string, string> = {
-      MiParcoursCDD: '⏳', MiParcoursPeriodeEssai: '📋',
-      AvantFinCDD: '⚠️',  AvantFinPeriodeEssai: '⚠️',
-      AvantFinStage: '🎓', AvantFinInterim: '🔄',
-    };
-    return icons[type] ?? '🔔';
-  }
-
   getIconClass(type: string): string {
-    if (type.startsWith('AvantFin'))   return 'ic-warn';
+    if (type.startsWith('AvantFin')) return 'ic-warn';
     if (type.startsWith('MiParcours')) return 'ic-info';
     return 'ic-default';
   }

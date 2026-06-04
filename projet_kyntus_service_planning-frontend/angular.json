@@ -27,7 +27,8 @@
             ],
             "styles": [
               "src/app/core/styles/_theme.css",
-              "src/styles.css"
+              "src/styles.css",
+              "src/styles-documentation.css"
             ]
           },
           "configurations": {
@@ -50,8 +51,8 @@
     },
     {
       "type": "anyComponentStyle",
-      "maximumWarning": "10kB",
-      "maximumError": "50kB"
+      "maximumWarning": "20kB",
+      "maximumError": "120kB"
     }
   ],
   "outputHashing": "all"

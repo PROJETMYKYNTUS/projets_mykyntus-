@@ -160,80 +160,12 @@ if (app.Configuration.GetValue("Documentation:DemoDataSeed", false))
     await DockerDocumentationDemoDataSeed.ApplyIfEnabledAsync(app.Configuration, demoDb, demoLog);
 }
 
-var debugLogPath = Path.Combine(AppContext.BaseDirectory, "debug-a2b151.log");
-
-void SafeAppendDebugLog(string payload)
-{
-    try
-    {
-        var directory = Path.GetDirectoryName(debugLogPath);
-        if (!string.IsNullOrWhiteSpace(directory))
-            Directory.CreateDirectory(directory);
-        File.AppendAllText(debugLogPath, payload + Environment.NewLine);
-    }
-    catch
-    {
-        // Ne jamais bloquer le démarrage applicatif à cause d'un log de debug.
-    }
-}
-
 app.UseMiddleware<UnhandledExceptionMiddleware>();
 app.UseCors("devCors");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<DocumentationCorrelationMiddleware>();
 app.UseMiddleware<DocumentationUserContextMiddleware>();
-// #region agent log
-app.Use(async (context, next) =>
-{
-    var requestPath = context.Request.Path.Value ?? string.Empty;
-    var shouldTrace = requestPath.Contains("audit-logs", StringComparison.OrdinalIgnoreCase)
-        || requestPath.StartsWith("/api/api/", StringComparison.OrdinalIgnoreCase);
-
-    if (shouldTrace)
-    {
-        var beforePayload = System.Text.Json.JsonSerializer.Serialize(new
-        {
-            sessionId = "a2b151",
-            runId = "pre-fix",
-            hypothesisId = "H1",
-            location = "Program.cs:request-entry",
-            message = "Incoming request for audit logs route",
-            data = new
-            {
-                method = context.Request.Method,
-                path = requestPath,
-                pathBase = context.Request.PathBase.Value,
-                rawTarget = context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpRequestFeature>()?.RawTarget
-            },
-            timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-        });
-        SafeAppendDebugLog(beforePayload);
-    }
-
-    await next();
-
-    if (shouldTrace)
-    {
-        var afterPayload = System.Text.Json.JsonSerializer.Serialize(new
-        {
-            sessionId = "a2b151",
-            runId = "pre-fix",
-            hypothesisId = "H2",
-            location = "Program.cs:request-exit",
-            message = "Request completed for audit logs route",
-            data = new
-            {
-                path = requestPath,
-                statusCode = context.Response.StatusCode,
-                matchedEndpoint = context.GetEndpoint()?.DisplayName
-            },
-            timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-        });
-        SafeAppendDebugLog(afterPayload);
-    }
-});
-// #endregion
 
 app.MapGet("/health", () => Results.Json(new { status = "Healthy", service = "documentation" }));
 app.MapGet("/healthz", () => Results.Json(new { status = "Healthy", service = "documentation" }));
@@ -249,26 +181,6 @@ app.MapGet("/", () => Results.Json(new
 }));
 
 app.MapControllers();
-// #region agent log
-app.Lifetime.ApplicationStarted.Register(() =>
-{
-    var startupPayload = System.Text.Json.JsonSerializer.Serialize(new
-    {
-        sessionId = "a2b151",
-        runId = "pre-fix",
-        hypothesisId = "H3",
-        location = "Program.cs:startup",
-        message = "Controller routing initialized",
-        data = new
-        {
-            expectedAuditLogsRoute = "/api/documentation/data/audit-logs",
-            server = "DocumentationBackend"
-        },
-        timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-    });
-    SafeAppendDebugLog(startupPayload);
-});
-// #endregion
 
 app.MapGet("/api/documentation/db/status", async (
     DocumentationDbContext db,

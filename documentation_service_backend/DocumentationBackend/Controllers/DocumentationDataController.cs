@@ -109,16 +109,8 @@ public class DocumentationDataController(
         CancellationToken ct = default)
     {
         var tenant = tenantAccessor.ResolvedTenantId;
-        logger.LogInformation(
-            "GetDocumentRequests start tenant={TenantId} actorRole={Role} actorUserId={UserId} statusFilter={Status} roleFilter={RoleFilter}",
-            tenant,
-            userContext.Role?.ToString() ?? "unknown",
-            userContext.UserId?.ToString() ?? "unknown",
-            status ?? "(none)",
-            role ?? "(none)");
-
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 100);
+        pageSize = Math.Clamp(pageSize, 1, 200);
 
         if (!TryParseSortOrder(sortOrder, out var desc))
             return BadRequest(new { message = "sortOrder doit être « asc » ou « desc »." });
@@ -252,7 +244,7 @@ public class DocumentationDataController(
 
         var tenant = tenantAccessor.ResolvedTenantId;
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 100);
+        pageSize = Math.Clamp(pageSize, 1, 200);
 
         if (!TryParseSortOrder(sortOrder, out var desc))
             return BadRequest(new { message = "sortOrder doit être « asc » ou « desc »." });
@@ -318,7 +310,7 @@ public class DocumentationDataController(
 
         var tenant = tenantAccessor.ResolvedTenantId;
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 100);
+        pageSize = Math.Clamp(pageSize, 1, 200);
 
         if (!TryParseSortOrder(sortOrder, out var desc))
             return BadRequest(new { message = "sortOrder doit être « asc » ou « desc »." });

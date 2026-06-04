@@ -1,21 +1,23 @@
-import { Injectable, signal, effect } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
+import {
+  KyntusThemeService,
+  type KyntusTheme,
+} from '../../../core/theme/kyntus-theme.service';
 
-export type Theme = 'light' | 'dark';
+export type Theme = KyntusTheme;
 
+/** Délègue au thème global plateforme. */
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
-  readonly theme = signal<Theme>('dark');
+  private readonly kyntus = inject(KyntusThemeService);
 
-  constructor() {
-    effect(() => {
-      const t = this.theme();
-      document.documentElement.classList.toggle('dark', t === 'dark');
-      document.body.classList.toggle('theme-dark', t === 'dark');
-      document.body.classList.toggle('theme-light', t === 'light');
-    });
-  }
+  readonly theme = computed(() => this.kyntus.theme());
 
   toggleTheme(): void {
-    this.theme.update((t) => (t === 'dark' ? 'light' : 'dark'));
+    this.kyntus.toggleTheme();
+  }
+
+  setTheme(next: Theme): void {
+    this.kyntus.setTheme(next);
   }
 }

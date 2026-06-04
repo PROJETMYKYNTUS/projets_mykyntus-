@@ -1,0 +1,38 @@
+<div class="ud-root ky-page-enter">
+  <section class="ud-hero">
+    <div class="ud-hero-badge">Plateforme unifiée Kyntus</div>
+    <h1>Bonjour, {{ username }}</h1>
+    <p class="ud-hero-role">Rôle : <strong>{{ role || '—' }}</strong></p>
+  </section>
+
+  <section class="ud-dashboard ky-fade-up">
+    <h2>{{ dashboardTitle }}</h2>
+    <p class="ud-subtitle">{{ dashboardSubtitle }}</p>
+    <div class="ud-quick-grid">
+      <a *ngFor="let link of quickLinks" class="ud-quick-card" [routerLink]="link.route">
+        <app-lucide-icon [icon]="link.icon" className="w-5 h-5" />
+        <span>{{ link.label }}</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="ud-modules">
+    <h2>Microservices</h2>
+    <p class="ud-subtitle">Seuls les modules autorisés pour votre rôle sont affichés.</p>
+    <div class="ud-ms-grid">
+      <button type="button" class="ud-ms-card" *ngFor="let g of groups" (click)="open(g)">
+        <div class="ud-ms-icon" [innerHTML]="icon(g.icon)"></div>
+        <div class="ud-ms-body">
+          <h3>{{ g.label }}</h3>
+          <p>{{ g.children.length }} {{ g.children.length > 1 ? 'rubriques' : 'rubrique' }}</p>
+        </div>
+        <div class="ud-ms-arrow">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+      </button>
+    </div>
+    <div class="ud-empty" *ngIf="groups.length === 0">
+      <p>Aucun module n'est disponible pour votre rôle. Contactez un administrateur.</p>
+    </div>
+  </section>
+</div>

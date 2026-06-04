@@ -51,9 +51,11 @@ export class RpDashboardComponent implements OnInit, OnDestroy {
       }),
     );
     this.sub.add(
-      switchMapOnDocumentationContext(this.identity, () => this.api.getAllDocumentRequests()).subscribe({
-        next: (rows) => {
-          this.allRequests = rows.map(mapDocumentRequestDto);
+      switchMapOnDocumentationContext(this.identity, () =>
+        this.api.getDocumentRequestsPage(200, { sortBy: 'createdAt', sortOrder: 'desc' }),
+      ).subscribe({
+        next: (page) => {
+          this.allRequests = page.items.map(mapDocumentRequestDto);
           this.recomputeCharts();
           this.loading = false;
           this.error = null;

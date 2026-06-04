@@ -19,22 +19,8 @@ export const routes: Routes = [
   },
 
   // ─── ANCIENS DASHBOARDS (layout propre, accès direct conservé) ──
-  {
-    path: 'dashboard',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },
-    loadComponent: () =>
-      import('./features/dashboard/pages/dashboard-home/dashboard-home.component')
-        .then(m => m.DashboardHomeComponent),
-  },
-  {
-    path: 'dashboard-employee',
-    canActivate: [AuthGuard],
-    data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation'] },
-    loadComponent: () =>
-      import('./features/dashboard/pages/dashboard-employee/dashboard-employee.component')
-        .then(m => m.DashboardEmployeeComponent),
-  },
+  { path: 'dashboard', redirectTo: 'home', pathMatch: 'full' },
+  { path: 'dashboard-employee', redirectTo: 'home', pathMatch: 'full' },
 
   // ─── SHELL UNIFIÉ (menu latéral global persistant) ──
   {
@@ -47,8 +33,8 @@ export const routes: Routes = [
       {
         path: 'home',
         loadComponent: () =>
-          import('./features/dashboard/pages/launcher/launcher.component')
-            .then(m => m.LauncherComponent),
+          import('./features/dashboard/pages/unified-dashboard/unified-dashboard.component')
+            .then(m => m.UnifiedDashboardComponent),
       },
 
       // ─── QUALITÉ & AMÉLIORATION ──────────────────

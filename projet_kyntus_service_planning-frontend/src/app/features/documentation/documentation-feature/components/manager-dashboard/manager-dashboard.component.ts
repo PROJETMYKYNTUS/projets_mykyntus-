@@ -42,9 +42,11 @@ export class ManagerDashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.sub.add(this.hierarchy.drill$.subscribe((d) => (this.drill = d)));
     this.sub.add(
-      switchMapOnDocumentationContext(this.identity, () => this.api.getAllDocumentRequests()).subscribe({
-        next: (rows) => {
-          this.allRequests = rows.map(mapDocumentRequestDto);
+      switchMapOnDocumentationContext(this.identity, () =>
+        this.api.getDocumentRequestsPage(200, { sortBy: 'createdAt', sortOrder: 'desc' }),
+      ).subscribe({
+        next: (page) => {
+          this.allRequests = page.items.map(mapDocumentRequestDto);
           this.loading = false;
           this.error = null;
         },

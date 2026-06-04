@@ -94,8 +94,11 @@ export class AuditJournalPageComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.section = this.auditNav.section;
     this.sub.add(
-      switchMapOnDocumentationContext(this.identity, () => this.api.getAllAuditLogs()).subscribe({
-        next: (logs) => {
+      switchMapOnDocumentationContext(this.identity, () =>
+        this.api.getAuditLogsPage(200, { sortBy: 'occurredAt', sortOrder: 'desc' }),
+      ).subscribe({
+        next: (page) => {
+          const logs = page.items;
           this.rows = logs.map(mapLogToJournalRow);
           this.accessRows = logs.map(mapLogToAccessRow);
           this.anomalies = logs

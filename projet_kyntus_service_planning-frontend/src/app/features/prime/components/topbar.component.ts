@@ -1,22 +1,14 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RoleService } from '../state/role.service';
-import { ThemeService } from '../state/theme.service';
 import { I18nService } from '../state/i18n.service';
-import { NotificationUiService } from '../state/notification-ui.service';
 import { PRIME_AUTHORIZED_ROLES, Role } from '../models';
-import { NotificationDropdownComponent } from './notification-dropdown.component';
-import { NotificationBadgeComponent } from './notification-badge.component';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
-import { Bell, Moon, Search, Settings, Shield, Sun } from 'lucide';
+import { Search, Shield } from 'lucide';
 
 @Component({
   selector: 'app-topbar',
   standalone: true,
-  imports: [
-    LucideIconComponent,
-    NotificationDropdownComponent,
-    NotificationBadgeComponent,
-  ],
+  imports: [LucideIconComponent],
   template: `
     <header class="h-16 glass flex items-center justify-between px-6 z-10 sticky top-0">
       <div class="flex items-center gap-4 flex-1">
@@ -33,39 +25,6 @@ import { Bell, Moon, Search, Settings, Shield, Sun } from 'lucide';
       </div>
 
       <div class="flex items-center gap-4">
-        <button
-          type="button"
-          class="p-2 rounded-full text-slate-300 hover:text-white hover:bg-navy-800 transition-colors"
-          (click)="theme.toggleTheme()"
-          aria-label="Basculer le thème clair ou sombre"
-        >
-          @if (theme.theme() === 'light') {
-            <app-lucide-icon [icon]="icons.moon" className="w-4 h-4" />
-          } @else {
-            <app-lucide-icon [icon]="icons.sun" className="w-4 h-4" />
-          }
-        </button>
-
-        <div class="relative">
-          <button
-            type="button"
-            class="relative p-2 text-slate-300 hover:text-white transition-colors"
-            (click)="notifications.toggleDropdown()"
-          >
-            <app-lucide-icon [icon]="icons.bell" className="w-5 h-5" />
-            <app-notification-badge [count]="notifications.unreadCount()" />
-          </button>
-          <app-notification-dropdown />
-        </div>
-
-        <button
-          type="button"
-          class="p-2 rounded-full text-slate-300 hover:text-white hover:bg-navy-800 transition-colors"
-          (click)="notifications.openSettings()"
-          aria-label="Ouvrir les paramètres"
-        >
-          <app-lucide-icon [icon]="icons.settings" className="w-4 h-4" />
-        </button>
         <div class="h-6 w-px bg-navy-800 mx-1"></div>
         <div class="flex items-center gap-2 bg-navy-900/70 border border-navy-800 rounded-lg px-3 py-1.5">
           <app-lucide-icon [icon]="icons.shield" className="w-4 h-4 text-blue-400" />
@@ -105,9 +64,7 @@ import { Bell, Moon, Search, Settings, Shield, Sun } from 'lucide';
 })
 export class TopbarComponent {
   readonly role = inject(RoleService);
-  readonly theme = inject(ThemeService);
   readonly i18n = inject(I18nService);
-  readonly notifications = inject(NotificationUiService);
 
   readonly roles = PRIME_AUTHORIZED_ROLES;
   readonly roleLabel: Record<Role, string> = {
@@ -120,13 +77,12 @@ export class TopbarComponent {
     'Référent technique': 'Référent technique',
     Pilote: 'Pilote',
     Audit: 'Audit',
-    // ---- LEGACY COMPAT (Phase 0 — à supprimer en Phase 1.6) ----
     Coach: 'Coach (legacy)',
     RP: 'RP (legacy)',
     Comptable: 'Comptable (legacy)',
   };
 
-  readonly icons = { search: Search, moon: Moon, sun: Sun, bell: Bell, settings: Settings, shield: Shield };
+  readonly icons = { search: Search, shield: Shield };
 
   onRoleChange(ev: Event): void {
     const v = (ev.target as HTMLSelectElement).value as Role;

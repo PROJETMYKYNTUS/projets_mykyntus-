@@ -1,5 +1,6 @@
 /* You can add global styles to this file, and also import other style files */
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Inter:wght@400;500;600;700&display=swap');
+@import './app/core/styles/_animations.css';
 
 /* ── Tokens globaux de la plateforme unifiée (style aligné Prime/Kyntus) ── */
 :root {
@@ -20,6 +21,6 @@ html, body {
 }
 
 body {
-  background: linear-gradient(135deg, #0f172a 0%, #111827 50%, #1f2933 100%);
   font-family: 'DM Sans', 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }

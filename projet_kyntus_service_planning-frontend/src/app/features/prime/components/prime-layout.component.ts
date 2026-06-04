@@ -17,7 +17,6 @@ import { PRIME_VIEW_LOADERS, resolvePrimeLazyViewKey } from '../lib/prime-view-l
 import { RoleService } from '../state/role.service';
 import { PrimeSectionService } from '../state/prime-section.service';
 import { TopbarComponent } from '../components/topbar.component';
-import { SettingsPanelComponent } from '../components/settings-panel.component';
 import { AccessDeniedComponent } from '../pages/access-denied.component';
 import { PrimeFicheSessionService } from '../services/prime-fiche-session.service';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
@@ -27,7 +26,7 @@ import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.serv
 @Component({
   selector: 'app-prime-layout',
   standalone: true,
-  imports: [NgComponentOutlet, TopbarComponent, SettingsPanelComponent, AccessDeniedComponent],
+  imports: [NgComponentOutlet, TopbarComponent, AccessDeniedComponent],
   template: `
     @if (!isAuthorized()) {
       <app-access-denied />
@@ -38,7 +37,6 @@ import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.serv
           <main class="flex-1 min-w-0 overflow-y-auto">
             <ng-container *ngComponentOutlet="lazyComponent()" />
           </main>
-          <app-settings-panel />
         </div>
       </div>
     } @else if (adminSettingsShell()) {
@@ -48,7 +46,6 @@ import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.serv
           <main class="flex-1 min-w-0 overflow-y-auto">
             <ng-container *ngComponentOutlet="lazyComponent()" />
           </main>
-          <app-settings-panel />
         </div>
       </div>
     } @else if (rpNotificationsShell()) {
@@ -58,7 +55,6 @@ import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.serv
           <main class="flex-1 min-w-0 overflow-y-auto">
             <ng-container *ngComponentOutlet="lazyComponent()" />
           </main>
-          <app-settings-panel />
         </div>
       </div>
     } @else if (rpSettingsShell()) {
@@ -68,7 +64,6 @@ import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.serv
           <main class="flex-1 min-w-0 overflow-y-auto">
             <ng-container *ngComponentOutlet="lazyComponent()" />
           </main>
-          <app-settings-panel />
         </div>
       </div>
     } @else if (auditSettingsShell()) {
@@ -78,7 +73,6 @@ import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.serv
           <main class="flex-1 min-w-0 overflow-y-auto">
             <ng-container *ngComponentOutlet="lazyComponent()" />
           </main>
-          <app-settings-panel />
         </div>
       </div>
     } @else if (auditNotificationsShell()) {
@@ -88,7 +82,6 @@ import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.serv
           <main class="flex-1 min-w-0 overflow-y-auto">
             <ng-container *ngComponentOutlet="lazyComponent()" />
           </main>
-          <app-settings-panel />
         </div>
       </div>
     } @else {
@@ -102,7 +95,6 @@ import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.serv
               <ng-container *ngComponentOutlet="lazyComponent()" />
             }
           </main>
-          <app-settings-panel />
         </div>
       </div>
     }

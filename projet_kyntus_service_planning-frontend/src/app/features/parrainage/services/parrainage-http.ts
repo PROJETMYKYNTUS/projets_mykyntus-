@@ -18,9 +18,17 @@ export function setParrainageDemoContext(role: string, userId: string, projectId
   };
 }
 
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+  const h: Record<string, string> = {};
+  if (token) h['Authorization'] = `Bearer ${token}`;
+  return h;
+}
+
 function buildHeaders(json: boolean): Record<string, string> {
   return {
     ...(json ? { 'Content-Type': 'application/json' } : {}),
+    ...authHeaders(),
     ...demoHeaders,
   };
 }

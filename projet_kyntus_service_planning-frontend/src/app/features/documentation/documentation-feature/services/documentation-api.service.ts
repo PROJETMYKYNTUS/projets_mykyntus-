@@ -1,7 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { EMPTY, Observable, of, throwError } from 'rxjs';
-import { catchError, expand, map, reduce, switchMap } from 'rxjs/operators';
+import { catchError, expand, map, reduce } from 'rxjs/operators';
+
+/** Aligné sur le clamp serveur (DocumentationDataController). */
+export const DOCUMENTATION_MAX_PAGE_SIZE = 200;
 
 import { DocumentationDataApiService } from '../../core/services/documentation-data-api.service';
 import { DocumentationIdentityService } from '../../core/services/documentation-identity.service';
@@ -96,7 +99,44 @@ export class DocumentationApiService {
     return this.data.getAuditLogs(page, pageSize, query);
   }
 
-  /** Toutes les pages — pour tableaux de bord et agrégations (limite par page : 100). */
+  /** Une page (tableaux de bord, notifications) — évite N allers-retours HTTP. */
+  getDocumentRequestsPage(
+    pageSize = 80,
+    query: DocumentRequestsQuery = {},
+    page = 1,
+  ): Observable<PagedResponse<DocumentRequestDto>> {
+    return this.getDataDocumentRequests(page, Math.min(pageSize, DOCUMENTATION_MAX_PAGE_SIZE), query);
+  }
+
+  getMyDocumentRequestsPage(
+    pageSize = 80,
+    query: DocumentRequestsQuery = {},
+    page = 1,
+  ): Observable<PagedResponse<DocumentRequestDto>> {
+    return this.getDataDocumentRequestsMine(page, Math.min(pageSize, DOCUMENTATION_MAX_PAGE_SIZE), query);
+  }
+
+  getAssignedDocumentRequestsPage(
+    pageSize = 80,
+    query: DocumentRequestsQuery = {},
+    page = 1,
+  ): Observable<PagedResponse<DocumentRequestDto>> {
+    return this.getDataDocumentRequestsAssignedToMe(
+      page,
+      Math.min(pageSize, DOCUMENTATION_MAX_PAGE_SIZE),
+      query,
+    );
+  }
+
+  getAuditLogsPage(
+    pageSize = 80,
+    query: AuditLogsQuery = {},
+    page = 1,
+  ): Observable<PagedResponse<AuditLogDto>> {
+    return this.getDataAuditLogs(page, Math.min(pageSize, DOCUMENTATION_MAX_PAGE_SIZE), query);
+  }
+
+  /** Toutes les pages — réservé aux écrans liste (RH, équipe, etc.). */
   getAllDocumentRequests(query: DocumentRequestsQuery = {}): Observable<DocumentRequestDto[]> {
     return this.fetchAllDocumentRequestPages((p, ps) => this.getDataDocumentRequests(p, ps, query));
   }
@@ -126,7 +166,6 @@ export class DocumentationApiService {
   getAllAssignedDocumentRequests(query: DocumentRequestsQuery = {}): Observable<DocumentRequestDto[]> {
     const uid = this.identity.getCurrentUserId()?.trim() ?? '';
     const uidNorm = uid.toLowerCase();
-    const role = this.identity.getCurrentRole();
 
     return this.fetchAllDocumentRequestPages((p, ps) =>
       this.getDataDocumentRequestsAssignedToMe(p, ps, query),
@@ -139,24 +178,13 @@ export class DocumentationApiService {
         }
         return throwError(() => err);
       }),
-      switchMap((rows) => {
-        if (rows.length > 0 || !uidNorm) {
-          return of(rows);
-        }
-        if (role !== 'pilote') {
-          return of(rows);
-        }
-        return this.getAllDocumentRequests(query).pipe(
-          map((all) => all.filter((r) => isDocumentRequestAssignedToUser(r, uidNorm))),
-        );
-      }),
     );
   }
 
   private fetchAllDocumentRequestPages(
     fetchPage: (page: number, pageSize: number) => Observable<PagedResponse<DocumentRequestDto>>,
   ): Observable<DocumentRequestDto[]> {
-    return fetchPage(1, 100).pipe(
+    return fetchPage(1, DOCUMENTATION_MAX_PAGE_SIZE).pipe(
       expand((res) => {
         if (res.page * res.pageSize >= res.totalCount) return EMPTY;
         return fetchPage(res.page + 1, res.pageSize);
@@ -166,7 +194,7 @@ export class DocumentationApiService {
   }
 
   getAllAuditLogs(query: AuditLogsQuery = {}): Observable<AuditLogDto[]> {
-    return this.getDataAuditLogs(1, 100, query).pipe(
+    return this.getDataAuditLogs(1, DOCUMENTATION_MAX_PAGE_SIZE, query).pipe(
       expand((res) => {
         if (res.page * res.pageSize >= res.totalCount) return EMPTY;
         return this.getDataAuditLogs(res.page + 1, res.pageSize, query);

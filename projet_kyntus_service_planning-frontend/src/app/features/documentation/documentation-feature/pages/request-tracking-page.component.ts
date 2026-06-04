@@ -47,7 +47,7 @@ export class RequestTrackingPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.sub.add(
-      switchMapOnDocumentationContext(this.identity, () => this.api.getAllDocumentRequests()).subscribe({
+      switchMapOnDocumentationContext(this.identity, () => this.api.getAllMyDocumentRequests()).subscribe({
         next: (rows) => {
           this.requests = rows.map(mapDocumentRequestDto);
           this.loading = false;

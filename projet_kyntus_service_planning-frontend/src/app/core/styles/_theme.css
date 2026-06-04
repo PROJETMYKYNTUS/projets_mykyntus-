@@ -1,4 +1,4 @@
-/* Thème Prime/Parrainage — complète styles-documentation.css pour les modules embarqués. */
+/* Thème global Kyntus — shell, modules embarqués et pages planning. */
 
 body.theme-dark,
 body.dark {
@@ -6,13 +6,21 @@ body.dark {
 }
 
 body.theme-light {
-  --bg-primary: #f8fafc;
+  --bg-primary: #f0f4fa;
   --bg-sidebar: #ffffff;
   --bg-card: #ffffff;
   --bg-input: #f1f5f9;
-  --text-primary: #0f172a;
+  --text-primary: #0e1623;
   --text-muted: #64748b;
   --border-color: #e2e8f0;
+  --ks-sidebar-bg: #ffffff;
+  --ks-sidebar-bg2: #f8fafc;
+  --ks-page-bg: #f0f4fa;
+  --ks-sidebar-text: #3d526e;
+  --ks-sidebar-text-active: #1e4fd8;
+  --ks-sidebar-border: rgba(15, 23, 42, 0.08);
+  --ks-main-text: #0e1623;
+  --ks-main-muted: #64748b;
 }
 
 body.theme-dark {
@@ -23,9 +31,28 @@ body.theme-dark {
   --text-primary: #e5e7eb;
   --text-muted: #9ca3af;
   --border-color: #112240;
+  --ks-sidebar-bg: #0c1527;
+  --ks-sidebar-bg2: #111d35;
+  --ks-page-bg: #0f172a;
+  --ks-sidebar-text: rgba(200, 215, 240, 0.72);
+  --ks-sidebar-text-active: #c8daff;
+  --ks-sidebar-border: rgba(255, 255, 255, 0.05);
+  --ks-main-text: #e8eeff;
+  --ks-main-muted: rgba(180, 200, 230, 0.55);
 }
 
-.page-enter {
+body.theme-light {
+  background: var(--ks-page-bg);
+  color: var(--text-primary);
+}
+
+body.theme-dark {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.page-enter,
+.ky-page-enter {
   animation: ky-page-enter 0.25s ease-out;
 }
 
@@ -53,11 +80,16 @@ body.theme-dark {
 }
 
 .ks-content.module-parrainage {
-  background: #040b16;
-  color: #e2e8f0;
+  background: var(--bg-primary, #040b16);
+  color: var(--text-primary, #e2e8f0);
 }
 
 .ks-content.module-documentation {
-  background: #020617;
-  color: #e2e8f0;
+  background: var(--bg-primary, #020617);
+  color: var(--text-primary, #e2e8f0);
+}
+
+.ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) {
+  background: var(--ks-page-bg);
+  color: var(--ks-main-text);
 }

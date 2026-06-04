@@ -1,40 +1,23 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
+import {
+  KyntusThemeService,
+  type KyntusTheme,
+} from '../../../core/theme/kyntus-theme.service';
 
-export type Theme = 'light' | 'dark';
+export type Theme = KyntusTheme;
 
-const THEME_STORAGE_KEY = 'prime_theme';
-
+/** Délègue au thème global plateforme. */
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
-  readonly theme = signal<Theme>('light');
+  private readonly kyntus = inject(KyntusThemeService);
 
-  constructor() {
-    const stored = (localStorage.getItem(THEME_STORAGE_KEY) as Theme) || 'light';
-    this.applyTheme(stored);
-  }
+  readonly theme = computed(() => this.kyntus.theme());
 
   toggleTheme(): void {
-    this.applyTheme(this.theme() === 'light' ? 'dark' : 'light');
+    this.kyntus.toggleTheme();
   }
 
   setTheme(next: Theme): void {
-    this.applyTheme(next);
-  }
-
-  private applyTheme(next: Theme): void {
-    this.theme.set(next);
-
-    const body = document.body;
-    body.classList.remove('theme-light', 'theme-dark');
-    body.classList.add(`theme-${next}`);
-
-    const root = document.documentElement;
-    if (next === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-
-    localStorage.setItem(THEME_STORAGE_KEY, next);
+    this.kyntus.setTheme(next);
   }
 }

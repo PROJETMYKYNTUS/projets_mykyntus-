@@ -4,15 +4,18 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { UserService } from '../../services/user.service';
 import { User } from '../../users-module';
+import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import { AlertTriangle, Eye, Pencil, Trash2 } from 'lucide';
 
 @Component({
   selector: 'app-user-list',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideIconComponent],
   templateUrl: './user-list.component.html',
   styleUrls: ['./user-list.component.css']
 })
 export class UserListComponent implements OnInit {
+  readonly icons = { warn: AlertTriangle, eye: Eye, edit: Pencil, trash: Trash2 };
   users: User[] = [];
   filteredUsers: User[] = [];
   searchTerm = '';

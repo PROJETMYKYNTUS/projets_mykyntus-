@@ -80,6 +80,8 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddKyntusJwtAuthentication(builder.Configuration);
+
 builder.Services.AddSingleton<PrimeInMemoryStore>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<PrimeAuditLogService>();

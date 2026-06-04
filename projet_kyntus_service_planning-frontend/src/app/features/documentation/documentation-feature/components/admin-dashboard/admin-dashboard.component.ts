@@ -37,17 +37,16 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.sub.add(
       switchMapOnDocumentationContext(this.identity, () =>
         forkJoin({
-          requests: this.api.getAllDocumentRequests(),
+          requests: this.api.getDocumentRequestsPage(1),
           types: this.api.getDocTypesForCatalog(),
-          audit: this.api.getAllAuditLogs(),
+          audit: this.api.getAuditLogsPage(1),
         }),
       ).subscribe({
         next: ({ requests, types, audit }) => {
-          const actors = new Set(requests.map((r) => r.employeeId).filter(Boolean));
           this.stats = [
             {
               label: 'Demandes (total)',
-              value: requests.length,
+              value: requests.totalCount,
               icon: 'history',
               color: 'text-blue-500',
               bg: 'bg-blue-500/10',
@@ -61,17 +60,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
             },
             {
               label: 'Événements audit',
-              value: audit.length,
+              value: audit.totalCount,
               icon: 'activity',
               color: 'text-emerald-500',
               bg: 'bg-emerald-500/10',
-            },
-            {
-              label: 'Acteurs (demandes)',
-              value: actors.size,
-              icon: 'user',
-              color: 'text-indigo-500',
-              bg: 'bg-indigo-500/10',
             },
           ];
           this.loading = false;

@@ -11,6 +11,8 @@ import { mapApiRoleToDocumentationRole } from '../../features/documentation/docu
 import { DocumentationIdentityService } from '../../features/documentation/core/services/documentation-identity.service';
 import { KyntusSessionService } from '../session/kyntus-session.service';
 import { mapJwtRoleToDocumentationRole } from './documentation-menu.config';
+import type { DocumentationTabId } from '../../features/documentation/documentation-feature/services/documentation-navigation.service';
+import { mapJwtRoleToPrimeRole } from '../session/kyntus-role-ui.config';
 
 @Injectable({ providedIn: 'root' })
 export class NavigationActionsService {
@@ -112,6 +114,100 @@ export class NavigationActionsService {
     if (item.route) {
       await this.router.navigateByUrl(item.route);
     }
+  }
+
+  async openPrimeNotifications(): Promise<void> {
+    const role = mapJwtRoleToPrimeRole(this.session.getRole());
+    if (role === 'Admin') {
+      await this.applyPrimeItem({
+        label: 'Notifications',
+        route: '/prime',
+        primeAdminSection: 'notifications',
+      });
+      return;
+    }
+    if (role === 'RP') {
+      await this.applyPrimeItem({
+        label: 'Notifications',
+        route: '/prime',
+        primeRpSection: 'notifications',
+      });
+      return;
+    }
+    if (role === 'Audit') {
+      await this.applyPrimeItem({
+        label: 'Notifications',
+        route: '/prime',
+        primeAuditSection: 'notifications',
+      });
+      return;
+    }
+    await this.applyPrimeItem({
+      label: 'Notifications',
+      route: '/prime',
+      primePath: '/notifications',
+    });
+  }
+
+  async openPrimeSettings(): Promise<void> {
+    const role = mapJwtRoleToPrimeRole(this.session.getRole());
+    if (role === 'Admin') {
+      await this.applyPrimeItem({
+        label: 'Paramètres',
+        route: '/prime',
+        primeAdminSection: 'settings',
+      });
+      return;
+    }
+    if (role === 'RP') {
+      await this.applyPrimeItem({
+        label: 'Paramètres',
+        route: '/prime',
+        primeRpSection: 'settings',
+      });
+      return;
+    }
+    if (role === 'Audit') {
+      await this.applyPrimeItem({
+        label: 'Paramètres',
+        route: '/prime',
+        primeAuditSection: 'settings',
+      });
+      return;
+    }
+    await this.applyPrimeItem({
+      label: 'Paramètres',
+      route: '/prime',
+      primePath: '/settings',
+    });
+  }
+
+  async openParrainageNotifications(): Promise<void> {
+    await this.applyParrainageItem({
+      label: 'Notifications',
+      route: '/parrainage',
+      parrainageView: 'notifications',
+    });
+  }
+
+  async openParrainageSettings(): Promise<void> {
+    await this.applyParrainageItem({
+      label: 'Paramètres',
+      route: '/parrainage',
+      parrainageView: 'settings',
+    });
+  }
+
+  async openDocumentationTab(tab: DocumentationTabId): Promise<void> {
+    await this.applyDocumentationItem({
+      label: tab,
+      route: '/documentation',
+      documentationTab: tab,
+    });
+  }
+
+  async openDocumentationSettings(): Promise<void> {
+    await this.openDocumentationTab('settings');
   }
 
   /** Rôle documentation immédiat (profil annuaire ou JWT) — évite Pilote par défaut avant le chargement de l’annuaire. */

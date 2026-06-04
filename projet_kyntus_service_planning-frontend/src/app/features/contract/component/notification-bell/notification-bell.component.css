@@ -102,9 +102,11 @@
   border: 2px solid rgba(255,255,255,0.09);
   border-top-color: #3b82f6;
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+.mini-spinner.ky-spin,
+.mini-spinner {
+  animation: ky-spin 0.8s linear infinite;
+}
 
 /* ── Liste ── */
 .notif-list { max-height: 380px; overflow-y: auto; }

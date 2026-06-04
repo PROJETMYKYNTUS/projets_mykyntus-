@@ -31,7 +31,7 @@ import { DocumentationHeaderComponent } from '../documentation-header/documentat
     DocumentationHeaderComponent,
   ],
   templateUrl: './documentation-shell.component.html',
-  styleUrls: ['./documentation-shell.component.css', '../../../../../../styles-documentation.css'],
+  styleUrl: './documentation-shell.component.css',
 })
 export class DocumentationShellComponent implements OnInit, OnDestroy {
   /** Bandeau dev : fixed plein écran en tête — la sidebar se cale dessous. */
@@ -53,7 +53,6 @@ export class DocumentationShellComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    document.documentElement.classList.add('dark');
     this.sub.add(
       this.notifications.toast$.subscribe((toast) => {
         this.toast = toast;
@@ -202,7 +201,6 @@ export class DocumentationShellComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    document.documentElement.classList.remove('dark');
     this.sub.unsubscribe();
   }
 

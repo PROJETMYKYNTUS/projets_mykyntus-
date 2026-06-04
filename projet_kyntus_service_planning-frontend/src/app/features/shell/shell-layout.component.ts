@@ -7,6 +7,7 @@ import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 import { filter } from 'rxjs/operators';
+import { Bell, Moon, Settings, Sun } from 'lucide';
 
 import { Microservice, MenuItem } from '../../core/navigation/microservices.config';
 
@@ -15,6 +16,13 @@ import { NavigationMenuService } from '../../core/navigation/navigation-menu.ser
 import { NavigationActionsService } from '../../core/navigation/navigation-actions.service';
 
 import { AuthService } from '../../core/services/auth.service';
+import { KyntusThemeService } from '../../core/theme/kyntus-theme.service';
+import { KyntusNotificationHubService } from '../../core/notifications/kyntus-notification-hub.service';
+import { KyntusShellUiService } from '../../core/notifications/kyntus-shell-ui.service';
+import { LucideIconComponent } from '../../shared/lucide-icon.component';
+import { ShellNotificationBadgeComponent } from '../../shared/shell-controls/notification-badge.component';
+import { ShellNotificationDropdownComponent } from '../../shared/shell-controls/notification-dropdown.component';
+import { ShellSettingsPanelComponent } from '../../shared/shell-controls/settings-panel.component';
 
 import { PrimeNavRequestService } from '../prime/services/prime-nav-request.service';
 
@@ -42,7 +50,14 @@ import { AuditInterfaceNavService } from '../documentation/documentation-feature
 
   standalone: true,
 
-  imports: [CommonModule, RouterModule],
+  imports: [
+    CommonModule,
+    RouterModule,
+    LucideIconComponent,
+    ShellNotificationBadgeComponent,
+    ShellNotificationDropdownComponent,
+    ShellSettingsPanelComponent,
+  ],
 
   templateUrl: './shell-layout.component.html',
 
@@ -78,13 +93,19 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
   private readonly docAuditNav = inject(AuditInterfaceNavService);
 
+  readonly theme = inject(KyntusThemeService);
+  readonly hub = inject(KyntusNotificationHubService);
+  private readonly shellUi = inject(KyntusShellUiService);
 
+  readonly icons = { bell: Bell, settings: Settings, moon: Moon, sun: Sun };
 
   currentUser: any = null;
 
   role = '';
 
   sidebarOpen = false;
+  sidebarCollapsed = false;
+  logoError = false;
 
   moduleContentClass = '';
 
@@ -192,12 +213,6 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
       this.moduleContentClass = '';
 
-    }
-
-    if (typeof document !== 'undefined') {
-      const dark = this.moduleContentClass !== '';
-      document.body.classList.toggle('dark', dark);
-      document.body.classList.toggle('theme-dark', dark);
     }
 
   }
@@ -386,6 +401,28 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
     this.sidebarOpen = !this.sidebarOpen;
 
+  }
+
+  toggleCollapse(): void {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
+
+  toggleNotifDropdown(): void {
+    this.shellUi.toggleDropdown();
+    if (this.shellUi.dropdownOpen()) {
+      this.hub.refreshContracts();
+    }
+  }
+
+  openNotifications(): void {
+    if (!this.shellUi.dropdownOpen()) {
+      this.shellUi.toggleDropdown();
+    }
+    this.hub.refreshContracts();
+  }
+
+  openSettings(): void {
+    this.shellUi.openSettings();
   }
 
 

@@ -1,3 +1,4 @@
+# Secrets : copier .env.example → .env à la racine (non versionné).
 # ─── Ports hôte Kyntus (évite conflit avec un autre projet Docker sur 4200–5260) ───
 # UI login          8201   | SPA unifiée     8200   | Prime (secours) 8202   | Parrainage 8203
 # API Gateway       8500   | Postgres hôte   8433   | pgAdmin         8505
@@ -10,9 +11,9 @@ x-documentation-integration:
   documentation_signalr_hub: "/hubs/documentation"
 
 x-kyntus-jwt: &kyntus-jwt
-  JwtSettings__Secret: "VotreCleSecreteTresLongueEtSecurisee123456789MinimumCaracteres"
-  JwtSettings__Issuer: "AuthService"
-  JwtSettings__Audience: "AuthServiceClient"
+  JwtSettings__Secret: ${KYNTUS_JWT_SECRET:?Définir KYNTUS_JWT_SECRET dans .env}
+  JwtSettings__Issuer: ${KYNTUS_JWT_ISSUER:-AuthService}
+  JwtSettings__Audience: ${KYNTUS_JWT_AUDIENCE:-AuthServiceClient}
 
 services:
 
@@ -22,8 +23,8 @@ services:
     container_name: kyntus_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Postgres@2026
+      POSTGRES_USER: ${KYNTUS_POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${KYNTUS_POSTGRES_PASSWORD:?Définir KYNTUS_POSTGRES_PASSWORD dans .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -48,7 +49,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=auth_db;Username=auth_user;Password=Auth@2026"
+      ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_AUTH:?Définir KYNTUS_CONN_AUTH dans .env}
       <<: *kyntus-jwt
     ports:
       - "8520:8080"
@@ -64,7 +65,7 @@ services:
     container_name: kyntus_seed_auth_atlas_doc_users
     restart: "no"
     environment:
-      PGPASSWORD: Postgres@2026
+      PGPASSWORD: ${KYNTUS_POSTGRES_PASSWORD:?Définir KYNTUS_POSTGRES_PASSWORD dans .env}
     depends_on:
       postgres:
         condition: service_healthy
@@ -97,10 +98,10 @@ services:
     container_name: kyntus_rabbitmq
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${KYNTUS_RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${KYNTUS_RABBITMQ_PASSWORD:?Définir KYNTUS_RABBITMQ_PASSWORD dans .env}
       # Évite les échecs eacces sur .erlang.cookie (souvent vus sous Docker Desktop / WSL2).
-      RABBITMQ_ERLANG_COOKIE: kyntus-dev-erlang-cookie
+      RABBITMQ_ERLANG_COOKIE: ${KYNTUS_RABBITMQ_ERLANG_COOKIE:?Définir KYNTUS_RABBITMQ_ERLANG_COOKIE dans .env}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     ports:
@@ -125,7 +126,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       KYNTUS_PLANNING_DEMO_SEED: "true"
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=kyntus_db;Username=kyntus_user;Password=Kyntus@2026"
+      ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_PLANNING:?Définir KYNTUS_CONN_PLANNING dans .env}
       <<: *kyntus-jwt
     ports:
       - "8521:8080"
@@ -145,7 +146,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       KYNTUS_FORMATION_DEMO_SEED: "true"
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=formation_db;Username=formation_user;Password=Formation@2026"
+      ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_FORMATION:?Définir KYNTUS_CONN_FORMATION dans .env}
     ports:
       - "8522:8080"
     depends_on:
@@ -168,8 +169,8 @@ services:
       Documentation__ApplyBootstrapSchema: "true"
       Documentation__DemoDataSeed: "true"
       Documentation__DefaultTenantId: "atlas-tech-demo"
-      DocumentationDb__Password: "Documentation@2026"
-      ConnectionStrings__Documentation: "Host=postgres;Port=5432;Database=documentation_db;Username=documentation_user;Password=Documentation@2026"
+      DocumentationDb__Password: ${KYNTUS_DOCUMENTATION_DB_PASSWORD:?Définir KYNTUS_DOCUMENTATION_DB_PASSWORD dans .env}
+      ConnectionStrings__Documentation: ${KYNTUS_CONN_DOCUMENTATION:?Définir KYNTUS_CONN_DOCUMENTATION dans .env}
       <<: *kyntus-jwt
     ports:
       - "8530:8080"
@@ -189,10 +190,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__CongeDb: "Host=postgres;Port=5432;Database=conge_db;Username=postgres;Password=Postgres@2026"
+      ConnectionStrings__CongeDb: ${KYNTUS_CONN_CONGE:?Définir KYNTUS_CONN_CONGE dans .env}
       RabbitMQ__Host: rabbitmq
-      RabbitMQ__Username: guest
-      RabbitMQ__Password: guest
+      RabbitMQ__Username: ${KYNTUS_RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${KYNTUS_RABBITMQ_PASSWORD:?Définir KYNTUS_RABBITMQ_PASSWORD dans .env}
     ports:
       - "8540:8080"
     depends_on:
@@ -209,7 +210,7 @@ services:
     container_name: kyntus_prime_db_bootstrap
     restart: "no"
     environment:
-      PGPASSWORD: Postgres@2026
+      PGPASSWORD: ${KYNTUS_POSTGRES_PASSWORD:?Définir KYNTUS_POSTGRES_PASSWORD dans .env}
     depends_on:
       postgres:
         condition: service_healthy
@@ -238,7 +239,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=prime_db;Username=prime_user;Password=Prime@2026"
+      ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_PRIME:?Définir KYNTUS_CONN_PRIME dans .env}
       Prime__SeedDemoData: "true"
       Prime__EnrichDemoData: "true"
       Prime__AllowDemoSeedEndpoint: "true"
@@ -265,7 +266,7 @@ services:
     container_name: kyntus_parrainage_db_bootstrap
     restart: "no"
     environment:
-      PGPASSWORD: Postgres@2026
+      PGPASSWORD: ${KYNTUS_POSTGRES_PASSWORD:?Définir KYNTUS_POSTGRES_PASSWORD dans .env}
     depends_on:
       postgres:
         condition: service_healthy
@@ -294,7 +295,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=parrainage_db;Username=parrainage_user;Password=Parrainage@2026"
+      ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_PARRAINAGE:?Définir KYNTUS_CONN_PARRAINAGE dans .env}
       # Seed 15 parrainages + règles si tables vides (EF Migrate au démarrage).
       Parrainage__SeedDemoData: "true"
       # POST /api/parrainage/dev/seed (outil dev, calqué Prime).
@@ -420,8 +421,8 @@ services:
     container_name: kyntus_pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@kyntus.ma
-      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_DEFAULT_EMAIL: ${KYNTUS_PGADMIN_EMAIL:-admin@kyntus.ma}
+      PGADMIN_DEFAULT_PASSWORD: ${KYNTUS_PGADMIN_PASSWORD:?Définir KYNTUS_PGADMIN_PASSWORD dans .env}
     ports:
       - "8505:80"
     networks:

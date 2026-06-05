@@ -9,7 +9,18 @@
 *.user
 *.userosscache
 *.sln.docstates
-*.env
+.env
+.env.*
+!.env.example
+
+# Cursor IDE (plans, règles locales — ne pas versionner)
+.cursor/
+
+# Secrets / config locale développement (.NET)
+**/appsettings.Development.json
+!**/appsettings.Development.example.json
+**/appsettings.local.json
+**/out-test/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

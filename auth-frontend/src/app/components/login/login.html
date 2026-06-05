@@ -52,6 +52,9 @@
     </div>
 
     <div class="panel-footer">
+      <button type="button" class="auth-theme-toggle" (click)="theme.toggleTheme()" [attr.aria-label]="theme.theme() === 'light' ? 'Activer le mode sombre' : 'Activer le mode clair'">
+        {{ theme.theme() === 'light' ? 'Mode sombre' : 'Mode clair' }}
+      </button>
       <span class="online-dot"></span>
       <span>Tous les systèmes opérationnels — v2.6.0</span>
     </div>
@@ -81,7 +84,7 @@
 
         <!-- Erreur -->
         <div class="alert-error" *ngIf="errorMessage">
-          <span>⚠</span> {{ errorMessage }}
+          <span>Erreur</span> {{ errorMessage }}
         </div>
 
         <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">

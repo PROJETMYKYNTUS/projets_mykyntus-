@@ -1,4 +1,4 @@
-import { Routes } from '@angular/router';
+﻿import { Routes } from '@angular/router';
 import { AuthCallbackComponent } from './component/pages/auth-callback.component';
 import { AuthGuard } from './guard/guards/auth';
 import { NewsletterAdminComponent } from './features/Newsletter-admin/newsletter-admin.component';
@@ -35,6 +35,20 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/dashboard/pages/unified-dashboard/unified-dashboard.component')
             .then(m => m.UnifiedDashboardComponent),
+      },
+
+      // Notifications et paramètres — même pages que le module PRIME
+      {
+        path: 'notifications',
+        loadComponent: () =>
+          import('./features/prime/pages/notifications-page.component')
+            .then(m => m.NotificationsPageComponent),
+      },
+      {
+        path: 'settings',
+        loadComponent: () =>
+          import('./features/prime/pages/settings-page.component')
+            .then(m => m.SettingsPageComponent),
       },
 
       // ─── QUALITÉ & AMÉLIORATION ──────────────────
@@ -209,8 +223,8 @@ export const routes: Routes = [
           roles: ['Admin', 'RH', 'Employee', 'employee', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Equipe formation'],
         },
         loadChildren: () =>
-          import('./features/documentation/documentation-feature/documentation-feature.module')
-            .then(m => m.DocumentationFeatureModule),
+          import('./features/documentation/documentation.module')
+            .then(m => m.DocumentationModule),
       },
 
       // ─── PRIME ───────────────────────────────────
@@ -226,7 +240,7 @@ export const routes: Routes = [
       {
         path: 'parrainage',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Manager', 'Pilote', 'Audit', 'Coach', 'RP'] },
+        data: { roles: ['Admin', 'RH', 'Manager', 'Pilote', 'Employee', 'Audit', 'Coach', 'RP'] },
         loadChildren: () =>
           import('./features/parrainage/parrainage.routes').then((m) => m.PARRAINAGE_ROUTES),
       },

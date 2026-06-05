@@ -13,12 +13,15 @@ import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import {
   AlertTriangle,
   BarChart3,
+  Bot,
   Calendar,
   CheckCircle,
   ClipboardList,
+  Inbox,
   Loader2,
   Rocket,
   Trash2,
+  Users,
 } from 'lucide';
 
 @Component({
@@ -38,6 +41,9 @@ export class PlanningGenerateComponent implements OnInit {
     rocket: Rocket,
     list: ClipboardList,
     trash: Trash2,
+    bot: Bot,
+    inbox: Inbox,
+    users: Users,
     loader: Loader2,
   };
 

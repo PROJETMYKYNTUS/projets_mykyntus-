@@ -35,7 +35,7 @@ echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
     @if (loading()) {
       <div class="p-8 text-slate-400">Loading your dashboard...</div>
     } @else {
-      <div class="p-8 space-y-6 bg-navy-950 min-h-full">
+      <div class="p-8 space-y-6 bg-app min-h-full">
         <div>
           <h1 class="text-3xl font-bold text-slate-100">Welcome back, {{ user().firstName }}</h1>
           <p class="text-slate-400 mt-1">

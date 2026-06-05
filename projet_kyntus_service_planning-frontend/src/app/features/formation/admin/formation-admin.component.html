@@ -59,11 +59,11 @@
             </span>
           </td>
           <td class="fa-td-actions">
-            <button class="fa-btn-edit" (click)="openEdit(f)" title="Modifier">✏️</button>
+            <button class="fa-btn-edit" (click)="openEdit(f)" title="Modifier">Modifier</button>
             <button class="fa-btn-valid"
                     *ngIf="f.statut === StatutFormation.Brouillon || f.statut === StatutFormation.EnAttente"
-                    (click)="valider(f)" title="Valider">✅</button>
-            <button class="fa-btn-del" (click)="delete(f)" title="Supprimer">🗑️</button>
+                    (click)="valider(f)" title="Valider">Valider</button>
+            <button class="fa-btn-del" (click)="delete(f)" title="Supprimer">Supprimer</button>
           </td>
         </tr>
       </tbody>
@@ -75,7 +75,7 @@
     <div class="fa-modal" (click)="$event.stopPropagation()">
       <div class="fa-modal-head">
         <h3>{{ editMode ? 'Modifier la formation' : 'Nouvelle formation' }}</h3>
-        <button (click)="showModal = false">✕</button>
+        <button (click)="showModal = false">Fermer</button>
       </div>
       <div class="fa-modal-body">
         <div class="fa-field">

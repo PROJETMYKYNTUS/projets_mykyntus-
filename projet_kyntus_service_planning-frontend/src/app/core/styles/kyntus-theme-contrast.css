@@ -1,0 +1,483 @@
+/**
+ * Garde-fous contrast light/dark — chargé en dernier (priorité max).
+ * Couvre microservices (module-*) et pages legacy dans .ks-content.
+ */
+
+/* ——— Mode clair : text-white sur fond clair ——— */
+body.theme-light .ks-content .text-white:not([class*='bg-blue']):not([class*='bg-indigo']):not([class*='bg-cyan']):not([class*='bg-red']):not([class*='bg-green']):not([class*='bg-amber']):not([class*='bg-emerald']):not([class*='bg-purple']):not([class*='bg-violet']):not([class*='bg-rose']):not([class*='bg-orange']):not([class*='bg-teal']):not([class*='bg-sky']):not([class*='bg-primary']):not([class*='bg-gradient']) {
+  color: var(--text-primary) !important;
+}
+
+/* Slate trop pâle sur fond clair */
+body.theme-light .ks-content .text-slate-300,
+body.theme-light .ks-content .text-slate-400 {
+  color: var(--text-muted) !important;
+}
+
+body.theme-light .ks-content .text-slate-500,
+body.theme-light .ks-content .text-slate-600 {
+  color: var(--text-muted) !important;
+}
+
+/* Fonds navy Tailwind (conçus pour dark) → surfaces claires */
+body.theme-light .ks-content.module-prime .bg-navy-950,
+body.theme-light .ks-content.module-parrainage .bg-navy-950,
+body.theme-light .ks-content.module-documentation .bg-navy-950,
+body.theme-light .ks-content.module-prime .bg-navy-950\/80,
+body.theme-light .ks-content.module-parrainage .bg-navy-950\/80,
+body.theme-light .ks-content.module-documentation .bg-navy-950\/80 {
+  background-color: var(--bg-primary) !important;
+}
+
+body.theme-light .ks-content.module-prime .bg-navy-900,
+body.theme-light .ks-content.module-parrainage .bg-navy-900,
+body.theme-light .ks-content.module-documentation .bg-navy-900,
+body.theme-light .ks-content.module-prime .bg-navy-900\/50,
+body.theme-light .ks-content.module-parrainage .bg-navy-900\/50,
+body.theme-light .ks-content.module-documentation .bg-navy-900\/50,
+body.theme-light .ks-content.module-prime .bg-navy-900\/80,
+body.theme-light .ks-content.module-parrainage .bg-navy-900\/80,
+body.theme-light .ks-content.module-documentation .bg-navy-900\/80 {
+  background-color: var(--bg-card) !important;
+}
+
+body.theme-light .ks-content.module-prime .border-navy-800,
+body.theme-light .ks-content.module-parrainage .border-navy-800,
+body.theme-light .ks-content.module-documentation .border-navy-800 {
+  border-color: var(--border-color) !important;
+}
+
+/* Headers microservices */
+body.theme-light .ks-content.module-documentation header,
+body.theme-light .ks-content.module-parrainage header,
+body.theme-light .ks-content.module-prime header {
+  background-color: color-mix(in srgb, var(--bg-card) 92%, transparent) !important;
+  border-color: var(--border-color) !important;
+}
+
+body.theme-light .ks-content.module-documentation header .text-white,
+body.theme-light .ks-content.module-parrainage header .text-white,
+body.theme-light .ks-content.module-prime header .text-white {
+  color: var(--text-primary) !important;
+}
+
+/* Boutons colorés : conserver texte blanc */
+body.theme-light .ks-content [class*='bg-blue-'].text-white,
+body.theme-light .ks-content [class*='bg-indigo-'].text-white,
+body.theme-light .ks-content [class*='bg-cyan-'].text-white,
+body.theme-light .ks-content [class*='bg-red-'].text-white,
+body.theme-light .ks-content [class*='bg-green-'].text-white,
+body.theme-light .ks-content [class*='bg-amber-'].text-white,
+body.theme-light .ks-content [class*='bg-emerald-'].text-white,
+body.theme-light .ks-content [class*='bg-purple-'].text-white,
+body.theme-light .ks-content [class*='bg-violet-'].text-white,
+body.theme-light .ks-content [class*='bg-rose-'].text-white,
+body.theme-light .ks-content [class*='bg-orange-'].text-white,
+body.theme-light .ks-content [class*='bg-teal-'].text-white,
+body.theme-light .ks-content [class*='bg-sky-'].text-white,
+body.theme-light .ks-content .btn-download,
+body.theme-light .ks-content .ky-btn-primary,
+body.theme-light .ks-content button[class*='bg-blue-'],
+body.theme-light .ks-content button[class*='bg-indigo-'],
+body.theme-light .ks-content a[class*='bg-blue-'],
+body.theme-light .ks-content a[class*='bg-indigo-'] {
+  color: #ffffff !important;
+}
+
+/* ——— Mode sombre : fonds/textes clairs hardcodés ——— */
+body.theme-dark .ks-content .bg-white {
+  background-color: var(--bg-card) !important;
+}
+
+body.theme-dark .ks-content .bg-gray-50,
+body.theme-dark .ks-content .bg-slate-50 {
+  background-color: var(--bg-input) !important;
+}
+
+body.theme-dark .ks-content .text-slate-900,
+body.theme-dark .ks-content .text-gray-900,
+body.theme-dark .ks-content .text-slate-800,
+body.theme-dark .ks-content .text-gray-800 {
+  color: var(--text-primary) !important;
+}
+
+body.theme-dark .ks-content .text-slate-700,
+body.theme-dark .ks-content .text-gray-700,
+body.theme-dark .ks-content .text-slate-600,
+body.theme-dark .ks-content .text-gray-600 {
+  color: var(--text-muted) !important;
+}
+
+body.theme-dark .ks-content .border-gray-200,
+body.theme-dark .ks-content .border-slate-200,
+body.theme-dark .ks-content .border-gray-300,
+body.theme-dark .ks-content .border-slate-300 {
+  border-color: var(--border-color) !important;
+}
+
+/* Legacy modules (sans module-*) : panneaux et inputs */
+body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) .page,
+body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) .card,
+body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) .panel,
+body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) .modal-content,
+body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) .table-wrap {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}
+
+body.theme-light .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) input:not([type='checkbox']):not([type='radio']),
+body.theme-light .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) select,
+body.theme-light .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) textarea {
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) input:not([type='checkbox']):not([type='radio']),
+body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) select,
+body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) textarea {
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+/* ========== Legacy universal — tous modules / tous rôles ========== */
+
+.ks-content .page-wrapper,
+.ks-content .page-container,
+.ks-content .service-page,
+.ks-content .page {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .main-card,
+.ks-content .step-card,
+.ks-content .result-card,
+.ks-content .card,
+.ks-content .panel,
+.ks-content .form-card {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .page-title,
+.ks-content .title-section h1,
+.ks-content .header-left h1,
+.ks-content h1,
+.ks-content h2,
+.ks-content h3,
+.ks-content .table-title {
+  color: var(--text-primary) !important;
+}
+
+.ks-content .page-sub,
+.ks-content .subtitle,
+.ks-content .step-body p {
+  color: var(--text-muted) !important;
+}
+
+/* Boutons secondaires */
+.ks-content .btn-back,
+.ks-content .btn-template,
+.ks-content .btn-light,
+.ks-content .btn-outline,
+.ks-content .btn-reset,
+.ks-content .btn-secondary,
+.ks-content .btn-icon-back,
+.ks-content .btn-import-export {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .btn-back:hover,
+.ks-content .btn-template:hover,
+.ks-content .btn-light:hover,
+.ks-content .btn-outline:hover,
+.ks-content .btn-reset:hover,
+.ks-content .btn-secondary:hover:not(:disabled),
+.ks-content .btn-icon-back:hover,
+.ks-content .btn-import-export:hover {
+  background: var(--navy-700) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .btn-export {
+  background: color-mix(in srgb, #22c55e 16%, var(--bg-card)) !important;
+  border: 1px solid color-mix(in srgb, #22c55e 35%, var(--border-color)) !important;
+  color: color-mix(in srgb, #16a34a 75%, var(--text-primary)) !important;
+}
+
+.ks-content .btn-export:hover {
+  background: color-mix(in srgb, #22c55e 24%, var(--bg-card)) !important;
+}
+
+/* Boutons primaires : texte blanc garanti */
+.ks-content .btn-primary,
+.ks-content .btn-primary-add,
+.ks-content .btn-import,
+.ks-content .ky-btn-primary,
+.ks-content button.btn-primary {
+  color: #ffffff !important;
+}
+
+/* Zones upload / drag-drop */
+.ks-content .drop-zone {
+  background: var(--bg-input) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .drop-zone .drop-text,
+.ks-content .drop-zone .file-name {
+  color: var(--text-primary) !important;
+}
+
+.ks-content .drop-zone .drop-sub,
+.ks-content .drop-zone .drop-formats,
+.ks-content .drop-zone .file-size {
+  color: var(--text-muted) !important;
+}
+
+.ks-content .drop-zone:hover,
+.ks-content .drop-zone.drag-over {
+  background: var(--navy-700) !important;
+  border-color: color-mix(in srgb, var(--soft-blue) 50%, var(--border-color)) !important;
+}
+
+.ks-content .drop-zone.has-file {
+  background: color-mix(in srgb, #22c55e 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, #22c55e 40%, var(--border-color)) !important;
+}
+
+.ks-content .drop-formats {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-muted) !important;
+}
+
+/* Recherche */
+.ks-content .search-box {
+  background: var(--bg-input) !important;
+  border-color: var(--border-color) !important;
+}
+
+.ks-content .search-input {
+  color: var(--text-primary) !important;
+}
+
+.ks-content .search-input::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Tableaux legacy */
+.ks-content .pro-row td,
+.ks-content .styled-table td,
+.ks-content table tbody td {
+  background: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.ks-content .pro-row:hover td,
+.ks-content .styled-table tbody tr:hover td,
+.ks-content table tbody tr:hover td {
+  background: var(--navy-700) !important;
+  border-color: var(--border-color) !important;
+}
+
+.ks-content table thead th,
+.ks-content .pro-table thead th,
+.ks-content .styled-table th,
+.ks-content th {
+  color: var(--text-muted) !important;
+}
+
+.ks-content .name,
+.ks-content .text-white-bold,
+.ks-content .service-name,
+.ks-content .user-name-row .name {
+  color: var(--text-primary) !important;
+}
+
+.ks-content .email,
+.ks-content .text-soft,
+.ks-content .muted {
+  color: var(--text-muted) !important;
+}
+
+/* Boutons d'action icône */
+.ks-content .btn-opt,
+.ks-content .btn-action {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-muted) !important;
+}
+
+.ks-content .btn-opt:hover,
+.ks-content .btn-action:hover {
+  background: var(--navy-700) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Stats / états */
+.ks-content .stat-item {
+  border-color: var(--border-color) !important;
+}
+
+.ks-content .stat-item.total {
+  background: var(--bg-input) !important;
+}
+
+.ks-content .stat-item.success,
+.ks-content .all-success {
+  background: color-mix(in srgb, #22c55e 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, #22c55e 30%, var(--border-color)) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .stat-item.error {
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, #ef4444 30%, var(--border-color)) !important;
+}
+
+.ks-content .state-box,
+.ks-content .state.loading,
+.ks-content .state.empty,
+.ks-content .result-waiting,
+.ks-content .result-loading {
+  background: var(--bg-input) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-muted) !important;
+}
+
+.ks-content .state.error,
+.ks-content .state-box.error {
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, #ef4444 30%, var(--border-color)) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .error-list {
+  background: color-mix(in srgb, #f97316 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, #f97316 35%, var(--border-color)) !important;
+}
+
+.ks-content .error-list h4,
+.ks-content .error-item {
+  color: var(--text-primary) !important;
+}
+
+.ks-content .progress-bar-bg {
+  background: var(--border-color) !important;
+}
+
+/* Planning / alertes / listes employés */
+.ks-content .section-card {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .rule-banner {
+  background: color-mix(in srgb, var(--soft-blue) 14%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, var(--soft-blue) 35%, var(--border-color)) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .rule-banner strong,
+.ks-content .rule-banner p {
+  color: var(--text-primary) !important;
+}
+
+.ks-content .rule-banner p {
+  color: var(--text-muted) !important;
+}
+
+.ks-content .new-emp-item {
+  background: var(--bg-input) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .new-emp-item:hover {
+  background: var(--navy-700) !important;
+}
+
+.ks-content .ne-name {
+  color: var(--text-primary) !important;
+}
+
+.ks-content .ne-hire,
+.ks-content .ne-slot-current {
+  color: var(--text-muted) !important;
+}
+
+.ks-content .btn-slot {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .btn-slot:hover {
+  background: var(--navy-700) !important;
+}
+
+.ks-content .btn-slot.slot-active {
+  background: color-mix(in srgb, #22c55e 16%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, #22c55e 40%, var(--border-color)) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .btn-remove {
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, #ef4444 35%, var(--border-color)) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .warning-box {
+  background: color-mix(in srgb, #f97316 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, #f97316 35%, var(--border-color)) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .alert-success {
+  background: color-mix(in srgb, #22c55e 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, #22c55e 30%, var(--border-color)) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .alert-error {
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, #ef4444 30%, var(--border-color)) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .select-subservice,
+.ks-content select:not([class*='bg-']) {
+  background: var(--bg-input) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .count-badge.warn {
+  background: color-mix(in srgb, #f97316 14%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, #f97316 35%, var(--border-color)) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Mode clair : texte trop pâle sur fond clair */
+body.theme-light .ks-content .drop-zone,
+body.theme-light .ks-content .search-box,
+body.theme-light .ks-content .stat-item.total,
+body.theme-light .ks-content .state-box {
+  color: var(--text-primary) !important;
+}
+
+body.theme-light .ks-content .drop-sub,
+body.theme-light .ks-content .drop-formats {
+  color: var(--text-muted) !important;
+}

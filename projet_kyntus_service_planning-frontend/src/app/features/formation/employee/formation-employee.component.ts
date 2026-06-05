@@ -2,15 +2,18 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormationService } from '../../../core/services/formation.service';
 import { FormationDto, StatutFormation, StatutFormationLabels } from '../../../core/models/formation.models';
+import { LucideIconComponent } from '../../../shared/lucide-icon.component';
+import { Check } from 'lucide';
 
 @Component({
   selector: 'app-formation-employee',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LucideIconComponent],
   templateUrl: './formation-employee.component.html',
   styleUrls: ['./formation-employee.component.css']
 })
 export class FormationEmployeeComponent implements OnInit {
+  readonly icons = { check: Check };
 
   formations: FormationDto[] = [];
   loading = false;

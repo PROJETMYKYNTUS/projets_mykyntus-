@@ -107,6 +107,10 @@ userRole = (() => {
     private router: Router,
   ) {}
 
+  openGlobalSettings(): void {
+    void this.router.navigateByUrl('/settings');
+  }
+
   ngOnInit(): void {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     this.userId       = user?.id;
@@ -121,9 +125,6 @@ userRole = (() => {
     this.loadMyNewsletters();
 
     if (!this.userId) return;
-
-    // ── SignalR ──
-    this.notificationService.connect(this.userId);
 
     this.notificationService.notifications$.subscribe(notifs => {
       console.log('📋 notifications$ émis:', notifs.length, notifs);
@@ -147,7 +148,7 @@ userRole = (() => {
   }
 
   ngOnDestroy(): void {
-    this.notificationService.disconnect();
+    /* SignalR géré globalement par KyntusNotificationInitService */
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────

@@ -4,17 +4,20 @@ import { Component, OnInit, ChangeDetectorRef } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
-import { CongeService, CongeItem, ABSENCE_TYPES } from "../../services/conge.service"; // ✅ ABSENCE_TYPES ajouté
+import { CongeService, CongeItem, ABSENCE_TYPES } from "../../services/conge.service";
 import { PlanningService, SubServiceSimple, EmployeeItem } from "../../services/planning.service";
+import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import { Inbox } from 'lucide';
 
 @Component({
   selector: "app-conge-manager",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideIconComponent],
   templateUrl: "./conge-manager.component.html",
   styleUrls: ["./conge-manager.component.css"]
 })
 export class CongeManagerComponent implements OnInit {
+  readonly icons = { inbox: Inbox };
 
   subServices:     SubServiceSimple[] = [];
   conges:          CongeItem[]        = [];

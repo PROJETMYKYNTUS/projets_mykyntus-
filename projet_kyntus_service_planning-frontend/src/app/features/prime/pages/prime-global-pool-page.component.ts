@@ -65,7 +65,7 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
   standalone: true,
   imports: [LucideIconComponent, PrimeCardComponent, DatePipe, DecimalPipe, FormsModule, PrimeEmployeeFichePreviewActionsComponent],
   template: `
-    <div class="p-6 lg:p-8 space-y-5 min-h-full bg-navy-950">
+    <div class="p-6 lg:p-8 space-y-5 min-h-full bg-app">
       <!-- Header -->
       <div class="flex flex-wrap justify-between items-start gap-4">
         <div>

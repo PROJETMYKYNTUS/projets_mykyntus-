@@ -1,8 +1,8 @@
-import type { AdminSection, AuditSection, RpSection } from '../../features/prime/state/prime-section.service';
+﻿import type { AdminSection, AuditSection, RpSection } from '../../features/prime/state/prime-section.service';
 import type { ParrainageView } from '../../features/parrainage/state/parrainage-nav.service';
 import type { AuditSectionId } from '../../features/parrainage/state/audit-section.service';
-import type { DocumentationTabId } from '../../features/documentation/documentation-feature/services/documentation-navigation.service';
-import type { AuditInterfaceSectionId } from '../../features/documentation/documentation-feature/services/audit-interface-nav.service';
+import type { DocumentationTabId } from '../../features/documentation/services/documentation-navigation.service';
+import type { AuditInterfaceSectionId } from '../../features/documentation/services/audit-interface-nav.service';
 
 /**
  * Configuration centrale du menu latéral global des microservices.

@@ -4,7 +4,7 @@
   <div class="page-header">
     <button class="btn-back" (click)="goBack()">← Planning</button>
     <div class="header-info">
-      <h1 class="page-title">⚙️ Configuration des Shifts</h1>
+      <h1 class="page-title">Configuration des Shifts</h1>
       <p class="page-sub">Définissez les shifts et pauses avant la génération</p>
     </div>
     <div class="week-badge">
@@ -36,14 +36,14 @@
   </div>
 
   <!-- ── MESSAGES ── -->
-  <div class="alert-error"   *ngIf="error">⚠️ {{ error }}</div>
+  <div class="alert-error"   *ngIf="error">{{ error }}</div>
   <div class="alert-success" *ngIf="successMsg">{{ successMsg }}</div>
 
   <!-- ── TABLEAU CONFIG SHIFTS ── -->
   <div class="config-card">
     <div class="card-header">
       <div class="ch-left">
-        <span class="card-icon">📋</span>
+        <span class="card-icon">Config</span>
         <h2>Tableau des Shifts</h2>
         <span class="shifts-count">{{ shifts.length }} shift(s)</span>
       </div>
@@ -166,7 +166,7 @@
                 (click)="removeShift(i)"
                 [disabled]="shifts.length <= 1"
                 title="Supprimer ce shift">
-                🗑️
+                Suppr.
               </button>
             </td>
 
@@ -187,7 +187,7 @@
 
     <!-- ── RÈGLE PAUSE ── -->
     <div class="rule-info">
-      <span class="rule-icon">ℹ️</span>
+      <span class="rule-icon">Info</span>
       <span>Règle fixe : <strong>70% présents</strong> en permanence
         → max <strong>30%</strong> en pause simultanément</span>
     </div>
@@ -196,7 +196,7 @@
   <!-- ── PREVIEW CONFIG SAUVEGARDÉE ── -->
   <div class="saved-config-card" *ngIf="savedConfig">
     <div class="card-header">
-      <span class="card-icon">✅</span>
+      <span class="card-icon">Validation</span>
       <h2>Config sauvegardée — {{ savedConfig.weekCode }}</h2>
       <span class="total-badge">{{ savedConfig.totalEffectif }} employés</span>
     </div>
@@ -204,8 +204,8 @@
       <div class="saved-shift-item" *ngFor="let s of savedConfig.shifts">
         <span class="ss-label">{{ s.label }}</span>
         <span class="ss-time">{{ s.startTime }} → {{ s.endTime }}</span>
-        <span class="ss-break">☕ {{ s.breakRangeStart }} → {{ s.breakRangeEnd }}</span>
-        <span class="ss-count">👥 {{ s.requiredCount }} pers.</span>
+        <span class="ss-break"><app-lucide-icon [icon]="icons.coffee" className="w-3.5 h-3.5 inline" /> {{ s.breakRangeStart }} → {{ s.breakRangeEnd }}</span>
+        <span class="ss-count"><app-lucide-icon [icon]="icons.users" className="w-3.5 h-3.5 inline" /> {{ s.requiredCount }} pers.</span>
         <span class="ss-pct">{{ s.percentage }}%</span>
       </div>
     </div>
@@ -219,7 +219,7 @@
       class="btn-save"
       [disabled]="saving || !subServiceId || totalEffectif === 0"
       (click)="saveConfig()">
-      <span *ngIf="!saving">💾 Sauvegarder la config</span>
+      <span *ngIf="!saving"><app-lucide-icon [icon]="icons.save" className="w-4 h-4 inline" /> Sauvegarder la config</span>
       <span *ngIf="saving">Sauvegarde...</span>
     </button>
 
@@ -228,7 +228,7 @@
       class="btn-generate"
       [disabled]="generating || !savedConfig"
       (click)="generatePlanning()">
-      <span *ngIf="!generating">🚀 Générer le planning</span>
+      <span *ngIf="!generating">Générer le planning</span>
       <span *ngIf="generating" class="generating-state">
         <span class="dot-pulse"></span>
         Génération en cours...

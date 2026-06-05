@@ -32,7 +32,7 @@ import { RoleService } from '../../state/role.service';
     @if (loading()) {
       <div class="p-8 text-slate-400">Loading your primes...</div>
     } @else {
-      <div class="p-8 space-y-6 bg-navy-950 min-h-full">
+      <div class="p-8 space-y-6 bg-app min-h-full">
         <div class="flex items-start justify-between">
           <div>
             <h1 class="text-3xl font-bold text-slate-100">Mes primes</h1>

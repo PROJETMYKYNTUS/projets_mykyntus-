@@ -46,7 +46,7 @@ type RhFilter = (typeof FILTER_OPTIONS)[number]['id'];
           </div>
         }
         <div>
-          <h1 class="text-2xl font-semibold text-slate-50">Gestion des parrainages</h1>
+          <h1 class="text-2xl font-semibold text-primary">Gestion des parrainages</h1>
           <p class="text-sm text-slate-500 mt-1">Liste consultative — la validation s'effectue depuis le détail.</p>
         </div>
 

@@ -1,4 +1,4 @@
-import type { DocumentationRole } from '../../features/documentation/documentation-feature/interfaces/documentation-role';
+﻿import type { DocumentationRole } from '../../features/documentation/interfaces/documentation-role';
 import type { Role as PrimeRole } from '../../features/prime/models';
 import type { ParrainageRole } from '../../features/parrainage/models/referral.model';
 

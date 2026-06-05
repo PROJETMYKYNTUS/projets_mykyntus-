@@ -1,6 +1,6 @@
 .nl-admin-shell {
   --nl-bg: #f1f5f9;
-  --nl-surface: rgba(255, 255, 255, 0.96);
+  --nl-surface: var(--bg-card);
   --nl-surface-soft: #f8fbff;
   --nl-border: #e2e8f0;
   --nl-border-strong: #cbd5e1;
@@ -25,7 +25,7 @@
   padding: 32px 24px 48px;
   background:
     radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 22%),
-    linear-gradient(180deg, #f8fbff 0%, var(--nl-bg) 100%);
+    linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-primary) 100%);
   color: var(--nl-text);
 }
 
@@ -288,7 +288,7 @@
   width: 100%;
   border: 1px solid var(--nl-border);
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--bg-card);
   color: var(--nl-text);
   padding: 14px 15px;
   font: inherit;
@@ -305,7 +305,7 @@
 .nl-field textarea:focus {
   outline: none;
   border-color: #60a5fa;
-  background: #ffffff;
+  background: var(--bg-card);
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
 }
 
@@ -350,7 +350,7 @@
 
 .nl-status-draft {
   background: #f1f5f9;
-  color: #475569;
+  color: var(--text-muted);
   border: 1px solid #cbd5e1;
 }
 
@@ -362,7 +362,7 @@
 
 .nl-status-sending {
   background: #e0f2fe;
-  color: #0369a1;
+  color: var(--text-primary);
   border: 1px solid #bae6fd;
 }
 
@@ -452,7 +452,7 @@
 }
 
 .nl-btn-danger {
-  background: #fff1f2;
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
   color: #be123c;
   border: 1px solid #fecdd3;
 }

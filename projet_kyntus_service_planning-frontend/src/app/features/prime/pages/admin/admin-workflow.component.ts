@@ -21,13 +21,13 @@ import { LucideIconComponent } from '@/shared/lucide-icon.component';
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
       </div>
     } @else {
-      <div class="p-8 space-y-6 bg-navy-950 min-h-full">
+      <div class="p-8 space-y-6 bg-app min-h-full">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 bg-blue-600/10 rounded-xl flex items-center justify-center text-blue-500">
             <app-lucide-icon [icon]="icons.branch" className="w-6 h-6" />
           </div>
           <div>
-            <h3 class="text-xl font-bold text-white">Configuration du workflow</h3>
+            <h3 class="text-xl font-bold text-primary">Configuration du workflow</h3>
             <p class="text-sm text-slate-500">Pilote → Coach → Manager → RP → RH</p>
           </div>
         </div>

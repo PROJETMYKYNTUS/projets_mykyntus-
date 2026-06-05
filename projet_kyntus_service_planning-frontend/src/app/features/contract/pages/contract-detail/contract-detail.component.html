@@ -17,12 +17,12 @@
         <h1 class="page-title">Détails du contrat</h1>
         <p class="page-sub">Informations complètes du contrat</p>
       </div>
-      <button class="btn-primary" (click)="goToEdit()">✏️ Modifier</button>
+      <button class="btn-primary" (click)="goToEdit()">Modifier</button>
     </div>
 
     <!-- ── ALERTE ACTIVE ── -->
     <div class="alert-banner" *ngIf="contract.isAlertActive">
-      ⚠️ Ce contrat est dans la zone d'alerte — moins de {{ contract.alertThresholdDays }} jours avant échéance.
+      Ce contrat est dans la zone d'alerte — moins de {{ contract.alertThresholdDays }} jours avant échéance.
     </div>
 
     <div class="detail-grid">
@@ -44,7 +44,7 @@
 
         <!-- Infos contrat -->
         <div class="info-card">
-          <h3 class="card-title">📅 Dates du contrat</h3>
+          <h3 class="card-title">Dates du contrat</h3>
           <div class="info-grid">
             <div class="info-item">
               <span class="info-label">Date de début</span>
@@ -67,7 +67,7 @@
 
         <!-- Notes -->
         <div class="info-card" *ngIf="contract.notes">
-          <h3 class="card-title">📝 Notes</h3>
+          <h3 class="card-title"><app-lucide-icon [icon]="icons.notes" className="w-4 h-4 inline" /> Notes</h3>
           <p class="notes-text">{{ contract.notes }}</p>
         </div>
 
@@ -78,7 +78,7 @@
 
         <!-- Jours restants contrat -->
         <div class="countdown-card" *ngIf="contract.joursRestants != null">
-          <h3 class="card-title">⏱️ Fin de contrat</h3>
+          <h3 class="card-title">Fin de contrat</h3>
           <div class="countdown-value" [ngClass]="daysTextClass(contract.joursRestants!)">
             {{ contract.joursRestants }}
           </div>
@@ -97,7 +97,7 @@
 
         <!-- Jours restants période d'essai -->
         <div class="countdown-card amber" *ngIf="contract.joursRestantsPeriodeEssai != null && contract.status === 'En période d\'essai'">
-          <h3 class="card-title">⏳ Fin période d'essai</h3>
+          <h3 class="card-title">Fin période d'essai</h3>
           <div class="countdown-value txt-warn">
             {{ contract.joursRestantsPeriodeEssai }}
           </div>
@@ -111,7 +111,7 @@
 
         <!-- Infos création -->
         <div class="info-card">
-          <h3 class="card-title">ℹ️ Informations</h3>
+          <h3 class="card-title">Informations</h3>
           <div class="info-grid">
             <div class="info-item">
               <span class="info-label">ID contrat</span>

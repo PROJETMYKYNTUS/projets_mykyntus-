@@ -3,7 +3,7 @@
   padding: 32px 20px;
   background:
     radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 18%),
-    linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+    linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-primary) 100%);
 }
 
 .page-header {
@@ -26,13 +26,13 @@
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
 .subtitle {
   margin: 6px 0 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.95rem;
 }
 
@@ -50,14 +50,14 @@
 }
 
 .btn-back {
-  background: #ffffff;
-  color: #2563eb;
-  border: 1px solid #dbe7f5;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   box-shadow: 0 8px 18px rgba(37, 99, 235, 0.08);
 }
 
 .btn-back:hover {
-  background: #eff6ff;
+  background: var(--navy-700);
 }
 
 .header-actions {
@@ -77,7 +77,7 @@
 }
 
 .btn-delete {
-  background: #fff1f2;
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
   color: #dc2626;
   border: 1px solid #fecdd3;
 }
@@ -87,15 +87,15 @@
 }
 
 .btn-outline {
-  background: #eef2f7;
-  color: #334155;
-  border: 1px solid #dbe3ee;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .detail-card {
   max-width: 980px;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 24px;
   padding: 32px;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
@@ -106,15 +106,15 @@
   padding: 28px;
   border-radius: 18px;
   text-align: center;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #475569;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-muted);
 }
 
 .state-box.error {
-  background: #fff1f2;
-  color: #b91c1c;
-  border-color: #fecdd3;
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, #ef4444 30%, var(--border-color));
 }
 
 .spinner {
@@ -122,7 +122,7 @@
   height: 34px;
   margin: 0 auto 12px;
   border: 3px solid #dbeafe;
-  border-top-color: #2563eb;
+  border-top-color: var(--text-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -140,7 +140,7 @@
   height: 68px;
   border-radius: 18px;
   background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-  color: #1d4ed8;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -151,14 +151,14 @@
 
 .user-main-info h2 {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 1.35rem;
   font-weight: 700;
 }
 
 .email {
   margin-top: 6px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .badge {
@@ -172,19 +172,19 @@
 }
 
 .badge:not(.inactive):not(.role) {
-  background: #ecfdf5;
-  color: #047857;
+  background: color-mix(in srgb, #22c55e 12%, var(--bg-card));
+  color: var(--text-primary);
   border: 1px solid #bbf7d0;
 }
 
 .badge.inactive {
-  background: #fff1f2;
-  color: #b91c1c;
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
+  color: var(--text-primary);
   border: 1px solid #fecdd3;
 }
 
 .badge.role {
-  background: #eef2ff;
+  background: var(--bg-input);
   color: #4f46e5;
   border: 1px solid #c7d2fe;
 }
@@ -196,8 +196,8 @@
 }
 
 .info-item {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  border: 1px solid #edf2f7;
+  background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%);
+  border: 1px solid var(--border-color);
   border-radius: 18px;
   padding: 20px;
 }
@@ -205,13 +205,13 @@
 .info-label {
   display: block;
   margin-bottom: 8px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.86rem;
   font-weight: 700;
 }
 
 .info-value {
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 1rem;
   font-weight: 700;
 }
@@ -227,20 +227,20 @@
 }
 
 .lv-1 {
-  background: #ecfdf5;
-  color: #047857;
-  border-color: #bbf7d0;
+  background: color-mix(in srgb, #22c55e 12%, var(--bg-card));
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, #22c55e 30%, var(--border-color));
 }
 
 .lv-2 {
-  background: #fff7ed;
-  color: #c2410c;
-  border-color: #fdba74;
+  background: color-mix(in srgb, #f97316 12%, var(--bg-card));
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, #f97316 35%, var(--border-color));
 }
 
 .lv-3 {
   background: #fef2f2;
-  color: #b91c1c;
+  color: var(--text-primary);
   border-color: #fecaca;
 }
 

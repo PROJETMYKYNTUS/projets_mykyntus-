@@ -5,15 +5,18 @@ import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { CongeService, EmployeeSimple } from "../../services/conge.service";
 import { PlanningService, SubServiceSimple } from "../../services/planning.service";
+import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import { Calendar, UserPlus, X } from 'lucide';
 
 @Component({
   selector: "app-new-employee-manager",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideIconComponent],
   templateUrl: "./new-employee-manager.component.html",
   styleUrls: ["./new-employee-manager.component.css"]
 })
 export class NewEmployeeManagerComponent implements OnInit {
+  readonly icons = { userPlus: UserPlus, calendar: Calendar, remove: X };
 
   subServices:        SubServiceSimple[] = [];
   newEmployees:       EmployeeSimple[]   = [];

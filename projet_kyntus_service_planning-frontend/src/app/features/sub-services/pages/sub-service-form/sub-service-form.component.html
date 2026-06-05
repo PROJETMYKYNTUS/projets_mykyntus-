@@ -65,7 +65,7 @@
                  (blur)="checkCode()"
                  placeholder="Ex: APK-01" />
           @if (codeError) {
-            <p class="err-msg">⚠ {{ codeError }}</p>
+            <p class="err-msg">{{ codeError }}</p>
           }
         </div>
       </div>
@@ -76,7 +76,8 @@
           @if (submitting) {
             <span class="btn-spinner"></span> Enregistrement…
           } @else {
-            ✓ {{ isEditMode ? 'Enregistrer les modifications' : 'Créer le sous-service' }}
+            <app-lucide-icon [icon]="icons.check" className="w-4 h-4 inline" />
+            {{ isEditMode ? 'Enregistrer les modifications' : 'Créer le sous-service' }}
           }
         </button>
       </div>

@@ -10,15 +10,18 @@ import {
   WeekShiftConfigResponse,
   ShiftOption
 } from '../../services/planning.service';
+import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import { Coffee, Save, Users } from 'lucide';
 
 @Component({
   selector: 'app-shift-config',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideIconComponent],
   templateUrl: './shift-config.component.html',
   styleUrls: ['./shift-config.component.css']
 })
 export class ShiftConfigComponent implements OnInit {
+  readonly icons = { coffee: Coffee, users: Users, save: Save };
 
   // ── Formulaire ──
   subServiceId  = 0;
@@ -161,7 +164,7 @@ export class ShiftConfigComponent implements OnInit {
       next: result => {
         this.savedConfig = result;
         this.saving      = false;
-        this.successMsg  = `✅ Config sauvegardée — ${result.totalEffectif} employés sur ${result.shifts.length} shifts`;
+        this.successMsg  = `Config sauvegardée — ${result.totalEffectif} employés sur ${result.shifts.length} shifts`;
         this.cdr.detectChanges();
       },
       error: err => {
@@ -235,7 +238,7 @@ private runGenerateFromConfig(planningId: number): void {
   }).subscribe({
     next: result => {
       this.generating = false;
-      this.successMsg = `🎉 Planning ${result.weekCode} généré avec succès !`;
+      this.successMsg = `Planning ${result.weekCode} généré avec succès.`;
       this.cdr.detectChanges();
       setTimeout(() => this.router.navigate(['/planning/view', result.id]), 1500);
     },

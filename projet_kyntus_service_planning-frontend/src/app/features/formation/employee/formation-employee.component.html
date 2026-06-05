@@ -57,7 +57,10 @@
         [disabled]="estComplet(f) || estInscrit(f)"
         [class.disabled]="estComplet(f) || estInscrit(f)"
         (click)="inscrire(f)">
-  {{ estComplet(f) ? 'Formation complète' : estInscrit(f) ? 'Déjà inscrit ✓' : "S'inscrire" }}
+  @if (estComplet(f)) { Formation complète }
+  @else if (estInscrit(f)) {
+    <app-lucide-icon [icon]="icons.check" className="w-3.5 h-3.5 inline" /> Déjà inscrit
+  } @else { S'inscrire }
 </button>
     </div>
   </div>

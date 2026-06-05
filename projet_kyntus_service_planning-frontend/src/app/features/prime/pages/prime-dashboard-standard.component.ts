@@ -32,10 +32,10 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     } @else if (stats()) {
-      <div class="p-8 space-y-8 bg-navy-950 min-h-full">
+      <div class="p-8 space-y-8 bg-app min-h-full">
         <div class="flex justify-between items-end">
           <div>
-            <h1 class="text-3xl font-bold text-white tracking-tight">
+            <h1 class="text-3xl font-bold text-primary tracking-tight">
               {{ dashboardTitle() }}
             </h1>
             <p class="text-slate-400 mt-1">
@@ -54,7 +54,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
             </div>
             <div>
               <p class="text-sm font-medium text-slate-400">Total Primes</p>
-              <p class="text-2xl font-bold text-white">{{ stats()!.totalPrimesThisMonth }}</p>
+              <p class="text-2xl font-bold text-primary">{{ stats()!.totalPrimesThisMonth }}</p>
             </div>
           </div>
           <div class="card-navy p-6 rounded-2xl flex items-center gap-4">
@@ -63,7 +63,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
             </div>
             <div>
               <p class="text-sm font-medium text-slate-400">Budget Used</p>
-              <p class="text-2xl font-bold text-white">{{ stats()!.budgetConsumption }}%</p>
+              <p class="text-2xl font-bold text-primary">{{ stats()!.budgetConsumption }}%</p>
             </div>
           </div>
           <div class="card-navy p-6 rounded-2xl flex items-center gap-4">
@@ -72,7 +72,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
             </div>
             <div>
               <p class="text-sm font-medium text-slate-400">Top Team</p>
-              <p class="text-lg font-bold text-white truncate">{{ stats()!.topTeams[0].name }}</p>
+              <p class="text-lg font-bold text-primary truncate">{{ stats()!.topTeams[0].name }}</p>
             </div>
           </div>
           <div class="card-navy p-6 rounded-2xl flex items-center gap-4">

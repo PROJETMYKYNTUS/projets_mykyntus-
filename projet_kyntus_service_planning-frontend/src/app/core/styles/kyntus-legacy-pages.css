@@ -1,0 +1,285 @@
+/**
+ * Pont CSS pour écrans legacy (Organisation, RH, Planning, etc.)
+ * Remplace progressivement les couleurs figées par les tokens Prime.
+ */
+
+.ks-content .page,
+.ks-content .page-wrapper {
+  min-height: 100%;
+  padding: 28px 24px 48px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans, 'Inter', ui-sans-serif, system-ui, sans-serif);
+}
+
+.ks-content .page-header,
+.ks-content .header-left,
+.ks-content .title-section h1,
+.ks-content h1,
+.ks-content h2 {
+  color: var(--text-primary);
+}
+
+.ks-content .subtitle,
+.ks-content .page-header p {
+  color: var(--text-muted);
+}
+
+.ks-content .card,
+.ks-content .panel,
+.ks-content .form-card,
+.ks-content .detail-card,
+.ks-content .table-card,
+.ks-content .stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.ks-content table {
+  color: var(--text-primary);
+}
+
+.ks-content thead {
+  background: var(--navy-900);
+  color: var(--text-muted);
+  border-color: var(--border-color);
+}
+
+.ks-content tbody tr {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+.ks-content tbody tr:hover {
+  background: var(--navy-700);
+}
+
+.ks-content th,
+.ks-content td {
+  border-color: var(--border-color);
+}
+
+.ks-content input,
+.ks-content select,
+.ks-content textarea {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.ks-content input::placeholder,
+.ks-content textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.ks-content .btn,
+.ks-content .btn-primary {
+  background: var(--blue-600);
+  color: #fff;
+}
+
+.ks-content .btn-primary:hover:not(:disabled) {
+  background: var(--blue-500);
+}
+
+.ks-content .btn-back,
+.ks-content .btn-secondary,
+.ks-content .btn-outline {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.ks-content .btn-back:hover,
+.ks-content .btn-secondary:hover:not(:disabled) {
+  background: var(--navy-700);
+}
+
+.ks-content .badge,
+.ks-content .status-badge {
+  background: var(--navy-800);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.ks-content .launcher {
+  padding: 28px 32px 48px;
+  max-width: 1180px;
+  margin: 0 auto;
+  color: var(--text-primary);
+}
+
+.ks-content .launcher-hero {
+  background: linear-gradient(135deg, var(--navy-900) 0%, color-mix(in srgb, var(--blue-600) 35%, var(--navy-900)) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  padding: 30px 34px;
+  color: var(--text-primary);
+  margin-bottom: 28px;
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--navy-950) 20%, transparent);
+}
+
+.ks-content .lh-badge {
+  background: color-mix(in srgb, var(--electric-blue) 18%, transparent);
+  color: var(--electric-blue);
+}
+
+.ks-content .launcher-hero p {
+  color: var(--text-muted);
+}
+
+.ks-content .ms-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.ks-content .ms-card:hover {
+  border-color: color-mix(in srgb, var(--electric-blue) 40%, var(--border-color));
+  box-shadow: 0 14px 36px color-mix(in srgb, var(--navy-950) 15%, transparent);
+}
+
+.ks-content .ms-icon {
+  background: color-mix(in srgb, var(--soft-blue) 15%, var(--bg-card));
+  color: var(--electric-blue);
+}
+
+.ks-content .ms-body h3 {
+  color: var(--text-primary);
+}
+
+.ks-content .ms-body p,
+.ks-content .launcher-empty {
+  color: var(--text-muted);
+}
+
+.ks-content .launcher-empty {
+  background: var(--bg-card);
+  border: 1px dashed var(--border-color);
+}
+
+body.theme-light .nl-admin-shell {
+  --nl-bg: var(--bg-primary);
+  --nl-surface: var(--bg-card);
+  --nl-surface-soft: var(--bg-primary);
+  --nl-border: var(--border-color);
+  --nl-border-strong: var(--navy-800);
+  --nl-text: var(--text-primary);
+  --nl-text-soft: var(--text-muted);
+  --nl-primary: var(--blue-600);
+  --nl-primary-dark: var(--blue-500);
+  --nl-primary-soft: color-mix(in srgb, var(--soft-blue) 18%, var(--bg-card));
+}
+
+body.theme-dark .nl-admin-shell {
+  --nl-bg: var(--bg-primary);
+  --nl-surface: var(--bg-card);
+  --nl-surface-soft: var(--navy-900);
+  --nl-border: var(--border-color);
+  --nl-border-strong: var(--navy-700);
+  --nl-text: var(--text-primary);
+  --nl-text-soft: var(--text-muted);
+  --nl-primary: var(--electric-blue);
+  --nl-primary-dark: var(--soft-blue);
+  --nl-primary-soft: color-mix(in srgb, var(--electric-blue) 15%, var(--bg-card));
+  --nl-shadow: 0 18px 40px color-mix(in srgb, var(--navy-950) 35%, transparent);
+}
+
+body.theme-light .nl-admin-shell {
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--soft-blue) 10%, transparent), transparent 22%),
+    linear-gradient(180deg, var(--bg-primary) 0%, var(--nl-bg) 100%);
+}
+
+body.theme-dark .nl-admin-shell {
+  background: var(--bg-primary);
+}
+
+.rp-root {
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--soft-blue) 10%, transparent), transparent 22%),
+    linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-primary) 100%) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-sans, 'Inter', ui-sans-serif, system-ui, sans-serif) !important;
+}
+
+.rp-panel,
+.rp-card,
+.rp-stat-card,
+.rp-table-wrap,
+.rp-modal-content {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.rp-title,
+.rp-section-title,
+.rp-card h2,
+.rp-card h3 {
+  color: var(--text-primary) !important;
+}
+
+.rp-muted,
+.rp-subtitle {
+  color: var(--text-muted) !important;
+}
+
+.rp-input,
+.rp-select,
+.rp-textarea {
+  background: var(--bg-input) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ks-content .alert-error,
+.ks-content .alert-success,
+.ks-content .alert-warning,
+.ks-content .alert-info {
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+}
+
+.ks-content .alert-error {
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, #ef4444 35%, var(--border-color));
+  color: var(--text-primary);
+}
+
+.ks-content .alert-success {
+  background: color-mix(in srgb, #22c55e 12%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, #22c55e 35%, var(--border-color));
+  color: var(--text-primary);
+}
+
+.ks-content .emp-root,
+.ks-content .emp-layout,
+.ks-content .emp-main,
+.ks-content .emp-sidebar {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.ks-content .emp-sidebar {
+  border-color: var(--border-color);
+}
+
+.ks-content .emp-nav-item {
+  color: var(--text-muted);
+}
+
+.ks-content .emp-nav-item.active,
+.ks-content .emp-nav-item:hover {
+  background: var(--navy-700);
+  color: var(--text-primary);
+}
+
+.ks-content .icon-inline {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-right: 4px;
+}

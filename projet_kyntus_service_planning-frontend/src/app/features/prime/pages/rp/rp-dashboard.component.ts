@@ -46,7 +46,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
       </div>
     } @else {
       @if (stats(); as st) {
-      <div class="p-8 bg-navy-950 min-h-full space-y-8">
+      <div class="p-8 bg-app min-h-full space-y-8">
         <div class="flex justify-end items-end gap-4 flex-wrap">
           <app-rp-drill-bar [rpUserId]="rpUserId()" />
           <div class="text-sm font-medium text-slate-300 card-navy px-4 py-2 rounded-lg">
@@ -62,7 +62,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
               </div>
               <div>
                 <p class="text-sm font-medium text-slate-400">Fiches PRIME — avancement pôle</p>
-                <p class="text-2xl font-bold text-white">{{ st.projectProgress }}%</p>
+                <p class="text-2xl font-bold text-primary">{{ st.projectProgress }}%</p>
               </div>
             </div>
             <div class="card-navy p-6 rounded-2xl flex items-center gap-4">
@@ -71,7 +71,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
               </div>
               <div>
                 <p class="text-sm font-medium text-slate-400">Fiches complétées (saisie)</p>
-                <p class="text-2xl font-bold text-white">{{ st.completedTasks }}</p>
+                <p class="text-2xl font-bold text-primary">{{ st.completedTasks }}</p>
               </div>
             </div>
             <div class="card-navy p-6 rounded-2xl flex items-center gap-4">
@@ -80,7 +80,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
               </div>
               <div>
                 <p class="text-sm font-medium text-slate-400">Taux validation RH (période)</p>
-                <p class="text-2xl font-bold text-white">{{ st.averageTeamPerformance }}%</p>
+                <p class="text-2xl font-bold text-primary">{{ st.averageTeamPerformance }}%</p>
               </div>
             </div>
             <div class="card-navy p-6 rounded-2xl flex items-center gap-4">
@@ -89,7 +89,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
               </div>
               <div>
                 <p class="text-sm font-medium text-slate-400">Validations en attente</p>
-                <p class="text-2xl font-bold text-white">{{ st.pendingValidations }}</p>
+                <p class="text-2xl font-bold text-primary">{{ st.pendingValidations }}</p>
               </div>
             </div>
           </div>

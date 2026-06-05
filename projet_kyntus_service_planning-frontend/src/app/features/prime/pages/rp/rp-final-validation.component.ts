@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
     } @else {
       <div class="space-y-6">
         <div>
-          <h2 class="text-2xl font-bold text-white tracking-tight">Validation finale</h2>
+          <h2 class="text-2xl font-bold text-primary tracking-tight">Validation finale</h2>
           <p class="text-slate-400 mt-1">
             Primes deja validees par le manager, en attente de decision RP.
           </p>

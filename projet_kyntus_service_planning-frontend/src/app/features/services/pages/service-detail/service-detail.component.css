@@ -6,7 +6,7 @@
   align-items: flex-start;
   background:
     radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 18%),
-    linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+    linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-primary) 100%);
 }
 
 .page-header,
@@ -29,19 +29,19 @@
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
 .header-left p {
   margin: 6px 0 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.95rem;
 }
 
 .card {
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 24px;
   padding: 32px;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
@@ -60,19 +60,19 @@
   align-items: center;
   gap: 20px;
   padding: 18px 20px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  border: 1px solid #edf2f7;
+  background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-primary) 100%);
+  border: 1px solid var(--border-color);
   border-radius: 16px;
 }
 
 .label {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .value {
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 1rem;
   font-weight: 700;
   text-align: right;
@@ -86,14 +86,14 @@
   padding: 8px 14px;
   border-radius: 999px;
   background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
-  color: #0369a1;
+  color: var(--text-primary);
   font-weight: 700;
   font-size: 0.84rem;
   border: 1px solid #bae6fd;
 }
 
 .badge.secondary {
-  background: #eef2ff;
+  background: var(--bg-input);
   color: #4f46e5;
   border: 1px solid #c7d2fe;
 }
@@ -113,16 +113,16 @@
   margin: 0;
   font-size: 1.15rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .empty-state {
   padding: 22px;
   text-align: center;
   border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
 }
 
 .table-wrapper {
@@ -142,32 +142,32 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .styled-table td {
-  background: #fbfdff;
+  background: var(--bg-card);
   padding: 16px;
-  color: #334155;
-  border-top: 1px solid #edf2f7;
-  border-bottom: 1px solid #edf2f7;
+  color: var(--text-primary);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .styled-table td:first-child {
-  border-left: 1px solid #edf2f7;
+  border-left: 1px solid var(--border-color);
   border-top-left-radius: 14px;
   border-bottom-left-radius: 14px;
 }
 
 .styled-table td:last-child {
-  border-right: 1px solid #edf2f7;
+  border-right: 1px solid var(--border-color);
   border-top-right-radius: 14px;
   border-bottom-right-radius: 14px;
 }
 
 .styled-table tbody tr:hover td {
-  background: #f8fbff;
-  border-color: #dbeafe;
+  background: var(--navy-700);
+  border-color: var(--border-color);
 }
 
 .actions {
@@ -188,14 +188,14 @@
 }
 
 .btn-light {
-  background: #ffffff;
-  color: #2563eb;
-  border: 1px solid #dbe7f5;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   box-shadow: 0 8px 18px rgba(37, 99, 235, 0.08);
 }
 
 .btn-light:hover {
-  background: #eff6ff;
+  background: var(--navy-700);
 }
 
 .btn-edit {
@@ -210,7 +210,7 @@
 }
 
 .btn-delete {
-  background: #fff1f2;
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
   color: #dc2626;
   border: 1px solid #fecdd3;
 }
@@ -223,18 +223,18 @@
   padding: 28px;
   border-radius: 18px;
   text-align: center;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
 }
 
 .state.loading {
-  background: #f8fafc;
-  color: #475569;
+  background: var(--bg-input);
+  color: var(--text-muted);
 }
 
 .state.error {
-  background: #fff1f2;
-  color: #b91c1c;
-  border-color: #fecdd3;
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, #ef4444 30%, var(--border-color));
 }
 
 .spinner {
@@ -242,7 +242,7 @@
   height: 34px;
   margin: 0 auto 12px;
   border: 3px solid #dbeafe;
-  border-top-color: #2563eb;
+  border-top-color: var(--text-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

@@ -48,7 +48,7 @@ import { LucideIconComponent } from '@/shared/lucide-icon.component';
         <iframe
           title="Aperçu CV"
           [src]="src"
-          class="w-full rounded-lg border border-navy-800 bg-white"
+          class="w-full rounded-lg border border-navy-800 bg-card"
           style="height: 420px"
         ></iframe>
       } @else if (cvUrl()) {

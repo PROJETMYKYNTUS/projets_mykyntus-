@@ -17,7 +17,7 @@ import { HierarchyDrillService } from '../../state/hierarchy-drill.service';
   template: `
     <div class="space-y-6">
       <div>
-        <h2 class="text-2xl font-bold text-white tracking-tight">Avancement remplissage PRIME</h2>
+        <h2 class="text-2xl font-bold text-primary tracking-tight">Avancement remplissage PRIME</h2>
         <p class="text-slate-400 mt-1">Indicateur de complétion des fiches et jalons de saisie (hors tâches externes).</p>
       </div>
 

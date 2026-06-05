@@ -20,30 +20,30 @@ const ROLE_DETAILS: Record<string, string> = {
   RH: 'Validation finale obligatoire et archivage.',
 };
 const INPUT_CLASS =
-  'w-full bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50';
+  'w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50';
 
 @Component({
   selector: 'app-tier-editor-block',
   standalone: true,
   template: `
-    <div class="card-navy p-4 md:p-5 space-y-3 border border-navy-800/80">
+    <div class="card-navy p-4 md:p-5 space-y-3 border border-default">
       <div>
-        <h3 class="text-sm font-semibold text-slate-100">{{ title }}</h3>
-        <p class="text-xs text-slate-500 mt-0.5">{{ description }}</p>
+        <h3 class="text-sm font-semibold text-primary">{{ title }}</h3>
+        <p class="text-xs text-muted mt-0.5">{{ description }}</p>
       </div>
       <div class="space-y-2">
         @for (t of tiers; track t.id; let idx = $index) {
-          <div class="flex flex-wrap items-end gap-3 rounded-lg border border-navy-800 bg-navy-900/50 p-3">
-            <span class="text-[11px] uppercase tracking-wide text-slate-500 w-full sm:w-20 shrink-0 pt-2">Tranche {{ idx + 1 }}</span>
-            <label class="flex-1 min-w-[120px] text-xs text-slate-400">
+          <div class="flex flex-wrap items-end gap-3 rounded-lg border border-default bg-input p-3">
+            <span class="text-[11px] uppercase tracking-wide text-muted w-full sm:w-20 shrink-0 pt-2">Tranche {{ idx + 1 }}</span>
+            <label class="flex-1 min-w-[120px] text-xs text-muted">
               Montant (DH)
               <input type="number" min="0" [value]="t.amountDH" (input)="update(t.id, 'amountDH', $any($event.target).value)" [class]="'mt-1 ' + inputClass" />
             </label>
-            <label class="flex-1 min-w-[120px] text-xs text-slate-400">
+            <label class="flex-1 min-w-[120px] text-xs text-muted">
               Après (mois)
               <input type="number" min="0" [value]="t.afterMonths" (input)="update(t.id, 'afterMonths', $any($event.target).value)" [class]="'mt-1 ' + inputClass" />
             </label>
-            <button type="button" [disabled]="tiers.length <= 1" (click)="remove(t.id)" class="text-xs text-rose-400 hover:text-rose-300 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-2">Retirer</button>
+            <button type="button" [disabled]="tiers.length <= 1" (click)="remove(t.id)" class="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-500 font-medium disabled:opacity-30 disabled:cursor-not-allowed px-2 py-2">Retirer</button>
           </div>
         }
       </div>
@@ -88,8 +88,8 @@ export class TierEditorBlockComponent {
     } @else {
       <section class="flex-1 space-y-6 max-w-4xl">
         <div>
-          <h1 class="text-2xl font-semibold text-slate-50">Configuration système</h1>
-          <p class="text-sm text-slate-500 mt-1">
+          <h1 class="text-2xl font-semibold text-primary">Configuration système</h1>
+          <p class="text-sm text-muted mt-1">
             {{ role === 'RH'
               ? 'Règles de primes (modes dynamiques), plafonds et workflow de validation.'
               : 'Règles de primes, workflow, audit et paramètres système.' }}
@@ -99,16 +99,16 @@ export class TierEditorBlockComponent {
         <div class="card-navy p-6 space-y-6">
           <div class="space-y-4">
             <div>
-              <h2 class="text-sm font-semibold text-slate-200">Règles de parrainage — primes (DH)</h2>
-              <p class="text-xs text-slate-500 mt-1">
-                Deux jeux de règles coexistent : le <strong class="text-slate-400">mode standard</strong> (par défaut)
-                et le <strong class="text-slate-400">mode période critique</strong>. Vous basculez le mode actif à tout
+              <h2 class="text-sm font-semibold text-primary">Règles de parrainage — primes (DH)</h2>
+              <p class="text-xs text-muted mt-1">
+                Deux jeux de règles coexistent : le <strong class="text-primary">mode standard</strong> (par défaut)
+                et le <strong class="text-primary">mode période critique</strong>. Vous basculez le mode actif à tout
                 moment ; les tranches de chaque mode restent éditables ci-dessous.
               </p>
             </div>
 
-            <div class="rounded-lg border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-xs text-slate-300">
-              <span class="font-semibold text-amber-200/90">Mode appliqué actuellement : </span>
+            <div class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-primary">
+              <span class="font-semibold">Mode appliqué actuellement : </span>
               {{ rules().activeMode === 'STANDARD'
                 ? 'Standard — somme des tranches standard (après enregistrement).'
                 : 'Période critique — somme des tranches « critique » (après enregistrement).' }}
@@ -116,14 +116,14 @@ export class TierEditorBlockComponent {
 
             <div class="grid sm:grid-cols-2 gap-3">
               <button type="button" (click)="setProgramMode('STANDARD')"
-                [class]="'rounded-xl border p-4 text-left transition-colors ' + (rules().activeMode === 'STANDARD' ? 'border-blue-500/50 bg-blue-600/10 ring-1 ring-blue-500/30' : 'border-navy-800 bg-navy-900/40 hover:border-navy-700')">
-                <span class="text-sm font-semibold text-slate-50">Mode STANDARD</span>
-                <p class="text-xs text-slate-500 mt-1 leading-relaxed">Ex. une tranche : 1&nbsp;500&nbsp;DH après 6&nbsp;mois. Ajoutez d'autres tranches si besoin.</p>
+                [class]="'rounded-xl border p-4 text-left transition-colors ' + (rules().activeMode === 'STANDARD' ? 'border-blue-500/50 bg-blue-600/10 ring-1 ring-blue-500/30' : 'border-default bg-input hover:border-navy-700')">
+                <span class="text-sm font-semibold text-primary">Mode STANDARD</span>
+                <p class="text-xs text-muted mt-1 leading-relaxed">Ex. une tranche : 1&nbsp;500&nbsp;DH après 6&nbsp;mois. Ajoutez d'autres tranches si besoin.</p>
               </button>
               <button type="button" (click)="setProgramMode('CRITICAL_PERIOD')"
-                [class]="'rounded-xl border p-4 text-left transition-colors ' + (rules().activeMode === 'CRITICAL_PERIOD' ? 'border-rose-500/40 bg-rose-500/10 ring-1 ring-rose-500/25' : 'border-navy-800 bg-navy-900/40 hover:border-navy-700')">
-                <span class="text-sm font-semibold text-slate-50">Mode PÉRIODE CRITIQUE</span>
-                <p class="text-xs text-slate-500 mt-1 leading-relaxed">Ex. 500&nbsp;DH à 3&nbsp;mois puis 1&nbsp;000&nbsp;DH à 6&nbsp;mois — configurable.</p>
+                [class]="'rounded-xl border p-4 text-left transition-colors ' + (rules().activeMode === 'CRITICAL_PERIOD' ? 'border-rose-500/40 bg-rose-500/10 ring-1 ring-rose-500/25' : 'border-default bg-input hover:border-navy-700')">
+                <span class="text-sm font-semibold text-primary">Mode PÉRIODE CRITIQUE</span>
+                <p class="text-xs text-muted mt-1 leading-relaxed">Ex. 500&nbsp;DH à 3&nbsp;mois puis 1&nbsp;000&nbsp;DH à 6&nbsp;mois — configurable.</p>
               </button>
             </div>
 
@@ -140,7 +140,7 @@ export class TierEditorBlockComponent {
               (tiersChange)="patchRules({ criticalPeriodTiers: $event })"
             />
 
-            <p class="text-[11px] text-slate-500">
+            <p class="text-[11px] text-muted">
               Les champs techniques « prime par défaut » et « durée min. » sont dérivés automatiquement du mode actif pour
               compatibilité avec les autres écrans (valeurs actuelles : {{ config().defaultBonusAmount }}&nbsp;DH cumulés, premier
               palier à {{ config().minDurationMonths }}&nbsp;mois).
@@ -148,24 +148,24 @@ export class TierEditorBlockComponent {
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Limite de parrainages par employé</label>
+            <label class="text-xs font-bold text-muted uppercase tracking-wider">Limite de parrainages par employé</label>
             <input type="number" [value]="config().referralLimitPerEmployee" (input)="setLimit($any($event.target).value)"
-              class="w-full bg-navy-900 border border-navy-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50" />
+              class="w-full bg-input border border-default rounded-lg px-4 py-2.5 text-primary focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50" />
           </div>
 
           @if (role !== 'RH') {
-            <div class="border border-navy-800 rounded-xl p-4 space-y-4">
-              <h2 class="text-sm font-semibold text-slate-200">Workflow de validation</h2>
+            <div class="border border-default rounded-xl p-4 space-y-4">
+              <h2 class="text-sm font-semibold text-primary">Workflow de validation</h2>
               <div class="space-y-3">
                 @for (step of steps(); track step.id; let index = $index) {
-                  <div class="rounded-lg border border-navy-800 p-3 bg-navy-900/40">
+                  <div class="rounded-lg border border-default p-3 bg-input">
                     <div class="flex items-center justify-between">
-                      <div class="text-sm text-slate-100 font-medium">{{ index + 1 }}. {{ step.role }}</div>
+                      <div class="text-sm text-primary font-medium">{{ index + 1 }}. {{ step.role }}</div>
                       <div class="flex gap-2">
-                        <button type="button" [disabled]="step.role === 'RH'" (click)="moveStep(index, -1)" class="px-2 py-1 rounded bg-navy-800 text-slate-300 disabled:opacity-40">↑</button>
-                        <button type="button" [disabled]="step.role === 'RH'" (click)="moveStep(index, 1)" class="px-2 py-1 rounded bg-navy-800 text-slate-300 disabled:opacity-40">↓</button>
-                        <button type="button" (click)="openPanel(step.id, 'config')" class="px-2 py-1 rounded bg-navy-800 text-slate-300">Configurer</button>
-                        <button type="button" (click)="openPanel(step.id, 'details')" class="px-2 py-1 rounded bg-navy-800 text-slate-300">Voir détails</button>
+                        <button type="button" [disabled]="step.role === 'RH'" (click)="moveStep(index, -1)" class="px-2 py-1 rounded bg-card border border-default text-primary disabled:opacity-40">↑</button>
+                        <button type="button" [disabled]="step.role === 'RH'" (click)="moveStep(index, 1)" class="px-2 py-1 rounded bg-card border border-default text-primary disabled:opacity-40">↓</button>
+                        <button type="button" (click)="openPanel(step.id, 'config')" class="px-2 py-1 rounded bg-card border border-default text-primary">Configurer</button>
+                        <button type="button" (click)="openPanel(step.id, 'details')" class="px-2 py-1 rounded bg-card border border-default text-primary">Voir détails</button>
                       </div>
                     </div>
                   </div>
@@ -173,14 +173,14 @@ export class TierEditorBlockComponent {
               </div>
             </div>
 
-            <div class="border border-navy-800 rounded-xl p-4 space-y-3">
-              <h2 class="text-sm font-semibold text-slate-200">Audit & accès</h2>
+            <div class="border border-default rounded-xl p-4 space-y-3">
+              <h2 class="text-sm font-semibold text-primary">Audit & accès</h2>
               <div class="grid md:grid-cols-2 gap-3">
-                <label class="text-sm text-slate-300 flex items-center gap-2"><input type="checkbox" [checked]="audit().enabled" (change)="setAudit('enabled', $any($event.target).checked)" />Activer Audit</label>
-                <label class="text-sm text-slate-300 flex items-center gap-2"><input type="checkbox" checked disabled />Lecture seule (fixe)</label>
-                <label class="text-sm text-slate-300 flex items-center gap-2"><input type="checkbox" [checked]="audit().logs" (change)="setAudit('logs', $any($event.target).checked)" />Accès logs</label>
-                <label class="text-sm text-slate-300 flex items-center gap-2"><input type="checkbox" [checked]="audit().history" (change)="setAudit('history', $any($event.target).checked)" />Accès historique</label>
-                <label class="text-sm text-slate-300 flex items-center gap-2"><input type="checkbox" [checked]="audit().export" (change)="setAudit('export', $any($event.target).checked)" />Export</label>
+                <label class="text-sm text-primary flex items-center gap-2"><input type="checkbox" [checked]="audit().enabled" (change)="setAudit('enabled', $any($event.target).checked)" />Activer Audit</label>
+                <label class="text-sm text-primary flex items-center gap-2"><input type="checkbox" checked disabled />Lecture seule (fixe)</label>
+                <label class="text-sm text-primary flex items-center gap-2"><input type="checkbox" [checked]="audit().logs" (change)="setAudit('logs', $any($event.target).checked)" />Accès logs</label>
+                <label class="text-sm text-primary flex items-center gap-2"><input type="checkbox" [checked]="audit().history" (change)="setAudit('history', $any($event.target).checked)" />Accès historique</label>
+                <label class="text-sm text-primary flex items-center gap-2"><input type="checkbox" [checked]="audit().export" (change)="setAudit('export', $any($event.target).checked)" />Export</label>
               </div>
             </div>
           }
@@ -196,27 +196,27 @@ export class TierEditorBlockComponent {
         @if (role !== 'RH' && panelMode() && selectedStep()) {
           <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button type="button" class="absolute inset-0 bg-black/60" (click)="panelMode.set(null)"></button>
-            <div class="relative card-navy max-w-xl w-full p-6 border border-navy-800">
+            <div class="relative card-navy max-w-xl w-full p-6 border border-default">
               @if (panelMode() === 'config') {
                 <div class="space-y-4">
-                  <h3 class="text-white text-lg font-semibold">Configurer: {{ selectedStep()!.role }}</h3>
-                  <label class="text-slate-300 text-sm">Rôle
-                    <input readonly [value]="selectedStep()!.role" class="mt-1 w-full bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-white" />
+                  <h3 class="text-primary text-lg font-semibold">Configurer: {{ selectedStep()!.role }}</h3>
+                  <label class="text-muted text-sm">Rôle
+                    <input readonly [value]="selectedStep()!.role" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary" />
                   </label>
-                  <label class="text-slate-300 text-sm">SLA spécifique (h)
-                    <input type="number" min="0" [value]="selectedStep()!.slaHours" (input)="patchStep({ slaHours: num($any($event.target).value) })" class="mt-1 w-full bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-white" />
+                  <label class="text-muted text-sm">SLA spécifique (h)
+                    <input type="number" min="0" [value]="selectedStep()!.slaHours" (input)="patchStep({ slaHours: num($any($event.target).value) })" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary" />
                   </label>
                   <div class="flex flex-wrap gap-3">
                     @for (a of actions; track a) {
-                      <label class="text-xs text-slate-300 flex items-center gap-2">
+                      <label class="text-xs text-primary flex items-center gap-2">
                         <input type="checkbox" [checked]="selectedStep()!.actions.includes(a)" (change)="toggleAction(a, $any($event.target).checked)" />{{ a }}
                       </label>
                     }
                   </div>
                   <div class="grid md:grid-cols-2 gap-3">
-                    <label class="text-slate-300 text-sm flex items-center gap-2"><input type="checkbox" [checked]="selectedStep()!.notificationEnabled" (change)="patchStep({ notificationEnabled: $any($event.target).checked })" />Notifications actives</label>
-                    <label class="text-slate-300 text-sm">Type
-                      <select [value]="selectedStep()!.notificationType" (change)="patchStep({ notificationType: $any($event.target).value })" class="mt-1 w-full bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-white">
+                    <label class="text-muted text-sm flex items-center gap-2"><input type="checkbox" [checked]="selectedStep()!.notificationEnabled" (change)="patchStep({ notificationEnabled: $any($event.target).checked })" />Notifications actives</label>
+                    <label class="text-muted text-sm">Type
+                      <select [value]="selectedStep()!.notificationType" (change)="patchStep({ notificationType: $any($event.target).value })" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary">
                         <option value="email">Email</option>
                         <option value="in-app">InApp</option>
                       </select>
@@ -225,9 +225,9 @@ export class TierEditorBlockComponent {
                 </div>
               } @else {
                 <div class="space-y-3">
-                  <h3 class="text-white text-lg font-semibold">Détails: {{ selectedStep()!.role }}</h3>
-                  <p class="text-slate-300 text-sm">{{ roleDetails(selectedStep()!.role) }}</p>
-                  <p class="text-slate-400 text-sm">Hiérarchie: Pilote → Coach → Manager → RP → RH</p>
+                  <h3 class="text-primary text-lg font-semibold">Détails: {{ selectedStep()!.role }}</h3>
+                  <p class="text-muted text-sm">{{ roleDetails(selectedStep()!.role) }}</p>
+                  <p class="text-muted text-sm">Hiérarchie: Pilote → Coach → Manager → RP → RH</p>
                 </div>
               }
             </div>

@@ -17,12 +17,11 @@ import { NavigationActionsService } from '../../core/navigation/navigation-actio
 
 import { AuthService } from '../../core/services/auth.service';
 import { KyntusThemeService } from '../../core/theme/kyntus-theme.service';
-import { KyntusNotificationHubService } from '../../core/notifications/kyntus-notification-hub.service';
-import { KyntusShellUiService } from '../../core/notifications/kyntus-shell-ui.service';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
 import { ShellNotificationBadgeComponent } from '../../shared/shell-controls/notification-badge.component';
-import { ShellNotificationDropdownComponent } from '../../shared/shell-controls/notification-dropdown.component';
-import { ShellSettingsPanelComponent } from '../../shared/shell-controls/settings-panel.component';
+import { NotificationDropdownComponent } from '../prime/components/notification-dropdown.component';
+import { SettingsPanelComponent } from '../prime/components/settings-panel.component';
+import { NotificationUiService } from '../prime/state/notification-ui.service';
 
 import { PrimeNavRequestService } from '../prime/services/prime-nav-request.service';
 
@@ -38,9 +37,9 @@ import { AuditSectionService } from '../parrainage/state/audit-section.service';
 
 import { isProjectLeadRole } from '../prime/lib/projectLeadRole';
 
-import { DocumentationNavigationService } from '../documentation/documentation-feature/services/documentation-navigation.service';
+import { DocumentationNavigationService } from '../documentation/services/documentation-navigation.service';
 
-import { AuditInterfaceNavService } from '../documentation/documentation-feature/services/audit-interface-nav.service';
+import { AuditInterfaceNavService } from '../documentation/services/audit-interface-nav.service';
 
 
 
@@ -55,8 +54,8 @@ import { AuditInterfaceNavService } from '../documentation/documentation-feature
     RouterModule,
     LucideIconComponent,
     ShellNotificationBadgeComponent,
-    ShellNotificationDropdownComponent,
-    ShellSettingsPanelComponent,
+    NotificationDropdownComponent,
+    SettingsPanelComponent,
   ],
 
   templateUrl: './shell-layout.component.html',
@@ -94,8 +93,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   private readonly docAuditNav = inject(AuditInterfaceNavService);
 
   readonly theme = inject(KyntusThemeService);
-  readonly hub = inject(KyntusNotificationHubService);
-  private readonly shellUi = inject(KyntusShellUiService);
+  readonly primeNotif = inject(NotificationUiService);
 
   readonly icons = { bell: Bell, settings: Settings, moon: Moon, sun: Sun };
 
@@ -197,10 +195,12 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
     const path = url.split('?')[0];
 
-    if (/^\/prime(\/|$)/.test(path)) {
-
+    if (
+      /^\/prime(\/|$)/.test(path) ||
+      path === '/notifications' ||
+      path === '/settings'
+    ) {
       this.moduleContentClass = 'module-prime';
-
     } else if (/^\/parrainage(\/|$)/.test(path)) {
 
       this.moduleContentClass = 'module-parrainage';
@@ -219,18 +219,26 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
 
 
-  private openGroupForUrl(url: string): void {
+  private static readonly INTEGRATED_MODULE_IDS = ['documentation', 'prime', 'parrainage'] as const;
 
+  private openGroupForUrl(url: string): void {
     const path = url.split('?')[0];
+    const activeIntegrated = ShellLayoutComponent.INTEGRATED_MODULE_IDS.find((id) =>
+      path.startsWith(`/${id}`),
+    );
+
+    if (activeIntegrated) {
+      for (const id of ShellLayoutComponent.INTEGRATED_MODULE_IDS) {
+        if (id !== activeIntegrated) {
+          this.openGroups.delete(id);
+        }
+      }
+    }
 
     for (const g of this.groups) {
-
       const matchChild = g.children.some((c) => {
-
         if (c.route && path.startsWith(c.route)) return true;
-
         return false;
-
       });
 
       if (
@@ -239,13 +247,9 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
         (g.id === 'parrainage' && path.startsWith('/parrainage')) ||
         (g.id === 'documentation' && path.startsWith('/documentation'))
       ) {
-
         this.openGroups.add(g.id);
-
       }
-
     }
-
   }
 
 
@@ -408,21 +412,27 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   }
 
   toggleNotifDropdown(): void {
-    this.shellUi.toggleDropdown();
-    if (this.shellUi.dropdownOpen()) {
-      this.hub.refreshContracts();
+    if (this.primeNotif.dropdownOpen()) {
+      this.primeNotif.closeDropdown();
+    } else {
+      this.primeNotif.openDropdown();
     }
   }
 
   openNotifications(): void {
-    if (!this.shellUi.dropdownOpen()) {
-      this.shellUi.toggleDropdown();
-    }
-    this.hub.refreshContracts();
+    this.sidebarOpen = false;
+    this.primeNotif.openDropdown();
   }
 
   openSettings(): void {
-    this.shellUi.openSettings();
+    this.sidebarOpen = false;
+    this.primeNotif.openSettings();
+  }
+
+  openSettingsPage(): void {
+    this.sidebarOpen = false;
+    this.primeNotif.closeDropdown();
+    this.primeNotif.openSettings();
   }
 
 

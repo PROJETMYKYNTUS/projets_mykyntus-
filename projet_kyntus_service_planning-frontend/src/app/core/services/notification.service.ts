@@ -82,7 +82,7 @@ private connectPlanningHub(userId: number): void {
         receivedAt:     new Date(),
         read:           false,
         type:           'planning',
-        icon:           '📅'
+        icon:           'calendar'
       });
     });
 
@@ -143,7 +143,7 @@ private connectReclamationHub(userId: number, isManager: boolean): void {
     receivedAt:     new Date(),
     read:           false,
     type:           isProposition ? 'proposition' : 'reclamation', // ✅
-    icon:           isProposition ? '💡' : '💬'
+    icon:           isProposition ? 'lightbulb' : 'message-circle'
   });
 });
 

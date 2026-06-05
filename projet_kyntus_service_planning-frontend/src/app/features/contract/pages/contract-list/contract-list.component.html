@@ -9,7 +9,7 @@
       <p class="page-sub">Suivi des contrats, périodes d'essai et alertes d'échéance</p>
     </div>
        <button class="btn-secondary" (click)="goToDashboard()">
-      🏠 Dashboard
+      Dashboard
     </button>
 
     <button class="btn-primary" (click)="goToCreate()">
@@ -20,35 +20,35 @@
   <!-- ── KPI ── -->
   <div class="kpi-row">
     <div class="kpi-card kc-blue">
-      <div class="kpi-icon">📄</div>
+      <div class="kpi-icon">DOC</div>
       <div class="kpi-body">
         <span class="kpi-label">Total</span>
         <span class="kpi-value">{{ stats.total }}</span>
       </div>
     </div>
     <div class="kpi-card kc-green">
-      <div class="kpi-icon">✅</div>
+      <div class="kpi-icon">OK</div>
       <div class="kpi-body">
         <span class="kpi-label">Actifs</span>
         <span class="kpi-value">{{ stats.actifs }}</span>
       </div>
     </div>
     <div class="kpi-card kc-amber">
-      <div class="kpi-icon">⏳</div>
+      <div class="kpi-icon">PE</div>
       <div class="kpi-body">
         <span class="kpi-label">Période d'essai</span>
         <span class="kpi-value">{{ stats.periodeEssai }}</span>
       </div>
     </div>
     <div class="kpi-card kc-rose">
-      <div class="kpi-icon">⚠️</div>
+      <div class="kpi-icon">!</div>
       <div class="kpi-body">
         <span class="kpi-label">Alertes</span>
         <span class="kpi-value">{{ stats.alertes }}</span>
       </div>
     </div>
     <div class="kpi-card kc-gray">
-      <div class="kpi-icon">🔴</div>
+      <div class="kpi-icon">EXP</div>
       <div class="kpi-body">
         <span class="kpi-label">Expirés</span>
         <span class="kpi-value">{{ stats.expires }}</span>
@@ -59,7 +59,7 @@
   <!-- ── FILTRES ── -->
   <div class="filters-bar">
     <div class="search-box">
-      <span class="search-icon">🔍</span>
+      <span class="search-icon"></span>
       <input
         type="text"
         placeholder="Rechercher un employé..."
@@ -88,7 +88,7 @@
         class="btn-alert-filter"
         [class.active]="filterAlerts"
         (click)="toggleAlertFilter()">
-        ⚠️ Alertes seulement
+        Alertes seulement
       </button>
     </div>
   </div>
@@ -165,21 +165,21 @@
           </td>
 
           <td>
-            <span class="badge-alert on"  *ngIf="c.isAlertActive">⚠️ Alerte</span>
-            <span class="badge-alert off" *ngIf="!c.isAlertActive">✅ OK</span>
+            <span class="badge-alert on"  *ngIf="c.isAlertActive">Alerte</span>
+            <span class="badge-alert off" *ngIf="!c.isAlertActive">OK</span>
           </td>
 
           <td class="td-actions">
-            <button class="icon-btn" title="Détails"   (click)="goToDetail(c.id)">👁️</button>
-            <button class="icon-btn" title="Modifier"  (click)="goToEdit(c.id)">✏️</button>
-            <button class="icon-btn danger" title="Supprimer" (click)="openDeleteModal(c)">🗑️</button>
+            <button class="icon-btn" title="Détails"   (click)="goToDetail(c.id)">Voir</button>
+            <button class="icon-btn" title="Modifier"  (click)="goToEdit(c.id)">Modifier</button>
+            <button class="icon-btn danger" title="Supprimer" (click)="openDeleteModal(c)">Suppr.</button>
           </td>
         </tr>
 
         <tr *ngIf="filteredContracts.length === 0 && !loading">
           <td colspan="9">
             <div class="empty-state">
-              <span>📋</span>
+              <span>—</span>
               <p>Aucun contrat trouvé</p>
             </div>
           </td>
@@ -195,10 +195,10 @@
   <div class="modal-box confirm-modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h2>Confirmer la suppression</h2>
-      <button class="close-btn" (click)="closeModal()">✕</button>
+      <button class="close-btn" (click)="closeModal()">Fermer</button>
     </div>
     <div class="modal-body">
-      <div class="confirm-icon">🗑️</div>
+      <div class="confirm-icon">!</div>
       <p>Supprimer le contrat de <strong>{{ contractToDelete?.userFullName }}</strong> ?</p>
       <p class="warn-text">Cette action est irréversible.</p>
     </div>

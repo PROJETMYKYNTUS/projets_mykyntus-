@@ -26,15 +26,15 @@ const DEFAULT_SCOPES = ['Global', 'Pole', 'Cellule', 'Service', 'Self'] as const
       } @else if (error()) {
         <p class="text-rose-400 text-sm py-4">{{ error() }}</p>
       } @else {
-        <p class="text-slate-400 text-sm mb-4">
-          Choisissez un rôle puis modifiez la grille <span class="text-slate-300">Action × Périmètre</span>. Les
+        <p class="text-muted text-sm mb-4">
+          Choisissez un rôle puis modifiez la grille <span class="text-primary">Action × Périmètre</span>. Les
           changements sont enregistrés et appliqués aux écrans du module PRIME.
         </p>
 
-        <label class="text-slate-300 text-sm flex flex-wrap items-center gap-3 mb-4">
+        <label class="text-primary text-sm flex flex-wrap items-center gap-3 mb-4">
           Rôle
           <select
-            class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-slate-200 text-sm min-w-[12rem]"
+            class="rounded-lg border border-default bg-input px-3 py-2 text-primary text-sm min-w-[12rem]"
             [value]="selectedRole()"
             (change)="onRoleChange($any($event.target).value)"
           >
@@ -45,20 +45,20 @@ const DEFAULT_SCOPES = ['Global', 'Pole', 'Cellule', 'Service', 'Self'] as const
         </label>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
-          <div class="rounded-xl border border-navy-800 bg-navy-950/60 p-4">
-            <p class="text-[11px] uppercase tracking-wider text-slate-500">Couverture RBAC</p>
-            <p class="mt-1 text-2xl font-bold text-slate-100">{{ permissions.coverage().allowedRules }}/{{ permissions.coverage().totalRules }}</p>
-            <p class="mt-1 text-xs text-slate-500">Règles autorisées chargées côté interface.</p>
+          <div class="rounded-xl border border-default bg-input p-4">
+            <p class="text-[11px] uppercase tracking-wider text-muted">Couverture RBAC</p>
+            <p class="mt-1 text-2xl font-bold text-primary">{{ permissions.coverage().allowedRules }}/{{ permissions.coverage().totalRules }}</p>
+            <p class="mt-1 text-xs text-muted">Règles autorisées chargées côté interface.</p>
           </div>
-          <div class="rounded-xl border border-navy-800 bg-navy-950/60 p-4">
-            <p class="text-[11px] uppercase tracking-wider text-slate-500">Périmètre principal</p>
-            <p class="mt-1 text-2xl font-bold text-cyan-300">{{ permissions.primaryScopeForRole(selectedRole()) }}</p>
-            <p class="mt-1 text-xs text-slate-500">Utilisé par menus, pages et actions rapides.</p>
+          <div class="rounded-xl border border-default bg-input p-4">
+            <p class="text-[11px] uppercase tracking-wider text-muted">Périmètre principal</p>
+            <p class="mt-1 text-2xl font-bold text-primary">{{ permissions.primaryScopeForRole(selectedRole()) }}</p>
+            <p class="mt-1 text-xs text-muted">Utilisé par menus, pages et actions rapides.</p>
           </div>
-          <div class="rounded-xl border border-navy-800 bg-navy-950/60 p-4">
-            <p class="text-[11px] uppercase tracking-wider text-slate-500">Simulation utilisateur</p>
+          <div class="rounded-xl border border-default bg-input p-4">
+            <p class="text-[11px] uppercase tracking-wider text-muted">Simulation utilisateur</p>
             <select
-              class="mt-2 w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-slate-200 text-sm"
+              class="mt-2 w-full rounded-lg border border-default bg-card px-3 py-2 text-primary text-sm"
               [value]="simulatedUserId()"
               (change)="simulatedUserId.set($any($event.target).value)"
             >
@@ -70,51 +70,51 @@ const DEFAULT_SCOPES = ['Global', 'Pole', 'Cellule', 'Service', 'Self'] as const
           </div>
         </div>
 
-        <div class="rounded-xl border border-navy-800 bg-navy-950/60 p-4 mb-4">
+        <div class="rounded-xl border border-default bg-input p-4 mb-4">
           <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
             <div>
-              <p class="text-sm font-semibold text-slate-100">Prévisualisation des actions</p>
-              <p class="text-xs text-slate-500">Ce résumé vérifie les actions visibles avant d'entrer dans un écran métier.</p>
+              <p class="text-sm font-semibold text-primary">Prévisualisation des actions</p>
+              <p class="text-xs text-muted">Ce résumé vérifie les actions visibles avant d'entrer dans un écran métier.</p>
             </div>
             @if (simulatedUserId()) {
-              <span class="text-xs px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-300">Utilisateur: {{ simulatedUserId() }}</span>
+              <span class="text-xs px-2 py-1 rounded-full bg-card border border-default text-primary">Utilisateur: {{ simulatedUserId() }}</span>
             }
           </div>
           <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
             @for (item of accessPreview(); track item.label) {
               <div
                 class="rounded-lg border px-3 py-2 text-xs"
-                [class]="item.allowed ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-rose-500/30 bg-rose-500/10 text-rose-200'"
+                [class]="item.allowed ? 'border-emerald-500/30 bg-emerald-500/10 text-primary' : 'border-rose-500/30 bg-rose-500/10 text-primary'"
               >
                 <span class="block font-semibold">{{ item.allowed ? 'Autorisé' : 'Bloqué' }}</span>
-                <span class="text-slate-300">{{ item.label }}</span>
+                <span class="text-muted">{{ item.label }}</span>
               </div>
             }
           </div>
         </div>
 
         <div class="overflow-x-auto">
-          <table class="w-full text-sm border border-navy-800 rounded-lg overflow-hidden">
+          <table class="w-full text-sm border border-default rounded-lg overflow-hidden">
             <thead>
-              <tr class="bg-navy-900/80">
-                <th class="text-left py-2 px-3 text-slate-400 border-b border-navy-800">Action \\ Périmètre</th>
+              <tr class="bg-input">
+                <th class="text-left py-2 px-3 text-muted border-b border-default">Action \\ Périmètre</th>
                 @for (sc of scopes(); track sc) {
-                  <th class="text-center py-2 px-2 text-slate-400 border-b border-navy-800 text-xs">{{ sc }}</th>
+                  <th class="text-center py-2 px-2 text-muted border-b border-default text-xs">{{ sc }}</th>
                 }
               </tr>
             </thead>
             <tbody>
               @for (ac of actions(); track ac) {
-                <tr class="border-b border-navy-800/80">
-                  <td class="py-2 px-3 text-slate-200 font-medium">{{ ac }}</td>
+                <tr class="border-b border-default">
+                  <td class="py-2 px-3 text-primary font-medium">{{ ac }}</td>
                   @for (sc of scopes(); track sc) {
                     <td class="py-2 px-2 text-center">
                       <button
                         type="button"
                         [disabled]="busyKey() === cellKey(ac, sc)"
                         (click)="toggleCell(ac, sc)"
-                        class="px-2 py-1 rounded text-xs transition-colors min-w-[3rem]"
-                        [class]="isAllowed(ac, sc) ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'"
+                        class="px-2 py-1 rounded text-xs transition-colors min-w-[3rem] font-semibold"
+                        [class]="isAllowed(ac, sc) ? 'bg-emerald-500/20 text-primary' : 'bg-rose-500/20 text-primary'"
                       >
                         {{ isAllowed(ac, sc) ? 'Oui' : 'Non' }}
                       </button>

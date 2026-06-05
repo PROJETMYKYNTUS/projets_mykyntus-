@@ -19,7 +19,7 @@
 
       <!-- Employé (création seulement) -->
       <div class="form-section" *ngIf="!isEditMode">
-        <h3 class="section-title">👤 Employé</h3>
+        <h3 class="section-title">Employé</h3>
         <div class="form-group">
           <label>Employé <span class="req">*</span></label>
           <select formControlName="userId">
@@ -36,7 +36,7 @@
 
       <!-- Type de contrat -->
       <div class="form-section">
-        <h3 class="section-title">📄 Type de contrat</h3>
+        <h3 class="section-title">Type de contrat</h3>
         <div class="type-grid">
           <button
             type="button"
@@ -44,7 +44,7 @@
             *ngFor="let t of contractTypes"
             [class.selected]="f['type'].value === t.value"
             (click)="selectType(t.value)">
-            <span class="type-icon">{{ t.icon }}</span>
+            <span class="type-icon"><app-lucide-icon [icon]="t.icon" className="w-5 h-5" /></span>
             <span class="type-label">{{ t.label }}</span>
             <span class="type-desc">{{ t.desc }}</span>
           </button>
@@ -53,7 +53,7 @@
 
       <!-- Dates -->
       <div class="form-section">
-        <h3 class="section-title">📅 Dates</h3>
+        <h3 class="section-title">Dates</h3>
         <div class="form-row">
           <div class="form-group">
             <label>Date de début <span class="req">*</span></label>
@@ -74,7 +74,7 @@
 
       <!-- Période d'essai -->
       <div class="form-section" *ngIf="f['type'].value !== 'Interim'">
-        <h3 class="section-title">⏳ Période d'essai</h3>
+        <h3 class="section-title">Période d'essai</h3>
         <div class="form-row">
           <div class="form-group">
             <label>Durée (jours)</label>
@@ -89,7 +89,7 @@
 
       <!-- Alertes -->
       <div class="form-section">
-        <h3 class="section-title">🔔 Alertes</h3>
+        <h3 class="section-title">Alertes</h3>
         <div class="form-row">
           <div class="form-group">
             <label>Déclencher l'alerte X jours avant l'échéance</label>
@@ -101,7 +101,7 @@
 
       <!-- Statut (modification seulement) -->
       <div class="form-section" *ngIf="isEditMode">
-        <h3 class="section-title">🔄 Statut</h3>
+        <h3 class="section-title">Statut</h3>
         <div class="form-group">
           <label>Statut du contrat</label>
           <!-- ✅ [value] avec valeur numérique enum -->
@@ -115,7 +115,7 @@
 
       <!-- Notes -->
       <div class="form-section">
-        <h3 class="section-title">📝 Notes</h3>
+        <h3 class="section-title"><app-lucide-icon [icon]="icons.notes" className="w-4 h-4 inline" /> Notes</h3>
         <div class="form-group">
           <label>Remarques (optionnel)</label>
           <textarea formControlName="notes" rows="4" placeholder="Ajoutez des notes..."></textarea>
@@ -126,7 +126,10 @@
       <div class="form-footer">
         <button type="button" class="btn-secondary" (click)="goBack()">Annuler</button>
         <button type="submit" class="btn-primary" [disabled]="contractForm.invalid || saving">
-          <span *ngIf="!saving">{{ isEditMode ? '💾 Enregistrer' : '➕ Créer le contrat' }}</span>
+          <span *ngIf="!saving">
+            <app-lucide-icon [icon]="isEditMode ? icons.save : icons.plus" className="w-4 h-4 inline" />
+            {{ isEditMode ? 'Enregistrer' : 'Créer le contrat' }}
+          </span>
           <span *ngIf="saving">Enregistrement...</span>
         </button>
       </div>

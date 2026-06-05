@@ -4,16 +4,19 @@ import { Component, OnInit, ViewEncapsulation, ChangeDetectorRef } from '@angula
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ContractService, ContractResponse } from '../../services/contract.service';
+import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import { FileText } from 'lucide';
 
 @Component({
   selector: 'app-contract-detail',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LucideIconComponent],
   templateUrl: './contract-detail.component.html',
   styleUrls: ['./contract-detail.component.css'],
   encapsulation: ViewEncapsulation.None
 })
 export class ContractDetailComponent implements OnInit {
+  readonly icons = { notes: FileText };
 
   contract: ContractResponse | null = null;
   loading = false;   // ← false par défaut

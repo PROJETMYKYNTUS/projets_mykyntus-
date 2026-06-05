@@ -15,9 +15,8 @@ const routes: Routes = [
   // ── 🆕 Liste des notifications ──
   {
     path: 'notifications',
-    loadComponent: () =>
-      import('./pages/Notification-list/Notification-list.component')
-        .then(m => m.NotificationListComponent)
+    redirectTo: '/notifications',
+    pathMatch: 'full',
   },
   // ── Nouveau contrat ──
   {

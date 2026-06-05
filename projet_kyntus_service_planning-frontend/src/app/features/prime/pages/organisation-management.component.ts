@@ -86,7 +86,7 @@ function httpErrMessage(err: unknown): string {
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     } @else {
-      <div class="p-6 lg:p-8 space-y-6 min-h-full bg-navy-950">
+      <div class="p-6 lg:p-8 space-y-6 min-h-full bg-app">
         <div class="flex flex-wrap justify-between items-start gap-4">
           <div>
             <h1 class="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Organisation RH</h1>

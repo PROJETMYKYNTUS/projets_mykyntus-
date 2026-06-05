@@ -1,8 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { KyntusShellUiService } from '../../core/notifications/kyntus-shell-ui.service';
 import { KyntusThemeService } from '../../core/theme/kyntus-theme.service';
-import { NavigationActionsService } from '../../core/navigation/navigation-actions.service';
-import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-shell-settings-panel',
@@ -14,7 +13,7 @@ import { Router } from '@angular/router';
         <aside class="ks-settings-panel ky-slide-down">
           <header class="ks-settings-head">
             <h2>Paramètres</h2>
-            <button type="button" (click)="shellUi.closeSettings()" aria-label="Fermer">×</button>
+            <button type="button" (click)="shellUi.closeSettings()" aria-label="Fermer">&times;</button>
           </header>
           <div class="ks-settings-body">
             <section>
@@ -37,9 +36,12 @@ import { Router } from '@angular/router';
               </div>
             </section>
             <section>
-              <h3>Module actif</h3>
-              <button type="button" class="ks-settings-link" (click)="openModuleSettings()">
-                Paramètres du module courant
+              <h3>Accès rapide</h3>
+              <button type="button" class="ks-settings-link" (click)="openAllSettings()">
+                Tous les paramètres
+              </button>
+              <button type="button" class="ks-settings-link" (click)="openNotifications()">
+                Centre de notifications
               </button>
             </section>
           </div>
@@ -52,20 +54,15 @@ import { Router } from '@angular/router';
 export class ShellSettingsPanelComponent {
   readonly shellUi = inject(KyntusShellUiService);
   readonly theme = inject(KyntusThemeService);
-  private readonly nav = inject(NavigationActionsService);
   private readonly router = inject(Router);
 
-  async openModuleSettings(): Promise<void> {
-    const path = this.router.url.split('?')[0];
-    if (path.startsWith('/prime')) {
-      await this.nav.openPrimeSettings();
-    } else if (path.startsWith('/parrainage')) {
-      await this.nav.openParrainageSettings();
-    } else if (path.startsWith('/documentation')) {
-      await this.nav.openDocumentationSettings();
-    } else {
-      await this.router.navigateByUrl('/home');
-    }
+  async openAllSettings(): Promise<void> {
     this.shellUi.closeSettings();
+    await this.router.navigateByUrl('/settings');
+  }
+
+  async openNotifications(): Promise<void> {
+    this.shellUi.closeSettings();
+    await this.router.navigateByUrl('/notifications');
   }
 }

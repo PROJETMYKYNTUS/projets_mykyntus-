@@ -199,6 +199,7 @@ export class SettingsModuleComponent implements OnInit {
   readonly orgCompact = signal<string>('');
 
   ngOnInit(): void {
+    this.roleService.ensureEmployeesLoaded();
     this.prefs.set(SettingsService.getNotificationPreferences());
     void PrimeService.getDepartments().then((depts) => {
       const org = getPersonalOrgLabels(this.roleService.currentUser(), depts);

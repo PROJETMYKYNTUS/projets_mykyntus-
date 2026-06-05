@@ -1,34 +1,34 @@
-:root {
-  --page-bg: #f0f4fa;
-  --surface: #ffffff;
-  --surface-2: #f7f9fc;
-  --surface-3: #edf1f8;
-  --sidebar-bg: #0c1527;
-  --sidebar-bg2: #111d35;
-  --border: rgba(148,163,184,0.18);
-  --border-strong: rgba(100,120,160,0.28);
-  --text-1: #0e1623;
-  --text-2: #3d526e;
-  --text-3: #7a8fa8;
-  --blue: #1e4fd8;
-  --blue-soft: #e8effe;
+:host {
+  --page-bg: var(--bg-primary);
+  --surface: var(--bg-card);
+  --surface-2: var(--bg-input);
+  --surface-3: var(--navy-700);
+  --sidebar-bg: var(--bg-sidebar);
+  --sidebar-bg2: var(--navy-900);
+  --border: var(--border-color);
+  --border-strong: var(--border-color);
+  --text-1: var(--text-primary);
+  --text-2: var(--text-muted);
+  --text-3: var(--text-muted);
+  --blue: var(--blue-600);
+  --blue-soft: color-mix(in srgb, var(--soft-blue) 18%, var(--bg-card));
   --indigo: #4338ca;
   --green: #059669;
-  --green-soft: #ecfdf5;
+  --green-soft: color-mix(in srgb, #22c55e 12%, var(--bg-card));
   --amber: #b45309;
-  --amber-soft: #fffbeb;
+  --amber-soft: color-mix(in srgb, #f59e0b 12%, var(--bg-card));
   --teal: #0d7a70;
-  --teal-soft: #edfafa;
+  --teal-soft: color-mix(in srgb, #14b8a6 12%, var(--bg-card));
   --rose: #be123c;
-  --rose-soft: #fff1f3;
+  --rose-soft: color-mix(in srgb, #ef4444 12%, var(--bg-card));
   --cyan: #0369a1;
   --sidebar-w: 260px;
   --topbar-h: 66px;
   --r: 14px;
   --r-sm: 10px;
-  --shadow-sm: 0 2px 8px rgba(14,22,35,0.06), 0 0 0 0.5px rgba(148,163,184,0.18);
-  --shadow-md: 0 8px 28px rgba(14,22,35,0.09), 0 0 0 0.5px rgba(148,163,184,0.2);
-  --shadow-lg: 0 18px 48px rgba(14,22,35,0.12), 0 0 0 0.5px rgba(148,163,184,0.22);
+  --shadow-sm: 0 2px 8px color-mix(in srgb, var(--navy-950) 8%, transparent);
+  --shadow-md: 0 8px 28px color-mix(in srgb, var(--navy-950) 10%, transparent);
+  --shadow-lg: 0 18px 48px color-mix(in srgb, var(--navy-950) 14%, transparent);
 }
  
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -175,7 +175,7 @@ body {
  
 .pill-active {
   display: flex; align-items: center; gap: 7px; padding: 6px 14px;
-  border-radius: 99px; background: #ecfdf5; color: #065f46;
+  border-radius: 99px; background: color-mix(in srgb, #22c55e 12%, var(--bg-card)); color: #065f46;
   border: 1px solid #a7f3d0; font-size: 11.5px; font-weight: 600;
 }
 .dot-pulse {
@@ -236,8 +236,8 @@ body {
 }
 .kic-b { background: #eaf0ff; } .kic-b svg { stroke: #1e4fd8; }
 .kic-c { background: #ecfeff; } .kic-c svg { stroke: #0891b2; }
-.kic-g { background: #ecfdf5; } .kic-g svg { stroke: #059669; }
-.kic-a { background: #fffbeb; } .kic-a svg { stroke: #b45309; }
+.kic-g { background: color-mix(in srgb, #22c55e 12%, var(--bg-card)); } .kic-g svg { stroke: #059669; }
+.kic-a { background: color-mix(in srgb, #f59e0b 12%, var(--bg-card)); } .kic-a svg { stroke: #b45309; }
  
 .kpi-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-3); margin-bottom: 4px; }
 .kpi-val { font-size: 24px; font-weight: 800; color: var(--text-1); line-height: 1; margin-bottom: 3px; letter-spacing: -0.5px; }
@@ -246,7 +246,7 @@ body {
   margin-left: auto; flex-shrink: 0; padding: 3px 9px;
   border-radius: 99px; font-size: 10.5px; font-weight: 700;
 }
-.tag-ok { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.tag-ok { background: var(--navy-700); color: var(--text-primary); border: 1px solid #bfdbfe; }
 .tag-up { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
 .tag-warn { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
  
@@ -322,9 +322,9 @@ body {
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .cic-b { background: #eaf0ff; } .cic-b svg { stroke: var(--blue); }
-.cic-i { background: #eef2ff; } .cic-i svg { stroke: var(--indigo); }
-.cic-g { background: #ecfdf5; } .cic-g svg { stroke: var(--green); }
-.cic-y { background: #fffbeb; } .cic-y svg { stroke: var(--amber); }
+.cic-i { background: var(--bg-input); } .cic-i svg { stroke: var(--indigo); }
+.cic-g { background: color-mix(in srgb, #22c55e 12%, var(--bg-card)); } .cic-g svg { stroke: var(--green); }
+.cic-y { background: color-mix(in srgb, #f59e0b 12%, var(--bg-card)); } .cic-y svg { stroke: var(--amber); }
 .cic-t { background: #edfafa; } .cic-t svg { stroke: var(--teal); }
 .cic-r { background: #fff1f3; } .cic-r svg { stroke: var(--rose); }
 .cic-v { background: #f3eeff; } .cic-v svg { stroke: #7c3aed; }

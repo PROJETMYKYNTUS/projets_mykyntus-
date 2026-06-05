@@ -44,7 +44,7 @@ const AUDIT_TITLES: Record<string, string> = {
   template: `
     <header class="h-20 px-8 flex items-center justify-between bg-navy-950/80 backdrop-blur-md border-b border-navy-800 sticky top-0 z-40 transition-colors duration-300">
       <div>
-        <h2 class="text-2xl font-bold text-white tracking-tight">{{ title }}</h2>
+        <h2 class="text-2xl font-bold text-primary tracking-tight">{{ title }}</h2>
       </div>
       <div class="flex items-center gap-6">
         <div class="relative group hidden md:block">
@@ -57,7 +57,7 @@ const AUDIT_TITLES: Record<string, string> = {
         </div>
         <div class="flex items-center gap-3 pl-2 group">
           <div class="text-right hidden md:block">
-            <p class="text-sm font-bold text-white leading-none group-hover:text-blue-400 transition-colors">Parrainage</p>
+            <p class="text-sm font-bold text-primary leading-none group-hover:text-blue-400 transition-colors">Parrainage</p>
             <p class="text-[10px] text-slate-500 font-medium mt-1">Kyntus</p>
           </div>
           <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-blue-500 flex items-center justify-center text-white font-bold shadow-[0_0_10px_rgba(37,99,235,0.3)] border border-blue-500/30">P</div>

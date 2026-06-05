@@ -40,7 +40,7 @@ type DashboardPayload = Awaited<ReturnType<typeof AdminPrimeService.getDashboard
   providers: [provideEchartsCore({ echarts })],
   template: `
     @if (primeSection.activeAdminSection() === 'workflows') {
-      <div class="p-8 space-y-6 bg-navy-950 min-h-full">
+      <div class="p-8 space-y-6 bg-app min-h-full">
         <app-workflow-config-admin />
       </div>
     } @else {
@@ -50,9 +50,9 @@ type DashboardPayload = Awaited<ReturnType<typeof AdminPrimeService.getDashboard
         </div>
       } @else {
         @let d = data()!;
-        <div class="p-8 space-y-8 bg-navy-950 min-h-full">
+        <div class="p-8 space-y-8 bg-app min-h-full">
           <div>
-            <h1 class="text-3xl font-bold text-white tracking-tight">Dashboard Admin Systeme</h1>
+            <h1 class="text-3xl font-bold text-primary tracking-tight">Dashboard Admin Systeme</h1>
             <p class="text-slate-400 mt-1">Supervision technique, gouvernance et controle du moteur PRIME.</p>
           </div>
 
@@ -62,7 +62,7 @@ type DashboardPayload = Awaited<ReturnType<typeof AdminPrimeService.getDashboard
                 <app-lucide-icon [icon]="icons.db" className="w-6 h-6 text-cyan-300" />
                 <div>
                   <p class="text-slate-400 text-sm">Primes generees</p>
-                  <p class="text-white text-2xl font-bold">{{ d.kpis.totalGeneratedPrimes }}</p>
+                  <p class="text-primary text-2xl font-bold">{{ d.kpis.totalGeneratedPrimes }}</p>
                 </div>
               </div>
               <div class="card-navy p-6 rounded-2xl flex items-center gap-4">

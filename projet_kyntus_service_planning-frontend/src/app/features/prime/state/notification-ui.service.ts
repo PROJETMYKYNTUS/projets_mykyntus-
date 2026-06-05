@@ -10,7 +10,7 @@ export class NotificationUiService {
   private readonly shellUi = inject(KyntusShellUiService);
 
   readonly notifications = signal<PrimeNotification[]>(PrimeNotificationService.seed());
-  readonly dropdownOpen = signal(false);
+  readonly dropdownOpen = this.shellUi.dropdownOpen;
   readonly settingsOpen = this.shellUi.settingsOpen;
 
   readonly unreadCount = computed(() =>
@@ -31,6 +31,14 @@ export class NotificationUiService {
 
   toggleDropdown(): void {
     this.shellUi.toggleDropdown();
+  }
+
+  openDropdown(): void {
+    this.shellUi.openDropdown();
+  }
+
+  closeDropdown(): void {
+    this.shellUi.closeDropdown();
   }
 
   openSettings(): void {

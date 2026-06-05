@@ -6,14 +6,14 @@
   align-items: flex-start;
   background:
     radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 22%),
-    linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+    linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-primary) 100%);
 }
 
 .form-card {
   width: 100%;
   max-width: 760px;
   background: rgba(255, 255, 255, 0.97);
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid var(--border-color);
   border-radius: 24px;
   padding: 32px;
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
@@ -31,21 +31,21 @@
   margin: 0;
   font-size: 1.95rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
 .form-header p {
   margin: 6px 0 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.96rem;
 }
 
 .btn-back {
   align-self: flex-start;
-  border: 1px solid #dbe7f5;
-  background: #ffffff;
-  color: #2563eb;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
   padding: 10px 16px;
   border-radius: 12px;
   font-weight: 600;
@@ -54,7 +54,7 @@
 }
 
 .btn-back:hover {
-  background: #eff6ff;
+  background: var(--navy-700);
   border-color: #bfdbfe;
 }
 
@@ -70,7 +70,7 @@
 }
 
 .form-group label {
-  color: #334155;
+  color: var(--text-primary);
   font-weight: 700;
   font-size: 0.95rem;
 }
@@ -78,11 +78,11 @@
 input,
 textarea {
   width: 100%;
-  background: #f8fafc;
-  border: 1px solid #dbe3ee;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
   border-radius: 16px;
   padding: 14px 16px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 0.96rem;
   transition: all 0.25s ease;
   outline: none;
@@ -90,12 +90,12 @@ textarea {
 
 input::placeholder,
 textarea::placeholder {
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 input:focus,
 textarea:focus {
-  background: #ffffff;
+  background: var(--bg-card);
   border-color: #60a5fa;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
 }
@@ -130,13 +130,13 @@ textarea {
 }
 
 .btn-secondary {
-  background: #eef2f7;
-  color: #334155;
-  border: 1px solid #dbe3ee;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-  background: #e2e8f0;
+  background: var(--navy-700);
 }
 
 .btn-primary {
@@ -160,19 +160,19 @@ textarea {
   padding: 24px;
   border-radius: 16px;
   margin-bottom: 20px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
 }
 
 .state.loading {
-  background: #f8fafc;
-  color: #475569;
+  background: var(--bg-input);
+  color: var(--text-muted);
   text-align: center;
 }
 
 .state.error {
-  background: #fff1f2;
-  color: #b91c1c;
-  border-color: #fecdd3;
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, #ef4444 30%, var(--border-color));
 }
 
 .spinner {
@@ -180,7 +180,7 @@ textarea {
   height: 34px;
   margin: 0 auto 12px;
   border: 3px solid #dbeafe;
-  border-top-color: #2563eb;
+  border-top-color: var(--text-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

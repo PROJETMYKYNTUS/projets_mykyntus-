@@ -1,19 +1,17 @@
-import { Injectable, inject } from '@angular/core';
+﻿import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import type { MenuItem } from './microservices.config';
 import { PrimeNavRequestService } from '../../features/prime/services/prime-nav-request.service';
 import { PrimeSectionService } from '../../features/prime/state/prime-section.service';
 import { ParrainageNavService } from '../../features/parrainage/state/parrainage-nav.service';
 import { AuditSectionService } from '../../features/parrainage/state/audit-section.service';
-import { DocumentationNavigationService } from '../../features/documentation/documentation-feature/services/documentation-navigation.service';
-import { AuditInterfaceNavService } from '../../features/documentation/documentation-feature/services/audit-interface-nav.service';
-import { mapApiRoleToDocumentationRole } from '../../features/documentation/documentation-feature/lib/map-api-documentation-role';
-import { DocumentationIdentityService } from '../../features/documentation/core/services/documentation-identity.service';
+import { DocumentationNavigationService } from '../../features/documentation/services/documentation-navigation.service';
+import { AuditInterfaceNavService } from '../../features/documentation/services/audit-interface-nav.service';
+import { mapApiRoleToDocumentationRole } from '../../features/documentation/lib/map-api-documentation-role';
+import { DocumentationIdentityService } from '../../core/services/documentation-identity.service';
 import { KyntusSessionService } from '../session/kyntus-session.service';
 import { mapJwtRoleToDocumentationRole } from './documentation-menu.config';
-import type { DocumentationTabId } from '../../features/documentation/documentation-feature/services/documentation-navigation.service';
-import { mapJwtRoleToPrimeRole } from '../session/kyntus-role-ui.config';
-
+import type { DocumentationTabId } from '../../features/documentation/services/documentation-navigation.service';
 @Injectable({ providedIn: 'root' })
 export class NavigationActionsService {
   private readonly router = inject(Router);
@@ -117,85 +115,19 @@ export class NavigationActionsService {
   }
 
   async openPrimeNotifications(): Promise<void> {
-    const role = mapJwtRoleToPrimeRole(this.session.getRole());
-    if (role === 'Admin') {
-      await this.applyPrimeItem({
-        label: 'Notifications',
-        route: '/prime',
-        primeAdminSection: 'notifications',
-      });
-      return;
-    }
-    if (role === 'RP') {
-      await this.applyPrimeItem({
-        label: 'Notifications',
-        route: '/prime',
-        primeRpSection: 'notifications',
-      });
-      return;
-    }
-    if (role === 'Audit') {
-      await this.applyPrimeItem({
-        label: 'Notifications',
-        route: '/prime',
-        primeAuditSection: 'notifications',
-      });
-      return;
-    }
-    await this.applyPrimeItem({
-      label: 'Notifications',
-      route: '/prime',
-      primePath: '/notifications',
-    });
+    await this.router.navigateByUrl('/notifications');
   }
 
   async openPrimeSettings(): Promise<void> {
-    const role = mapJwtRoleToPrimeRole(this.session.getRole());
-    if (role === 'Admin') {
-      await this.applyPrimeItem({
-        label: 'Paramètres',
-        route: '/prime',
-        primeAdminSection: 'settings',
-      });
-      return;
-    }
-    if (role === 'RP') {
-      await this.applyPrimeItem({
-        label: 'Paramètres',
-        route: '/prime',
-        primeRpSection: 'settings',
-      });
-      return;
-    }
-    if (role === 'Audit') {
-      await this.applyPrimeItem({
-        label: 'Paramètres',
-        route: '/prime',
-        primeAuditSection: 'settings',
-      });
-      return;
-    }
-    await this.applyPrimeItem({
-      label: 'Paramètres',
-      route: '/prime',
-      primePath: '/settings',
-    });
+    await this.router.navigateByUrl('/settings');
   }
 
   async openParrainageNotifications(): Promise<void> {
-    await this.applyParrainageItem({
-      label: 'Notifications',
-      route: '/parrainage',
-      parrainageView: 'notifications',
-    });
+    await this.router.navigateByUrl('/notifications');
   }
 
   async openParrainageSettings(): Promise<void> {
-    await this.applyParrainageItem({
-      label: 'Paramètres',
-      route: '/parrainage',
-      parrainageView: 'settings',
-    });
+    await this.router.navigateByUrl('/settings');
   }
 
   async openDocumentationTab(tab: DocumentationTabId): Promise<void> {
@@ -207,7 +139,23 @@ export class NavigationActionsService {
   }
 
   async openDocumentationSettings(): Promise<void> {
-    await this.openDocumentationTab('settings');
+    await this.router.navigateByUrl('/settings');
+  }
+
+  async openPrimeConfiguration(): Promise<void> {
+    await this.applyPrimeItem({
+      label: 'Configuration',
+      route: '/prime',
+      primePath: '/configuration',
+    });
+  }
+
+  async openParrainageAdminConfig(): Promise<void> {
+    await this.applyParrainageItem({
+      label: 'Configuration système',
+      route: '/parrainage',
+      parrainageView: 'admin-config',
+    });
   }
 
   /** Rôle documentation immédiat (profil annuaire ou JWT) — évite Pilote par défaut avant le chargement de l’annuaire. */

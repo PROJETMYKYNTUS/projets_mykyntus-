@@ -58,7 +58,7 @@ import { GlobalSettingsPageComponent } from '../pages/shared/global-settings-pag
     GlobalSettingsPageComponent,
   ],
   template: `
-    <div class="min-h-full flex flex-col bg-navy-950 text-slate-100 w-full">
+    <div class="min-h-full flex flex-col bg-app text-slate-100 w-full">
       <app-parrainage-header />
       <div [class]="'flex-1 flex flex-col ' + (compact() ? 'p-4' : 'p-8')">
         @if (store.loading()) {

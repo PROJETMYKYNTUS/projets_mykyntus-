@@ -8,7 +8,7 @@
         <h1>Gestion des Employés</h1>
         <p class="subtitle"><strong>{{ filteredUsers.length }}</strong> employé(s) trouvé(s)</p>
         <button class="btn-import-export" (click)="goimport()">
-  📥 Import / Export
+  Import / Export
 </button>
       </div>
     </div>
@@ -19,7 +19,7 @@
 
   <div class="search-container">
     <div class="search-box">
-      <span class="search-icon">🔍</span>
+      <span class="search-icon"><app-lucide-icon [icon]="icons.search" className="w-4 h-4" /></span>
       <input
         type="text"
         class="search-input"
@@ -40,7 +40,7 @@
       <div class="state-box error">
         <div class="icon-error"><app-lucide-icon [icon]="icons.warn" className="w-5 h-5" /></div>
         <p>{{ error }}</p>
-        <button class="btn btn-outline" (click)="loadUsers()">🔄 Réessayer</button>
+        <button class="btn btn-outline" (click)="loadUsers()">Réessayer</button>
       </div>
     } @else if (filteredUsers.length === 0) {
       <div class="state-box empty">
@@ -84,10 +84,10 @@
 <td>
   <div class="tags-container">
     @for (svc of user.managedServices; track svc.id) {
-      <span class="tag tag-service">🏢 {{ svc.name }}</span>
+      <span class="tag tag-service">{{ svc.name }}</span>
     }
     @for (sub of user.managedSubServices; track sub.id) {
-      <span class="tag tag-sub">📂 {{ sub.name }}</span>
+      <span class="tag tag-sub">{{ sub.name }}</span>
     }
     @if (user.managedServices.length === 0 && user.managedSubServices.length === 0) {
       <span class="muted">—</span>

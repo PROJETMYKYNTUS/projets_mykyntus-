@@ -3,13 +3,11 @@ import { inject } from '@angular/core';
 import { Component, ViewEncapsulation, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
-import { NotificationBellComponent } from '../../../contract/component/notification-bell/notification-bell.component';
-import { NotificationService } from '../../../../core/services/notification.service'; // ← AJOUTEZ
 
 @Component({
   selector: 'app-dashboard-home',
   standalone: true,
-  imports: [CommonModule, RouterModule, NotificationBellComponent],
+  imports: [CommonModule, RouterModule],
   templateUrl: './dashboard-home.html',
   styleUrls: ['./dashboard-home.css'],
   encapsulation: ViewEncapsulation.None,
@@ -25,17 +23,14 @@ export class DashboardHomeComponent implements OnInit {
     return name.substring(0, 2).toUpperCase();
   }
 
-  constructor(
-    private router: Router,
-    private notificationService: NotificationService  // ← AJOUTEZ
-  ) {}
+  constructor(private router: Router) {}
 
   ngOnInit(): void {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
         this.currentUser = JSON.parse(userStr);
-      } catch (e) {
+      } catch {
         this.currentUser = null;
       }
     }
@@ -44,37 +39,26 @@ export class DashboardHomeComponent implements OnInit {
     if (!token) {
       window.location.href = 'http://localhost:8201/login';
     }
-     console.log('👤 currentUser:', this.currentUser);
-     console.log('🔌 Appel connectAsManager — id:', this.currentUser?.id);
-    // ← AJOUTEZ — connecter le hub reclamation pour les managers
-if (this.currentUser?.id) {
-    this.notificationService.connectAsManager(this.currentUser.id);
-  } else {
-    console.error('❌ currentUser.id est undefined — hub non connecté !');
   }
-}
-// Ajoutez cette propriété calculée :
-get congesRoute(): string {
-  const role: string = this.currentUser?.role || '';
-  const managerRoles = ['Admin', 'RH', 'Manager'];
-  return managerRoles.includes(role) ? '/conge' : '/mes-conges';
-}
 
-get congesLabel(): string {
-  const role: string = this.currentUser?.role || '';
-  return ['Admin', 'RH', 'Manager'].includes(role)
-    ? 'Gérer les congés'
-    : 'Mes congés';
-}
-  
+  get congesRoute(): string {
+    const role: string = this.currentUser?.role || '';
+    const managerRoles = ['Admin', 'RH', 'Manager'];
+    return managerRoles.includes(role) ? '/conge' : '/mes-conges';
+  }
+
+  get congesLabel(): string {
+    const role: string = this.currentUser?.role || '';
+    return ['Admin', 'RH', 'Manager'].includes(role)
+      ? 'Gérer les congés'
+      : 'Mes congés';
+  }
 
   logout(): void {
-    this.notificationService.disconnect(); // ← AJOUTEZ
     localStorage.clear();
     window.location.href = 'http://localhost:8201/login';
   }
 
-  /** Documentation intégrée : espace RH + handoff sans jeton (e-mail annuaire). */
   openDocumentationRhApp(): void {
     const email = (this.session.getEmail() || this.currentUser?.email as string | undefined)?.trim();
     const queryParams: Record<string, string> = { handoff: 'rh' };

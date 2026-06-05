@@ -8,17 +8,21 @@ import { ServiceService } from '../../../services/services/service';   // 🆕
 import { ServiceDetail } from '../../../services/services-module';         
 import { SubService } from '../../../sub-services/sub-services-module';
 import { CreateUserDto, UpdateUserDto } from '../../users-module';
+import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import { Folder, LockKeyhole } from 'lucide';
 
 interface RoleOption { id: number; name: string; }
 
 @Component({
   selector: 'app-user-form',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideIconComponent],
   templateUrl: './user-form.component.html',
   styleUrls: ['./user-form.component.css']
 })
 export class UserFormComponent implements OnInit {
+  readonly icons = { lock: LockKeyhole, folder: Folder };
+
   isEditMode = false;
   userId: number | null = null;
   subServices: SubService[] = [];

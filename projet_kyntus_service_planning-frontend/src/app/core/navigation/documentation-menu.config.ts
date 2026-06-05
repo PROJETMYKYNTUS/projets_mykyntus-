@@ -1,7 +1,7 @@
-import type { DocumentationRole } from '../../features/documentation/documentation-feature/interfaces/documentation-role';
-import type { DocumentationTabId } from '../../features/documentation/documentation-feature/services/documentation-navigation.service';
-import type { AuditInterfaceSectionId } from '../../features/documentation/documentation-feature/services/audit-interface-nav.service';
-import { DOCUMENTATION_ROUTE_BASE } from '../../features/documentation/documentation-feature/lib/documentation-route-base';
+﻿import type { DocumentationRole } from '../../features/documentation/interfaces/documentation-role';
+import type { DocumentationTabId } from '../../features/documentation/services/documentation-navigation.service';
+import type { AuditInterfaceSectionId } from '../../features/documentation/services/audit-interface-nav.service';
+import { DOCUMENTATION_ROUTE_BASE } from '../../features/documentation/lib/documentation-route-base';
 import type { MenuItem } from './microservices.config';
 
 const DOC_ROUTE = DOCUMENTATION_ROUTE_BASE;

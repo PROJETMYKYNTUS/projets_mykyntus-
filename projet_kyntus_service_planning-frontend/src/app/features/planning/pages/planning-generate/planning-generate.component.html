@@ -6,7 +6,7 @@
   <div class="page-header">
     <button class="btn-back" (click)="goBack()">← Dashboard</button>
     <div class="header-info">
-      <h1 class="page-title">⚡ Génération Planning</h1>
+      <h1 class="page-title">Génération Planning</h1>
       <p class="page-sub">Algorithme intelligent de distribution des shifts</p>
     </div>
     <div class="week-badge">
@@ -77,7 +77,7 @@
 
       <!-- Info algorithme -->
       <div class="algo-info">
-        <p class="algo-title">🤖 Algorithme intelligent :</p>
+        <p class="algo-title"><app-lucide-icon [icon]="icons.bot" className="w-4 h-4 inline" /> Algorithme intelligent :</p>
         <ul>
           <li>Distribution équitable des shifts sur la semaine</li>
           <li>Rotation basée sur l'historique de chaque employé</li>
@@ -103,7 +103,7 @@
 
       <!-- Vide -->
       <div class="state-empty" *ngIf="!loading && plannings.length === 0">
-        <span>📭</span>
+        <app-lucide-icon [icon]="icons.inbox" className="w-8 h-8" />
         <p>Aucun planning pour ce sous-service</p>
       </div>
 
@@ -113,7 +113,7 @@
           <div class="pi-left">
             <span class="pi-week">{{ p.weekCode }}</span>
             <span class="pi-sub">{{ p.subServiceName }}</span>
-            <span class="pi-effectif">👥 {{ p.totalEffectif }} employés</span>
+            <span class="pi-effectif"><app-lucide-icon [icon]="icons.users" className="w-3.5 h-3.5 inline" /> {{ p.totalEffectif }} employés</span>
           </div>
           <div class="pi-right">
             <span class="status-badge" [ngClass]="getStatusClass(p.status)">

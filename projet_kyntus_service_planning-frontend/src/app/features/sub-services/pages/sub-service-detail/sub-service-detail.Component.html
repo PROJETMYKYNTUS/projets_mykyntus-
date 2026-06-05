@@ -17,10 +17,10 @@
     @if (subService) {
       <div class="header-actions">
         <button class="btn-action btn-edit-h" (click)="editSubService()">
-          ✏ Modifier
+          Modifier
         </button>
         <button class="btn-action btn-del-h" (click)="deleteSubService()">
-          🗑 Supprimer
+          Supprimer
         </button>
       </div>
     }
@@ -61,14 +61,14 @@
     <div class="glass-card">
       <div class="card-header-bar">
         <div class="card-header-left">
-          <h2 class="card-title">👥 Employés rattachés</h2>
+          <h2 class="card-title"><app-lucide-icon [icon]="icons.users" className="w-4 h-4 inline" /> Employés rattachés</h2>
           <span class="count-chip">{{ subService.employees.length }} membres</span>
         </div>
       </div>
 
       @if (subService.employees.length === 0) {
         <div class="state-center">
-          <div class="empty-icon">👤</div>
+          <div class="empty-icon">—</div>
           <p class="state-text">Aucun employé dans ce sous-service</p>
         </div>
       } @else {

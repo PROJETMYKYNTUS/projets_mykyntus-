@@ -7,7 +7,11 @@ import { I18nService } from '../state/i18n.service';
   standalone: true,
   template: `
     @if (notifications.dropdownOpen()) {
-      <div class="absolute right-4 top-14 z-30 w-80 card-navy">
+      <div class="fixed inset-0 z-40" (click)="notifications.closeDropdown()">
+        <div
+          class="absolute right-4 top-16 z-50 w-80 card-navy shadow-xl"
+          (click)="$event.stopPropagation()"
+        >
         <div class="px-4 py-3 border-b border-navy-800 flex items-center justify-between">
           <span class="text-sm font-semibold text-white">
             {{ i18n.t('topbar.notifications') }}
@@ -17,13 +21,13 @@ import { I18nService } from '../state/i18n.service';
             (click)="notifications.markAllAsRead()"
             class="text-xs text-blue-400 hover:text-blue-300 font-medium"
           >
-            Mark all as read
+            Tout marquer comme lu
           </button>
         </div>
         <div class="max-h-80 overflow-y-auto">
           @if (notifications.notifications().length === 0) {
             <div class="px-4 py-6 text-sm text-slate-400 text-center">
-              No notifications
+              Aucune notification
             </div>
           } @else {
             <ul class="divide-y divide-navy-800">
@@ -55,6 +59,7 @@ import { I18nService } from '../state/i18n.service';
               }
             </ul>
           }
+        </div>
         </div>
       </div>
     }

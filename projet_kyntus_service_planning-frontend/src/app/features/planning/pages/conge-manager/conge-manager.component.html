@@ -3,7 +3,7 @@
   <div class="page-header">
     <button class="btn-back" (click)="goBack()">← Planning</button>
     <div class="header-info">
-      <h1 class="page-title">📋 Gestion des Absences</h1>
+      <h1 class="page-title">Gestion des Absences</h1>
       <p class="page-sub">Enregistrement et suivi des absences par sous-service</p>
     </div>
     <div class="header-actions">
@@ -15,12 +15,12 @@
     </div>
   </div>
 
-  <div class="alert-success" *ngIf="successMsg">✅ {{ successMsg }}</div>
-  <div class="alert-error"   *ngIf="error && !showForm">⚠️ {{ error }}</div>
+  <div class="alert-success" *ngIf="successMsg">{{ successMsg }}</div>
+  <div class="alert-error"   *ngIf="error && !showForm">{{ error }}</div>
 
   <div class="section-card">
     <div class="card-header">
-      <span class="card-icon">📋</span>
+      <span class="card-icon">Liste</span>
       <h2>Absences enregistrées</h2>
       <span class="count-badge" *ngIf="conges.length > 0">{{ conges.length }}</span>
     </div>
@@ -28,7 +28,7 @@
       <div class="spinner"></div><span>Chargement...</span>
     </div>
     <div class="state-empty" *ngIf="!loading && conges.length === 0">
-      <span>📭</span><p>Aucune absence pour ce sous-service</p>
+      <app-lucide-icon [icon]="icons.inbox" className="w-8 h-8" /><p>Aucune absence pour ce sous-service</p>
     </div>
     <div class="conge-list" *ngIf="!loading && conges.length > 0">
       <div class="conge-item" *ngFor="let c of conges">
@@ -45,8 +45,8 @@
         </div>
         <div class="ci-right">
           <span class="ci-days">{{ getDaysCount(c.startDate, c.endDate) }}j</span>
-          <span class="status-badge st-approved">✅ Approuvé</span>
-          <button class="btn-delete" (click)="deleteConge(c.id)">🗑️</button>
+          <span class="status-badge st-approved">Approuvé</span>
+          <button class="btn-delete" (click)="deleteConge(c.id)">Supprimer</button>
         </div>
       </div>
     </div>
@@ -56,8 +56,8 @@
 <!-- MODAL -->
 <div class="modal-overlay" *ngIf="showForm" (click)="closeForm()">
   <div class="modal-card" (click)="$event.stopPropagation()">
-    <h3 class="modal-title">📋 Nouvelle Absence</h3>
-    <div class="alert-error" *ngIf="error">⚠️ {{ error }}</div>
+    <h3 class="modal-title">Nouvelle Absence</h3>
+    <div class="alert-error" *ngIf="error">{{ error }}</div>
 
     <!-- Employé -->
     <div class="form-group">
@@ -89,7 +89,7 @@
     </div>
 
     <div class="days-preview" *ngIf="formStartDate && formEndDate && formStartDate <= formEndDate">
-      📅 Durée : <strong>{{ getDaysCount(formStartDate, formEndDate) }} jour(s)</strong>
+      Durée : <strong>{{ getDaysCount(formStartDate, formEndDate) }} jour(s)</strong>
     </div>
 
     <!-- Motif optionnel -->
@@ -101,7 +101,7 @@
     <div class="modal-footer">
       <button class="btn-cancel" (click)="closeForm()">Annuler</button>
       <button class="btn-confirm" [disabled]="saving" (click)="saveConge()">
-        <span *ngIf="!saving">✅ Enregistrer</span>
+        <span *ngIf="!saving">Enregistrer</span>
         <span *ngIf="saving">Enregistrement...</span>
       </button>
     </div>

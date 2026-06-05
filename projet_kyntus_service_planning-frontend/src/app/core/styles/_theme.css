@@ -1,4 +1,4 @@
-/* Thème global Kyntus — shell, modules embarqués et pages planning. */
+/* Shell Kyntus — variables dérivées du design system Prime (kyntus-prime-theme.css) */
 
 body.theme-dark,
 body.dark {
@@ -6,43 +6,31 @@ body.dark {
 }
 
 body.theme-light {
-  --bg-primary: #f0f4fa;
-  --bg-sidebar: #ffffff;
-  --bg-card: #ffffff;
-  --bg-input: #f1f5f9;
-  --text-primary: #0e1623;
-  --text-muted: #64748b;
-  --border-color: #e2e8f0;
-  --ks-sidebar-bg: #ffffff;
-  --ks-sidebar-bg2: #f8fafc;
-  --ks-page-bg: #f0f4fa;
-  --ks-sidebar-text: #3d526e;
-  --ks-sidebar-text-active: #1e4fd8;
-  --ks-sidebar-border: rgba(15, 23, 42, 0.08);
-  --ks-main-text: #0e1623;
-  --ks-main-muted: #64748b;
+  --ks-sidebar-bg: var(--bg-sidebar);
+  --ks-sidebar-bg2: var(--bg-primary);
+  --ks-page-bg: var(--bg-primary);
+  --ks-sidebar-text: var(--text-muted);
+  --ks-sidebar-text-active: var(--electric-blue);
+  --ks-sidebar-border: var(--border-color);
+  --ks-main-text: var(--text-primary);
+  --ks-main-muted: var(--text-muted);
+  --ks-topbar-h: 64px;
+  --ks-accent-glow: 0 0 14px color-mix(in srgb, var(--electric-blue) 25%, transparent);
 }
 
 body.theme-dark {
-  --bg-primary: #040b16;
-  --bg-sidebar: #020617;
-  --bg-card: #0a1526;
-  --bg-input: #0a1526;
-  --text-primary: #e5e7eb;
-  --text-muted: #9ca3af;
-  --border-color: #112240;
-  --ks-sidebar-bg: #0c1527;
-  --ks-sidebar-bg2: #111d35;
-  --ks-page-bg: #0f172a;
-  --ks-sidebar-text: rgba(200, 215, 240, 0.72);
-  --ks-sidebar-text-active: #c8daff;
-  --ks-sidebar-border: rgba(255, 255, 255, 0.05);
-  --ks-main-text: #e8eeff;
-  --ks-main-muted: rgba(180, 200, 230, 0.55);
+  --ks-sidebar-bg: var(--bg-sidebar);
+  --ks-sidebar-bg2: var(--navy-900);
+  --ks-page-bg: var(--bg-primary);
+  --ks-sidebar-text: var(--text-muted);
+  --ks-sidebar-text-active: var(--electric-blue);
+  --ks-sidebar-border: var(--border-color);
+  --ks-main-text: var(--text-primary);
+  --ks-main-muted: var(--text-muted);
 }
 
 body.theme-light {
-  background: var(--ks-page-bg);
+  background: var(--bg-primary);
   color: var(--text-primary);
 }
 
@@ -71,25 +59,13 @@ body.theme-dark {
 .ks-content.module-parrainage,
 .ks-content.module-documentation {
   padding: 0;
-  min-height: calc(100vh - 56px);
+  min-height: calc(100vh - var(--ks-topbar-h, 64px));
 }
 
-.ks-content.module-prime {
-  background: var(--bg-primary, #040b16);
-  color: var(--text-primary, #e5e7eb);
-}
-
-.ks-content.module-parrainage {
-  background: var(--bg-primary, #040b16);
-  color: var(--text-primary, #e2e8f0);
-}
-
-.ks-content.module-documentation {
-  background: var(--bg-primary, #020617);
-  color: var(--text-primary, #e2e8f0);
-}
-
+.ks-content.module-prime,
+.ks-content.module-parrainage,
+.ks-content.module-documentation,
 .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) {
-  background: var(--ks-page-bg);
-  color: var(--ks-main-text);
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }

@@ -2,15 +2,20 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Calendar, CheckCircle, Circle, Save } from 'lucide';
+import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from '../../services/planning.service';
 
 @Component({
   selector: 'app-saturday-history',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideIconComponent],
   template: `
     <div class="page-wrapper">
-      <h1 class="page-title">📅 Historique Samedis</h1>
+      <h1 class="page-title">
+        <app-lucide-icon [icon]="icons.calendar" className="w-7 h-7" />
+        Historique Samedis
+      </h1>
       <p class="page-sub">Saisir manuellement qui a travaillé samedi</p>
 
       <div class="filters">
@@ -24,7 +29,10 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
                (change)="load()" />
       </div>
 
-      <div class="success-msg" *ngIf="successMsg">✅ {{ successMsg }}</div>
+      <div class="success-msg" *ngIf="successMsg">
+        <app-lucide-icon [icon]="icons.success" className="w-4 h-4" />
+        {{ successMsg }}
+      </div>
 
       <div class="employees-list" *ngIf="entries.length > 0">
         <div class="emp-row" *ngFor="let e of entries">
@@ -33,18 +41,21 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
             <button class="btn-worked"
                     [class.active]="e.workedSaturday"
                     (click)="e.workedSaturday = true">
-              ✅ Travaillé
+              <app-lucide-icon [icon]="icons.worked" className="w-4 h-4" />
+              Travaillé
             </button>
             <button class="btn-off"
                     [class.active]="!e.workedSaturday"
                     (click)="e.workedSaturday = false">
-              🔴 OFF
+              <app-lucide-icon [icon]="icons.off" className="w-4 h-4" />
+              OFF
             </button>
           </div>
         </div>
 
         <button class="btn-save" (click)="save()">
-          💾 Sauvegarder
+          <app-lucide-icon [icon]="icons.save" className="w-4 h-4" />
+          Sauvegarder
         </button>
       </div>
     </div>
@@ -54,23 +65,26 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
     min-height: 100vh;
     padding: 32px 24px 48px;
     background:
-      radial-gradient(circle at top right, rgba(37, 99, 235, 0.06), transparent 18%),
-      linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+      radial-gradient(circle at top right, color-mix(in srgb, var(--soft-blue) 8%, transparent), transparent 18%),
+      linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-primary) 100%);
     font-family: "Inter", "Segoe UI", sans-serif;
-    color: #0f172a;
+    color: var(--text-primary);
   }
 
   .page-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     margin: 0 0 6px;
     font-size: 2rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--text-primary);
     letter-spacing: -0.02em;
   }
 
   .page-sub {
     margin: 0 0 24px;
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.92rem;
   }
 
@@ -80,10 +94,10 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
     margin-bottom: 24px;
     flex-wrap: wrap;
     padding: 20px;
-    background: rgba(255, 255, 255, 0.96);
-    border: 1px solid #e2e8f0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 24px;
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07);
+    box-shadow: 0 18px 40px color-mix(in srgb, var(--navy-950) 10%, transparent);
   }
 
   .filters select,
@@ -91,9 +105,9 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
     min-width: 220px;
     padding: 12px 14px;
     border-radius: 16px;
-    background: #ffffff;
-    color: #0f172a;
-    border: 1px solid #dbe3ee;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
     font-size: 0.92rem;
     outline: none;
     transition: all 0.22s ease;
@@ -101,27 +115,30 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
 
   .filters select:focus,
   .filters input:focus {
-    border-color: #60a5fa;
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    border-color: var(--soft-blue);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--soft-blue) 20%, transparent);
   }
 
   .success-msg {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 18px;
     padding: 14px 16px;
-    background: #ecfdf5;
-    border: 1px solid #bbf7d0;
+    background: color-mix(in srgb, #22c55e 12%, var(--bg-card));
+    border: 1px solid color-mix(in srgb, #22c55e 30%, var(--border-color));
     border-radius: 16px;
-    color: #047857;
+    color: var(--text-primary);
     font-size: 0.9rem;
     font-weight: 600;
   }
 
   .employees-list {
-    background: rgba(255, 255, 255, 0.96);
-    border: 1px solid #e2e8f0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 24px;
     padding: 24px;
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07);
+    box-shadow: 0 18px 40px color-mix(in srgb, var(--navy-950) 10%, transparent);
   }
 
   .emp-row {
@@ -130,20 +147,20 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
     justify-content: space-between;
     gap: 16px;
     padding: 16px 18px;
-    background: #fbfdff;
-    border: 1px solid #edf2f7;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
     border-radius: 18px;
     margin-bottom: 12px;
     transition: all 0.22s ease;
   }
 
   .emp-row:hover {
-    background: #f8fbff;
-    border-color: #dbeafe;
+    background: var(--navy-700);
+    border-color: var(--border-color);
   }
 
   .emp-name {
-    color: #0f172a;
+    color: var(--text-primary);
     font-weight: 700;
     font-size: 0.95rem;
   }
@@ -156,51 +173,59 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
 
   .btn-worked,
   .btn-off {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 10px 16px;
     border-radius: 12px;
-    border: 1px solid #dbe3ee;
+    border: 1px solid var(--border-color);
     cursor: pointer;
     font-weight: 700;
     font-size: 0.84rem;
-    background: #ffffff;
-    color: #64748b;
+    background: var(--bg-card);
+    color: var(--text-muted);
     transition: all 0.22s ease;
   }
 
   .btn-worked:hover,
   .btn-off:hover {
     transform: translateY(-1px);
+    background: var(--navy-700);
+    color: var(--text-primary);
   }
 
   .btn-worked.active {
-    background: #ecfdf5;
-    color: #047857;
-    border-color: #86efac;
+    background: color-mix(in srgb, #22c55e 16%, var(--bg-card));
+    color: var(--text-primary);
+    border-color: color-mix(in srgb, #22c55e 40%, var(--border-color));
   }
 
   .btn-off.active {
-    background: #fff1f2;
-    color: #b91c1c;
-    border-color: #fecdd3;
+    background: color-mix(in srgb, #ef4444 16%, var(--bg-card));
+    color: var(--text-primary);
+    border-color: color-mix(in srgb, #ef4444 40%, var(--border-color));
   }
 
   .btn-save {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     margin-top: 18px;
     padding: 12px 24px;
-    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    background: linear-gradient(135deg, var(--blue-600) 0%, var(--blue-500) 100%);
     color: #ffffff;
     border: none;
     border-radius: 16px;
     cursor: pointer;
     font-weight: 700;
     font-size: 0.9rem;
-    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
+    box-shadow: 0 12px 24px color-mix(in srgb, var(--blue-600) 25%, transparent);
     transition: all 0.22s ease;
   }
 
   .btn-save:hover {
     transform: translateY(-1px);
-    box-shadow: 0 16px 28px rgba(37, 99, 235, 0.22);
+    box-shadow: 0 16px 28px color-mix(in srgb, var(--blue-600) 30%, transparent);
   }
 
   @media (max-width: 768px) {
@@ -237,6 +262,14 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
 `]
 })
 export class SaturdayHistoryComponent implements OnInit {
+  readonly icons = {
+    calendar: Calendar,
+    success: CheckCircle,
+    worked: CheckCircle,
+    off: Circle,
+    save: Save,
+  };
+
   subServices: any[] = [];
   subServiceId = 0;
   weekCode = '';

@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 import { UserService } from '../../services/user.service';
 import { User } from '../../users-module';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
-import { AlertTriangle, Eye, Pencil, Trash2 } from 'lucide';
+import { AlertTriangle, Eye, Pencil, Search, Trash2 } from 'lucide';
 
 @Component({
   selector: 'app-user-list',
@@ -15,7 +15,7 @@ import { AlertTriangle, Eye, Pencil, Trash2 } from 'lucide';
   styleUrls: ['./user-list.component.css']
 })
 export class UserListComponent implements OnInit {
-  readonly icons = { warn: AlertTriangle, eye: Eye, edit: Pencil, trash: Trash2 };
+  readonly icons = { warn: AlertTriangle, eye: Eye, edit: Pencil, trash: Trash2, search: Search };
   users: User[] = [];
   filteredUsers: User[] = [];
   searchTerm = '';

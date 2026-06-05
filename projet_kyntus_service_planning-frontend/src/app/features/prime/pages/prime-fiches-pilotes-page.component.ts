@@ -99,7 +99,7 @@ interface PilotageCelluleGroup {
   standalone: true,
   imports: [LucideIconComponent, PrimeCellSaisieBlockComponent],
   template: `
-    <div class="p-4 sm:p-6 pb-20 bg-navy-950 min-h-full">
+    <div class="p-4 sm:p-6 pb-20 bg-app min-h-full">
       <div class="max-w-[1600px] mx-auto space-y-5">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>

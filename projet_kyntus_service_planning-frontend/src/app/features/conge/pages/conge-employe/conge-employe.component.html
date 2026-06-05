@@ -67,7 +67,7 @@
           <td><span class="ce-badge" [ngClass]="getStatutClass(d.statut)">{{ statutLabels[d.statut] }}</span></td>
           <td>{{ d.commentaireManager || '—' }}</td>
           <td class="ce-td-actions">
-            <button class="ce-btn-cancel" *ngIf="d.statut === StatutDemande.EnAttente" (click)="annuler(d)">✕</button>
+            <button class="ce-btn-cancel" *ngIf="d.statut === StatutDemande.EnAttente" (click)="annuler(d)">Annuler</button>
           </td>
         </tr>
       </tbody>
@@ -78,7 +78,7 @@
     <div class="ce-modal" (click)="$event.stopPropagation()">
       <div class="ce-modal-head">
         <h3>Nouvelle demande de congé</h3>
-        <button (click)="showModal = false">✕</button>
+        <button (click)="showModal = false">Fermer</button>
       </div>
       <div class="ce-modal-body">
         <div class="ce-field">

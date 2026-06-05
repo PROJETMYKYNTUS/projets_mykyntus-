@@ -32,7 +32,7 @@
 
         @if (!isEditMode) {
           <div class="alert alert-info">
-            <div class="alert-icon">🔐</div>
+            <div class="alert-icon"><app-lucide-icon [icon]="icons.lock" className="w-5 h-5" /></div>
             <div>
               <strong>Mot de passe par défaut</strong>
               <p>Le compte sera créé avec le mot de passe : <strong>Azerty@123</strong></p>
@@ -170,7 +170,7 @@
                           [checked]="isManagedService(service.id)"
                           (change)="toggleManagedService(service.id)"
                         />
-                        <span class="service-icon">🏢</span>
+                        <span class="service-icon">SVC</span>
                         <div class="tree-copy">
                           <span class="tree-title">{{ service.name }}</span>
                           <span class="tree-meta">{{ service.floorName }}</span>
@@ -187,7 +187,7 @@
                               [checked]="isManagedSubService(sub.id)"
                               (change)="toggleManagedSubService(sub.id)"
                             />
-                            <span class="sub-icon">📁</span>
+                            <span class="sub-icon"><app-lucide-icon [icon]="icons.folder" className="w-4 h-4" /></span>
                             <div class="tree-copy">
                               <span class="tree-title">{{ sub.name }}</span>
                               <span class="tree-meta">Code : {{ sub.code }}</span>

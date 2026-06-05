@@ -6,13 +6,16 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angula
 import { ActivatedRoute, Router } from '@angular/router';
 import { ContractService, CreateContractDto, UpdateContractDto } from '../../services/contract.service';
 import { UserService } from '../../../users/services/user.service';
+import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import type { IconNode } from 'lucide';
+import { ClipboardList, Calendar, GraduationCap, RefreshCw, FileText, Save, Plus } from 'lucide';
 
 interface User { id: number; firstName: string; lastName: string; }
 
 @Component({
   selector: 'app-contract-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, LucideIconComponent],
   templateUrl: './contract-form.component.html',
   styleUrls: ['./contract-form.component.css'],
   encapsulation: ViewEncapsulation.None
@@ -25,11 +28,13 @@ export class ContractFormComponent implements OnInit {
   saving = false;
   users: User[] = [];
 
-  contractTypes = [
-    { value: 'CDI',    label: 'CDI',    icon: '📋', desc: 'Durée indéterminée' },
-    { value: 'CDD',    label: 'CDD',    icon: '📅', desc: 'Durée déterminée'   },
-    { value: 'Stage',  label: 'Stage',  icon: '🎓', desc: 'Stage de formation' },
-    { value: 'ANAPEC',label: 'ANAPEC',icon: '🔄', desc: 'Mission temporaire' },
+  readonly icons = { notes: FileText, save: Save, plus: Plus };
+
+  contractTypes: { value: string; label: string; icon: IconNode; desc: string }[] = [
+    { value: 'CDI',    label: 'CDI',    icon: ClipboardList, desc: 'Durée indéterminée' },
+    { value: 'CDD',    label: 'CDD',    icon: Calendar,      desc: 'Durée déterminée'   },
+    { value: 'Stage',  label: 'Stage',  icon: GraduationCap, desc: 'Stage de formation' },
+    { value: 'ANAPEC', label: 'ANAPEC', icon: RefreshCw,     desc: 'Mission temporaire' },
   ];
 
   contractStatuses = [

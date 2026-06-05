@@ -20,10 +20,10 @@
       Toutes <span class="filter-count">{{ stats.total }}</span>
     </button>
     <button class="filter-btn" [class.active]="activeFilter === 'warn'" (click)="setFilter('warn')">
-      ⚠️ Avant fin <span class="filter-count warn">{{ stats.warn }}</span>
+      Avant fin <span class="filter-count warn">{{ stats.warn }}</span>
     </button>
     <button class="filter-btn" [class.active]="activeFilter === 'mid'" (click)="setFilter('mid')">
-      ⏳ Mi-parcours <span class="filter-count info">{{ stats.mid }}</span>
+      Mi-parcours <span class="filter-count info">{{ stats.mid }}</span>
     </button>
   </div>
 
@@ -50,7 +50,7 @@
       <div class="card-body">
         <p class="card-message">{{ n.message }}</p>
         <div class="card-meta">
-          <span class="meta-user">👤 {{ n.userFullName }}</span>
+          <span class="meta-user">{{ n.userFullName }}</span>
           <span class="meta-type" [ngClass]="getTypeBadgeClass(n.type)">
             {{ getTypeLabel(n.type) }}
           </span>
@@ -66,7 +66,7 @@
 
     <!-- Vide -->
     <div class="empty-state" *ngIf="filteredNotifications.length === 0">
-      <span>✅</span>
+      <span>—</span>
       <p>Aucune alerte active</p>
       <small>Tous les contrats sont dans les délais normaux</small>
     </div>

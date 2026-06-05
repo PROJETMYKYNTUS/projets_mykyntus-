@@ -10,7 +10,7 @@
       <p class="page-sub">Importer jusqu'à 200+ employés en une seule opération</p>
     </div>
     <button class="btn-export" (click)="exportUsers()">
-      📥 Exporter tous les employés
+      Exporter tous les employés
     </button>
   </div>
 
@@ -26,7 +26,7 @@
           <h3>Télécharger le template Excel</h3>
           <p>Remplissez le fichier avec les informations de vos employés</p>
           <button class="btn-template" (click)="downloadTemplate()">
-            📋 Télécharger le template
+            Télécharger le template
           </button>
         </div>
       </div>
@@ -56,19 +56,19 @@
               (change)="onFileSelected($event)" />
 
             <div class="drop-content" *ngIf="!selectedFile">
-              <span class="drop-icon">📂</span>
+              <span class="drop-icon">Fichier</span>
               <p class="drop-text">Glissez votre fichier ici</p>
               <p class="drop-sub">ou cliquez pour parcourir</p>
               <span class="drop-formats">.xlsx · .xls · .csv</span>
             </div>
 
             <div class="file-selected" *ngIf="selectedFile">
-              <span class="file-icon">📊</span>
+              <span class="file-icon">Excel</span>
               <div>
                 <p class="file-name">{{ selectedFile.name }}</p>
                 <p class="file-size">{{ getFileSize(selectedFile.size) }}</p>
               </div>
-              <button class="btn-remove" (click)="removeFile($event)">✕</button>
+              <button class="btn-remove" (click)="removeFile($event)">Retirer</button>
             </div>
 
           </div>
@@ -78,7 +78,7 @@
             class="btn-import"
             [disabled]="!selectedFile || importing"
             (click)="importFile()">
-            <span *ngIf="!importing">🚀 Lancer l'import</span>
+            <span *ngIf="!importing">Lancer l'import</span>
             <span *ngIf="importing">
               <span class="btn-spinner"></span>
               Import en cours...
@@ -94,7 +94,7 @@
 
       <!-- En attente -->
       <div class="result-waiting" *ngIf="!importResult && !importing">
-        <span>📋</span>
+        <span>En attente</span>
         <p>Le résultat de l'import<br>s'affichera ici</p>
       </div>
 
@@ -108,7 +108,7 @@
       <div class="result-card" *ngIf="importResult && !importing">
 
         <!-- Stats -->
-        <h3 class="result-title">📊 Résultat de l'import</h3>
+        <h3 class="result-title">Résultat de l'import</h3>
 
         <div class="result-stats">
           <div class="stat-item total">
@@ -117,11 +117,11 @@
           </div>
           <div class="stat-item success">
             <span class="stat-value">{{ importResult.importes }}</span>
-            <span class="stat-label">✅ Importés</span>
+            <span class="stat-label">Importés</span>
           </div>
           <div class="stat-item error">
             <span class="stat-value">{{ importResult.erreurs }}</span>
-            <span class="stat-label">❌ Erreurs</span>
+            <span class="stat-label">Erreurs</span>
           </div>
         </div>
 
@@ -138,7 +138,7 @@
 
         <!-- Détails erreurs -->
         <div class="error-list" *ngIf="importResult.details.length > 0">
-          <h4>⚠️ Détail des erreurs</h4>
+          <h4>Détail des erreurs</h4>
           <div class="error-item" *ngFor="let d of importResult.details">
             {{ d }}
           </div>
@@ -146,7 +146,7 @@
 
         <!-- Succès total -->
         <div class="all-success" *ngIf="importResult.erreurs === 0">
-          ✅ Tous les employés ont été importés avec succès !
+          Tous les employés ont été importés avec succès.
         </div>
 
         <!-- Bouton nouveau import -->

@@ -1,9 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { RoleService } from '../state/role.service';
 import { I18nService } from '../state/i18n.service';
-import { PRIME_AUTHORIZED_ROLES, Role } from '../models';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
-import { Search, Shield } from 'lucide';
+import { Search } from 'lucide';
 
 @Component({
   selector: 'app-topbar',
@@ -23,74 +21,11 @@ import { Search, Shield } from 'lucide';
           />
         </div>
       </div>
-
-      <div class="flex items-center gap-4">
-        <div class="h-6 w-px bg-navy-800 mx-1"></div>
-        <div class="flex items-center gap-2 bg-navy-900/70 border border-navy-800 rounded-lg px-3 py-1.5">
-          <app-lucide-icon [icon]="icons.shield" className="w-4 h-4 text-blue-400" />
-          <span class="text-sm font-medium text-slate-300 hidden sm:inline">
-            {{ i18n.t('topbar.role.label') }}:
-          </span>
-          <select
-            class="bg-transparent text-sm font-semibold text-blue-400 focus:outline-none cursor-pointer"
-            [value]="role.currentRole()"
-            (change)="onRoleChange($event)"
-          >
-            @for (r of roles; track r) {
-              <option [value]="r">{{ roleLabel[r] }}</option>
-            }
-          </select>
-          @if (role.employeesForCurrentRole().length > 0) {
-            <select
-              class="bg-transparent text-xs font-medium text-slate-300 focus:outline-none cursor-pointer max-w-[11rem] truncate"
-              [value]="role.currentUser().id"
-              (change)="onUserChange($event)"
-              title="Utilisateur démo (mode développeur)"
-            >
-              @for (u of role.employeesForCurrentRole(); track u.id) {
-                <option [value]="u.id">{{ u.firstName }} {{ u.lastName }}</option>
-              }
-            </select>
-          } @else {
-            <span class="text-xs text-slate-500 hidden lg:inline truncate max-w-[10rem]" [title]="role.currentUser().email">
-              {{ role.currentUser().firstName }} {{ role.currentUser().lastName }}
-            </span>
-          }
-        </div>
-      </div>
     </header>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TopbarComponent {
-  readonly role = inject(RoleService);
   readonly i18n = inject(I18nService);
-
-  readonly roles = PRIME_AUTHORIZED_ROLES;
-  readonly roleLabel: Record<Role, string> = {
-    Admin: 'Administrateur',
-    RH: 'RH',
-    Manager: 'Manager',
-    Comptabilité: 'Comptabilité',
-    'Chef de projet': 'Chef de projet',
-    Superviseur: 'Superviseur',
-    'Référent technique': 'Référent technique',
-    Pilote: 'Pilote',
-    Audit: 'Audit',
-    Coach: 'Coach (legacy)',
-    RP: 'RP (legacy)',
-    Comptable: 'Comptable (legacy)',
-  };
-
-  readonly icons = { search: Search, shield: Shield };
-
-  onRoleChange(ev: Event): void {
-    const v = (ev.target as HTMLSelectElement).value as Role;
-    this.role.setRole(v);
-  }
-
-  onUserChange(ev: Event): void {
-    const id = (ev.target as HTMLSelectElement).value;
-    this.role.setUserId(id);
-  }
+  readonly icons = { search: Search };
 }

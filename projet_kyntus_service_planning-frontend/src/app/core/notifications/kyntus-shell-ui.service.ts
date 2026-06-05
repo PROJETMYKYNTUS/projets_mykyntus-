@@ -7,6 +7,14 @@ export class KyntusShellUiService {
 
   toggleDropdown(): void {
     this.dropdownOpen.update((o) => !o);
+    if (this.dropdownOpen()) {
+      this.settingsOpen.set(false);
+    }
+  }
+
+  openDropdown(): void {
+    this.dropdownOpen.set(true);
+    this.settingsOpen.set(false);
   }
 
   closeDropdown(): void {

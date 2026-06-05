@@ -51,9 +51,9 @@
       <button type="button" class="ks-quick-btn" (click)="openNotifications()">
         <app-lucide-icon [icon]="icons.bell" className="w-4 h-4" />
         Notifications
-        <app-shell-notification-badge [count]="hub.unreadCount()" />
+        <app-shell-notification-badge [count]="primeNotif.unreadCount()" />
       </button>
-      <button type="button" class="ks-quick-btn" (click)="openSettings()">
+      <button type="button" class="ks-quick-btn" (click)="openSettingsPage()">
         <app-lucide-icon [icon]="icons.settings" className="w-4 h-4" />
         Paramètres
       </button>
@@ -92,9 +92,8 @@
         <div class="ks-tb-notif-wrap">
           <button type="button" class="ks-tb-icon" (click)="toggleNotifDropdown()" aria-label="Notifications">
             <app-lucide-icon [icon]="icons.bell" className="w-5 h-5" />
-            <app-shell-notification-badge [count]="hub.unreadCount()" />
+            <app-shell-notification-badge [count]="primeNotif.unreadCount()" />
           </button>
-          <app-shell-notification-dropdown />
         </div>
         <button type="button" class="ks-tb-icon" (click)="openSettings()" aria-label="Paramètres">
           <app-lucide-icon [icon]="icons.settings" className="w-4 h-4" />
@@ -112,5 +111,6 @@
     </main>
   </div>
 
-  <app-shell-settings-panel />
+  <app-notification-dropdown />
+  <app-settings-panel />
 </div>

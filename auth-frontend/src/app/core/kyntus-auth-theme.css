@@ -1,0 +1,87 @@
+/* Tokens alignés sur le module Prime / SPA Kyntus */
+
+:root {
+  --navy-950: #f8fafc;
+  --navy-900: #ffffff;
+  --navy-800: #e2e8f0;
+  --navy-700: #f1f5f9;
+  --electric-blue: #1e3a8a;
+  --soft-blue: #3b82f6;
+  --blue-600: #1e3a8a;
+  --text-on-accent: #ffffff;
+}
+
+html.dark {
+  --navy-950: #040b16;
+  --navy-900: #0a1526;
+  --navy-800: #112240;
+  --navy-700: #1e3a66;
+  --electric-blue: #00f0ff;
+  --soft-blue: #3b82f6;
+  --blue-600: #2563eb;
+}
+
+body.theme-light {
+  --bg-primary: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --auth-panel-left-bg: #0f1e2e;
+  --auth-panel-left-text: #e8eeff;
+  --auth-panel-right-bg: var(--bg-primary);
+  --auth-accent: var(--electric-blue);
+}
+
+body.theme-dark {
+  --bg-primary: #040b16;
+  --bg-sidebar: #020617;
+  --bg-card: #0a1526;
+  --bg-input: #0a1526;
+  --text-primary: #e5e7eb;
+  --text-muted: #9ca3af;
+  --border-color: #112240;
+  --auth-panel-left-bg: #020617;
+  --auth-panel-left-text: #e5e7eb;
+  --auth-panel-right-bg: var(--bg-primary);
+  --auth-accent: var(--electric-blue);
+}
+
+body.theme-light {
+  color-scheme: light;
+}
+
+body.theme-dark {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.auth-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--auth-panel-left-text) 20%, transparent);
+  background: color-mix(in srgb, var(--auth-panel-left-text) 8%, transparent);
+  color: var(--auth-panel-left-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.auth-theme-toggle:hover {
+  background: color-mix(in srgb, var(--electric-blue) 18%, transparent);
+  border-color: color-mix(in srgb, var(--electric-blue) 35%, transparent);
+}

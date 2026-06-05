@@ -6,15 +6,19 @@ import { SubServiceService } from '../../services/sub-service.service';
 import { ServiceService } from '../../../services/services/service';
 import { Service } from '../../../services/services-module';
 import { CreateSubServiceDto, UpdateSubServiceDto } from '../../sub-services-module';
+import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import { Check } from 'lucide';
 
 @Component({
   selector: 'app-sub-service-form',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideIconComponent],
   templateUrl: './sub-service-form.component.html',
   styleUrls: ['./sub-service-form.component.css']
 })
 export class SubServiceFormComponent implements OnInit {
+  readonly icons = { check: Check };
+
   isEditMode = false;
   subServiceId: number | null = null;
   services: Service[] = [];

@@ -82,11 +82,14 @@ export class NotificationListComponent implements OnInit {
 
   getIcon(type: string): string {
     const map: Record<string, string> = {
-      MiParcoursCDD: '⏳', MiParcoursPeriodeEssai: '📋',
-      AvantFinCDD: '⚠️', AvantFinPeriodeEssai: '⚠️',
-      AvantFinStage: '🎓', AvantFinInterim: '🔄',
+      MiParcoursCDD: 'Mi-parcours',
+      MiParcoursPeriodeEssai: 'Mi-parcours',
+      AvantFinCDD: 'Alerte',
+      AvantFinPeriodeEssai: 'Alerte',
+      AvantFinStage: 'Stage',
+      AvantFinInterim: 'Intérim',
     };
-    return map[type] ?? '🔔';
+    return map[type] ?? 'Info';
   }
 
   getIconClass(type: string): string {

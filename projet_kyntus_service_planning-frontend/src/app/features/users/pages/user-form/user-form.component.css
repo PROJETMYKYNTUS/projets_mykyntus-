@@ -1,6 +1,6 @@
 :host {
   --bg-page: linear-gradient(180deg, #f4f7fb 0%, #eef3f8 100%);
-  --bg-card: rgba(255, 255, 255, 0.96);
+  --bg-card: var(--bg-card);
   --bg-soft: #f8fafc;
   --bg-soft-hover: #f1f5f9;
   --border-color: #dbe4ee;
@@ -124,14 +124,14 @@
 }
 
 .alert-error {
-  background: #fff1f2;
-  color: #b91c1c;
-  border-color: #fecdd3;
+  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, #ef4444 30%, var(--border-color));
 }
 
 .alert-info {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--navy-700);
+  color: var(--text-primary);
   border-color: #bfdbfe;
 }
 
@@ -211,19 +211,19 @@ select {
 
 input:hover,
 select:hover {
-  background: #fff;
+  background: var(--bg-card);
   border-color: var(--border-strong);
 }
 
 input:focus,
 select:focus {
-  background: #fff;
+  background: var(--bg-card);
   border-color: #60a5fa;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
 }
 
 input::placeholder {
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .input-error {
@@ -252,7 +252,7 @@ input::placeholder {
 }
 
 .level-btn:hover {
-  background: #fff;
+  background: var(--bg-card);
   border-color: #bfdbfe;
   transform: translateY(-1px);
 }
@@ -284,7 +284,7 @@ input::placeholder {
   align-items: center;
   justify-content: center;
   border-radius: 12px;
-  background: #fff;
+  background: var(--bg-card);
   color: var(--text-main);
   font-size: 1rem;
   font-weight: 800;
@@ -332,7 +332,7 @@ input::placeholder {
   padding: 14px;
   max-height: 380px;
   overflow-y: auto;
-  background: #f8fbff;
+  background: var(--navy-700);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -341,7 +341,7 @@ input::placeholder {
 .tree-service {
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  background: #fff;
+  background: var(--bg-card);
   overflow: hidden;
 }
 
@@ -354,12 +354,12 @@ input::placeholder {
 
 .tree-service-label {
   padding: 14px 16px;
-  background: #f8fafc;
+  background: var(--bg-input);
   border-bottom: 1px solid #eef2f7;
 }
 
 .tree-service-label.checked {
-  background: #eff6ff;
+  background: var(--navy-700);
 }
 
 .tree-subservices {
@@ -449,7 +449,7 @@ input::placeholder {
 }
 
 .btn-back:hover {
-  background: #fff;
+  background: var(--bg-card);
   border-color: var(--border-strong);
 }
 
@@ -469,13 +469,13 @@ input::placeholder {
 }
 
 .btn-outline {
-  background: #eef2f7;
+  background: var(--bg-input);
   color: var(--text-secondary);
   border: 1px solid var(--border-color);
 }
 
 .btn-outline:hover:not(:disabled) {
-  background: #e2e8f0;
+  background: var(--navy-700);
 }
 
 .btn:disabled {

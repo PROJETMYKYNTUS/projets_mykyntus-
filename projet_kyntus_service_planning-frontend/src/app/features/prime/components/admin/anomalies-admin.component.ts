@@ -15,7 +15,7 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
   imports: [PrimeCardComponent],
   template: `
     <app-prime-card title="Gestion des anomalies">
-      <p class="text-slate-400 text-sm mb-4">
+      <p class="text-muted text-sm mb-4">
         Anomalies possibles : écart de calcul (prime / challenge), fiche en double, valeurs hors plage,
         validateur manquant, validation obsolète ou périmètre incohérent.
       </p>
@@ -31,7 +31,7 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
         <button
           type="button"
           (click)="reload()"
-          class="px-4 py-2 rounded-lg border border-navy-600 text-slate-200 text-sm hover:bg-navy-800"
+          class="px-4 py-2 rounded-lg border border-default bg-card text-primary text-sm font-medium hover:bg-navy-700"
         >
           Rafraîchir la liste
         </button>
@@ -44,15 +44,15 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
         </div>
         <div class="rounded-lg border border-default bg-card p-3">
           <p class="text-[11px] uppercase tracking-wider text-muted">Ouvertes</p>
-          <p class="text-xl font-semibold text-amber-300">{{ counters().open }}</p>
+          <p class="text-xl font-semibold text-primary">{{ counters().open }}</p>
         </div>
         <div class="rounded-lg border border-default bg-card p-3">
           <p class="text-[11px] uppercase tracking-wider text-muted">Critiques/High</p>
-          <p class="text-xl font-semibold text-rose-300">{{ counters().critical }}</p>
+          <p class="text-xl font-semibold text-primary">{{ counters().critical }}</p>
         </div>
         <div class="rounded-lg border border-default bg-card p-3">
           <p class="text-[11px] uppercase tracking-wider text-muted">Résolues</p>
-          <p class="text-xl font-semibold text-emerald-300">{{ counters().resolved }}</p>
+          <p class="text-xl font-semibold text-primary">{{ counters().resolved }}</p>
         </div>
       </div>
 
@@ -85,9 +85,9 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
         <div class="mb-4 rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-4">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p class="text-xs uppercase tracking-wider text-cyan-200">Détail de traitement</p>
-              <h3 class="mt-1 text-base font-semibold text-slate-100">{{ anomalyTitle(selected) }}</h3>
-              <p class="mt-1 text-sm text-slate-300">{{ selected.description }}</p>
+              <p class="text-xs uppercase tracking-wider text-muted">Détail de traitement</p>
+              <h3 class="mt-1 text-base font-semibold text-primary">{{ anomalyTitle(selected) }}</h3>
+              <p class="mt-1 text-sm text-muted">{{ selected.description }}</p>
             </div>
             <button
               type="button"
@@ -99,27 +99,27 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
             </button>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4 text-sm">
-            <div class="rounded-lg bg-navy-950/60 border border-navy-700 p-3">
-              <p class="text-[11px] uppercase tracking-wider text-slate-500">Objet concerné</p>
-              <p class="mt-1 text-slate-200">{{ targetLabel(selected) }}</p>
+            <div class="rounded-lg bg-input border border-default p-3">
+              <p class="text-[11px] uppercase tracking-wider text-muted">Objet concerné</p>
+              <p class="mt-1 text-primary">{{ targetLabel(selected) }}</p>
             </div>
-            <div class="rounded-lg bg-navy-950/60 border border-navy-700 p-3">
-              <p class="text-[11px] uppercase tracking-wider text-slate-500">Périmètre</p>
-              <p class="mt-1 text-slate-200">{{ scopeLabel(selected) }}</p>
+            <div class="rounded-lg bg-input border border-default p-3">
+              <p class="text-[11px] uppercase tracking-wider text-muted">Périmètre</p>
+              <p class="mt-1 text-primary">{{ scopeLabel(selected) }}</p>
             </div>
-            <div class="rounded-lg bg-navy-950/60 border border-navy-700 p-3">
-              <p class="text-[11px] uppercase tracking-wider text-slate-500">Impact</p>
-              <p class="mt-1 text-slate-200">{{ impactLabel(selected) }}</p>
+            <div class="rounded-lg bg-input border border-default p-3">
+              <p class="text-[11px] uppercase tracking-wider text-muted">Impact</p>
+              <p class="mt-1 text-primary">{{ impactLabel(selected) }}</p>
             </div>
-            <div class="rounded-lg bg-navy-950/60 border border-navy-700 p-3">
-              <p class="text-[11px] uppercase tracking-wider text-slate-500">Action recommandée</p>
-              <p class="mt-1 text-slate-200">{{ recommendedAction(selected) }}</p>
+            <div class="rounded-lg bg-input border border-default p-3">
+              <p class="text-[11px] uppercase tracking-wider text-muted">Action recommandée</p>
+              <p class="mt-1 text-primary">{{ recommendedAction(selected) }}</p>
             </div>
           </div>
-          <label class="block mt-4 text-xs uppercase tracking-wider text-slate-500">
+          <label class="block mt-4 text-xs uppercase tracking-wider text-muted">
             Note de résolution
             <textarea
-              class="mt-2 w-full rounded-lg border border-navy-700 bg-navy-950 px-3 py-2 text-sm text-slate-200"
+              class="mt-2 w-full rounded-lg border border-default bg-input px-3 py-2 text-sm text-primary"
               rows="2"
               [value]="resolutionNote()"
               (input)="resolutionNote.set($any($event.target).value)"
@@ -140,30 +140,30 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b border-default">
-                <th class="text-left py-3 text-slate-400">Type</th>
-                <th class="text-left py-3 text-slate-400">Gravité</th>
-                <th class="text-left py-3 text-slate-400">Objet concerné</th>
-                <th class="text-left py-3 text-slate-400">Description</th>
-                <th class="text-left py-3 text-slate-400">Statut</th>
-                <th class="text-right py-3 text-slate-400">Actions</th>
+                <th class="text-left py-3 text-muted">Type</th>
+                <th class="text-left py-3 text-muted">Gravité</th>
+                <th class="text-left py-3 text-muted">Objet concerné</th>
+                <th class="text-left py-3 text-muted">Description</th>
+                <th class="text-left py-3 text-muted">Statut</th>
+                <th class="text-right py-3 text-muted">Actions</th>
               </tr>
             </thead>
             <tbody>
               @for (row of filteredRows(); track row.id) {
                 <tr class="border-b border-default/60">
-                  <td class="py-3 text-slate-200">{{ row.type }}</td>
-                  <td class="py-3 text-slate-400">{{ severityLabel(row.severity) }}</td>
-                  <td class="py-3 text-slate-300">
+                  <td class="py-3 text-primary">{{ row.type }}</td>
+                  <td class="py-3 text-muted">{{ severityLabel(row.severity) }}</td>
+                  <td class="py-3 text-primary">
                     <button
                       type="button"
                       (click)="selectRow(row)"
-                      class="text-left hover:text-cyan-300"
+                      class="text-left hover:text-cyan-600 dark:hover:text-cyan-300"
                     >
                       <span class="block font-medium">{{ targetLabel(row) }}</span>
-                      <span class="block text-xs text-slate-500">{{ scopeLabel(row) }}</span>
+                      <span class="block text-xs text-muted">{{ scopeLabel(row) }}</span>
                     </button>
                   </td>
-                  <td class="py-3 text-slate-300 max-w-md">{{ row.description }}</td>
+                  <td class="py-3 text-muted max-w-md">{{ row.description }}</td>
                   <td class="py-3">
                     <span class="text-xs px-2 py-1 rounded-full" [class]="statusClass(row.status)">
                       {{ statusLabel(row.status) }}
@@ -176,7 +176,7 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
                           type="button"
                           [disabled]="busyId() === row.id"
                           (click)="openTarget(row)"
-                          class="px-2 py-1 rounded bg-cyan-500/20 text-cyan-300 text-xs"
+                          class="px-2 py-1 rounded bg-cyan-500/20 text-primary text-xs font-medium border border-cyan-500/30"
                         >
                           Traiter
                         </button>
@@ -184,7 +184,7 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
                           type="button"
                           [disabled]="busyId() === row.id"
                           (click)="setStatus(row, 'Resolved')"
-                          class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 text-xs"
+                          class="px-2 py-1 rounded bg-emerald-500/20 text-primary text-xs font-medium border border-emerald-500/30"
                         >
                           Résolu
                         </button>
@@ -192,7 +192,7 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
                           type="button"
                           [disabled]="busyId() === row.id"
                           (click)="setStatus(row, 'Ignored')"
-                          class="px-2 py-1 rounded bg-slate-500/20 text-slate-300 text-xs"
+                          class="px-2 py-1 rounded bg-slate-500/20 text-primary text-xs font-medium border border-default"
                         >
                           Ignorer
                         </button>
@@ -204,7 +204,7 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
             </tbody>
           </table>
           @if (filteredRows().length === 0) {
-            <p class="text-slate-500 text-sm py-6 text-center">Aucune anomalie détectée.</p>
+            <p class="text-muted text-sm py-6 text-center">Aucune anomalie détectée.</p>
           }
         </div>
       }
@@ -383,10 +383,10 @@ export class AnomaliesAdminComponent implements OnInit {
   }
 
   statusClass(status: string): string {
-    if (status === 'Open') return 'bg-amber-500/20 text-amber-300';
-    if (status === 'InReview') return 'bg-sky-500/20 text-sky-300';
-    if (status === 'Resolved') return 'bg-emerald-500/20 text-emerald-300';
-    return 'bg-slate-500/20 text-slate-300';
+    if (status === 'Open') return 'bg-amber-500/20 text-primary border border-amber-500/30';
+    if (status === 'InReview') return 'bg-sky-500/20 text-primary border border-sky-500/30';
+    if (status === 'Resolved') return 'bg-emerald-500/20 text-primary border border-emerald-500/30';
+    return 'bg-slate-500/20 text-primary border border-default';
   }
 
   statusLabel(status: string): string {

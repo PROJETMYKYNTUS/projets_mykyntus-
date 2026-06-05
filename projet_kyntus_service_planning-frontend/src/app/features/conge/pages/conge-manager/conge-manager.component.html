@@ -26,7 +26,7 @@
   <div class="cm-modal" (click)="$event.stopPropagation()">
     <div class="cm-modal-head">
       <h3>+ Nouvelle demande de congé</h3>
-      <button (click)="showMyDemandeModal = false">✕</button>
+      <button (click)="showMyDemandeModal = false">Fermer</button>
     </div>
     <div class="cm-modal-body">
       <div class="cm-field">
@@ -139,9 +139,9 @@
           <td><span class="cm-badge" [ngClass]="getStatutClass(d.statut)">{{ statutLabels[d.statut] }}</span></td>
           <td class="cm-td-date">{{ d.dateDemande | date:'dd/MM/yy' }}</td>
           <td class="cm-td-actions">
-            <button class="cm-btn-detail" (click)="voirDetail(d)" title="Voir détail">👁</button>
-            <button class="cm-btn-valid" *ngIf="d.statut === StatutDemande.EnAttente" (click)="valider(d)">✅</button>
-            <button class="cm-btn-refuse" *ngIf="d.statut === StatutDemande.EnAttente" (click)="ouvrirRefus(d)">❌</button>
+            <button class="cm-btn-detail" (click)="voirDetail(d)" title="Voir détail">Voir</button>
+            <button class="cm-btn-valid" *ngIf="d.statut === StatutDemande.EnAttente" (click)="valider(d)">Valider</button>
+            <button class="cm-btn-refuse" *ngIf="d.statut === StatutDemande.EnAttente" (click)="ouvrirRefus(d)">Refuser</button>
           </td>
         </tr>
       </tbody>
@@ -153,7 +153,7 @@
     <div class="cm-modal" (click)="$event.stopPropagation()">
       <div class="cm-modal-head">
         <h3>Refuser la demande</h3>
-        <button (click)="showRefusModal = false">✕</button>
+        <button (click)="showRefusModal = false">Fermer</button>
       </div>
       <div class="cm-modal-body" *ngIf="demandeSelectee">
         <div class="cm-refus-info">
@@ -179,7 +179,7 @@
     <div class="cm-modal cm-modal-detail" (click)="$event.stopPropagation()">
       <div class="cm-modal-head">
         <h3>Détail de la demande</h3>
-        <button (click)="showDetailModal = false">✕</button>
+        <button (click)="showDetailModal = false">Fermer</button>
       </div>
       <div class="cm-modal-body" *ngIf="demandeDetail">
         <div class="cm-detail-grid">
@@ -220,8 +220,8 @@
       <div class="cm-modal-foot">
         <button class="cm-btn-cancel" (click)="showDetailModal = false">Fermer</button>
         <ng-container *ngIf="demandeDetail?.statut === StatutDemande.EnAttente">
-          <button class="cm-btn-valid-modal" (click)="valider(demandeDetail!); showDetailModal = false">✅ Valider</button>
-          <button class="cm-btn-refuse-modal" (click)="ouvrirRefus(demandeDetail!); showDetailModal = false">❌ Refuser</button>
+          <button class="cm-btn-valid-modal" (click)="valider(demandeDetail!); showDetailModal = false">Valider</button>
+          <button class="cm-btn-refuse-modal" (click)="ouvrirRefus(demandeDetail!); showDetailModal = false">Refuser</button>
         </ng-container>
       </div>
     </div>

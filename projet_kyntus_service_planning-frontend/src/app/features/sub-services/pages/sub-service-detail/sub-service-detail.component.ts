@@ -3,15 +3,19 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { SubServiceService } from '../../services/sub-service.service';
 import { SubServiceDetail } from '../../sub-services-module';
+import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import { Users } from 'lucide';
 
 @Component({
   selector: 'app-sub-service-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, LucideIconComponent],
   templateUrl: './sub-service-detail.Component.html',
   styleUrls: ['./sub-service-detail.component.css']
 })
 export class SubServiceDetailComponent implements OnInit {
+  readonly icons = { users: Users };
+
   subService: SubServiceDetail | null = null;
   loading = false;
   error: string | null = null;

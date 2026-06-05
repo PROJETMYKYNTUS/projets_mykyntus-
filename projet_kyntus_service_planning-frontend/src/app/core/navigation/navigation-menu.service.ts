@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+﻿import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { MICROSERVICES, Microservice, MenuItem } from './microservices.config';
 import { buildPrimeMenuItemsForRole } from './prime-menu.config';
@@ -11,7 +11,7 @@ import { RoleService } from '../../features/prime/state/role.service';
 import { PrimeUiPermissionsService } from '../../features/prime/services/prime-ui-permissions.service';
 import { isPrimePathAllowedForRole } from '../../features/prime/lib/prime-nav-access';
 import { ParrainageRoleService } from '../../features/parrainage/state/parrainage-role.service';
-import { DocumentationNavigationService } from '../../features/documentation/documentation-feature/services/documentation-navigation.service';
+import { DocumentationNavigationService } from '../../features/documentation/services/documentation-navigation.service';
 import type { Role } from '../../features/prime/models';
 
 @Injectable({ providedIn: 'root' })

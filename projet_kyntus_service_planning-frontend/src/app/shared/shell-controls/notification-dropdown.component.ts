@@ -11,6 +11,9 @@ const SOURCE_LABELS: Record<string, string> = {
   contract: 'Contrat',
   planning: 'Planning',
   reclamation: 'Réclamation',
+  documentation: 'Documentation',
+  formation: 'Formation',
+  conge: 'Congés',
 };
 
 @Component({

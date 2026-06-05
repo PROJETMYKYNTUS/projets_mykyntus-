@@ -8,17 +8,21 @@ import { routes } from './app.routes';
 import { provideHttpClient, withInterceptors, withInterceptorsFromDi } from '@angular/common/http';
 import { HTTP_INTERCEPTORS } from '@angular/common/http';
 import { AuthInterceptor } from './core/interceptors/auth.interceptor';
-import { DocumentationGatewayHeadersInterceptor } from './features/documentation/core/interceptors/documentation-gateway-headers.interceptor';
-import { DocumentationHttpErrorsInterceptor } from './features/documentation/core/interceptors/documentation-http-errors.interceptor';
-import { DocumentationUserContextInterceptor } from './features/documentation/core/interceptors/documentation-user-context.interceptor';
+import { DocumentationGatewayHeadersInterceptor } from './core/interceptors/documentation-gateway-headers.interceptor';
+import { DocumentationHttpErrorsInterceptor } from './core/interceptors/documentation-http-errors.interceptor';
+import { DocumentationUserContextInterceptor } from './core/interceptors/documentation-user-context.interceptor';
 import {
   DocumentationIdentityService,
   documentationIdentityInitFactory,
-} from './features/documentation/core/services/documentation-identity.service';
+} from './core/services/documentation-identity.service';
 import { parrainageDemoInterceptor } from './features/parrainage/interceptors/parrainage-demo.interceptor';
 import { parrainageIdentityInterceptor } from './features/parrainage/interceptors/parrainage-identity.interceptor';
 import { primeDemoInterceptor } from './features/prime/interceptors/prime-demo.interceptor';
 import { primeIdentityInterceptor } from './features/prime/interceptors/prime-identity.interceptor';
+import {
+  KyntusNotificationInitService,
+  kyntusNotificationInitFactory,
+} from './core/notifications/kyntus-notification-init.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -36,6 +40,12 @@ export const appConfig: ApplicationConfig = {
       provide: APP_INITIALIZER,
       useFactory: kyntusThemeInitFactory,
       deps: [KyntusThemeService],
+      multi: true,
+    },
+    {
+      provide: APP_INITIALIZER,
+      useFactory: kyntusNotificationInitFactory,
+      deps: [KyntusNotificationInitService],
       multi: true,
     },
     {

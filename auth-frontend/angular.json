@@ -29,6 +29,7 @@
         "zone.js"
       ],
             "styles": [
+              "src/app/core/kyntus-auth-theme.css",
               "src/styles.css"
             ],
             "server": "src/main.server.ts",

@@ -173,7 +173,7 @@ selectedHolidayShiftId      = 0;
     next: data => {
       this.planning   = data;
       this.publishing = false;
-      this.successMsg = '✅ Planning publié !';
+      this.successMsg = 'Planning publié !';
       this.cdr.detectChanges();
     },
     error: (err) => {
@@ -327,7 +327,7 @@ selectedHolidayShiftId      = 0;
  
         this.savingSaturday       = false;
         this.showSaturdayOverride = false;
-        this.successMsg           = '✅ Samedi mis à OFF !';
+        this.successMsg           = 'Samedi mis à OFF !';
         this.loadPlanning(this.planning!.id);
         setTimeout(() => { this.successMsg = ''; this.cdr.detectChanges(); }, 3000);
         this.cdr.detectChanges();
@@ -363,7 +363,7 @@ selectedHolidayShiftId      = 0;
  
         this.savingSaturday       = false;
         this.showSaturdayOverride = false;
-        this.successMsg           = '✅ Samedi mis à jour !';
+        this.successMsg           = 'Samedi mis à jour !';
         this.loadPlanning(this.planning!.id);
         setTimeout(() => { this.successMsg = ''; this.cdr.detectChanges(); }, 3000);
         this.cdr.detectChanges();
@@ -415,7 +415,7 @@ confirmHolidayOverride(): void {
     }).subscribe({
       next: () => {
         this.showHolidayOverride = false;
-        this.successMsg = '✅ Jour modifié en repos !';
+        this.successMsg = 'Jour modifié en repos !';
         this.loadPlanning(this.planning!.id);
         setTimeout(() => { this.successMsg = ''; this.cdr.detectChanges(); }, 3000);
         this.cdr.detectChanges();
@@ -434,7 +434,7 @@ confirmHolidayOverride(): void {
     }).subscribe({
       next: () => {
         this.showHolidayOverride = false;
-        this.successMsg = '✅ Shift assigné sur jour férié !';
+        this.successMsg = 'Shift assigné sur jour férié !';
         this.loadPlanning(this.planning!.id);
         setTimeout(() => { this.successMsg = ''; this.cdr.detectChanges(); }, 3000);
         this.cdr.detectChanges();
@@ -478,7 +478,7 @@ const dto: SavePlanningCommentDto = {
       next: () => {
         this.savingComment    = false;
         this.showCommentModal = false;
-        this.successMsg       = '💬 Commentaire sauvegardé !';
+        this.successMsg       = 'Commentaire sauvegardé !';
         this.loadPlanning(this.planning!.id);
         this.cdr.detectChanges();
         setTimeout(() => { this.successMsg = ''; this.cdr.detectChanges(); }, 3000);
@@ -529,7 +529,7 @@ const dto: SavePlanningCommentDto = {
   }
 
   getStatusLabel(status: string): string {
-    return ({ Draft: '📝 Brouillon', Published: '✅ Publié' } as any)[status] ?? status;
+    return ({ Draft: 'Brouillon', Published: 'Publié' } as any)[status] ?? status;
   }
   
   getAbsenceLabel(value: string | null): string {

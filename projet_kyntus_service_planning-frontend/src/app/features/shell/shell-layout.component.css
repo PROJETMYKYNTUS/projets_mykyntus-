@@ -661,6 +661,9 @@ body.theme-dark .ks-pill {
 .ks-content {
   flex: 1;
   min-width: 0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 
 .ks-overlay {

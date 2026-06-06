@@ -1,11 +1,9 @@
-<div class="employee-detail-page">
+<div class="employee-detail-page ky-page-shell">
 
   <!-- HEADER -->
   <div class="page-header">
 
     <div class="header-left">
-      <button class="btn-back" (click)="goBack()">← Retour</button>
-
       <div>
         <h1>Détail de l'Employé</h1>
         <p class="subtitle">Informations complètes du compte</p>
@@ -14,7 +12,7 @@
 
     @if (user) {
       <div class="header-actions">
-        <button class="btn-edit" (click)="editUser()">Modifier</button>
+        <button class="btn-edit ky-btn-primary" (click)="editUser()">Modifier</button>
         <button class="btn-delete" (click)="deleteUser()">Supprimer</button>
       </div>
     }
@@ -22,7 +20,7 @@
   </div>
 
   <!-- CARD -->
-  <div class="detail-card">
+  <div class="detail-card ky-card">
 
     @if (loading) {
       <div class="state-box">
@@ -34,7 +32,7 @@
     @else if (error) {
       <div class="state-box error">
         <p>{{ error }}</p>
-        <button class="btn-outline" (click)="goBack()">Retour</button>
+        <button class="btn-outline ky-btn-secondary" (click)="goBack()">Retour</button>
       </div>
     }
 

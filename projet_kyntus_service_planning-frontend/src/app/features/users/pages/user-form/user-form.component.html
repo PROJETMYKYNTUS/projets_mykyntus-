@@ -1,12 +1,7 @@
-<div class="page">
+<div class="page ky-page-shell">
   <div class="page-shell">
     <div class="page-header">
       <div class="header-left">
-        <button class="btn btn-back" type="button" (click)="goBack()">
-          <span class="btn-back-icon">←</span>
-          <span>Retour</span>
-        </button>
-
         <div class="header-copy">
           <span class="eyebrow">Gestion des employés</span>
           <h1>{{ isEditMode ? "Modifier l'Employé" : "Nouvel Employé" }}</h1>
@@ -17,7 +12,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card ky-card">
       @if (loading) {
         <div class="state-box">
           <div class="spinner"></div>
@@ -50,17 +45,18 @@
             <div class="form-grid">
               <div class="form-group">
                 <label for="lastName">Nom <span class="required">*</span></label>
-                <input id="lastName" name="lastName" type="text" [(ngModel)]="form.lastName" placeholder="Nom de famille" />
+                <input class="ky-input" id="lastName" name="lastName" type="text" [(ngModel)]="form.lastName" placeholder="Nom de famille" />
               </div>
 
               <div class="form-group">
                 <label for="firstName">Prénom <span class="required">*</span></label>
-                <input id="firstName" name="firstName" type="text" [(ngModel)]="form.firstName" placeholder="Prénom" />
+                <input class="ky-input" id="firstName" name="firstName" type="text" [(ngModel)]="form.firstName" placeholder="Prénom" />
               </div>
 
               <div class="form-group">
                 <label for="email">Email <span class="required">*</span></label>
                 <input
+                  class="ky-input"
                   id="email"
                   name="email"
                   type="email"
@@ -75,7 +71,7 @@
 
               <div class="form-group">
                 <label for="hireDate">Date d'embauche <span class="required">*</span></label>
-                <input id="hireDate" name="hireDate" type="date" [(ngModel)]="form.hireDate" />
+                <input class="ky-input" id="hireDate" name="hireDate" type="date" [(ngModel)]="form.hireDate" />
               </div>
             </div>
           </section>
@@ -133,7 +129,7 @@
             <div class="form-grid">
               <div class="form-group">
                 <label for="roleId">Rôle <span class="required">*</span></label>
-                <select id="roleId" name="roleId" [(ngModel)]="form.roleId" (ngModelChange)="onRoleChange($event)">
+                <select class="ky-input" id="roleId" name="roleId" [(ngModel)]="form.roleId" (ngModelChange)="onRoleChange($event)">
                   <option [value]="0" disabled>-- Sélectionner un rôle --</option>
                   @for (role of roles; track role.id) {
                     <option [value]="role.id">{{ role.name }}</option>
@@ -143,7 +139,7 @@
 
               <div class="form-group">
                 <label for="subServiceId">Sous-service</label>
-                <select id="subServiceId" name="subServiceId" [(ngModel)]="form.subServiceId">
+                <select class="ky-input" id="subServiceId" name="subServiceId" [(ngModel)]="form.subServiceId">
                   <option [value]="null">-- Aucun (RH) --</option>
                   @for (sub of subServices; track sub.id) {
                     <option [value]="sub.id">{{ sub.name }}</option>
@@ -214,10 +210,10 @@
           }
 
           <div class="form-actions">
-            <button class="btn btn-outline" type="button" (click)="goBack()" [disabled]="submitting">
+            <button class="btn btn-outline ky-btn-secondary" type="button" (click)="goBack()" [disabled]="submitting">
               Annuler
             </button>
-            <button class="btn btn-primary" type="button" (click)="submit()" [disabled]="submitting || !!emailError">
+            <button class="btn btn-primary ky-btn-primary" type="button" (click)="submit()" [disabled]="submitting || !!emailError">
               {{ submitting ? "Enregistrement..." : (isEditMode ? "Enregistrer les modifications" : "Créer l'employé") }}
             </button>
           </div>

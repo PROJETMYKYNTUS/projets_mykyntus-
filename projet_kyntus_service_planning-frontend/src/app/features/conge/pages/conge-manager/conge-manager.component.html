@@ -1,4 +1,4 @@
-<div class="cm-root">
+<div class="cm-root ky-page-shell">
 
   <div class="cm-toast" [class.visible]="toast.show" [class.error]="toast.type === 'error'">{{ toast.message }}</div>
 
@@ -11,10 +11,10 @@
   </div>
   <div style="display:flex; gap:10px; align-items:center;">
     <!-- ✅ Bouton Ma demande -->
-    <button class="cm-btn-my-conge" (click)="openMyDemande()">
+    <button class="ky-btn-primary" (click)="openMyDemande()">
       + Ma demande
     </button>
-    <button class="cm-btn-refresh" (click)="loadDemandes()">
+    <button class="prime-btn-secondary" (click)="loadDemandes()">
       Actualiser
     </button>
   </div>
@@ -31,7 +31,7 @@
     <div class="cm-modal-body">
       <div class="cm-field">
         <label>Type de congé</label>
-        <select [(ngModel)]="myForm.typeConge" (change)="onMyTypeChange()">
+        <select class="ky-input" [(ngModel)]="myForm.typeConge" (change)="onMyTypeChange()">
           <option *ngFor="let t of typesConge" [value]="t.value">
             {{ t.label }}
           </option>
@@ -39,7 +39,7 @@
       </div>
       <div class="cm-field" *ngIf="myForm.typeConge === TypeConge.Exceptionnel">
         <label>Type exceptionnel</label>
-        <select [(ngModel)]="myForm.typeExceptionnel">
+        <select class="ky-input" [(ngModel)]="myForm.typeExceptionnel">
           <option *ngFor="let t of typesExceptionnels" [value]="t.value">
             {{ t.label }}
           </option>
@@ -47,23 +47,23 @@
       </div>
       <div class="cm-field">
         <label>Date début</label>
-        <input type="date" [(ngModel)]="myForm.dateDebut" />
+        <input class="ky-input" type="date" [(ngModel)]="myForm.dateDebut" />
       </div>
       <div class="cm-field">
         <label>Date fin</label>
-        <input type="date" [(ngModel)]="myForm.dateFin" />
+        <input class="ky-input" type="date" [(ngModel)]="myForm.dateFin" />
       </div>
       <div class="cm-field">
         <label>Motif</label>
-        <textarea [(ngModel)]="myForm.motif" rows="3" 
+        <textarea class="ky-input" [(ngModel)]="myForm.motif" rows="3" 
                   placeholder="Motif (optionnel)…"></textarea>
       </div>
     </div>
     <div class="cm-modal-foot">
-      <button class="cm-btn-cancel" (click)="showMyDemandeModal = false">
+      <button class="prime-btn-secondary" (click)="showMyDemandeModal = false">
         Annuler
       </button>
-      <button class="cm-btn-valid-modal" (click)="submitMyDemande()">
+      <button class="ky-btn-primary" (click)="submitMyDemande()">
         Envoyer
       </button>
     </div>
@@ -90,14 +90,14 @@
   </div>
 
   <div class="cm-filters">
-    <select [(ngModel)]="filtreStatut" (change)="onFiltreChange()">
+    <select class="ky-input" [(ngModel)]="filtreStatut" (change)="onFiltreChange()">
       <option value="">Tous les statuts</option>
       <option [value]="StatutDemande.EnAttente">En attente</option>
       <option [value]="StatutDemande.Validee">Validée</option>
       <option [value]="StatutDemande.Refusee">Refusée</option>
       <option [value]="StatutDemande.Annulee">Annulée</option>
     </select>
-    <input type="text" placeholder="Rechercher par employé ou motif…"
+    <input class="ky-input" type="text" placeholder="Rechercher par employé ou motif…"
       [(ngModel)]="filtreSearch" (input)="onFiltreChange()" />
   </div>
 
@@ -113,7 +113,7 @@
   </div>
 
   <div class="cm-table-wrap" *ngIf="!loading && demandesFiltrees.length > 0">
-    <table class="cm-table">
+    <table class="prime-table cm-table">
       <thead>
         <tr>
           <th>Employé</th><th>Type</th><th>Dates</th>
@@ -163,12 +163,12 @@
         </div>
         <div class="cm-field">
           <label>Motif du refus <span class="required">*</span></label>
-          <textarea [(ngModel)]="commentaireRefus" rows="4"
+          <textarea class="ky-input" [(ngModel)]="commentaireRefus" rows="4"
             placeholder="Expliquez la raison du refus (obligatoire)…"></textarea>
         </div>
       </div>
       <div class="cm-modal-foot">
-        <button class="cm-btn-cancel" (click)="showRefusModal = false">Annuler</button>
+        <button class="prime-btn-secondary" (click)="showRefusModal = false">Annuler</button>
         <button class="cm-btn-refuse-confirm" (click)="confirmerRefus()">Confirmer le refus</button>
       </div>
     </div>
@@ -218,7 +218,7 @@
         </div>
       </div>
       <div class="cm-modal-foot">
-        <button class="cm-btn-cancel" (click)="showDetailModal = false">Fermer</button>
+        <button class="prime-btn-secondary" (click)="showDetailModal = false">Fermer</button>
         <ng-container *ngIf="demandeDetail?.statut === StatutDemande.EnAttente">
           <button class="cm-btn-valid-modal" (click)="valider(demandeDetail!); showDetailModal = false">Valider</button>
           <button class="cm-btn-refuse-modal" (click)="ouvrirRefus(demandeDetail!); showDetailModal = false">Refuser</button>

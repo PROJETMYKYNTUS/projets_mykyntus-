@@ -10,8 +10,8 @@ import type { ReferralHistoryEntry } from '../../models/referral.model';
   template: `
     <section class="flex-1 min-w-0 space-y-6">
       <div>
-        <h1 class="text-2xl font-semibold text-slate-50">Historique des parrainages</h1>
-        <p class="text-sm text-slate-500 mt-1">Historique des actions enregistrées par le processus RH.</p>
+        <h1 class="text-2xl font-semibold text-primary">Historique des parrainages</h1>
+        <p class="text-sm text-muted mt-1">Historique des actions enregistrées par le processus RH.</p>
       </div>
 
       @if (unauthorized) {
@@ -21,14 +21,14 @@ import type { ReferralHistoryEntry } from '../../models/referral.model';
       }
 
       @if (!unauthorized && loading()) {
-        <div class="card-navy p-10 text-center text-slate-500 text-sm">Chargement…</div>
+        <div class="card-navy p-10 text-center text-muted text-sm">Chargement…</div>
       } @else if (!unauthorized && rows().length === 0) {
-        <div class="card-navy p-10 text-center text-slate-400 text-sm">Aucun événement.</div>
+        <div class="card-navy p-10 text-center text-muted text-sm">Aucun événement.</div>
       } @else if (!unauthorized) {
         <div class="card-navy overflow-hidden">
           <div class="overflow-x-auto">
             <table class="min-w-full text-sm">
-              <thead class="bg-navy-950/50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <thead class="bg-app/50 text-left text-xs uppercase tracking-wide text-muted">
                 <tr>
                   <th class="px-4 py-3">Candidat</th>
                   <th class="px-4 py-3">Action</th>
@@ -36,13 +36,13 @@ import type { ReferralHistoryEntry } from '../../models/referral.model';
                   <th class="px-4 py-3">Date</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-navy-800">
+              <tbody class="divide-y divide-default">
                 @for (r of rows(); track r.id) {
-                  <tr class="hover:bg-navy-800/30">
-                    <td class="px-4 py-3 text-slate-200 whitespace-nowrap">{{ r.candidateName }}</td>
-                    <td class="px-4 py-3 text-slate-300 whitespace-nowrap">{{ actionLabel(r.action) }}</td>
-                    <td class="px-4 py-3 text-slate-300 whitespace-nowrap">{{ r.performedByLabel }}</td>
-                    <td class="px-4 py-3 text-slate-400 whitespace-nowrap">
+                  <tr class="hover:bg-input/30">
+                    <td class="px-4 py-3 text-primary whitespace-nowrap">{{ r.candidateName }}</td>
+                    <td class="px-4 py-3 text-primary whitespace-nowrap">{{ actionLabel(r.action) }}</td>
+                    <td class="px-4 py-3 text-primary whitespace-nowrap">{{ r.performedByLabel }}</td>
+                    <td class="px-4 py-3 text-muted whitespace-nowrap">
                       {{ fr(r.createdAt) }}
                     </td>
                   </tr>

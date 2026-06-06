@@ -1,11 +1,16 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { SettingsModuleComponent } from '../components/settings/settings-module.component';
+import { Component, inject, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 
+/** Redirige vers les paramètres globaux du shell. */
 @Component({
-  selector: 'app-settings-page',
   standalone: true,
-  imports: [SettingsModuleComponent],
-  template: `<app-settings-module />`,
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  selector: 'app-settings-page',
+  template: '',
 })
-export class SettingsPageComponent {}
+export class SettingsPageComponent implements OnInit {
+  private readonly router = inject(Router);
+
+  ngOnInit(): void {
+    void this.router.navigateByUrl('/settings');
+  }
+}

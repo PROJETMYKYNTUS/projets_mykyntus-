@@ -11,7 +11,7 @@ import { getScopedReferrals } from '../../lib/scoping';
   imports: [ReferralTableComponent],
   template: `
     <div class="space-y-4">
-      <h2 class="text-lg font-semibold text-slate-50">Parrainages (équipe)</h2>
+      <h2 class="text-lg font-semibold text-primary">Parrainages (équipe)</h2>
       <app-referral-table [referrals]="scoped()" scope="pm" [showActions]="false" />
     </div>
   `,

@@ -18,7 +18,7 @@ export interface KpiStatItem {
       @for (item of items; track item.label) {
         <div class="card-navy p-6 flex items-center justify-between">
           <div>
-            <p class="text-sm text-slate-400 font-medium mb-1">{{ item.label }}</p>
+            <p class="text-sm text-muted font-medium mb-1">{{ item.label }}</p>
             <h3 class="text-3xl font-bold text-white">{{ item.value }}</h3>
           </div>
           @if (item.icon) {

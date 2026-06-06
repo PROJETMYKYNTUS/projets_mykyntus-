@@ -24,7 +24,7 @@ import type { Referral } from '../../models/referral.model';
         <div class="card-navy p-3 md:p-4 lg:col-span-2 overflow-x-auto">
           <table class="min-w-full text-xs md:text-sm">
             <thead>
-              <tr class="text-left text-[11px] uppercase tracking-wide text-slate-500 border-b border-navy-800">
+              <tr class="text-left text-[11px] uppercase tracking-wide text-muted border-b border-default">
                 <th class="py-2 pr-3">Candidat</th>
                 <th class="py-2 px-3">Poste</th>
                 <th class="py-2 px-3">Parrain</th>
@@ -36,31 +36,31 @@ import type { Referral } from '../../models/referral.model';
             <tbody>
               @for (ref of filtered(); track ref.id) {
                 <tr
-                  [class]="'border-b border-navy-900/80 hover:bg-navy-800/40 cursor-pointer ' + (ref.id === selected()?.id ? 'bg-navy-800/40' : '')"
+                  [class]="'border-b border-default/80 hover:bg-input/40 cursor-pointer ' + (ref.id === selected()?.id ? 'bg-card/40' : '')"
                   (click)="selectedId.set(ref.id)"
                 >
                   <td class="py-2 pr-3">
                     <div class="flex flex-col">
-                      <span class="font-medium text-slate-100">
+                      <span class="font-medium text-primary">
                         {{ ref.candidateName }}
                       </span>
-                      <span class="text-[11px] text-slate-500">
+                      <span class="text-[11px] text-muted">
                         {{ ref.id }}
                       </span>
                     </div>
                   </td>
-                  <td class="py-2 px-3 text-slate-200">{{ ref.position }}</td>
-                  <td class="py-2 px-3 text-slate-200">
+                  <td class="py-2 px-3 text-primary">{{ ref.position }}</td>
+                  <td class="py-2 px-3 text-primary">
                     {{ ref.referrerName }}
                   </td>
-                  <td class="py-2 px-3 text-slate-200">
+                  <td class="py-2 px-3 text-primary">
                     @if (ref.projectName) {
                       {{ ref.projectName }}
                     } @else {
-                      <span class="text-slate-500">-</span>
+                      <span class="text-muted">-</span>
                     }
                   </td>
-                  <td class="py-2 px-3 text-slate-200">
+                  <td class="py-2 px-3 text-primary">
                     {{ fr(ref.createdAt) }}
                   </td>
                   <td class="py-2 pl-3 text-right">
@@ -72,7 +72,7 @@ import type { Referral } from '../../models/referral.model';
                 <tr>
                   <td
                     colspan="6"
-                    class="py-6 text-center text-xs text-slate-500"
+                    class="py-6 text-center text-xs text-muted"
                   >
                     Aucun parrainage ne correspond aux filtres sélectionnés.
                   </td>
@@ -86,17 +86,17 @@ import type { Referral } from '../../models/referral.model';
           <div class="card-navy p-4">
             @if (selected(); as sel) {
               <div class="mb-3">
-                <p class="text-xs uppercase tracking-wide text-slate-500 mb-1">
+                <p class="text-xs uppercase tracking-wide text-muted mb-1">
                   Détail du parrainage
                 </p>
-                <p class="text-sm font-semibold text-slate-100">
+                <p class="text-sm font-semibold text-primary">
                   {{ sel.candidateName }}
                 </p>
-                <p class="text-xs text-slate-400">{{ sel.position }}</p>
+                <p class="text-xs text-muted">{{ sel.position }}</p>
               </div>
               <app-timeline [items]="timelineItems()" />
             } @else {
-              <p class="text-xs text-slate-500">
+              <p class="text-xs text-muted">
                 Sélectionnez un parrainage dans la liste pour visualiser la
                 chronologie.
               </p>

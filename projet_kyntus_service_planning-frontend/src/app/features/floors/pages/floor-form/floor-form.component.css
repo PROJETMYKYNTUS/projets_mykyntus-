@@ -1,23 +1,13 @@
 .page-wrapper {
-  min-height: 100vh;
-  padding: 32px 20px;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 22%),
-    linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-primary) 100%);
 }
 
 .form-card {
   width: 100%;
   max-width: 760px;
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid var(--border-color);
-  border-radius: 24px;
   padding: 32px;
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
-  backdrop-filter: blur(8px);
 }
 
 .form-header {
@@ -31,31 +21,12 @@
   margin: 0;
   font-size: 1.95rem;
   font-weight: 700;
-  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
 .form-header p {
   margin: 6px 0 0;
-  color: var(--text-muted);
   font-size: 0.96rem;
-}
-
-.btn-back {
-  align-self: flex-start;
-  border: 1px solid var(--border-color);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  padding: 10px 16px;
-  border-radius: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.btn-back:hover {
-  background: var(--navy-700);
-  border-color: #bfdbfe;
 }
 
 .form-body {
@@ -70,34 +41,8 @@
 }
 
 .form-group label {
-  color: var(--text-primary);
   font-weight: 700;
   font-size: 0.95rem;
-}
-
-input,
-textarea {
-  width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 14px 16px;
-  color: var(--text-primary);
-  font-size: 0.96rem;
-  transition: all 0.25s ease;
-  outline: none;
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: var(--text-muted);
-}
-
-input:focus,
-textarea:focus {
-  background: var(--bg-card);
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
 }
 
 textarea {
@@ -106,9 +51,9 @@ textarea {
 }
 
 .field-error {
-  color: #dc2626;
   font-size: 0.85rem;
   font-weight: 500;
+  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
 }
 
 .form-actions {
@@ -118,68 +63,21 @@ textarea {
   margin-top: 10px;
 }
 
-.btn-secondary,
-.btn-primary {
-  border: none;
-  padding: 12px 20px;
-  border-radius: 14px;
-  font-weight: 700;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.btn-secondary {
-  background: var(--bg-input);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-}
-
-.btn-secondary:hover {
-  background: var(--navy-700);
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-  color: #ffffff;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.22);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
 .state {
   padding: 24px;
   border-radius: 16px;
   margin-bottom: 20px;
-  border: 1px solid var(--border-color);
 }
 
 .state.loading {
-  background: var(--bg-input);
-  color: var(--text-muted);
   text-align: center;
-}
-
-.state.error {
-  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
-  color: var(--text-primary);
-  border-color: color-mix(in srgb, #ef4444 30%, var(--border-color));
 }
 
 .spinner {
   width: 34px;
   height: 34px;
   margin: 0 auto 12px;
-  border: 3px solid #dbeafe;
+  border: 3px solid color-mix(in srgb, var(--soft-blue) 30%, var(--border-color));
   border-top-color: var(--text-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;

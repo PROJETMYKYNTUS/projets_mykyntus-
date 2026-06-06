@@ -32,7 +32,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     } @else if (stats()) {
-      <div class="p-8 space-y-8 bg-app min-h-full">
+      <div class="prime-page-shell space-y-8">
         <div class="flex justify-between items-end">
           <div>
             <h1 class="text-3xl font-bold text-primary tracking-tight">

@@ -40,11 +40,11 @@ const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = [
     } @else {
       <section class="space-y-6">
         <div>
-          <h1 class="text-2xl font-semibold text-slate-50 flex items-center gap-2">
+          <h1 class="text-2xl font-semibold text-primary flex items-center gap-2">
             <app-lucide-icon [icon]="wrenchIcon" className="w-7 h-7 text-blue-500 shrink-0" />
             Outils administrateur
           </h1>
-          <p class="text-sm text-slate-500 mt-1">
+          <p class="text-sm text-muted mt-1">
             Recherche de parrainages, actions rapides, anomalies et débogage (données locales).
           </p>
         </div>
@@ -55,7 +55,7 @@ const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = [
               <app-lucide-icon [icon]="alertIcon" className="w-4 h-4" />
               Anomalies détectées
             </div>
-            <ul class="text-sm text-slate-300 space-y-1 list-disc list-inside">
+            <ul class="text-sm text-primary space-y-1 list-disc list-inside">
               @for (d of anomalies().duplicateCandidates; track d.email) {
                 <li>
                   Candidat en doublon (même e-mail) : <span class="font-mono text-amber-100">{{ d.email }}</span> —
@@ -68,45 +68,45 @@ const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = [
 
         <div class="card-navy p-4 space-y-4">
           <div class="relative">
-            <app-lucide-icon [icon]="searchIcon" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <app-lucide-icon [icon]="searchIcon" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
             <input
               [value]="query()"
               (input)="query.set($any($event.target).value)"
               placeholder="Rechercher par nom, e-mail, ID parrainage…"
-              class="w-full bg-navy-900 border border-navy-800 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+              class="w-full bg-input border border-default rounded-lg pl-10 pr-4 py-2.5 text-sm text-primary placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
             />
           </div>
 
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
-                <tr class="bg-navy-800/50 border-b border-navy-800">
-                  <th class="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">ID</th>
-                  <th class="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Candidat</th>
-                  <th class="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">E-mail</th>
-                  <th class="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Statut</th>
-                  <th class="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                <tr class="bg-card/50 border-b border-default">
+                  <th class="px-4 py-3 text-[11px] font-bold text-muted uppercase tracking-wider">ID</th>
+                  <th class="px-4 py-3 text-[11px] font-bold text-muted uppercase tracking-wider">Candidat</th>
+                  <th class="px-4 py-3 text-[11px] font-bold text-muted uppercase tracking-wider">E-mail</th>
+                  <th class="px-4 py-3 text-[11px] font-bold text-muted uppercase tracking-wider">Statut</th>
+                  <th class="px-4 py-3 text-[11px] font-bold text-muted uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-navy-800">
+              <tbody class="divide-y divide-default">
                 @for (r of filtered(); track r.id) {
-                  <tr class="hover:bg-navy-800/30 transition-colors">
-                    <td class="px-4 py-3 text-xs font-mono text-slate-400">{{ r.id }}</td>
-                    <td class="px-4 py-3 text-sm text-slate-200">{{ r.candidateName }}</td>
-                    <td class="px-4 py-3 text-sm text-slate-400">{{ r.candidateEmail }}</td>
+                  <tr class="hover:bg-input/30 transition-colors">
+                    <td class="px-4 py-3 text-xs font-mono text-muted">{{ r.id }}</td>
+                    <td class="px-4 py-3 text-sm text-primary">{{ r.candidateName }}</td>
+                    <td class="px-4 py-3 text-sm text-muted">{{ r.candidateEmail }}</td>
                     <td class="px-4 py-3"><app-status-badge [status]="r.status" /></td>
                     <td class="px-4 py-3 text-right">
                       <div class="inline-flex flex-wrap gap-1 justify-end">
-                        <button type="button" title="Afficher le JSON" class="p-2 rounded-lg text-slate-400 hover:bg-navy-800 hover:text-blue-400" (click)="selectedJson.set(r)">
+                        <button type="button" title="Afficher le JSON" class="p-2 rounded-lg text-muted hover:bg-input hover:text-blue-400" (click)="selectedJson.set(r)">
                           <app-lucide-icon [icon]="bugIcon" className="w-4 h-4" />
                         </button>
-                        <button type="button" title="Forcer la validation" class="p-2 rounded-lg text-slate-400 hover:bg-emerald-500/10 hover:text-emerald-400" (click)="forceApprove(r.id)">
+                        <button type="button" title="Forcer la validation" class="p-2 rounded-lg text-muted hover:bg-emerald-500/10 hover:text-emerald-400" (click)="forceApprove(r.id)">
                           <app-lucide-icon [icon]="checkIcon" className="w-4 h-4" />
                         </button>
-                        <button type="button" title="Forcer le refus" class="p-2 rounded-lg text-slate-400 hover:bg-red-500/10 hover:text-red-400" (click)="forceReject(r.id)">
+                        <button type="button" title="Forcer le refus" class="p-2 rounded-lg text-muted hover:bg-red-500/10 hover:text-red-400" (click)="forceReject(r.id)">
                           <app-lucide-icon [icon]="xIcon" className="w-4 h-4" />
                         </button>
-                        <button type="button" title="Éditer" class="p-2 rounded-lg text-slate-400 hover:bg-blue-500/10 hover:text-blue-400" (click)="openEdit(r)">
+                        <button type="button" title="Éditer" class="p-2 rounded-lg text-muted hover:bg-blue-500/10 hover:text-blue-400" (click)="openEdit(r)">
                           <app-lucide-icon [icon]="pencilIcon" className="w-4 h-4" />
                         </button>
                       </div>
@@ -119,46 +119,46 @@ const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = [
         </div>
 
         <div class="card-navy overflow-hidden">
-          <div class="flex border-b border-navy-800">
+          <div class="flex border-b border-default">
             @for (t of debugTabs; track t) {
               <button
                 type="button"
                 (click)="debugTab.set(t)"
-                [class]="'px-4 py-3 text-sm font-medium transition-colors ' + (debugTab() === t ? 'bg-navy-800/50 text-blue-400 border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-200')"
+                [class]="'px-4 py-3 text-sm font-medium transition-colors ' + (debugTab() === t ? 'bg-card/50 text-blue-400 border-b-2 border-blue-500' : 'text-muted hover:text-primary')"
               >
                 {{ tabLabel(t) }}
               </button>
             }
-            <button type="button" (click)="copyExport()" class="ml-auto px-4 py-3 text-sm text-slate-400 hover:text-white flex items-center gap-1">
+            <button type="button" (click)="copyExport()" class="ml-auto px-4 py-3 text-sm text-muted hover:text-white flex items-center gap-1">
               <app-lucide-icon [icon]="copyIcon" className="w-4 h-4" />
               Copier export complet
             </button>
           </div>
           <div class="p-4 max-h-[420px] overflow-auto">
-            <pre class="text-xs font-mono text-slate-400 whitespace-pre-wrap break-all">{{ debugContent() }}</pre>
+            <pre class="text-xs font-mono text-muted whitespace-pre-wrap break-all">{{ debugContent() }}</pre>
           </div>
         </div>
 
         @if (editOpen()) {
           <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <button type="button" class="absolute inset-0 bg-navy-950/80 backdrop-blur-sm" aria-label="Fermer" (click)="editOpen.set(null)"></button>
-            <div class="relative card-navy max-w-lg w-full p-6 border border-navy-800 shadow-2xl z-[61]">
+            <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="editOpen.set(null)"></button>
+            <div class="relative card-navy max-w-lg w-full p-6 border border-default shadow-2xl z-[61]">
               <h3 class="text-lg font-semibold text-white mb-4">Édition manuelle — {{ editOpen()!.id }}</h3>
               <div class="grid gap-3">
                 @for (f of editFields; track f[0]) {
                   <div>
-                    <label class="text-xs font-bold text-slate-500 uppercase">{{ f[1] }}</label>
+                    <label class="text-xs font-bold text-muted uppercase">{{ f[1] }}</label>
                     <input
-                      class="w-full mt-1 bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                      class="w-full mt-1 bg-input border border-default rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
                       [value]="draftValue(f[0])"
                       (input)="setDraft(f[0], $any($event.target).value)"
                     />
                   </div>
                 }
                 <div>
-                  <label class="text-xs font-bold text-slate-500 uppercase">Statut</label>
+                  <label class="text-xs font-bold text-muted uppercase">Statut</label>
                   <select
-                    class="w-full mt-1 bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-white"
+                    class="w-full mt-1 bg-input border border-default rounded-lg px-3 py-2 text-sm text-white"
                     [value]="editDraft().status ?? editOpen()!.status"
                     (change)="setDraft('status', $any($event.target).value)"
                   >
@@ -168,17 +168,17 @@ const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = [
                   </select>
                 </div>
                 <div>
-                  <label class="text-xs font-bold text-slate-500 uppercase">Montant récompense (€)</label>
+                  <label class="text-xs font-bold text-muted uppercase">Montant récompense (€)</label>
                   <input
                     type="number"
-                    class="w-full mt-1 bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-white"
+                    class="w-full mt-1 bg-input border border-default rounded-lg px-3 py-2 text-sm text-white"
                     [value]="editDraft().rewardAmount ?? 0"
                     (input)="setDraft('rewardAmount', $any($event.target).value)"
                   />
                 </div>
               </div>
               <div class="flex justify-end gap-2 mt-6">
-                <button type="button" class="px-4 py-2 rounded-lg border border-navy-800 text-slate-300 hover:bg-navy-800" (click)="editOpen.set(null)">Annuler</button>
+                <button type="button" class="px-4 py-2 rounded-lg border border-default text-primary hover:bg-input" (click)="editOpen.set(null)">Annuler</button>
                 <button type="button" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500" (click)="saveEdit()">Enregistrer</button>
               </div>
             </div>

@@ -1,4 +1,4 @@
-<div class="fe-root">
+<div class="fe-root ky-page-shell">
 
   <div class="fe-toast" [class.visible]="toast.show" [class.error]="toast.type === 'error'">
     {{ toast.message }}
@@ -53,7 +53,7 @@
           {{ f.prix | number:'1.0-0' }} MAD
         </div>
       </div>
-    <button class="fe-btn-inscrire"
+    <button class="ky-btn-primary fe-btn-inscrire"
         [disabled]="estComplet(f) || estInscrit(f)"
         [class.disabled]="estComplet(f) || estInscrit(f)"
         (click)="inscrire(f)">

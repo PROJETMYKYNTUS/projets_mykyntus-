@@ -1,4 +1,4 @@
-<div class="ce-root">
+<div class="ce-root ky-page-shell">
   <div class="ce-toast" [class.visible]="toast.show" [class.error]="toast.type === 'error'">{{ toast.message }}</div>
 
   <div class="ce-header">
@@ -6,7 +6,7 @@
       <h2 class="ce-title">Mes Congés</h2>
       <p class="ce-sub">Consultez vos congés et soumettez de nouvelles demandes</p>
     </div>
-    <button class="ce-btn-create" (click)="openNouvelleDemande()">
+    <button class="ky-btn-primary" (click)="openNouvelleDemande()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Nouvelle demande
     </button>
@@ -33,7 +33,7 @@
   </div>
 
   <div class="ce-filters">
-    <select [(ngModel)]="filtreStatut" (change)="loadDemandes()">
+    <select class="ky-input" [(ngModel)]="filtreStatut" (change)="loadDemandes()">
       <option value="">Tous les statuts</option>
       <option [value]="StatutDemande.EnAttente">En attente</option>
       <option [value]="StatutDemande.Validee">Validée</option>
@@ -51,7 +51,7 @@
   </div>
 
   <div class="ce-table-wrap" *ngIf="!loading && demandes.length > 0">
-    <table class="ce-table">
+    <table class="prime-table ce-table">
       <thead>
         <tr><th>Type</th><th>Dates</th><th>Jours</th><th>Motif</th><th>Statut</th><th>Commentaire</th><th>Actions</th></tr>
       </thead>
@@ -83,13 +83,13 @@
       <div class="ce-modal-body">
         <div class="ce-field">
           <label>Type de congé</label>
-          <select [(ngModel)]="form.typeConge" (change)="onTypeCongeChange()">
+          <select class="ky-input" [(ngModel)]="form.typeConge" (change)="onTypeCongeChange()">
             <option *ngFor="let t of typesConge" [value]="t.value">{{ t.label }}</option>
           </select>
         </div>
         <div class="ce-field" *ngIf="isExceptionnel()">
           <label>Événement</label>
-          <select [(ngModel)]="form.typeExceptionnel">
+          <select class="ky-input" [(ngModel)]="form.typeExceptionnel">
             <option [value]="null">-- Sélectionner --</option>
             <option *ngFor="let e of typesExceptionnels" [value]="e.value">{{ e.label }}</option>
           </select>
@@ -98,24 +98,24 @@
         <div class="ce-row">
           <div class="ce-field">
             <label>Date début</label>
-            <input type="date" [(ngModel)]="form.dateDebut" />
+            <input class="ky-input" type="date" [(ngModel)]="form.dateDebut" />
           </div>
           <div class="ce-field" *ngIf="isDateFinManuelle()">
             <label>Date fin</label>
-            <input type="date" [(ngModel)]="form.dateFin" />
+            <input class="ky-input" type="date" [(ngModel)]="form.dateFin" />
           </div>
         </div>
         <div class="ce-field">
           <label>Motif <small>(optionnel)</small></label>
-          <textarea [(ngModel)]="form.motif" rows="3" placeholder="Motif…"></textarea>
+          <textarea class="ky-input" [(ngModel)]="form.motif" rows="3" placeholder="Motif…"></textarea>
         </div>
         <div class="ce-info-solde" *ngIf="solde && form.typeConge === TypeConge.Annuel">
           Solde disponible : <strong>{{ solde.soldeRestant }} jours</strong>
         </div>
       </div>
       <div class="ce-modal-foot">
-        <button class="ce-btn-cancel-modal" (click)="showModal = false">Annuler</button>
-        <button class="ce-btn-save" (click)="submit()">Envoyer la demande</button>
+        <button class="prime-btn-secondary" (click)="showModal = false">Annuler</button>
+        <button class="ky-btn-primary" (click)="submit()">Envoyer la demande</button>
       </div>
     </div>
   </div>

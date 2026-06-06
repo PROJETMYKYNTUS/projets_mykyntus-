@@ -30,39 +30,39 @@ const download = (name: string, content: string, mime: string) => {
     <div class="space-y-6">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="card-navy p-4 border border-blue-500/20 hover:border-blue-500/40 transition-colors">
-          <p class="text-[11px] uppercase tracking-wide text-slate-500">Total actions</p>
+          <p class="text-[11px] uppercase tracking-wide text-muted">Total actions</p>
           <p class="text-2xl font-bold text-white mt-1">{{ kpis.totalActions.toLocaleString('fr-FR') }}</p>
         </div>
         <div class="card-navy p-4 border border-rose-500/20 hover:border-rose-500/40 transition-colors">
-          <p class="text-[11px] uppercase tracking-wide text-slate-500">% actions critiques</p>
+          <p class="text-[11px] uppercase tracking-wide text-muted">% actions critiques</p>
           <p class="text-2xl font-bold text-rose-300 mt-1">{{ kpis.criticalPercent }}%</p>
         </div>
         <div class="card-navy p-4 border border-emerald-500/20 hover:border-emerald-500/40 transition-colors">
-          <p class="text-[11px] uppercase tracking-wide text-slate-500">Utilisateurs actifs</p>
+          <p class="text-[11px] uppercase tracking-wide text-muted">Utilisateurs actifs</p>
           <p class="text-2xl font-bold text-emerald-200 mt-1">{{ kpis.activeUsers }}</p>
         </div>
         <div class="card-navy p-4 border border-amber-500/20 hover:border-amber-500/40 transition-colors">
-          <p class="text-[11px] uppercase tracking-wide text-slate-500">Anomalies détectées</p>
+          <p class="text-[11px] uppercase tracking-wide text-muted">Anomalies détectées</p>
           <p class="text-2xl font-bold text-amber-200 mt-1">{{ kpis.anomaliesCount }}</p>
         </div>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="card-navy p-4 border border-slate-600/30">
-          <p class="text-[11px] uppercase tracking-wide text-slate-500">Actions / jour (moy.)</p>
+          <p class="text-[11px] uppercase tracking-wide text-muted">Actions / jour (moy.)</p>
           <p class="text-2xl font-bold text-white mt-1">{{ kpis.actionsPerDay }}</p>
         </div>
         <div class="card-navy p-4 border border-slate-600/30 sm:col-span-2">
-          <p class="text-[11px] uppercase tracking-wide text-slate-500">Utilisateur le plus actif</p>
+          <p class="text-[11px] uppercase tracking-wide text-muted">Utilisateur le plus actif</p>
           <p class="text-lg font-semibold text-emerald-200 mt-1 truncate">{{ kpis.topUser }}</p>
-          <p class="text-xs text-slate-500">{{ kpis.topUserActions }} actions</p>
+          <p class="text-xs text-muted">{{ kpis.topUserActions }} actions</p>
         </div>
         <div class="card-navy p-4 border border-violet-500/20 flex flex-col justify-center gap-2">
           <button type="button" (click)="exportPdfHtml()" class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-violet-600/80 hover:bg-violet-500 text-white text-sm transition-colors">
             <app-lucide-icon [icon]="fileTextIcon" className="w-4 h-4" />
             Rapport PDF (HTML)
           </button>
-          <button type="button" (click)="print()" class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-navy-600 text-slate-300 text-sm hover:bg-navy-800 transition-colors">
+          <button type="button" (click)="print()" class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-default text-primary text-sm hover:bg-input transition-colors">
             <app-lucide-icon [icon]="downloadIcon" className="w-4 h-4" />
             Imprimer / PDF
           </button>
@@ -70,18 +70,18 @@ const download = (name: string, content: string, mime: string) => {
             <app-lucide-icon [icon]="sheetIcon" className="w-4 h-4" />
             Excel (synthèse)
           </button>
-          <button type="button" (click)="exportMonthlyCsv()" class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-navy-600 text-slate-400 text-xs hover:bg-navy-800 transition-colors">
+          <button type="button" (click)="exportMonthlyCsv()" class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-default text-muted text-xs hover:bg-input transition-colors">
             Export CSV activité
           </button>
         </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="card-navy p-5 border border-navy-800/80">
-          <h3 class="text-sm font-semibold text-slate-200 mb-4">Actions par type</h3>
+        <div class="card-navy p-5 border border-default/80">
+          <h3 class="text-sm font-semibold text-primary mb-4">Actions par type</h3>
           <div class="flex flex-col md:flex-row items-center gap-6">
-            <div class="w-36 h-36 rounded-full shrink-0 border border-navy-700 shadow-inner transition-transform hover:scale-105 duration-300" [style.background]="pieGradient" title="Répartition par type d'action"></div>
-            <ul class="space-y-2 text-sm text-slate-300">
+            <div class="w-36 h-36 rounded-full shrink-0 border border-default shadow-inner transition-transform hover:scale-105 duration-300" [style.background]="pieGradient" title="Répartition par type d'action"></div>
+            <ul class="space-y-2 text-sm text-primary">
               @for (x of actionsByType; track x.label) {
                 <li class="flex items-center gap-2">
                   <span class="w-3 h-3 rounded-sm shrink-0" [style.background]="x.color"></span>
@@ -91,14 +91,14 @@ const download = (name: string, content: string, mime: string) => {
             </ul>
           </div>
         </div>
-        <div class="card-navy p-5 border border-navy-800/80">
+        <div class="card-navy p-5 border border-default/80">
           <div class="space-y-2">
-            <p class="text-xs text-slate-500">Activité par jour (volume d'événements)</p>
+            <p class="text-xs text-muted">Activité par jour (volume d'événements)</p>
             <div class="flex items-end gap-2 h-36">
               @for (d of activityByDay; track d.day) {
                 <div class="flex-1 flex flex-col items-center gap-1">
                   <div class="w-full rounded-t bg-gradient-to-t from-blue-600/80 to-blue-400/40 min-h-[4px] transition-all duration-300 hover:from-blue-500/90" [style.height.%]="(d.v / maxActivity) * 100" [title]="d.v + ' événements'"></div>
-                  <span class="text-[10px] text-slate-500">{{ d.day }}</span>
+                  <span class="text-[10px] text-muted">{{ d.day }}</span>
                 </div>
               }
             </div>
@@ -106,29 +106,29 @@ const download = (name: string, content: string, mime: string) => {
         </div>
       </div>
 
-      <div class="card-navy p-5 border border-navy-800/80">
-        <h3 class="text-sm font-semibold text-slate-200 mb-3">Répartition par rôle</h3>
+      <div class="card-navy p-5 border border-default/80">
+        <h3 class="text-sm font-semibold text-primary mb-3">Répartition par rôle</h3>
         <div class="space-y-2">
           @for (r of actionsByRole; track r.role) {
             <div class="flex items-center gap-3">
-              <span class="w-24 text-xs text-slate-400">{{ r.role }}</span>
-              <div class="flex-1 h-2 rounded-full bg-navy-800 overflow-hidden">
+              <span class="w-24 text-xs text-muted">{{ r.role }}</span>
+              <div class="flex-1 h-2 rounded-full bg-card overflow-hidden">
                 <div class="h-full bg-gradient-to-r from-soft-blue to-blue-400 transition-all duration-500" [style.width.%]="r.pct"></div>
               </div>
-              <span class="w-10 text-xs text-slate-500 text-right">{{ r.pct }}%</span>
+              <span class="w-10 text-xs text-muted text-right">{{ r.pct }}%</span>
             </div>
           }
         </div>
       </div>
 
-      <div class="card-navy p-5 border border-navy-800/80">
-        <h3 class="text-sm font-semibold text-slate-200 mb-3">Top utilisateurs actifs</h3>
+      <div class="card-navy p-5 border border-default/80">
+        <h3 class="text-sm font-semibold text-primary mb-3">Top utilisateurs actifs</h3>
         <div class="space-y-2">
           @for (u of topUsers; track u.name; let i = $index) {
             <div class="flex items-center justify-between gap-3 text-sm">
-              <span class="text-slate-400 w-6">{{ i + 1 }}.</span>
-              <span class="flex-1 text-slate-200 truncate">{{ u.name }}</span>
-              <span class="text-slate-500 tabular-nums">{{ u.actions }}</span>
+              <span class="text-muted w-6">{{ i + 1 }}.</span>
+              <span class="flex-1 text-primary truncate">{{ u.name }}</span>
+              <span class="text-muted tabular-nums">{{ u.actions }}</span>
             </div>
           }
         </div>

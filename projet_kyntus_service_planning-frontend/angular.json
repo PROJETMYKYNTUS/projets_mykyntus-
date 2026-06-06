@@ -31,8 +31,7 @@
               "src/styles-documentation.css",
               "src/app/core/styles/kyntus-legacy-pages.css",
               "src/app/core/styles/kyntus-documentation.css",
-              "src/app/core/styles/kyntus-theme-contrast.css",
-              "src/app/core/styles/kyntus-legacy-theme-bridge.css"
+              "src/app/core/styles/kyntus-theme-contrast.css"
             ]
           },
           "configurations": {

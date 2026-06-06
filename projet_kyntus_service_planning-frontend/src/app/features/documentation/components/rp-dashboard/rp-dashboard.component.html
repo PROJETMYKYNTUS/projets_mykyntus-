@@ -1,7 +1,7 @@
 <div class="space-y-8">
   <app-doc-drill-bar [role]="role"></app-doc-drill-bar>
   @if (loading) {
-    <p class="text-slate-400 text-sm">Chargement…</p>
+    <p class="text-muted text-sm">Chargement…</p>
   } @else if (error) {
     <p class="text-red-400 text-sm">{{ error }}</p>
   }
@@ -15,7 +15,7 @@
         [class.doc-stagger-3]="i === 3"
       >
         <div>
-          <p class="text-sm text-slate-400 font-medium mb-1">{{ stat.label }}</p>
+          <p class="text-sm text-muted font-medium mb-1">{{ stat.label }}</p>
           <h3 class="text-3xl font-bold text-white">{{ statDisplay(stat.key) }}</h3>
         </div>
         <div class="w-12 h-12 rounded-xl flex items-center justify-center" [ngClass]="stat.bg">
@@ -61,7 +61,7 @@
       <h3 class="text-lg font-semibold text-white mb-6">Répartition par type de document</h3>
       <div class="h-[300px] w-full flex flex-col items-center justify-center">
         @if (typeData.length === 0) {
-          <p class="text-sm text-slate-500">Aucune demande sur la période filtrée.</p>
+          <p class="text-sm text-muted">Aucune demande sur la période filtrée.</p>
         } @else {
           <svg class="max-w-[280px]" viewBox="0 0 220 220">
             @for (t of typeData; track t.name; let i = $index) {
@@ -73,7 +73,7 @@
             @for (entry of typeData; track entry.name; let index = $index) {
               <div class="flex items-center gap-2">
                 <div class="w-3 h-3 rounded-full" [style.background-color]="COLORS[index % COLORS.length]"></div>
-                <span class="text-xs text-slate-400">{{ entry.name }} ({{ entry.value }})</span>
+                <span class="text-xs text-muted">{{ entry.name }} ({{ entry.value }})</span>
               </div>
             }
           </div>

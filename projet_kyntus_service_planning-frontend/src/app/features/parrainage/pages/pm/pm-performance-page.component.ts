@@ -12,26 +12,26 @@ import { getScopedReferrals } from '../../lib/scoping';
   imports: [MonthlyChartComponent],
   template: `
     <section class="flex-1 space-y-6">
-      <p class="text-sm text-slate-500 max-w-3xl">
+      <p class="text-sm text-muted max-w-3xl">
         Meilleurs parraineurs et statistiques.
       </p>
 
       <app-monthly-chart [referrals]="scoped()" />
 
       <div class="card-navy p-6">
-        <h3 class="text-sm font-semibold text-slate-200 mb-4">Top parraineurs</h3>
+        <h3 class="text-sm font-semibold text-primary mb-4">Top parraineurs</h3>
         @if (topReferrers().length === 0) {
-          <p class="text-sm text-slate-500">Aucune donnée.</p>
+          <p class="text-sm text-muted">Aucune donnée.</p>
         } @else {
           <div class="space-y-3">
             @for (m of topReferrers(); track m.id; let i = $index) {
-              <div class="flex items-center justify-between rounded-lg border border-navy-800 bg-navy-900/50 px-4 py-3">
+              <div class="flex items-center justify-between rounded-lg border border-default bg-card/50 px-4 py-3">
                 <div class="flex items-center gap-3">
-                  <span class="text-slate-500 text-sm w-6">#{{ i + 1 }}</span>
-                  <span class="font-medium text-slate-200">{{ m.name }}</span>
+                  <span class="text-muted text-sm w-6">#{{ i + 1 }}</span>
+                  <span class="font-medium text-primary">{{ m.name }}</span>
                 </div>
                 <div class="flex items-center gap-4 text-sm">
-                  <span class="text-slate-400">{{ m.referralCount }} parrainages</span>
+                  <span class="text-muted">{{ m.referralCount }} parrainages</span>
                   <span [class]="successClass(m)">{{ successPct(m) }}% succès</span>
                 </div>
               </div>
@@ -63,6 +63,6 @@ export class PmPerformancePageComponent {
   }
 
   successClass(m: TeamMember): string {
-    return m.referralCount > 0 && m.successCount / m.referralCount >= 0.5 ? 'text-emerald-400' : 'text-slate-500';
+    return m.referralCount > 0 && m.successCount / m.referralCount >= 0.5 ? 'text-emerald-400' : 'text-muted';
   }
 }

@@ -3,7 +3,7 @@
   <div class="row">
     <button
       type="button"
-      class="btn"
+      class="ky-btn-primary"
       *ngFor="let a of request.allowedActions"
       [disabled]="busy"
       (click)="onActionClick(a)"
@@ -17,10 +17,10 @@
   <label for="rej">Motif de rejet (obligatoire)</label>
   <textarea id="rej" rows="3" [(ngModel)]="rejectReason" name="rejectReason"></textarea>
   <div class="row">
-    <button type="button" class="btn primary" [disabled]="busy || !rejectReason.trim()" (click)="confirmReject()">
+    <button type="button" class="ky-btn-primary" [disabled]="busy || !rejectReason.trim()" (click)="confirmReject()">
       Confirmer le rejet
     </button>
-    <button type="button" class="btn ghost" [disabled]="busy" (click)="cancelReject()">Annuler</button>
+    <button type="button" class="ky-btn-ghost" [disabled]="busy" (click)="cancelReject()">Annuler</button>
   </div>
 </div>
 

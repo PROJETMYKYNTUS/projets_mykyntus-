@@ -48,7 +48,6 @@ export class ContractListComponent implements OnInit {
   }
 
   // ── Navigation ──
-  goToDashboard(): void        { this.router.navigate(['/dashboard']); }   // ← ajouté
   goToCreate(): void           { this.router.navigate(['/contracts/new']); }
   goToEdit(id: number): void   { this.router.navigate(['/contracts', id, 'edit']); }
   goToDetail(id: number): void { this.router.navigate(['/contracts', id]); }

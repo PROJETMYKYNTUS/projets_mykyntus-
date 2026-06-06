@@ -40,7 +40,7 @@ const FILTER_LABELS: Record<NotificationFilter, string> = {
             </span>
           }
         </div>
-        <button type="button" (click)="markAllRead.emit()" class="text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-2">
+        <button type="button" (click)="markAllRead.emit()" class="text-sm text-muted hover:text-white transition-colors flex items-center gap-2">
           <app-lucide-icon [icon]="checkIcon" className="w-4 h-4" />
           {{ markAllLabel }}
         </button>
@@ -49,7 +49,7 @@ const FILTER_LABELS: Record<NotificationFilter, string> = {
       <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
         @for (f of filters; track f) {
           <button (click)="filter.set(f)"
-            [class]="'px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ' + (filter() === f ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]' : 'bg-navy-900 text-slate-400 hover:bg-navy-800 hover:text-white border border-navy-800')">
+            [class]="'px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ' + (filter() === f ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]' : 'bg-card text-muted hover:bg-input hover:text-primary border border-default')">
             {{ filterLabel(f) }}
           </button>
         }
@@ -58,7 +58,7 @@ const FILTER_LABELS: Record<NotificationFilter, string> = {
       <div class="space-y-8">
         @for (group of groupedNotifications(); track group.group) {
           <div class="space-y-4">
-            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest">{{ group.group }}</h3>
+            <h3 class="text-xs font-bold text-muted uppercase tracking-widest">{{ group.group }}</h3>
             <div class="space-y-3">
               @for (n of group.items; track n.id) {
                 <div [class]="'card-navy p-4 flex items-start gap-4 group cursor-pointer ' + (!n.read ? 'border-l-2 border-l-blue-500' : '')">
@@ -67,13 +67,13 @@ const FILTER_LABELS: Record<NotificationFilter, string> = {
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="flex items-start justify-between gap-2 mb-1">
-                      <h4 [class]="'text-sm font-bold truncate ' + (!n.read ? 'text-white' : 'text-slate-300')">{{ n.title }}</h4>
-                      <span class="text-xs text-slate-500 whitespace-nowrap shrink-0">{{ n.timestamp }}</span>
+                      <h4 [class]="'text-sm font-bold truncate ' + (!n.read ? 'text-white' : 'text-primary')">{{ n.title }}</h4>
+                      <span class="text-xs text-muted whitespace-nowrap shrink-0">{{ n.timestamp }}</span>
                     </div>
-                    <p class="text-sm text-slate-400 line-clamp-2">{{ n.description }}</p>
+                    <p class="text-sm text-muted line-clamp-2">{{ n.description }}</p>
                     <div class="mt-3 flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
                       @if (!n.read) {
-                        <button type="button" (click)="markRead.emit(n.id)" class="text-xs font-medium text-slate-400 hover:text-white transition-colors">Marquer comme lu</button>
+                        <button type="button" (click)="markRead.emit(n.id)" class="text-xs font-medium text-muted hover:text-white transition-colors">Marquer comme lu</button>
                       }
                     </div>
                   </div>
@@ -88,11 +88,11 @@ const FILTER_LABELS: Record<NotificationFilter, string> = {
 
         @if (filteredNotifications().length === 0) {
           <div class="text-center py-12">
-            <div class="w-16 h-16 bg-navy-800 rounded-full flex items-center justify-center mx-auto mb-4">
-              <app-lucide-icon [icon]="bellIcon" className="w-8 h-8 text-slate-500" />
+            <div class="w-16 h-16 bg-card rounded-full flex items-center justify-center mx-auto mb-4">
+              <app-lucide-icon [icon]="bellIcon" className="w-8 h-8 text-muted" />
             </div>
             <h3 class="text-lg font-medium text-white mb-2">{{ emptyTitle }}</h3>
-            <p class="text-slate-400">{{ emptyDescription }}</p>
+            <p class="text-muted">{{ emptyDescription }}</p>
           </div>
         }
       </div>

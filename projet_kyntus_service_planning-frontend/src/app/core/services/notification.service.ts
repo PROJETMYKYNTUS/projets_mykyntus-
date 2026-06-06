@@ -10,6 +10,21 @@ export interface PlanningNotification {
   read: boolean;
   type?: 'planning' | 'reclamation' | 'proposition';
   icon?: string;
+  weeklyPlanningId?: number;
+}
+
+export interface NewsletterNotification {
+  title: string;
+  subject: string;
+  sentAt: string;
+  receivedAt: Date;
+  read: boolean;
+}
+
+export function planningNotificationId(n: PlanningNotification): string {
+  const src = n.type === 'proposition' ? 'proposition' : n.type === 'reclamation' ? 'reclamation' : 'planning';
+  const ts = n.receivedAt instanceof Date ? n.receivedAt.getTime() : new Date(n.receivedAt).getTime();
+  return `${src}-${n.weekCode || 'na'}-${ts}`;
 }
 
 export interface ReclamationNotif {
@@ -29,6 +44,11 @@ export class NotificationService {
   private notificationsSubject = new BehaviorSubject<PlanningNotification[]>([]);
   public notifications$ = this.notificationsSubject.asObservable();
 
+  private newsletterSubject = new BehaviorSubject<NewsletterNotification[]>([]);
+  public newsletter$ = this.newsletterSubject.asObservable();
+
+  private newsletterConnection!: signalR.HubConnection;
+
   private unreadCountSubject = new BehaviorSubject<number>(0);
   public unreadCount$ = this.unreadCountSubject.asObservable();
 
@@ -42,22 +62,45 @@ export class NotificationService {
   connect(userId: number): void {
     this.connectPlanningHub(userId);
     this.connectReclamationHub(userId, false);
+    this.connectNewsletterHub();
   }
 
   connectAsManager(userId: number): void {
     this.connectPlanningHub(userId);
     this.connectReclamationHub(userId, true);
+    this.connectNewsletterHub();
   }
 
   disconnect(): void {
     this.connection?.stop();
     this.reclamationConnection?.stop();
+    this.newsletterConnection?.stop();
   }
 
   markAllRead(): void {
     const updated = this.notificationsSubject.value.map(n => ({ ...n, read: true }));
     this.notificationsSubject.next(updated);
     this.updateUnreadCount();
+  }
+
+  markOneRead(id: string): void {
+    const updated = this.notificationsSubject.value.map(n =>
+      planningNotificationId(n) === id ? { ...n, read: true } : n,
+    );
+    this.notificationsSubject.next(updated);
+    this.updateUnreadCount();
+  }
+
+  markNewsletterRead(index: number): void {
+    const list = [...this.newsletterSubject.value];
+    if (list[index]) {
+      list[index] = { ...list[index], read: true };
+      this.newsletterSubject.next(list);
+    }
+  }
+
+  markAllNewslettersRead(): void {
+    this.newsletterSubject.next(this.newsletterSubject.value.map(n => ({ ...n, read: true })));
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -74,7 +117,7 @@ private connectPlanningHub(userId: number): void {
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
     .build();
 
-    this.connection.on('PlanningPublished', (data: any) => {
+    this.connection.on('PlanningPublished', (data: { weekCode: string; subServiceName: string; message: string; weeklyPlanningId?: number }) => {
       this.pushNotification({
         weekCode:       data.weekCode,
         subServiceName: data.subServiceName,
@@ -82,7 +125,8 @@ private connectPlanningHub(userId: number): void {
         receivedAt:     new Date(),
         read:           false,
         type:           'planning',
-        icon:           'calendar'
+        icon:           'calendar',
+        weeklyPlanningId: data.weeklyPlanningId,
       });
     });
 
@@ -179,6 +223,45 @@ private connectReclamationHub(userId: number, isManager: boolean): void {
         await joinGroups();
       })
       .catch(err => console.error('❌ Reclamation Hub erreur:', err));
+  }
+
+  private connectNewsletterHub(): void {
+    const role = (localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user') || '{}').role : '') || '';
+    const groupMap: Record<string, string> = {
+      Admin: 'Admin',
+      RH: 'Admin',
+      Manager: 'Manager',
+      Employee: 'Employee',
+    };
+    const group = groupMap[role] ?? 'Employee';
+
+    this.newsletterConnection = new signalR.HubConnectionBuilder()
+      .withUrl('/hubs/newsletter', {
+        accessTokenFactory: () => localStorage.getItem(this.TOKEN_KEY) || '',
+      })
+      .withAutomaticReconnect()
+      .build();
+
+    this.newsletterConnection.on('ReceiveNewsletter', (data: { title: string; subject: string; sentAt: string }) => {
+      const current = this.newsletterSubject.value;
+      this.newsletterSubject.next([
+        {
+          title: data.title,
+          subject: data.subject,
+          sentAt: data.sentAt,
+          receivedAt: new Date(),
+          read: false,
+        },
+        ...current,
+      ]);
+    });
+
+    this.newsletterConnection.start()
+      .then(async () => {
+        await this.newsletterConnection.invoke('JoinGroup', group);
+        await this.newsletterConnection.invoke('JoinGroup', 'All');
+      })
+      .catch(() => { /* newsletter hub optional */ });
   }
 
   // ─────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 <!-- features/contract/pages/notification-list/notification-list.component.html -->
 <!-- ✅ LOGIQUE LIVE : alertes actives tant que le contrat est en zone d'alerte -->
 
-<div class="page-wrapper">
+<div class="page-wrapper ky-page-shell">
 
   <!-- ── HEADER ── -->
   <div class="page-header">
@@ -11,18 +11,17 @@
         {{ stats.total }} alerte(s) active(s) en ce moment
       </p>
     </div>
-    <button class="btn-back" (click)="goBack()">← Retour contrats</button>
   </div>
 
   <!-- ── FILTRES ── -->
   <div class="filters-bar">
-    <button class="filter-btn" [class.active]="activeFilter === 'all'" (click)="setFilter('all')">
+    <button class="filter-btn ky-btn-secondary" [class.active]="activeFilter === 'all'" (click)="setFilter('all')">
       Toutes <span class="filter-count">{{ stats.total }}</span>
     </button>
-    <button class="filter-btn" [class.active]="activeFilter === 'warn'" (click)="setFilter('warn')">
+    <button class="filter-btn ky-btn-secondary" [class.active]="activeFilter === 'warn'" (click)="setFilter('warn')">
       Avant fin <span class="filter-count warn">{{ stats.warn }}</span>
     </button>
-    <button class="filter-btn" [class.active]="activeFilter === 'mid'" (click)="setFilter('mid')">
+    <button class="filter-btn ky-btn-secondary" [class.active]="activeFilter === 'mid'" (click)="setFilter('mid')">
       Mi-parcours <span class="filter-count info">{{ stats.mid }}</span>
     </button>
   </div>
@@ -37,7 +36,7 @@
   <div class="notif-cards" *ngIf="!loading">
 
     <div
-      class="notif-card"
+      class="notif-card ky-card"
       *ngFor="let n of filteredNotifications"
       (click)="onCardClick(n)">
 

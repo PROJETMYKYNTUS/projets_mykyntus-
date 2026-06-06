@@ -116,12 +116,12 @@ export class TierEditorBlockComponent {
 
             <div class="grid sm:grid-cols-2 gap-3">
               <button type="button" (click)="setProgramMode('STANDARD')"
-                [class]="'rounded-xl border p-4 text-left transition-colors ' + (rules().activeMode === 'STANDARD' ? 'border-blue-500/50 bg-blue-600/10 ring-1 ring-blue-500/30' : 'border-default bg-input hover:border-navy-700')">
+                [class]="'rounded-xl border p-4 text-left transition-colors ' + (rules().activeMode === 'STANDARD' ? 'border-blue-500/50 bg-blue-600/10 ring-1 ring-blue-500/30' : 'border-default bg-input hover:border-default')">
                 <span class="text-sm font-semibold text-primary">Mode STANDARD</span>
                 <p class="text-xs text-muted mt-1 leading-relaxed">Ex. une tranche : 1&nbsp;500&nbsp;DH après 6&nbsp;mois. Ajoutez d'autres tranches si besoin.</p>
               </button>
               <button type="button" (click)="setProgramMode('CRITICAL_PERIOD')"
-                [class]="'rounded-xl border p-4 text-left transition-colors ' + (rules().activeMode === 'CRITICAL_PERIOD' ? 'border-rose-500/40 bg-rose-500/10 ring-1 ring-rose-500/25' : 'border-default bg-input hover:border-navy-700')">
+                [class]="'rounded-xl border p-4 text-left transition-colors ' + (rules().activeMode === 'CRITICAL_PERIOD' ? 'border-rose-500/40 bg-rose-500/10 ring-1 ring-rose-500/25' : 'border-default bg-input hover:border-default')">
                 <span class="text-sm font-semibold text-primary">Mode PÉRIODE CRITIQUE</span>
                 <p class="text-xs text-muted mt-1 leading-relaxed">Ex. 500&nbsp;DH à 3&nbsp;mois puis 1&nbsp;000&nbsp;DH à 6&nbsp;mois — configurable.</p>
               </button>

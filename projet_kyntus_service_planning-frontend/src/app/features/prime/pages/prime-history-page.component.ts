@@ -25,7 +25,7 @@ import { HierarchyDrillService } from '../state/hierarchy-drill.service';
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     } @else {
-      <div class="p-8 space-y-6 bg-app">
+      <div class="prime-page-shell">
         <div class="flex justify-between items-center">
           <div>
             <h1 class="text-3xl font-bold text-primary tracking-tight">Prime History</h1>

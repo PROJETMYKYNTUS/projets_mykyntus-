@@ -20,7 +20,7 @@ import { ParrainageNavService } from '../../state/parrainage-nav.service';
       <div class="grid gap-4 lg:grid-cols-3">
         <div class="card-navy p-4 md:p-5 lg:col-span-2">
           <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-semibold text-slate-50">
+            <h2 class="text-sm font-semibold text-primary">
               Historique de vos parrainages
             </h2>
             <button
@@ -34,16 +34,16 @@ import { ParrainageNavService } from '../../state/parrainage-nav.service';
           <div class="space-y-2 text-xs">
             @for (r of myReferrals(); track r.id) {
               <div
-                class="rounded-lg border border-navy-800 bg-navy-900/60 px-3 py-2 flex flex-col md:flex-row md:items-center md:justify-between gap-2"
+                class="rounded-lg border border-default bg-card/60 px-3 py-2 flex flex-col md:flex-row md:items-center md:justify-between gap-2"
               >
                 <div>
-                  <p class="font-medium text-slate-100">
+                  <p class="font-medium text-primary">
                     {{ r.candidateName }}
-                    <span class="text-[11px] text-slate-500">
+                    <span class="text-[11px] text-muted">
                       ({{ r.position }})
                     </span>
                   </p>
-                  <p class="text-[11px] text-slate-500">
+                  <p class="text-[11px] text-muted">
                     Soumis le {{ fr(r.createdAt) }}
                   </p>
                 </div>
@@ -51,7 +51,7 @@ import { ParrainageNavService } from '../../state/parrainage-nav.service';
               </div>
             }
             @if (myReferrals().length === 0) {
-              <p class="text-xs text-slate-500">
+              <p class="text-xs text-muted">
                 Vous n'avez pas encore soumis de parrainage. Soyez le premier à
                 recommander un talent !
               </p>
@@ -60,10 +60,10 @@ import { ParrainageNavService } from '../../state/parrainage-nav.service';
         </div>
 
         <div class="card-navy p-4 md:p-5 text-xs space-y-2">
-          <h3 class="text-sm font-semibold text-slate-50">
+          <h3 class="text-sm font-semibold text-primary">
             Comment fonctionne le programme ?
           </h3>
-          <ol class="list-decimal list-inside space-y-1 text-slate-300">
+          <ol class="list-decimal list-inside space-y-1 text-primary">
             <li>Vous soumettez un profil via le formulaire dédié.</li>
             <li>Les équipes RH analysent la candidature.</li>
             <li>Le candidat passe un ou plusieurs entretiens.</li>

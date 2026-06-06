@@ -1,17 +1,16 @@
 <!-- conge-manager.component.html -->
-<div class="page-wrapper">
+<div class="page-wrapper ky-page-shell">
   <div class="page-header">
-    <button class="btn-back" (click)="goBack()">← Planning</button>
     <div class="header-info">
       <h1 class="page-title">Gestion des Absences</h1>
       <p class="page-sub">Enregistrement et suivi des absences par sous-service</p>
     </div>
     <div class="header-actions">
-      <select class="select-subservice" [(ngModel)]="subServiceId" (change)="onSubServiceChange()">
+      <select class="ky-input select-subservice" [(ngModel)]="subServiceId" (change)="onSubServiceChange()">
         <option [value]="0" disabled>-- Sous-service --</option>
         <option *ngFor="let s of subServices" [value]="s.id">{{ s.name }}</option>
       </select>
-      <button class="btn-add" (click)="openForm()">+ Nouvelle absence</button>
+      <button class="ky-btn-primary btn-add" (click)="openForm()">+ Nouvelle absence</button>
     </div>
   </div>
 
@@ -62,7 +61,7 @@
     <!-- Employé -->
     <div class="form-group">
       <label>Employé <span class="req">*</span></label>
-      <select [(ngModel)]="formUserId">
+      <select class="ky-input" [(ngModel)]="formUserId">
         <option [ngValue]="0" disabled>-- Sélectionner --</option>
         <option *ngFor="let e of employees" [ngValue]="e.id">{{ e.fullName }}</option>
       </select>
@@ -71,7 +70,7 @@
     <!-- ✅ TYPE D'ABSENCE — ajouté avant les dates -->
     <div class="form-group">
       <label>Type d'absence <span class="req">*</span></label>
-      <select [(ngModel)]="formAbsenceType">
+      <select class="ky-input" [(ngModel)]="formAbsenceType">
         <option *ngFor="let t of absenceTypes" [value]="t.value">{{ t.label }}</option>
       </select>
     </div>
@@ -80,11 +79,11 @@
     <div class="form-row">
       <div class="form-group">
         <label>Date début <span class="req">*</span></label>
-        <input type="date" [(ngModel)]="formStartDate" />
+        <input class="ky-input" type="date" [(ngModel)]="formStartDate" />
       </div>
       <div class="form-group">
         <label>Date fin <span class="req">*</span></label>
-        <input type="date" [(ngModel)]="formEndDate" />
+        <input class="ky-input" type="date" [(ngModel)]="formEndDate" />
       </div>
     </div>
 
@@ -95,12 +94,12 @@
     <!-- Motif optionnel -->
     <div class="form-group">
       <label>Motif <span class="optional">(optionnel)</span></label>
-      <input type="text" [(ngModel)]="formReason" placeholder="Précision supplémentaire..." />
+      <input class="ky-input" type="text" [(ngModel)]="formReason" placeholder="Précision supplémentaire..." />
     </div>
 
     <div class="modal-footer">
-      <button class="btn-cancel" (click)="closeForm()">Annuler</button>
-      <button class="btn-confirm" [disabled]="saving" (click)="saveConge()">
+      <button class="prime-btn-secondary btn-cancel" (click)="closeForm()">Annuler</button>
+      <button class="ky-btn-primary btn-confirm" [disabled]="saving" (click)="saveConge()">
         <span *ngIf="!saving">Enregistrer</span>
         <span *ngIf="saving">Enregistrement...</span>
       </button>

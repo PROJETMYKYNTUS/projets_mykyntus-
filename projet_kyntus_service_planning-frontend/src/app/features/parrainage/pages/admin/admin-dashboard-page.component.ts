@@ -19,11 +19,11 @@ import { ParrainageNavService, ParrainageView } from '../../state/parrainage-nav
       <section class="flex-1 space-y-6">
         <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div>
-            <h1 class="text-2xl font-semibold text-slate-50 flex items-center gap-2">
+            <h1 class="text-2xl font-semibold text-primary flex items-center gap-2">
               <app-lucide-icon [icon]="activityIcon" className="w-7 h-7 text-blue-500" />
               Centre opérationnel
             </h1>
-            <p class="text-sm text-slate-500 mt-1">
+            <p class="text-sm text-muted mt-1">
               Vue consolidée : files d'attente, récompenses et indicateurs clés.
             </p>
           </div>
@@ -47,7 +47,7 @@ import { ParrainageNavService, ParrainageView } from '../../state/parrainage-nav
                   <app-lucide-icon [icon]="alertIcon" className="w-4 h-4" />
                   File d'attente élevée
                 </div>
-                <p class="text-sm text-slate-300">
+                <p class="text-sm text-primary">
                   {{ pending() }} parrainage(s) en attente — seuil configuré : {{ threshold() }}.
                 </p>
                 <button
@@ -65,7 +65,7 @@ import { ParrainageNavService, ParrainageView } from '../../state/parrainage-nav
                   <app-lucide-icon [icon]="alertIcon" className="w-4 h-4" />
                   Récompenses à traiter
                 </div>
-                <p class="text-sm text-slate-300">
+                <p class="text-sm text-primary">
                   {{ approvedUnpaid() }} parrainage(s) validé(s) sans prime enregistrée.
                 </p>
                 <button
@@ -83,8 +83,8 @@ import { ParrainageNavService, ParrainageView } from '../../state/parrainage-nav
         <app-kpi-stats [items]="items()" />
 
         <div class="card-navy p-6">
-          <h2 class="text-sm font-semibold text-slate-200 mb-2">État plateforme</h2>
-          <p class="text-sm text-slate-500">
+          <h2 class="text-sm font-semibold text-primary mb-2">État plateforme</h2>
+          <p class="text-sm text-muted">
             @if (role === 'ADMIN') {
               <span>Outils avancés (recherche, débogage) :
                 <button type="button" (click)="go('admin-tools')" class="text-blue-400 hover:underline">Outils administrateur</button>.

@@ -1,15 +1,11 @@
 <!-- sub-service-form.component.html -->
-<div class="ss-layout">
+<div class="ss-layout ky-page-shell">
   <div class="bg-orb orb-1"></div>
   <div class="bg-orb orb-2"></div>
 
   <!-- HEADER -->
   <header class="ss-header">
     <div class="ss-header-left">
-      <button class="btn-ghost" (click)="goBack()">
-        <span>←</span> Retour
-      </button>
-      <div class="divider-v"></div>
       <div class="page-title-group">
         <div class="page-eyebrow">{{ isEditMode ? 'Modification' : 'Création' }} · Sous-Service</div>
         <h1 class="page-title">{{ isEditMode ? 'Modifier le' : 'Nouveau' }} Sous-Service</h1>
@@ -18,7 +14,7 @@
   </header>
 
   <!-- FORM CARD -->
-  <div class="form-glass-card">
+  <div class="form-glass-card ky-card">
 
     <!-- Mode indicator -->
     <div class="form-mode-bar">
@@ -34,7 +30,7 @@
           <span class="req-star">*</span>
         </label>
         <div class="select-wrap">
-          <select name="serviceId" [(ngModel)]="form.serviceId" class="ss-select">
+          <select name="serviceId" [(ngModel)]="form.serviceId" class="ss-select ky-input">
             <option [value]="0" disabled>-- Sélectionner un service --</option>
             @for (service of services; track service.id) {
               <option [value]="service.id">{{ service.name }}</option>
@@ -50,7 +46,7 @@
             Nom du Sous-Service
             <span class="req-star">*</span>
           </label>
-          <input class="ss-input" name="name" type="text"
+          <input class="ss-input ky-input" name="name" type="text"
                  [(ngModel)]="form.name"
                  placeholder="Ex: Appel Post Kyntus" />
         </div>
@@ -60,7 +56,7 @@
             Code
             <span class="req-star">*</span>
           </label>
-          <input class="ss-input" name="code" type="text"
+          <input class="ss-input ky-input" name="code" type="text"
                  [(ngModel)]="form.code"
                  (blur)="checkCode()"
                  placeholder="Ex: APK-01" />
@@ -71,8 +67,8 @@
       </div>
 
       <div class="form-actions">
-        <button class="btn-cancel" type="button" (click)="goBack()">Annuler</button>
-        <button class="btn-save" type="button" (click)="submit()" [disabled]="submitting">
+        <button class="btn-cancel ky-btn-secondary" type="button" (click)="goBack()">Annuler</button>
+        <button class="btn-save ky-btn-primary" type="button" (click)="submit()" [disabled]="submitting">
           @if (submitting) {
             <span class="btn-spinner"></span> Enregistrement…
           } @else {

@@ -1,7 +1,11 @@
 .ud-root {
-  padding: 28px 32px 48px;
+  padding: 32px 24px 48px;
   max-width: 1200px;
   margin: 0 auto;
+  min-height: 100%;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 
 .ud-hero {
@@ -11,13 +15,13 @@
 .ud-hero-badge {
   display: inline-block;
   padding: 4px 12px;
-  border-radius: 99px;
+  border-radius: 9999px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  background: rgba(30, 79, 216, 0.12);
-  color: var(--ky-blue, #1e4fd8);
+  background: color-mix(in srgb, var(--soft-blue) 16%, var(--bg-card));
+  color: var(--electric-blue);
   margin-bottom: 12px;
 }
 
@@ -25,12 +29,12 @@
   margin: 0 0 8px;
   font-size: 28px;
   font-weight: 800;
-  color: var(--text-primary, var(--ks-main-text, #0e1623));
+  color: var(--text-primary);
 }
 
 .ud-hero-role {
   margin: 0;
-  color: var(--text-muted, var(--ks-main-muted, #64748b));
+  color: var(--text-muted);
   font-size: 14px;
 }
 
@@ -44,13 +48,13 @@
   margin: 0 0 6px;
   font-size: 18px;
   font-weight: 700;
-  color: var(--text-primary, #0e1623);
+  color: var(--text-primary);
 }
 
 .ud-subtitle {
   margin: 0 0 16px;
   font-size: 13px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .ud-quick-grid {
@@ -65,20 +69,18 @@
   gap: 10px;
   padding: 14px 16px;
   border-radius: 12px;
-  border: 1px solid var(--border-color, #e2e8f0);
-  background: var(--bg-card, #fff);
-  color: var(--text-primary, #0e1623);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
   text-decoration: none;
   font-size: 13px;
   font-weight: 600;
-  transition: all 0.18s ease;
-  box-shadow: var(--ks-active-glow, none);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .ud-quick-card:hover {
-  border-color: rgba(30, 79, 216, 0.35);
-  box-shadow: 0 0 14px rgba(37, 99, 235, 0.12);
-  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--soft-blue) 45%, var(--border-color));
+  background: var(--navy-700);
 }
 
 .ud-ms-grid {
@@ -92,30 +94,30 @@
   align-items: center;
   gap: 14px;
   padding: 18px 20px;
-  border-radius: 14px;
-  border: 1px solid var(--border-color, #e2e8f0);
-  background: var(--bg-card, #fff);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  transition: all 0.2s ease;
-  color: var(--text-primary, #0e1623);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  color: var(--text-primary);
 }
 
 .ud-ms-card:hover {
-  border-color: rgba(30, 79, 216, 0.3);
-  box-shadow: 0 0 14px rgba(37, 99, 235, 0.14);
+  border-color: color-mix(in srgb, var(--soft-blue) 40%, var(--border-color));
+  background: var(--navy-700);
 }
 
 .ud-ms-icon {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: rgba(30, 79, 216, 0.1);
+  background: color-mix(in srgb, var(--soft-blue) 14%, var(--bg-card));
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--ky-blue, #1e4fd8);
+  color: var(--electric-blue);
   flex-shrink: 0;
 }
 
@@ -123,17 +125,18 @@
   margin: 0 0 4px;
   font-size: 15px;
   font-weight: 700;
+  color: var(--text-primary);
 }
 
 .ud-ms-body p {
   margin: 0;
   font-size: 12px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .ud-ms-arrow {
   margin-left: auto;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
 }
 
 .ud-empty {
@@ -141,4 +144,7 @@
   text-align: center;
   color: var(--text-muted);
   font-size: 14px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
 }

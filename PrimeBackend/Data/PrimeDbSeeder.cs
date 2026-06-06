@@ -560,6 +560,7 @@ public static class PrimeDbSeeder
             E("kyntus-admin", "Admin", "Démo", "Admin", "admin@kyntus.ma"),
             E("kyntus-audit", "Audit", "Démo", "Audit", "audit@kyntus.ma"),
             E("kyntus-formation", "Formation", "Démo", "RH", "formation@kyntus.ma"),
+            E("kyntus-superviseur", "Superviseur", "Démo", "Superviseur", "superviseur@kyntus.ma"),
             E("kyntus-yasmine", "Yasmine", "El Amrani", "Pilote", "yasmine.elamrani@atlas-tech-demo.dev"),
             E("kyntus-fatima", "Fatima", "Alaoui", "RH", "fatima.alaoui@atlas-tech-demo.dev"),
         };

@@ -12,15 +12,15 @@ interface MonthBar {
   standalone: true,
   template: `
     <div class="card-navy p-4 md:p-5">
-      <p class="text-xs uppercase tracking-wide text-slate-500 mb-4">Évolution mensuelle des parrainages</p>
+      <p class="text-xs uppercase tracking-wide text-muted mb-4">Évolution mensuelle des parrainages</p>
       <div class="flex items-end gap-3" style="height: 120px">
         @for (d of data; track d.label) {
           <div class="flex-1 flex flex-col items-center h-full">
             <div class="flex-1 w-full flex flex-col justify-end">
               <div class="w-full bg-soft-blue/60 rounded-t transition-all" [style.height.%]="d.pct < 8 ? 8 : d.pct"></div>
             </div>
-            <span class="text-[10px] text-slate-500 mt-1">{{ d.label }}</span>
-            <span class="text-xs font-medium text-slate-300">{{ d.count }}</span>
+            <span class="text-[10px] text-muted mt-1">{{ d.label }}</span>
+            <span class="text-xs font-medium text-primary">{{ d.count }}</span>
           </div>
         }
       </div>

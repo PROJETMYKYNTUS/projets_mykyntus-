@@ -1,13 +1,9 @@
-<div class="page-wrapper">
+<div class="page-wrapper ky-page-shell">
 
-  <div class="form-card">
+  <div class="form-card ky-card">
 
     <!-- ===== HEADER ===== -->
     <div class="form-header">
-      <button class="btn-back" (click)="goBack()">
-        ← Retour
-      </button>
-
       <div>
         <h1>{{ isEditMode ? 'Modifier l’étage' : 'Créer un nouvel étage' }}</h1>
         <p>Gestion et configuration des étages</p>
@@ -33,7 +29,7 @@
       <!-- Floor Number -->
       <div class="form-group">
         <label>N° Étage *</label>
-        <input type="number"
+        <input class="ky-input" type="number"
                formControlName="floorNumber"
                placeholder="Ex: 0" />
 
@@ -46,7 +42,7 @@
       <!-- Name -->
       <div class="form-group">
         <label>Nom *</label>
-        <input type="text"
+        <input class="ky-input" type="text"
                formControlName="name"
                placeholder="Ex: Rez-de-chaussée" />
 
@@ -59,7 +55,7 @@
       <!-- Description -->
       <div class="form-group">
         <label>Description</label>
-        <textarea formControlName="description"
+        <textarea class="ky-input" formControlName="description"
                   rows="4"
                   placeholder="Description optionnelle..."></textarea>
       </div>
@@ -67,13 +63,13 @@
       <!-- Actions -->
       <div class="form-actions">
         <button type="button"
-                class="btn-secondary"
+                class="btn-secondary ky-btn-secondary"
                 (click)="goBack()">
           Annuler
         </button>
 
         <button type="submit"
-                class="btn-primary"
+                class="btn-primary ky-btn-primary"
                 [disabled]="submitting">
 
           {{ submitting

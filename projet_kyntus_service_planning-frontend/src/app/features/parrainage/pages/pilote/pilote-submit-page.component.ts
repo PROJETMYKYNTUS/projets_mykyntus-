@@ -27,10 +27,10 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
     <div class="space-y-4">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h2 class="text-lg font-semibold text-slate-50">
+          <h2 class="text-lg font-semibold text-primary">
             Soumettre un parrainage
           </h2>
-          <p class="text-sm text-slate-500">
+          <p class="text-sm text-muted">
             Recommandez un talent pour rejoindre l'équipe.
           </p>
         </div>
@@ -51,41 +51,41 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
         <div class="card-navy p-4 lg:col-span-2 space-y-4">
           <div class="grid gap-4 md:grid-cols-2">
             <div class="space-y-1.5">
-              <label class="text-xs text-slate-400">Nom du candidat</label>
+              <label class="text-xs text-muted">Nom du candidat</label>
               <input
                 required
-                class="w-full rounded-lg border border-navy-800 bg-navy-900 px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                class="ky-input w-full"
                 placeholder="Ex : Thomas Dupont"
                 [(ngModel)]="form.candidateName"
                 name="candidateName"
               />
             </div>
             <div class="space-y-1.5">
-              <label class="text-xs text-slate-400">E-mail du candidat</label>
+              <label class="text-xs text-muted">E-mail du candidat</label>
               <input
                 required
                 type="email"
-                class="w-full rounded-lg border border-navy-800 bg-navy-900 px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                class="ky-input w-full"
                 placeholder="Ex : thomas.dupont@example.com"
                 [(ngModel)]="form.candidateEmail"
                 name="candidateEmail"
               />
             </div>
             <div class="space-y-1.5">
-              <label class="text-xs text-slate-400">Téléphone</label>
+              <label class="text-xs text-muted">Téléphone</label>
               <input
                 required
-                class="w-full rounded-lg border border-navy-800 bg-navy-900 px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                class="ky-input w-full"
                 placeholder="+33 6 ..."
                 [(ngModel)]="form.candidatePhone"
                 name="candidatePhone"
               />
             </div>
             <div class="space-y-1.5">
-              <label class="text-xs text-slate-400">Poste ciblé</label>
+              <label class="text-xs text-muted">Poste ciblé</label>
               <select
                 required
-                class="w-full rounded-lg border border-navy-800 bg-navy-900 px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                class="ky-input w-full"
                 [(ngModel)]="selectedRuleId"
                 name="selectedRuleId"
               >
@@ -105,10 +105,10 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
             </div>
             @if (isOtherPost) {
               <div class="space-y-1.5 md:col-span-2">
-                <label class="text-xs text-slate-400">Poste</label>
+                <label class="text-xs text-muted">Poste</label>
                 <input
                   required
-                  class="w-full rounded-lg border border-navy-800 bg-navy-900 px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                  class="ky-input w-full"
                   placeholder="Ex : Développeur Full-Stack Senior"
                   [(ngModel)]="customPosition"
                   name="customPosition"
@@ -123,9 +123,9 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
           </div>
 
           <div class="space-y-1.5">
-            <label class="text-xs text-slate-400">Projet / contexte</label>
+            <label class="text-xs text-muted">Projet / contexte</label>
             <input
-              class="w-full rounded-lg border border-navy-800 bg-navy-900 px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+              class="ky-input w-full"
               placeholder="Ex : Portail Collaborateur, Digital Factory..."
               [(ngModel)]="form.project"
               name="project"
@@ -133,11 +133,11 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
           </div>
 
           <div class="space-y-1.5">
-            <label class="text-xs text-slate-400">
+            <label class="text-xs text-muted">
               Notes / commentaires
             </label>
             <textarea
-              class="w-full min-h-[80px] rounded-lg border border-navy-800 bg-navy-900 px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+              class="ky-textarea w-full min-h-[80px]"
               placeholder="Partagez les points forts, la motivation du candidat, le contexte..."
               [(ngModel)]="form.notes"
               name="notes"
@@ -147,7 +147,7 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
 
         <div class="space-y-4">
           <div class="card-navy p-4 flex flex-col gap-3">
-            <p class="text-xs font-medium text-slate-400">
+            <p class="text-xs font-medium text-muted">
               CV du candidat (PDF, DOCX) <span class="text-rose-300">* obligatoire</span>
             </p>
             <input
@@ -163,8 +163,8 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
                 cvMissingHighlight()
                   ? 'border-rose-500/60 bg-rose-500/5'
                   : dragOver()
-                    ? 'border-soft-blue bg-navy-800/60'
-                    : 'border-navy-800 bg-navy-900/60'
+                    ? 'border-soft-blue bg-input/60'
+                    : 'border-default bg-card/60'
               "
               (click)="fileInput.click()"
               (dragover)="onDragOver($event)"
@@ -173,8 +173,8 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
             >
               <app-lucide-icon [icon]="fileUpIcon" className="h-6 w-6 text-soft-blue mb-1" />
               @if (cvFile()) {
-                <p class="text-xs text-slate-200 font-medium">{{ cvFile()!.name }}</p>
-                <p class="text-[11px] text-slate-500">{{ formatSize(cvFile()!.size) }}</p>
+                <p class="text-xs text-primary font-medium">{{ cvFile()!.name }}</p>
+                <p class="text-[11px] text-muted">{{ formatSize(cvFile()!.size) }}</p>
                 <button
                   type="button"
                   (click)="clearFile($event)"
@@ -184,13 +184,13 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
                   Retirer
                 </button>
               } @else {
-                <p class="text-xs text-slate-300">
+                <p class="text-xs text-primary">
                   Glissez-déposez le CV ici ou
                   <span class="text-soft-blue font-medium">
                     sélectionnez un fichier
                   </span>
                 </p>
-                <p class="text-[11px] text-slate-500">
+                <p class="text-[11px] text-muted">
                   Taille maximale 10 Mo • 1 fichier • obligatoire
                 </p>
               }
@@ -203,7 +203,7 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
           <button
             type="submit"
             [disabled]="done() || busy() || !cvFile()"
-            class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-500 transition-colors disabled:opacity-60"
+            class="ky-btn-primary w-full"
           >
             @if (busy()) {
               Envoi en cours…
@@ -213,8 +213,8 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
             }
           </button>
 
-          <div class="card-navy p-3 text-[11px] text-slate-400 space-y-1">
-            <p class="font-medium text-slate-200">
+          <div class="card-navy p-3 text-[11px] text-muted space-y-1">
+            <p class="font-medium text-primary">
               Rappel des règles du programme
             </p>
             <ul class="list-disc list-inside space-y-0.5">

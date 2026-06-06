@@ -62,7 +62,7 @@
         <option value="">Toutes les priorités</option>
         <option *ngFor="let p of priorities" [value]="p">{{ p }}</option>
       </select>
-      <button class="rp-btn-ghost" (click)="filterStatus=''; filterPriorite=''; applyFilters()">Réinitialiser</button>
+      <button class="rp-btn-ghost ky-btn-secondary" (click)="filterStatus=''; filterPriorite=''; applyFilters()">Réinitialiser</button>
     </div>
 
     <!-- Tableau Réclamations -->
@@ -157,7 +157,7 @@
           <option *ngFor="let s of currentStatuts" [value]="s">{{ s }}</option>
         </select>
         <textarea class="rp-textarea" [(ngModel)]="traiterForm.commentaire" placeholder="Commentaire (optionnel)" rows="2"></textarea>
-        <button class="rp-btn-primary" (click)="submitTraiter()" [disabled]="submitting">
+        <button class="ky-btn-primary" (click)="submitTraiter()" [disabled]="submitting">
           <span *ngIf="submitting" class="rp-spinner-sm"></span>
           {{ submitting ? '…' : 'Valider' }}
         </button>
@@ -170,7 +170,7 @@
       <div class="rpa-panel-form">
         <input type="text" class="rp-input" [(ngModel)]="assignerForm.assigneeId" placeholder="ID de l'agent"/>
         <input type="text" class="rp-input" [(ngModel)]="assignerForm.assigneeNom" placeholder="Nom de l'agent"/>
-        <button class="rp-btn-primary" (click)="submitAssigner()" [disabled]="submitting">
+        <button class="ky-btn-primary" (click)="submitAssigner()" [disabled]="submitting">
           {{ submitting ? '…' : 'Assigner' }}
         </button>
       </div>
@@ -183,7 +183,7 @@
         <select class="rp-select" [(ngModel)]="prioriserForm.priorite">
           <option *ngFor="let p of priorities" [value]="p">{{ p }}</option>
         </select>
-        <button class="rp-btn-primary" (click)="submitPrioriser()" [disabled]="submitting">
+        <button class="ky-btn-primary" (click)="submitPrioriser()" [disabled]="submitting">
           {{ submitting ? '…' : 'Valider' }}
         </button>
       </div>
@@ -289,7 +289,7 @@
     <div class="rpa-filters">
       <input type="date" class="rp-input" [(ngModel)]="reportFrom" placeholder="Du"/>
       <input type="date" class="rp-input" [(ngModel)]="reportTo"   placeholder="Au"/>
-      <button class="rp-btn-primary" (click)="loadReport()">Actualiser</button>
+      <button class="ky-btn-primary" (click)="loadReport()">Actualiser</button>
     </div>
 
     <div class="rpa-report-grid">

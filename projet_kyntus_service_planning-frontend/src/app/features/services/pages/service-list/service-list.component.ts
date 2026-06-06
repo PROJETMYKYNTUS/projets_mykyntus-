@@ -43,7 +43,6 @@ export class ServiceListComponent implements OnInit {
     });
   }
 
-  goToDashboard(): void { this.router.navigate(['/dashboard']); }
   viewService(id: number): void { this.router.navigate(['/services', id]); }
   editService(id: number): void { this.router.navigate(['/services', 'edit', id]); }
   createService(): void { this.router.navigate(['/services', 'create']); }

@@ -14,6 +14,7 @@
     {"email":"admin@kyntus.ma","prenom":"Admin","nom":"Démo","authRole":"Admin","documentationRole":"admin","documentationUserId":"11111111-1111-4111-8111-111111111108","primeEmployeeId":"kyntus-admin","primeRole":"Admin"},
     {"email":"audit@kyntus.ma","prenom":"Audit","nom":"Démo","authRole":"Audit","documentationRole":"audit","documentationUserId":"11111111-1111-4111-8111-111111111109","primeEmployeeId":"kyntus-audit","primeRole":"Audit"},
     {"email":"formation@kyntus.ma","prenom":"Formation","nom":"Démo","authRole":"Equipe formation","documentationRole":"rh","documentationUserId":"11111111-1111-4111-8111-111111111110","primeEmployeeId":"kyntus-formation","primeRole":"RH"},
+    {"email":"superviseur@kyntus.ma","prenom":"Superviseur","nom":"Démo","authRole":"Superviseur","documentationRole":"manager","documentationUserId":"11111111-1111-4111-8111-111111111111","primeEmployeeId":"kyntus-superviseur","primeRole":"Superviseur"},
     {"email":"yasmine.elamrani@atlas-tech-demo.dev","prenom":"Yasmine","nom":"El Amrani","authRole":"Employee","documentationRole":"pilote","documentationUserId":"11111111-1111-4111-8111-111111111101","primeEmployeeId":"kyntus-yasmine","primeRole":"Pilote"},
     {"email":"fatima.alaoui@atlas-tech-demo.dev","prenom":"Fatima","nom":"Alaoui","authRole":"RH","documentationRole":"rh","documentationUserId":"11111111-1111-4111-8111-111111111102","primeEmployeeId":"kyntus-fatima","primeRole":"RH"}
   ]

@@ -5,6 +5,8 @@ import {
   type KyntusNotification,
   type KyntusNotificationSource,
 } from '../../../../core/notifications/kyntus-notification-hub.service';
+import { KyntusUserPreferencesService } from '../../../../core/settings/kyntus-user-preferences.service';
+import { prefKeyForSource } from '../../../../core/notifications/kyntus-notification-role-filter';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { Bell, CheckCheck } from 'lucide';
 
@@ -12,21 +14,27 @@ const SOURCE_LABELS: Record<KyntusNotificationSource, string> = {
   planning: 'Planning',
   contract: 'Contrats',
   reclamation: 'Réclamations',
+  proposition: 'Propositions',
   prime: 'PRIME',
   parrainage: 'Parrainage',
   documentation: 'Documentation',
   formation: 'Formation',
   conge: 'Congés',
+  newsletter: 'Newsletter',
 };
 
-const FILTER_OPTIONS: { id: KyntusNotificationSource | 'all'; label: string }[] = [
+const ALL_FILTER_OPTIONS: { id: KyntusNotificationSource | 'all'; label: string }[] = [
   { id: 'all', label: 'Toutes' },
   { id: 'planning', label: 'Planning' },
   { id: 'contract', label: 'Contrats' },
   { id: 'reclamation', label: 'Réclamations' },
+  { id: 'proposition', label: 'Propositions' },
   { id: 'prime', label: 'PRIME' },
   { id: 'parrainage', label: 'Parrainage' },
   { id: 'documentation', label: 'Documentation' },
+  { id: 'conge', label: 'Congés' },
+  { id: 'formation', label: 'Formation' },
+  { id: 'newsletter', label: 'Newsletter' },
 ];
 
 @Component({
@@ -40,12 +48,25 @@ const FILTER_OPTIONS: { id: KyntusNotificationSource | 'all'; label: string }[] 
 export class NotificationsCenterComponent {
   private readonly hub = inject(KyntusNotificationHubService);
   private readonly route = inject(ActivatedRoute);
+  private readonly userPrefs = inject(KyntusUserPreferencesService);
 
   readonly icons = { bell: Bell, markAll: CheckCheck };
-  readonly filterOptions = FILTER_OPTIONS;
   readonly sourceLabels = SOURCE_LABELS;
 
   readonly activeFilter = signal<KyntusNotificationSource | 'all'>('all');
+
+  readonly filterOptions = computed(() => {
+    const all = this.hub.notifications();
+    const prefs = this.userPrefs.preferences().notifications;
+    const sourcesWithData = new Set(all.map((n) => n.source));
+
+    return ALL_FILTER_OPTIONS.filter((opt) => {
+      if (opt.id === 'all') return true;
+      if (!prefs[prefKeyForSource(opt.id)]) return false;
+      if (opt.id === 'formation') return sourcesWithData.has('formation');
+      return true;
+    });
+  });
 
   readonly filteredNotifications = computed(() => {
     const filter = this.activeFilter();

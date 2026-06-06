@@ -55,3 +55,10 @@ SELECT '11111111-1111-4111-8111-111111111110'::uuid, 'atlas-tech-demo', 'Formati
        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01'::uuid, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02'::uuid, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa03'::uuid,
        now(), now()
 WHERE NOT EXISTS (SELECT 1 FROM documentation.directory_users WHERE tenant_id = 'atlas-tech-demo' AND lower(email) = lower('formation@kyntus.ma'));
+
+INSERT INTO documentation.directory_users (id, tenant_id, prenom, nom, email, role, manager_id, coach_id, rp_id, pole_id, cellule_id, departement_id, created_at, updated_at)
+SELECT '11111111-1111-4111-8111-111111111111'::uuid, 'atlas-tech-demo', 'Superviseur', 'Démo', 'superviseur@kyntus.ma',
+       'manager'::documentation.app_role, NULL, NULL, NULL,
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01'::uuid, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02'::uuid, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa03'::uuid,
+       now(), now()
+WHERE NOT EXISTS (SELECT 1 FROM documentation.directory_users WHERE tenant_id = 'atlas-tech-demo' AND lower(email) = lower('superviseur@kyntus.ma'));

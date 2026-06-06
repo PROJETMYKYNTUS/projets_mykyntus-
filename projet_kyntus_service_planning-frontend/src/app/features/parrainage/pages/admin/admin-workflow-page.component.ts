@@ -30,7 +30,7 @@ const ROLE_DETAILS: Record<string, string> = {
           </div>
           <div>
             <h3 class="text-xl font-bold text-white">Configuration du workflow</h3>
-            <p class="text-sm text-slate-500">Pilote → Coach → Manager → RP → RH</p>
+            <p class="text-sm text-muted">Pilote → Coach → Manager → RP → RH</p>
           </div>
         </div>
 
@@ -38,39 +38,39 @@ const ROLE_DETAILS: Record<string, string> = {
           <div class="card-navy p-6 space-y-6">
             <div class="space-y-3">
               @for (step of steps(); track step.id; let index = $index) {
-                <div class="flex items-center justify-between p-3 rounded-lg border border-navy-800 bg-navy-900/40">
-                  <span class="text-slate-200">{{ index + 1 }}. {{ step.role }}</span>
+                <div class="flex items-center justify-between p-3 rounded-lg border border-default bg-input/40">
+                  <span class="text-primary">{{ index + 1 }}. {{ step.role }}</span>
                   <div class="flex gap-2 items-center">
-                    <button (click)="moveStep(index, -1)" [disabled]="step.role === 'RH'" class="px-2 py-1 rounded bg-navy-800 text-slate-300 disabled:opacity-40">↑</button>
-                    <button (click)="moveStep(index, 1)" [disabled]="step.role === 'RH'" class="px-2 py-1 rounded bg-navy-800 text-slate-300 disabled:opacity-40">↓</button>
-                    <button (click)="openPanel(step.id, 'config')" class="px-2 py-1 rounded bg-navy-800 text-slate-300">Modifier</button>
-                    <button (click)="openPanel(step.id, 'details')" class="px-2 py-1 rounded bg-navy-800 text-slate-300">Détails</button>
+                    <button (click)="moveStep(index, -1)" [disabled]="step.role === 'RH'" class="px-2 py-1 rounded bg-card text-primary disabled:opacity-40">↑</button>
+                    <button (click)="moveStep(index, 1)" [disabled]="step.role === 'RH'" class="px-2 py-1 rounded bg-card text-primary disabled:opacity-40">↓</button>
+                    <button (click)="openPanel(step.id, 'config')" class="px-2 py-1 rounded bg-card text-primary">Modifier</button>
+                    <button (click)="openPanel(step.id, 'details')" class="px-2 py-1 rounded bg-card text-primary">Détails</button>
                   </div>
                 </div>
               }
             </div>
 
             <div class="grid md:grid-cols-2 gap-4">
-              <label class="text-slate-300 text-sm">SLA global (heures)
-                <input type="number" min="0" [(ngModel)]="globalSla" class="mt-1 w-full bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-white" />
+              <label class="text-primary text-sm">SLA global (heures)
+                <input type="number" min="0" [(ngModel)]="globalSla" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-white" />
               </label>
-              <label class="text-slate-300 text-sm flex items-center gap-2 mt-7">
+              <label class="text-primary text-sm flex items-center gap-2 mt-7">
                 <input type="checkbox" [(ngModel)]="globalNotifications" />
                 Activer notifications
               </label>
             </div>
 
-            <div class="border border-navy-800 rounded-xl p-4 space-y-3">
-              <h2 class="text-sm font-semibold text-slate-200">Audit & accès</h2>
+            <div class="border border-default rounded-xl p-4 space-y-3">
+              <h2 class="text-sm font-semibold text-primary">Audit & accès</h2>
               <div class="grid md:grid-cols-2 gap-3">
-                <label class="text-sm text-slate-300 flex items-center gap-2">
+                <label class="text-sm text-primary flex items-center gap-2">
                   <input type="checkbox" [checked]="audit().enabled" (change)="setAudit('enabled', $any($event.target).checked)" />Activer Audit
                 </label>
-                <label class="text-sm text-slate-300 flex items-center gap-2"><input type="checkbox" checked disabled />Lecture seule (fixe)</label>
-                <label class="text-sm text-slate-300 flex items-center gap-2">
+                <label class="text-sm text-primary flex items-center gap-2"><input type="checkbox" checked disabled />Lecture seule (fixe)</label>
+                <label class="text-sm text-primary flex items-center gap-2">
                   <input type="checkbox" [checked]="audit().logs" (change)="setAudit('logs', $any($event.target).checked)" />Accès logs
                 </label>
-                <label class="text-sm text-slate-300 flex items-center gap-2">
+                <label class="text-sm text-primary flex items-center gap-2">
                   <input type="checkbox" [checked]="audit().history" (change)="setAudit('history', $any($event.target).checked)" />Accès historique
                 </label>
               </div>
@@ -86,30 +86,30 @@ const ROLE_DETAILS: Record<string, string> = {
           @if (panelMode() && selectedStep()) {
             <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
               <button class="absolute inset-0 bg-black/60" (click)="panelMode.set(null)"></button>
-              <div class="relative card-navy max-w-xl w-full p-6 border border-navy-800">
+              <div class="relative card-navy max-w-xl w-full p-6 border border-default">
                 @if (panelMode() === 'config') {
                   <div class="space-y-4">
                     <h3 class="text-white text-lg font-semibold">Modifier: {{ selectedStep()!.role }}</h3>
-                    <label class="text-slate-300 text-sm">Rôle
-                      <input readonly [value]="selectedStep()!.role" class="mt-1 w-full bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-white" />
+                    <label class="text-primary text-sm">Rôle
+                      <input readonly [value]="selectedStep()!.role" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-white" />
                     </label>
-                    <label class="text-slate-300 text-sm">SLA spécifique (h)
-                      <input type="number" min="0" [value]="selectedStep()!.slaHours" (input)="patchStep({ slaHours: num($any($event.target).value) })" class="mt-1 w-full bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-white" />
+                    <label class="text-primary text-sm">SLA spécifique (h)
+                      <input type="number" min="0" [value]="selectedStep()!.slaHours" (input)="patchStep({ slaHours: num($any($event.target).value) })" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-white" />
                     </label>
                     <div class="flex flex-wrap gap-3">
                       @for (a of actions; track a) {
-                        <label class="text-xs text-slate-300 flex items-center gap-2">
+                        <label class="text-xs text-primary flex items-center gap-2">
                           <input type="checkbox" [checked]="selectedStep()!.actions.includes(a)" (change)="toggleAction(a, $any($event.target).checked)" />
                           {{ a }}
                         </label>
                       }
                     </div>
                     <div class="grid md:grid-cols-2 gap-3">
-                      <label class="text-slate-300 text-sm flex items-center gap-2">
+                      <label class="text-primary text-sm flex items-center gap-2">
                         <input type="checkbox" [checked]="selectedStep()!.notificationEnabled" (change)="patchStep({ notificationEnabled: $any($event.target).checked })" />Notifications actives
                       </label>
-                      <label class="text-slate-300 text-sm">Type
-                        <select [value]="selectedStep()!.notificationType" (change)="patchStep({ notificationType: $any($event.target).value })" class="mt-1 w-full bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-white">
+                      <label class="text-primary text-sm">Type
+                        <select [value]="selectedStep()!.notificationType" (change)="patchStep({ notificationType: $any($event.target).value })" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-white">
                           <option value="email">Email</option>
                           <option value="in-app">InApp</option>
                         </select>
@@ -119,8 +119,8 @@ const ROLE_DETAILS: Record<string, string> = {
                 } @else {
                   <div class="space-y-3">
                     <h3 class="text-white text-lg font-semibold">Détails: {{ selectedStep()!.role }}</h3>
-                    <p class="text-slate-300 text-sm">{{ roleDetails(selectedStep()!.role) }}</p>
-                    <p class="text-slate-400 text-sm">Hiérarchie: Pilote → Coach → Manager → RP → RH</p>
+                    <p class="text-primary text-sm">{{ roleDetails(selectedStep()!.role) }}</p>
+                    <p class="text-muted text-sm">Hiérarchie: Pilote → Coach → Manager → RP → RH</p>
                   </div>
                 }
               </div>

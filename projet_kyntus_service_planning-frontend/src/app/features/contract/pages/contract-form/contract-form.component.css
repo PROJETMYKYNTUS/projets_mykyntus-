@@ -1,11 +1,3 @@
-.page-wrapper {
-  min-height: 100vh;
-  padding: 32px 24px 48px;
-  background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 20%),
-    linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-primary) 100%);
-}
-
 .page-header {
   display: flex;
   align-items: flex-start;
@@ -18,52 +10,23 @@
   margin: 0 0 6px;
   font-size: 1.95rem;
   font-weight: 700;
-  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
 .page-sub {
   margin: 0;
   font-size: 0.92rem;
-  color: var(--text-muted);
-}
-
-.btn-back,
-.btn-primary,
-.btn-secondary {
-  border: none;
-  border-radius: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.btn-back {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 10px 16px;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.08);
-  white-space: nowrap;
-}
-
-.btn-back:hover {
-  background: var(--navy-700);
 }
 
 .form-card {
   max-width: 860px;
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid var(--border-color);
-  border-radius: 24px;
   padding: 32px;
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
 }
 
 .form-section {
   margin-bottom: 30px;
   padding-bottom: 24px;
-  border-bottom: 1px solid #edf2f7;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .form-section:last-of-type {
@@ -76,7 +39,6 @@
   margin: 0 0 16px;
   font-size: 1rem;
   font-weight: 700;
-  color: var(--text-primary);
 }
 
 .form-group {
@@ -94,53 +56,24 @@
 .form-group label {
   font-size: 0.92rem;
   font-weight: 700;
-  color: var(--text-primary);
+}
+
+textarea.ky-input {
+  resize: vertical;
 }
 
 .req {
-  color: #dc2626;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  color: var(--text-primary);
-  font-size: 0.95rem;
-  padding: 14px 16px;
-  outline: none;
-  transition: all 0.25s ease;
-  font-family: inherit;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  background: var(--bg-card);
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
-}
-
-.form-group input::placeholder,
-.form-group textarea::placeholder {
-  color: #94a3b8;
-}
-
-.form-group textarea {
-  resize: vertical;
+  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
 }
 
 .hint {
   font-size: 0.8rem;
-  color: var(--text-muted);
 }
 
 .error {
   font-size: 0.8rem;
-  color: #dc2626;
   font-weight: 500;
+  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
 }
 
 .type-grid {
@@ -150,8 +83,6 @@
 }
 
 .type-card {
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
   border-radius: 18px;
   padding: 18px 14px;
   display: flex;
@@ -160,19 +91,6 @@
   gap: 6px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.type-card:hover {
-  background: var(--bg-card);
-  border-color: #bfdbfe;
-  transform: translateY(-1px);
-}
-
-.type-card.selected {
-  background: var(--navy-700);
-  border-color: #93c5fd;
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.08);
 }
 
 .type-icon {
@@ -182,12 +100,10 @@
 .type-label {
   font-size: 0.95rem;
   font-weight: 700;
-  color: var(--text-primary);
 }
 
 .type-desc {
   font-size: 0.78rem;
-  color: var(--text-muted);
 }
 
 .form-footer {
@@ -196,39 +112,7 @@
   gap: 12px;
   margin-top: 28px;
   padding-top: 22px;
-  border-top: 1px solid #edf2f7;
-}
-
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-  color: #ffffff;
-  padding: 12px 20px;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.22);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-.btn-secondary {
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 12px 18px;
-}
-
-.btn-secondary:hover {
-  background: var(--navy-700);
+  border-top: 1px solid var(--border-color);
 }
 
 @media (max-width: 900px) {
@@ -238,10 +122,6 @@
 }
 
 @media (max-width: 640px) {
-  .page-wrapper {
-    padding: 20px 16px 40px;
-  }
-
   .page-title {
     font-size: 1.5rem;
   }

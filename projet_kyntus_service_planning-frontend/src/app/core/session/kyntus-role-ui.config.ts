@@ -16,6 +16,7 @@ export function mapJwtRoleToDocumentationRole(jwtRole: string): DocumentationRol
     employee: 'Pilote',
     equipe_formation: 'RH',
     'equipe formation': 'RH',
+    superviseur: 'Manager',
   };
   return map[r] ?? 'Pilote';
 }
@@ -34,6 +35,7 @@ export function mapJwtRoleToPrimeRole(jwtRole: string): PrimeRole | null {
     employee: 'Pilote',
     'equipe formation': 'RH',
     equipe_formation: 'RH',
+    superviseur: 'Superviseur',
   };
   return map[r] ?? null;
 }
@@ -49,6 +51,7 @@ export function mapJwtRoleToParrainageRole(jwtRole: string): ParrainageRole {
     pilote: 'PILOTE',
     audit: 'AUDIT',
     employee: 'PILOTE',
+    superviseur: 'COACH',
   };
   return map[r] ?? 'PILOTE';
 }

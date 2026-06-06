@@ -1,15 +1,14 @@
 <!-- features/users/pages/user-import/user-import.component.html -->
 
-<div class="page-wrapper">
+<div class="page-wrapper ky-page-shell">
 
   <!-- ── HEADER ── -->
   <div class="page-header">
-    <button class="btn-back" (click)="goBack()">← Retour</button>
     <div>
       <h1 class="page-title">Import / Export Employés</h1>
       <p class="page-sub">Importer jusqu'à 200+ employés en une seule opération</p>
     </div>
-    <button class="btn-export" (click)="exportUsers()">
+    <button class="btn-export ky-btn-secondary" (click)="exportUsers()">
       Exporter tous les employés
     </button>
   </div>
@@ -20,19 +19,19 @@
     <div class="import-section">
 
       <!-- Étape 1 : Template -->
-      <div class="step-card">
+      <div class="step-card ky-card">
         <div class="step-number">1</div>
         <div class="step-body">
           <h3>Télécharger le template Excel</h3>
           <p>Remplissez le fichier avec les informations de vos employés</p>
-          <button class="btn-template" (click)="downloadTemplate()">
+          <button class="btn-template ky-btn-secondary" (click)="downloadTemplate()">
             Télécharger le template
           </button>
         </div>
       </div>
 
       <!-- Étape 2 : Upload -->
-      <div class="step-card">
+      <div class="step-card ky-card">
         <div class="step-number">2</div>
         <div class="step-body">
           <h3>Importer le fichier rempli</h3>
@@ -75,7 +74,7 @@
 
           <!-- Bouton import -->
           <button
-            class="btn-import"
+            class="btn-import ky-btn-primary"
             [disabled]="!selectedFile || importing"
             (click)="importFile()">
             <span *ngIf="!importing">Lancer l'import</span>
@@ -105,7 +104,7 @@
       </div>
 
       <!-- Résultat -->
-      <div class="result-card" *ngIf="importResult && !importing">
+      <div class="result-card ky-card" *ngIf="importResult && !importing">
 
         <!-- Stats -->
         <h3 class="result-title">Résultat de l'import</h3>
@@ -150,7 +149,7 @@
         </div>
 
         <!-- Bouton nouveau import -->
-        <button class="btn-reset" (click)="reset()">
+        <button class="btn-reset ky-btn-secondary" (click)="reset()">
           Nouvel import
         </button>
 

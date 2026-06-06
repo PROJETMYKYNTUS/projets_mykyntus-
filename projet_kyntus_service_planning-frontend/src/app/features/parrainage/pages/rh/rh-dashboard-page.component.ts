@@ -31,44 +31,44 @@ const STATUS_LABELS: Record<ReferralStatus, string> = {
         </div>
       }
       @if (loading()) {
-        <div class="card-navy p-10 text-center text-slate-500 text-sm">Chargement…</div>
+        <div class="card-navy p-10 text-center text-muted text-sm">Chargement…</div>
       } @else {
         <div class="space-y-6">
           <div>
-            <h1 class="text-2xl font-semibold text-slate-50">Pilotage parrainage (RH)</h1>
-            <p class="text-sm text-slate-500 mt-1">Vue d'ensemble pour le pilotage et la décision.</p>
+            <h1 class="text-2xl font-semibold text-primary">Pilotage parrainage (RH)</h1>
+            <p class="text-sm text-muted mt-1">Vue d'ensemble pour le pilotage et la décision.</p>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <div class="card-navy p-5 border-blue-500/20">
-              <p class="text-xs uppercase tracking-wide text-slate-500">À traiter</p>
+              <p class="text-xs uppercase tracking-wide text-muted">À traiter</p>
               <p class="text-2xl font-semibold text-blue-300 mt-2">{{ kpis().pendingRh }}</p>
             </div>
             <div class="card-navy p-5 border-cyan-500/20">
-              <p class="text-xs uppercase tracking-wide text-slate-500">Traités — attente entrée</p>
+              <p class="text-xs uppercase tracking-wide text-muted">Traités — attente entrée</p>
               <p class="text-2xl font-semibold text-cyan-300 mt-2">{{ kpis().processedWaiting }}</p>
             </div>
             <div class="card-navy p-5 border-emerald-500/20">
-              <p class="text-xs uppercase tracking-wide text-slate-500">Prêts compta</p>
+              <p class="text-xs uppercase tracking-wide text-muted">Prêts compta</p>
               <p class="text-2xl font-semibold text-emerald-300 mt-2">{{ kpis().readyCompta }}</p>
             </div>
             <div class="card-navy p-5 border-purple-500/20">
-              <p class="text-xs uppercase tracking-wide text-slate-500">Versés (DH)</p>
+              <p class="text-xs uppercase tracking-wide text-muted">Versés (DH)</p>
               <p class="text-2xl font-semibold text-purple-200 mt-2">{{ kpis().paidTotal }} DH</p>
             </div>
           </div>
 
           <div class="card-navy p-5">
-            <h2 class="text-sm font-semibold text-slate-200 mb-4">Derniers dossiers</h2>
+            <h2 class="text-sm font-semibold text-primary mb-4">Derniers dossiers</h2>
             @if (recent().length === 0) {
-              <p class="text-sm text-slate-500">Aucune donnée.</p>
+              <p class="text-sm text-muted">Aucune donnée.</p>
             } @else {
               <div class="space-y-3">
                 @for (r of recent(); track r.id) {
-                  <div class="flex items-center justify-between gap-3 rounded-lg border border-navy-800/70 bg-navy-900/40 px-3 py-2">
+                  <div class="flex items-center justify-between gap-3 rounded-lg border border-default/70 bg-card/40 px-3 py-2">
                     <div class="min-w-0">
-                      <p class="text-sm font-medium text-slate-100 truncate">{{ r.candidateName }}</p>
-                      <p class="text-xs text-slate-500 truncate">{{ r.position }} · {{ r.projectName }}</p>
+                      <p class="text-sm font-medium text-primary truncate">{{ r.candidateName }}</p>
+                      <p class="text-xs text-muted truncate">{{ r.position }} · {{ r.projectName }}</p>
                     </div>
                     <div class="flex items-center gap-3">
                       <span [class]="'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ' + statusStyles[r.status]">{{ statusLabels[r.status] }}</span>

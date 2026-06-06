@@ -336,7 +336,7 @@
   border-color: #f97316;
   font-weight: 600;
 }
-.rp-pagination button:hover:not(.active) { background: #f9fafb; }
+.rp-pagination button:hover:not(.active) { background: var(--bg-input); }
 
 /* ── Form ─────────────────────────────────────────── */
 .rp-form-wrap { padding-top: 4px; }
@@ -426,38 +426,7 @@
   margin-top: 24px;
 }
 
-/* ── Buttons ──────────────────────────────────────── */
-.rp-btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background: #f97316;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 10px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-  transition: background .15s, transform .1s;
-}
-.rp-btn-primary:hover { background: #ea6c08; }
-.rp-btn-primary:active { transform: scale(.97); }
-.rp-btn-primary:disabled { background: #fed7aa; cursor: not-allowed; }
-.rp-btn-ghost {
-  background: var(--bg-card);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 10px 18px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-  transition: background .15s;
-}
-.rp-btn-ghost:hover { background: var(--navy-700); }
+/* buttons: global .ky-btn-primary / .ky-btn-secondary via reclamation-shared */
 .rp-spinner-sm {
   display: inline-block;
   width: 13px;

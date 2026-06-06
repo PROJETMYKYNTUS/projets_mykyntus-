@@ -10,14 +10,14 @@ import { LucideIconComponent } from '@/shared/lucide-icon.component';
   template: `
     <div class="space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-sm font-semibold text-slate-200">Visualisation du CV</h2>
+        <h2 class="text-sm font-semibold text-primary">Visualisation du CV</h2>
         @if (cvUrl()) {
           <div class="flex flex-wrap gap-2">
             @if (isPdf()) {
               <button
                 type="button"
                 (click)="fullscreen.set(true)"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-navy-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-navy-800"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-default px-3 py-1.5 text-xs text-primary hover:bg-input"
               >
                 <app-lucide-icon [icon]="expandIcon" className="h-3.5 w-3.5" />
                 Plein écran
@@ -27,7 +27,7 @@ import { LucideIconComponent } from '@/shared/lucide-icon.component';
               [href]="downloadUrl()"
               target="_blank"
               rel="noopener"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-navy-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-navy-800"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-default px-3 py-1.5 text-xs text-primary hover:bg-input"
             >
               <app-lucide-icon [icon]="externalIcon" className="h-3.5 w-3.5" />
               Ouvrir
@@ -35,7 +35,7 @@ import { LucideIconComponent } from '@/shared/lucide-icon.component';
             <a
               [href]="downloadUrl()"
               download
-              class="inline-flex items-center gap-1.5 rounded-lg border border-navy-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-navy-800"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-default px-3 py-1.5 text-xs text-primary hover:bg-input"
             >
               <app-lucide-icon [icon]="downloadIcon" className="h-3.5 w-3.5" />
               Télécharger
@@ -48,14 +48,14 @@ import { LucideIconComponent } from '@/shared/lucide-icon.component';
         <iframe
           title="Aperçu CV"
           [src]="src"
-          class="w-full rounded-lg border border-navy-800 bg-card"
+          class="w-full rounded-lg border border-default bg-card"
           style="height: 420px"
         ></iframe>
       } @else if (cvUrl()) {
-        <div class="rounded-lg border border-navy-800 bg-navy-900/50 p-8 text-center space-y-3">
-          <app-lucide-icon [icon]="fileIcon" className="h-10 w-10 text-slate-500 mx-auto" />
-          <p class="text-sm font-medium text-slate-300">Aperçu non disponible pour ce format</p>
-          <p class="text-xs text-slate-500">Les fichiers Word (DOC/DOCX) doivent être téléchargés pour consultation.</p>
+        <div class="rounded-lg border border-default bg-card/50 p-8 text-center space-y-3">
+          <app-lucide-icon [icon]="fileIcon" className="h-10 w-10 text-muted mx-auto" />
+          <p class="text-sm font-medium text-primary">Aperçu non disponible pour ce format</p>
+          <p class="text-xs text-muted">Les fichiers Word (DOC/DOCX) doivent être téléchargés pour consultation.</p>
           <a
             [href]="downloadUrl()"
             download
@@ -66,18 +66,18 @@ import { LucideIconComponent } from '@/shared/lucide-icon.component';
           </a>
         </div>
       } @else {
-        <div class="rounded-lg border border-navy-800 bg-navy-900/50 p-10 text-center">
-          <p class="text-sm font-medium text-slate-300">Aucun CV téléchargé</p>
-          <p class="text-xs text-slate-500 mt-2">Veuillez vérifier le dossier RH avant décision.</p>
+        <div class="rounded-lg border border-default bg-card/50 p-10 text-center">
+          <p class="text-sm font-medium text-primary">Aucun CV téléchargé</p>
+          <p class="text-xs text-muted mt-2">Veuillez vérifier le dossier RH avant décision.</p>
         </div>
       }
     </div>
 
     @if (fullscreen()) {
       <div class="fixed inset-0 z-[70] bg-black/80 flex flex-col">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-navy-800 bg-navy-950">
-          <span class="text-sm text-slate-200">Aperçu CV — plein écran</span>
-          <button type="button" (click)="fullscreen.set(false)" class="text-sm text-slate-400 hover:text-white">Fermer</button>
+        <div class="flex items-center justify-between px-4 py-3 border-b border-default bg-app">
+          <span class="text-sm text-primary">Aperçu CV — plein écran</span>
+          <button type="button" (click)="fullscreen.set(false)" class="text-sm text-muted hover:text-white">Fermer</button>
         </div>
         @if (cvPreviewUrl(); as src) {
           <iframe title="CV plein écran" [src]="src" class="flex-1 w-full bg-white"></iframe>

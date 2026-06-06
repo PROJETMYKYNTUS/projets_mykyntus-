@@ -122,26 +122,31 @@ using (var scope = app.Services.CreateScope())
             new Role { Id = 5, Name = "RP", Description = "Responsable de production", CreatedAt = DateTime.UtcNow },
             new Role { Id = 6, Name = "Admin", Description = "Administrateur système", CreatedAt = DateTime.UtcNow },
             new Role { Id = 7, Name = "Audit", Description = "Auditeur interne", CreatedAt = DateTime.UtcNow },
-            new Role { Id = 8, Name = "Equipe formation", Description = "Équipe de formation", CreatedAt = DateTime.UtcNow });
+            new Role { Id = 8, Name = "Equipe formation", Description = "Équipe de formation", CreatedAt = DateTime.UtcNow },
+            new Role { Id = 9, Name = "Superviseur", Description = "Superviseur de cellule PRIME", CreatedAt = DateTime.UtcNow });
         db.SaveChanges();
         Console.WriteLine("Auth roles seeded.");
     }
 
+    var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+
     if (!db.Users.Any())
     {
-        var hasher = new PasswordHasher();
         db.Users.AddRange(
-            SeedUser("Employee", "employee@kyntus.ma", "Employee@2026", 1, hasher),
-            SeedUser("rh", "rh@kyntus.ma", "RH@2026", 2, hasher),
-            SeedUser("manager", "manager@kyntus.ma", "Manager@2026", 3, hasher),
-            SeedUser("coach", "coach@kyntus.ma", "Coach@2026", 4, hasher),
-            SeedUser("rp", "rp@kyntus.ma", "RP@2026", 5, hasher),
-            SeedUser("admin", "admin@kyntus.ma", "Admin@2026", 6, hasher),
-            SeedUser("audit", "audit@kyntus.ma", "Audit@2026", 7, hasher),
-            SeedUser("equipeformation", "formation@kyntus.ma", "Formation@2026", 8, hasher));
+            SeedUser("Employee", "employee@kyntus.ma", "Employee@2026", 1, passwordHasher),
+            SeedUser("rh", "rh@kyntus.ma", "RH@2026", 2, passwordHasher),
+            SeedUser("manager", "manager@kyntus.ma", "Manager@2026", 3, passwordHasher),
+            SeedUser("coach", "coach@kyntus.ma", "Coach@2026", 4, passwordHasher),
+            SeedUser("rp", "rp@kyntus.ma", "RP@2026", 5, passwordHasher),
+            SeedUser("admin", "admin@kyntus.ma", "Admin@2026", 6, passwordHasher),
+            SeedUser("audit", "audit@kyntus.ma", "Audit@2026", 7, passwordHasher),
+            SeedUser("equipeformation", "formation@kyntus.ma", "Formation@2026", 8, passwordHasher),
+            SeedUser("superviseur", "superviseur@kyntus.ma", "Superviseur@2026", 9, passwordHasher));
         db.SaveChanges();
         Console.WriteLine("Auth users seeded.");
     }
+
+    EnsureSuperviseurAccount(db, passwordHasher);
 
     foreach (var user in db.Users.Where(u => u.SubjectId == Guid.Empty).ToList())
         user.SubjectId = KyntusSubjectIdCatalog.ResolveForEmail(user.Email);
@@ -158,7 +163,7 @@ app.UseAuthorization();
 app.MapControllers();
 app.Run();
 
-static User SeedUser(string username, string email, string password, int roleId, PasswordHasher hasher) =>
+static User SeedUser(string username, string email, string password, int roleId, IPasswordHasher hasher) =>
     new()
     {
         Username = username,
@@ -169,3 +174,38 @@ static User SeedUser(string username, string email, string password, int roleId,
         IsActive = true,
         CreatedAt = DateTime.UtcNow,
     };
+
+static void EnsureSuperviseurAccount(AppDbContext db, IPasswordHasher hasher)
+{
+    var role = db.Roles.FirstOrDefault(r => r.Name == "Superviseur");
+    if (role == null)
+    {
+        var nextId = (db.Roles.Max(r => (int?)r.Id) ?? 0) + 1;
+        role = new Role
+        {
+            Id = nextId,
+            Name = "Superviseur",
+            Description = "Superviseur de cellule PRIME",
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.Roles.Add(role);
+        db.SaveChanges();
+        Console.WriteLine("Auth role Superviseur added.");
+    }
+
+    if (db.Users.Any(u => u.Email.ToLower() == "superviseur@kyntus.ma"))
+        return;
+
+    db.Users.Add(new User
+    {
+        Username = "superviseur",
+        Email = "superviseur@kyntus.ma",
+        SubjectId = KyntusSubjectIdCatalog.ResolveForEmail("superviseur@kyntus.ma"),
+        PasswordHash = hasher.HashPassword("Superviseur@2026"),
+        RoleId = role.Id,
+        IsActive = true,
+        CreatedAt = DateTime.UtcNow,
+    });
+    db.SaveChanges();
+    Console.WriteLine("Auth user superviseur@kyntus.ma added.");
+}

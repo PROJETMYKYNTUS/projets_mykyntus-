@@ -2,7 +2,6 @@
 
 import { Component, ViewEncapsulation, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../../environments/environment';
 
@@ -32,12 +31,8 @@ export class UserImportComponent {
 
   constructor(
     private http: HttpClient,
-    private router: Router,
     private cdr: ChangeDetectorRef
   ) {}
-
-  // ── Navigation ──
-  goBack(): void { this.router.navigate(['/users']); }
 
   // ── Template ──
   downloadTemplate(): void {

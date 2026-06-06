@@ -6,13 +6,13 @@
       iconName="settings"
     >
       <div class="card-navy p-6">
-        <p class="text-slate-300">Seul l’utilisateur avec le rôle `Admin` peut modifier la configuration du DMS.</p>
+        <p class="text-primary">Seul l’utilisateur avec le rôle `Admin` peut modifier la configuration du DMS.</p>
       </div>
     </app-admin-shell>
   } @else if (loading || !draft) {
     <app-admin-shell title="General Configuration" description="Chargement de la configuration…" iconName="settings">
       <div class="card-navy p-6">
-        <p class="text-slate-300">Veuillez patienter.</p>
+        <p class="text-primary">Veuillez patienter.</p>
       </div>
     </app-admin-shell>
   } @else {
@@ -35,7 +35,7 @@
               <input
                 [ngModel]="draft.systemName"
                 (ngModelChange)="patchDraft({ systemName: $event })"
-                class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500"
+                class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
               />
               @if (errors['systemName']) {
                 <p class="text-xs text-red-400 mt-1">{{ errors['systemName'] }}</p>
@@ -48,7 +48,7 @@
                 <select
                   [ngModel]="draft.defaultLanguage"
                   (ngModelChange)="patchDraft({ defaultLanguage: $event })"
-                  class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500"
+                  class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
                 >
                   <option value="fr">fr</option>
                   <option value="en">en</option>
@@ -59,7 +59,7 @@
                 <select
                   [ngModel]="draft.defaultTimezone"
                   (ngModelChange)="patchDraft({ defaultTimezone: $event })"
-                  class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500"
+                  class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
                 >
                   <option value="Europe/Paris">Europe/Paris</option>
                   <option value="UTC">UTC</option>
@@ -75,7 +75,7 @@
                   min="1"
                   [ngModel]="draft.maxFileSizeMB"
                   (ngModelChange)="patchDraft({ maxFileSizeMB: num($event) })"
-                  class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500"
+                  class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
                 />
                 @if (errors['maxFileSizeMB']) {
                   <p class="text-xs text-red-400 mt-1">{{ errors['maxFileSizeMB'] }}</p>
@@ -86,7 +86,7 @@
                 <input
                   [(ngModel)]="allowedTypesText"
                   placeholder="pdf, docx, png"
-                  class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500"
+                  class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
                 />
                 @if (errors['allowedFileTypes']) {
                   <p class="text-xs text-red-400 mt-1">{{ errors['allowedFileTypes'] }}</p>
@@ -96,7 +96,7 @@
           </div>
 
           <div class="space-y-4">
-            <div class="border border-navy-800 rounded-xl p-4">
+            <div class="border border-default rounded-xl p-4">
               <h4 class="text-sm font-bold text-white mb-3">Règles métier</h4>
               <div class="space-y-3">
                 <app-admin-toggle
@@ -111,7 +111,7 @@
                     min="0"
                     [ngModel]="draft.retentionDays"
                     (ngModelChange)="patchDraft({ retentionDays: num($event) })"
-                    class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500"
+                    class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
                   />
                   @if (errors['retentionDays']) {
                     <p class="text-xs text-red-400 mt-1">{{ errors['retentionDays'] }}</p>
@@ -134,7 +134,7 @@
                     <input
                       [ngModel]="draft.numberingPattern"
                       (ngModelChange)="patchDraft({ numberingPattern: $event })"
-                      class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500"
+                      class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
                     />
                     @if (errors['numberingPattern']) {
                       <p class="text-xs text-red-400 mt-1">{{ errors['numberingPattern'] }}</p>
@@ -144,7 +144,7 @@
               </div>
             </div>
 
-            <div class="border border-navy-800 rounded-xl p-4">
+            <div class="border border-default rounded-xl p-4">
               <h4 class="text-sm font-bold text-white mb-3">Sécurité & notifications</h4>
               <div class="space-y-3">
                 <app-admin-toggle
@@ -163,7 +163,7 @@
                   label="Signature électronique"
                 ></app-admin-toggle>
 
-                <div class="border-t border-navy-800 pt-4"></div>
+                <div class="border-t border-default pt-4"></div>
 
                 <app-admin-toggle
                   [checked]="draft.notifications.emailOnUpload"
@@ -207,12 +207,12 @@
               type="button"
               (click)="onReset()"
               [disabled]="saving"
-              class="px-6 py-3 rounded-lg font-bold text-slate-200 border border-navy-800 hover:bg-navy-800/50 transition-all"
+              class="px-6 py-3 rounded-lg font-bold text-primary border border-default hover:bg-input/50 transition-all"
             >
               Réinitialiser
             </button>
           </div>
-          <div class="text-xs text-slate-500">
+          <div class="text-xs text-muted">
             Les modifications sont enregistrées sur le service d’administration.
           </div>
         </div>

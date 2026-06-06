@@ -21,9 +21,11 @@ const NOTIF_PREF_LABELS: { key: keyof KyntusNotificationPreferences; label: stri
   { key: 'planning', label: 'Planning' },
   { key: 'contracts', label: 'Contrats' },
   { key: 'reclamations', label: 'Réclamations' },
+  { key: 'propositions', label: 'Propositions d\'amélioration' },
   { key: 'prime', label: 'PRIME' },
   { key: 'parrainage', label: 'Parrainage' },
   { key: 'documentation', label: 'Documentation' },
+  { key: 'newsletter', label: 'Newsletter' },
   { key: 'formation', label: 'Formation' },
   { key: 'conge', label: 'Congés' },
 ];

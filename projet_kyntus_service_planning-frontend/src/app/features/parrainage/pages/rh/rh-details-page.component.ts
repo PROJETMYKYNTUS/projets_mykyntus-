@@ -41,8 +41,8 @@ type ToastType = 'success' | 'error' | 'info';
       <div class="space-y-2">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 class="text-2xl font-semibold text-slate-50">Décision RH</h1>
-            <p class="text-sm text-slate-500 mt-1">Validation uniquement depuis l'écran de détail.</p>
+            <h1 class="text-2xl font-semibold text-primary">Décision RH</h1>
+            <p class="text-sm text-muted mt-1">Validation uniquement depuis l'écran de détail.</p>
           </div>
           <div class="flex items-center gap-3">
             <span [class]="'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ' + statusStyles[referral()?.status ?? 'SUBMITTED']">{{ statusLabels[referral()?.status ?? 'SUBMITTED'] }}</span>
@@ -54,9 +54,9 @@ type ToastType = 'success' | 'error' | 'info';
       </div>
 
       @if (loading()) {
-        <div class="card-navy p-10 text-center text-slate-500 text-sm">Chargement du dossier…</div>
+        <div class="card-navy p-10 text-center text-muted text-sm">Chargement du dossier…</div>
       } @else if (!referral()) {
-        <div class="card-navy p-10 text-center text-slate-400 text-sm">
+        <div class="card-navy p-10 text-center text-muted text-sm">
           Parrainage introuvable.
         </div>
       } @else {
@@ -77,49 +77,49 @@ type ToastType = 'success' | 'error' | 'info';
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div class="card-navy p-5 md:p-6 space-y-4">
                 <div class="flex items-start justify-between gap-3">
-                  <h2 class="text-sm font-semibold text-slate-200">Candidat</h2>
-                  <span class="text-xs text-slate-500 font-mono">{{ ref.id }}</span>
+                  <h2 class="text-sm font-semibold text-primary">Candidat</h2>
+                  <span class="text-xs text-muted font-mono">{{ ref.id }}</span>
                 </div>
                 <div class="space-y-2 text-sm">
                   <div class="flex justify-between gap-4">
-                    <span class="text-slate-500">Nom</span>
-                    <span class="text-slate-200 text-right font-medium">{{ ref.candidateName }}</span>
+                    <span class="text-muted">Nom</span>
+                    <span class="text-primary text-right font-medium">{{ ref.candidateName }}</span>
                   </div>
                   <div class="flex justify-between gap-4">
-                    <span class="text-slate-500">E-mail</span>
-                    <span class="text-slate-200 text-right break-all">{{ ref.candidateEmail }}</span>
+                    <span class="text-muted">E-mail</span>
+                    <span class="text-primary text-right break-all">{{ ref.candidateEmail }}</span>
                   </div>
                   <div class="flex justify-between gap-4">
-                    <span class="text-slate-500">Téléphone</span>
-                    <span class="text-slate-200 text-right break-all">{{ ref.candidatePhone }}</span>
+                    <span class="text-muted">Téléphone</span>
+                    <span class="text-primary text-right break-all">{{ ref.candidatePhone }}</span>
                   </div>
                   <div class="flex justify-between gap-4">
-                    <span class="text-slate-500">Poste</span>
-                    <span class="text-slate-200 text-right font-medium">{{ ref.position }}</span>
+                    <span class="text-muted">Poste</span>
+                    <span class="text-primary text-right font-medium">{{ ref.position }}</span>
                   </div>
                 </div>
                 @if (ref.notes) {
-                  <div class="pt-2 border-t border-navy-800">
-                    <p class="text-xs text-slate-500 mb-1">Notes du parrain</p>
-                    <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ ref.notes }}</p>
+                  <div class="pt-2 border-t border-default">
+                    <p class="text-xs text-muted mb-1">Notes du parrain</p>
+                    <p class="text-sm text-primary whitespace-pre-wrap">{{ ref.notes }}</p>
                   </div>
                 }
               </div>
 
               <div class="card-navy p-5 md:p-6 space-y-4">
-                <h2 class="text-sm font-semibold text-slate-200">Parrain</h2>
+                <h2 class="text-sm font-semibold text-primary">Parrain</h2>
                 <div class="space-y-2 text-sm">
                   <div class="flex justify-between gap-4">
-                    <span class="text-slate-500">Nom</span>
-                    <span class="text-slate-200 text-right font-medium">{{ ref.referrerName }}</span>
+                    <span class="text-muted">Nom</span>
+                    <span class="text-primary text-right font-medium">{{ ref.referrerName }}</span>
                   </div>
                   <div class="flex justify-between gap-4">
-                    <span class="text-slate-500">Équipe</span>
-                    <span class="text-slate-200 text-right">{{ ref.teamId }}</span>
+                    <span class="text-muted">Équipe</span>
+                    <span class="text-primary text-right">{{ ref.teamId }}</span>
                   </div>
                   <div class="flex justify-between gap-4">
-                    <span class="text-slate-500">Projet</span>
-                    <span class="text-slate-200 text-right">{{ ref.projectName }}</span>
+                    <span class="text-muted">Projet</span>
+                    <span class="text-primary text-right">{{ ref.projectName }}</span>
                   </div>
                 </div>
               </div>
@@ -131,35 +131,35 @@ type ToastType = 'success' | 'error' | 'info';
               </div>
 
               <div class="card-navy p-5 md:p-6 space-y-4">
-                <h2 class="text-sm font-semibold text-slate-200">Chronologie</h2>
+                <h2 class="text-sm font-semibold text-primary">Chronologie</h2>
                 <div class="space-y-3">
                   <div class="text-sm">
-                    <div class="text-xs uppercase tracking-wide text-slate-500">Date de soumission</div>
-                    <div class="text-slate-200 mt-1 font-medium">
+                    <div class="text-xs uppercase tracking-wide text-muted">Date de soumission</div>
+                    <div class="text-primary mt-1 font-medium">
                       {{ fr(ref.createdAt) }}
                     </div>
                   </div>
                   <div class="space-y-2">
                     @if (statusHistory().length === 0) {
-                      <p class="text-xs text-slate-500">Pas encore d'historique RH.</p>
+                      <p class="text-xs text-muted">Pas encore d'historique RH.</p>
                     } @else {
                       @for (h of statusHistory(); track h.id) {
                         <div class="flex items-start justify-between gap-4">
                           <div class="min-w-0">
                             <div class="flex items-center gap-2">
                               <span [class]="'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ' + statusStyles[historyStatus(h.action)]">{{ statusLabels[historyStatus(h.action)] }}</span>
-                              <span class="text-sm font-medium text-slate-200">
+                              <span class="text-sm font-medium text-primary">
                                 {{ h.action === 'APPROVED' ? 'Validé' : h.action === 'PROCESSED' ? 'Dossier traité' : h.action === 'REJECTED' ? 'Rejeté' : 'Prime versée' }}
                               </span>
                             </div>
                             @if (h.comment) {
-                              <p class="text-xs text-slate-500 mt-1">Commentaire : {{ h.comment }}</p>
+                              <p class="text-xs text-muted mt-1">Commentaire : {{ h.comment }}</p>
                             }
                             @if (h.rewardAmount !== undefined && h.rewardAmount !== null) {
                               <p class="text-xs text-purple-200 mt-1">Montant engagé : {{ h.rewardAmount }} DH</p>
                             }
                           </div>
-                          <div class="text-right text-xs text-slate-500 whitespace-nowrap">
+                          <div class="text-right text-xs text-muted whitespace-nowrap">
                             {{ fr(h.createdAt) }}
                           </div>
                         </div>
@@ -183,7 +183,7 @@ type ToastType = 'success' | 'error' | 'info';
                   Période d'ancienneté jusqu'au {{ formatDate(ref.eligibleForPaymentAt) }} —
                   montant engagé {{ ref.rewardAmount }} DH.
                   @if (ref.paymentStatus === 'NOT_ELIGIBLE') {
-                    <span class="block mt-1 text-slate-300">En attente de la fin de la période minimum.</span>
+                    <span class="block mt-1 text-primary">En attente de la fin de la période minimum.</span>
                   }
                   @if (ref.paymentStatus === 'AWAITING_RH') {
                     <span class="block mt-1 text-amber-200">
@@ -201,7 +201,7 @@ type ToastType = 'success' | 'error' | 'info';
 
             <div class="card-navy p-5 md:p-6 space-y-4">
               <div class="flex items-center justify-between gap-3">
-                <h2 class="text-sm font-semibold text-slate-200">Décision</h2>
+                <h2 class="text-sm font-semibold text-primary">Décision</h2>
                 @if (ref.status === 'REJECTED') {
                   <span class="text-xs text-red-300 inline-flex items-center gap-2">
                     <app-lucide-icon [icon]="alertIcon" className="h-3.5 w-3.5" />
@@ -253,15 +253,15 @@ type ToastType = 'success' | 'error' | 'info';
 
               @if (mode() === 'process' && canProcess()) {
                 <div class="space-y-4">
-                  <p class="text-xs text-slate-400">
+                  <p class="text-xs text-muted">
                     Confirmez que la candidature a été examinée (CV, entretiens). Le candidat n'a pas encore rejoint la société.
                   </p>
                   <div>
-                    <label class="block text-xs font-medium uppercase tracking-wide text-slate-500 mb-1.5">
+                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
                       Commentaire (facultatif)
                     </label>
                     <textarea
-                      class="w-full min-h-[70px] rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100"
+                      class="w-full min-h-[70px] rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary"
                       [(ngModel)]="processComment"
                       placeholder="Notes internes RH…"
                     ></textarea>
@@ -280,36 +280,36 @@ type ToastType = 'success' | 'error' | 'info';
               @if (mode() === 'approve' && canApprove()) {
                 <div class="space-y-4">
                   <div>
-                    <label class="block text-xs font-medium uppercase tracking-wide text-slate-500 mb-1.5">
+                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
                       Date d'entrée du candidat
                     </label>
                     <input
                       type="date"
-                      class="w-full rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-soft-blue"
+                      class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-soft-blue"
                       [(ngModel)]="candidateStartDate"
                     />
                   </div>
                   <div>
-                    <label class="block text-xs font-medium uppercase tracking-wide text-slate-500 mb-1.5">
+                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
                       Montant engagé (DH)
                     </label>
                     <input
                       type="text"
                       inputmode="decimal"
-                      class="w-full rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-soft-blue"
+                      class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-soft-blue"
                       [(ngModel)]="rewardAmount"
                       [placeholder]="String(suggestedReward())"
                     />
-                    <p class="text-xs text-slate-500 mt-2">
+                    <p class="text-xs text-muted mt-2">
                       Montant suggéré : {{ suggestedReward() }} DH — ancienneté minimale {{ suggestedMinDuration() }} mois
                     </p>
                   </div>
                   <div>
-                    <label class="block text-xs font-medium uppercase tracking-wide text-slate-500 mb-1.5">
+                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
                       Commentaire (facultatif)
                     </label>
                     <textarea
-                      class="w-full min-h-[70px] rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100"
+                      class="w-full min-h-[70px] rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary"
                       [(ngModel)]="approveComment"
                       placeholder="Notes internes RH…"
                     ></textarea>
@@ -328,15 +328,15 @@ type ToastType = 'success' | 'error' | 'info';
 
               @if (mode() === 'confirm-eligibility' && canConfirmEligibility()) {
                 <div class="space-y-4">
-                  <p class="text-xs text-slate-400">
+                  <p class="text-xs text-muted">
                     Vérifiez que le candidat recruté est toujours en poste avant de transmettre le dossier à la comptabilité.
                   </p>
                   <div>
-                    <label class="block text-xs font-medium uppercase tracking-wide text-slate-500 mb-1.5">
+                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
                       Commentaire (facultatif)
                     </label>
                     <textarea
-                      class="w-full min-h-[70px] rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100"
+                      class="w-full min-h-[70px] rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary"
                       [(ngModel)]="eligibilityComment"
                       placeholder="Ex. : candidat toujours en poste au {{ formatDate(referral()?.eligibleForPaymentAt) }}…"
                     ></textarea>
@@ -355,11 +355,11 @@ type ToastType = 'success' | 'error' | 'info';
               @if (mode() === 'reject' && canReject()) {
                 <div class="space-y-4">
                   <div>
-                    <label class="block text-xs font-medium uppercase tracking-wide text-slate-500 mb-1.5">
+                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
                       Commentaire (facultatif)
                     </label>
                     <textarea
-                      class="w-full min-h-[90px] rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-soft-blue"
+                      class="w-full min-h-[90px] rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-soft-blue"
                       [(ngModel)]="rejectComment"
                       placeholder="Motif du refus…"
                     ></textarea>
@@ -376,7 +376,7 @@ type ToastType = 'success' | 'error' | 'info';
               }
 
               @if (ref.status === 'REWARDED' || ref.status === 'REJECTED' || ref.status === 'APPROVED') {
-                <p class="text-xs text-slate-500">
+                <p class="text-xs text-muted">
                   Décision finale enregistrée. Les actions sont désactivées.
                 </p>
               }
@@ -388,20 +388,20 @@ type ToastType = 'success' | 'error' | 'info';
 
     @if (confirmOpen() === 'process') {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <button type="button" class="absolute inset-0 bg-navy-950/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
-        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-navy-800">
+        <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
+        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-default">
           <div class="flex items-start justify-between gap-4">
-            <h3 class="text-lg font-semibold text-slate-50">Marquer comme traité</h3>
-            <button type="button" class="rounded-lg p-1 text-slate-500 hover:text-slate-200 hover:bg-navy-800" (click)="confirmOpen.set(null)" aria-label="Fermer">
+            <h3 class="text-lg font-semibold text-primary">Marquer comme traité</h3>
+            <button type="button" class="rounded-lg p-1 text-muted hover:text-primary hover:bg-input" (click)="confirmOpen.set(null)" aria-label="Fermer">
               <app-lucide-icon [icon]="xIcon" className="h-5 w-5" />
             </button>
           </div>
-          <p class="mt-3 text-sm text-slate-400 leading-relaxed">
+          <p class="mt-3 text-sm text-muted leading-relaxed">
             Candidat : {{ referral()?.candidateName ?? '' }}.
             Le dossier passera en « Dossier traité » en attente de l'entrée du candidat.
           </p>
           <div class="mt-6 flex flex-wrap justify-end gap-2">
-            <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-navy-800 px-4 py-2 text-sm text-slate-300 hover:bg-navy-800/80" [disabled]="busy()">
+            <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
               Annuler
             </button>
             <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-cyan-600 hover:bg-cyan-500 text-white" [disabled]="busy()">
@@ -421,21 +421,21 @@ type ToastType = 'success' | 'error' | 'info';
 
     @if (confirmOpen() === 'approve') {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <button type="button" class="absolute inset-0 bg-navy-950/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
-        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-navy-800">
+        <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
+        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-default">
           <div class="flex items-start justify-between gap-4">
-            <h3 class="text-lg font-semibold text-slate-50">Confirmer la validation</h3>
-            <button type="button" class="rounded-lg p-1 text-slate-500 hover:text-slate-200 hover:bg-navy-800" (click)="confirmOpen.set(null)" aria-label="Fermer">
+            <h3 class="text-lg font-semibold text-primary">Confirmer la validation</h3>
+            <button type="button" class="rounded-lg p-1 text-muted hover:text-primary hover:bg-input" (click)="confirmOpen.set(null)" aria-label="Fermer">
               <app-lucide-icon [icon]="xIcon" className="h-5 w-5" />
             </button>
           </div>
-          <p class="mt-3 text-sm text-slate-400 leading-relaxed">
+          <p class="mt-3 text-sm text-muted leading-relaxed">
             Candidat : {{ referral()?.candidateName ?? '' }}.
             Montant engagé {{ rewardAmount || '—' }} DH — entrée le {{ candidateStartDate || '—' }}.
             Le versement interviendra après la période minimum.
           </p>
           <div class="mt-6 flex flex-wrap justify-end gap-2">
-            <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-navy-800 px-4 py-2 text-sm text-slate-300 hover:bg-navy-800/80" [disabled]="busy()">
+            <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
               Annuler
             </button>
             <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-soft-blue hover:bg-blue-600 text-white" [disabled]="busy()">
@@ -455,20 +455,20 @@ type ToastType = 'success' | 'error' | 'info';
 
     @if (confirmOpen() === 'confirm-eligibility') {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <button type="button" class="absolute inset-0 bg-navy-950/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
-        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-navy-800">
+        <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
+        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-default">
           <div class="flex items-start justify-between gap-4">
-            <h3 class="text-lg font-semibold text-slate-50">Confirmer l'éligibilité</h3>
-            <button type="button" class="rounded-lg p-1 text-slate-500 hover:text-slate-200 hover:bg-navy-800" (click)="confirmOpen.set(null)" aria-label="Fermer">
+            <h3 class="text-lg font-semibold text-primary">Confirmer l'éligibilité</h3>
+            <button type="button" class="rounded-lg p-1 text-muted hover:text-primary hover:bg-input" (click)="confirmOpen.set(null)" aria-label="Fermer">
               <app-lucide-icon [icon]="xIcon" className="h-5 w-5" />
             </button>
           </div>
-          <p class="mt-3 text-sm text-slate-400 leading-relaxed">
+          <p class="mt-3 text-sm text-muted leading-relaxed">
             Candidat : {{ referral()?.candidateName ?? '' }}.
             Vous confirmez que le candidat est toujours en poste et que la prime peut être transmise à la comptabilité ({{ referral()?.rewardAmount ?? 0 }} DH).
           </p>
           <div class="mt-6 flex flex-wrap justify-end gap-2">
-            <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-navy-800 px-4 py-2 text-sm text-slate-300 hover:bg-navy-800/80" [disabled]="busy()">
+            <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
               Annuler
             </button>
             <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white" [disabled]="busy()">
@@ -488,17 +488,17 @@ type ToastType = 'success' | 'error' | 'info';
 
     @if (confirmOpen() === 'reject') {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <button type="button" class="absolute inset-0 bg-navy-950/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
-        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-navy-800">
+        <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
+        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-default">
           <div class="flex items-start justify-between gap-4">
-            <h3 class="text-lg font-semibold text-slate-50">Confirmer le refus</h3>
-            <button type="button" class="rounded-lg p-1 text-slate-500 hover:text-slate-200 hover:bg-navy-800" (click)="confirmOpen.set(null)" aria-label="Fermer">
+            <h3 class="text-lg font-semibold text-primary">Confirmer le refus</h3>
+            <button type="button" class="rounded-lg p-1 text-muted hover:text-primary hover:bg-input" (click)="confirmOpen.set(null)" aria-label="Fermer">
               <app-lucide-icon [icon]="xIcon" className="h-5 w-5" />
             </button>
           </div>
-          <p class="mt-3 text-sm text-slate-400 leading-relaxed">Candidat : {{ referral()?.candidateName ?? '' }}. Le statut passera à « Rejeté ».</p>
+          <p class="mt-3 text-sm text-muted leading-relaxed">Candidat : {{ referral()?.candidateName ?? '' }}. Le statut passera à « Rejeté ».</p>
           <div class="mt-6 flex flex-wrap justify-end gap-2">
-            <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-navy-800 px-4 py-2 text-sm text-slate-300 hover:bg-navy-800/80" [disabled]="busy()">
+            <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
               Annuler
             </button>
             <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white" [disabled]="busy()">

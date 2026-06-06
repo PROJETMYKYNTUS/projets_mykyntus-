@@ -144,5 +144,4 @@ export class CongeManagerComponent implements OnInit {
     return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
   }
 
-  goBack(): void { this.router.navigate(["/planning"]); }
 }

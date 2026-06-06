@@ -16,23 +16,23 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
         </div>
       }
       <div>
-        <h1 class="text-2xl font-semibold text-slate-50">Règles de parrainage</h1>
-        <p class="text-sm text-slate-500 mt-1">Gérez les règles métier (hors configuration système).</p>
+        <h1 class="text-2xl font-semibold text-primary">Règles de parrainage</h1>
+        <p class="text-sm text-muted mt-1">Gérez les règles métier (hors configuration système).</p>
       </div>
 
       <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div class="card-navy p-5 md:p-6 xl:col-span-1 space-y-4">
-          <h2 class="text-sm font-semibold text-slate-200">
+          <h2 class="text-sm font-semibold text-primary">
             {{ editingId() ? 'Modifier la règle' : 'Créer une règle' }}
           </h2>
 
           <div class="space-y-3">
             <div>
-              <label class="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">
+              <label class="block text-xs uppercase tracking-wide text-muted mb-1.5">
                 Intitulé de la règle
               </label>
               <input
-                class="w-full rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
                 [(ngModel)]="name"
                 placeholder="Ex. : Prime par poste — Développeur"
               />
@@ -40,11 +40,11 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label class="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">
+                <label class="block text-xs uppercase tracking-wide text-muted mb-1.5">
                   Type
                 </label>
                 <select
-                  class="w-full rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                  class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
                   [(ngModel)]="type"
                 >
                   <option value="REWARD_PER_POSITION">Prime selon le poste</option>
@@ -52,11 +52,11 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
                 </select>
               </div>
               <div>
-                <label class="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">
+                <label class="block text-xs uppercase tracking-wide text-muted mb-1.5">
                   Statut
                 </label>
                 <select
-                  class="w-full rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                  class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
                   [(ngModel)]="status"
                 >
                   <option value="ACTIVE">Actif</option>
@@ -67,21 +67,21 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
 
             @if (type === 'REWARD_PER_POSITION') {
               <div>
-                <label class="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">
+                <label class="block text-xs uppercase tracking-wide text-muted mb-1.5">
                   Poste cible
                 </label>
                 <input
-                  class="w-full rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                  class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
                   [(ngModel)]="target"
                   placeholder="Ex. : Développeur"
                 />
               </div>
               <div>
-                <label class="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">
+                <label class="block text-xs uppercase tracking-wide text-muted mb-1.5">
                   Durée minimum (mois)
                 </label>
                 <select
-                  class="w-full rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                  class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
                   [(ngModel)]="minDurationMonths"
                 >
                   @for (m of durationOptions; track m) {
@@ -92,11 +92,11 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
             }
 
             <div>
-              <label class="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">
+              <label class="block text-xs uppercase tracking-wide text-muted mb-1.5">
                 Montant (DH)
               </label>
               <input
-                class="w-full rounded-lg border border-navy-800 bg-navy-950/40 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
                 [(ngModel)]="value"
                 placeholder="Ex. : 600"
               />
@@ -115,7 +115,7 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
             <button
               type="button"
               (click)="resetForm()"
-              class="flex-1 min-w-[160px] rounded-lg border border-navy-800 px-4 py-2 text-sm text-slate-300 hover:bg-navy-800/80"
+              class="flex-1 min-w-[160px] rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80"
             >
               Réinitialiser
             </button>
@@ -123,36 +123,36 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
         </div>
 
         <div class="card-navy p-5 md:p-6 xl:col-span-2 space-y-4">
-          <h2 class="text-sm font-semibold text-slate-200">Règles</h2>
+          <h2 class="text-sm font-semibold text-primary">Règles</h2>
 
           @if (loading()) {
-            <div class="text-sm text-slate-500 py-10 text-center">Chargement…</div>
+            <div class="text-sm text-muted py-10 text-center">Chargement…</div>
           } @else if (rules().length === 0) {
-            <div class="text-sm text-slate-400 py-10 text-center">Aucune règle.</div>
+            <div class="text-sm text-muted py-10 text-center">Aucune règle.</div>
           } @else {
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse">
                 <thead>
-                  <tr class="bg-navy-800/50 border-b border-navy-800">
-                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Intitulé</th>
-                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Montant</th>
-                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Durée min.</th>
-                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Statut</th>
-                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                  <tr class="bg-card/50 border-b border-default">
+                    <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase tracking-wider">Intitulé</th>
+                    <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase tracking-wider">Type</th>
+                    <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase tracking-wider">Montant</th>
+                    <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase tracking-wider">Durée min.</th>
+                    <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase tracking-wider">Statut</th>
+                    <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase tracking-wider text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-navy-800">
+                <tbody class="divide-y divide-default">
                   @for (r of rules(); track r.id) {
-                    <tr class="hover:bg-navy-800/30 transition-colors">
-                      <td class="px-6 py-4 text-sm font-medium text-slate-200 whitespace-nowrap">{{ r.name }}</td>
-                      <td class="px-6 py-4 text-sm text-slate-300 whitespace-nowrap">
+                    <tr class="hover:bg-input/30 transition-colors">
+                      <td class="px-6 py-4 text-sm font-medium text-primary whitespace-nowrap">{{ r.name }}</td>
+                      <td class="px-6 py-4 text-sm text-primary whitespace-nowrap">
                         {{ typeLabel(r) }}
                       </td>
-                      <td class="px-6 py-4 text-sm text-slate-300 whitespace-nowrap">
+                      <td class="px-6 py-4 text-sm text-primary whitespace-nowrap">
                         {{ amountLabel(r) }}
                       </td>
-                      <td class="px-6 py-4 text-sm text-slate-300 whitespace-nowrap">
+                      <td class="px-6 py-4 text-sm text-primary whitespace-nowrap">
                         {{ durationLabel(r) }}
                       </td>
                       <td class="px-6 py-4">
@@ -190,14 +190,14 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
 
     @if (deleteTargetId()) {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <button type="button" class="absolute inset-0 bg-navy-950/80 backdrop-blur-sm" aria-label="Fermer" (click)="deleteTargetId.set(null)"></button>
-        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-navy-800">
+        <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="deleteTargetId.set(null)"></button>
+        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-default">
           <div class="flex items-start justify-between gap-4">
-            <h3 class="text-lg font-semibold text-slate-50">Supprimer cette règle ?</h3>
+            <h3 class="text-lg font-semibold text-primary">Supprimer cette règle ?</h3>
           </div>
-          <p class="mt-3 text-sm text-slate-400 leading-relaxed">Cette action est définitive. La règle ne sera plus utilisée pour suggérer les montants de prime.</p>
+          <p class="mt-3 text-sm text-muted leading-relaxed">Cette action est définitive. La règle ne sera plus utilisée pour suggérer les montants de prime.</p>
           <div class="mt-6 flex flex-wrap justify-end gap-2">
-            <button type="button" (click)="deleteTargetId.set(null)" class="rounded-lg border border-navy-800 px-4 py-2 text-sm text-slate-300 hover:bg-navy-800/80">
+            <button type="button" (click)="deleteTargetId.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80">
               Annuler
             </button>
             <button type="button" (click)="confirmDelete()" class="rounded-lg px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white">

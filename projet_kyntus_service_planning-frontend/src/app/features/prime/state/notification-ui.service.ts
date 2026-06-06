@@ -9,7 +9,7 @@ export type { PrimeNotification, PrimeNotificationType } from '../models/notific
 export class NotificationUiService {
   private readonly shellUi = inject(KyntusShellUiService);
 
-  readonly notifications = signal<PrimeNotification[]>(PrimeNotificationService.seed());
+  readonly notifications = signal<PrimeNotification[]>(PrimeNotificationService.load());
   readonly dropdownOpen = this.shellUi.dropdownOpen;
   readonly settingsOpen = this.shellUi.settingsOpen;
 

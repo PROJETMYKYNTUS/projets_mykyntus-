@@ -11,7 +11,7 @@ import { getScopedReferrals } from '../../lib/scoping';
   imports: [TeamTableComponent],
   template: `
     <section class="flex-1 space-y-6">
-      <p class="text-sm text-slate-500 max-w-3xl">
+      <p class="text-sm text-muted max-w-3xl">
         Parrainages et taux de succès par collaborateur.
       </p>
 

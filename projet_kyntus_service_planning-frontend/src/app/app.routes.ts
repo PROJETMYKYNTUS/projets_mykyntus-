@@ -37,25 +37,25 @@ export const routes: Routes = [
             .then(m => m.UnifiedDashboardComponent),
       },
 
-      // Notifications et paramètres — même pages que le module PRIME
+      // Notifications et paramètres — centre unifié plateforme
       {
         path: 'notifications',
         loadComponent: () =>
-          import('./features/prime/pages/notifications-page.component')
-            .then(m => m.NotificationsPageComponent),
+          import('./features/shell/pages/notifications-center/notifications-center.component')
+            .then(m => m.NotificationsCenterComponent),
       },
       {
         path: 'settings',
         loadComponent: () =>
-          import('./features/prime/pages/settings-page.component')
-            .then(m => m.SettingsPageComponent),
+          import('./features/shell/pages/global-settings/global-settings.component')
+            .then(m => m.GlobalSettingsComponent),
       },
 
       // ─── QUALITÉ & AMÉLIORATION ──────────────────
       {
         path: 'reclamations',
         canActivate: [AuthGuard],
-        data: { roles: ['employee', 'RH', 'Manager', 'Coach', 'RP', 'Admin', 'Audit', 'Equipe_Formation'] },
+        data: { roles: ['employee', 'RH', 'Manager', 'Coach', 'RP', 'Admin', 'Audit', 'Equipe_Formation', 'Superviseur'] },
         loadComponent: () =>
           import('./features/reclamation/employee/reclamation-employee.component')
             .then(m => m.ReclamationEmployeeComponent),
@@ -81,7 +81,7 @@ export const routes: Routes = [
       {
         path: 'mes-formations',
         canActivate: [AuthGuard],
-        data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation'] },
+        data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation', 'Superviseur'] },
         loadComponent: () =>
           import('./features/formation/employee/formation-employee.component')
             .then(m => m.FormationEmployeeComponent),
@@ -199,7 +199,7 @@ export const routes: Routes = [
       {
         path: 'mes-conges',
         canActivate: [AuthGuard],
-        data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation'] },
+        data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation', 'Superviseur'] },
         loadComponent: () =>
           import('./features/conge/pages/conge-employe/conge-employe.component')
             .then(m => m.CongeEmployeComponent),
@@ -220,7 +220,7 @@ export const routes: Routes = [
         path: 'documentation',
         canActivate: [AuthGuard],
         data: {
-          roles: ['Admin', 'RH', 'Employee', 'employee', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Equipe formation'],
+          roles: ['Admin', 'RH', 'Employee', 'employee', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Equipe formation', 'Superviseur'],
         },
         loadChildren: () =>
           import('./features/documentation/documentation.module')
@@ -231,7 +231,7 @@ export const routes: Routes = [
       {
         path: 'prime',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Employee'] },
+        data: { roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Employee', 'Superviseur'] },
         loadChildren: () =>
           import('./features/prime/prime.routes').then((m) => m.PRIME_ROUTES),
       },
@@ -240,7 +240,7 @@ export const routes: Routes = [
       {
         path: 'parrainage',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Manager', 'Pilote', 'Employee', 'Audit', 'Coach', 'RP'] },
+        data: { roles: ['Admin', 'RH', 'Manager', 'Pilote', 'Employee', 'Audit', 'Coach', 'RP', 'Superviseur'] },
         loadChildren: () =>
           import('./features/parrainage/parrainage.routes').then((m) => m.PARRAINAGE_ROUTES),
       },

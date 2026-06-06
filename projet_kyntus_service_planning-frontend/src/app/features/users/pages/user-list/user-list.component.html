@@ -1,18 +1,15 @@
-<div class="page">
+<div class="page ky-page-shell">
   <div class="page-header">
     <div class="header-left">
-      <button class="btn btn-back" (click)="goToDashboard()">
-        <span class="icon">←</span> Dashboard
-      </button>
       <div class="title-section">
         <h1>Gestion des Employés</h1>
         <p class="subtitle"><strong>{{ filteredUsers.length }}</strong> employé(s) trouvé(s)</p>
-        <button class="btn-import-export" (click)="goimport()">
+        <button class="btn-import-export ky-btn-secondary" (click)="goimport()">
   Import / Export
 </button>
       </div>
     </div>
-    <button class="btn btn-primary" (click)="createUser()">
+    <button class="btn btn-primary ky-btn-primary" (click)="createUser()">
       <span class="plus-icon">+</span> Nouvel Employé
     </button>
   </div>
@@ -22,7 +19,7 @@
       <span class="search-icon"><app-lucide-icon [icon]="icons.search" className="w-4 h-4" /></span>
       <input
         type="text"
-        class="search-input"
+        class="search-input ky-input"
         placeholder="Rechercher par nom, prénom ou email..."
         [(ngModel)]="searchTerm"
         (input)="onSearch()"
@@ -30,7 +27,7 @@
     </div>
   </div>
 
-  <div class="card">
+  <div class="card ky-card">
     @if (loading) {
       <div class="state-box">
         <div class="spinner"></div>
@@ -40,16 +37,16 @@
       <div class="state-box error">
         <div class="icon-error"><app-lucide-icon [icon]="icons.warn" className="w-5 h-5" /></div>
         <p>{{ error }}</p>
-        <button class="btn btn-outline" (click)="loadUsers()">Réessayer</button>
+        <button class="btn btn-outline ky-btn-secondary" (click)="loadUsers()">Réessayer</button>
       </div>
     } @else if (filteredUsers.length === 0) {
       <div class="state-box empty">
         <p>Aucun employé ne correspond à "<strong>{{ searchTerm }}</strong>"</p>
-        <button class="btn btn-outline" (click)="searchTerm=''; onSearch()">Effacer la recherche</button>
+        <button class="btn btn-outline ky-btn-secondary" (click)="searchTerm=''; onSearch()">Effacer la recherche</button>
       </div>
     } @else {
       <div class="table-wrapper">
-        <table>
+        <table class="prime-table">
           <thead>
             <tr>
               <th>Collaborateur</th>

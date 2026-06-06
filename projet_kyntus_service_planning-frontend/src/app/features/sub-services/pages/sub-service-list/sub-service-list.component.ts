@@ -52,7 +52,6 @@ getUniqueServices(): number {
     });
   }
 
-  goToDashboard(): void { this.router.navigate(['/dashboard']); }
   viewSubService(id: number): void { this.router.navigate(['/sub-services', id]); }
   editSubService(id: number): void { this.router.navigate(['/sub-services', 'edit', id]); }
   createSubService(): void { this.router.navigate(['/sub-services', 'create']); }

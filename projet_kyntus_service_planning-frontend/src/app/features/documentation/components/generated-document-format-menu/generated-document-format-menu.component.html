@@ -41,7 +41,7 @@
       [style.width.px]="dropdownAppliedWidth"
       (click)="$event.stopPropagation()"
     >
-      <p class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Télécharger en</p>
+      <p class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted">Télécharger en</p>
       <button type="button" role="menuitem" (click)="downloadAs('pdf', $event)">PDF (.pdf)</button>
       <button type="button" role="menuitem" (click)="downloadAs('docx', $event)">DOCX (.docx)</button>
     </div>

@@ -12,7 +12,7 @@ import type { AuditInterfaceSectionId } from '../../features/documentation/servi
  * - un item est visible si `roles` est vide/absent (tous), ou si le rôle courant y figure.
  * - un groupe est visible s'il a au moins un enfant visible (ou si `roles` au niveau groupe l'autorise).
  *
- * Rôles connus (claim JWT) : Admin, RH, Manager, Coach, RP, Pilote, Audit, Equipe_Formation, Employee.
+ * Rôles connus (claim JWT) : Admin, RH, Manager, Coach, RP, Pilote, Audit, Equipe_Formation, Employee, Superviseur.
  */
 
 export interface MenuItem {
@@ -47,10 +47,10 @@ export interface Microservice {
   dynamicChildren?: boolean;
   children: MenuItem[];
 }
-const ALL_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Employee'];
+const ALL_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Employee', 'Superviseur'];
 const MANAGER_ROLES = ['Admin', 'RH', 'Manager'];
 const ADMIN_RH = ['Admin', 'RH'];
-const EMPLOYEE_ROLES = ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation'];
+const EMPLOYEE_ROLES = ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation', 'Superviseur'];
 
 const ICONS = {
   grid: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -148,7 +148,7 @@ export const MICROSERVICES: Microservice[] = [
     id: 'prime',
     label: 'Prime',
     icon: ICONS.award,
-    roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Employee'],
+    roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Employee', 'Superviseur'],
     dynamicChildren: true,
     children: [],
   },
@@ -156,7 +156,7 @@ export const MICROSERVICES: Microservice[] = [
     id: 'parrainage',
     label: 'Parrainage',
     icon: ICONS.share,
-    roles: ['Admin', 'RH', 'Manager', 'Pilote', 'Audit', 'Coach', 'RP', 'Employee'],
+    roles: ['Admin', 'RH', 'Manager', 'Pilote', 'Audit', 'Coach', 'RP', 'Employee', 'Superviseur'],
     dynamicChildren: true,
     children: [],
   },

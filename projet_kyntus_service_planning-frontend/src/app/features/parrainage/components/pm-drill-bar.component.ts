@@ -15,11 +15,11 @@ const LABELS: Record<string, string> = {
   template: `
     @if (role.user().role === 'MANAGER') {
       <div class="flex flex-wrap items-center gap-2 mb-4">
-        <span class="text-xs text-slate-500 uppercase">Périmètre</span>
+        <span class="text-xs text-muted uppercase">Périmètre</span>
         <select
           [value]="drill.drill().coachId ?? ''"
           (change)="setCoach($event)"
-          class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-200"
+          class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-primary"
         >
           <option value="">Coach</option>
           @for (n of coaches; track n.id) {
@@ -29,11 +29,11 @@ const LABELS: Record<string, string> = {
       </div>
     } @else if (role.user().role === 'RP') {
       <div class="flex flex-wrap items-center gap-2 mb-4">
-        <span class="text-xs text-slate-500 uppercase">Périmètre</span>
+        <span class="text-xs text-muted uppercase">Périmètre</span>
         <select
           [value]="drill.drill().managerId ?? ''"
           (change)="setManager($event)"
-          class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-200"
+          class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-primary"
         >
           <option value="">Manager</option>
           @for (m of managers; track m.id) {
@@ -44,7 +44,7 @@ const LABELS: Record<string, string> = {
           [value]="drill.drill().coachId ?? ''"
           (change)="setCoach($event)"
           [disabled]="!drill.drill().managerId"
-          class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-200 disabled:opacity-50"
+          class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-primary disabled:opacity-50"
         >
           <option value="">Coach</option>
           @for (n of coaches; track n.id) {

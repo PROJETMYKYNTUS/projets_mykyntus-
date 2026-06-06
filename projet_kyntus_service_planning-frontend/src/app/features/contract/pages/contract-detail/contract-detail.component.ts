@@ -56,7 +56,6 @@ export class ContractDetailComponent implements OnInit {
     });
   }
 
-  goBack():   void { this.router.navigate(['/contracts']); }
   goToEdit(): void { this.router.navigate(['/contracts', this.contract?.id, 'edit']); }
 
   getInitials(name: string): string {

@@ -295,8 +295,6 @@ private runGenerateFromConfig(planningId: number): void {
     }
   }
 
-  goBack(): void { this.router.navigate(['/planning']); }
-
   // ── Helpers ──
   initCurrentWeek(): void {
     const today  = new Date();

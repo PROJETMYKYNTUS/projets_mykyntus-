@@ -20,44 +20,27 @@ body.theme-light .ks-content .text-slate-600 {
 }
 
 /* Fonds navy Tailwind (conçus pour dark) → surfaces claires */
-body.theme-light .ks-content.module-prime .bg-navy-950,
-body.theme-light .ks-content.module-parrainage .bg-navy-950,
-body.theme-light .ks-content.module-documentation .bg-navy-950,
-body.theme-light .ks-content.module-prime .bg-navy-950\/80,
-body.theme-light .ks-content.module-parrainage .bg-navy-950\/80,
-body.theme-light .ks-content.module-documentation .bg-navy-950\/80 {
+body.theme-light .ks-content .bg-navy-950,
+body.theme-light .ks-content .bg-navy-950\/80 {
   background-color: var(--bg-primary) !important;
 }
 
-body.theme-light .ks-content.module-prime .bg-navy-900,
-body.theme-light .ks-content.module-parrainage .bg-navy-900,
-body.theme-light .ks-content.module-documentation .bg-navy-900,
-body.theme-light .ks-content.module-prime .bg-navy-900\/50,
-body.theme-light .ks-content.module-parrainage .bg-navy-900\/50,
-body.theme-light .ks-content.module-documentation .bg-navy-900\/50,
-body.theme-light .ks-content.module-prime .bg-navy-900\/80,
-body.theme-light .ks-content.module-parrainage .bg-navy-900\/80,
-body.theme-light .ks-content.module-documentation .bg-navy-900\/80 {
+body.theme-light .ks-content .bg-navy-900,
+body.theme-light .ks-content .bg-navy-900\/50,
+body.theme-light .ks-content .bg-navy-900\/80 {
   background-color: var(--bg-card) !important;
 }
 
-body.theme-light .ks-content.module-prime .border-navy-800,
-body.theme-light .ks-content.module-parrainage .border-navy-800,
-body.theme-light .ks-content.module-documentation .border-navy-800 {
+body.theme-light .ks-content .border-navy-800 {
   border-color: var(--border-color) !important;
 }
 
-/* Headers microservices */
-body.theme-light .ks-content.module-documentation header,
-body.theme-light .ks-content.module-parrainage header,
-body.theme-light .ks-content.module-prime header {
+body.theme-light .ks-content header {
   background-color: color-mix(in srgb, var(--bg-card) 92%, transparent) !important;
   border-color: var(--border-color) !important;
 }
 
-body.theme-light .ks-content.module-documentation header .text-white,
-body.theme-light .ks-content.module-parrainage header .text-white,
-body.theme-light .ks-content.module-prime header .text-white {
+body.theme-light .ks-content header .text-white {
   color: var(--text-primary) !important;
 }
 
@@ -116,26 +99,26 @@ body.theme-dark .ks-content .border-slate-300 {
 }
 
 /* Legacy modules (sans module-*) : panneaux et inputs */
-body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) .page,
-body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) .card,
-body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) .panel,
-body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) .modal-content,
-body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) .table-wrap {
+body.theme-dark .ks-content .page,
+body.theme-dark .ks-content .card,
+body.theme-dark .ks-content .panel,
+body.theme-dark .ks-content .modal-content,
+body.theme-dark .ks-content .table-wrap {
   background-color: var(--bg-card);
   color: var(--text-primary);
 }
 
-body.theme-light .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) input:not([type='checkbox']):not([type='radio']),
-body.theme-light .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) select,
-body.theme-light .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) textarea {
+body.theme-light .ks-content input:not([type='checkbox']):not([type='radio']),
+body.theme-light .ks-content select,
+body.theme-light .ks-content textarea {
   background-color: var(--bg-input);
   color: var(--text-primary);
   border-color: var(--border-color);
 }
 
-body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) input:not([type='checkbox']):not([type='radio']),
-body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) select,
-body.theme-dark .ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) textarea {
+body.theme-dark .ks-content input:not([type='checkbox']):not([type='radio']),
+body.theme-dark .ks-content select,
+body.theme-dark .ks-content textarea {
   background-color: var(--bg-input);
   color: var(--text-primary);
   border-color: var(--border-color);

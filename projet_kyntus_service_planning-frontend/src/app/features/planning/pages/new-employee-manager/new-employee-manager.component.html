@@ -1,13 +1,12 @@
 <!-- new-employee-manager.component.html -->
-<div class="page-wrapper">
+<div class="page-wrapper ky-page-shell">
   <div class="page-header">
-    <button class="btn-back" (click)="goBack()">← Dashboard</button>
     <div class="header-info">
       <h1 class="page-title"><app-lucide-icon [icon]="icons.userPlus" className="w-6 h-6" /> Nouveaux Employés</h1>
       <p class="page-sub">Configuration slots samedi · Statut automatique &lt; 3 mois</p>
     </div>
     <div class="header-actions">
-      <select class="select-subservice" [(ngModel)]="subServiceId" (change)="onSubServiceChange()">
+      <select class="ky-input select-subservice" [(ngModel)]="subServiceId" (change)="onSubServiceChange()">
         <option [value]="0" disabled>-- Sous-service --</option>
         <option *ngFor="let s of subServices" [value]="s.id">{{ s.name }}</option>
       </select>
@@ -59,8 +58,8 @@
           </div>
         </div>
         <div class="ne-right">
-          <button class="btn-slot" [ngClass]="{'slot-active': emp.saturdaySlot === 1}" (click)="setSaturdaySlot(emp.id, 1)">8h–12h</button>
-          <button class="btn-slot" [ngClass]="{'slot-active': emp.saturdaySlot === 2}" (click)="setSaturdaySlot(emp.id, 2)">12h–16h</button>
+          <button class="prime-btn-secondary btn-slot" [ngClass]="{'slot-active': emp.saturdaySlot === 1}" (click)="setSaturdaySlot(emp.id, 1)">8h–12h</button>
+          <button class="prime-btn-secondary btn-slot" [ngClass]="{'slot-active': emp.saturdaySlot === 2}" (click)="setSaturdaySlot(emp.id, 2)">12h–16h</button>
           <button class="btn-remove" (click)="removeNewStatus(emp.id, emp.fullName)" title="Retirer le statut Nouveau"><app-lucide-icon [icon]="icons.remove" className="w-3.5 h-3.5 inline" /> Retirer</button>
         </div>
       </div>

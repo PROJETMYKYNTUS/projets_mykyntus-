@@ -10,6 +10,6 @@ export class GlobalNotificationsPageComponent implements OnInit {
   private readonly router = inject(Router);
 
   ngOnInit(): void {
-    void this.router.navigateByUrl('/notifications');
+    void this.router.navigate(['/notifications'], { queryParams: { source: 'parrainage' } });
   }
 }

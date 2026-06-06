@@ -46,7 +46,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
       </div>
     } @else {
       @if (stats(); as st) {
-      <div class="p-8 bg-app min-h-full space-y-8">
+      <div class="prime-page-shell space-y-8">
         <div class="flex justify-end items-end gap-4 flex-wrap">
           <app-rp-drill-bar [rpUserId]="rpUserId()" />
           <div class="text-sm font-medium text-slate-300 card-navy px-4 py-2 rounded-lg">

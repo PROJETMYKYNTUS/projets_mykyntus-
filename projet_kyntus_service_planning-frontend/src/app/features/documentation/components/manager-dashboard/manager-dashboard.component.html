@@ -3,7 +3,7 @@
     <app-doc-drill-bar [role]="role"></app-doc-drill-bar>
   }
   @if (loading) {
-    <p class="text-slate-400 text-sm">Chargement…</p>
+    <p class="text-muted text-sm">Chargement…</p>
   } @else if (error) {
     <p class="text-red-400 text-sm">{{ error }}</p>
   }
@@ -17,7 +17,7 @@
         [class.doc-stagger-3]="i === 3"
       >
         <div>
-          <p class="text-sm text-slate-400 font-medium mb-1">{{ stat.label }}</p>
+          <p class="text-sm text-muted font-medium mb-1">{{ stat.label }}</p>
           <h3 class="text-3xl font-bold text-white">{{ statValue(stat.key) }}</h3>
         </div>
         <div class="w-12 h-12 rounded-xl flex items-center justify-center" [ngClass]="stat.bg">
@@ -34,7 +34,7 @@
         <button
           type="button"
           (click)="goTeamDocs()"
-          class="w-full card-navy p-4 flex items-center gap-4 hover:bg-navy-800 transition-all group"
+          class="w-full card-navy p-4 flex items-center gap-4 hover:bg-input transition-all group"
         >
           <div
             class="w-10 h-10 bg-blue-600/10 rounded-lg flex items-center justify-center group-hover:bg-blue-600 transition-colors"
@@ -43,14 +43,14 @@
           </div>
           <div class="text-left">
             <p class="text-sm font-semibold text-white">Documents équipe</p>
-            <p class="text-xs text-slate-500">Fichiers de l’équipe</p>
+            <p class="text-xs text-muted">Fichiers de l’équipe</p>
           </div>
-          <app-doc-icon name="chevron-right" klass="ml-auto w-4 h-4 text-slate-600"></app-doc-icon>
+          <app-doc-icon name="chevron-right" klass="ml-auto w-4 h-4 text-muted"></app-doc-icon>
         </button>
         <button
           type="button"
           (click)="goTeamRequests()"
-          class="w-full card-navy p-4 flex items-center gap-4 hover:bg-navy-800 transition-all group"
+          class="w-full card-navy p-4 flex items-center gap-4 hover:bg-input transition-all group"
         >
           <div
             class="w-10 h-10 bg-amber-600/10 rounded-lg flex items-center justify-center group-hover:bg-amber-600 transition-colors"
@@ -59,9 +59,9 @@
           </div>
           <div class="text-left">
             <p class="text-sm font-semibold text-white">Demandes équipe</p>
-            <p class="text-xs text-slate-500">Demandes en attente</p>
+            <p class="text-xs text-muted">Demandes en attente</p>
           </div>
-          <app-doc-icon name="chevron-right" klass="ml-auto w-4 h-4 text-slate-600"></app-doc-icon>
+          <app-doc-icon name="chevron-right" klass="ml-auto w-4 h-4 text-muted"></app-doc-icon>
         </button>
       </div>
     </div>
@@ -80,33 +80,33 @@
       <div class="card-navy overflow-hidden">
         <table class="w-full text-left border-collapse">
           <thead>
-            <tr class="bg-navy-800/50 border-b border-navy-800">
-              <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <tr class="bg-card/50 border-b border-default">
+              <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase tracking-wider">
                 Collaborateur
               </th>
-              <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Type</th>
-              <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date</th>
-              <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Statut</th>
+              <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase tracking-wider">Type</th>
+              <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase tracking-wider">Date</th>
+              <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase tracking-wider">Statut</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-navy-800">
+          <tbody class="divide-y divide-default">
             @if (!loading && !error && previewRequests().length === 0) {
               <tr>
-                <td colspan="4" class="px-6 py-8 text-center text-sm text-slate-500">Aucune demande.</td>
+                <td colspan="4" class="px-6 py-8 text-center text-sm text-muted">Aucune demande.</td>
               </tr>
             }
             @for (req of previewRequests(); track req.id) {
-              <tr class="hover:bg-navy-800/30 transition-colors">
+              <tr class="hover:bg-input/30 transition-colors">
                 <td class="px-6 py-4">
                   <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 bg-navy-800 rounded-full flex items-center justify-center">
-                      <app-doc-icon name="user" klass="w-4 h-4 text-slate-400"></app-doc-icon>
+                    <div class="w-8 h-8 bg-card rounded-full flex items-center justify-center">
+                      <app-doc-icon name="user" klass="w-4 h-4 text-muted"></app-doc-icon>
                     </div>
-                    <span class="text-sm font-medium text-slate-200">{{ req.employeeName }}</span>
+                    <span class="text-sm font-medium text-primary">{{ req.employeeName }}</span>
                   </div>
                 </td>
-                <td class="px-6 py-4 text-sm text-slate-300">{{ req.type }}</td>
-                <td class="px-6 py-4 text-sm text-slate-400">{{ req.requestDate }}</td>
+                <td class="px-6 py-4 text-sm text-primary">{{ req.type }}</td>
+                <td class="px-6 py-4 text-sm text-muted">{{ req.requestDate }}</td>
                 <td class="px-6 py-4">
                   <app-status-badge [status]="req.status"></app-status-badge>
                 </td>

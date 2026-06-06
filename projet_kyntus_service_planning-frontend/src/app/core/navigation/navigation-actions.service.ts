@@ -12,6 +12,7 @@ import { DocumentationIdentityService } from '../../core/services/documentation-
 import { KyntusSessionService } from '../session/kyntus-session.service';
 import { mapJwtRoleToDocumentationRole } from './documentation-menu.config';
 import type { DocumentationTabId } from '../../features/documentation/services/documentation-navigation.service';
+import type { ParrainageView } from '../../features/parrainage/state/parrainage-nav.service';
 @Injectable({ providedIn: 'root' })
 export class NavigationActionsService {
   private readonly router = inject(Router);
@@ -155,6 +156,22 @@ export class NavigationActionsService {
       label: 'Configuration système',
       route: '/parrainage',
       parrainageView: 'admin-config',
+    });
+  }
+
+  async openPrimePath(primePath: string): Promise<void> {
+    await this.applyPrimeItem({
+      label: 'PRIME',
+      route: '/prime',
+      primePath,
+    });
+  }
+
+  async openParrainageView(view: ParrainageView): Promise<void> {
+    await this.applyParrainageItem({
+      label: 'Parrainage',
+      route: '/parrainage',
+      parrainageView: view,
     });
   }
 

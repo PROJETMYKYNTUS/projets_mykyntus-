@@ -47,7 +47,7 @@ type RhFilter = (typeof FILTER_OPTIONS)[number]['id'];
         }
         <div>
           <h1 class="text-2xl font-semibold text-primary">Gestion des parrainages</h1>
-          <p class="text-sm text-slate-500 mt-1">Liste consultative — la validation s'effectue depuis le détail.</p>
+          <p class="text-sm text-muted mt-1">Liste consultative — la validation s'effectue depuis le détail.</p>
         </div>
 
         <div class="flex flex-wrap gap-2">
@@ -55,7 +55,7 @@ type RhFilter = (typeof FILTER_OPTIONS)[number]['id'];
             <button
               type="button"
               (click)="activeFilter.set(f.id)"
-              [class]="'px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ' + (activeFilter() === f.id ? 'bg-soft-blue/20 border-soft-blue/50 text-soft-blue' : 'border-navy-700 text-slate-400 hover:border-navy-600')"
+              [class]="'px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ' + (activeFilter() === f.id ? 'bg-soft-blue/20 border-soft-blue/50 text-soft-blue' : 'border-default text-muted hover:border-default')"
             >
               {{ f.label }}
             </button>
@@ -63,14 +63,14 @@ type RhFilter = (typeof FILTER_OPTIONS)[number]['id'];
         </div>
 
         @if (loading()) {
-          <div class="card-navy p-10 text-center text-slate-500 text-sm">Chargement…</div>
+          <div class="card-navy p-10 text-center text-muted text-sm">Chargement…</div>
         } @else if (rows().length === 0) {
-          <div class="card-navy p-10 text-center text-slate-400 text-sm">Aucun dossier.</div>
+          <div class="card-navy p-10 text-center text-muted text-sm">Aucun dossier.</div>
         } @else {
           <div class="card-navy overflow-hidden">
             <div class="overflow-x-auto">
               <table class="min-w-full text-sm">
-                <thead class="bg-navy-950/50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <thead class="bg-app/50 text-left text-xs uppercase tracking-wide text-muted">
                   <tr>
                     <th class="px-4 py-3">Candidat</th>
                     <th class="px-4 py-3">Poste</th>
@@ -83,19 +83,19 @@ type RhFilter = (typeof FILTER_OPTIONS)[number]['id'];
                     <th class="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-navy-800">
+                <tbody class="divide-y divide-default">
                   @for (r of rows(); track r.id) {
-                    <tr class="hover:bg-navy-800/30">
-                      <td class="px-4 py-3 text-slate-200 whitespace-nowrap">{{ r.candidateName }}</td>
-                      <td class="px-4 py-3 text-slate-300 whitespace-nowrap">{{ r.position }}</td>
-                      <td class="px-4 py-3 text-slate-300 whitespace-nowrap">{{ r.referrerName }}</td>
-                      <td class="px-4 py-3 text-slate-300 whitespace-nowrap">{{ r.projectName }}</td>
+                    <tr class="hover:bg-card/30">
+                      <td class="px-4 py-3 text-primary whitespace-nowrap">{{ r.candidateName }}</td>
+                      <td class="px-4 py-3 text-primary whitespace-nowrap">{{ r.position }}</td>
+                      <td class="px-4 py-3 text-primary whitespace-nowrap">{{ r.referrerName }}</td>
+                      <td class="px-4 py-3 text-primary whitespace-nowrap">{{ r.projectName }}</td>
                       <td class="px-4 py-3">
                         <span [class]="'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ' + statusStyles[r.status]">{{ statusLabels[r.status] }}</span>
                       </td>
-                      <td class="px-4 py-3 text-slate-400 text-xs">{{ paymentLabel(r) }}</td>
-                      <td class="px-4 py-3 text-slate-300 text-xs">{{ r.rewardAmount > 0 ? r.rewardAmount + ' DH' : '—' }}</td>
-                      <td class="px-4 py-3 text-slate-400 whitespace-nowrap">
+                      <td class="px-4 py-3 text-muted text-xs">{{ paymentLabel(r) }}</td>
+                      <td class="px-4 py-3 text-primary text-xs">{{ r.rewardAmount > 0 ? r.rewardAmount + ' DH' : '—' }}</td>
+                      <td class="px-4 py-3 text-muted whitespace-nowrap">
                         {{ fr(r.createdAt) }}
                       </td>
                       <td class="px-4 py-3 text-right">

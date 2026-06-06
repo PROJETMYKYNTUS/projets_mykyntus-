@@ -1,13 +1,9 @@
-<div class="page-wrapper">
+<div class="page-wrapper ky-page-shell">
 
-  <div class="detail-card">
+  <div class="detail-card ky-card">
 
     <!-- ===== HEADER ===== -->
     <div class="detail-header">
-      <button class="btn-back" (click)="goBack()">
-        ← Retour
-      </button>
-
       <h1>Détail de l’étage</h1>
     </div>
 
@@ -21,7 +17,7 @@
     @else if (error) {
       <div class="state error">
         <p>{{ error }}</p>
-        <button class="btn-secondary" (click)="goBack()">Retour</button>
+        <button class="btn-secondary ky-btn-secondary" (click)="goBack()">Retour</button>
       </div>
     } 
     @else if (floor) {
@@ -57,7 +53,7 @@
 
       <!-- ===== ACTIONS ===== -->
       <div class="detail-actions">
-        <button class="btn-edit" (click)="editFloor()">
+        <button class="btn-edit ky-btn-primary" (click)="editFloor()">
           Modifier
         </button>
 

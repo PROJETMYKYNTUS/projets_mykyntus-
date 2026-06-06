@@ -14,8 +14,8 @@ import type { Referral } from '../../models/referral.model';
     <section class="flex-1 space-y-6">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 class="text-2xl font-semibold text-slate-50">Primes de parrainage à verser</h1>
-          <p class="text-sm text-slate-500 mt-1">
+          <h1 class="text-2xl font-semibold text-primary">Primes de parrainage à verser</h1>
+          <p class="text-sm text-muted mt-1">
             Dossiers éligibles après la période minimum — marquage comptable uniquement.
           </p>
         </div>
@@ -27,27 +27,27 @@ import type { Referral } from '../../models/referral.model';
       </div>
 
       @if (loading()) {
-        <div class="card-navy p-10 text-center text-slate-500 text-sm">Chargement…</div>
+        <div class="card-navy p-10 text-center text-muted text-sm">Chargement…</div>
       } @else {
         <div class="card-navy overflow-hidden">
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="bg-navy-800/50 border-b border-navy-800">
-                <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase">Parrain</th>
-                <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase">Candidat</th>
-                <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase">Montant</th>
-                <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase">Éligible le</th>
-                <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase">Statut</th>
-                <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase text-right">Actions</th>
+              <tr class="bg-card/50 border-b border-default">
+                <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase">Parrain</th>
+                <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase">Candidat</th>
+                <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase">Montant</th>
+                <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase">Éligible le</th>
+                <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase">Statut</th>
+                <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase text-right">Actions</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-navy-800">
+            <tbody class="divide-y divide-default">
               @for (item of items(); track item.referral.id) {
-                <tr class="hover:bg-navy-800/30">
-                  <td class="px-6 py-4 text-sm text-slate-200">{{ item.referral.referrerName }}</td>
-                  <td class="px-6 py-4 text-sm text-slate-400">{{ item.referral.candidateName }}</td>
-                  <td class="px-6 py-4 text-sm text-slate-300">{{ item.amount }} DH</td>
-                  <td class="px-6 py-4 text-sm text-slate-400">{{ formatDate(item.referral.eligibleForPaymentAt) }}</td>
+                <tr class="hover:bg-input/30">
+                  <td class="px-6 py-4 text-sm text-primary">{{ item.referral.referrerName }}</td>
+                  <td class="px-6 py-4 text-sm text-muted">{{ item.referral.candidateName }}</td>
+                  <td class="px-6 py-4 text-sm text-primary">{{ item.amount }} DH</td>
+                  <td class="px-6 py-4 text-sm text-muted">{{ formatDate(item.referral.eligibleForPaymentAt) }}</td>
                   <td class="px-6 py-4">
                     <span [class]="badgeClass(item.referral)">{{ paymentLabel(item.referral) }}</span>
                   </td>
@@ -70,15 +70,15 @@ import type { Referral } from '../../models/referral.model';
                 </tr>
                 @if (expandedId() === item.referral.id && item.canMarkPaid) {
                   <tr>
-                    <td colspan="6" class="px-6 py-4 bg-navy-900/40">
+                    <td colspan="6" class="px-6 py-4 bg-input/40">
                       <div class="flex flex-wrap items-end gap-4 max-w-2xl">
                         <div>
-                          <label class="block text-xs text-slate-500 mb-1">Date de paiement</label>
-                          <input type="date" class="rounded-lg border border-navy-800 bg-navy-950 px-3 py-2 text-sm text-slate-200" [(ngModel)]="payDate" />
+                          <label class="block text-xs text-muted mb-1">Date de paiement</label>
+                          <input type="date" class="rounded-lg border border-default bg-app px-3 py-2 text-sm text-primary" [(ngModel)]="payDate" />
                         </div>
                         <div class="flex-1 min-w-[180px]">
-                          <label class="block text-xs text-slate-500 mb-1">Référence compta</label>
-                          <input type="text" class="w-full rounded-lg border border-navy-800 bg-navy-950 px-3 py-2 text-sm text-slate-200" [(ngModel)]="payReference" placeholder="N° virement…" />
+                          <label class="block text-xs text-muted mb-1">Référence compta</label>
+                          <input type="text" class="w-full rounded-lg border border-default bg-app px-3 py-2 text-sm text-primary" [(ngModel)]="payReference" placeholder="N° virement…" />
                         </div>
                         <button
                           type="button"
@@ -88,14 +88,14 @@ import type { Referral } from '../../models/referral.model';
                         >
                           Confirmer paiement
                         </button>
-                        <button type="button" (click)="expandedId.set(null)" class="text-sm text-slate-500 hover:text-slate-300">Annuler</button>
+                        <button type="button" (click)="expandedId.set(null)" class="text-sm text-muted hover:text-primary">Annuler</button>
                       </div>
                     </td>
                   </tr>
                 }
               } @empty {
                 <tr>
-                  <td colspan="6" class="px-6 py-12 text-center text-slate-500 text-sm">Aucune prime à traiter</td>
+                  <td colspan="6" class="px-6 py-12 text-center text-muted text-sm">Aucune prime à traiter</td>
                 </tr>
               }
             </tbody>
@@ -111,7 +111,7 @@ import type { Referral } from '../../models/referral.model';
           >
             Tout marquer payé
           </button>
-          <button type="button" class="inline-flex items-center gap-2 rounded-lg border border-navy-800 px-4 py-2 text-sm text-slate-300 hover:bg-navy-800">
+          <button type="button" class="inline-flex items-center gap-2 rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input">
             <app-lucide-icon [icon]="downloadIcon" className="h-4 w-4" />
             Exporter
           </button>
@@ -159,7 +159,7 @@ export class ComptaPaymentsPageComponent {
     const base = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ';
     if (r.status === 'REWARDED') return base + 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
     if (r.paymentStatus === 'READY') return base + 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-    return base + 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+    return base + 'bg-slate-500/10 text-muted border-slate-500/20';
   }
 
   formatDate(d?: Date): string {

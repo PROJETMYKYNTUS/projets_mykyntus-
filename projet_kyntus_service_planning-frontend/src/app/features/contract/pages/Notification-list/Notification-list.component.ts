@@ -78,8 +78,6 @@ export class NotificationListComponent implements OnInit {
     this.router.navigate(['/contracts', n.contractId]);
   }
 
-  goBack(): void { this.router.navigate(['/contracts']); }
-
   getIcon(type: string): string {
     const map: Record<string, string> = {
       MiParcoursCDD: 'Mi-parcours',

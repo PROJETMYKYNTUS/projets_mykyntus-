@@ -19,9 +19,10 @@ import { AuthService } from '../../core/services/auth.service';
 import { KyntusThemeService } from '../../core/theme/kyntus-theme.service';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
 import { ShellNotificationBadgeComponent } from '../../shared/shell-controls/notification-badge.component';
-import { NotificationDropdownComponent } from '../prime/components/notification-dropdown.component';
-import { SettingsPanelComponent } from '../prime/components/settings-panel.component';
-import { NotificationUiService } from '../prime/state/notification-ui.service';
+import { ShellNotificationDropdownComponent } from '../../shared/shell-controls/notification-dropdown.component';
+import { ShellSettingsPanelComponent } from '../../shared/shell-controls/settings-panel.component';
+import { KyntusNotificationHubService } from '../../core/notifications/kyntus-notification-hub.service';
+import { KyntusShellUiService } from '../../core/notifications/kyntus-shell-ui.service';
 
 import { PrimeNavRequestService } from '../prime/services/prime-nav-request.service';
 
@@ -54,8 +55,8 @@ import { AuditInterfaceNavService } from '../documentation/services/audit-interf
     RouterModule,
     LucideIconComponent,
     ShellNotificationBadgeComponent,
-    NotificationDropdownComponent,
-    SettingsPanelComponent,
+    ShellNotificationDropdownComponent,
+    ShellSettingsPanelComponent,
   ],
 
   templateUrl: './shell-layout.component.html',
@@ -93,7 +94,8 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   private readonly docAuditNav = inject(AuditInterfaceNavService);
 
   readonly theme = inject(KyntusThemeService);
-  readonly primeNotif = inject(NotificationUiService);
+  readonly notifHub = inject(KyntusNotificationHubService);
+  readonly shellUi = inject(KyntusShellUiService);
 
   readonly icons = { bell: Bell, settings: Settings, moon: Moon, sun: Sun };
 
@@ -195,11 +197,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
     const path = url.split('?')[0];
 
-    if (
-      /^\/prime(\/|$)/.test(path) ||
-      path === '/notifications' ||
-      path === '/settings'
-    ) {
+    if (/^\/prime(\/|$)/.test(path)) {
       this.moduleContentClass = 'module-prime';
     } else if (/^\/parrainage(\/|$)/.test(path)) {
 
@@ -412,27 +410,23 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   }
 
   toggleNotifDropdown(): void {
-    if (this.primeNotif.dropdownOpen()) {
-      this.primeNotif.closeDropdown();
-    } else {
-      this.primeNotif.openDropdown();
-    }
+    this.shellUi.toggleDropdown();
   }
 
   openNotifications(): void {
     this.sidebarOpen = false;
-    this.primeNotif.openDropdown();
+    this.shellUi.openDropdown();
   }
 
   openSettings(): void {
     this.sidebarOpen = false;
-    this.primeNotif.openSettings();
+    void this.router.navigate(['/settings']);
   }
 
   openSettingsPage(): void {
     this.sidebarOpen = false;
-    this.primeNotif.closeDropdown();
-    this.primeNotif.openSettings();
+    this.shellUi.closeDropdown();
+    void this.router.navigate(['/settings']);
   }
 
 

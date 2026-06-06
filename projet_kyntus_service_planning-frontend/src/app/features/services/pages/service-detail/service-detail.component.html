@@ -1,7 +1,6 @@
-<div class="service-detail-page">
+<div class="service-detail-page ky-page-shell">
   <div class="page-header">
     <div class="header-left">
-      <button class="btn btn-light" (click)="goBack()">← Retour</button>
       <div>
         <h1>Détail du Service</h1>
         <p>Informations et sous-services associés</p>
@@ -9,7 +8,7 @@
     </div>
   </div>
 
-  <div class="card">
+  <div class="card ky-card">
     @if (loading) {
       <div class="state loading">
         <div class="spinner"></div>
@@ -18,7 +17,7 @@
     } @else if (error) {
       <div class="state error">
         <p>{{ error }}</p>
-        <button class="btn btn-light" (click)="goBack()">Retour</button>
+        <button class="btn btn-light ky-btn-secondary" (click)="goBack()">Retour</button>
       </div>
     } @else if (service) {
       <div class="service-info">
@@ -46,7 +45,7 @@
           <div class="empty-state">Aucun sous-service pour ce service.</div>
         } @else {
           <div class="table-wrapper">
-            <table class="styled-table">
+            <table class="prime-table">
               <thead>
                 <tr>
                   <th>Code</th>
@@ -67,7 +66,7 @@
       </div>
 
       <div class="actions">
-        <button class="btn btn-edit" (click)="editService()">Modifier</button>
+        <button class="btn btn-edit ky-btn-primary" (click)="editService()">Modifier</button>
         <button class="btn btn-delete" (click)="deleteService()">Supprimer</button>
       </div>
     }

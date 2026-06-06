@@ -181,7 +181,6 @@ export class PlanningGenerateComponent implements OnInit {
     this.router.navigate(['/planning/view', id]);
   }
 
-  goBack(): void { this.router.navigate(['/dashboard']); }
 deletePlanning(id: number, event: Event): void {
   event.stopPropagation(); // empêcher navigation vers la vue
   if (!confirm('Supprimer ce planning ? Cette action est irréversible.')) return;

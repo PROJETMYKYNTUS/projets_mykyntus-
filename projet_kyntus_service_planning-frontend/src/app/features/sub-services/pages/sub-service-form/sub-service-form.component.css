@@ -1,11 +1,6 @@
 .ss-layout {
-  min-height: 100vh;
-  padding: 32px 20px;
   position: relative;
   overflow: hidden;
-  background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 22%),
-    linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-primary) 100%);
 }
 
 .bg-orb {
@@ -19,7 +14,7 @@
 .orb-1 {
   width: 240px;
   height: 240px;
-  background: rgba(59, 130, 246, 0.15);
+  background: color-mix(in srgb, var(--blue-600) 15%, transparent);
   top: -70px;
   right: -20px;
 }
@@ -27,7 +22,7 @@
 .orb-2 {
   width: 220px;
   height: 220px;
-  background: rgba(16, 185, 129, 0.12);
+  background: color-mix(in srgb, #10b981 12%, transparent);
   bottom: 10%;
   left: -40px;
 }
@@ -53,32 +48,12 @@
   flex-wrap: wrap;
 }
 
-.btn-ghost {
-  border: 1px solid var(--border-color);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  padding: 10px 16px;
-  border-radius: 12px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.08);
-}
-
-.btn-ghost:hover {
-  background: var(--navy-700);
-  border-color: #bfdbfe;
-}
-
 .divider-v {
   width: 1px;
   height: 40px;
-  background: var(--border-color);
 }
 
 .page-eyebrow {
-  color: var(--text-muted);
   font-size: 0.82rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -89,17 +64,11 @@
   margin: 4px 0 0;
   font-size: 1.95rem;
   font-weight: 700;
-  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
 .form-glass-card {
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid var(--border-color);
-  border-radius: 24px;
   overflow: hidden;
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
-  backdrop-filter: blur(8px);
 }
 
 .form-mode-bar {
@@ -107,8 +76,6 @@
   align-items: center;
   gap: 10px;
   padding: 16px 24px;
-  background: var(--navy-700);
-  border-bottom: 1px solid #e2e8f0;
 }
 
 .mode-dot {
@@ -118,15 +85,14 @@
 }
 
 .mode-create {
-  background: #2563eb;
+  background: var(--blue-600);
 }
 
 .mode-edit {
-  background: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 80%, var(--blue-600));
 }
 
 .mode-text {
-  color: var(--text-muted);
   font-weight: 600;
   font-size: 0.92rem;
 }
@@ -150,37 +116,12 @@
 }
 
 .form-label {
-  color: var(--text-primary);
   font-weight: 700;
   font-size: 0.95rem;
 }
 
 .req-star {
-  color: #dc2626;
-}
-
-.ss-input,
-.ss-select {
-  width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 14px 16px;
-  color: var(--text-primary);
-  font-size: 0.96rem;
-  outline: none;
-  transition: all 0.25s ease;
-}
-
-.ss-input::placeholder {
-  color: var(--text-muted);
-}
-
-.ss-input:focus,
-.ss-select:focus {
-  background: var(--bg-card);
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
 }
 
 .select-wrap {
@@ -192,15 +133,14 @@
   top: 50%;
   right: 16px;
   transform: translateY(-50%);
-  color: var(--text-muted);
   pointer-events: none;
 }
 
 .err-msg {
   margin: 0;
-  color: #dc2626;
   font-size: 0.84rem;
   font-weight: 500;
+  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
 }
 
 .form-actions {
@@ -210,51 +150,13 @@
   margin-top: 10px;
 }
 
-.btn-cancel,
-.btn-save {
-  border: none;
-  border-radius: 14px;
-  padding: 12px 20px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.btn-cancel {
-  background: var(--bg-input);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-}
-
-.btn-cancel:hover {
-  background: var(--navy-700);
-}
-
-.btn-save {
-  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-  color: #ffffff;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
-}
-
-.btn-save:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.22);
-}
-
-.btn-save:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
 .btn-spinner {
   display: inline-block;
   width: 14px;
   height: 14px;
   margin-right: 8px;
-  border: 2px solid rgba(255, 255, 255, 0.45);
-  border-top-color: #ffffff;
+  border: 2px solid color-mix(in srgb, var(--bg-card) 45%, transparent);
+  border-top-color: var(--bg-card);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

@@ -98,32 +98,32 @@ const PAGE_SIZE = 8;
     } @else {
       <section class="flex-1 space-y-6">
         <div>
-          <h1 class="text-2xl font-semibold text-slate-50">{{ intro.title }}</h1>
-          <p class="text-sm text-slate-500 mt-1">{{ intro.desc }}</p>
+          <h1 class="text-2xl font-semibold text-primary">{{ intro.title }}</h1>
+          <p class="text-sm text-muted mt-1">{{ intro.desc }}</p>
         </div>
 
         @switch (auditSection.section()) {
           @case ('dashboard') {
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div class="card-navy p-4 bg-gradient-to-br from-blue-950/40 to-navy-900 border border-blue-900/40 shadow-sm hover:shadow-[0_10px_25px_rgba(37,99,235,0.18)] hover:scale-[1.02] transition-all duration-300">
-                <div class="flex items-center gap-2 text-slate-300"><app-lucide-icon [icon]="dbIcon" className="w-4 h-4 text-blue-300" /><p class="text-xs">Nombre total</p></div>
+                <div class="flex items-center gap-2 text-primary"><app-lucide-icon [icon]="dbIcon" className="w-4 h-4 text-blue-300" /><p class="text-xs">Nombre total</p></div>
                 <p class="text-2xl text-white font-bold mt-2">{{ rows().length }}</p>
-                <p class="text-xs text-slate-500">événements journal</p>
+                <p class="text-xs text-muted">événements journal</p>
               </div>
               <div class="card-navy p-4 bg-gradient-to-br from-emerald-950/35 to-navy-900 border border-emerald-900/40 shadow-sm hover:shadow-[0_10px_25px_rgba(16,185,129,0.16)] hover:scale-[1.02] transition-all duration-300">
-                <div class="flex items-center gap-2 text-slate-300"><app-lucide-icon [icon]="checkIcon" className="w-4 h-4 text-emerald-300" /><p class="text-xs">Infos (gravité)</p></div>
+                <div class="flex items-center gap-2 text-primary"><app-lucide-icon [icon]="checkIcon" className="w-4 h-4 text-emerald-300" /><p class="text-xs">Infos (gravité)</p></div>
                 <p class="text-2xl text-white font-bold mt-2">{{ countSeverity('INFO') }}</p>
-                <p class="text-xs text-slate-500">niveau INFO</p>
+                <p class="text-xs text-muted">niveau INFO</p>
               </div>
               <div class="card-navy p-4 bg-gradient-to-br from-amber-950/35 to-navy-900 border border-amber-900/40 shadow-sm hover:shadow-[0_10px_25px_rgba(245,158,11,0.16)] hover:scale-[1.02] transition-all duration-300">
-                <div class="flex items-center gap-2 text-slate-300"><app-lucide-icon [icon]="clockIcon" className="w-4 h-4 text-amber-300" /><p class="text-xs">Avertissements</p></div>
+                <div class="flex items-center gap-2 text-primary"><app-lucide-icon [icon]="clockIcon" className="w-4 h-4 text-amber-300" /><p class="text-xs">Avertissements</p></div>
                 <p class="text-2xl text-white font-bold mt-2">{{ countSeverity('WARNING') }}</p>
-                <p class="text-xs text-slate-500">WARNING</p>
+                <p class="text-xs text-muted">WARNING</p>
               </div>
               <div class="card-navy p-4 bg-gradient-to-br from-rose-950/35 to-navy-900 border border-rose-900/40 shadow-sm hover:shadow-[0_10px_25px_rgba(244,63,94,0.16)] hover:scale-[1.02] transition-all duration-300">
-                <div class="flex items-center gap-2 text-slate-300"><app-lucide-icon [icon]="alertIcon" className="w-4 h-4 text-rose-300" /><p class="text-xs">Critiques</p></div>
+                <div class="flex items-center gap-2 text-primary"><app-lucide-icon [icon]="alertIcon" className="w-4 h-4 text-rose-300" /><p class="text-xs">Critiques</p></div>
                 <p class="text-2xl text-white font-bold mt-2">{{ countSeverity('CRITICAL') }}</p>
-                <p class="text-xs text-slate-500">CRITICAL</p>
+                <p class="text-xs text-muted">CRITICAL</p>
               </div>
             </div>
           }
@@ -137,7 +137,7 @@ const PAGE_SIZE = 8;
             <app-anomalies-panel (investigate)="investigateAnomaly($event)" (openTimeline)="openAnomalyTimeline($event)" />
           }
           @case ('journal') {
-            <div class="card-navy p-4 space-y-3 border border-navy-800/80">
+            <div class="card-navy p-4 space-y-3 border border-default/80">
               <div class="flex flex-wrap items-end gap-3">
                 <select [value]="deptFilter()" (change)="onDeptChange($any($event.target).value)" [class]="selClass" aria-label="Département">
                   @for (d of deptOptions; track d) { <option [value]="d">{{ d === 'Tous' ? 'Département' : d }}</option> }
@@ -154,22 +154,22 @@ const PAGE_SIZE = 8;
                 <select [value]="severityFilter()" (change)="setFilter(severityFilter, $any($event.target).value)" [class]="selClass" aria-label="Gravité">
                   @for (s of severityOptions; track s) { <option [value]="s">{{ s === 'Tous' ? 'Gravité' : s }}</option> }
                 </select>
-                <button type="button" (click)="resetHierarchyFilters()" class="px-3 py-2 rounded-lg border border-navy-700 text-sm text-slate-400 hover:bg-navy-800 hover:text-slate-200 whitespace-nowrap transition-colors">
+                <button type="button" (click)="resetHierarchyFilters()" class="px-3 py-2 rounded-lg border border-default text-sm text-muted hover:bg-input hover:text-primary whitespace-nowrap transition-colors">
                   Réinitialiser filtres
                 </button>
               </div>
               <div class="flex flex-wrap gap-2 items-center">
-                <span class="text-[11px] text-slate-500 uppercase">Action rapide :</span>
+                <span class="text-[11px] text-muted uppercase">Action rapide :</span>
                 @for (c of actionChips; track c) {
-                  <button type="button" (click)="setFilter(actionChip, c)" [class]="'px-2.5 py-1 rounded-full text-xs border transition-colors duration-150 ' + (actionChip() === c ? 'bg-blue-600/25 border-blue-500/50 text-blue-200' : 'border-navy-700 text-slate-400 hover:border-navy-600')">
+                  <button type="button" (click)="setFilter(actionChip, c)" [class]="'px-2.5 py-1 rounded-full text-xs border transition-colors duration-150 ' + (actionChip() === c ? 'bg-blue-600/25 border-blue-500/50 text-blue-200' : 'border-default text-muted hover:border-default')">
                     {{ c }}
                   </button>
                 }
               </div>
               <div class="flex flex-wrap items-end gap-3">
                 <input [value]="search()" (input)="setFilter(search, $any($event.target).value)" placeholder="Recherche globale (utilisateur, IP, action, org…)"
-                  class="bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-slate-200 min-w-[200px] focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20" />
-                <input type="date" [value]="dateFilter()" (change)="setFilter(dateFilter, $any($event.target).value)" class="bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-slate-200" />
+                  class="bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary min-w-[200px] focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20" />
+                <input type="date" [value]="dateFilter()" (change)="setFilter(dateFilter, $any($event.target).value)" class="bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary" />
                 <select [value]="userFilter()" (change)="setFilter(userFilter, $any($event.target).value)" [class]="selClass">
                   @for (u of users(); track u) { <option [value]="u">{{ u }}</option> }
                 </select>
@@ -193,11 +193,11 @@ const PAGE_SIZE = 8;
               (view)="selected.set($event)"
             />
 
-            <div class="flex items-center justify-between text-sm text-slate-400">
+            <div class="flex items-center justify-between text-sm text-muted">
               <span>Page {{ safePage() }} / {{ totalPages() }}</span>
               <div class="flex gap-2">
-                <button type="button" [disabled]="safePage() <= 1" (click)="page.set(safePage() - 1)" class="px-3 py-1.5 rounded-md border border-navy-700 disabled:opacity-40 hover:bg-navy-800 transition-colors">Précédent</button>
-                <button type="button" [disabled]="safePage() >= totalPages()" (click)="page.set(safePage() + 1)" class="px-3 py-1.5 rounded-md border border-navy-700 disabled:opacity-40 hover:bg-navy-800 transition-colors">Suivant</button>
+                <button type="button" [disabled]="safePage() <= 1" (click)="page.set(safePage() - 1)" class="px-3 py-1.5 rounded-md border border-default disabled:opacity-40 hover:bg-input transition-colors">Précédent</button>
+                <button type="button" [disabled]="safePage() >= totalPages()" (click)="page.set(safePage() + 1)" class="px-3 py-1.5 rounded-md border border-default disabled:opacity-40 hover:bg-input transition-colors">Suivant</button>
               </div>
             </div>
           }
@@ -234,7 +234,7 @@ export class AdminAuditPageComponent {
   readonly roleOptions = ROLE_FILTER_OPTIONS;
   readonly severityOptions = SEVERITY_OPTIONS;
   readonly actionChips = ['Tous', ...ACTION_CHIPS];
-  readonly selClass = 'bg-navy-900 border border-navy-800 rounded-lg px-3 py-2 text-sm text-slate-200 min-w-[140px]';
+  readonly selClass = 'bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary min-w-[140px]';
   readonly deptOptions = ['Tous', ...ORG.map((d) => d.dept)];
 
   readonly rows = computed(() => this.buildRows());

@@ -1,8 +1,7 @@
-<div class="page-wrapper">
+<div class="page-wrapper ky-page-shell">
 
   <!-- ── HEADER ── -->
   <div class="page-header">
-    <button class="btn-back" (click)="goBack()">← Planning</button>
     <div class="header-info">
       <h1 class="page-title">Configuration des Shifts</h1>
       <p class="page-sub">Définissez les shifts et pauses avant la génération</p>
@@ -17,7 +16,7 @@
   <div class="selector-bar">
     <div class="form-group">
       <label>Sous-service <span class="req">*</span></label>
-      <select [(ngModel)]="subServiceId" (change)="onSubServiceChange()">
+      <select class="ky-input" [(ngModel)]="subServiceId" (change)="onSubServiceChange()">
         <option value="0" disabled>-- Sélectionner --</option>
         <option *ngFor="let s of subServices" [value]="s.id">{{ s.name }}</option>
       </select>
@@ -25,7 +24,7 @@
 
     <div class="form-group">
       <label>Semaine (Lundi) <span class="req">*</span></label>
-      <input type="date" [(ngModel)]="weekStartDate" (change)="onWeekChange()" />
+      <input class="ky-input" type="date" [(ngModel)]="weekStartDate" (change)="onWeekChange()" />
       <span class="week-preview" *ngIf="weekCode">{{ weekCode }}</span>
     </div>
 
@@ -47,14 +46,14 @@
         <h2>Tableau des Shifts</h2>
         <span class="shifts-count">{{ shifts.length }} shift(s)</span>
       </div>
-      <button class="btn-add-shift" (click)="addShift()" [disabled]="shifts.length >= 8">
+      <button class="prime-btn-secondary btn-add-shift" (click)="addShift()" [disabled]="shifts.length >= 8">
         + Ajouter un shift
       </button>
     </div>
 
     <!-- Tableau -->
     <div class="table-wrapper">
-      <table class="shifts-table">
+      <table class="prime-table prime-table--dense shifts-table">
         <thead>
           <tr>
             <th>#</th>
@@ -82,12 +81,12 @@
                 type="text"
                 [(ngModel)]="shift.label"
                 placeholder="Ex: Matin"
-                class="input-label" />
+                class="ky-input input-label" />
             </td>
 
             <!-- Heure début -->
             <td class="td-start">
-              <select [(ngModel)]="shift.startTime" class="select-time">
+              <select [(ngModel)]="shift.startTime" class="ky-input select-time">
                 <option *ngFor="let opt of startOptions" [value]="opt.value">
                   {{ opt.label }}
                 </option>
@@ -106,14 +105,14 @@
                   type="number"
                   [(ngModel)]="shift.workHours"
                   min="4" max="12"
-                  class="input-hours" />
+                  class="ky-input input-hours" />
                 <span class="hours-unit">h</span>
               </div>
             </td>
 
             <!-- Pause début plage -->
             <td class="td-break">
-              <select [(ngModel)]="shift.breakRangeStart" class="select-time">
+              <select [(ngModel)]="shift.breakRangeStart" class="ky-input select-time">
                 <option [ngValue]="undefined">Auto ({{ getBreakRangeAuto(shift).split('→')[0] }})</option>
                 <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">
                   {{ opt.label }}
@@ -123,7 +122,7 @@
 
             <!-- Pause fin plage -->
             <td class="td-break">
-              <select [(ngModel)]="shift.breakRangeEnd" class="select-time">
+              <select [(ngModel)]="shift.breakRangeEnd" class="ky-input select-time">
                 <option [ngValue]="undefined">Auto ({{ getBreakRangeAuto(shift).split('→')[1] }})</option>
                 <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">
                   {{ opt.label }}
@@ -137,7 +136,7 @@
                 type="number"
                 [(ngModel)]="shift.requiredCount"
                 min="0"
-                class="input-count" />
+                class="ky-input input-count" />
             </td>
 
             <!-- Pourcentage -->
@@ -154,7 +153,7 @@
                   type="number"
                   [(ngModel)]="shift.minPresencePercent"
                   min="50" max="100"
-                  class="input-presence" />
+                  class="ky-input input-presence" />
                 <span class="hours-unit">%</span>
               </div>
             </td>
@@ -216,7 +215,7 @@
 
     <!-- Sauvegarder config -->
     <button
-      class="btn-save"
+      class="prime-btn-secondary btn-save"
       [disabled]="saving || !subServiceId || totalEffectif === 0"
       (click)="saveConfig()">
       <span *ngIf="!saving"><app-lucide-icon [icon]="icons.save" className="w-4 h-4 inline" /> Sauvegarder la config</span>
@@ -225,7 +224,7 @@
 
     <!-- Générer planning -->
     <button
-      class="btn-generate"
+      class="ky-btn-primary btn-generate"
       [disabled]="generating || !savedConfig"
       (click)="generatePlanning()">
       <span *ngIf="!generating">Générer le planning</span>

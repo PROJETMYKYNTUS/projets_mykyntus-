@@ -43,7 +43,6 @@ export class FloorListComponent implements OnInit {
     });
   }
 
-  goToDashboard(): void { this.router.navigate(['/dashboard']); }
   viewFloor(id: number): void { this.router.navigate(['/floors', id]); }
   editFloor(id: number): void { this.router.navigate(['/floors', 'edit', id]); }
   createFloor(): void { this.router.navigate(['/floors', 'create']); }

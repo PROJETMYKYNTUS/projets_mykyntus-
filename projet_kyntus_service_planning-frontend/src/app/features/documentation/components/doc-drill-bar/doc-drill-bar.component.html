@@ -1,8 +1,8 @@
 @if (role === 'Manager') {
   <div class="flex flex-wrap items-center gap-2 mb-4">
-    <span class="text-xs text-slate-500 uppercase tracking-wide">Périmètre</span>
+    <span class="text-xs text-muted uppercase tracking-wide">Périmètre</span>
     <select
-      class="bg-navy-900 border border-navy-700 rounded-lg py-2 px-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+      class="bg-input border border-default rounded-lg py-2 px-3 text-sm text-primary focus:outline-none focus:border-blue-500"
       [value]="drill.coachId ?? ''"
       (change)="onCoachChange($any($event.target).value)"
     >
@@ -12,7 +12,7 @@
       }
     </select>
     <select
-      class="bg-navy-900 border border-navy-700 rounded-lg py-2 px-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+      class="bg-input border border-default rounded-lg py-2 px-3 text-sm text-primary focus:outline-none focus:border-blue-500 disabled:opacity-50"
       [disabled]="!drill.coachId"
       [value]="drill.pilotId ?? ''"
       (change)="onPilotChange($any($event.target).value)"
@@ -26,9 +26,9 @@
 }
 @if (role === 'RP') {
   <div class="flex flex-wrap items-center gap-2 mb-4">
-    <span class="text-xs text-slate-500 uppercase tracking-wide">Périmètre</span>
+    <span class="text-xs text-muted uppercase tracking-wide">Périmètre</span>
     <select
-      class="bg-navy-900 border border-navy-700 rounded-lg py-2 px-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+      class="bg-input border border-default rounded-lg py-2 px-3 text-sm text-primary focus:outline-none focus:border-blue-500"
       [value]="drill.managerId ?? ''"
       (change)="onManagerChange($any($event.target).value)"
     >
@@ -38,7 +38,7 @@
       }
     </select>
     <select
-      class="bg-navy-900 border border-navy-700 rounded-lg py-2 px-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+      class="bg-input border border-default rounded-lg py-2 px-3 text-sm text-primary focus:outline-none focus:border-blue-500 disabled:opacity-50"
       [disabled]="!drill.managerId"
       [value]="drill.coachId ?? ''"
       (change)="onCoachChange($any($event.target).value)"
@@ -49,7 +49,7 @@
       }
     </select>
     <select
-      class="bg-navy-900 border border-navy-700 rounded-lg py-2 px-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+      class="bg-input border border-default rounded-lg py-2 px-3 text-sm text-primary focus:outline-none focus:border-blue-500 disabled:opacity-50"
       [disabled]="!drill.coachId"
       [value]="drill.pilotId ?? ''"
       (change)="onPilotChange($any($event.target).value)"

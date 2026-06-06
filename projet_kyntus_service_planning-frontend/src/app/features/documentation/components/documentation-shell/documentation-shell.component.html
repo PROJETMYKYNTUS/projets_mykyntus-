@@ -1,5 +1,5 @@
 <div
-  class="min-h-screen bg-navy-950 flex flex-col transition-colors duration-300 w-full min-w-0 max-w-[100vw]"
+  class="min-h-screen bg-app flex flex-col transition-colors duration-300 w-full min-w-0 max-w-[100vw]"
 >
   <div class="flex flex-1 min-h-0 min-w-0 w-full flex-col">
     <app-documentation-header [title]="(title$ | async) ?? ''"></app-documentation-header>
@@ -22,8 +22,8 @@
     <div class="p-8 flex-1 min-w-0">
       <router-outlet></router-outlet>
     </div>
-    <footer class="p-8 border-t border-navy-800 text-center transition-colors duration-300">
-      <p class="text-xs text-slate-600">
+    <footer class="p-8 border-t border-default text-center transition-colors duration-300">
+      <p class="text-xs text-muted">
         © 2024 MyKyntus — Plateforme RH entreprise. Tous droits réservés.
       </p>
     </footer>

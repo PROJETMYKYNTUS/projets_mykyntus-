@@ -2,13 +2,13 @@
   @if (!isAdmin(role)) {
     <app-admin-shell title="Permissions Management" description="Accès refusé pour ce rôle." iconName="lock">
       <div class="card-navy p-6">
-        <p class="text-slate-300">Seul le rôle `Admin` peut modifier la matrice RBAC.</p>
+        <p class="text-primary">Seul le rôle `Admin` peut modifier la matrice RBAC.</p>
       </div>
     </app-admin-shell>
   } @else if (loading) {
     <app-admin-shell title="Permissions Management" description="Chargement des permissions…" iconName="lock">
       <div class="card-navy p-6">
-        <p class="text-slate-300">Veuillez patienter.</p>
+        <p class="text-primary">Veuillez patienter.</p>
       </div>
     </app-admin-shell>
   } @else if (loadError) {
@@ -47,7 +47,7 @@
             <label class="text-sm font-semibold text-white">Filtrer par type</label>
             <select
               [(ngModel)]="selectedDocType"
-              class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500"
+              class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
             >
               <option value="ALL">Tous les types</option>
               @for (dt of docTypes; track dt.id) {
@@ -59,7 +59,7 @@
             <label class="text-sm font-semibold text-white">Filtrer par département</label>
             <select
               [(ngModel)]="selectedDepartment"
-              class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500"
+              class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
             >
               <option value="ALL">Tous les départements</option>
               @for (dep of departments; track dep) {
@@ -84,7 +84,7 @@
                 type="button"
                 (click)="onReset()"
                 [disabled]="saving"
-                class="px-6 py-3 rounded-lg font-bold text-slate-200 border border-navy-800 hover:bg-navy-800/50 transition-all"
+                class="px-6 py-3 rounded-lg font-bold text-primary border border-default hover:bg-input/50 transition-all"
               >
                 Réinitialiser
               </button>
@@ -92,32 +92,32 @@
           </div>
         </div>
 
-        <div class="border border-navy-800 rounded-xl overflow-hidden">
-          <div class="px-4 py-3 bg-navy-800/30 flex items-center justify-between gap-3">
-            <p class="text-sm text-slate-300">
+        <div class="border border-default rounded-xl overflow-hidden">
+          <div class="px-4 py-3 bg-card/30 flex items-center justify-between gap-3">
+            <p class="text-sm text-primary">
               Règles actives:
               <span class="text-white font-semibold">{{ filterSummaryDocType() }}</span>
               •
               <span class="text-white font-semibold">{{ filterSummaryDept() }}</span>
             </p>
-            <div class="text-xs text-slate-500">
-              Modifiez les cases à cocher puis cliquez sur <span class="text-slate-200 font-semibold">Sauvegarder</span>.
+            <div class="text-xs text-muted">
+              Modifiez les cases à cocher puis cliquez sur <span class="text-primary font-semibold">Sauvegarder</span>.
             </div>
           </div>
 
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="bg-navy-800/20 border-b border-navy-800">
-                <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Permission</th>
+              <tr class="bg-card/20 border-b border-default">
+                <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase tracking-wider">Permission</th>
                 @for (r of adminRoles; track r) {
-                  <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">{{ r }}</th>
+                  <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase tracking-wider">{{ r }}</th>
                 }
               </tr>
             </thead>
-            <tbody class="divide-y divide-navy-800">
+            <tbody class="divide-y divide-default">
               @for (permKey of permissionKeys; track permKey) {
-                <tr class="hover:bg-navy-800/15 transition-colors">
-                  <td class="px-6 py-4 text-sm text-slate-200 font-semibold">{{ permissionLabels[permKey] }}</td>
+                <tr class="hover:bg-input/15 transition-colors">
+                  <td class="px-6 py-4 text-sm text-primary font-semibold">{{ permissionLabels[permKey] }}</td>
                   @for (r of adminRoles; track r) {
                     <td class="px-6 py-4">
                       <div class="flex items-center">

@@ -40,7 +40,7 @@ type DashboardPayload = Awaited<ReturnType<typeof AdminPrimeService.getDashboard
   providers: [provideEchartsCore({ echarts })],
   template: `
     @if (primeSection.activeAdminSection() === 'workflows') {
-      <div class="p-8 space-y-6 bg-app min-h-full">
+      <div class="prime-page-shell">
         <app-workflow-config-admin />
       </div>
     } @else {
@@ -50,7 +50,7 @@ type DashboardPayload = Awaited<ReturnType<typeof AdminPrimeService.getDashboard
         </div>
       } @else {
         @let d = data()!;
-        <div class="p-8 space-y-8 bg-app min-h-full">
+        <div class="prime-page-shell space-y-8">
           <div>
             <h1 class="text-3xl font-bold text-primary tracking-tight">Dashboard Admin Systeme</h1>
             <p class="text-slate-400 mt-1">Supervision technique, gouvernance et controle du moteur PRIME.</p>

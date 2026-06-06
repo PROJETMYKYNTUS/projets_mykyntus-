@@ -1,27 +1,50 @@
 import { Injectable, inject } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import { KyntusSessionService } from '../session/kyntus-session.service';
 import { NotificationService } from '../services/notification.service';
+import { KyntusNotificationHubService } from './kyntus-notification-hub.service';
+import { UserService } from '../../features/users/services/user.service';
 
-const MANAGER_ROLES = new Set(['manager', 'rh', 'admin', 'rp', 'pilote', 'coach']);
+const MANAGER_ROLES = new Set(['manager', 'rh', 'admin', 'rp', 'pilote', 'coach', 'superviseur', 'audit']);
 
 @Injectable({ providedIn: 'root' })
 export class KyntusNotificationInitService {
   private readonly session = inject(KyntusSessionService);
   private readonly planningNotif = inject(NotificationService);
+  private readonly hub = inject(KyntusNotificationHubService);
+  private readonly userService = inject(UserService);
   private connected = false;
 
   connectIfAuthenticated(): void {
     if (this.connected || !this.session.isAuthenticated()) return;
-    const userId = this.session.getAuthUserId();
-    if (!userId) return;
+    void this.bootstrap();
+  }
 
+  private async bootstrap(): Promise<void> {
+    const authUserId = this.session.getAuthUserId();
+    if (!authUserId) return;
+
+    const planningUserId = await this.resolvePlanningUserId(authUserId);
     const role = (this.session.getRole() || '').toLowerCase().trim();
+
     if (MANAGER_ROLES.has(role)) {
-      this.planningNotif.connectAsManager(userId);
+      this.planningNotif.connectAsManager(planningUserId);
     } else {
-      this.planningNotif.connect(userId);
+      this.planningNotif.connect(planningUserId);
     }
+
+    this.hub.bootstrapAfterLogin();
     this.connected = true;
+  }
+
+  private async resolvePlanningUserId(authUserId: number): Promise<number> {
+    try {
+      const user = await firstValueFrom(this.userService.getUserByAuthId(authUserId));
+      if (user?.id && user.id > 0) return user.id;
+    } catch {
+      /* fallback auth id */
+    }
+    return authUserId;
   }
 
   disconnect(): void {

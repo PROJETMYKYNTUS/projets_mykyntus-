@@ -15,18 +15,18 @@ export interface TimelineItem {
   standalone: true,
   imports: [LucideIconComponent],
   template: `
-    <ol class="relative border-l border-navy-800 pl-4 space-y-4">
+    <ol class="relative border-l border-default pl-4 space-y-4">
       @for (item of items; track item.id; let last = $last) {
         <li [class]="last ? '' : 'pb-2'">
-          <div class="absolute -left-[10px] flex h-5 w-5 items-center justify-center rounded-full border bg-navy-900">
+          <div class="absolute -left-[10px] flex h-5 w-5 items-center justify-center rounded-full border bg-input">
             <span [class]="'flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ' + iconColor(item)">
               <app-lucide-icon [icon]="iconFor(item)" className="h-3 w-3" />
             </span>
           </div>
           <div class="ml-4 space-y-1">
-            <p class="text-xs font-semibold text-slate-100">{{ item.label }}</p>
+            <p class="text-xs font-semibold text-primary">{{ item.label }}</p>
             @if (item.date) {
-              <p class="text-[11px] text-slate-500 flex items-center gap-1">
+              <p class="text-[11px] text-muted flex items-center gap-1">
                 <app-lucide-icon [icon]="clockIcon" className="h-3 w-3" />
                 {{ item.date }}
               </p>

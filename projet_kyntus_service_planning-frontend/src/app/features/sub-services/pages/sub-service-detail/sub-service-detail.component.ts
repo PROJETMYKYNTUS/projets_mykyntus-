@@ -54,7 +54,6 @@ export class SubServiceDetailComponent implements OnInit {
     });
   }
 
-  goBack(): void { this.router.navigate(['/sub-services']); }
   editSubService(): void { this.router.navigate(['/sub-services', 'edit', this.subService?.id]); }
 
   deleteSubService(): void {

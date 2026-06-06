@@ -1,5 +1,5 @@
 <!-- planning-view.component.html -->
-<div class="pv-wrapper">
+<div class="pv-wrapper ky-page-shell">
 
   <!-- ══════════════ LOADING ══════════════ -->
   <div class="pv-loading" *ngIf="loading">
@@ -17,11 +17,6 @@
     <div class="pv-header">
 
       <div class="header-left">
-        <button class="btn-back" (click)="goBack()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          Retour
-        </button>
-        <div class="header-divider"></div>
         <div class="header-meta">
           <div class="header-week">
             <span class="week-chip">
@@ -285,7 +280,7 @@
         <div class="field">
           <label class="field-label">Nouveau shift</label>
           <div class="select-wrap">
-            <select [(ngModel)]="selectedNewShiftConfigId">
+            <select class="ky-input" [(ngModel)]="selectedNewShiftConfigId">
               <option [ngValue]="0" disabled>Sélectionner un shift…</option>
               <option *ngFor="let s of weekShiftConfigs" [ngValue]="s.id">{{ s.label }} — {{ s.startTime }}</option>
             </select>
@@ -295,8 +290,8 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel" (click)="closeOverride()">Annuler</button>
-        <button class="btn-confirm" [disabled]="!selectedNewShiftConfigId" (click)="confirmOverride()">Confirmer</button>
+        <button class="prime-btn-secondary btn-cancel" (click)="closeOverride()">Annuler</button>
+        <button class="ky-btn-primary btn-confirm" [disabled]="!selectedNewShiftConfigId" (click)="confirmOverride()">Confirmer</button>
       </div>
     </div>
   </div>
@@ -328,7 +323,7 @@
         <div class="field" *ngIf="selectedSaturdayAction === 'work'">
           <label class="field-label">Choisir un shift</label>
           <div class="select-wrap">
-            <select [(ngModel)]="selectedSaturdayShiftId">
+            <select class="ky-input" [(ngModel)]="selectedSaturdayShiftId">
               <option [ngValue]="0" disabled>Sélectionner…</option>
               <option *ngFor="let s of saturdayShiftConfigs" [ngValue]="s.id">{{ s.label }} ({{ s.startTime }})</option>
             </select>
@@ -337,10 +332,10 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel" (click)="closeSaturdayOverride()">Annuler</button>
-        <button class="btn-confirm btn-confirm-danger" *ngIf="selectedSaturdayAction === 'off'"
+        <button class="prime-btn-secondary btn-cancel" (click)="closeSaturdayOverride()">Annuler</button>
+        <button class="ky-btn-primary btn-confirm btn-confirm-danger" *ngIf="selectedSaturdayAction === 'off'"
                 (click)="confirmSaturdayOverride()">Mettre OFF</button>
-        <button class="btn-confirm" *ngIf="selectedSaturdayAction === 'work'"
+        <button class="ky-btn-primary btn-confirm" *ngIf="selectedSaturdayAction === 'work'"
                 [disabled]="!selectedSaturdayShiftId"
                 (click)="confirmSaturdayOverride()">Faire travailler</button>
       </div>
@@ -366,7 +361,7 @@
         <div class="field">
           <label class="field-label">Heure de pause</label>
           <div class="select-wrap">
-            <select [(ngModel)]="selectedNewBreakTime">
+            <select class="ky-input" [(ngModel)]="selectedNewBreakTime">
               <option value="" disabled>Sélectionner…</option>
               <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">{{ opt.label }}</option>
             </select>
@@ -375,8 +370,8 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel" (click)="closeBreakOverride()">Annuler</button>
-        <button class="btn-confirm" [disabled]="!selectedNewBreakTime" (click)="confirmBreakOverride()">Confirmer</button>
+        <button class="prime-btn-secondary btn-cancel" (click)="closeBreakOverride()">Annuler</button>
+        <button class="ky-btn-primary btn-confirm" [disabled]="!selectedNewBreakTime" (click)="confirmBreakOverride()">Confirmer</button>
       </div>
     </div>
   </div>
@@ -403,6 +398,7 @@
             <span class="char-count" [class.char-warn]="commentText.length > 450">{{ commentText.length }}/500</span>
           </label>
           <textarea
+            class="ky-input"
             [(ngModel)]="commentText"
             maxlength="500"
             rows="4"
@@ -411,8 +407,8 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel" (click)="closeCommentModal()">Annuler</button>
-        <button class="btn-confirm"
+        <button class="prime-btn-secondary btn-cancel" (click)="closeCommentModal()">Annuler</button>
+        <button class="ky-btn-primary btn-confirm"
                 [disabled]="!commentText.trim() || savingComment"
                 (click)="saveComment()">
           <span *ngIf="!savingComment">Sauvegarder</span>
@@ -446,7 +442,7 @@
       <div class="field">
         <label class="field-label">Action</label>
         <div class="select-wrap">
-          <select [(ngModel)]="selectedHolidayAction">
+          <select class="ky-input" [(ngModel)]="selectedHolidayAction">
             <option value="shift">Assigner un shift</option>
             <option value="off">Mettre en repos (OFF)</option>
           </select>
@@ -460,7 +456,7 @@
       <div class="field" *ngIf="selectedHolidayAction === 'shift'">
         <label class="field-label">Shift</label>
         <div class="select-wrap">
-          <select [(ngModel)]="selectedHolidayShiftId">
+          <select class="ky-input" [(ngModel)]="selectedHolidayShiftId">
             <option [ngValue]="0" disabled>Sélectionner un shift…</option>
             <option *ngFor="let s of weekShiftConfigs" [ngValue]="s.id">{{ s.label }} — {{ s.startTime }}</option>
           </select>
@@ -480,8 +476,8 @@
     </div>
 
     <div class="modal-footer">
-      <button class="btn-cancel" (click)="closeHolidayOverride()">Annuler</button>
-      <button class="btn-confirm"
+      <button class="prime-btn-secondary btn-cancel" (click)="closeHolidayOverride()">Annuler</button>
+      <button class="ky-btn-primary btn-confirm"
               [disabled]="selectedHolidayAction === 'shift' && !selectedHolidayShiftId"
               (click)="confirmHolidayOverride()">
         Confirmer

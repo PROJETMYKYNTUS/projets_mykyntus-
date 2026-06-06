@@ -1,16 +1,15 @@
-<div class="service-page">
+<div class="service-page ky-page-shell">
   <div class="page-header">
     <div class="header-left">
-      <button class="btn btn-light" (click)="goToDashboard()">← Dashboard</button>
       <div>
         <h1>Gestion des Services</h1>
         <p>Administration des services et sous-services</p>
       </div>
     </div>
-    <button class="btn btn-primary" (click)="createService()">+ Nouveau Service</button>
+    <button class="btn btn-primary ky-btn-primary" (click)="createService()">+ Nouveau Service</button>
   </div>
 
-  <div class="card">
+  <div class="card ky-card">
     @if (loading) {
       <div class="state loading">
         <div class="spinner"></div>
@@ -19,16 +18,16 @@
     } @else if (error) {
       <div class="state error">
         <p>{{ error }}</p>
-        <button class="btn btn-danger" (click)="loadServices()">Réessayer</button>
+        <button class="btn btn-danger ky-btn-secondary" (click)="loadServices()">Réessayer</button>
       </div>
     } @else if (services.length === 0) {
       <div class="state empty">
         <p>Aucun service trouvé.</p>
-        <button class="btn btn-primary" (click)="loadServices()">Recharger</button>
+        <button class="btn btn-primary ky-btn-primary" (click)="loadServices()">Recharger</button>
       </div>
     } @else {
       <div class="table-wrapper">
-        <table class="styled-table">
+        <table class="prime-table">
           <thead>
             <tr>
               <th>Code</th>

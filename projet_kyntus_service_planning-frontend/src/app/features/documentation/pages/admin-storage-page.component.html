@@ -2,13 +2,13 @@
   @if (!isAdmin(role)) {
     <app-admin-shell title="Storage Configuration" description="Accès refusé pour ce rôle." iconName="hard-drive">
       <div class="card-navy p-6">
-        <p class="text-slate-300">Seul le rôle `Admin` peut modifier la configuration de stockage.</p>
+        <p class="text-primary">Seul le rôle `Admin` peut modifier la configuration de stockage.</p>
       </div>
     </app-admin-shell>
   } @else if (loading || !draft) {
     <app-admin-shell title="Storage Configuration" description="Chargement de la configuration…" iconName="hard-drive">
       <div class="card-navy p-6">
-        <p class="text-slate-300">Veuillez patienter.</p>
+        <p class="text-primary">Veuillez patienter.</p>
       </div>
     </app-admin-shell>
   } @else {
@@ -27,7 +27,7 @@
         <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           <div>
             <h4 class="text-white font-bold text-lg">{{ draft.storageType }} storage</h4>
-            <p class="text-sm text-slate-500 mt-1">Les secrets sont stockés côté service, affichés masqués en UI.</p>
+            <p class="text-sm text-muted mt-1">Les secrets sont stockés côté service, affichés masqués en UI.</p>
           </div>
           <div class="flex gap-3 flex-wrap">
             <button
@@ -45,7 +45,7 @@
               type="button"
               (click)="onReset()"
               [disabled]="saving"
-              class="px-6 py-3 rounded-lg font-bold text-slate-200 border border-navy-800 hover:bg-navy-800/50 transition-all"
+              class="px-6 py-3 rounded-lg font-bold text-primary border border-default hover:bg-input/50 transition-all"
             >
               Réinitialiser
             </button>
@@ -59,7 +59,7 @@
               <select
                 [ngModel]="draft.storageType"
                 (ngModelChange)="onStorageTypeChange($event)"
-                class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500"
+                class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
               >
                 @for (t of storageTypes; track t) {
                   <option [value]="t">{{ t }}</option>
@@ -71,7 +71,7 @@
               <label class="text-sm font-semibold text-white">URL API</label>
               <input
                 [(ngModel)]="draft.apiUrl"
-                class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500"
+                class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
               />
               @if (errors['apiUrl']) {
                 <p class="text-xs text-red-400 mt-1">{{ errors['apiUrl'] }}</p>
@@ -83,7 +83,7 @@
               <input
                 [(ngModel)]="draft.bucketName"
                 [disabled]="draft.storageType !== 'Cloud'"
-                class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 disabled:opacity-60"
+                class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500 disabled:opacity-60"
               />
               @if (errors['bucketName']) {
                 <p class="text-xs text-red-400 mt-1">{{ errors['bucketName'] }}</p>
@@ -95,7 +95,7 @@
               <input
                 [(ngModel)]="draft.region"
                 [disabled]="draft.storageType !== 'Cloud'"
-                class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 disabled:opacity-60"
+                class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500 disabled:opacity-60"
               />
               @if (errors['region']) {
                 <p class="text-xs text-red-400 mt-1">{{ errors['region'] }}</p>
@@ -104,14 +104,14 @@
           </div>
 
           <div class="space-y-4">
-            <div class="border border-navy-800 rounded-xl p-4 bg-navy-900/30">
+            <div class="border border-default rounded-xl p-4 bg-input/30">
               <h4 class="text-sm font-bold text-white">Clé d’accès</h4>
-              <p class="text-xs text-slate-500 mt-1">Affichage masqué en UI. Pour remplacer le secret, saisissez une nouvelle valeur.</p>
+              <p class="text-xs text-muted mt-1">Affichage masqué en UI. Pour remplacer le secret, saisissez une nouvelle valeur.</p>
 
               <div class="mt-4 flex items-center justify-between gap-4">
-                <div class="text-sm text-slate-200">
+                <div class="text-sm text-primary">
                   Secret actuel:
-                  <span class="font-mono text-slate-100">{{ revealKey ? draft.accessKey : maskedKey }}</span>
+                  <span class="font-mono text-primary">{{ revealKey ? draft.accessKey : maskedKey }}</span>
                 </div>
                 <button
                   type="button"
@@ -128,13 +128,13 @@
                   type="password"
                   [(ngModel)]="accessKeyInput"
                   placeholder="******"
-                  class="mt-2 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500"
+                  class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
                 />
-                <p class="text-xs text-slate-500 mt-1">Laisser vide conserve la valeur actuelle.</p>
+                <p class="text-xs text-muted mt-1">Laisser vide conserve la valeur actuelle.</p>
               </div>
             </div>
 
-            <div class="border border-navy-800 rounded-xl p-4">
+            <div class="border border-default rounded-xl p-4">
               <h4 class="text-sm font-bold text-white mb-3">Options</h4>
               <div class="space-y-3">
                 <app-admin-toggle

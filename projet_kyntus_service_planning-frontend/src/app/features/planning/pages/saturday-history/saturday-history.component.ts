@@ -11,7 +11,7 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
   standalone: true,
   imports: [CommonModule, FormsModule, LucideIconComponent],
   template: `
-    <div class="page-wrapper">
+    <div class="page-wrapper ky-page-shell">
       <h1 class="page-title">
         <app-lucide-icon [icon]="icons.calendar" className="w-7 h-7" />
         Historique Samedis
@@ -19,12 +19,12 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
       <p class="page-sub">Saisir manuellement qui a travaillé samedi</p>
 
       <div class="filters">
-        <select [(ngModel)]="subServiceId" (change)="load()">
+        <select class="ky-input" [(ngModel)]="subServiceId" (change)="load()">
           <option [value]="0" disabled>-- Sous-service --</option>
           <option *ngFor="let s of subServices" [value]="s.id">{{ s.name }}</option>
         </select>
 
-        <input type="text" [(ngModel)]="weekCode"
+        <input class="ky-input" type="text" [(ngModel)]="weekCode"
                placeholder="ex: 2026-W13"
                (change)="load()" />
       </div>
@@ -38,13 +38,13 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
         <div class="emp-row" *ngFor="let e of entries">
           <span class="emp-name">{{ e.fullName }}</span>
           <div class="toggle-group">
-            <button class="btn-worked"
+            <button class="prime-btn-secondary btn-worked"
                     [class.active]="e.workedSaturday"
                     (click)="e.workedSaturday = true">
               <app-lucide-icon [icon]="icons.worked" className="w-4 h-4" />
               Travaillé
             </button>
-            <button class="btn-off"
+            <button class="prime-btn-secondary btn-off"
                     [class.active]="!e.workedSaturday"
                     (click)="e.workedSaturday = false">
               <app-lucide-icon [icon]="icons.off" className="w-4 h-4" />
@@ -53,7 +53,7 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
           </div>
         </div>
 
-        <button class="btn-save" (click)="save()">
+        <button class="ky-btn-primary btn-save" (click)="save()">
           <app-lucide-icon [icon]="icons.save" className="w-4 h-4" />
           Sauvegarder
         </button>
@@ -61,16 +61,6 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
     </div>
   `,
   styles: [`
-  .page-wrapper {
-    min-height: 100vh;
-    padding: 32px 24px 48px;
-    background:
-      radial-gradient(circle at top right, color-mix(in srgb, var(--soft-blue) 8%, transparent), transparent 18%),
-      linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-primary) 100%);
-    font-family: "Inter", "Segoe UI", sans-serif;
-    color: var(--text-primary);
-  }
-
   .page-title {
     display: flex;
     align-items: center;
@@ -100,23 +90,8 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
     box-shadow: 0 18px 40px color-mix(in srgb, var(--navy-950) 10%, transparent);
   }
 
-  .filters select,
-  .filters input {
+  .filters .ky-input {
     min-width: 220px;
-    padding: 12px 14px;
-    border-radius: 16px;
-    background: var(--bg-input);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    font-size: 0.92rem;
-    outline: none;
-    transition: all 0.22s ease;
-  }
-
-  .filters select:focus,
-  .filters input:focus {
-    border-color: var(--soft-blue);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--soft-blue) 20%, transparent);
   }
 
   .success-msg {
@@ -173,25 +148,7 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
 
   .btn-worked,
   .btn-off {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    border-radius: 12px;
-    border: 1px solid var(--border-color);
-    cursor: pointer;
-    font-weight: 700;
     font-size: 0.84rem;
-    background: var(--bg-card);
-    color: var(--text-muted);
-    transition: all 0.22s ease;
-  }
-
-  .btn-worked:hover,
-  .btn-off:hover {
-    transform: translateY(-1px);
-    background: var(--navy-700);
-    color: var(--text-primary);
   }
 
   .btn-worked.active {
@@ -207,32 +164,10 @@ import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from 
   }
 
   .btn-save {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
     margin-top: 18px;
-    padding: 12px 24px;
-    background: linear-gradient(135deg, var(--blue-600) 0%, var(--blue-500) 100%);
-    color: #ffffff;
-    border: none;
-    border-radius: 16px;
-    cursor: pointer;
-    font-weight: 700;
-    font-size: 0.9rem;
-    box-shadow: 0 12px 24px color-mix(in srgb, var(--blue-600) 25%, transparent);
-    transition: all 0.22s ease;
-  }
-
-  .btn-save:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 16px 28px color-mix(in srgb, var(--blue-600) 30%, transparent);
   }
 
   @media (max-width: 768px) {
-    .page-wrapper {
-      padding: 20px 16px 40px;
-    }
-
     .page-title {
       font-size: 1.5rem;
     }

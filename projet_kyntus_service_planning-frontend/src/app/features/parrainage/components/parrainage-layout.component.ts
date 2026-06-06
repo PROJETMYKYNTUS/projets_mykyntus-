@@ -58,11 +58,11 @@ import { GlobalSettingsPageComponent } from '../pages/shared/global-settings-pag
     GlobalSettingsPageComponent,
   ],
   template: `
-    <div class="min-h-full flex flex-col bg-app text-slate-100 w-full">
+    <div class="min-h-full flex flex-col bg-app text-primary w-full">
       <app-parrainage-header />
       <div [class]="'flex-1 flex flex-col ' + (compact() ? 'p-4' : 'p-8')">
         @if (store.loading()) {
-          <div class="card-navy p-6 text-center text-sm text-slate-400">Chargement des données…</div>
+          <div class="card-navy p-6 text-center text-sm text-muted">Chargement des données…</div>
         }
         @if (store.error()) {
           <div class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-sm text-rose-200 mb-4">
@@ -102,8 +102,8 @@ import { GlobalSettingsPageComponent } from '../pages/shared/global-settings-pag
           </div>
         }
       </div>
-      <footer class="p-8 border-t border-navy-800 text-center">
-        <p class="text-xs text-slate-600">© 2024 MyKyntus — Plateforme RH entreprise.</p>
+      <footer class="p-8 border-t border-default text-center">
+        <p class="text-xs text-muted">© 2024 MyKyntus — Plateforme RH entreprise.</p>
       </footer>
     </div>
   `,

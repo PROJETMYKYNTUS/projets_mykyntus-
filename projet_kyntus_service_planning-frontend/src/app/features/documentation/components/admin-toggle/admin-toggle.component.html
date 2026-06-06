@@ -13,15 +13,15 @@
       [disabled]="disabled"
       (change)="onChange($any($event.target).checked)"
     />
-    <span class="w-11 h-6 rounded-full transition-colors" [class.bg-blue-600]="checked" [class.bg-navy-800]="!checked">
+    <span class="w-11 h-6 rounded-full transition-colors" [class.bg-blue-600]="checked" [class.bg-card]="!checked">
       <span
-        class="absolute top-0 left-0 w-6 h-6 rounded-full bg-navy-900 border border-navy-800 transition-transform"
+        class="absolute top-0 left-0 w-6 h-6 rounded-full bg-input border border-default transition-transform"
         [class.translate-x-5]="checked"
         [class.translate-x-0]="!checked"
       ></span>
     </span>
   </span>
   @if (label) {
-    <span class="text-sm text-slate-300">{{ label }}</span>
+    <span class="text-sm text-primary">{{ label }}</span>
   }
 </label>

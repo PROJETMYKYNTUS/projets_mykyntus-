@@ -167,7 +167,7 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
   standalone: true,
   imports: [LucideIconComponent],
   template: `
-    <div class="p-8 bg-app min-h-full space-y-6">
+    <div class="prime-page-shell">
       <div>
         <h1 class="text-3xl font-bold text-white tracking-tight">{{ title() }}</h1>
         <p class="text-slate-400 mt-1">

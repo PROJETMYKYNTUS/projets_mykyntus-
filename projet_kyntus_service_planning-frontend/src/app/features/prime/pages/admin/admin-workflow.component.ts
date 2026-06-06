@@ -21,7 +21,7 @@ import { LucideIconComponent } from '@/shared/lucide-icon.component';
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
       </div>
     } @else {
-      <div class="p-8 space-y-6 bg-app min-h-full">
+      <div class="prime-page-shell">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 bg-blue-600/10 rounded-xl flex items-center justify-center text-blue-500">
             <app-lucide-icon [icon]="icons.branch" className="w-6 h-6" />

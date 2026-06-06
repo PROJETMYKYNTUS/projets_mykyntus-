@@ -60,7 +60,7 @@ import { DocIconComponent } from '../components/doc-icon/doc-icon.component';
 
     .template-action-button:hover:not(:disabled) {
       transform: translateY(-1px);
-      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.25);
+      box-shadow: 0 8px 16px color-mix(in srgb, var(--text-primary) 25%, transparent);
       filter: brightness(1.04);
     }
 

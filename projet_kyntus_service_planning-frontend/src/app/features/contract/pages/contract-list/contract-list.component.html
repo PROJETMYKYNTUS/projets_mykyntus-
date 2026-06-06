@@ -1,6 +1,6 @@
 <!-- features/contract/pages/contract-list/contract-list.component.html -->
 
-<div class="page-wrapper">
+<div class="page-wrapper ky-page-shell">
 
   <!-- ── HEADER ── -->
   <div class="page-header">
@@ -8,11 +8,8 @@
       <h1 class="page-title">Gestion des Contrats</h1>
       <p class="page-sub">Suivi des contrats, périodes d'essai et alertes d'échéance</p>
     </div>
-       <button class="btn-secondary" (click)="goToDashboard()">
-      Dashboard
-    </button>
 
-    <button class="btn-primary" (click)="goToCreate()">
+    <button class="btn-primary ky-btn-primary" (click)="goToCreate()">
       ＋ Nouveau contrat
     </button>
   </div>
@@ -61,6 +58,7 @@
     <div class="search-box">
       <span class="search-icon"></span>
       <input
+        class="ky-input"
         type="text"
         placeholder="Rechercher un employé..."
         [(ngModel)]="searchTerm"
@@ -68,7 +66,7 @@
     </div>
 
     <div class="filter-selects">
-      <select [(ngModel)]="filterType" (change)="applyFilters()">
+      <select class="ky-input" [(ngModel)]="filterType" (change)="applyFilters()">
         <option value="">Tous les types</option>
         <option value="CDI">CDI</option>
         <option value="CDD">CDD</option>
@@ -76,7 +74,7 @@
         <option value="Interim">Intérim</option>
       </select>
 
-      <select [(ngModel)]="filterStatus" (change)="applyFilters()">
+      <select class="ky-input" [(ngModel)]="filterStatus" (change)="applyFilters()">
         <option value="">Tous les statuts</option>
         <option value="En période d'essai">Période d'essai</option>
         <option value="Actif">Actif</option>
@@ -85,7 +83,7 @@
       </select>
 
       <button
-        class="btn-alert-filter"
+        class="btn-alert-filter ky-btn-secondary"
         [class.active]="filterAlerts"
         (click)="toggleAlertFilter()">
         Alertes seulement
@@ -94,7 +92,7 @@
   </div>
 
   <!-- ── TABLE ── -->
-  <div class="table-card">
+  <div class="table-card ky-card">
 
     <!-- Loading -->
     <div class="table-loading" *ngIf="loading">
@@ -103,7 +101,7 @@
     </div>
 
     <!-- Table -->
-    <table class="data-table" *ngIf="!loading">
+    <table class="prime-table" *ngIf="!loading">
       <thead>
         <tr>
           <th>Employé</th>
@@ -192,10 +190,10 @@
 
 <!-- ── MODAL Suppression ── -->
 <div class="modal-overlay" *ngIf="showDeleteModal" (click)="closeModal()">
-  <div class="modal-box confirm-modal" (click)="$event.stopPropagation()">
+  <div class="modal-box confirm-modal ky-card" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h2>Confirmer la suppression</h2>
-      <button class="close-btn" (click)="closeModal()">Fermer</button>
+      <button class="close-btn ky-btn-secondary" (click)="closeModal()">Fermer</button>
     </div>
     <div class="modal-body">
       <div class="confirm-icon">!</div>
@@ -203,7 +201,7 @@
       <p class="warn-text">Cette action est irréversible.</p>
     </div>
     <div class="modal-footer">
-      <button class="btn-secondary" (click)="closeModal()">Annuler</button>
+      <button class="btn-secondary ky-btn-secondary" (click)="closeModal()">Annuler</button>
       <button class="btn-danger" (click)="deleteContract()" [disabled]="deleting">
         {{ deleting ? 'Suppression...' : 'Supprimer' }}
       </button>

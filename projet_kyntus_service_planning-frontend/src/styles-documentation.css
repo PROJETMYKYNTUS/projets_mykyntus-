@@ -99,6 +99,9 @@ body.theme-dark,
 .border-default {
   border-color: var(--border-color);
 }
+.divide-default > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border-color);
+}
 
 .prime-page-shell {
   @apply p-8 space-y-6 bg-navy-950 min-h-full;
@@ -184,6 +187,17 @@ body.theme-dark,
   background-color: var(--navy-700);
 }
 
+.ky-badge {
+  background-color: var(--navy-800);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+body.theme-light .ky-badge {
+  background-color: var(--navy-700);
+}
+
 .prime-status-badge {
   background-color: var(--navy-800);
   border: 1px solid var(--border-color);
@@ -247,11 +261,15 @@ body.theme-light .prime-status-badge {
   border-color: var(--border-color);
 }
 
+.prime-btn-primary,
 .ky-btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-colors;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50;
   background-color: var(--blue-600);
+  border: none;
+  cursor: pointer;
 }
 
+.prime-btn-primary:hover:not(:disabled),
 .ky-btn-primary:hover:not(:disabled) {
   background-color: var(--blue-500);
 }
@@ -265,6 +283,73 @@ body.theme-light .prime-status-badge {
 
 .ky-btn-secondary:hover:not(:disabled) {
   background-color: var(--navy-700);
+}
+
+.ky-btn-danger {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  background-color: color-mix(in srgb, #ef4444 15%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, #ef4444 40%, var(--border-color));
+  color: #fca5a5;
+  cursor: pointer;
+}
+
+.ky-btn-danger:hover:not(:disabled) {
+  background-color: color-mix(in srgb, #ef4444 25%, var(--bg-card));
+}
+
+.ky-btn-ghost {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.ky-btn-ghost:hover:not(:disabled) {
+  background-color: var(--navy-700);
+  color: var(--text-primary);
+}
+
+.ky-select,
+.ky-textarea {
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  @apply w-full rounded-lg px-3 py-2.5 text-sm outline-none transition-colors;
+}
+
+.ky-select:focus,
+.ky-textarea:focus {
+  border-color: var(--soft-blue);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--soft-blue) 40%, transparent);
+}
+
+.ky-label {
+  color: var(--text-primary);
+  @apply block text-sm font-medium mb-1.5;
+}
+
+.ky-badge,
+.prime-status-badge {
+  background-color: var(--navy-800);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+body.theme-light .ky-badge,
+body.theme-light .prime-status-badge {
+  background-color: var(--navy-700);
+}
+
+.ky-table tbody {
+  @apply divide-y;
+  border-color: var(--border-color);
+}
+
+.prime-table--dense tbody td,
+.ky-table--dense tbody td {
+  @apply py-2.5;
 }
 
 .ky-input {

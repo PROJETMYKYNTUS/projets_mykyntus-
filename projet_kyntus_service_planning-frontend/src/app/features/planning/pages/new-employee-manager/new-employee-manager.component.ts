@@ -96,5 +96,4 @@ export class NewEmployeeManagerComponent implements OnInit {
     });
   }
 
-  goBack(): void { this.router.navigate(["/dashboard"]); }
 }

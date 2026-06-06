@@ -1,4 +1,4 @@
-<div class="fa-root">
+<div class="fa-root ky-page-shell">
 
   <!-- TOAST -->
   <div class="fa-toast" [class.visible]="toast.show" [class.error]="toast.type === 'error'">
@@ -11,7 +11,7 @@
       <h2 class="fa-title">Formations</h2>
       <p class="fa-sub">Gérez les formations, validez et suivez les inscriptions</p>
     </div>
-    <button class="fa-btn-create" (click)="openCreate()">
+    <button class="ky-btn-primary" (click)="openCreate()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Nouvelle formation
     </button>
@@ -32,7 +32,7 @@
 
   <!-- TABLE -->
   <div class="fa-table-wrap" *ngIf="!loading && formations.length > 0">
-    <table class="fa-table">
+    <table class="prime-table fa-table">
       <thead>
         <tr>
           <th>Titre</th>
@@ -59,11 +59,11 @@
             </span>
           </td>
           <td class="fa-td-actions">
-            <button class="fa-btn-edit" (click)="openEdit(f)" title="Modifier">Modifier</button>
-            <button class="fa-btn-valid"
+            <button class="prime-btn-secondary fa-btn-edit" (click)="openEdit(f)" title="Modifier">Modifier</button>
+            <button class="prime-btn-secondary fa-btn-valid"
                     *ngIf="f.statut === StatutFormation.Brouillon || f.statut === StatutFormation.EnAttente"
                     (click)="valider(f)" title="Valider">Valider</button>
-            <button class="fa-btn-del" (click)="delete(f)" title="Supprimer">Supprimer</button>
+            <button class="prime-btn-secondary fa-btn-del" (click)="delete(f)" title="Supprimer">Supprimer</button>
           </td>
         </tr>
       </tbody>
@@ -80,40 +80,40 @@
       <div class="fa-modal-body">
         <div class="fa-field">
           <label>Titre</label>
-          <input [(ngModel)]="form.titre" placeholder="Titre de la formation" />
+          <input class="ky-input" [(ngModel)]="form.titre" placeholder="Titre de la formation" />
         </div>
         <div class="fa-field">
           <label>Description</label>
-          <textarea [(ngModel)]="form.description" rows="3" placeholder="Description…"></textarea>
+          <textarea class="ky-input" [(ngModel)]="form.description" rows="3" placeholder="Description…"></textarea>
         </div>
         <div class="fa-field">
           <label>Formateur</label>
-          <input [(ngModel)]="form.formateur" placeholder="Nom du formateur" />
+          <input class="ky-input" [(ngModel)]="form.formateur" placeholder="Nom du formateur" />
         </div>
         <div class="fa-row">
           <div class="fa-field">
             <label>Date début</label>
-            <input type="date" [(ngModel)]="form.dateDebut" />
+            <input class="ky-input" type="date" [(ngModel)]="form.dateDebut" />
           </div>
           <div class="fa-field">
             <label>Date fin</label>
-            <input type="date" [(ngModel)]="form.dateFin" />
+            <input class="ky-input" type="date" [(ngModel)]="form.dateFin" />
           </div>
         </div>
         <div class="fa-row">
           <div class="fa-field">
             <label>Capacité max</label>
-            <input type="number" [(ngModel)]="form.capaciteMax" min="1" />
+            <input class="ky-input" type="number" [(ngModel)]="form.capaciteMax" min="1" />
           </div>
           <div class="fa-field">
             <label>Prix (MAD)</label>
-            <input type="number" [(ngModel)]="form.prix" min="0" />
+            <input class="ky-input" type="number" [(ngModel)]="form.prix" min="0" />
           </div>
         </div>
       </div>
       <div class="fa-modal-foot">
-        <button class="fa-btn-cancel" (click)="showModal = false">Annuler</button>
-        <button class="fa-btn-save" (click)="submit()">
+        <button class="prime-btn-secondary" (click)="showModal = false">Annuler</button>
+        <button class="ky-btn-primary" (click)="submit()">
           {{ editMode ? 'Mettre à jour' : 'Créer' }}
         </button>
       </div>

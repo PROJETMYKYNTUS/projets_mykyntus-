@@ -61,7 +61,15 @@ export class UnifiedDashboardComponent implements OnInit {
     const managerLike = ['Manager', 'Coach', 'RP', 'Equipe_Formation'].includes(r);
     const employeeLike = ['Employee', 'Pilote', 'Audit'].includes(r);
 
-    if (adminRh) {
+    if (r === 'Superviseur') {
+      this.dashboardTitle = 'Espace superviseur';
+      this.dashboardSubtitle = 'Saisie PRIME, validation et pilotage de cellule';
+      this.quickLinks = [
+        { label: 'Module PRIME', route: '/prime', icon: this.icons.dashboard },
+        { label: 'Mes réclamations', route: '/reclamations', icon: this.icons.reclamations },
+        { label: 'Mes congés', route: '/mes-conges', icon: this.icons.calendar },
+      ];
+    } else if (adminRh) {
       this.dashboardTitle = 'Pilotage RH';
       this.dashboardSubtitle = 'Vue d’ensemble organisation, contrats et planification';
       this.quickLinks = [

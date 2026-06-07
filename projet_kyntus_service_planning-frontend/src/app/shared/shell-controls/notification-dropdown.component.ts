@@ -23,7 +23,7 @@ const SOURCE_LABELS: Record<string, string> = {
   standalone: true,
   template: `
     @if (shellUi.dropdownOpen()) {
-      <div class="ks-notif-dropdown ky-slide-down">
+      <div class="ks-notif-dropdown ky-slide-down" (click)="$event.stopPropagation()">
         <div class="ks-notif-dropdown-head">
           <span>Notifications</span>
           <button type="button" class="ks-notif-mark-all" (click)="hub.markAllAsRead()">

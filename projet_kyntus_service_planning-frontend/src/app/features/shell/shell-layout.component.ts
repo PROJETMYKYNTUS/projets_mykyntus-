@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewEncapsulation, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewEncapsulation, inject, ElementRef, ViewChild, HostListener } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
 
@@ -123,9 +123,18 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
   private subDocRole?: { unsubscribe(): void };
 
-
+  @ViewChild('notifWrap') private notifWrap?: ElementRef<HTMLElement>;
 
   private iconCache = new Map<string, SafeHtml>();
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (!this.shellUi.dropdownOpen()) return;
+    const wrap = this.notifWrap?.nativeElement;
+    if (wrap && !wrap.contains(event.target as Node)) {
+      this.shellUi.closeDropdown();
+    }
+  }
 
 
 
@@ -409,17 +418,20 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     this.sidebarCollapsed = !this.sidebarCollapsed;
   }
 
-  toggleNotifDropdown(): void {
+  toggleNotifDropdown(event: MouseEvent): void {
+    event.stopPropagation();
     this.shellUi.toggleDropdown();
   }
 
   openNotifications(): void {
     this.sidebarOpen = false;
-    this.shellUi.openDropdown();
+    this.shellUi.closeDropdown();
+    void this.router.navigate(['/notifications']);
   }
 
   openSettings(): void {
     this.sidebarOpen = false;
+    this.shellUi.closeDropdown();
     void this.router.navigate(['/settings']);
   }
 

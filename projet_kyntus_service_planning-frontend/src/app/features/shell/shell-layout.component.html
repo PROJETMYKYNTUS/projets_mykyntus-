@@ -89,11 +89,12 @@
         <button type="button" class="ks-tb-icon" (click)="theme.toggleTheme()" [attr.aria-label]="theme.theme() === 'light' ? 'Mode sombre' : 'Mode clair'">
           <app-lucide-icon [icon]="theme.theme() === 'light' ? icons.moon : icons.sun" className="w-4 h-4" />
         </button>
-        <div class="ks-tb-notif-wrap">
-          <button type="button" class="ks-tb-icon" (click)="toggleNotifDropdown()" aria-label="Notifications">
+        <div class="ks-tb-notif-wrap" #notifWrap>
+          <button type="button" class="ks-tb-icon" (click)="toggleNotifDropdown($event)" aria-label="Notifications">
             <app-lucide-icon [icon]="icons.bell" className="w-5 h-5" />
             <app-shell-notification-badge [count]="notifHub.unreadCount()" />
           </button>
+          <app-shell-notification-dropdown />
         </div>
         <button type="button" class="ks-tb-icon" (click)="openSettings()" aria-label="Paramètres">
           <app-lucide-icon [icon]="icons.settings" className="w-4 h-4" />
@@ -111,6 +112,5 @@
     </main>
   </div>
 
-  <app-shell-notification-dropdown />
   <app-shell-settings-panel />
 </div>

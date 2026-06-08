@@ -61,7 +61,7 @@ type NavGroup = {
 type NavPathEntry = NavLink | NavGroup;
 
 /** Sous-routes regroupées sous « Fiche PRIME » (menu superviseur). */
-const PRIME_FICHE_GROUP_PATHS = ['/prime-saisie', '/prime-fiches-pilotes', '/prime-saisie-cellule'] as const;
+const PRIME_FICHE_GROUP_PATHS = ['/prime-saisie', '/prime-fiches-pilotes', '/prime-saisie-cellule', '/prime-import-fiche'] as const;
 type RpNavItem = { id: RpSection; name: string; icon: IconNode; roles: Role[] };
 type AdminNavItem = { id: AdminSection; name: string; icon: IconNode; roles: Role[] };
 type AuditNavItem = { id: AuditSection; name: string; icon: IconNode };
@@ -86,10 +86,10 @@ const pathNavEntries: NavPathEntry[] = [
   },
   {
     type: 'link',
-    name: 'Affectations organisationnelles',
+    name: 'Organisation RH',
     path: '/rh/organisation',
     icon: GitBranch,
-    roles: ['RH', 'Admin'],
+    roles: ['RH'],
   },
   {
     type: 'link',
@@ -150,6 +150,7 @@ const pathNavEntries: NavPathEntry[] = [
     children: [
       { name: 'Partie commune (RACC / SAV)', path: '/prime-saisie' },
       { name: 'Partie personnalisée', path: '/prime-fiches-pilotes' },
+      { name: 'Import fiche prête', path: '/prime-import-fiche' },
     ],
   },
   {

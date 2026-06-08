@@ -304,7 +304,7 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
             .OrderByDescending(f => f.UpdatedAt)
             .Take(take)
             .ToListAsync(ct);
-        return fiches.Select(f => new PrimeResult
+        var results = fiches.Select(f => new PrimeResult
         {
             Id = f.Id.ToString("N"),
             EmployeeId = f.EmployeeId,
@@ -316,6 +316,25 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
             ApprovedBy = f.LastApproverUserId,
             Date = f.UpdatedAt.ToString("yyyy-MM-dd"),
         }).ToList();
+
+        var historical = await db.PrimeHistoricalFiches.AsNoTracking()
+            .OrderByDescending(h => h.ImportedAt)
+            .Take(Math.Max(0, take - results.Count))
+            .ToListAsync(ct);
+        results.AddRange(historical.Select(h => new PrimeResult
+        {
+            Id = h.Id.ToString("N"),
+            EmployeeId = h.EmployeeId ?? $"archive:{h.EmployeeExternalName}",
+            PrimeTypeId = "historical-import",
+            Score = (int)Math.Clamp(h.TotalAmount ?? h.PrimeAmount ?? 0, 0, int.MaxValue),
+            Amount = (int)Math.Clamp(h.PrimeAmount ?? 0, 0, int.MaxValue),
+            Status = PrimeValidationWorkflowService.HistoricalImport,
+            Period = h.Period,
+            ApprovedBy = h.ImportedByUserId,
+            Date = h.ImportedAt.ToString("yyyy-MM-dd"),
+        }));
+
+        return results.OrderByDescending(r => r.Date).Take(take).ToList();
     }
 
     /// <summary>Statistiques tableau de bord (contrat Angular <c>prime-dashboard-standard</c>).</summary>

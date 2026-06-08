@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -61,6 +62,12 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
 import { RoleService } from '../state/role.service';
 import { computePreviewGridWithFormulas } from '../lib/prime-fiche-formula-eval';
 import { filterTemplatePayloadToPoleContracts, isPoleContract, isSavContract } from '../lib/prime-pole-saisie-filter';
+import {
+  closedMonthsForYear,
+  closedPrimePeriodYearChoices,
+  formatPrimePeriodFriendly,
+  primePeriodClosedErrorMessage,
+} from '../lib/prime-period-eligibility';
 
 export type PrimeSaisieContext = 'RACC' | 'SAV';
 
@@ -264,7 +271,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
             <span
               class="shrink-0 rounded-md border border-blue-500/40 bg-blue-600/15 px-2 py-1 text-xs font-semibold text-primary"
             >
-              Période {{ session.periodLabel() }}
+              Période {{ wizardPeriodFriendly() }}
             </span>
           }
           @if (isSuperviseur() && !session.useWizardFlow()) {
@@ -379,58 +386,76 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
         <main class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
           <app-prime-card
             title="Configuration de la fiche"
-            description="Période de référence ; sous « Partie personnalisée », reprenez une fiche en cours pour préremplir période et template. Ensuite : template enregistré ou import Excel — même période."
+            description="Période de référence ; reprenez une fiche commune existante ou choisissez un template / import Excel pour la même période."
           >
             <div class="flex flex-col gap-6">
               <div class="flex flex-wrap gap-4">
                 <div>
                   <label class="mb-1 block text-sm font-medium text-muted">Mois</label>
                   <select
-                    [value]="numToSelectValue(session.periodMonth())"
                     (change)="onWizardMonthChange($any($event.target).value)"
                     [class]="inputFieldClass"
                   >
-                    @for (m of wizardMonthOptions; track m.value) {
-                      <option [value]="numToSelectValue(m.value)">{{ m.label }}</option>
+                    @for (m of wizardMonthOptionsForYear(); track m.value) {
+                      <option [value]="numToSelectValue(m.value)" [selected]="m.value === session.periodMonth()">
+                        {{ m.label }}
+                      </option>
                     }
                   </select>
                 </div>
                 <div>
                   <label class="mb-1 block text-sm font-medium text-muted">Année</label>
                   <select
-                    [value]="numToSelectValue(session.periodYear())"
                     (change)="onWizardYearChange($any($event.target).value)"
                     [class]="inputFieldClass"
                   >
                     @for (y of wizardYearChoices(); track y) {
-                      <option [value]="numToSelectValue(y)">{{ y }}</option>
+                      <option [value]="numToSelectValue(y)" [selected]="y === session.periodYear()">{{ y }}</option>
                     }
                   </select>
                 </div>
               </div>
+              <p class="text-xs font-medium text-primary">
+                Période active : {{ wizardPeriodFriendly() }}
+              </p>
+              <p class="text-xs text-muted">
+                Seuls les mois déjà terminés sont éligibles (les primes se calculent après clôture du mois).
+              </p>
+              @if (!session.isSelectedPeriodClosed()) {
+                <p class="text-xs text-rose-600 dark:text-rose-400" role="alert">
+                  {{ primePeriodClosedErrorMessage(session.periodLabel()) }}
+                </p>
+              }
 
               <div class="rounded-xl border border-default/80 bg-card/40 p-4">
-                <h3 class="text-sm font-semibold tracking-tight text-primary">Partie personnalisée</h3>
+                <h3 class="text-sm font-semibold tracking-tight text-primary">
+                  Partie commune — {{ wizardPeriodFriendly() }}
+                </h3>
                 <p class="mt-1 text-xs text-muted leading-relaxed">
-                  Fiches en cours de remplissage pour vos cellules : cliquez une ligne pour appliquer la période et le
-                  template de ce brouillon (alternative au choix manuel mois / année ci-dessus).
+                  Fiches RACC / SAV déjà enregistrées pour la période sélectionnée. Cliquez une ligne pour reprendre la
+                  saisie avec le même template.
                 </p>
                 <div class="mt-3">
                   @if (wizardDraftsLoading()) {
                     <p class="text-sm text-muted">Chargement…</p>
-                  } @else if (!wizardDraftListItems().length) {
-                    <p class="text-sm text-muted">Aucune fiche en cours pour vos cellules.</p>
+                  } @else if (!wizardDraftsForPeriod().length) {
+                    <p class="text-sm text-muted">
+                      Aucune fiche commune enregistrée pour {{ session.periodLabel() }}.
+                    </p>
                   } @else {
                     <ul class="max-h-56 divide-y divide-default overflow-y-auto rounded-lg border border-default">
-                      @for (it of wizardDraftListItems(); track it.id) {
+                      @for (it of wizardDraftsForPeriod(); track it.id) {
                         <li>
                           <button
                             type="button"
-                            class="w-full px-3 py-2 text-left text-sm text-primary hover:bg-navy-700/30"
+                            [class]="
+                              'w-full px-3 py-2 text-left text-sm text-primary hover:bg-navy-700/30' +
+                              (it.id === lastSavedDraftId() ? ' bg-emerald-600/10' : '')
+                            "
                             (click)="openWizardDraftFromList(it)"
                           >
-                            <span class="font-semibold">{{ it.period }}</span>
-                            <span class="text-muted"> · {{ it.templateDisplayName || it.templateId }}</span>
+                            <span class="font-semibold">{{ it.templateDisplayName || it.templateId }}</span>
+                            <span class="text-muted"> · {{ statusLabelForDraft(it.status) }}</span>
                           </button>
                         </li>
                       }
@@ -462,6 +487,10 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                     <p class="text-xs text-muted">
                       Aucun template enregistré. Importez-en un depuis « Templates fiche PRIME ».
                     </p>
+                  } @else if (session.selectedTemplateId() && !session.sessionTemplate()?.ficheGridSchema) {
+                    <p class="text-xs text-amber-700 dark:text-amber-300" role="alert">
+                      Ce template n’a pas de grille valide. Réimportez le fichier .xlsx depuis « Templates fiche PRIME ».
+                    </p>
                   }
                 </div>
 
@@ -484,7 +513,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                     <button
                       type="button"
                       (click)="commonExcelInput.click()"
-                      [disabled]="commonExcelDirectBusy()"
+                      [disabled]="commonExcelDirectBusy() || !session.isSelectedPeriodClosed()"
                       class="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-500/50 bg-blue-600/20 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-blue-600/30 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <app-lucide-icon [icon]="icons.file" className="w-4 h-4" />
@@ -530,7 +559,8 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                   [disabled]="
                     !session.selectedTemplateId() ||
                     wizardEarlySaveBusy() ||
-                    !session.sessionTemplate()?.ficheGridSchema
+                    !session.sessionTemplate()?.ficheGridSchema ||
+                    !session.isSelectedPeriodClosed()
                   "
                   class="inline-flex items-center gap-2 rounded-lg border border-emerald-600/50 bg-emerald-600/15 px-4 py-2 text-sm font-semibold text-primary hover:bg-emerald-600/25 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -546,7 +576,15 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                 </button>
               </div>
               @if (wizardEarlySaveMessage()) {
-                <p class="text-xs text-muted">{{ wizardEarlySaveMessage() }}</p>
+                <p
+                  class="text-xs font-medium"
+                  [class]="wizardEarlySaveIsError() ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'"
+                >
+                  {{ wizardEarlySaveMessage() }}
+                </p>
+              }
+              @if (!session.selectedTemplateId()) {
+                <p class="text-xs text-muted">Sélectionnez un template enregistré pour activer « Enregistrer ».</p>
               }
             </div>
           </app-prime-card>
@@ -566,7 +604,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
               <button
                 type="button"
                 (click)="saveWizardDraftEarly()"
-                [disabled]="wizardEarlySaveBusy() || !session.sessionTemplate()?.ficheGridSchema"
+                [disabled]="wizardEarlySaveBusy() || !session.sessionTemplate()?.ficheGridSchema || !session.isSelectedPeriodClosed()"
                 class="inline-flex items-center gap-2 rounded-lg border border-emerald-600/50 bg-emerald-600/15 px-4 py-2 text-sm font-semibold text-primary hover:bg-emerald-600/25 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <app-lucide-icon [icon]="icons.save" className="w-4 h-4" />
@@ -582,7 +620,12 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
               </button>
             </div>
             @if (wizardEarlySaveMessage()) {
-              <p class="mt-2 text-xs text-muted">{{ wizardEarlySaveMessage() }}</p>
+              <p
+                class="mt-2 text-xs font-medium"
+                [class]="wizardEarlySaveIsError() ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'"
+              >
+                {{ wizardEarlySaveMessage() }}
+              </p>
             }
             @if (!session.sessionTemplate()?.ficheGridSchema) {
               <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">
@@ -1111,25 +1154,13 @@ export class PrimeSaisieComponent {
     return computePreviewGridWithFormulas(t);
   });
 
-  readonly wizardYearChoices = computed(() => {
-    const y = new Date().getFullYear();
-    return [y - 1, y, y + 1];
-  });
+  readonly wizardYearChoices = computed(() => closedPrimePeriodYearChoices());
 
-  readonly wizardMonthOptions: { value: number; label: string }[] = [
-    { value: 1, label: 'Janvier' },
-    { value: 2, label: 'Février' },
-    { value: 3, label: 'Mars' },
-    { value: 4, label: 'Avril' },
-    { value: 5, label: 'Mai' },
-    { value: 6, label: 'Juin' },
-    { value: 7, label: 'Juillet' },
-    { value: 8, label: 'Août' },
-    { value: 9, label: 'Septembre' },
-    { value: 10, label: 'Octobre' },
-    { value: 11, label: 'Novembre' },
-    { value: 12, label: 'Décembre' },
-  ];
+  readonly wizardMonthOptionsForYear = computed(() => closedMonthsForYear(this.session.periodYear()));
+
+  readonly wizardPeriodFriendly = computed(() =>
+    formatPrimePeriodFriendly(this.session.periodYear(), this.session.periodMonth()),
+  );
 
   readonly storedTemplateList = computed(() => loadStoredTemplates());
 
@@ -1159,7 +1190,15 @@ export class PrimeSaisieComponent {
   readonly wizardDraftListItems = signal<SupervisorPolePrimeDraftListItemDto[]>([]);
   readonly wizardEarlySaveBusy = signal(false);
   readonly wizardEarlySaveMessage = signal<string | null>(null);
+  readonly wizardEarlySaveIsError = signal(false);
+  readonly lastSavedDraftId = signal<string | null>(null);
   readonly draftListOrganizationalKey = draftListOrganizationalKey;
+
+  readonly wizardDraftsForPeriod = computed(() =>
+    this.wizardDraftListItems().filter((it) => it.period === this.session.periodLabel()),
+  );
+
+  protected readonly primePeriodClosedErrorMessage = primePeriodClosedErrorMessage;
 
   readonly hasGridTemplate = computed(() => this.schemaForUi() !== null);
 
@@ -1219,8 +1258,18 @@ export class PrimeSaisieComponent {
     effect(() => {
       if (this.role.currentRole() !== 'Superviseur') return;
       if (this.session.preferLegacySaisie()) return;
+      if (this.session.holdCommonsListView()) return;
       if (this.session.step() !== 'idle') return;
       this.session.startWizardForSupervisor();
+    });
+
+    effect(() => {
+      if (!this.isSuperviseur()) return;
+      const step = this.session.step();
+      if (step !== 'setup' && step !== 'preview') return;
+      const period = this.session.periodLabel();
+      void period;
+      queueMicrotask(() => void this.loadWizardDraftList());
     });
 
     /**
@@ -1277,6 +1326,7 @@ export class PrimeSaisieComponent {
     });
 
     effect(() => {
+      if (!this.isSuperviseur()) return;
       const step = this.session.step();
       const epoch = this.session.entryEpoch();
       if (step !== 'entry') return;
@@ -1285,13 +1335,30 @@ export class PrimeSaisieComponent {
       if (!this.hasGridTemplate() || !this.session.useWizardFlow()) return;
       queueMicrotask(() => void this.hydratePoleDraftFromApi());
     });
+  }
 
-    effect(() => {
-      if (!this.isSuperviseur()) return;
-      const step = this.session.step();
-      if (step !== 'setup' && step !== 'preview') return;
-      queueMicrotask(() => void this.loadWizardDraftList());
-    });
+  statusLabelForDraft(status: string | undefined): string {
+    return (status ?? '').toLowerCase() === 'validated' ? 'Validé' : 'Brouillon';
+  }
+
+  private periodClosedSaveError(): string | null {
+    if (this.session.isSelectedPeriodClosed()) return null;
+    return primePeriodClosedErrorMessage(this.session.periodLabel());
+  }
+
+  private wizardSaveErrorMessage(err: unknown): string {
+    if (err instanceof HttpErrorResponse) {
+      const body = err.error as { error?: string } | undefined;
+      if (body?.error) return body.error;
+      if (err.status === 403) {
+        return 'Périmètre superviseur non reconnu — vérifiez votre cellule dans « Périmètre superviseur ».';
+      }
+      if (err.status === 503) return 'Service indisponible — base de données non configurée.';
+    }
+    if (err && typeof err === 'object' && 'message' in err && typeof (err as Error).message === 'string') {
+      return (err as Error).message;
+    }
+    return 'Erreur enregistrement.';
   }
 
   groupNavOuterClass(_items: { key: string }[]): string {
@@ -1426,12 +1493,27 @@ export class PrimeSaisieComponent {
 
   async saveWizardDraftEarly(): Promise<void> {
     this.wizardEarlySaveMessage.set(null);
+    this.wizardEarlySaveIsError.set(false);
+    const periodErr = this.periodClosedSaveError();
+    if (periodErr) {
+      this.wizardEarlySaveMessage.set(periodErr);
+      this.wizardEarlySaveIsError.set(true);
+      return;
+    }
     const tpl = this.session.sessionTemplate();
     const schema = tpl?.ficheGridSchema ?? null;
     const u = this.role.currentUser();
     const orgKey = u.celluleId?.trim() || u.poleId?.trim();
     if (!tpl || !schema || !orgKey || !this.isSuperviseur()) {
-      this.wizardEarlySaveMessage.set('Choisissez un template avec grille et un périmètre superviseur (cellule).');
+      this.wizardEarlySaveMessage.set(
+        'Choisissez un template avec grille valide et vérifiez votre périmètre superviseur (cellule).',
+      );
+      this.wizardEarlySaveIsError.set(true);
+      return;
+    }
+    if (!this.session.selectedTemplateId()) {
+      this.wizardEarlySaveMessage.set('Sélectionnez un template enregistré avant d’enregistrer la fiche.');
+      this.wizardEarlySaveIsError.set(true);
       return;
     }
     this.wizardEarlySaveBusy.set(true);
@@ -1442,6 +1524,7 @@ export class PrimeSaisieComponent {
       const saved = await firstValueFrom(
         this.cellPrimeApi.upsertPoleDraft({
           supervisorUserId: u.id,
+          celluleId: orgKey,
           poleId: orgKey,
           period: this.session.periodLabel(),
           templateId: tpl.id,
@@ -1455,15 +1538,16 @@ export class PrimeSaisieComponent {
         }),
       );
       this.session.setPolePrimeDraftId(saved.id);
+      this.lastSavedDraftId.set(saved.id);
       this.session.bumpDraftListRefresh();
-      this.wizardEarlySaveMessage.set('Enregistré — visible dans « Fiches communes — en cours ».');
       await this.loadWizardDraftList();
+      this.wizardEarlySaveMessage.set(
+        `Fiche commune enregistrée pour ${this.session.periodLabel()} (« ${tpl.displayName} »).`,
+      );
+      this.wizardEarlySaveIsError.set(false);
     } catch (e: unknown) {
-      const msg =
-        e && typeof e === 'object' && 'message' in e && typeof (e as Error).message === 'string'
-          ? (e as Error).message
-          : 'Erreur enregistrement.';
-      this.wizardEarlySaveMessage.set(msg);
+      this.wizardEarlySaveMessage.set(this.wizardSaveErrorMessage(e));
+      this.wizardEarlySaveIsError.set(true);
     } finally {
       this.wizardEarlySaveBusy.set(false);
     }
@@ -1492,6 +1576,11 @@ export class PrimeSaisieComponent {
   async persistPoleDraftToDb(silent: boolean): Promise<void> {
     if (!this.hasGridTemplate() || !this.session.useWizardFlow() || this.session.step() !== 'entry') return;
     if (!this.isSuperviseur()) return;
+    const periodErr = this.periodClosedSaveError();
+    if (periodErr) {
+      if (!silent) this.validationMessage.set(periodErr);
+      return;
+    }
     const schema = this.schemaForUi();
     const tpl = this.session.sessionTemplate();
     const u = this.role.currentUser();
@@ -1927,12 +2016,26 @@ export class PrimeSaisieComponent {
 
   onWizardMonthChange(value: string): void {
     const n = Number(value);
-    if (n >= 1 && n <= 12) this.session.periodMonth.set(n);
+    if (n >= 1 && n <= 12) {
+      this.session.setPeriodYearMonth(this.session.periodYear(), n);
+      this.onWizardPeriodChanged();
+    }
   }
 
   onWizardYearChange(value: string): void {
     const n = Number(value);
-    if (Number.isFinite(n)) this.session.periodYear.set(n);
+    if (Number.isFinite(n)) {
+      this.session.setPeriodYearMonth(n, this.session.periodMonth());
+      this.onWizardPeriodChanged();
+    }
+  }
+
+  /** Réinitialise le lien brouillon lorsque l’utilisateur change mois / année. */
+  private onWizardPeriodChanged(): void {
+    this.session.setPolePrimeDraftId(null);
+    this.wizardEarlySaveMessage.set(null);
+    this.wizardEarlySaveIsError.set(false);
+    this.lastSavedDraftId.set(null);
   }
 
   onWizardTemplateChange(id: string): void {
@@ -1959,6 +2062,11 @@ export class PrimeSaisieComponent {
     const orgKey = u.celluleId?.trim() || u.poleId?.trim();
     if (!orgKey) {
       this.commonExcelDirectError.set('Périmètre organisationnel manquant — import impossible.');
+      return;
+    }
+    const periodErr = this.periodClosedSaveError();
+    if (periodErr) {
+      this.commonExcelDirectError.set(periodErr);
       return;
     }
     this.commonExcelDirectBusy.set(true);
@@ -2042,6 +2150,11 @@ export class PrimeSaisieComponent {
     const err = this.validateBeforeResultOrSubmit();
     if (err) {
       this.validationMessage.set(err);
+      return;
+    }
+    const periodErr = this.periodClosedSaveError();
+    if (periodErr) {
+      this.validationMessage.set(periodErr);
       return;
     }
     const schema = this.schemaForUi();

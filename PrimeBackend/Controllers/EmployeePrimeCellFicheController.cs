@@ -33,6 +33,8 @@ public sealed class EmployeePrimeServiceFicheController(
             ValidationStatus = e.ValidationStatus,
             IsReadyForValidation = PrimeFicheValidationSubmissionService.ComputeIsReadyForValidation(draft, e),
             UpdatedAt = e.UpdatedAt,
+            HasDetailGridSnapshot = !string.IsNullOrWhiteSpace(e.DetailGridJson),
+            DetailGridFrozenAt = e.DetailGridFrozenAt,
         };
 
     [HttpGet("list")]
@@ -136,6 +138,7 @@ public sealed class EmployeePrimeServiceFicheController(
                     IsReadyForValidation = ready,
                     ServiceSaisieJson = f.ServiceSaisieJson,
                     UpdatedAt = f.UpdatedAt,
+                    HasFrozenDetailSnapshot = f.DetailGridFrozenAt.HasValue,
                 });
             }
             else
@@ -345,6 +348,87 @@ public sealed class EmployeePrimeServiceFicheController(
         entity.ChallengeAmount = body.ChallengeAmount;
         entity.TotalAmount = body.TotalAmount;
         entity.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        if (anomalies is not null)
+            await anomalies.RecomputeForFicheAsync(entity.Id, ct);
+
+        var draft = await db.SupervisorCellulePrimeDrafts.FirstOrDefaultAsync(x => x.Id == entity.CellulePrimeDraftId, ct);
+        return draft is null ? Ok(new { ok = true }) : Ok(Map(entity, draft));
+    }
+
+    /// <summary>Lit le snapshot détaillé (grille fusionnée) s'il existe.</summary>
+    [HttpGet("{ficheId:guid}/detail-snapshot")]
+    public async Task<ActionResult<FicheDetailSnapshotResponseDto>> GetDetailSnapshot(
+        Guid ficheId,
+        [FromQuery] string supervisorUserId,
+        CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        if (string.IsNullOrWhiteSpace(supervisorUserId))
+            return BadRequest(new { error = "supervisorUserId est requis." });
+
+        var entity = await db.EmployeePrimeServiceFiches.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == ficheId, ct);
+        if (entity is null) return NotFound(new { error = "Fiche introuvable." });
+
+        if (!await org.SupervisorOwnsCelluleAsync(supervisorUserId, entity.CelluleId, ct))
+            return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
+
+        var snap = PrimeFicheDetailSnapshotService.TryParseSnapshot(entity.DetailGridJson);
+        if (snap is null) return NotFound(new { error = "Aucun snapshot détaillé enregistré." });
+
+        return Ok(new FicheDetailSnapshotResponseDto
+        {
+            FicheId = entity.Id,
+            Version = snap.Version,
+            PreviewSheetName = snap.PreviewSheetName,
+            TemplateVersionRef = snap.TemplateVersionRef,
+            Rows = snap.Rows,
+            Errors = snap.Errors,
+            PrimeAmount = snap.PrimeAmount ?? entity.PrimeAmount,
+            ChallengeAmount = snap.ChallengeAmount ?? entity.ChallengeAmount,
+            TotalAmount = snap.TotalAmount ?? entity.TotalAmount,
+            FrozenAt = entity.DetailGridFrozenAt,
+            UpdatedAt = entity.UpdatedAt,
+        });
+    }
+
+    /// <summary>
+    /// Persiste la grille fusionnée recalculée (snapshot v1) et les montants associés.
+    /// Brouillon : modifiable tant que non figé. Gel explicite via <see cref="PersistFicheDetailSnapshotRequest.FreezeSnapshot"/>.
+    /// </summary>
+    [HttpPost("{ficheId:guid}/detail-snapshot")]
+    public async Task<ActionResult<EmployeePrimeServiceFicheResponseDto>> PersistDetailSnapshot(
+        Guid ficheId,
+        [FromBody] PersistFicheDetailSnapshotRequest body,
+        CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        if (string.IsNullOrWhiteSpace(body.SupervisorUserId))
+            return BadRequest(new { error = "supervisorUserId est requis." });
+
+        var entity = await db.EmployeePrimeServiceFiches.FirstOrDefaultAsync(x => x.Id == ficheId, ct);
+        if (entity is null) return NotFound(new { error = "Fiche introuvable." });
+
+        if (!await org.SupervisorOwnsCelluleAsync(body.SupervisorUserId, entity.CelluleId, ct))
+            return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
+
+        var snap = new PrimeFicheDetailSnapshotService.DetailSnapshotV1
+        {
+            PreviewSheetName = body.PreviewSheetName,
+            TemplateVersionRef = body.TemplateVersionRef,
+            Rows = body.Rows ?? [],
+            Errors = body.Errors ?? [],
+            ComputedAt = DateTimeOffset.UtcNow.ToString("O"),
+            PrimeAmount = body.PrimeAmount,
+            ChallengeAmount = body.ChallengeAmount,
+            TotalAmount = body.TotalAmount,
+        };
+
+        var now = DateTimeOffset.UtcNow;
+        if (!PrimeFicheDetailSnapshotService.TryApplySnapshot(entity, snap, body.FreezeSnapshot, now, out var err))
+            return Conflict(new { error = err });
+
         await db.SaveChangesAsync(ct);
         if (anomalies is not null)
             await anomalies.RecomputeForFicheAsync(entity.Id, ct);

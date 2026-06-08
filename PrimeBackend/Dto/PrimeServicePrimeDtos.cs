@@ -103,6 +103,8 @@ public sealed class EmployeePrimeServiceFicheResponseDto
     public string ValidationStatus { get; init; } = "";
     public bool IsReadyForValidation { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
+    public bool HasDetailGridSnapshot { get; init; }
+    public DateTimeOffset? DetailGridFrozenAt { get; init; }
 }
 
 public sealed class UpsertEmployeePrimeServiceFicheRequest
@@ -127,6 +129,36 @@ public sealed class PersistFicheAmountsRequest
     public decimal? TotalAmount { get; set; }
 }
 
+/// <summary>Grille fusionnée recalculée (snapshot v1) — brouillon ou gel.</summary>
+public sealed class PersistFicheDetailSnapshotRequest
+{
+    public string SupervisorUserId { get; set; } = "";
+    public string? PreviewSheetName { get; set; }
+    public string? TemplateVersionRef { get; set; }
+    public List<List<string>> Rows { get; set; } = [];
+    public List<string> Errors { get; set; } = [];
+    public decimal? PrimeAmount { get; set; }
+    public decimal? ChallengeAmount { get; set; }
+    public decimal? TotalAmount { get; set; }
+    /// <summary>Si true, fige le snapshot (validation terminale). Refusé si déjà figé.</summary>
+    public bool FreezeSnapshot { get; set; }
+}
+
+public sealed class FicheDetailSnapshotResponseDto
+{
+    public Guid FicheId { get; init; }
+    public int Version { get; init; }
+    public string? PreviewSheetName { get; init; }
+    public string? TemplateVersionRef { get; init; }
+    public List<List<string>> Rows { get; init; } = [];
+    public List<string> Errors { get; init; } = [];
+    public decimal? PrimeAmount { get; init; }
+    public decimal? ChallengeAmount { get; init; }
+    public decimal? TotalAmount { get; init; }
+    public DateTimeOffset? FrozenAt { get; init; }
+    public DateTimeOffset UpdatedAt { get; init; }
+}
+
 public sealed class EmployeePrimeServiceFicheListItemDto
 {
     public string EmployeeId { get; init; } = "";
@@ -141,6 +173,7 @@ public sealed class EmployeePrimeServiceFicheListItemDto
     public bool? IsReadyForValidation { get; init; }
     public string ServiceSaisieJson { get; init; } = "{}";
     public DateTimeOffset? UpdatedAt { get; init; }
+    public bool HasFrozenDetailSnapshot { get; init; }
 }
 
 public sealed class ServicePilotageSummaryDto

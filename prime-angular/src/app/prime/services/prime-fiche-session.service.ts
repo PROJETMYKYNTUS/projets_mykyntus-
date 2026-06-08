@@ -8,15 +8,13 @@ import {
 } from '../models/prime-template.model';
 import type { SupervisorPolePrimeDraftDto } from './prime-cell-prime-api.service';
 import { PrimeFicheTemplateActiveService } from './prime-fiche-template-active.service';
+import {
+  clampToLatestClosedPeriod,
+  defaultClosedPrimePeriod,
+  isPrimePeriodClosed,
+} from '../lib/prime-period-eligibility';
 
 export type PrimeFicheWizardStep = 'idle' | 'setup' | 'preview' | 'entry' | 'result' | 'submitted';
-
-function defaultPreviousMonth(): { year: number; month: number } {
-  const d = new Date();
-  d.setDate(1);
-  d.setMonth(d.getMonth() - 1);
-  return { year: d.getFullYear(), month: d.getMonth() + 1 };
-}
 
 @Injectable({ providedIn: 'root' })
 export class PrimeFicheSessionService {
@@ -25,8 +23,8 @@ export class PrimeFicheSessionService {
   /** Flux superviseur : idle = pas de wizard (ex. autre rôle ou mode legacy). */
   readonly step = signal<PrimeFicheWizardStep>('idle');
 
-  readonly periodYear = signal(defaultPreviousMonth().year);
-  readonly periodMonth = signal(defaultPreviousMonth().month);
+  readonly periodYear = signal(defaultClosedPrimePeriod().year);
+  readonly periodMonth = signal(defaultClosedPrimePeriod().month);
 
   readonly selectedTemplateId = signal<string | null>(null);
   /** Copie du template choisi pour aperçu / recalcul (hors localStorage mutable). */
@@ -56,16 +54,19 @@ export class PrimeFicheSessionService {
   /** Après « mode sans assistant », ne pas relancer automatiquement le wizard tant que l’utilisateur ne reprend pas le flux. */
   readonly preferLegacySaisie = signal(false);
 
+  /** Bloque le redémarrage auto de l’assistant après « Retour à la liste ». */
+  readonly holdCommonsListView = signal(false);
+
   startWizardForSupervisor(): void {
-    const d = defaultPreviousMonth();
-    this.periodYear.set(d.year);
-    this.periodMonth.set(d.month);
+    const d = defaultClosedPrimePeriod();
+    this.setPeriodYearMonth(d.year, d.month);
     this.selectedTemplateId.set(null);
     this.sessionTemplate.set(null);
     this.sessionSchema.set(null);
     this.polePrimeDraftId.set(null);
     this.entryEpoch.set(0);
     this.preferLegacySaisie.set(false);
+    this.holdCommonsListView.set(false);
     this.step.set('setup');
   }
 
@@ -83,6 +84,7 @@ export class PrimeFicheSessionService {
    * (rendu conditionnel dans `prime-layout` quand step==='idle').
    */
   exitWizardToList(): void {
+    this.holdCommonsListView.set(true);
     this.step.set('idle');
     this.sessionTemplate.set(null);
     this.sessionSchema.set(null);
@@ -136,11 +138,13 @@ export class PrimeFicheSessionService {
 
     this.periodYear.set(y);
     this.periodMonth.set(m);
+    this.clampPeriodToEligible();
     this.selectedTemplateId.set(draft.templateId);
     this.sessionTemplate.set(tpl);
     this.sessionSchema.set(null);
     this.polePrimeDraftId.set(draft.id);
     this.preferLegacySaisie.set(false);
+    this.holdCommonsListView.set(false);
     this.entryEpoch.set(0);
     this.step.set('preview');
     return true;
@@ -210,5 +214,19 @@ export class PrimeFicheSessionService {
     const y = this.periodYear();
     const m = String(this.periodMonth()).padStart(2, '0');
     return `${y}-${m}`;
+  }
+
+  isSelectedPeriodClosed(): boolean {
+    return isPrimePeriodClosed(this.periodYear(), this.periodMonth());
+  }
+
+  setPeriodYearMonth(year: number, month: number): void {
+    const clamped = clampToLatestClosedPeriod(year, month);
+    this.periodYear.set(clamped.year);
+    this.periodMonth.set(clamped.month);
+  }
+
+  clampPeriodToEligible(): void {
+    this.setPeriodYearMonth(this.periodYear(), this.periodMonth());
   }
 }

@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
+import type { FicheDetailSnapshotResponseDto } from '../lib/prime-fiche-detail-snapshot';
 
 const base = '/api/prime';
 
@@ -121,6 +122,8 @@ export interface EmployeePrimeCellFicheDto {
   validationStatus: string;
   isReadyForValidation: boolean;
   updatedAt: string;
+  hasDetailGridSnapshot?: boolean;
+  detailGridFrozenAt?: string | null;
 }
 
 /** JSON saisi côté pilote (partie service). */
@@ -152,6 +155,7 @@ export interface EmployeePrimeCellFicheListItemDto {
   isReadyForValidation?: boolean | null;
   serviceSaisieJson: string;
   updatedAt: string | null;
+  hasFrozenDetailSnapshot?: boolean;
 }
 
 export function ficheListDraftId(emp: EmployeePrimeCellFicheListItemDto): string {
@@ -166,6 +170,50 @@ export function ficheListSaisieJson(emp: EmployeePrimeCellFicheListItemDto): str
   const legacy = emp as EmployeePrimeCellFicheListItemDto & { cellSaisieJson?: string };
   const raw = emp.serviceSaisieJson ?? legacy.cellSaisieJson;
   return typeof raw === 'string' && raw.trim().length > 0 ? raw : '{}';
+}
+
+/** Réponse POST /api/prime/fiche-imports (import fiche prête). */
+export interface ImportReadyFicheResponseDto {
+  outcome: string;
+  ficheId?: string | null;
+  historicalFicheId?: string | null;
+  employeeId?: string | null;
+  employeeDisplayName?: string | null;
+  period: string;
+  validationStatus: string;
+  importedAt: string;
+}
+
+export interface PrimeHistoricalFicheListItemDto {
+  id: string;
+  period: string;
+  celluleId: string;
+  serviceId?: string | null;
+  employeeExternalName: string;
+  employeeId?: string | null;
+  primeAmount?: number | null;
+  challengeAmount?: number | null;
+  totalAmount?: number | null;
+  originFileName: string;
+  source: string;
+  importedAt: string;
+  hasDetailGrid: boolean;
+}
+
+export interface PrimeHistoricalFicheDetailSnapshotDto {
+  historicalFicheId: string;
+  version: number;
+  previewSheetName?: string | null;
+  templateVersionRef?: string | null;
+  rows: string[][];
+  errors: string[];
+  primeAmount?: number | null;
+  challengeAmount?: number | null;
+  totalAmount?: number | null;
+  employeeExternalName: string;
+  period: string;
+  originFileName: string;
+  importedAt: string;
 }
 
 /** Résumé pilotage — aligné sur `ServicePilotageSummaryDto` backend (`cells-summary`). */
@@ -356,6 +404,48 @@ export class PrimeCellPrimeApiService {
     );
   }
 
+  /** Persiste la grille fusionnée recalculée (snapshot v1) + montants. */
+  persistFicheDetailSnapshot(
+    ficheId: string,
+    supervisorUserId: string,
+    body: {
+      previewSheetName: string | null;
+      templateVersionRef: string;
+      rows: string[][];
+      errors: string[];
+      primeAmount?: number | null;
+      challengeAmount?: number | null;
+      totalAmount?: number | null;
+      freezeSnapshot?: boolean;
+    },
+  ): Observable<EmployeePrimeCellFicheDto> {
+    return this.http.post<EmployeePrimeCellFicheDto>(
+      `${base}/employee-prime-cell-fiches/${encodeURIComponent(ficheId)}/detail-snapshot`,
+      {
+        supervisorUserId,
+        previewSheetName: body.previewSheetName,
+        templateVersionRef: body.templateVersionRef,
+        rows: body.rows,
+        errors: body.errors,
+        primeAmount: body.primeAmount ?? null,
+        challengeAmount: body.challengeAmount ?? null,
+        totalAmount: body.totalAmount ?? null,
+        freezeSnapshot: body.freezeSnapshot ?? false,
+      },
+    );
+  }
+
+  getFicheDetailSnapshot(
+    ficheId: string,
+    supervisorUserId: string,
+  ): Observable<FicheDetailSnapshotResponseDto> {
+    const q = new HttpParams().set('supervisorUserId', supervisorUserId);
+    return this.http.get<FicheDetailSnapshotResponseDto>(
+      `${base}/employee-prime-cell-fiches/${encodeURIComponent(ficheId)}/detail-snapshot`,
+      { params: q },
+    );
+  }
+
   getGlobalPoolState(supervisorUserId: string, draftId: string): Observable<CelluleDraftGlobalPoolStateDto> {
     const q = new HttpParams().set('supervisorUserId', supervisorUserId.trim());
     return this.http.get<CelluleDraftGlobalPoolStateDto>(
@@ -417,6 +507,50 @@ export class PrimeCellPrimeApiService {
     return this.http.get(
       `${base}/supervisor-pole-prime-drafts/${encodeURIComponent(draftId)}/global-pool/excel`,
       { params: q, responseType: 'blob' },
+    );
+  }
+
+  importReadyFiche(body: {
+    supervisorUserId: string;
+    period: string;
+    celluleId: string;
+    employeeId?: string | null;
+    employeeExternalName?: string | null;
+    isHistorical: boolean;
+    originFileName: string;
+    previewSheetName?: string | null;
+    templateVersionRef?: string | null;
+    rows: string[][];
+    errors: string[];
+    primeAmount?: number | null;
+    challengeAmount?: number | null;
+    totalAmount?: number | null;
+    serviceSaisieJson: string;
+  }): Observable<ImportReadyFicheResponseDto> {
+    return this.http.post<ImportReadyFicheResponseDto>(`${base}/fiche-imports`, body);
+  }
+
+  listHistoricalFiches(
+    supervisorUserId: string,
+    period?: string,
+    role?: string,
+  ): Observable<PrimeHistoricalFicheListItemDto[]> {
+    let q = new HttpParams().set('supervisorUserId', supervisorUserId.trim());
+    if (period?.trim()) q = q.set('period', period.trim());
+    if (role?.trim()) q = q.set('role', role.trim());
+    return this.http.get<PrimeHistoricalFicheListItemDto[]>(`${base}/fiche-imports/historical`, { params: q });
+  }
+
+  getHistoricalFicheDetailSnapshot(
+    historicalFicheId: string,
+    supervisorUserId: string,
+    role?: string,
+  ): Observable<PrimeHistoricalFicheDetailSnapshotDto> {
+    let q = new HttpParams().set('supervisorUserId', supervisorUserId.trim());
+    if (role?.trim()) q = q.set('role', role.trim());
+    return this.http.get<PrimeHistoricalFicheDetailSnapshotDto>(
+      `${base}/fiche-imports/historical/${encodeURIComponent(historicalFicheId)}/detail-snapshot`,
+      { params: q },
     );
   }
 }

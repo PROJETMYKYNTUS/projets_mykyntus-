@@ -47,6 +47,8 @@ public sealed class PrimeValidationWorkflowRuntime(PrimeDbContext db)
     {
         if (PrimeValidationWorkflowService.IsPreWorkflowStatus(status))
             return false;
+        if (PrimeValidationWorkflowService.IsHistoricalImport(status))
+            return true;
         if (string.Equals(status, PrimeValidationWorkflowService.Rejected, StringComparison.Ordinal))
             return true;
         var anySteps = await db.WorkflowSteps.AsNoTracking().AnyAsync(s => s.IsActive, ct);
@@ -77,6 +79,7 @@ public sealed class PrimeValidationWorkflowRuntime(PrimeDbContext db)
         var terminals = new HashSet<string>(StringComparer.Ordinal)
         {
             PrimeValidationWorkflowService.Rejected,
+            PrimeValidationWorkflowService.HistoricalImport,
         };
         foreach (var s in active.Where(x => x.TerminalApproved).Select(x => x.ToStatus))
             terminals.Add(s);

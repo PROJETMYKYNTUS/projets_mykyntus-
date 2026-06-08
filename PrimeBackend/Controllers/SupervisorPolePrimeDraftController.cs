@@ -172,6 +172,9 @@ public sealed class SupervisorCellulePrimeDraftController(
         var supTrim = body.SupervisorUserId.Trim();
         var poleTrim = body.CelluleId.Trim();
         var periodTrim = body.Period.Trim();
+        if (!PrimePeriodRules.IsClosedPeriod(periodTrim))
+            return BadRequest(new { error = PrimePeriodRules.ClosedPeriodRequiredMessage(periodTrim) });
+
         var templateTrim = body.TemplateId.Trim();
 
         var rootPoleId = await org.ResolveRootPoleIdForCelluleAsync(poleTrim, ct);

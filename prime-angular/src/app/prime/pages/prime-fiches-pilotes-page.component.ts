@@ -18,7 +18,7 @@ import {
   RefreshCw,
   User,
 } from 'lucide';
-import { catchError, forkJoin, map, of, type Observable } from 'rxjs';
+import { catchError, forkJoin, map, of, switchMap, type Observable } from 'rxjs';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
 import {
   PrimeCellSaisieBlockComponent,
@@ -43,6 +43,11 @@ import {
   type MergedEmployeeFichePreviewResult,
 } from '../lib/prime-employee-fiche-merged-preview';
 import {
+  buildTemplateVersionRef,
+  mergedPreviewFromStoredSnapshot,
+} from '../lib/prime-fiche-detail-snapshot';
+import { PRIME_FICHE_TEMPLATE_FORMAT_V1 } from '../models/prime-fiche-template.schema';
+import {
   buildStyledMergedFicheWorkbook,
   downloadStyledFicheWorkbook,
 } from '../lib/prime-fiche-xlsx-export';
@@ -50,6 +55,13 @@ import {
   mergedFicheActionsDisabledHint,
   mergedFicheActionsEnabled,
 } from '../lib/prime-fiche-distribution-access';
+import {
+  defaultClosedPrimePeriod,
+  formatPrimePeriodLabel,
+  isPrimePeriodLabelClosed,
+  maxClosedPrimePeriodInputValue,
+  primePeriodClosedErrorMessage,
+} from '../lib/prime-period-eligibility';
 
 function httpErr(err: unknown): string {
   if (err instanceof HttpErrorResponse) {
@@ -130,9 +142,11 @@ interface PilotageCelluleGroup {
             <input
               type="month"
               [value]="period()"
+              [max]="maxClosedPrimePeriod()"
               (change)="onPeriodChange($event)"
               class="rounded-lg border border-navy-600 bg-navy-900 px-3 py-2 text-sm text-slate-100"
             />
+            <p class="mt-1 text-[11px] text-slate-500">Mois terminés uniquement (pas le mois en cours).</p>
           </div>
           @if (globalTemplateHint()) {
             <p class="text-xs text-slate-500 max-w-xl pb-1">
@@ -451,6 +465,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly summary = signal<CellPilotageSummaryDto[]>([]);
   readonly period = signal(this.defaultPeriod());
+  readonly maxClosedPrimePeriod = maxClosedPrimePeriodInputValue;
   readonly employeesByServiceId = signal<Record<string, EmployeePrimeCellFicheListItemDto[]>>({});
   readonly selectedPilot = signal<PilotSelection | null>(null);
 
@@ -542,25 +557,32 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     // avant le premier chargement.
     const requested = this.nav.requestedPeriod();
     if (requested && /^\d{4}-\d{2}$/.test(requested)) {
-      this.period.set(requested);
+      this.period.set(this.normalizePeriod(requested));
       this.nav.clearRequestedPeriod();
     }
     void this.reload();
   }
 
   defaultPeriod(): string {
-    const d = new Date();
-    d.setDate(1);
-    d.setMonth(d.getMonth() - 1);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`;
+    const d = defaultClosedPrimePeriod();
+    return formatPrimePeriodLabel(d.year, d.month);
+  }
+
+  private normalizePeriod(period: string): string {
+    if (isPrimePeriodLabelClosed(period)) return period;
+    return this.defaultPeriod();
   }
 
   onPeriodChange(ev: Event): void {
     const v = (ev.target as HTMLInputElement).value;
     if (!v) return;
     this.pageNotice.set(null);
+    if (!isPrimePeriodLabelClosed(v)) {
+      this.error.set(primePeriodClosedErrorMessage(v));
+      (ev.target as HTMLInputElement).value = this.period();
+      return;
+    }
+    this.error.set(null);
     this.period.set(v);
     this.selectedPilot.set(null);
     void this.reload();
@@ -696,31 +718,64 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
   ): Observable<MergedEmployeeFichePreviewResult> {
     const u = this.role.currentUser();
     const tid = (cell.linkedTemplateId ?? '').trim();
+    const ficheId = (emp.ficheId ?? '').trim();
     return forkJoin({
       draft: this.api.getPoleDraft(u.id, cell.celluleId.trim(), this.period(), tid),
       fiche: this.api.getFicheForEmployee(u.id, emp.employeeId, this.period(), tid),
       inds: this.api.getIndicators(emp.serviceId, u.id),
     }).pipe(
-      map(({ draft, fiche, inds }) => {
+      switchMap(({ draft, fiche, inds }) => {
         const schema = parsePrimeSchemaFromDraftJson(draft.schemaJson);
-        return computeMergedEmployeeFichePreview({
-          schema,
-          poleSaisieJson: draftResponseSaisieJson(draft),
-          cellSaisieJson: ficheResponseSaisieJson(fiche),
-          templateCalcSnapshotJson: draft.templateCalcSnapshotJson,
-          indicators: inds,
-          templateId: tid,
-        });
+        const computeLive = (): MergedEmployeeFichePreviewResult =>
+          computeMergedEmployeeFichePreview({
+            schema,
+            poleSaisieJson: draftResponseSaisieJson(draft),
+            cellSaisieJson: ficheResponseSaisieJson(fiche),
+            templateCalcSnapshotJson: draft.templateCalcSnapshotJson,
+            indicators: inds,
+            templateId: tid,
+          });
+
+        const frozenAt = (fiche.detailGridFrozenAt ?? '').trim();
+        if (frozenAt && ficheId) {
+          return this.api.getFicheDetailSnapshot(ficheId, u.id).pipe(
+            map((snap) => {
+              const stored = mergedPreviewFromStoredSnapshot(snap);
+              return {
+                ...stored,
+                effectiveSchema: schema,
+              };
+            }),
+            catchError(() => of(computeLive())),
+          );
+        }
+        return of(computeLive());
       }),
     );
   }
 
-  /** Persiste les montants Prime/Challenge/Total calcules dans l'apercu fusionne sur la fiche. */
-  private persistMergedTotals(emp: EmployeePrimeCellFicheListItemDto, res: MergedEmployeeFichePreviewResult): void {
+  /** Persiste la grille fusionnée recalculée (snapshot v1) + montants sur la fiche brouillon. */
+  private persistMergedSnapshot(
+    emp: EmployeePrimeCellFicheListItemDto,
+    cell: CellPilotageSummaryDto,
+    res: MergedEmployeeFichePreviewResult,
+  ): void {
     const ficheId = (emp.ficheId ?? '').trim();
-    if (!ficheId || !res.totals) return;
+    if (!ficheId || !res.rows.length || res.fromStoredSnapshot) return;
     const u = this.role.currentUser();
-    this.api.persistFicheAmounts(ficheId, u.id, res.totals).subscribe({ error: () => undefined });
+    const tid = (cell.linkedTemplateId ?? '').trim();
+    this.api
+      .persistFicheDetailSnapshot(ficheId, u.id, {
+        previewSheetName: res.previewSheetName,
+        templateVersionRef: buildTemplateVersionRef(tid, PRIME_FICHE_TEMPLATE_FORMAT_V1),
+        rows: res.rows,
+        errors: res.errors,
+        primeAmount: res.totals?.primeAmount ?? null,
+        challengeAmount: res.totals?.challengeAmount ?? null,
+        totalAmount: res.totals?.totalAmount ?? null,
+        freezeSnapshot: false,
+      })
+      .subscribe({ error: () => undefined });
   }
 
   /**
@@ -741,7 +796,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
         tasks.push(
           this.fetchMerged$(emp, cell).pipe(
             map((res) => {
-              if (res.totals) this.persistMergedTotals(emp, res);
+              if (res.totals) this.persistMergedSnapshot(emp, cell, res);
               return null;
             }),
             catchError(() => of(null)),
@@ -764,7 +819,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     this.previewTitle.set(`Aperçu — ${emp.firstName} ${emp.lastName} — ${this.period()}`);
     this.fetchMerged$(emp, cell).subscribe({
       next: (res) => {
-        this.persistMergedTotals(emp, res);
+        this.persistMergedSnapshot(emp, cell, res);
         this.previewRows.set(res.rows);
         this.previewErrors.set(res.errors);
         if (res.missingSnapshot) this.previewBanner.set(MERGED_PREVIEW_MISSING_SNAPSHOT_HINT);
@@ -784,7 +839,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     if (!this.mergedActionsEnabled(emp, cell)) return;
     this.fetchMerged$(emp, cell).subscribe({
       next: (res) => {
-        this.persistMergedTotals(emp, res);
+        this.persistMergedSnapshot(emp, cell, res);
         if (res.missingSnapshot) {
           window.alert(MERGED_PREVIEW_MISSING_SNAPSHOT_HINT);
           return;

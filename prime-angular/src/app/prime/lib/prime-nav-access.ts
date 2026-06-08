@@ -10,6 +10,6 @@ export function isPrimePathAllowedForRole(path: string, role: Role): boolean {
   if (path === '/global-pool' && !['Admin', 'RH', 'Manager', 'Comptabilité'].includes(role)) return false;
   if (path === '/synthesis-tracking' && !['Admin', 'RH', 'Manager'].includes(role))
     return false;
-  if (path === '/rh/organisation' && role !== 'RH' && role !== 'Admin') return false;
+  if (path === '/rh/organisation' && role !== 'RH') return false;
   return true;
 }

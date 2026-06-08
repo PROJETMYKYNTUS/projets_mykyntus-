@@ -37,6 +37,8 @@ public sealed class PrimeDatabaseInitializer(
         try
         {
             await PrimeSchemaPatches.EnsureGlobalPoolSynthesisLineSchemaAsync(db, cancellationToken);
+            await PrimeSchemaPatches.EnsureEmployeeFicheDetailSnapshotAsync(db, cancellationToken);
+            await PrimeSchemaPatches.EnsurePrimeHistoricalFicheTableAsync(db, cancellationToken);
             logger.LogInformation("PRIME : correctif schéma lignes synthèse globale appliqué.");
         }
         catch (Exception ex)

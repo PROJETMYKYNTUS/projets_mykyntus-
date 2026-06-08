@@ -79,7 +79,11 @@ public sealed class PrimeFicheMergedPreviewAccessService(
         var display = emp is null ? fiche.EmployeeId : $"{emp.FirstName} {emp.LastName}".Trim();
 
         var templateId = (draft?.TemplateId ?? "").Trim();
-        var unavailable = ResolvePreviewUnavailableReason(fiche, draft, templateId);
+        var frozen = PrimeFicheDetailSnapshotService.IsFrozen(fiche);
+        var storedSnap = frozen ? PrimeFicheDetailSnapshotService.TryParseSnapshot(fiche.DetailGridJson) : null;
+        var unavailable = frozen && storedSnap is not null
+            ? null
+            : ResolvePreviewUnavailableReason(fiche, draft, templateId);
 
         var indicators = await db.ServicePrimeIndicators.AsNoTracking()
             .Where(x => x.ServiceId == fiche.ServiceId)
@@ -113,6 +117,9 @@ public sealed class PrimeFicheMergedPreviewAccessService(
             Indicators = indicators,
             PreviewAvailable = unavailable is null,
             PreviewUnavailableReason = unavailable,
+            UseStoredDetailSnapshot = frozen && storedSnap is not null,
+            StoredDetailSnapshotJson = storedSnap is not null ? fiche.DetailGridJson : null,
+            DetailGridFrozenAt = fiche.DetailGridFrozenAt,
         };
     }
 

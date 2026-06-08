@@ -8,6 +8,10 @@ import {
   type MergedEmployeeFichePreviewResult,
 } from '../lib/prime-employee-fiche-merged-preview';
 import {
+  mergedPreviewFromStoredSnapshot,
+  parseDetailSnapshotV1,
+} from '../lib/prime-fiche-detail-snapshot';
+import {
   buildStyledMergedFicheWorkbook,
   downloadStyledFicheWorkbook,
 } from '../lib/prime-fiche-xlsx-export';
@@ -29,6 +33,9 @@ export interface MergedFichePreviewContextDto {
   indicators: CellulePrimeIndicatorDto[];
   previewAvailable: boolean;
   previewUnavailableReason?: string | null;
+  useStoredDetailSnapshot?: boolean;
+  storedDetailSnapshotJson?: string | null;
+  detailGridFrozenAt?: string | null;
 }
 
 export function previewHttpError(err: unknown): string {
@@ -68,6 +75,15 @@ export class PrimeEmployeeFichePreviewService {
       };
     }
     const schema = parsePrimeSchemaFromDraftJson(context.schemaJson);
+    if (context.useStoredDetailSnapshot && context.storedDetailSnapshotJson) {
+      const snap = parseDetailSnapshotV1(context.storedDetailSnapshotJson);
+      if (snap) {
+        return {
+          ...mergedPreviewFromStoredSnapshot(snap),
+          effectiveSchema: schema,
+        };
+      }
+    }
     return computeMergedEmployeeFichePreview({
       schema,
       poleSaisieJson: context.poleSaisieJson,

@@ -22,6 +22,8 @@ public static class PrimeValidationWorkflowService
     public const string ChefDeProjetApproved = "Chef de projet Approved";
     public const string RhApproved = "RH Approved";
     public const string Rejected = "Rejected";
+    /// <summary>Import historique direct — hors workflow de validation.</summary>
+    public const string HistoricalImport = "Historical Import";
 
     private static readonly string[] OrderedFlow =
     [
@@ -36,7 +38,10 @@ public static class PrimeValidationWorkflowService
 
     /// <summary>Tous les statuts valides (flux + Rejected + ancien statut RT pour filtres / données historiques).</summary>
     public static IReadOnlyList<string> AllStatuses =>
-        [AwaitingData, .. OrderedFlow, Rejected, ReferentTechniqueApproved];
+        [AwaitingData, .. OrderedFlow, Rejected, ReferentTechniqueApproved, HistoricalImport];
+
+    public static bool IsHistoricalImport(string? status) =>
+        string.Equals(status?.Trim(), HistoricalImport, StringComparison.Ordinal);
 
     /// <summary>Rôle attendu pour faire la prochaine validation depuis l'état courant.</summary>
     public static string? RequiredApproverRole(string currentStatus) => currentStatus switch
@@ -58,7 +63,7 @@ public static class PrimeValidationWorkflowService
     /// <summary>Vrai si <paramref name="role"/> peut rejeter la fiche depuis <paramref name="currentStatus"/>.</summary>
     public static bool CanReject(string currentStatus, string role)
     {
-        if (currentStatus is ChefDeProjetApproved or RhApproved or Rejected) return false;
+        if (currentStatus is ChefDeProjetApproved or RhApproved or Rejected or HistoricalImport) return false;
         var required = RequiredApproverRole(currentStatus);
         return required is not null && string.Equals(required, role, StringComparison.Ordinal);
     }

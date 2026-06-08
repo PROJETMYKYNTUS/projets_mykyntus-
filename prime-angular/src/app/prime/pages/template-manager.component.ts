@@ -13,8 +13,9 @@ import { LucideIconComponent } from '../../shared/lucide-icon.component';
 import { PrimeCardComponent } from '../components/prime-card.component';
 import { parsePrimeTemplateExcel } from '../lib/excel-fiche-template.parser';
 import { parsePrimeFicheGrid } from '../lib/prime-fiche-grid.parser';
+import { summarizeGridDiagnostics } from '../lib/prime-fiche-grid-diagnostics';
 import type { ParsedPrimeTemplate, StoredPrimeTemplate } from '../models/prime-template.model';
-import { loadStoredTemplates, persistTemplates } from '../models/prime-template.model';
+import { loadStoredTemplates, isTemplateDisplayNameTaken, persistTemplates } from '../models/prime-template.model';
 import type { PrimeFicheGridImportResult, PrimeFicheTemplateSchema } from '../models/prime-fiche-template.schema';
 import { PrimeFicheTemplateActiveService } from '../services/prime-fiche-template-active.service';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
@@ -104,14 +105,34 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
               </ul>
             </div>
           }
-          @if (gr.diagnostics.warnings.length) {
+          @if (gridWarningSummary(gr).length) {
             <div class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
               <p class="text-xs font-semibold uppercase text-muted mb-1">Avertissements grille</p>
               <ul class="list-disc pl-5 text-sm text-primary space-y-1">
-                @for (w of gr.diagnostics.warnings; track w) {
+                @for (w of gridWarningSummary(gr); track w) {
                   <li>{{ w }}</li>
                 }
               </ul>
+              @if (gr.diagnostics.warnings.length > gridWarningSummary(gr).length) {
+                <button
+                  type="button"
+                  class="mt-2 text-xs text-blue-500 hover:underline"
+                  (click)="toggleGridDetail()"
+                >
+                  {{
+                    showGridDetail()
+                      ? 'Masquer le détail'
+                      : 'Voir tous les avertissements (' + gr.diagnostics.warnings.length + ')'
+                  }}
+                </button>
+              }
+              @if (showGridDetail()) {
+                <ul class="mt-2 list-disc pl-5 text-xs text-muted space-y-0.5 max-h-48 overflow-auto">
+                  @for (w of gr.diagnostics.warnings; track w) {
+                    <li>{{ w }}</li>
+                  }
+                </ul>
+              }
             </div>
           }
         </app-prime-card>
@@ -281,11 +302,16 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
               <label class="mb-1 block text-sm font-medium text-muted">Nom du template</label>
               <input
                 type="text"
-                [class]="inputClass"
+                [class]="saveNameInputClass()"
                 [value]="saveName()"
-                (input)="saveName.set($any($event.target).value)"
+                (input)="onSaveNameInput($any($event.target).value)"
                 placeholder="Ex. Fiche PRIME 2026 — équipe Nord"
               />
+              @if (saveNameConflict()) {
+                <p class="mt-1.5 text-sm text-rose-600 dark:text-rose-400" role="alert">
+                  Un template porte déjà ce nom. Choisissez un libellé unique.
+                </p>
+              }
             </div>
             <button
               type="button"
@@ -299,7 +325,12 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
           </div>
           @if (saveBanner()) {
             <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-              <p class="text-sm font-medium text-emerald-600 dark:text-emerald-400">{{ saveBanner() }}</p>
+              <p
+                class="text-sm font-medium"
+                [class]="saveBannerIsError() ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'"
+              >
+                {{ saveBanner() }}
+              </p>
               @if (saisieCtaVisible()) {
                 <button
                   type="button"
@@ -380,14 +411,14 @@ export class TemplateManagerComponent {
   };
 
   readonly formulaPreviewLimit = 120;
-  readonly inputClass =
-    'w-full px-3 py-2 border border-default rounded-lg focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-input text-primary placeholder:text-muted';
 
   readonly parsed = signal<ParsedPrimeTemplate | null>(null);
   readonly gridImport = signal<PrimeFicheGridImportResult | null>(null);
+  readonly showGridDetail = signal(false);
   readonly parseError = signal<string | null>(null);
   readonly saveName = signal('');
   readonly saveBanner = signal<string | null>(null);
+  readonly saveBannerIsError = signal(false);
   /** Affiche le bouton « Ouvrir la fiche PRIME » après activation / sauvegarde avec grille. */
   readonly saisieCtaVisible = signal(false);
   readonly stored = signal<StoredPrimeTemplate[]>(loadStoredTemplates());
@@ -398,11 +429,29 @@ export class TemplateManagerComponent {
     return p.formulas.slice(0, this.formulaPreviewLimit);
   });
 
+  readonly saveNameConflict = computed(() =>
+    isTemplateDisplayNameTaken(this.saveName(), this.stored()),
+  );
+
   readonly canSave = computed(() => {
     const p = this.parsed();
     const name = this.saveName().trim();
-    return !!(p && p.validation.ok && name.length > 0);
+    return !!(p && p.validation.ok && name.length > 0 && !this.saveNameConflict());
   });
+
+  saveNameInputClass(): string {
+    const base =
+      'w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-input text-primary placeholder:text-muted';
+    return this.saveNameConflict()
+      ? `${base} border-rose-500/70 focus:ring-rose-500/40 focus:border-rose-500`
+      : `${base} border-default`;
+  }
+
+  onSaveNameInput(value: string): void {
+    this.saveName.set(value);
+    this.saveBanner.set(null);
+    this.saveBannerIsError.set(false);
+  }
 
   contractHintsLabel(p: ParsedPrimeTemplate): string {
     return p.contractHints.join(', ');
@@ -415,6 +464,14 @@ export class TemplateManagerComponent {
 
   gridSectorCount(schema: PrimeFicheTemplateSchema): number {
     return schema.lines[0]?.secteurs.length ?? 0;
+  }
+
+  gridWarningSummary(gr: PrimeFicheGridImportResult): string[] {
+    return summarizeGridDiagnostics(gr.diagnostics).summaryWarnings;
+  }
+
+  toggleGridDetail(): void {
+    this.showGridDetail.update((v) => !v);
   }
 
   activateCurrentGrid(): void {
@@ -445,8 +502,10 @@ export class TemplateManagerComponent {
     const file = input.files?.[0];
     input.value = '';
     this.saveBanner.set(null);
+    this.saveBannerIsError.set(false);
     this.saisieCtaVisible.set(false);
     this.parseError.set(null);
+    this.showGridDetail.set(false);
 
     if (!file) return;
     if (!/\.xlsx$/i.test(file.name)) {
@@ -489,6 +548,7 @@ export class TemplateManagerComponent {
     this.gridImport.set(null);
     this.parseError.set(null);
     this.saveBanner.set(null);
+    this.saveBannerIsError.set(false);
     this.saisieCtaVisible.set(false);
     this.saveName.set('');
   }
@@ -497,6 +557,12 @@ export class TemplateManagerComponent {
     const p = this.parsed();
     const name = this.saveName().trim();
     if (!p || !p.validation.ok || !name) return;
+    if (isTemplateDisplayNameTaken(name, this.stored())) {
+      this.saveBanner.set(`Impossible d’enregistrer : un template nommé « ${name} » existe déjà.`);
+      this.saveBannerIsError.set(true);
+      this.saisieCtaVisible.set(false);
+      return;
+    }
 
     const row: StoredPrimeTemplate = {
       ...p,
@@ -510,10 +576,15 @@ export class TemplateManagerComponent {
     try {
       persistTemplates(next);
       this.stored.set(next);
-    } catch {
+    } catch (e) {
+      const duplicate =
+        e instanceof Error && e.message.startsWith('Duplicate template display name');
       this.saveBanner.set(
-        'Espace local insuffisant (quota navigateur). Supprimez d’anciens templates ou réduisez la taille du classeur.',
+        duplicate
+          ? `Impossible d’enregistrer : un template nommé « ${name} » existe déjà.`
+          : 'Espace local insuffisant (quota navigateur). Supprimez d’anciens templates ou réduisez la taille du classeur.',
       );
+      this.saveBannerIsError.set(true);
       this.saisieCtaVisible.set(false);
       return;
     }
@@ -524,10 +595,12 @@ export class TemplateManagerComponent {
       this.saveBanner.set(
         `Template « ${name} » enregistré et activé pour la saisie (grille v${schema.templateFormatVersion}).`,
       );
+      this.saveBannerIsError.set(false);
       this.saisieCtaVisible.set(true);
       this.nav.requestView('/prime-saisie');
     } else {
       this.saveBanner.set(`Template « ${name} » enregistré localement.`);
+      this.saveBannerIsError.set(false);
       this.saisieCtaVisible.set(false);
     }
   }

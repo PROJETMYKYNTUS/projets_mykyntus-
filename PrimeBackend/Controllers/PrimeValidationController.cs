@@ -107,7 +107,8 @@ public sealed class PrimeValidationController(
 
         await ReconcileForValidationReadAsync(period, ct);
 
-        var query = db.EmployeePrimeServiceFiches.AsNoTracking().AsQueryable();
+        var query = db.EmployeePrimeServiceFiches.AsNoTracking().AsQueryable()
+            .Where(f => f.ValidationStatus != PrimeValidationWorkflowService.HistoricalImport);
         if (!string.IsNullOrWhiteSpace(period)) query = query.Where(f => f.Period == period.Trim());
         if (!string.IsNullOrWhiteSpace(status))
         {
@@ -154,7 +155,8 @@ public sealed class PrimeValidationController(
 
         await ReconcileForValidationReadAsync(period, ct);
 
-        var query = db.EmployeePrimeServiceFiches.AsNoTracking().AsQueryable();
+        var query = db.EmployeePrimeServiceFiches.AsNoTracking().AsQueryable()
+            .Where(f => f.ValidationStatus != PrimeValidationWorkflowService.HistoricalImport);
         if (!string.IsNullOrWhiteSpace(period)) query = query.Where(f => f.Period == period.Trim());
         if (!string.IsNullOrWhiteSpace(serviceId)) query = query.Where(f => f.ServiceId == serviceId.Trim());
         if (!string.IsNullOrWhiteSpace(celluleId)) query = query.Where(f => f.CelluleId == celluleId.Trim());
@@ -326,6 +328,10 @@ public sealed class PrimeValidationController(
         if (step?.CapturesAmountsOnApproval == true)
             PrimeEmployeeFicheAmountService.ApplySnapshotToEntity(fiche, amounts);
 
+        var now = DateTimeOffset.UtcNow;
+        if (step?.TerminalApproved == true || await wfRuntime.IsTerminalStatusAsync(next, ct))
+            PrimeFicheDetailSnapshotService.FreezeExistingSnapshot(fiche, now);
+
         if (validationHistory is not null)
             await validationHistory.AppendApprovedAsync(fiche, fromStatus, next, ru, amounts, ct);
         await RecordValidationAuditAsync(ru, fiche.Id, "ValidationApproved", fromStatus, next, amounts, ct);
@@ -450,6 +456,8 @@ public sealed class PrimeValidationController(
             }
             if (step?.CapturesAmountsOnApproval == true)
                 PrimeEmployeeFicheAmountService.ApplySnapshotToEntity(f, amounts);
+            if (step?.TerminalApproved == true || await wfRuntime.IsTerminalStatusAsync(next, ct))
+                PrimeFicheDetailSnapshotService.FreezeExistingSnapshot(f, now);
             if (validationHistory is not null)
                 await validationHistory.AppendApprovedAsync(f, fromStatus, next, ru, amounts, ct);
             await RecordValidationAuditAsync(ru, f.Id, "ValidationApproved", fromStatus, next, amounts, ct);

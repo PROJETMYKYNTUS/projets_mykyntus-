@@ -168,4 +168,8 @@ public sealed class MergedFichePreviewContextDto
     public List<ServicePrimeIndicatorDto> Indicators { get; init; } = [];
     public bool PreviewAvailable { get; init; }
     public string? PreviewUnavailableReason { get; init; }
+    /// <summary>Si true, utiliser <see cref="StoredDetailSnapshotJson"/> sans recalcul HyperFormula.</summary>
+    public bool UseStoredDetailSnapshot { get; init; }
+    public string? StoredDetailSnapshotJson { get; init; }
+    public DateTimeOffset? DetailGridFrozenAt { get; init; }
 }

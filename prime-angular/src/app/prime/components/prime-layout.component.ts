@@ -38,6 +38,7 @@ import { PrimeFichesPilotesPageComponent } from '../pages/prime-fiches-pilotes-p
 import { PrimeCelluleIndicatorsPageComponent } from '../pages/prime-cellule-indicators-page.component';
 import { PrimeSaisieCellulePageComponent } from '../pages/prime-saisie-cellule-page.component';
 import { PrimeFichesCommunesListComponent } from '../pages/prime-fiches-communes-list.component';
+import { PrimeFicheImportComponent } from '../pages/prime-fiche-import.component';
 import { PrimeGlobalPoolPageComponent } from '../pages/prime-global-pool-page.component';
 import { PrimeSynthesisTrackingPageComponent } from '../pages/prime-synthesis-tracking-page.component';
 import { ChefProjetScopePageComponent } from '../pages/chef-projet-scope-page.component';
@@ -76,6 +77,7 @@ import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.serv
     PrimeCelluleIndicatorsPageComponent,
     PrimeSaisieCellulePageComponent,
     PrimeFichesCommunesListComponent,
+    PrimeFicheImportComponent,
     PrimeGlobalPoolPageComponent,
     PrimeSynthesisTrackingPageComponent,
     ChefProjetScopePageComponent,
@@ -239,6 +241,9 @@ import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.serv
                 }
                 @case ('/prime-saisie-cellule') {
                   <app-prime-saisie-cellule-page />
+                }
+                @case ('/prime-import-fiche') {
+                  <app-prime-fiche-import />
                 }
                 @case ('/notifications') {
                   <app-notifications-page />

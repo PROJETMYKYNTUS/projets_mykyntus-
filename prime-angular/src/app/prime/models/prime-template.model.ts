@@ -174,6 +174,51 @@ export function storedTemplateFromCalcSnapshotForPreview(
 
 const STORAGE_KEY = 'prime:fiche-templates:v1';
 
+/** Clé de comparaison pour l’unicité des noms affichés (insensible à la casse, espaces normalisés). */
+export function normalizeTemplateDisplayName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('fr-FR');
+}
+
+export function isTemplateDisplayNameTaken(
+  name: string,
+  templates: readonly StoredPrimeTemplate[],
+  excludeId?: string,
+): boolean {
+  const key = normalizeTemplateDisplayName(name);
+  if (!key) return false;
+  return templates.some(
+    (t) => t.id !== excludeId && normalizeTemplateDisplayName(t.displayName) === key,
+  );
+}
+
+/** Conserve le template le plus récent par nom affiché (données legacy). */
+export function dedupeStoredTemplatesByDisplayName(
+  templates: readonly StoredPrimeTemplate[],
+): StoredPrimeTemplate[] {
+  const byKey = new Map<string, StoredPrimeTemplate>();
+  for (const t of templates) {
+    const key = normalizeTemplateDisplayName(t.displayName);
+    if (!key) continue;
+    const existing = byKey.get(key);
+    if (!existing || t.savedAt.localeCompare(existing.savedAt) > 0) {
+      byKey.set(key, t);
+    }
+  }
+  return [...byKey.values()].sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+}
+
+function assertUniqueTemplateDisplayNames(list: readonly StoredPrimeTemplate[]): void {
+  const seen = new Set<string>();
+  for (const t of list) {
+    const key = normalizeTemplateDisplayName(t.displayName);
+    if (!key) continue;
+    if (seen.has(key)) {
+      throw new Error(`Duplicate template display name: ${t.displayName}`);
+    }
+    seen.add(key);
+  }
+}
+
 /**
  * Identifiant template pour import Excel direct (partie commune).
  * Une ligne brouillon pôle par couple (superviseur, pôle, période, ce templateId) — réimport = mise à jour.
@@ -203,12 +248,22 @@ export function loadStoredTemplates(): StoredPrimeTemplate[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const data = JSON.parse(raw) as { templates?: StoredPrimeTemplate[] };
-    return Array.isArray(data.templates) ? data.templates : [];
+    const list = Array.isArray(data.templates) ? data.templates : [];
+    const deduped = dedupeStoredTemplatesByDisplayName(list);
+    if (deduped.length !== list.length) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ templates: deduped }));
+      } catch {
+        /* quota — on retourne quand même la liste dédupliquée en mémoire */
+      }
+    }
+    return deduped;
   } catch {
     return [];
   }
 }
 
 export function persistTemplates(list: StoredPrimeTemplate[]): void {
+  assertUniqueTemplateDisplayNames(list);
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ templates: list }));
 }

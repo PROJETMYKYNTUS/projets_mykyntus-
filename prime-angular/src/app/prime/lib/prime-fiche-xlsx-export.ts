@@ -313,6 +313,17 @@ export async function buildStyledMergedFicheWorkbook(
   return wb;
 }
 
+/** Exporte une grille brute (snapshot import / archive) sans schéma stylé. */
+export function downloadRawGridXlsx(rows: string[][], sheetName: string, fileName: string): void {
+  const safeSheet =
+    (sheetName || 'Fiche_PRIME').replace(/[:\\/?*[\]]/g, '_').slice(0, 31) || 'Fiche_PRIME';
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  applyPrimeFicheExportLayout(ws);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, safeSheet);
+  XLSX.writeFile(wb, fileName);
+}
+
 /** Déclenche le téléchargement d'un workbook ExcelJS via Blob URL (pas de dépendance externe). */
 export async function downloadStyledFicheWorkbook(
   wb: ExcelJSTypes.Workbook,

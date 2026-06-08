@@ -7,9 +7,11 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { Download } from 'lucide';
+import { DatePipe } from '@angular/common';
+import { Download, Eye } from 'lucide';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
 import { PrimeCardComponent } from '../components/prime-card.component';
+import { PrimeHistoricalFichePreviewModalComponent } from '../components/prime-historical-fiche-preview-modal.component';
 import {
   PrimeFilterBarComponent,
   type PrimeFilterBarFilter,
@@ -21,11 +23,16 @@ import { PrimeService } from '../services/prime.service';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
 import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.service';
 import {
+  PrimeCellPrimeApiService,
+  type PrimeHistoricalFicheListItemDto,
+} from '../services/prime-cell-prime-api.service';
+import {
   PrimeFicheResultService,
   type EmployeePrimeServiceFicheValidationDto,
   type FicheValidationListFilters,
   type PrimeFicheValidationStatus,
 } from '../services/prime-fiche-result.service';
+import { downloadRawGridXlsx } from '../lib/prime-fiche-xlsx-export';
 import { PRIME_USER_LOAD_ERROR, primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
 
 /** Données agrégées `/api/prime/results` (sans périmètre fiche validation) → même grille que l’API validation. */
@@ -67,7 +74,13 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
 @Component({
   selector: 'app-prime-results-page',
   standalone: true,
-  imports: [LucideIconComponent, PrimeCardComponent, PrimeFilterBarComponent],
+  imports: [
+    LucideIconComponent,
+    PrimeCardComponent,
+    PrimeFilterBarComponent,
+    PrimeHistoricalFichePreviewModalComponent,
+    DatePipe,
+  ],
   template: `
     <div class="prime-page-shell">
       <div class="flex justify-between items-start gap-4">
@@ -267,6 +280,73 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
           </div>
         </app-prime-card>
       }
+
+      @if (historicalArchive().length > 0) {
+        <app-prime-card title="Archive historique (import)" description="Fiches importées sans employé reconnu en base.">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+              <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
+                <tr>
+                  <th class="px-4 py-2">Nom</th>
+                  <th class="px-4 py-2">Période</th>
+                  <th class="px-4 py-2">Cellule</th>
+                  <th class="px-4 py-2">Prime</th>
+                  <th class="px-4 py-2">Total</th>
+                  <th class="px-4 py-2">Fichier</th>
+                  <th class="px-4 py-2">Importé le</th>
+                  <th class="px-4 py-2 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-navy-800">
+                @for (h of historicalArchive(); track h.id) {
+                  <tr class="bg-navy-900">
+                    <td class="px-4 py-3 text-slate-200">{{ h.employeeExternalName }}</td>
+                    <td class="px-4 py-3 font-mono text-slate-300">{{ h.period }}</td>
+                    <td class="px-4 py-3 text-slate-400">{{ h.celluleId }}</td>
+                    <td class="px-4 py-3">{{ formatAmount(h.primeAmount) }}</td>
+                    <td class="px-4 py-3 font-semibold text-emerald-400">{{ formatAmount(h.totalAmount) }}</td>
+                    <td class="px-4 py-3 text-xs text-slate-500">{{ h.originFileName }}</td>
+                    <td class="px-4 py-3 text-xs text-slate-500">{{ h.importedAt | date: 'short' }}</td>
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                      <div class="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          [disabled]="!h.hasDetailGrid"
+                          (click)="openHistoricalPreview(h)"
+                          title="Visualiser la fiche"
+                          class="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <app-lucide-icon [icon]="icons.eye" className="w-3.5 h-3.5" />
+                          Voir
+                        </button>
+                        <button
+                          type="button"
+                          [disabled]="!h.hasDetailGrid || historicalDownloadBusyId() === h.id"
+                          (click)="downloadHistoricalFiche(h)"
+                          title="Télécharger la fiche"
+                          class="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <app-lucide-icon [icon]="icons.download" className="w-3.5 h-3.5" />
+                          {{ historicalDownloadBusyId() === h.id ? '…' : 'Télécharger' }}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </app-prime-card>
+      }
+
+      <app-prime-historical-fiche-preview-modal
+        [open]="historicalPreviewOpen()"
+        [historicalFicheId]="historicalPreviewId()"
+        [title]="historicalPreviewTitle()"
+        [subtitle]="historicalPreviewSubtitle()"
+        [fileNameBase]="historicalPreviewFileBase()"
+        (closed)="closeHistoricalPreview()"
+      />
     </div>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -274,14 +354,23 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
 export class PrimeResultsPageComponent implements OnInit {
   readonly roleService = inject(RoleService);
   private readonly api = inject(PrimeFicheResultService);
+  private readonly cellApi = inject(PrimeCellPrimeApiService);
   private readonly nav = inject(PrimeNavRequestService);
   readonly permissions = inject(PrimeUiPermissionsService);
 
   readonly icons = {
     download: Download,
+    eye: Eye,
   };
 
   readonly results = signal<EmployeePrimeServiceFicheValidationDto[]>([]);
+  readonly historicalArchive = signal<PrimeHistoricalFicheListItemDto[]>([]);
+  readonly historicalPreviewOpen = signal(false);
+  readonly historicalPreviewId = signal<string | null>(null);
+  readonly historicalPreviewTitle = signal('Aperçu fiche historique');
+  readonly historicalPreviewSubtitle = signal<string | null>(null);
+  readonly historicalPreviewFileBase = signal<string | null>(null);
+  readonly historicalDownloadBusyId = signal<string | null>(null);
   readonly loading = signal(true);
   readonly errorMessage = signal<string | null>(null);
 
@@ -463,6 +552,58 @@ export class PrimeResultsPageComponent implements OnInit {
       },
       error: (err) => this.handleError(err),
     });
+
+    if (role === 'Superviseur' || role === 'Admin') {
+      this.cellApi.listHistoricalFiches(user.id, filters.period, role).subscribe({
+        next: (rows) => this.historicalArchive.set(rows),
+        error: () => this.historicalArchive.set([]),
+      });
+    } else {
+      this.historicalArchive.set([]);
+    }
+  }
+
+  openHistoricalPreview(h: PrimeHistoricalFicheListItemDto): void {
+    if (!h.hasDetailGrid) return;
+    this.historicalPreviewId.set(h.id);
+    this.historicalPreviewTitle.set(`Fiche historique — ${h.employeeExternalName}`);
+    this.historicalPreviewSubtitle.set(`${h.period} · ${h.originFileName || 'Import'}`);
+    this.historicalPreviewFileBase.set(`${h.employeeExternalName}_${h.period}`);
+    this.historicalPreviewOpen.set(true);
+  }
+
+  closeHistoricalPreview(): void {
+    this.historicalPreviewOpen.set(false);
+    this.historicalPreviewId.set(null);
+  }
+
+  downloadHistoricalFiche(h: PrimeHistoricalFicheListItemDto): void {
+    if (!h.hasDetailGrid || this.historicalDownloadBusyId() === h.id) return;
+    const user = this.roleService.currentUser();
+    const role = this.roleService.currentRole() as Role;
+    this.historicalDownloadBusyId.set(h.id);
+    this.cellApi.getHistoricalFicheDetailSnapshot(h.id, user.id, role).subscribe({
+      next: (snap) => {
+        const rows = snap.rows ?? [];
+        if (!rows.length) {
+          window.alert('Export impossible — grille vide.');
+          this.historicalDownloadBusyId.set(null);
+          return;
+        }
+        const sheetName = snap.previewSheetName ?? 'Fiche_PRIME';
+        const safe = `${h.employeeExternalName}_${h.period}`.replace(/[<>:"/\\|?*]+/g, '_').trim() || 'fiche';
+        const origin = (snap.originFileName ?? h.originFileName ?? '').trim();
+        const fileName = origin.toLowerCase().endsWith('.xlsx')
+          ? origin.replace(/[<>:"/\\|?*]+/g, '_')
+          : `PRIME_fiche_${safe}.xlsx`;
+        downloadRawGridXlsx(rows, sheetName, fileName);
+        this.historicalDownloadBusyId.set(null);
+      },
+      error: (err) => {
+        window.alert(primeHttpErrorDetail(err) ?? 'Téléchargement impossible.');
+        this.historicalDownloadBusyId.set(null);
+      },
+    });
   }
 
   private handleError(err: unknown): void {
@@ -500,6 +641,7 @@ export class PrimeResultsPageComponent implements OnInit {
     if (status === 'RH Approved') return base + 'bg-emerald-100 text-emerald-800';
     if (status === 'Rejected') return base + 'bg-rose-100 text-rose-800';
     if (status === 'Pending') return base + 'bg-amber-100 text-amber-800';
+    if (status === 'Historical Import') return base + 'bg-violet-100 text-violet-800';
     return base + 'bg-sky-100 text-sky-800';
   }
 
@@ -510,6 +652,7 @@ export class PrimeResultsPageComponent implements OnInit {
     if (status === 'Référent technique Approved') return 'Réf. technique validé';
     if (status === 'Superviseur Approved') return 'Superviseur validé';
     if (status === 'Chef de projet Approved') return 'Chef de projet validé';
+    if (status === 'Historical Import') return 'Historique (import)';
     return status;
   }
 

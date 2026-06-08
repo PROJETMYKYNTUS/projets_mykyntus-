@@ -564,6 +564,8 @@ export interface MergedEmployeeFichePreviewResult {
   effectiveSchema: PrimeFicheTemplateSchema | null;
   parsedCell: ParsedCellSaisie | null;
   totals: MergedFicheTotals | null;
+  /** True lorsque les lignes proviennent du snapshot DB figé (pas de recalcul). */
+  fromStoredSnapshot?: boolean;
 }
 
 /** Montants de la ligne « TOTAL Général » (colonnes Montant Prime / Montant Challenge). */

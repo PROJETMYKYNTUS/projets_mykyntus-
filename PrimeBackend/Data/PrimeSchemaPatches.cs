@@ -443,6 +443,85 @@ public static class PrimeSchemaPatches
             ct);
     }
 
+    /// <summary>Correctifs colonnes snapshot détaillé fiche pilote — idempotent au démarrage.</summary>
+    public static async Task EnsureEmployeeFicheDetailSnapshotAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_employee_prime_service_fiche", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE prime_employee_prime_service_fiche
+              ADD COLUMN IF NOT EXISTS "DetailGridJson" text;
+            ALTER TABLE prime_employee_prime_service_fiche
+              ADD COLUMN IF NOT EXISTS "DetailGridPreviewSheetName" character varying(256);
+            ALTER TABLE prime_employee_prime_service_fiche
+              ADD COLUMN IF NOT EXISTS "TemplateVersionRef" character varying(256);
+            ALTER TABLE prime_employee_prime_service_fiche
+              ADD COLUMN IF NOT EXISTS "DetailGridFrozenAt" timestamp with time zone;
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+            SELECT '20260608140000_EmployeeFicheDetailSnapshot', '8.0.11'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM "__EFMigrationsHistory"
+                WHERE "MigrationId" = '20260608140000_EmployeeFicheDetailSnapshot');
+            """,
+            ct);
+    }
+
+    /// <summary>Table archive fiches PRIME importées (employé introuvable) — idempotent au démarrage.</summary>
+    public static async Task EnsurePrimeHistoricalFicheTableAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_employee_prime_service_fiche", ct))
+            return;
+        if (await TableExistsAsync(db, "prime_historical_fiche", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE prime_historical_fiche (
+                "Id" uuid NOT NULL,
+                "Period" character varying(16) NOT NULL,
+                "CelluleId" character varying(128) NOT NULL,
+                "ServiceId" character varying(128),
+                "RootPoleId" character varying(128) NOT NULL,
+                "SupervisorUserId" character varying(128) NOT NULL,
+                "EmployeeExternalName" character varying(512) NOT NULL,
+                "EmployeeId" character varying(128),
+                "DetailGridJson" text,
+                "DetailGridPreviewSheetName" character varying(256),
+                "PrimeAmount" numeric(12,2),
+                "ChallengeAmount" numeric(12,2),
+                "TotalAmount" numeric(12,2),
+                "ServiceSaisieJson" text,
+                "OriginFileName" character varying(512) NOT NULL DEFAULT '',
+                "Source" character varying(32) NOT NULL DEFAULT 'Import',
+                "ImportedByUserId" character varying(128) NOT NULL,
+                "ImportedAt" timestamp with time zone NOT NULL,
+                CONSTRAINT "PK_prime_historical_fiche" PRIMARY KEY ("Id")
+            );
+            CREATE INDEX "IX_prime_historical_fiche_SupervisorUserId_Period"
+                ON prime_historical_fiche ("SupervisorUserId", "Period");
+            CREATE INDEX "IX_prime_historical_fiche_CelluleId_Period"
+                ON prime_historical_fiche ("CelluleId", "Period");
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+            SELECT '20260608160000_PrimeHistoricalFiche', '8.0.11'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM "__EFMigrationsHistory"
+                WHERE "MigrationId" = '20260608160000_PrimeHistoricalFiche');
+            """,
+            ct);
+    }
+
     private static Task<bool> TableExistsAsync(PrimeDbContext db, string tableName, CancellationToken ct) =>
         tableName switch
         {
@@ -492,6 +571,14 @@ public static class PrimeSchemaPatches
                 SELECT EXISTS (
                   SELECT 1 FROM information_schema.tables
                   WHERE table_schema = 'public' AND table_name = 'prime_global_pool_synthesis_line');
+                """,
+                ct),
+            "prime_historical_fiche" => ScalarBoolAsync(
+                db,
+                """
+                SELECT EXISTS (
+                  SELECT 1 FROM information_schema.tables
+                  WHERE table_schema = 'public' AND table_name = 'prime_historical_fiche');
                 """,
                 ct),
             _ => Task.FromResult(false),

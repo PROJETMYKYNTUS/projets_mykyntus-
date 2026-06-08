@@ -114,6 +114,14 @@ public class EmployeePrimeServiceFicheEntity
     public decimal? ChallengeAmount { get; set; }
     public decimal? TotalAmount { get; set; }
 
+    /// <summary>Grille fusionnée recalculée (JSON v1) — brouillon modifiable ou figé après validation terminale.</summary>
+    public string? DetailGridJson { get; set; }
+    public string? DetailGridPreviewSheetName { get; set; }
+    /// <summary>Référence template (ex. templateId + version) utilisée pour le snapshot.</summary>
+    public string? TemplateVersionRef { get; set; }
+    /// <summary>Non null = snapshot immuable (fiche validée / gelée).</summary>
+    public DateTimeOffset? DetailGridFrozenAt { get; set; }
+
     public ICollection<EmployeePrimeFicheValidationHistoryEntity> ValidationHistory { get; set; } =
         new List<EmployeePrimeFicheValidationHistoryEntity>();
 }
@@ -136,6 +144,31 @@ public class EmployeePrimeFicheValidationHistoryEntity
     public decimal? PrimeAmount { get; set; }
     public decimal? ChallengeAmount { get; set; }
     public decimal? TotalAmount { get; set; }
+}
+
+/// <summary>Archive autonome d'une fiche PRIME importée (employé introuvable ou nom libre).</summary>
+public class PrimeHistoricalFicheEntity
+{
+    public Guid Id { get; set; }
+    public string Period { get; set; } = "";
+    public string CelluleId { get; set; } = "";
+    public string? ServiceId { get; set; }
+    public string RootPoleId { get; set; } = "";
+    public string SupervisorUserId { get; set; } = "";
+    /// <summary>Nom affiché lorsque l'employé n'existe pas en base.</summary>
+    public string EmployeeExternalName { get; set; } = "";
+    public string? EmployeeId { get; set; }
+    public string? DetailGridJson { get; set; }
+    public string? DetailGridPreviewSheetName { get; set; }
+    public decimal? PrimeAmount { get; set; }
+    public decimal? ChallengeAmount { get; set; }
+    public decimal? TotalAmount { get; set; }
+    public string? ServiceSaisieJson { get; set; }
+    public string OriginFileName { get; set; } = "";
+    /// <summary>Import | Manual</summary>
+    public string Source { get; set; } = "Import";
+    public string ImportedByUserId { get; set; } = "";
+    public DateTimeOffset ImportedAt { get; set; }
 }
 
 public class EmployeeEntity

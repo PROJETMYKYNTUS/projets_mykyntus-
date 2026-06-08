@@ -170,6 +170,67 @@ describe('parsePrimeFicheGrid', () => {
     expect(se0.customKpis?.[1].defaultValue).toBe('13');
   });
 
+  it('v2: hérite l’indicateur sur les sous-lignes sans libellé colonne B', () => {
+    const primeHdr = ['Résultat', 'KPI Point MIN', 'KPI Point MAX', 'Pondération', 'Bonus Atteint (%)', 'Montant'];
+    const chHdr = ['Résultat', 'KPI Challenge', 'Pondération', 'Bonus Atteint (%)', 'Montant'];
+    const row0 = new Array(17).fill('');
+    row0[4] = 'Répartition';
+    row0[5] = 'Prime';
+    const row1: (string | number)[] = ['', '', '', '', 'x', ...primeHdr, ...chHdr];
+    const row2: (string | number)[] = ['', 'Taux principal', '', '', '10%', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    const row3: (string | number)[] = ['', '', '', '', '5%', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    const row4: (string | number)[] = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+    const row5: (string | number)[] = ['', 'Somme RACC', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+    const ws = XLSX.utils.aoa_to_sheet([row0, row1, row2, row3, row4, row5]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Fiche');
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+    const res = parsePrimeFicheGrid('v2-inherit.xlsx', buf);
+    expect(res.diagnostics.errors.length).toBe(0);
+    expect(res.schema).not.toBeNull();
+    expect(res.schema!.lines.length).toBe(2);
+    expect(res.schema!.lines[0].indicator).toBe('Taux principal');
+    expect(res.schema!.lines[1].indicator).toBe('Taux principal');
+    expect(res.diagnostics.warnings.some((w) => w.includes('synthèse'))).toBe(true);
+  });
+
+  it('v2: grille décalée (marges vides en haut et à gauche)', () => {
+    const primeHdr = ['Résultat', 'KPI Point MIN', 'KPI Point MAX', 'Pondération', 'Bonus Atteint (%)', 'Montant'];
+    const chHdr = ['Résultat', 'KPI Challenge', 'Pondération', 'Bonus Atteint (%)', 'Montant'];
+    const pad = () => ['', ''];
+    const rowPad = pad();
+    const row0 = [...pad(), '', '', '', '', 'Répartition', 'Prime', ...Array(11).fill('')];
+    const row1 = [...pad(), '', '', '', '', '', 'x', ...primeHdr, ...chHdr];
+    const row2 = [...pad(), '', 'Indicateur décalé', '', '', '', '7%', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    const ws = XLSX.utils.aoa_to_sheet([rowPad, row0, row1, row2]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Fiche');
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+    const res = parsePrimeFicheGrid('v2-shifted.xlsx', buf);
+    expect(res.diagnostics.errors.length).toBe(0);
+    expect(res.schema?.lines.length).toBe(1);
+    expect(res.schema?.lines[0].indicator).toBe('Indicateur décalé');
+    expect(res.diagnostics.warnings.some((w) => w.includes('Grille recadrée'))).toBe(true);
+  });
+
+  it('v2: sous-lignes sans indicateur héritable sont ignorées (avertissement groupé, pas d’erreur)', () => {
+    const primeHdr = ['Résultat', 'KPI Point MIN', 'KPI Point MAX', 'Pondération', 'Bonus Atteint (%)', 'Montant'];
+    const chHdr = ['Résultat', 'KPI Challenge', 'Pondération', 'Bonus Atteint (%)', 'Montant'];
+    const row0 = new Array(17).fill('');
+    row0[4] = 'Répartition';
+    row0[5] = 'Prime';
+    const row1: (string | number)[] = ['', '', '', '', 'x', ...primeHdr, ...chHdr];
+    const row2: (string | number)[] = ['', '', '', '', '3%', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    const ws = XLSX.utils.aoa_to_sheet([row0, row1, row2]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Fiche');
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+    const res = parsePrimeFicheGrid('v2-skip-no-indicator.xlsx', buf);
+    expect(res.schema).toBeNull();
+    expect(res.diagnostics.errors.some((e) => e.includes('Aucune ligne de données'))).toBe(true);
+    expect(res.diagnostics.warnings.some((w) => w.includes('indicateur vide'))).toBe(true);
+  });
+
   it('rejects duplicate ID_UNIQUE', () => {
     const primeHdr = ['Résultat', 'KPI Point MIN', 'KPI Point MAX', 'Pondération', 'Bonus Atteint (%)', 'Montant'];
     const chHdr = ['Résultat', 'KPI Challenge', 'Pondération', 'Bonus Atteint (%)', 'Montant'];

@@ -102,6 +102,8 @@ if (!string.IsNullOrWhiteSpace(conn))
     builder.Services.AddScoped<PrimeGlobalSynthesisPaymentService>();
     builder.Services.AddScoped<PrimeFicheMergedPreviewAccessService>();
     builder.Services.AddScoped<PrimeFicheImportService>();
+    builder.Services.AddScoped<PrimeFicheTemplateReferenceService>();
+    builder.Services.AddScoped<PrimeDeletionGuardService>();
 }
 
 var app = builder.Build();

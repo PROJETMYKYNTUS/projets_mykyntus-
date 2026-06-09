@@ -288,6 +288,20 @@ namespace PrimeBackend.Data.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
 
+                    b.Property<bool>("RejectionIsFinal")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RejectedFromStatus")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("RejectedByRole")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("RejectionCount")
+                        .HasColumnType("integer");
+
                     b.Property<string>("ServiceId")
                         .IsRequired()
                         .HasMaxLength(128)

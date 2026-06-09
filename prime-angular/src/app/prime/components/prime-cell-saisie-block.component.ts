@@ -27,6 +27,7 @@ import {
   hydrateDynamicFromCellRowFlat,
   matchIndicatorToTemplateLine,
   parseCellSaisieJson,
+  isObsoletePrimeSchemaJson,
   parsePrimeSchemaFromDraftJson,
   schemaHasExcelNativeCellRows,
   templateLineForCellIndicator,
@@ -534,7 +535,8 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
     draft: SupervisorPolePrimeDraftDto | null,
     parsed: ReturnType<typeof parseCellSaisieJson>,
   ): void {
-    const schema = parsePrimeSchemaFromDraftJson(draft?.schemaJson ?? '');
+    const rawSchema = (draft?.schemaJson ?? '').trim();
+    const schema = parsePrimeSchemaFromDraftJson(rawSchema);
     const actives = inds.filter((i) => i.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
     const cellLines = getCellTemplateLinesOrDerived(schema, actives);
     const excelNativeCell = schema ? schemaHasExcelNativeCellRows(schema) : false;
@@ -546,20 +548,11 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
       this.dynamicByIndicator.set({});
       this.schemaBanner.set(null);
       this.bannerIsInfo.set(false);
+      const obsolete = Boolean(draft && isObsoletePrimeSchemaJson(rawSchema));
       this.loadError.set(
-        'Brouillon pôle introuvable pour cette période : demandez au superviseur d’enregistrer la partie commune (RACC/SAV) pour ce template.',
-      );
-      this.loading.set(false);
-      return;
-    }
-
-    if (!excelNativeCell && actives.length > 0 && !derivedBlock) {
-      this.runs.set([]);
-      this.dynamicByIndicator.set({});
-      this.schemaBanner.set(null);
-      this.bannerIsInfo.set(false);
-      this.loadError.set(
-        'Le gabarit ne contient pas de ligne RACC/SAV exploitable : impossible de cloner les colonnes du bloc Cellule. Vérifiez le fichier importé sur la partie commune.',
+        obsolete
+          ? 'Le gabarit de la partie commune est absent ou au format obsolète. Ouvrez « Fiche PRIME — saisie », réimportez le fichier Excel puis enregistrez la partie commune (RACC/SAV).'
+          : 'Brouillon pôle introuvable pour cette période : demandez au superviseur d’enregistrer la partie commune (RACC/SAV) pour ce template.',
       );
       this.loading.set(false);
       return;
@@ -568,6 +561,11 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
     if (!excelNativeCell && derivedBlock) {
       this.schemaBanner.set(
         'Bloc Cellule généré automatiquement à partir des indicateurs configurés (mêmes colonnes et secteurs que la partie pôle).',
+      );
+      this.bannerIsInfo.set(true);
+    } else if (!excelNativeCell && actives.length > 0 && !derivedBlock) {
+      this.schemaBanner.set(
+        'Gabarit RACC/SAV introuvable : saisie en structure simplifiée. Réimportez le gabarit Excel sur la partie commune pour aligner les colonnes.',
       );
       this.bannerIsInfo.set(true);
     } else {

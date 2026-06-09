@@ -16,7 +16,7 @@ public static class PrimeValidationWorkflowService
     public const string AwaitingData = "AwaitingData";
 
     public const string Pending = "Pending";
-    /// <summary>Conservé pour compatibilité données / API ; n’est plus une étape du flux ordonné.</summary>
+    /// <summary>Conservé pour compatibilité données / API ; n'est plus une étape du flux ordonné.</summary>
     public const string ReferentTechniqueApproved = "Référent technique Approved";
     public const string SuperviseurApproved = "Superviseur Approved";
     public const string ChefDeProjetApproved = "Chef de projet Approved";
@@ -99,7 +99,7 @@ public static class PrimeValidationWorkflowService
         ApplyApproval(fiche, next, approverUserId, now);
     }
 
-    /// <summary>Applique une transition d’approbation connue (ex. étapes chargées depuis la base).</summary>
+    /// <summary>Applique une transition d'approbation connue (ex. étapes chargées depuis la base).</summary>
     public static void ApplyApproval(EmployeePrimeServiceFicheEntity fiche, string nextStatus, string approverUserId, DateTimeOffset now)
     {
         fiche.ValidationStatus = nextStatus;
@@ -118,7 +118,7 @@ public static class PrimeValidationWorkflowService
             throw new InvalidOperationException($"Le rôle « {rejecterRole} » ne peut pas rejeter depuis l'état « {fiche.ValidationStatus} ».");
         if (string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("Un motif de rejet est obligatoire.", nameof(reason));
-        ApplyReject(fiche, rejecterUserId, reason.Trim(), now);
+        ApplyReject(fiche, rejecterUserId, reason, now);
     }
 
     public static void ApplyReject(EmployeePrimeServiceFicheEntity fiche, string rejecterUserId, string reason, DateTimeOffset now)

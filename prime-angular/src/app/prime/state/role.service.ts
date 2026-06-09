@@ -3,7 +3,8 @@ import type { Employee, Role } from '../models';
 import { PRIME_AUTHORIZED_ROLES } from '../models';
 import {
   employeesForUiRole,
-  pickDefaultEmployeeForRole,
+  mapEmployeeRoleToUiRole,
+  pickEmployeeForRolePreferringCellule,
   resolveEmployeeForRole,
 } from '../lib/prime-demo-users';
 import { primeApiGet } from '../services/prime-http';
@@ -54,6 +55,18 @@ export class RoleService {
     } catch {
       /* ignore */
     }
+    const emp = this.employees().find((e) => e.id === id);
+    if (emp) {
+      const uiRole = mapEmployeeRoleToUiRole(emp.role);
+      if (PRIME_AUTHORIZED_ROLES.includes(uiRole) && this.currentRole() !== uiRole) {
+        this.currentRole.set(uiRole);
+        try {
+          sessionStorage.setItem(ROLE_STORAGE_KEY, uiRole);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
   }
 
   /** Rôle par défaut pour l’écran Organisation RH. */
@@ -64,7 +77,8 @@ export class RoleService {
   private applyDefaultUserForRole(role: Role): void {
     const list = this.employees();
     if (list.length === 0) return;
-    const picked = pickDefaultEmployeeForRole(list, role);
+    const celluleId = this.currentUser().celluleId;
+    const picked = pickEmployeeForRolePreferringCellule(list, role, celluleId);
     if (picked) this.setUserId(picked.id);
   }
 

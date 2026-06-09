@@ -1,6 +1,5 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { employeeMatchesUiRole } from './prime/lib/prime-demo-users';
 import { toPrimeRoleHeader } from './prime/lib/prime-role-header';
 import { RoleService } from './prime/state/role.service';
 
@@ -12,6 +11,6 @@ export const primeIdentityInterceptor: HttpInterceptorFn = (req, next) => {
   const r = roles.currentRole();
   const headers: Record<string, string> = {};
   if (r) headers['X-Prime-Role'] = toPrimeRoleHeader(r);
-  if (u?.id && employeeMatchesUiRole(u, r)) headers['X-Prime-User-Id'] = u.id;
+  if (u?.id) headers['X-Prime-User-Id'] = u.id;
   return next(req.clone({ setHeaders: headers }));
 };

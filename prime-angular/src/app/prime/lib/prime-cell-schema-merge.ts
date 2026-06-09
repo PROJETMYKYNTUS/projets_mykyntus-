@@ -135,11 +135,33 @@ export function hydrateDynamicFromCellRowFlat(
   return ligneDynamicFromFlatPayload(templateLine, rest);
 }
 
+/** Schéma grille métier exploitable (lignes RACC/SAV/Cellule), pas l’ancien format `{ fields: [...] }`. */
+export function isUsablePrimeFicheTemplateSchema(
+  schema: PrimeFicheTemplateSchema | null | undefined,
+): schema is PrimeFicheTemplateSchema {
+  return Boolean(schema && Array.isArray(schema.lines) && schema.lines.length > 0);
+}
+
+/** Détecte l’ancien format de brouillon (`fields`) ou un schéma sans lignes grille. */
+export function isObsoletePrimeSchemaJson(schemaJson: string | null | undefined): boolean {
+  const raw = (schemaJson ?? '').trim();
+  if (!raw || raw === '{}') return true;
+  try {
+    const o = JSON.parse(raw) as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(o, 'fields') && !Array.isArray(o['lines'])) return true;
+    const lines = o['lines'];
+    return !Array.isArray(lines) || lines.length === 0;
+  } catch {
+    return true;
+  }
+}
+
 export function parsePrimeSchemaFromDraftJson(schemaJson: string | null | undefined): PrimeFicheTemplateSchema | null {
   const raw = (schemaJson ?? '').trim();
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as PrimeFicheTemplateSchema;
+    const parsed = JSON.parse(raw) as PrimeFicheTemplateSchema;
+    return isUsablePrimeFicheTemplateSchema(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -156,10 +178,16 @@ function isSummaryLikeTemplateLine(ln: PrimeFicheTemplateLine): boolean {
  */
 export function pickPoleReferenceLineForCellClone(lines: PrimeFicheTemplateLine[]): PrimeFicheTemplateLine | null {
   const pole = lines.filter((l) => isPoleContract(l.contract) && !isSummaryLikeTemplateLine(l));
-  if (!pole.length) return null;
-  const sav = pole.filter((l) => isSavContract(l.contract));
-  if (sav.length) return cloneLine(sav[sav.length - 1]!);
-  return cloneLine(pole[pole.length - 1]!);
+  if (pole.length) {
+    const sav = pole.filter((l) => isSavContract(l.contract));
+    if (sav.length) return cloneLine(sav[sav.length - 1]!);
+    return cloneLine(pole[pole.length - 1]!);
+  }
+  const dataLines = lines.filter(
+    (l) => !isCellContract(l.contract) && !isSummaryLikeTemplateLine(l) && (l.secteurs?.length ?? 0) > 0,
+  );
+  if (dataLines.length) return cloneLine(dataLines[dataLines.length - 1]!);
+  return null;
 }
 
 /**

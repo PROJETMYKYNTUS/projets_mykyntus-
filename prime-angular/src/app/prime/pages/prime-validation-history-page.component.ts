@@ -112,6 +112,10 @@ function actionLabel(action: string): string {
             />
             Mes actions uniquement
           </label>
+          <span class="text-xs text-muted">
+            Laissez décoché pour voir les validations de tout le circuit (ex. approbation du référent technique).
+            Vérifiez aussi le filtre période (« Toutes les périodes » recommandé).
+          </span>
           <label class="inline-flex items-center gap-2 text-muted">
             Type
             <select

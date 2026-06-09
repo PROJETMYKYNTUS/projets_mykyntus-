@@ -111,6 +111,23 @@ public static class PrimeEmployeeFicheAmountService
     public static PrimeEmployeeFicheAmounts ExtractFromFiche(EmployeePrimeServiceFicheEntity fiche) =>
         ExtractFromServiceSaisieJson(fiche.ServiceSaisieJson);
 
+    /// <summary>Corps d'approbation → colonnes entité → extraction JSON saisie.</summary>
+    public static PrimeEmployeeFicheAmounts ResolveApprovalAmounts(
+        EmployeePrimeServiceFicheEntity fiche,
+        decimal? bodyPrime,
+        decimal? bodyChallenge,
+        decimal? bodyTotal)
+    {
+        var fromBody = new PrimeEmployeeFicheAmounts(bodyPrime, bodyChallenge, bodyTotal);
+        if (fromBody.PrimeAmount.HasValue || fromBody.ChallengeAmount.HasValue || fromBody.TotalAmount.HasValue)
+            return fromBody;
+
+        if (fiche.PrimeAmount.HasValue || fiche.ChallengeAmount.HasValue || fiche.TotalAmount.HasValue)
+            return new PrimeEmployeeFicheAmounts(fiche.PrimeAmount, fiche.ChallengeAmount, fiche.TotalAmount);
+
+        return ExtractFromFiche(fiche);
+    }
+
     public static void ApplySnapshotToEntity(EmployeePrimeServiceFicheEntity fiche, PrimeEmployeeFicheAmounts amounts)
     {
         fiche.PrimeAmount = amounts.PrimeAmount;

@@ -8,7 +8,10 @@ namespace PrimeBackend.Controllers;
 
 [ApiController]
 [Route("api/prime/services/{serviceId}/prime-indicators")]
-public sealed class ServicePrimeIndicatorsController(PrimeDbContext? db, PrimeOrgScopeService org) : ControllerBase
+public sealed class ServicePrimeIndicatorsController(
+    PrimeDbContext? db,
+    PrimeOrgScopeService org,
+    PrimeDeletionGuardService? deletionGuard) : ControllerBase
 {
     private static ServicePrimeIndicatorDto Map(ServicePrimeIndicatorEntity e) =>
         new()
@@ -61,9 +64,45 @@ public sealed class ServicePrimeIndicatorsController(PrimeDbContext? db, PrimeOr
         if (!await org.SupervisorOwnsCelluleAsync(supervisorUserId, celluleId, ct))
             return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
 
+        if (deletionGuard is null)
+            return StatusCode(503, new { error = "Base de données non configurée." });
+
         var cid = serviceId.Trim();
         var now = DateTimeOffset.UtcNow;
         var existing = await db.ServicePrimeIndicators.Where(x => x.ServiceId == cid).ToListAsync(ct);
+
+        static bool MatchesIncoming(ServicePrimeIndicatorEntity old, PutServicePrimeIndicatorItem item)
+        {
+            var stable = (old.TemplateStableId ?? "").Trim();
+            var incomingStable = (item.TemplateStableId ?? "").Trim();
+            if (stable.Length > 0 && incomingStable.Length > 0 &&
+                string.Equals(stable, incomingStable, StringComparison.OrdinalIgnoreCase))
+                return true;
+            return string.Equals(old.Label.Trim(), item.Label.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        var retainedInactive = new List<ServicePrimeIndicatorEntity>();
+        foreach (var old in existing)
+        {
+            if (body.Indicators.Any(i => MatchesIncoming(old, i))) continue;
+            if (await deletionGuard.IsIndicatorProtectedByFichesAsync(old, cid, ct))
+            {
+                retainedInactive.Add(new ServicePrimeIndicatorEntity
+                {
+                    Id = old.Id,
+                    ServiceId = old.ServiceId,
+                    SortOrder = old.SortOrder,
+                    Label = old.Label,
+                    PonderationPrimePct = old.PonderationPrimePct,
+                    PonderationChallengePct = old.PonderationChallengePct,
+                    IsActive = false,
+                    TemplateStableId = old.TemplateStableId,
+                    CreatedAt = old.CreatedAt,
+                    UpdatedAt = now,
+                });
+            }
+        }
+
         db.ServicePrimeIndicators.RemoveRange(existing);
 
         foreach (var item in body.Indicators.OrderBy(i => i.SortOrder))
@@ -82,6 +121,9 @@ public sealed class ServicePrimeIndicatorsController(PrimeDbContext? db, PrimeOr
                 UpdatedAt = now,
             });
         }
+
+        foreach (var kept in retainedInactive)
+            db.ServicePrimeIndicators.Add(kept);
 
         await db.SaveChangesAsync(ct);
         var list = await db.ServicePrimeIndicators.AsNoTracking()

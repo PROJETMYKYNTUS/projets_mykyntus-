@@ -1,5 +1,7 @@
 import {
+  archiveStoredTemplate,
   dedupeStoredTemplatesByDisplayName,
+  isActiveStoredTemplate,
   isTemplateDisplayNameTaken,
   normalizeTemplateDisplayName,
   type StoredPrimeTemplate,
@@ -31,6 +33,25 @@ describe('prime-template.model — unicité des noms', () => {
     const list = [tpl('a', 'Fiche PRIME 2026', '2026-01-01T00:00:00Z')];
     expect(isTemplateDisplayNameTaken('fiche prime 2026', list)).toBe(true);
     expect(isTemplateDisplayNameTaken('Autre nom', list)).toBe(false);
+  });
+
+  it('ignore les templates archivés pour l’unicité des noms actifs', () => {
+    const list = [
+      tpl('a', 'Fiche PRIME', '2026-01-01T00:00:00Z'),
+      { ...tpl('b', 'Fiche PRIME', '2026-02-01T00:00:00Z'), archivedAt: '2026-03-01T00:00:00Z' },
+    ];
+    expect(isTemplateDisplayNameTaken('Fiche PRIME', list)).toBe(true);
+    expect(isTemplateDisplayNameTaken('Fiche PRIME', list, 'a')).toBe(false);
+    const onlyArchived = [{ ...tpl('b', 'Fiche PRIME', '2026-02-01T00:00:00Z'), archivedAt: '2026-03-01T00:00:00Z' }];
+    expect(isTemplateDisplayNameTaken('Fiche PRIME', onlyArchived)).toBe(false);
+  });
+
+  it('archive un template sans le retirer du stockage', () => {
+    const list = [tpl('a', 'A', '2026-01-01T00:00:00Z'), tpl('b', 'B', '2026-01-02T00:00:00Z')];
+    const archived = archiveStoredTemplate(list, 'a', '2026-06-01T00:00:00Z');
+    expect(archived).toHaveLength(2);
+    expect(isActiveStoredTemplate(archived[0]!)).toBe(false);
+    expect(archived.filter(isActiveStoredTemplate)).toHaveLength(1);
   });
 
   it('déduplique en conservant le plus récent', () => {

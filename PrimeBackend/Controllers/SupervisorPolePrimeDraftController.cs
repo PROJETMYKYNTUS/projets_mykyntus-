@@ -13,7 +13,8 @@ namespace PrimeBackend.Controllers;
 public sealed class SupervisorCellulePrimeDraftController(
     PrimeDbContext? db,
     PrimeOrgScopeService org,
-    PrimeFicheValidationSubmissionService? submission) : ControllerBase
+    PrimeFicheValidationSubmissionService? submission,
+    PrimeDeletionGuardService? deletionGuard) : ControllerBase
 {
     private static SupervisorCellulePrimeDraftResponseDto Map(SupervisorCellulePrimeDraftEntity e) =>
         new()
@@ -244,14 +245,44 @@ public sealed class SupervisorCellulePrimeDraftController(
         return Ok(Map(entity));
     }
 
-    /// <summary>Suppression d'une fiche commune en cours (cascade les EmployeeFiches enfants).</summary>
+    [HttpGet("{id:guid}/deletion-check")]
+    public async Task<ActionResult<CommonsDraftDeletionCheckDto>> DeletionCheck(
+        Guid id,
+        [FromQuery] string supervisorUserId,
+        CancellationToken ct)
+    {
+        if (db == null || deletionGuard is null)
+            return StatusCode(503, new { error = "Base de données non configurée." });
+        if (string.IsNullOrWhiteSpace(supervisorUserId))
+            return BadRequest(new { error = "supervisorUserId est requis." });
+
+        var entity = await db.SupervisorCellulePrimeDrafts.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity == null) return NotFound();
+
+        if (!string.Equals(entity.SupervisorUserId, supervisorUserId.Trim(), StringComparison.Ordinal) ||
+            !await org.SupervisorOwnsCelluleAsync(supervisorUserId, entity.CelluleId, ct))
+            return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
+
+        var (canDelete, reason, impact) = await deletionGuard.CanDeleteCommonsDraftAsync(id, ct);
+        return Ok(new CommonsDraftDeletionCheckDto
+        {
+            DraftId = id,
+            CanDelete = canDelete,
+            Reason = reason,
+            Impact = impact,
+        });
+    }
+
+    /// <summary>Suppression d'une fiche commune en cours (cascade les EmployeeFiches enfants supprimables).</summary>
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(
         Guid id,
         [FromQuery] string supervisorUserId,
         CancellationToken ct)
     {
-        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        if (db == null || deletionGuard is null)
+            return StatusCode(503, new { error = "Base de données non configurée." });
         if (string.IsNullOrWhiteSpace(supervisorUserId))
             return BadRequest(new { error = "supervisorUserId est requis." });
 
@@ -261,6 +292,10 @@ public sealed class SupervisorCellulePrimeDraftController(
         if (!string.Equals(entity.SupervisorUserId, supervisorUserId.Trim(), StringComparison.Ordinal) ||
             !await org.SupervisorOwnsCelluleAsync(supervisorUserId, entity.CelluleId, ct))
             return StatusCode(403, new { error = "Accès refusé pour ce périmètre." });
+
+        var (canDelete, reason, _) = await deletionGuard.CanDeleteCommonsDraftAsync(id, ct);
+        if (!canDelete)
+            return BadRequest(new { error = reason ?? "Suppression impossible." });
 
         db.SupervisorCellulePrimeDrafts.Remove(entity);
         await db.SaveChangesAsync(ct);

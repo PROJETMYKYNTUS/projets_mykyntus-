@@ -298,7 +298,9 @@ public static class PrimeDbSeeder
             TemplateDisplayName = "Grille prime agents — centre d’appels (avril 2026)",
             TemplateFormatVersion = 1,
             Status = "Draft",
-            SchemaJson = "{\"fields\":[]}",
+            SchemaJson = PrimeDemoTemplateSchema.MinimalRaccSavJson(
+                "Grille prime agents — centre d’appels (avril 2026)",
+                "Grille"),
             CelluleSaisieJson = "{}",
             UpdatedAt = now,
         };
@@ -381,22 +383,28 @@ public static class PrimeDbSeeder
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    /// <summary>Ajoute Validate/Edit Service pour Référent technique sur bases déjà initialisées.</summary>
+    /// <summary>Ajoute Read/Validate/Edit Service pour Référent technique (et Coach) sur bases déjà initialisées.</summary>
     public static async Task SeedMissingReferentTechnicalValidateRbacAsync(PrimeDbContext db, CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
         static RbacPermissionEntity P(string role, string action, string scope, DateTimeOffset n) =>
             new() { Id = Guid.NewGuid(), Role = role, Action = action, Scope = scope, IsAllowed = true, CreatedAt = n };
 
-        var role = PrimeFicheValidationRoles.ReferentTechnique;
-        if (await db.RbacPermissions.AnyAsync(x => x.Role == role && x.Action == "Validate", cancellationToken))
-            return;
+        var toAdd = new List<RbacPermissionEntity>();
+        foreach (var role in new[] { PrimeFicheValidationRoles.ReferentTechnique, "Coach" })
+        {
+            foreach (var (action, scope) in new[] { ("Read", "Service"), ("Edit", "Service"), ("Validate", "Service") })
+            {
+                if (await db.RbacPermissions.AnyAsync(
+                        x => x.Role == role && x.Action == action && x.Scope == scope,
+                        cancellationToken))
+                    continue;
+                toAdd.Add(P(role, action, scope, now));
+            }
+        }
 
-        db.RbacPermissions.AddRange(
-        [
-            P(role, "Edit", "Service", now),
-            P(role, "Validate", "Service", now),
-        ]);
+        if (toAdd.Count == 0) return;
+        db.RbacPermissions.AddRange(toAdd);
         await db.SaveChangesAsync(cancellationToken);
     }
 

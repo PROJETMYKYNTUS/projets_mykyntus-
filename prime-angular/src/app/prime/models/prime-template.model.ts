@@ -69,6 +69,8 @@ export interface StoredPrimeTemplate extends ParsedPrimeTemplate {
   savedAt: string;
   /** Schéma grille v1 si l’import strict a réussi (Excel DSL). */
   ficheGridSchema?: PrimeFicheTemplateSchema | null;
+  /** Non null = archivé (masqué de la saisie, conservé pour l’historique des fiches liées). */
+  archivedAt?: string | null;
 }
 
 /** Snapshot JSON persisté sur le brouillon pôle pour recalcul HyperFormula (pilotage). */
@@ -179,6 +181,10 @@ export function normalizeTemplateDisplayName(name: string): string {
   return name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('fr-FR');
 }
 
+export function isActiveStoredTemplate(t: StoredPrimeTemplate): boolean {
+  return !(t.archivedAt ?? '').trim();
+}
+
 export function isTemplateDisplayNameTaken(
   name: string,
   templates: readonly StoredPrimeTemplate[],
@@ -187,7 +193,10 @@ export function isTemplateDisplayNameTaken(
   const key = normalizeTemplateDisplayName(name);
   if (!key) return false;
   return templates.some(
-    (t) => t.id !== excludeId && normalizeTemplateDisplayName(t.displayName) === key,
+    (t) =>
+      t.id !== excludeId &&
+      isActiveStoredTemplate(t) &&
+      normalizeTemplateDisplayName(t.displayName) === key,
   );
 }
 
@@ -210,6 +219,7 @@ export function dedupeStoredTemplatesByDisplayName(
 function assertUniqueTemplateDisplayNames(list: readonly StoredPrimeTemplate[]): void {
   const seen = new Set<string>();
   for (const t of list) {
+    if (!isActiveStoredTemplate(t)) continue;
     const key = normalizeTemplateDisplayName(t.displayName);
     if (!key) continue;
     if (seen.has(key)) {
@@ -243,24 +253,40 @@ export function buildStoredTemplateForDirectCommonUpload(
   };
 }
 
-export function loadStoredTemplates(): StoredPrimeTemplate[] {
+export function loadAllStoredTemplates(): StoredPrimeTemplate[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const data = JSON.parse(raw) as { templates?: StoredPrimeTemplate[] };
     const list = Array.isArray(data.templates) ? data.templates : [];
-    const deduped = dedupeStoredTemplatesByDisplayName(list);
-    if (deduped.length !== list.length) {
+    const active = list.filter(isActiveStoredTemplate);
+    const dedupedActive = dedupeStoredTemplatesByDisplayName(active);
+    const archived = list.filter((t) => !isActiveStoredTemplate(t));
+    const merged = [...dedupedActive, ...archived];
+    if (merged.length !== list.length || dedupedActive.length !== active.length) {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ templates: deduped }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ templates: merged }));
       } catch {
         /* quota — on retourne quand même la liste dédupliquée en mémoire */
       }
     }
-    return deduped;
+    return merged;
   } catch {
     return [];
   }
+}
+
+/** Templates actifs (non archivés) — liste de saisie / sélection. */
+export function loadStoredTemplates(): StoredPrimeTemplate[] {
+  return loadAllStoredTemplates().filter(isActiveStoredTemplate);
+}
+
+export function archiveStoredTemplate(
+  templates: readonly StoredPrimeTemplate[],
+  id: string,
+  at: string = new Date().toISOString(),
+): StoredPrimeTemplate[] {
+  return templates.map((t) => (t.id === id ? { ...t, archivedAt: at } : t));
 }
 
 export function persistTemplates(list: StoredPrimeTemplate[]): void {

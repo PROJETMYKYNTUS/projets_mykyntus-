@@ -153,6 +153,8 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.Property(x => x.LastApproverUserId).HasMaxLength(128);
             e.Property(x => x.RejectedByUserId).HasMaxLength(128);
             e.Property(x => x.RejectionReason).HasMaxLength(2048);
+            e.Property(x => x.RejectedFromStatus).HasMaxLength(64);
+            e.Property(x => x.RejectedByRole).HasMaxLength(64);
             e.Property(x => x.PrimeAmount).HasPrecision(12, 2);
             e.Property(x => x.ChallengeAmount).HasPrecision(12, 2);
             e.Property(x => x.TotalAmount).HasPrecision(12, 2);

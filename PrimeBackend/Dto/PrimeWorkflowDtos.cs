@@ -22,6 +22,14 @@ public sealed class RejectServiceFicheRequest
     public string UserId { get; set; } = "";
     public string Role { get; set; } = "";
     public string Reason { get; set; } = "";
+    /// <summary>Si vrai : rejet définitif (réservé au dernier valideur du circuit).</summary>
+    public bool IsFinal { get; set; }
+}
+
+public sealed class ResubmitServiceFicheRequest
+{
+    public string UserId { get; set; } = "";
+    public string Role { get; set; } = "";
 }
 
 public sealed class BulkApproveServiceFicheRequest
@@ -54,6 +62,10 @@ public sealed class EmployeePrimeServiceFicheValidationDto
     public string? RejectedByUserId { get; init; }
     public DateTimeOffset? RejectedAt { get; init; }
     public string? RejectionReason { get; init; }
+    public bool RejectionIsFinal { get; init; }
+    public string? RejectedByRole { get; init; }
+    public string? RejectedFromStatus { get; init; }
+    public int RejectionCount { get; init; }
     public decimal? PrimeAmount { get; init; }
     public decimal? ChallengeAmount { get; init; }
     public decimal? TotalAmount { get; init; }

@@ -27,6 +27,7 @@ import {
   draftListOrganizationalKey,
   PrimeCellPrimeApiService,
   type CelluleDraftGlobalPoolStateDto,
+  type CommonsDraftDeletionCheckDto,
   type SupervisorPolePrimeDraftDto,
   type SupervisorPolePrimeDraftListItemDto,
 } from '../services/prime-cell-prime-api.service';
@@ -280,8 +281,9 @@ function httpErrMessage(err: unknown): string {
                       <button
                         type="button"
                         (click)="onDelete(item)"
-                        [disabled]="busyDraftId() === item.id"
-                        class="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-600/10 px-3 py-1.5 text-xs font-semibold text-rose-200 transition-colors hover:bg-rose-600/20 disabled:opacity-50"
+                        [disabled]="busyDraftId() === item.id || !canDeleteDraft(item.id)"
+                        [title]="deleteDraftTooltip(item.id)"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-600/10 px-3 py-1.5 text-xs font-semibold text-rose-200 transition-colors hover:bg-rose-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <app-lucide-icon [icon]="icons.trash" className="w-3.5 h-3.5" />
                         Supprimer
@@ -508,6 +510,7 @@ export class PrimeFichesCommunesListComponent implements OnInit {
   readonly loading = signal(false);
   readonly busyDraftId = signal<string | null>(null);
   readonly items = signal<SupervisorPolePrimeDraftListItemDto[]>([]);
+  readonly deletionChecks = signal<Record<string, CommonsDraftDeletionCheckDto>>({});
   readonly banner = signal<string | null>(null);
   readonly bannerKind = signal<'info' | 'error'>('info');
 
@@ -643,9 +646,65 @@ export class PrimeFichesCommunesListComponent implements OnInit {
         ),
       );
       this.items.set(list);
+      void this.loadDeletionChecks(list, u.id);
     } finally {
       this.loading.set(false);
     }
+  }
+
+  private async loadDeletionChecks(
+    list: SupervisorPolePrimeDraftListItemDto[],
+    supervisorUserId: string,
+  ): Promise<void> {
+    if (!list.length) {
+      this.deletionChecks.set({});
+      return;
+    }
+    const entries = await Promise.all(
+      list.map(async (item) => {
+        try {
+          const check = await firstValueFrom(this.api.getCommonsDraftDeletionCheck(item.id, supervisorUserId));
+          return [item.id, check] as const;
+        } catch {
+          return [
+            item.id,
+            {
+              draftId: item.id,
+              canDelete: false,
+              reason: 'Vérification de suppression indisponible.',
+              impact: {
+                totalPilotCount: 0,
+                deletablePilotCount: 0,
+                blockedPilotCount: 0,
+                frozenCount: 0,
+                inWorkflowCount: 0,
+                terminalCount: 0,
+                hasGlobalPool: item.hasGlobalPoolFile ?? false,
+              },
+            } satisfies CommonsDraftDeletionCheckDto,
+          ] as const;
+        }
+      }),
+    );
+    this.deletionChecks.set(Object.fromEntries(entries));
+  }
+
+  canDeleteDraft(draftId: string): boolean {
+    const check = this.deletionChecks()[draftId];
+    if (!check) return true;
+    return check.canDelete;
+  }
+
+  deleteDraftTooltip(draftId: string): string {
+    const check = this.deletionChecks()[draftId];
+    if (!check) return 'Supprimer la fiche commune';
+    if (check.canDelete) {
+      const n = check.impact.deletablePilotCount;
+      return n > 0
+        ? `Supprimer la fiche commune et ${n} fiche(s) pilote(s) en brouillon`
+        : 'Supprimer la fiche commune';
+    }
+    return check.reason ?? 'Suppression impossible';
   }
 
   onAdd(): void {
@@ -700,9 +759,15 @@ export class PrimeFichesCommunesListComponent implements OnInit {
   async onDelete(item: SupervisorPolePrimeDraftListItemDto): Promise<void> {
     const u = this.role.currentUser();
     if (!u?.id) return;
+    if (!this.canDeleteDraft(item.id)) {
+      this.bannerKind.set('error');
+      this.banner.set(this.deleteDraftTooltip(item.id));
+      return;
+    }
     const ok = window.confirm(
       `Supprimer la fiche commune de la période ${item.period} (« ${item.templateDisplayName || '—'} ») ?\n` +
-        `Toutes les saisies cellules associées seront également supprimées.`,
+        `Les fiches pilotes en brouillon seront supprimées.\n` +
+        `Refusé si des fiches sont validées ou ont un historique figé (snapshot).`,
     );
     if (!ok) return;
     this.busyDraftId.set(item.id);
@@ -718,6 +783,11 @@ export class PrimeFichesCommunesListComponent implements OnInit {
         ),
       );
       this.items.update((list) => list.filter((x) => x.id !== item.id));
+      this.deletionChecks.update((m) => {
+        const next = { ...m };
+        delete next[item.id];
+        return next;
+      });
       this.bannerKind.set('info');
       this.banner.set(`Fiche commune ${item.period} supprimée.`);
     } catch {

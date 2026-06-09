@@ -200,6 +200,34 @@ export interface PrimeHistoricalFicheListItemDto {
   hasDetailGrid: boolean;
 }
 
+export interface PrimeFicheTemplateUsageDto {
+  templateId: string;
+  commonsDraftCount: number;
+  pilotFicheCount: number;
+  frozenPilotFicheCount: number;
+  validatedPilotFicheCount: number;
+  totalReferenceCount: number;
+  canHardDelete: boolean;
+  recommendedAction: 'hardDelete' | 'archive';
+}
+
+export interface DeletionImpactDto {
+  totalPilotCount: number;
+  deletablePilotCount: number;
+  blockedPilotCount: number;
+  frozenCount: number;
+  inWorkflowCount: number;
+  terminalCount: number;
+  hasGlobalPool: boolean;
+}
+
+export interface CommonsDraftDeletionCheckDto {
+  draftId: string;
+  canDelete: boolean;
+  reason?: string | null;
+  impact: DeletionImpactDto;
+}
+
 export interface PrimeHistoricalFicheDetailSnapshotDto {
   historicalFicheId: string;
   version: number;
@@ -317,6 +345,17 @@ export class PrimeCellPrimeApiService {
     const q = new HttpParams().set('supervisorUserId', supervisorUserId);
     return this.http.get<SupervisorPolePrimeDraftListItemDto[]>(
       `${base}/supervisor-pole-prime-drafts/list-active`,
+      { params: q },
+    );
+  }
+
+  getCommonsDraftDeletionCheck(
+    draftId: string,
+    supervisorUserId: string,
+  ): Observable<CommonsDraftDeletionCheckDto> {
+    const q = new HttpParams().set('supervisorUserId', supervisorUserId.trim());
+    return this.http.get<CommonsDraftDeletionCheckDto>(
+      `${base}/supervisor-pole-prime-drafts/${encodeURIComponent(draftId)}/deletion-check`,
       { params: q },
     );
   }
@@ -539,6 +578,19 @@ export class PrimeCellPrimeApiService {
     if (period?.trim()) q = q.set('period', period.trim());
     if (role?.trim()) q = q.set('role', role.trim());
     return this.http.get<PrimeHistoricalFicheListItemDto[]>(`${base}/fiche-imports/historical`, { params: q });
+  }
+
+  getFicheTemplateUsage(
+    templateId: string,
+    supervisorUserId: string,
+    role?: string,
+  ): Observable<PrimeFicheTemplateUsageDto> {
+    let q = new HttpParams().set('supervisorUserId', supervisorUserId.trim());
+    if (role?.trim()) q = q.set('role', role.trim());
+    return this.http.get<PrimeFicheTemplateUsageDto>(
+      `${base}/fiche-templates/${encodeURIComponent(templateId)}/usage`,
+      { params: q },
+    );
   }
 
   getHistoricalFicheDetailSnapshot(

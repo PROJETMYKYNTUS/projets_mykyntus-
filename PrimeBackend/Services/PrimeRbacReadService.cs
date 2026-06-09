@@ -28,7 +28,7 @@ public sealed class PrimeRbacReadService(PrimeDbContext db, PrimeOrgScopeService
             .Distinct()
             .ToListAsync(ct);
 
-    /// <summary>Correspondance rôle employé ↔ rôle valideur d’une étape workflow (RP → Chef de projet, etc.).</summary>
+    /// <summary>Correspondance rôle employé ↔ rôle valideur d'une étape workflow (RP → Chef de projet, etc.).</summary>
     public static bool RolesMatchWorkflowApprover(string employeeRole, string stepApproverRole)
     {
         if (string.Equals(employeeRole, stepApproverRole, StringComparison.Ordinal)) return true;
@@ -67,7 +67,7 @@ public sealed class PrimeRbacReadService(PrimeDbContext db, PrimeOrgScopeService
         CancellationToken ct = default) =>
         org.IsPilotInReferentValidationScopeAsync(referent.Id, fiche.EmployeeId, referent.Role, ct);
 
-    /// <summary>Clone employé avec le rôle d’action UI (validation en mode changement de rôle).</summary>
+    /// <summary>Clone employé avec le rôle d'action UI (validation en mode changement de rôle).</summary>
     public static EmployeeEntity WithActingRole(EmployeeEntity source, string actingRole) =>
         new()
         {

@@ -407,7 +407,7 @@ export class PrimeSynthesisTrackingPageComponent {
   readonly items = signal<SynthesisTrackingFeedItemDto[]>([]);
   readonly periodOptions = signal<{ label: string; value: string }[]>([]);
   readonly periodFilter = signal('');
-  readonly mineOnly = signal(true);
+  readonly mineOnly = signal(false);
   readonly actionFilter = signal<'Approved' | 'Rejected' | 'Paid' | ''>('');
   readonly inboxSearch = signal('');
   readonly inboxScopeFilter = signal('all');

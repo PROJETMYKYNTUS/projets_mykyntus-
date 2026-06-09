@@ -17,6 +17,33 @@ export function employeeMatchesDemoProfile(
   return nameEq(e.firstName, profile.firstName) && nameEq(e.lastName, profile.lastName);
 }
 
+/** Rôle métier employé (API) → rôle UI du sélecteur PRIME. */
+export function mapEmployeeRoleToUiRole(employeeRole: string): Role {
+  const r = employeeRole.trim();
+  if (r === 'Coach') return 'Référent technique';
+  if (r === 'RP') return 'Chef de projet';
+  if (r === 'Comptable') return 'Comptabilité';
+  if (
+    r === 'Admin' ||
+    r === 'RH' ||
+    r === 'Manager' ||
+    r === 'Comptabilité' ||
+    r === 'Chef de projet' ||
+    r === 'Superviseur' ||
+    r === 'Référent technique' ||
+    r === 'Pilote' ||
+    r === 'Audit'
+  ) {
+    return r;
+  }
+  return 'Superviseur';
+}
+
+/** Filtre « Mes actions uniquement » : désactivé par défaut pour les rôles de lecture transverse. */
+export function defaultHistoryMineOnly(uiRole: Role): boolean {
+  return !['Admin', 'Audit', 'Manager', 'RH', 'Comptabilité', 'Comptable'].includes(uiRole);
+}
+
 export function employeeMatchesUiRole(employee: Employee, uiRole: Role): boolean {
   if (employee.role === uiRole) return true;
   if (uiRole === 'Référent technique' && employee.role === 'Coach') return true;
@@ -65,6 +92,22 @@ export function findDemoReferentTechnique(list: Employee[]): Employee | undefine
     if (underSup) return underSup;
   }
   return list.find((e) => employeeMatchesUiRole(e, 'Référent technique'));
+}
+
+/** Préfère un employé du même rôle UI dans la cellule courante (évite les décalages de périmètre RBAC). */
+export function pickEmployeeForRolePreferringCellule(
+  list: Employee[],
+  role: Role,
+  preferredCelluleId?: string | null,
+): Employee | undefined {
+  const candidates = employeesForUiRole(list, role);
+  if (candidates.length === 0) return pickDefaultEmployeeForRole(list, role);
+  const cell = (preferredCelluleId ?? '').trim();
+  if (cell) {
+    const inCell = candidates.find((e) => (e.celluleId ?? '').trim() === cell);
+    if (inCell) return inCell;
+  }
+  return pickDefaultEmployeeForRole(list, role) ?? candidates[0];
 }
 
 export function pickDefaultEmployeeForRole(list: Employee[], role: Role): Employee | undefined {

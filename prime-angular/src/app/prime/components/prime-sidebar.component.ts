@@ -345,9 +345,16 @@ const auditNavItems: AuditNavItem[] = [
             {{ currentRole.substring(0, 2).toUpperCase() }}
           </div>
           @if (!collapsed) {
-            <div>
-              <div class="text-sm font-semibold text-primary">Utilisateur actuel</div>
-              <div class="text-xs text-muted font-medium">{{ currentRole }}</div>
+            <div class="min-w-0">
+              <div class="text-sm font-semibold text-primary truncate">
+                {{ role.currentUser().firstName }} {{ role.currentUser().lastName }}
+              </div>
+              <div class="text-xs text-muted font-medium">{{ roleDisplayLabel }}</div>
+              @if (role.currentUser().celluleId) {
+                <div class="text-[10px] text-muted/80 truncate" title="Cellule RH">
+                  Cellule : {{ role.currentUser().celluleId }}
+                </div>
+              }
             </div>
           }
         </div>
@@ -388,6 +395,21 @@ export class PrimeSidebarComponent implements OnChanges {
 
   get currentRole(): Role {
     return this.role.currentRole();
+  }
+
+  get roleDisplayLabel(): string {
+    const labels: Record<string, string> = {
+      Admin: 'Administrateur',
+      RH: 'RH',
+      Manager: 'Manager',
+      Comptabilité: 'Comptabilité',
+      'Chef de projet': 'Chef de projet',
+      Superviseur: 'Superviseur',
+      'Référent technique': 'Référent technique',
+      Pilote: 'Pilote',
+      Audit: 'Audit',
+    };
+    return labels[this.currentRole] ?? this.currentRole;
   }
 
   get activeRpSection(): RpSection {

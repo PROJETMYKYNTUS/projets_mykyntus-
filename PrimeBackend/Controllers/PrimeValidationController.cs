@@ -27,6 +27,7 @@ public sealed class PrimeValidationController(
     AnomalyDetectionService? anomalies,
     GlobalPoolWorkflowService? poolWf,
     PrimeFicheMergedPreviewAccessService? previewAccess,
+    PrimeOrgScopeService? org,
     ILogger<PrimeValidationController> logger) : ControllerBase
 {
 
@@ -300,11 +301,6 @@ public sealed class PrimeValidationController(
             return BadRequest(new { error = GlobalPoolRoleFicheErrorMessage });
         if (!PrimeFicheValidationRoles.IsOperationalApprover(ru.Role))
             return StatusCode(403, new { error = "Seuls les rôles opérationnels (Référent technique, Superviseur, Chef de projet) valident les fiches." });
-        if (!PrimeEmployeeFicheAmountService.IsNonNegative(body.PrimeAmount) ||
-            !PrimeEmployeeFicheAmountService.IsNonNegative(body.ChallengeAmount) ||
-            !PrimeEmployeeFicheAmountService.IsNonNegative(body.TotalAmount))
-            return BadRequest(new { error = DbExceptionMessages.NonNegativePrimeAmountsRequired });
-
         var fiche = await db.EmployeePrimeServiceFiches.FirstOrDefaultAsync(f => f.Id == id, ct);
         if (fiche == null) return NotFound();
 
@@ -320,11 +316,13 @@ public sealed class PrimeValidationController(
         var (ok, err, next, step) = await wfRuntime.TryResolveApprovalAsync(fiche, ru.Role, ct);
         if (!ok || next is null) return BadRequest(new { error = err ?? "Transition impossible." });
 
-        var fromStatus = fiche.ValidationStatus;
-        PrimeValidationWorkflowService.ApplyApproval(fiche, next, ru.UserId, DateTimeOffset.UtcNow);
-        var amounts = PrimeEmployeeFicheAmountService.ExtractFromFiche(fiche);
+        var amounts = PrimeEmployeeFicheAmountService.ResolveApprovalAmounts(
+            fiche, body.PrimeAmount, body.ChallengeAmount, body.TotalAmount);
         if (!PrimeEmployeeFicheAmountService.AreNonNegative(amounts))
             return BadRequest(new { error = DbExceptionMessages.NonNegativePrimeAmountsRequired });
+
+        var fromStatus = fiche.ValidationStatus;
+        PrimeValidationWorkflowService.ApplyApproval(fiche, next, ru.UserId, DateTimeOffset.UtcNow);
         if (step?.CapturesAmountsOnApproval == true)
             PrimeEmployeeFicheAmountService.ApplySnapshotToEntity(fiche, amounts);
 
@@ -446,14 +444,14 @@ public sealed class PrimeValidationController(
                 ignored.Add(f.Id);
                 continue;
             }
-            var fromStatus = f.ValidationStatus;
-            PrimeValidationWorkflowService.ApplyApproval(f, next, ru.UserId, now);
-            var amounts = PrimeEmployeeFicheAmountService.ExtractFromFiche(f);
+            var amounts = PrimeEmployeeFicheAmountService.ResolveApprovalAmounts(f, null, null, null);
             if (!PrimeEmployeeFicheAmountService.AreNonNegative(amounts))
             {
                 ignored.Add(f.Id);
                 continue;
             }
+            var fromStatus = f.ValidationStatus;
+            PrimeValidationWorkflowService.ApplyApproval(f, next, ru.UserId, now);
             if (step?.CapturesAmountsOnApproval == true)
                 PrimeEmployeeFicheAmountService.ApplySnapshotToEntity(f, amounts);
             if (step?.TerminalApproved == true || await wfRuntime.IsTerminalStatusAsync(next, ct))

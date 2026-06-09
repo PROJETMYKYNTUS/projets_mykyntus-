@@ -108,13 +108,21 @@ export class PrimeFicheValidationTimelineComponent {
 
   historyItemClass(h: PrimeFicheValidationHistoryDto): string {
     const mine = this.isMyAction(h) ? ' ring-1 ring-indigo-400/40' : '';
-    if (h.action === 'Rejected')
-      return `border-rose-500/40 bg-rose-500/10${mine}`;
+    if (h.action === 'Rejected') {
+      const isFinal = (h.comment ?? '').startsWith('[Définitif]');
+      return isFinal
+        ? `border-rose-500/40 bg-rose-500/10${mine}`
+        : `border-amber-500/40 bg-amber-500/10${mine}`;
+    }
+    if (h.action === 'Resubmitted')
+      return `border-indigo-500/40 bg-indigo-500/10${mine}`;
     return `border-emerald-500/30 bg-emerald-500/5${mine}`;
   }
 
   actionLabel(action: string): string {
-    return action === 'Rejected' ? 'Rejet' : 'Approbation';
+    if (action === 'Rejected') return 'Rejet';
+    if (action === 'Resubmitted') return 'Renvoi après correction';
+    return 'Approbation';
   }
 
   hasAmounts(h: PrimeFicheValidationHistoryDto): boolean {

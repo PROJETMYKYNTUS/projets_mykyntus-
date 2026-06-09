@@ -109,6 +109,14 @@ public class EmployeePrimeServiceFicheEntity
     public string? RejectedByUserId { get; set; }
     public DateTimeOffset? RejectedAt { get; set; }
     public string? RejectionReason { get; set; }
+    /// <summary>True = rejet définitif (non retraitable).</summary>
+    public bool RejectionIsFinal { get; set; }
+    /// <summary>Statut avant rejet — cible du retour après correction.</summary>
+    public string? RejectedFromStatus { get; set; }
+    /// <summary>Rôle du rejeteur (affichage / audit).</summary>
+    public string? RejectedByRole { get; set; }
+    /// <summary>Nombre de cycles rejet / correction (audit).</summary>
+    public int RejectionCount { get; set; }
     /// <summary>Montants snapshot (export) ; affichage validation = extraction live depuis ServiceSaisieJson.</summary>
     public decimal? PrimeAmount { get; set; }
     public decimal? ChallengeAmount { get; set; }

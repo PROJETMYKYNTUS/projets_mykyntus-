@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PrimeBackend.Services;
 
 namespace PrimeBackend.Data;
 
@@ -522,6 +523,135 @@ public static class PrimeSchemaPatches
             ct);
     }
 
+    /// <summary>Colonnes rejet retraitable / définitif sur fiche pilote — idempotent au démarrage.</summary>
+    public static async Task EnsureRejectionReprocessingColumnsAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_employee_prime_service_fiche", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE prime_employee_prime_service_fiche
+              ADD COLUMN IF NOT EXISTS "RejectionIsFinal" boolean NOT NULL DEFAULT false;
+            ALTER TABLE prime_employee_prime_service_fiche
+              ADD COLUMN IF NOT EXISTS "RejectedFromStatus" character varying(64);
+            ALTER TABLE prime_employee_prime_service_fiche
+              ADD COLUMN IF NOT EXISTS "RejectedByRole" character varying(64);
+            ALTER TABLE prime_employee_prime_service_fiche
+              ADD COLUMN IF NOT EXISTS "RejectionCount" integer NOT NULL DEFAULT 0;
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+            SELECT '20260609120000_PrimeRejectionReprocessing', '8.0.11'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM "__EFMigrationsHistory"
+                WHERE "MigrationId" = '20260609120000_PrimeRejectionReprocessing');
+            """,
+            ct);
+    }
+
+    /// <summary>Garantit le circuit fiche RT → Superviseur → Chef de projet (idempotent).</summary>
+    public static async Task EnsureOperationalFicheWorkflowAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_workflow_step", ct))
+            return;
+        await PrimeDbSeeder.EnsureOperationalFicheWorkflowOnlyAsync(db, cancellationToken: ct);
+    }
+
+    /// <summary>Crée les lignes historique manquantes à partir de LastApprovedAt / LastApproverUserId.</summary>
+    public static async Task EnsureFicheValidationHistoryBackfillAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_employee_fiche_validation_history", ct))
+            return;
+
+        var fiches = await db.EmployeePrimeServiceFiches
+            .Where(f => f.LastApproverUserId != null && f.LastApprovedAt != null)
+            .ToListAsync(ct);
+        if (fiches.Count == 0) return;
+
+        var ficheIdsWithApproved = await db.EmployeePrimeFicheValidationHistories.AsNoTracking()
+            .Where(h => h.Action == PrimeFicheValidationHistoryActions.Approved)
+            .Select(h => h.FicheId)
+            .Distinct()
+            .ToListAsync(ct);
+        var covered = ficheIdsWithApproved.ToHashSet();
+
+        var steps = await db.WorkflowSteps.AsNoTracking()
+            .Where(s => s.IsActive)
+            .ToListAsync(ct);
+        var approverIds = fiches
+            .Select(f => f.LastApproverUserId!)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct()
+            .ToList();
+        var approvers = await db.Employees.AsNoTracking()
+            .Where(e => approverIds.Contains(e.Id))
+            .ToDictionaryAsync(e => e.Id, ct);
+
+        var added = 0;
+        foreach (var fiche in fiches)
+        {
+            if (covered.Contains(fiche.Id)) continue;
+            var toStatus = fiche.ValidationStatus;
+            var step = steps.FirstOrDefault(s =>
+                string.Equals(s.ToStatus, toStatus, StringComparison.Ordinal));
+            var fromStatus = step?.FromStatus ?? PrimeValidationWorkflowService.Pending;
+            var approverId = fiche.LastApproverUserId!.Trim();
+            approvers.TryGetValue(approverId, out var approver);
+            var display = approver is null
+                ? approverId
+                : $"{approver.FirstName} {approver.LastName}".Trim();
+            db.EmployeePrimeFicheValidationHistories.Add(new EmployeePrimeFicheValidationHistoryEntity
+            {
+                Id = Guid.NewGuid(),
+                FicheId = fiche.Id,
+                At = fiche.LastApprovedAt ?? DateTimeOffset.UtcNow,
+                Action = PrimeFicheValidationHistoryActions.Approved,
+                FromStatus = fromStatus,
+                ToStatus = toStatus,
+                ActorUserId = approverId,
+                ActorRole = step?.ApproverRole ?? approver?.Role ?? PrimeFicheValidationRoles.Superviseur,
+                ActorDisplayName = string.IsNullOrWhiteSpace(display) ? approverId : display,
+                PrimeAmount = fiche.PrimeAmount,
+                ChallengeAmount = fiche.ChallengeAmount,
+                TotalAmount = fiche.TotalAmount,
+            });
+            added++;
+        }
+
+        if (added > 0)
+            await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Remplace les schémas obsolètes (<c>{ fields }</c> ou sans lignes) par un gabarit grille RACC/SAV minimal.</summary>
+    public static async Task EnsurePoleDraftGridSchemaAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_supervisor_cellule_prime_draft", ct))
+            return;
+
+        var drafts = await db.SupervisorCellulePrimeDrafts.ToListAsync(ct);
+        var changed = false;
+        foreach (var draft in drafts)
+        {
+            if (!PrimeDemoTemplateSchema.IsObsoleteSchemaJson(draft.SchemaJson)) continue;
+            draft.SchemaJson = PrimeDemoTemplateSchema.MinimalRaccSavJson(
+                draft.TemplateDisplayName,
+                "Grille");
+            if (string.IsNullOrWhiteSpace(draft.CelluleSaisieJson)
+                || draft.CelluleSaisieJson.Trim() is "{}" or "null")
+            {
+                draft.CelluleSaisieJson = """{"formatVersion":1,"lignes":{},"poleContractsOnly":true}""";
+            }
+            changed = true;
+        }
+
+        if (changed)
+            await db.SaveChangesAsync(ct);
+    }
+
     private static Task<bool> TableExistsAsync(PrimeDbContext db, string tableName, CancellationToken ct) =>
         tableName switch
         {
@@ -579,6 +709,14 @@ public static class PrimeSchemaPatches
                 SELECT EXISTS (
                   SELECT 1 FROM information_schema.tables
                   WHERE table_schema = 'public' AND table_name = 'prime_historical_fiche');
+                """,
+                ct),
+            "prime_workflow_step" => ScalarBoolAsync(
+                db,
+                """
+                SELECT EXISTS (
+                  SELECT 1 FROM information_schema.tables
+                  WHERE table_schema = 'public' AND table_name = 'prime_workflow_step');
                 """,
                 ct),
             _ => Task.FromResult(false),

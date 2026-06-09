@@ -27,6 +27,10 @@ export interface EmployeePrimeServiceFicheValidationDto {
   rejectedByUserId?: string | null;
   rejectedAt?: string | null;
   rejectionReason?: string | null;
+  rejectionIsFinal?: boolean;
+  rejectedByRole?: string | null;
+  rejectedFromStatus?: string | null;
+  rejectionCount?: number;
   primeAmount?: number | null;
   challengeAmount?: number | null;
   totalAmount?: number | null;
@@ -113,6 +117,12 @@ export interface RejectServiceFicheRequest {
   userId: string;
   role: string;
   reason: string;
+  isFinal?: boolean;
+}
+
+export interface ResubmitServiceFicheRequest {
+  userId: string;
+  role: string;
 }
 
 export interface BulkApproveServiceFicheRequest {
@@ -207,6 +217,10 @@ export class PrimeFicheResultService {
 
   reject(id: string, body: RejectServiceFicheRequest): Observable<EmployeePrimeServiceFicheValidationDto> {
     return this.http.post<EmployeePrimeServiceFicheValidationDto>(`${base}/${id}/reject`, body);
+  }
+
+  resubmit(id: string, body: ResubmitServiceFicheRequest): Observable<EmployeePrimeServiceFicheValidationDto> {
+    return this.http.post<EmployeePrimeServiceFicheValidationDto>(`${base}/${id}/resubmit`, body);
   }
 
   bulkApprove(body: BulkApproveServiceFicheRequest): Observable<BulkApproveResult> {

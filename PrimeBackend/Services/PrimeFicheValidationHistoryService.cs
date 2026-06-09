@@ -299,10 +299,6 @@ public sealed class PrimeFicheValidationHistoryService(PrimeDbContext? db)
         }).ToList();
     }
 
-    /// <summary>
-    /// Evènements d'approbation au niveau synthèse (Manager / RH / Comptabilité), surfacés par employé
-    /// pour le suivi du second workflow (Phase « Synthèse »).
-    /// </summary>
     private async Task<List<PrimeFicheValidationHistoryFeedItemDto>> ListScopeApprovalFeedAsync(
         PrimeResolvedUser? actor,
         PrimeRbacReadService rbac,
@@ -313,7 +309,6 @@ public sealed class PrimeFicheValidationHistoryService(PrimeDbContext? db)
         CancellationToken ct)
     {
         if (db is null) return [];
-        // Seul un filtre "Approved" (ou aucun) doit retourner ces approbations.
         if (!string.IsNullOrWhiteSpace(actionFilter) &&
             !string.Equals(actionFilter, PrimeFicheValidationHistoryActions.Approved, StringComparison.Ordinal))
             return [];

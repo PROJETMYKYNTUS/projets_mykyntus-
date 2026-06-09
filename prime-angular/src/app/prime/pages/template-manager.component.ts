@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,11 +15,24 @@ import { PrimeCardComponent } from '../components/prime-card.component';
 import { parsePrimeTemplateExcel } from '../lib/excel-fiche-template.parser';
 import { parsePrimeFicheGrid } from '../lib/prime-fiche-grid.parser';
 import { summarizeGridDiagnostics } from '../lib/prime-fiche-grid-diagnostics';
+import type { Employee, Role } from '../models';
 import type { ParsedPrimeTemplate, StoredPrimeTemplate } from '../models/prime-template.model';
-import { loadStoredTemplates, isTemplateDisplayNameTaken, persistTemplates } from '../models/prime-template.model';
+import {
+  archiveStoredTemplate,
+  isActiveStoredTemplate,
+  isTemplateDisplayNameTaken,
+  loadAllStoredTemplates,
+  persistTemplates,
+} from '../models/prime-template.model';
 import type { PrimeFicheGridImportResult, PrimeFicheTemplateSchema } from '../models/prime-fiche-template.schema';
+import { primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
+import {
+  PrimeCellPrimeApiService,
+  type PrimeFicheTemplateUsageDto,
+} from '../services/prime-cell-prime-api.service';
 import { PrimeFicheTemplateActiveService } from '../services/prime-fiche-template-active.service';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
+import { RoleService } from '../state/role.service';
 
 @Component({
   selector: 'app-template-manager',
@@ -346,12 +360,15 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
         </app-prime-card>
       }
 
-      <app-prime-card title="Templates enregistrés" description="Gabarits déjà sauvegardés sur cet appareil">
-        @if (!stored().length) {
-          <p class="text-sm text-muted">Aucun template sauvegardé pour le moment.</p>
+      <app-prime-card
+        title="Templates enregistrés"
+        description="Gabarits actifs pour la saisie. Un template lié à des fiches en base est archivé, pas effacé."
+      >
+        @if (!activeStored().length) {
+          <p class="text-sm text-muted">Aucun template actif pour le moment.</p>
         } @else {
           <ul class="divide-y divide-default rounded-lg border border-default overflow-hidden">
-            @for (t of stored(); track t.id) {
+            @for (t of activeStored(); track t.id) {
               <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-navy-700/25">
                 <div class="min-w-0">
                   <div class="font-semibold text-primary truncate">{{ t.displayName }}</div>
@@ -362,6 +379,12 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
                       <span
                         class="ml-1 rounded border border-blue-500/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-blue-600 dark:text-blue-400"
                         >Grille v{{ t.ficheGridSchema.templateFormatVersion }}</span
+                      >
+                    }
+                    @if (templateUsageCount(t.id) > 0) {
+                      <span
+                        class="ml-1 rounded border border-violet-500/40 px-1.5 py-0.5 text-[10px] font-semibold text-violet-400"
+                        >{{ templateUsageCount(t.id) }} fiche(s) liée(s)</span
                       >
                     }
                   </div>
@@ -379,9 +402,11 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
                   }
                   <button
                     type="button"
-                    (click)="removeStored(t.id)"
-                    class="rounded-lg border border-default p-2 text-muted hover:text-rose-600 hover:border-rose-500/50"
-                    aria-label="Supprimer"
+                    [disabled]="templateActionBusyId() === t.id"
+                    (click)="archiveOrRemoveStored(t)"
+                    class="rounded-lg border border-default p-2 text-muted hover:text-rose-600 hover:border-rose-500/50 disabled:opacity-40"
+                    [attr.aria-label]="templateActionBusyId() === t.id ? 'Traitement…' : 'Supprimer ou archiver'"
+                    title="Supprimer ou archiver"
                   >
                     <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
                   </button>
@@ -391,13 +416,36 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
           </ul>
         }
       </app-prime-card>
+
+      @if (archivedStored().length > 0) {
+        <app-prime-card
+          title="Templates archivés"
+          description="Conservés pour l’historique des fiches PRIME déjà créées avec ce gabarit."
+        >
+          <ul class="divide-y divide-default rounded-lg border border-default overflow-hidden">
+            @for (t of archivedStored(); track t.id) {
+              <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-navy-900/40">
+                <div class="min-w-0">
+                  <div class="font-semibold text-muted truncate">{{ t.displayName }}</div>
+                  <div class="text-xs text-muted truncate">
+                    Archivé le {{ formatSavedAt(t.archivedAt ?? t.savedAt) }}
+                  </div>
+                </div>
+                <span class="text-[10px] uppercase tracking-wide text-violet-400 font-semibold">Historique</span>
+              </li>
+            }
+          </ul>
+        </app-prime-card>
+      }
     </div>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class TemplateManagerComponent {
+export class TemplateManagerComponent implements OnInit {
   private readonly activeTpl = inject(PrimeFicheTemplateActiveService);
   private readonly nav = inject(PrimeNavRequestService);
+  private readonly cellApi = inject(PrimeCellPrimeApiService);
+  private readonly roleService = inject(RoleService);
 
   readonly icons = {
     upload: Upload,
@@ -421,7 +469,44 @@ export class TemplateManagerComponent {
   readonly saveBannerIsError = signal(false);
   /** Affiche le bouton « Ouvrir la fiche PRIME » après activation / sauvegarde avec grille. */
   readonly saisieCtaVisible = signal(false);
-  readonly stored = signal<StoredPrimeTemplate[]>(loadStoredTemplates());
+  readonly stored = signal<StoredPrimeTemplate[]>(loadAllStoredTemplates());
+  readonly activeStored = computed(() => this.stored().filter(isActiveStoredTemplate));
+  readonly archivedStored = computed(() => this.stored().filter((t) => !isActiveStoredTemplate(t)));
+  readonly templateActionBusyId = signal<string | null>(null);
+  readonly templateUsageMap = signal<Record<string, PrimeFicheTemplateUsageDto>>({});
+
+  ngOnInit(): void {
+    void this.refreshTemplateUsages();
+  }
+
+  templateUsageCount(templateId: string): number {
+    return this.templateUsageMap()[templateId]?.totalReferenceCount ?? 0;
+  }
+
+  private async refreshTemplateUsages(): Promise<void> {
+    const templates = this.activeStored();
+    const user = this.roleService.currentUser();
+    const role = this.roleService.currentRole() as Role;
+    if (!user?.id || !templates.length) {
+      this.templateUsageMap.set({});
+      return;
+    }
+    const entries = await Promise.all(
+      templates.map(async (t) => {
+        try {
+          const usage = await firstValueFrom(this.cellApi.getFicheTemplateUsage(t.id, user.id, role));
+          return [t.id, usage] as const;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    const map: Record<string, PrimeFicheTemplateUsageDto> = {};
+    for (const entry of entries) {
+      if (entry) map[entry[0]] = entry[1];
+    }
+    this.templateUsageMap.set(map);
+  }
 
   readonly formulasPreview = computed(() => {
     const p = this.parsed();
@@ -576,6 +661,7 @@ export class TemplateManagerComponent {
     try {
       persistTemplates(next);
       this.stored.set(next);
+      void this.refreshTemplateUsages();
     } catch (e) {
       const duplicate =
         e instanceof Error && e.message.startsWith('Duplicate template display name');
@@ -605,8 +691,53 @@ export class TemplateManagerComponent {
     }
   }
 
-  removeStored(id: string): void {
-    const next = this.stored().filter((t) => t.id !== id);
+  archiveOrRemoveStored(t: StoredPrimeTemplate): void {
+    if (this.templateActionBusyId() === t.id) return;
+    const user = this.roleService.currentUser();
+    const role = this.roleService.currentRole() as Role;
+    this.templateActionBusyId.set(t.id);
+
+    this.cellApi.getFicheTemplateUsage(t.id, user.id, role).subscribe({
+      next: (usage) => {
+        this.templateActionBusyId.set(null);
+        this.templateUsageMap.update((m) => ({ ...m, [t.id]: usage }));
+        const refs = usage.totalReferenceCount ?? 0;
+        const mustArchive = usage.recommendedAction === 'archive' || !usage.canHardDelete || refs > 0;
+        if (mustArchive) {
+          const ok = window.confirm(
+            `Le template « ${t.displayName} » est lié à ${usage.commonsDraftCount} fiche(s) commune(s) et ${usage.pilotFicheCount} fiche(s) pilote(s) en base.\n\n` +
+              `Il sera archivé (masqué de la saisie) mais conservé pour l’historique. Les fiches existantes ne seront pas supprimées.`,
+          );
+          if (!ok) return;
+          this.applyArchive(t.id);
+          this.saveBanner.set(`Template « ${t.displayName} » archivé — ${refs} référence(s) conservée(s) en base.`);
+          this.saveBannerIsError.set(false);
+          void this.refreshTemplateUsages();
+          return;
+        }
+
+        const ok = window.confirm(`Supprimer définitivement le template « ${t.displayName} » ?`);
+        if (!ok) return;
+        const next = this.stored().filter((x) => x.id !== t.id);
+        persistTemplates(next);
+        this.stored.set(next);
+        this.saveBanner.set(`Template « ${t.displayName} » supprimé.`);
+        this.saveBannerIsError.set(false);
+        void this.refreshTemplateUsages();
+      },
+      error: (err) => {
+        this.templateActionBusyId.set(null);
+        this.saveBanner.set(
+          (primeHttpErrorDetail(err) ?? 'Impossible de vérifier les fiches liées.') +
+            ' Suppression bloquée par précaution.',
+        );
+        this.saveBannerIsError.set(true);
+      },
+    });
+  }
+
+  private applyArchive(id: string): void {
+    const next = archiveStoredTemplate(this.stored(), id);
     persistTemplates(next);
     this.stored.set(next);
   }

@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import type { PrimeFicheTemplateSchema } from '../models/prime-fiche-template.schema';
 import type { StoredPrimeTemplate } from '../models/prime-template.model';
 import {
+  loadAllStoredTemplates,
   loadStoredTemplates,
   parseTemplateCalcSnapshotV1,
   storedTemplateFromCalcSnapshotForPreview,
@@ -131,7 +132,7 @@ export class PrimeFicheSessionService {
       tpl.displayName = draft.templateDisplayName || tpl.displayName;
     } else {
       // Fallback : template stocké en localStorage (anciens drafts sans snapshot serveur).
-      tpl = loadStoredTemplates().find((t) => t.id === draft.templateId) ?? null;
+      tpl = loadAllStoredTemplates().find((t) => t.id === draft.templateId) ?? null;
       if (tpl) tpl = { ...tpl, ficheGridSchema: schema };
     }
     if (!tpl) return false;

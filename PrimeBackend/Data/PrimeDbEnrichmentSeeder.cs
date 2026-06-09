@@ -362,7 +362,9 @@ public static class PrimeDbEnrichmentSeeder
             TemplateDisplayName = $"Grille PRIME — {cellule.Name} ({period})",
             TemplateFormatVersion = 1,
             Status = "Validated",
-            SchemaJson = """{"fields":[{"id":"nps","label":"NPS (%)","type":"number"},{"id":"aht","label":"AHT","type":"number"}]}""",
+            SchemaJson = PrimeDemoTemplateSchema.MinimalRaccSavJson(
+                $"Grille PRIME — {cellule.Name} ({period})",
+                "Grille"),
             CelluleSaisieJson = """{"nps":74,"aht":278,"commentaire":"Saisie cellule — démo Maroc"}""",
             TemplateCalcSnapshotJson = """{"previewSheetName":"Synthèse","calcSheets":[]}""",
             UpdatedAt = now,

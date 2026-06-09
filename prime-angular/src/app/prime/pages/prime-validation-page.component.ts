@@ -180,6 +180,27 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
           </div>
         </div>
 
+        @if (!canValidateFiches()) {
+          <div
+            class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
+            role="status"
+          >
+            Ce rôle ne peut pas approuver ni rejeter les fiches. Choisissez
+            <strong class="font-semibold">Référent technique</strong>,
+            <strong class="font-semibold">Superviseur</strong> ou
+            <strong class="font-semibold">Chef de projet</strong> dans le sélecteur en haut à droite.
+          </div>
+        }
+
+        @if (successNotice()) {
+          <div
+            class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100"
+            role="status"
+          >
+            {{ successNotice() }}
+          </div>
+        }
+
         @if (errorMessage()) {
           <app-prime-card>
             <div class="p-4 text-rose-600 text-sm">{{ errorMessage() }}</div>
@@ -284,13 +305,25 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
                         <div class="text-[10px] text-muted/80 mt-0.5">Issus de la fiche employé</div>
                       </td>
                       <td>
-                        <span class="prime-status-badge">
-                          {{ statusLabel(item.validationStatus) }}
+                        <span class="prime-status-badge" [class]="rejectionBadgeClass(item)">
+                          {{ statusLabel(item) }}
                         </span>
                         @if (item.validationStatus === 'Rejected' && item.rejectionReason) {
-                          <div class="text-xs text-rose-500 mt-1 italic max-w-xs truncate" [title]="item.rejectionReason">
+                          <div
+                            class="text-xs mt-1 italic max-w-xs truncate"
+                            [class]="item.rejectionIsFinal ? 'text-rose-500' : 'text-amber-400'"
+                            [title]="item.rejectionReason"
+                          >
                             « {{ item.rejectionReason }} »
                           </div>
+                          @if (item.rejectedByRole) {
+                            <div class="text-[10px] text-muted mt-0.5">
+                              Rejeté par {{ item.rejectedByRole }}
+                              @if (item.rejectedFromStatus) {
+                                · depuis {{ item.rejectedFromStatus }}
+                              }
+                            </div>
+                          }
                         }
                       </td>
                       <td class="px-6 py-4 text-right align-top">
@@ -316,7 +349,7 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
                               <button
                                 type="button"
                                 [disabled]="busyId() === item.id"
-                                (click)="approve(item.id)"
+                                (click)="approve(item)"
                                 class="p-1.5 text-muted hover:text-emerald-400 hover:bg-navy-800 rounded-md transition-colors border border-transparent hover:border-emerald-500/40 disabled:opacity-50"
                                 title="Approuver"
                               >
@@ -351,6 +384,17 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
                                   (input)="onRejectReasonInput($event)"
                                   placeholder="Obligatoire"
                                 ></textarea>
+                                @if (canRejectFinal(item)) {
+                                  <label class="flex items-start gap-2 text-[11px] text-muted cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      class="mt-0.5 rounded border-default"
+                                      [checked]="rejectIsFinal()"
+                                      (change)="onRejectIsFinalChange($event)"
+                                    />
+                                    <span>Rejet définitif (non retraitable)</span>
+                                  </label>
+                                }
                                 <div class="flex justify-end gap-2">
                                   <button
                                     type="button"
@@ -429,6 +473,7 @@ export class PrimeValidationPageComponent {
   readonly results = signal<EmployeePrimeServiceFicheValidationDto[]>([]);
   readonly loading = signal(true);
   readonly errorMessage = signal<string | null>(null);
+  readonly successNotice = signal<string | null>(null);
   readonly busyId = signal<string | null>(null);
   readonly bulkBusy = signal(false);
   readonly reconcileBusy = signal(false);
@@ -439,6 +484,7 @@ export class PrimeValidationPageComponent {
   readonly periodFilter = signal('');
   readonly rejectingFicheId = signal<string | null>(null);
   readonly rejectReason = signal('');
+  readonly rejectIsFinal = signal(false);
 
   readonly setStatusFilter = (value: PrimeFicheValidationStatus | '') => {
     this.statusFilter.set(this.statusFilter() === value ? '' : value);
@@ -520,6 +566,18 @@ export class PrimeValidationPageComponent {
     return this.results().filter((r) => set.has(r.validationStatus));
   });
 
+  readonly canValidateFiches = computed(() => (this.roleConfig().fromStatuses?.length ?? 0) > 0);
+
+  readonly workflowPipelineStatuses = computed(() => {
+    const set = new Set<string>(['Rejected']);
+    for (const s of this.workflowMeta()?.steps ?? []) {
+      if (!s.isActive) continue;
+      set.add(s.fromStatus);
+      set.add(s.toStatus);
+    }
+    return set;
+  });
+
   readonly statusCounters = computed(() => {
     const sum = this.summaryDto();
     if (sum?.statusCounts?.length) {
@@ -548,12 +606,13 @@ export class PrimeValidationPageComponent {
     if (status) return rows.filter((r) => r.validationStatus === status);
     const cfg = this.roleConfig();
     const statuses = cfg.fromStatuses ?? [];
+    const pipeline = this.workflowPipelineStatuses();
     if (statuses.length > 0) {
-      const set = new Set(statuses);
       return rows.filter(
         (r) =>
-          set.has(r.validationStatus) ||
-          (r.isReadyForValidation === true && isPreWorkflowSubmissionStatus(r.validationStatus)),
+          pipeline.has(r.validationStatus) ||
+          (r.isReadyForValidation === true && isPreWorkflowSubmissionStatus(r.validationStatus)) ||
+          this.canResubmit(r),
       );
     }
     if (cfg.readOnlyScope === 'service') {
@@ -604,6 +663,7 @@ export class PrimeValidationPageComponent {
     effect(() => {
       void this.roleService.currentRole();
       void this.roleService.currentUser().id;
+      this.successNotice.set(null);
       this.fetch(this.periodFilter().trim());
     });
   }
@@ -701,8 +761,16 @@ export class PrimeValidationPageComponent {
     };
   }
 
-  statusLabel(status: string): string {
-    return status;
+  statusLabel(item: EmployeePrimeServiceFicheValidationDto): string {
+    if (item.validationStatus === 'Rejected') {
+      return item.rejectionIsFinal ? 'Rejet définitif' : 'À corriger';
+    }
+    return item.validationStatus;
+  }
+
+  rejectionBadgeClass(item: EmployeePrimeServiceFicheValidationDto): string {
+    if (item.validationStatus !== 'Rejected') return '';
+    return item.rejectionIsFinal ? 'text-rose-400' : 'text-amber-300';
   }
 
   formatAmount(value: number | null | undefined): string {
@@ -714,7 +782,83 @@ export class PrimeValidationPageComponent {
     const cfg = this.roleConfig();
     const statuses = cfg.fromStatuses ?? [];
     if (statuses.length === 0) return false;
-    return statuses.includes(row.validationStatus);
+    if (!statuses.includes(row.validationStatus)) return false;
+    const role = mapRoleForApi(this.roleService.currentRole() as string);
+    const step = this.workflowMeta()?.steps?.find(
+      (s) =>
+        s.isActive &&
+        s.fromStatus === row.validationStatus &&
+        rolesMatchWorkflowApprover(role, s.approverRole),
+    );
+    return !!step;
+  }
+
+  private _workflowWaitHintRemoved(row: EmployeePrimeServiceFicheValidationDto): string | null {
+    if (this.canApproveRow(row) || this.canResubmit(row) || this.isAwaitingWorkflowSubmission(row)) {
+      return null;
+    }
+    if (!this.workflowPipelineStatuses().has(row.validationStatus)) return null;
+    const steps = [...(this.workflowMeta()?.steps ?? [])].filter((s) => s.isActive).sort(
+      (a, b) => a.sortOrder - b.sortOrder,
+    );
+    const asFrom = steps.find((s) => s.fromStatus === row.validationStatus);
+    if (asFrom) {
+      return `En attente de validation par ${asFrom.approverRole}`;
+    }
+    const passed = steps.find((s) => s.toStatus === row.validationStatus);
+    if (passed) {
+      const next = steps.find((s) => s.sortOrder > passed.sortOrder);
+      if (next) return `Validée ici — prochaine étape : ${next.approverRole}`;
+      return 'Étape terminée dans le circuit';
+    }
+    if (row.validationStatus === 'Rejected') {
+      return row.rejectionIsFinal ? 'Rejet définitif' : 'À corriger par le superviseur';
+    }
+    return null;
+  }
+
+  /** Libellé du prochain valideur après une approbation réussie. */
+  private _removedNextValidatorAfterApproval(newStatus: string): string {
+    const meta = this.workflowMeta();
+    const terminals = new Set(meta?.terminalStatuses ?? []);
+    if (terminals.has(newStatus)) {
+      return 'Circuit de validation terminé pour cette fiche.';
+    }
+    const nextStep = meta?.steps?.find((s) => s.isActive && s.fromStatus === newStatus);
+    if (nextStep) {
+      return `En attente de validation par ${nextStep.approverRole} — connectez-vous avec ce rôle (même cellule) sur l’écran Validation.`;
+    }
+    return 'Consultez le Suivi validation pour l’historique complet.';
+  }
+
+  canRejectFinal(row: EmployeePrimeServiceFicheValidationDto): boolean {
+    if (!this.canApproveRow(row)) return false;
+    const meta = this.workflowMeta();
+    const role = mapRoleForApi(this.roleService.currentRole() as string);
+    const terminals = new Set(meta?.terminalStatuses ?? []);
+    const step = meta?.steps?.find(
+      (s) =>
+        s.isActive &&
+        s.fromStatus === row.validationStatus &&
+        rolesMatchWorkflowApprover(role, s.approverRole),
+    );
+    if (!step) return false;
+    return step.terminalApproved || terminals.has(step.toStatus);
+  }
+
+  canResubmit(row: EmployeePrimeServiceFicheValidationDto): boolean {
+    if (row.validationStatus !== 'Rejected' || row.rejectionIsFinal) return false;
+    const u = this.roleService.currentUser();
+    const role = this.roleService.currentRole();
+    if (role === 'Admin') return true;
+    return row.supervisorUserId === u.id;
+  }
+
+  resubmitTooltip(row: EmployeePrimeServiceFicheValidationDto): string {
+    if (!this.canPreviewFiche(row)) {
+      return 'Complétez la partie cellule avant de renvoyer en validation.';
+    }
+    return 'Corriger la fiche pilote puis renvoyer au valideur qui avait rejeté.';
   }
 
   canPreviewFiche(row: EmployeePrimeServiceFicheValidationDto): boolean {
@@ -828,6 +972,7 @@ export class PrimeValidationPageComponent {
   startReject(item: EmployeePrimeServiceFicheValidationDto): void {
     this.rejectingFicheId.set(item.id);
     this.rejectReason.set('');
+    this.rejectIsFinal.set(false);
     if (this.expandedFicheId() === item.id) {
       this.expandedFicheId.set(null);
     }
@@ -836,6 +981,12 @@ export class PrimeValidationPageComponent {
   cancelReject(): void {
     this.rejectingFicheId.set(null);
     this.rejectReason.set('');
+    this.rejectIsFinal.set(false);
+  }
+
+  onRejectIsFinalChange(event: Event): void {
+    const el = event.target as HTMLInputElement;
+    this.rejectIsFinal.set(el.checked);
   }
 
   confirmReject(): void {
@@ -847,13 +998,17 @@ export class PrimeValidationPageComponent {
     const user = this.roleService.currentUser();
     this.busyId.set(id);
     this.api
-      .reject(id, { userId: user.id, role, reason })
+      .reject(id, { userId: user.id, role, reason, isFinal: this.rejectIsFinal() })
       .subscribe({
         next: (updated) => {
           this.results.update((rows) => rows.map((r) => (r.id === id ? updated : r)));
           this.invalidateHistoryCache(id);
           this.busyId.set(null);
           this.cancelReject();
+          this.successNotice.set(
+            `Fiche rejetée — statut « ${updated.validationStatus} »` +
+              (updated.rejectionIsFinal ? ' (définitif).' : ' — le superviseur peut corriger et renvoyer.'),
+          );
           void this.fetch(this.periodFilter().trim());
         },
         error: (err) => {
@@ -864,23 +1019,57 @@ export class PrimeValidationPageComponent {
       });
   }
 
-  approve(id: string): void {
+  confirmResubmit(item: EmployeePrimeServiceFicheValidationDto): void {
+    if (!this.canResubmit(item) || this.busyId()) return;
+    const role = mapRoleForApi(this.roleService.currentRole() as string);
+    const user = this.roleService.currentUser();
+    this.busyId.set(item.id);
+    this.api.resubmit(item.id, { userId: user.id, role }).subscribe({
+      next: (updated) => {
+        this.results.update((rows) => rows.map((r) => (r.id === item.id ? updated : r)));
+        this.invalidateHistoryCache(item.id);
+        this.busyId.set(null);
+        this.successNotice.set(
+          `Fiche renvoyée en validation — statut « ${updated.validationStatus} » (reprise du circuit).`,
+        );
+        void this.fetch(this.periodFilter().trim());
+      },
+      error: (err) => {
+        console.error('[PrimeValidationPage] resubmit error', err);
+        this.errorMessage.set(err?.error?.error || 'Erreur lors du renvoi en validation.');
+        this.busyId.set(null);
+      },
+    });
+  }
+
+  approve(item: EmployeePrimeServiceFicheValidationDto): void {
     this.cancelReject();
     const role = mapRoleForApi(this.roleService.currentRole() as string);
     const user = this.roleService.currentUser();
-    this.busyId.set(id);
+    this.busyId.set(item.id);
+    this.errorMessage.set(null);
     this.api
-      .approve(id, { userId: user.id, role })
+      .approve(item.id, {
+        userId: user.id,
+        role,
+        primeAmount: item.primeAmount ?? null,
+        challengeAmount: item.challengeAmount ?? null,
+        totalAmount: item.totalAmount ?? null,
+      })
       .subscribe({
         next: (updated) => {
-          this.results.update((rows) => rows.map((r) => (r.id === id ? updated : r)));
-          this.invalidateHistoryCache(id);
+          this.results.update((rows) => rows.map((r) => (r.id === item.id ? updated : r)));
+          this.invalidateHistoryCache(item.id);
           this.busyId.set(null);
+          this.successNotice.set(
+            `Fiche approuvée : ${item.employeeDisplayName ?? item.employeeId} — statut « ${updated.validationStatus} ».`,
+          );
           void this.fetch(this.periodFilter().trim());
         },
         error: (err) => {
           console.error('[PrimeValidationPage] approve error', err);
-          this.errorMessage.set(err?.error?.error || 'Erreur lors de l’approbation.');
+          const detail = primeHttpErrorDetail(err);
+          this.errorMessage.set(detail || 'Erreur lors de l’approbation.');
           this.busyId.set(null);
         },
       });

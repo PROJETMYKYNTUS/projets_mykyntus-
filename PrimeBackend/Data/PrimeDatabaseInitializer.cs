@@ -39,6 +39,10 @@ public sealed class PrimeDatabaseInitializer(
             await PrimeSchemaPatches.EnsureGlobalPoolSynthesisLineSchemaAsync(db, cancellationToken);
             await PrimeSchemaPatches.EnsureEmployeeFicheDetailSnapshotAsync(db, cancellationToken);
             await PrimeSchemaPatches.EnsurePrimeHistoricalFicheTableAsync(db, cancellationToken);
+            await PrimeSchemaPatches.EnsureRejectionReprocessingColumnsAsync(db, cancellationToken);
+            await PrimeSchemaPatches.EnsurePoleDraftGridSchemaAsync(db, cancellationToken);
+            await PrimeSchemaPatches.EnsureOperationalFicheWorkflowAsync(db, cancellationToken);
+            await PrimeSchemaPatches.EnsureFicheValidationHistoryBackfillAsync(db, cancellationToken);
             logger.LogInformation("PRIME : correctif schéma lignes synthèse globale appliqué.");
         }
         catch (Exception ex)

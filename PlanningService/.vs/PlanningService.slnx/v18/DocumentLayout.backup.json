@@ -3,12 +3,12 @@
   "WorkspaceRootPath": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\controllers\\userscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\controllers\\userscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\services\\userservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\services\\userservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\controllers\\userscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|solutionrelative:planningservice\\controllers\\userscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{1B0A7BA6-02CF-F943-765B-D19068EEDD96}|PlanningService\\PlanningService.csproj|c:\\users\\oussama.slimani\\desktop\\projets_mykyntus--mykyntus_v2\\planningservice\\planningservice\\interfaces\\iuserservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -246,7 +246,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 4,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Document",
@@ -298,7 +298,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "UsersController.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Controllers\\UsersController.cs",
               "RelativeDocumentMoniker": "PlanningService\\Controllers\\UsersController.cs",
@@ -311,13 +311,13 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
               "Title": "UserService.cs",
               "DocumentMoniker": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Services\\UserService.cs",
               "RelativeDocumentMoniker": "PlanningService\\Services\\UserService.cs",
               "ToolTip": "C:\\Users\\oussama.slimani\\Desktop\\projets_mykyntus--mykyntus_v2\\PlanningService\\PlanningService\\Services\\UserService.cs",
               "RelativeToolTip": "PlanningService\\Services\\UserService.cs",
-              "ViewState": "AgIAACwBAAAAAAAAAAAYwEYBAAAFAAAAAAAAAA==",
+              "ViewState": "AgIAABoAAAAAAAAAAAAAAGEAAAArAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-07T10:54:52.276Z",
               "EditorCaption": ""
@@ -344,8 +344,7 @@
               "RelativeToolTip": "PlanningService\\Interfaces\\IUserService.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAAnAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-11T08:34:28.423Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-05-11T08:34:28.423Z"
             },
             {
               "$type": "Document",

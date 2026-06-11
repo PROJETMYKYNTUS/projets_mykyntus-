@@ -45,15 +45,13 @@ const token = localStorage.getItem('token')      // ← alignez ici
       { headers: this.getHeaders() }
     );
   }
-
-  // ✅ Correction : this.base → this.api
-  getEquipePlannings(authUserId: number): Observable<WeeklyPlanningResponse[]> {
-    return this.http.get<WeeklyPlanningResponse[]>(
-      `${this.api}/planning/equipe?authUserId=${authUserId}`,
-      { headers: this.getHeaders() }
-    );
-  }
-
+getEquipePlannings(authUserId: number): Observable<any[]> {
+  return this.http.get<any[]>(
+    `${this.api}/planning/equipe?authUserId=${authUserId}`,
+    { headers: this.getHeaders() }
+  );
+}
+  // ── Admin ─────────────────────────────────
   generatePlanning(dto: any): Observable<any> {
     return this.http.post(
       `${this.api}/planning/generate-from-config`, dto,

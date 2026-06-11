@@ -197,7 +197,7 @@ namespace PlanningService.Services
                 foreach (var user in users)
                 {
                     // Conversion explicite pour éviter l'erreur de type
-                    string currentUserIdStr = user.Id.ToString();
+                    string currentUserIdStr = user.AuthUserId?.ToString() ?? user.Id.ToString();
 
                     var alreadyExists = await _context.CampaignAnalytics
                         .AnyAsync(a => a.UserId == currentUserIdStr && a.CampaignId == campaign.Id);
@@ -368,14 +368,14 @@ namespace PlanningService.Services
             // Map explicite : enum pluriel → nom de rôle singulier en BDD
             string targetRoleName = audience switch
             {
-                AudienceTarget.Employees => "EMPLOYEE",
-                AudienceTarget.Managers => "MANAGER",
-                AudienceTarget.Admins => "Admin",
+                AudienceTarget.Employees => "Employee",      // ❌ était "EMPLOYEE"
+                AudienceTarget.Managers => "Manager",       // ❌ était "MANAGER"
+                AudienceTarget.Admins => "Admin",         // ✅ correct
                 AudienceTarget.Pilotes => "Pilote",
-                AudienceTarget.Coaches => "Coach",
-                AudienceTarget.RPs => "RP",
-                AudienceTarget.Audits => "Audit",
-                AudienceTarget.EquipeFormation => "Equipe formation",
+                AudienceTarget.Coaches => "Coach",         // ✅ correct
+                AudienceTarget.RPs => "RP",            // ✅ correct
+                AudienceTarget.Audits => "Audit",         // ✅ correct
+                AudienceTarget.EquipeFormation => "Equipe formation", // ✅ correct
                 _ => audience.ToString()
             };
             _logger.LogInformation("Recherche users avec rôle: '{Role}'", targetRoleName);

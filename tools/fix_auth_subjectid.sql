@@ -17,6 +17,7 @@ UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111107'::uuid WH
 UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111108'::uuid WHERE lower("Email") = lower('admin@kyntus.ma');
 UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111109'::uuid WHERE lower("Email") = lower('audit@kyntus.ma');
 UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111110'::uuid WHERE lower("Email") = lower('formation@kyntus.ma');
+UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111111'::uuid WHERE lower("Email") = lower('superviseur@kyntus.ma');
 UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111101'::uuid WHERE lower("Email") = lower('yasmine.elamrani@atlas-tech-demo.dev');
 UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111102'::uuid WHERE lower("Email") = lower('fatima.alaoui@atlas-tech-demo.dev');
 

@@ -40,6 +40,7 @@ const PATH_REQUIREMENTS: Record<string, { action: UiPermissionAction; scope?: Rb
   '/prime-cellule-indicateurs': { action: 'Read', scope: 'Cellule' },
   '/prime-saisie': { action: 'Edit', scope: 'Cellule' },
   '/prime-fiches-pilotes': { action: 'Edit', scope: 'Cellule' },
+  '/prime-fiche-import': { action: 'Edit', scope: 'Cellule' },
   '/prime-saisie-cellule': { action: 'Edit', scope: 'Cellule' },
   '/template-manager': { action: 'Configure' },
   '/employee/primes': { action: 'Read', scope: 'Self' },

@@ -1,0 +1,89 @@
+<div class="page-wrapper">
+
+  <div class="form-card">
+
+    <!-- ===== HEADER ===== -->
+    <div class="form-header">
+      <button class="btn-back" (click)="goBack()">
+        ← Retour
+      </button>
+
+      <div>
+        <h1>{{ isEditMode ? 'Modifier l’étage' : 'Créer un nouvel étage' }}</h1>
+        <p>Gestion et configuration des étages</p>
+      </div>
+    </div>
+
+    <!-- ===== STATES ===== -->
+    <div *ngIf="loading" class="state loading">
+      <div class="spinner"></div>
+      <p>Chargement en cours...</p>
+    </div>
+
+    <div *ngIf="error" class="state error">
+      {{ error }}
+    </div>
+
+    <!-- ===== FORM ===== -->
+    <form [formGroup]="form"
+          (ngSubmit)="submit()"
+          *ngIf="!loading"
+          class="form-body">
+
+      <!-- Floor Number -->
+      <div class="form-group">
+        <label>N° Étage *</label>
+        <input type="number"
+               formControlName="floorNumber"
+               placeholder="Ex: 0" />
+
+        <span class="field-error"
+          *ngIf="floorNumber?.invalid && floorNumber?.touched">
+          N° étage requis (minimum 0)
+        </span>
+      </div>
+
+      <!-- Name -->
+      <div class="form-group">
+        <label>Nom *</label>
+        <input type="text"
+               formControlName="name"
+               placeholder="Ex: Rez-de-chaussée" />
+
+        <span class="field-error"
+          *ngIf="name?.invalid && name?.touched">
+          Nom requis (minimum 2 caractères)
+        </span>
+      </div>
+
+      <!-- Description -->
+      <div class="form-group">
+        <label>Description</label>
+        <textarea formControlName="description"
+                  rows="4"
+                  placeholder="Description optionnelle..."></textarea>
+      </div>
+
+      <!-- Actions -->
+      <div class="form-actions">
+        <button type="button"
+                class="btn-secondary"
+                (click)="goBack()">
+          Annuler
+        </button>
+
+        <button type="submit"
+                class="btn-primary"
+                [disabled]="submitting">
+
+          {{ submitting
+              ? 'Enregistrement...'
+              : (isEditMode ? 'Mettre à jour' : 'Créer') }}
+        </button>
+      </div>
+
+    </form>
+
+  </div>
+
+</div>

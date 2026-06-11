@@ -1,0 +1,561 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
+import { Upload, Eye, CheckCircle, AlertTriangle } from 'lucide';
+import { LucideIconComponent } from '../../shared/lucide-icon.component';
+import { PrimeCardComponent } from '../components/prime-card.component';
+import { PrimeTemplatePreviewComponent } from '../components/prime-template-preview.component';
+import {
+  PrimeCellPrimeApiService,
+  type EmployeePrimeCellFicheListItemDto,
+} from '../services/prime-cell-prime-api.service';
+import {
+  PrimeOrgApiService,
+  type SupervisorOrgScopeCellule,
+} from '../services/prime-org-api.service';
+import { PrimeNavRequestService } from '../services/prime-nav-request.service';
+import { RoleService } from '../state/role.service';
+import {
+  closedMonthsForYear,
+  closedPrimePeriodYearChoices,
+  formatPrimePeriodFriendly,
+  formatPrimePeriodLabel,
+  isPrimePeriodClosed,
+  primePeriodClosedErrorMessage,
+} from '../lib/prime-period-eligibility';
+import { PRIME_INPUT_FIELD_CLASS } from '../lib/prime-fiche-sector-field-meta';
+import { parseFlatPrimeFicheCsv } from '../lib/prime-fiche-flat-csv.parser';
+import { parseReadyPrimeFicheExcel } from '../lib/prime-fiche-ready-import.parser';
+import { buildDetailSnapshotPayload } from '../lib/prime-fiche-detail-snapshot';
+import { summarizeGridDiagnostics } from '../lib/prime-fiche-grid-diagnostics';
+import { toPreviewStoredTemplate, type StoredPrimeTemplate } from '../models/prime-template.model';
+
+@Component({
+  selector: 'app-prime-fiche-import',
+  standalone: true,
+  imports: [FormsModule, LucideIconComponent, PrimeCardComponent, PrimeTemplatePreviewComponent],
+  template: `
+    <div class="flex flex-col min-h-0 p-4 sm:p-6 space-y-6 max-w-5xl mx-auto pb-16">
+      <div>
+        <h1 class="text-xl font-bold tracking-tight text-primary sm:text-2xl">
+          Import fiche PRIME prête
+        </h1>
+        <p class="mt-1 text-sm text-muted">
+          Déposez une fiche Excel ou CSV déjà remplie pour un employé — sans passer par la saisie manuelle.
+          Cochez « Historique » pour enregistrer directement (hors workflow) ; sinon la fiche entre en validation.
+        </p>
+      </div>
+
+      @if (banner()) {
+        <div
+          [class]="
+            'rounded-lg border px-4 py-3 text-sm ' +
+            (bannerIsError()
+              ? 'border-rose-500/40 bg-rose-500/10'
+              : 'border-emerald-500/40 bg-emerald-500/10')
+          "
+          role="alert"
+        >
+          {{ banner() }}
+        </div>
+      }
+
+      <app-prime-card title="Cible et période" description="Cellule, employé et mois de la fiche importée.">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-sm font-medium text-muted">Année</label>
+            <select
+              [ngModel]="periodYear()"
+              (ngModelChange)="onYearChange($event)"
+              [class]="inputFieldClass"
+            >
+              @for (y of yearChoices(); track y) {
+                <option [ngValue]="y">{{ y }}</option>
+              }
+            </select>
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium text-muted">Mois</label>
+            <select
+              [ngModel]="periodMonth()"
+              (ngModelChange)="onMonthChange($event)"
+              [class]="inputFieldClass"
+            >
+              @for (m of monthOptions(); track m.value) {
+                <option [ngValue]="m.value">{{ m.label }}</option>
+              }
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <p class="text-xs font-medium text-primary">Période active : {{ periodFriendly() }}</p>
+            @if (!periodClosed()) {
+              <p class="mt-1 text-xs text-rose-500">{{ periodClosedError() }}</p>
+            }
+          </div>
+          <div class="sm:col-span-2">
+            <label class="mb-1 block text-sm font-medium text-muted">Cellule</label>
+            <select [ngModel]="celluleId()" (ngModelChange)="onCelluleChange($event)" [class]="inputFieldClass">
+              <option value="">— Choisir —</option>
+              @for (c of cellules(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
+          </div>
+          @if (!isHistorical()) {
+            <div class="sm:col-span-2">
+              <label class="mb-1 block text-sm font-medium text-muted">Employé (pilote)</label>
+              <select [ngModel]="employeeId()" (ngModelChange)="employeeId.set($event)" [class]="inputFieldClass">
+                <option value="">— Choisir —</option>
+                @for (e of pilots(); track e.employeeId) {
+                  <option [value]="e.employeeId">
+                    {{ e.firstName }} {{ e.lastName }}
+                  </option>
+                }
+              </select>
+            </div>
+          } @else {
+            <div class="sm:col-span-2">
+              <label class="mb-1 block text-sm font-medium text-muted">Employé (si connu)</label>
+              <select
+                [ngModel]="employeeId()"
+                (ngModelChange)="onHistoricalEmployeeChange($event)"
+                [class]="inputFieldClass"
+              >
+                <option value="">— Autre employé —</option>
+                @for (e of pilots(); track e.employeeId) {
+                  <option [value]="e.employeeId">
+                    {{ e.firstName }} {{ e.lastName }}
+                  </option>
+                }
+              </select>
+            </div>
+            @if (!employeeId()) {
+              <div class="sm:col-span-2">
+                <label class="mb-1 block text-sm font-medium text-muted">Nom affiché (historique)</label>
+                <input
+                  type="text"
+                  [ngModel]="employeeExternalName()"
+                  (ngModelChange)="employeeExternalName.set($event)"
+                  [class]="inputFieldClass"
+                  placeholder="Ex. Dupont Jean"
+                />
+                <p class="mt-1 text-xs text-muted">
+                  Employé absent du référentiel — saisissez le nom tel qu'il doit apparaître dans l'historique.
+                </p>
+              </div>
+            } @else {
+              <div class="sm:col-span-2">
+                <p class="text-xs font-medium text-primary">
+                  Employé sélectionné : {{ selectedHistoricalEmployeeName() }}
+                </p>
+              </div>
+            }
+          }
+          <div class="sm:col-span-2">
+            <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-primary">
+              <input
+                type="checkbox"
+                [ngModel]="isHistorical()"
+                (ngModelChange)="onHistoricalToggle($event)"
+                class="rounded border-default"
+              />
+              Historique — enregistrement direct hors workflow de validation
+            </label>
+          </div>
+        </div>
+      </app-prime-card>
+
+      <app-prime-card title="Fichier" description="Excel (.xlsx) modèle rempli ou CSV plat (.csv).">
+        <div class="flex flex-col gap-3">
+          <label
+            class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-default bg-card/40 px-4 py-6 text-sm text-muted hover:bg-navy-700/30"
+          >
+            <app-lucide-icon [icon]="icons.upload" className="w-5 h-5 text-primary" />
+            <span>{{ fileName() || 'Choisir un fichier .xlsx ou .csv' }}</span>
+            <input type="file" accept=".xlsx,.csv" class="hidden" (change)="onFileSelected($event)" />
+          </label>
+          @if (parseBusy()) {
+            <p class="text-sm text-muted">Analyse du fichier…</p>
+          }
+          @if (parseOkWithWarnings()) {
+            <p class="text-xs font-medium text-emerald-400">
+              Fichier analysé avec succès — {{ previewRows().length }} ligne(s) d’aperçu.
+            </p>
+          }
+          @if (parseWarningSummary().length) {
+            <ul class="text-xs text-amber-300 space-y-1">
+              @for (w of parseWarningSummary(); track w) {
+                <li>{{ w }}</li>
+              }
+            </ul>
+            @if (parseWarnings().length > parseWarningSummary().length) {
+              <button
+                type="button"
+                class="text-xs text-blue-400 hover:underline"
+                (click)="toggleParseDetail()"
+              >
+                {{ showParseDetail() ? 'Masquer le détail' : 'Voir tous les avertissements (' + parseWarnings().length + ')' }}
+              </button>
+            }
+            @if (showParseDetail()) {
+              <ul class="mt-1 text-xs text-amber-200/80 space-y-0.5 max-h-40 overflow-auto">
+                @for (w of parseWarnings(); track w) {
+                  <li>{{ w }}</li>
+                }
+              </ul>
+            }
+          }
+          @if (parseErrors().length) {
+            <ul class="text-xs text-rose-400 space-y-1">
+              @for (e of parseErrors(); track e) {
+                <li>{{ e }}</li>
+              }
+            </ul>
+          }
+        </div>
+      </app-prime-card>
+
+      @if (previewTemplate()) {
+        <app-prime-card title="Aperçu" [description]="previewSummary()">
+          <app-prime-template-preview [tpl]="previewTemplate()" />
+        </app-prime-card>
+      }
+
+      <div class="flex flex-wrap gap-3">
+        <button
+          type="button"
+          (click)="submitImport()"
+          [disabled]="!canSubmit() || submitBusy()"
+          class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+        >
+          <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
+          {{ isHistorical() ? 'Enregistrer (historique)' : 'Importer et soumettre au workflow' }}
+        </button>
+        @if (!isHistorical()) {
+          <button
+            type="button"
+            (click)="nav.requestView('/prime-fiches-pilotes')"
+            class="rounded-lg border border-default px-4 py-2 text-sm font-medium text-primary hover:bg-navy-700/40"
+          >
+            Aller au pilotage
+          </button>
+        }
+      </div>
+    </div>
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class PrimeFicheImportComponent implements OnInit {
+  private readonly api = inject(PrimeCellPrimeApiService);
+  private readonly orgApi = inject(PrimeOrgApiService);
+  readonly role = inject(RoleService);
+  readonly nav = inject(PrimeNavRequestService);
+
+  readonly icons = { upload: Upload, eye: Eye, check: CheckCircle, alert: AlertTriangle };
+  readonly inputFieldClass = PRIME_INPUT_FIELD_CLASS;
+
+  readonly periodYear = signal(new Date().getFullYear());
+  readonly periodMonth = signal(new Date().getMonth());
+  readonly celluleId = signal('');
+  readonly employeeId = signal('');
+  readonly employeeExternalName = signal('');
+  readonly isHistorical = signal(false);
+  readonly fileName = signal('');
+  readonly parseBusy = signal(false);
+  readonly submitBusy = signal(false);
+  readonly banner = signal<string | null>(null);
+  readonly bannerIsError = signal(false);
+
+  readonly previewRows = signal<string[][]>([]);
+  readonly parseErrors = signal<string[]>([]);
+  readonly parseWarnings = signal<string[]>([]);
+  readonly parseSchemaOk = signal(false);
+  readonly showParseDetail = signal(false);
+  readonly primeAmount = signal<number | null>(null);
+  readonly challengeAmount = signal<number | null>(null);
+  readonly totalAmount = signal<number | null>(null);
+  readonly serviceSaisieJson = signal('{}');
+  readonly previewSheetName = signal<string | null>(null);
+  readonly previewTemplate = signal<StoredPrimeTemplate | null>(null);
+
+  readonly cellules = signal<SupervisorOrgScopeCellule[]>([]);
+  readonly pilots = signal<EmployeePrimeCellFicheListItemDto[]>([]);
+
+  readonly yearChoices = computed(() => closedPrimePeriodYearChoices());
+  readonly monthOptions = computed(() => closedMonthsForYear(this.periodYear()));
+  readonly periodLabel = computed(() => formatPrimePeriodLabel(this.periodYear(), this.periodMonth()));
+  readonly periodFriendly = computed(() =>
+    formatPrimePeriodFriendly(this.periodYear(), this.periodMonth()),
+  );
+  readonly periodClosed = computed(() => isPrimePeriodClosed(this.periodYear(), this.periodMonth()));
+  readonly periodClosedError = computed(() => primePeriodClosedErrorMessage(this.periodLabel()));
+
+  readonly previewSummary = computed(() => {
+    const p = this.primeAmount();
+    const c = this.challengeAmount();
+    const t = this.totalAmount();
+    if (p == null && c == null && t == null) return 'Grille importée';
+    return `Prime : ${p ?? '—'} · Challenge : ${c ?? '—'} · Total : ${t ?? '—'}`;
+  });
+
+  readonly selectedHistoricalEmployeeName = computed(() => {
+    const id = this.employeeId().trim();
+    if (!id) return '';
+    const emp = this.pilots().find((p) => p.employeeId === id);
+    return emp ? `${emp.firstName} ${emp.lastName}`.trim() : '';
+  });
+
+  readonly parseWarningSummary = computed(() =>
+    summarizeGridDiagnostics({ errors: this.parseErrors(), warnings: this.parseWarnings() }).summaryWarnings,
+  );
+
+  readonly parseOkWithWarnings = computed(
+    () => this.parseSchemaOk() && this.previewRows().length > 0 && !this.parseErrors().length,
+  );
+
+  readonly canSubmit = computed(() => {
+    if (!this.periodClosed()) return false;
+    if (!this.celluleId().trim()) return false;
+    if (!this.previewRows().length) return false;
+    if (this.parseErrors().length > 0) return false;
+    if (this.isHistorical()) {
+      return !!(this.employeeId().trim() || this.employeeExternalName().trim());
+    }
+    return !!this.employeeId().trim();
+  });
+
+  ngOnInit(): void {
+    this.clampPeriodToEligible();
+    void this.loadScope();
+  }
+
+  private clampPeriodToEligible(): void {
+    const now = new Date();
+    const d = new Date(now);
+    d.setDate(1);
+    d.setMonth(d.getMonth() - 1);
+    this.periodYear.set(d.getFullYear());
+    this.periodMonth.set(d.getMonth() + 1);
+  }
+
+  private async loadScope(): Promise<void> {
+    const u = this.role.currentUser();
+    if (!u?.id) return;
+    try {
+      const poles = await firstValueFrom(this.orgApi.getSupervisorScope(u.id));
+      const cells: SupervisorOrgScopeCellule[] = [];
+      for (const p of poles) {
+        for (const c of p.cellules ?? []) cells.push(c);
+      }
+      this.cellules.set(cells);
+      if (cells.length === 1) {
+        this.celluleId.set(cells[0]!.id);
+        await this.loadPilots(cells[0]!.id);
+      } else if (u.celluleId?.trim()) {
+        const match = cells.find((c) => c.id === u.celluleId?.trim());
+        if (match) {
+          this.celluleId.set(match.id);
+          await this.loadPilots(match.id);
+        }
+      }
+    } catch {
+      this.banner.set('Impossible de charger le périmètre superviseur.');
+      this.bannerIsError.set(true);
+    }
+  }
+
+  onYearChange(y: number): void {
+    this.periodYear.set(y);
+    this.clampMonthInYear();
+  }
+
+  onMonthChange(m: number): void {
+    this.periodMonth.set(m);
+  }
+
+  private clampMonthInYear(): void {
+    const opts = this.monthOptions();
+    if (opts.length === 0) return;
+    const cur = this.periodMonth();
+    if (!opts.some((o) => o.value === cur)) {
+      this.periodMonth.set(opts[opts.length - 1]!.value);
+    }
+  }
+
+  async onCelluleChange(id: string): Promise<void> {
+    this.celluleId.set(id);
+    this.employeeId.set('');
+    await this.loadPilots(id);
+  }
+
+  private async loadPilots(celluleId: string): Promise<void> {
+    const u = this.role.currentUser();
+    if (!u?.id || !celluleId.trim()) {
+      this.pilots.set([]);
+      return;
+    }
+    try {
+      const list = await firstValueFrom(
+        this.api.listEmployeeFiches(this.periodLabel(), u.id, { celluleId: celluleId.trim() }),
+      );
+      this.pilots.set(list);
+    } catch {
+      this.pilots.set([]);
+    }
+  }
+
+  onHistoricalToggle(v: boolean): void {
+    this.isHistorical.set(v);
+    if (!v) {
+      this.employeeExternalName.set('');
+    }
+  }
+
+  onHistoricalEmployeeChange(id: string): void {
+    this.employeeId.set(id);
+    if (id.trim()) {
+      this.employeeExternalName.set('');
+    }
+  }
+
+  toggleParseDetail(): void {
+    this.showParseDetail.update((v) => !v);
+  }
+
+  async onFileSelected(ev: Event): Promise<void> {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    this.fileName.set(file.name);
+    this.banner.set(null);
+    this.parseBusy.set(true);
+    this.previewRows.set([]);
+    this.previewTemplate.set(null);
+    this.parseErrors.set([]);
+    this.parseWarnings.set([]);
+    this.parseSchemaOk.set(false);
+    this.showParseDetail.set(false);
+
+    try {
+      if (/\.csv$/i.test(file.name)) {
+        const text = await file.text();
+        const parsed = parseFlatPrimeFicheCsv(text, file.name);
+        this.previewRows.set(parsed.rows);
+        this.parseErrors.set(parsed.errors);
+        this.parseSchemaOk.set(parsed.rows.length > 0 && parsed.errors.length === 0);
+        this.primeAmount.set(parsed.primeAmount);
+        this.challengeAmount.set(parsed.challengeAmount);
+        this.totalAmount.set(parsed.totalAmount);
+        this.serviceSaisieJson.set(parsed.serviceSaisieJson);
+        this.previewSheetName.set('CSV');
+        this.previewTemplate.set(
+          parsed.rows.length
+            ? toPreviewStoredTemplate(
+                { fileName: file.name, rows: parsed.rows, previewSheetName: 'CSV' },
+                'Aperçu CSV',
+              )
+            : null,
+        );
+      } else if (/\.xlsx$/i.test(file.name)) {
+        const buf = await file.arrayBuffer();
+        const parsed = await parseReadyPrimeFicheExcel(file.name, buf);
+        this.previewRows.set(parsed.rows);
+        this.parseErrors.set(parsed.errors);
+        this.parseWarnings.set(parsed.warnings);
+        this.parseSchemaOk.set(!!parsed.schema);
+        this.primeAmount.set(parsed.primeAmount);
+        this.challengeAmount.set(parsed.challengeAmount);
+        this.totalAmount.set(parsed.totalAmount);
+        this.serviceSaisieJson.set(parsed.serviceSaisieJson);
+        this.previewSheetName.set(parsed.previewSheetName);
+        this.previewTemplate.set(parsed.previewTemplate);
+      } else {
+        this.parseErrors.set(['Seuls les fichiers .xlsx et .csv sont acceptés.']);
+      }
+    } catch (e: unknown) {
+      this.parseErrors.set([this.httpErr(e)]);
+    } finally {
+      this.parseBusy.set(false);
+    }
+  }
+
+  async submitImport(): Promise<void> {
+    if (!this.canSubmit()) return;
+    const u = this.role.currentUser();
+    const snap = buildDetailSnapshotPayload({
+      previewSheetName: this.previewSheetName(),
+      templateVersionRef: 'fiche-import:v1',
+      rows: this.previewRows(),
+      errors: this.parseErrors(),
+      totals:
+        this.primeAmount() != null
+          ? {
+              primeAmount: this.primeAmount()!,
+              challengeAmount: this.challengeAmount() ?? 0,
+              totalAmount: this.totalAmount() ?? this.primeAmount()!,
+            }
+          : null,
+    });
+
+    this.submitBusy.set(true);
+    this.banner.set(null);
+    try {
+      const res = await firstValueFrom(
+        this.api.importReadyFiche({
+          supervisorUserId: u.id,
+          period: this.periodLabel(),
+          celluleId: this.celluleId().trim(),
+          employeeId: this.employeeId().trim() || null,
+          employeeExternalName: this.employeeId().trim()
+            ? null
+            : this.employeeExternalName().trim() || null,
+          isHistorical: this.isHistorical(),
+          originFileName: this.fileName(),
+          previewSheetName: snap.previewSheetName ?? null,
+          templateVersionRef: snap.templateVersionRef ?? 'fiche-import:v1',
+          rows: snap.rows,
+          errors: snap.errors,
+          primeAmount: snap.primeAmount,
+          challengeAmount: snap.challengeAmount,
+          totalAmount: snap.totalAmount,
+          serviceSaisieJson: this.serviceSaisieJson(),
+        }),
+      );
+      const name = res.employeeDisplayName ?? 'Employé';
+      if (res.outcome === 'HistoricalArchive') {
+        this.banner.set(`Archive historique enregistrée pour ${name} — ${res.period}.`);
+      } else if (this.isHistorical()) {
+        this.banner.set(`Fiche historique enregistrée pour ${name} — ${res.period}.`);
+      } else {
+        this.banner.set(
+          `Fiche importée pour ${name} — ${res.period}. Statut : ${res.validationStatus}.`,
+        );
+      }
+      this.bannerIsError.set(false);
+    } catch (e: unknown) {
+      this.banner.set(this.httpErr(e));
+      this.bannerIsError.set(true);
+    } finally {
+      this.submitBusy.set(false);
+    }
+  }
+
+  private httpErr(err: unknown): string {
+    if (err instanceof HttpErrorResponse) {
+      const b = err.error as { error?: string } | undefined;
+      if (b?.error) return b.error;
+      return err.message;
+    }
+    return err instanceof Error ? err.message : 'Erreur inattendue.';
+  }
+}

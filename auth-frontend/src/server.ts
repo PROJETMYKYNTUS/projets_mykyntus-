@@ -13,13 +13,24 @@ const browserDistFolder = join(import.meta.dirname, '../browser');
 const app = express();
 const angularApp = new AngularNodeAppEngine();
 
-// ✅ Proxy /api/ vers l'API Gateway (v3 compatible)
-// ✅ Proxy /api/ vers l'API Gateway en gardant le préfixe /api
-app.use('/api', createProxyMiddleware({
-  target: process.env['API_URL'] || 'http://api-gateway:8080',
-  changeOrigin: true,
-  pathRewrite: (path) => `/api${path}`,
-}));
+// Proxy /api/* → API Gateway (même convention que planning-frontend/nginx.conf)
+const gatewayTarget = process.env['API_URL'] || 'http://api-gateway:8080';
+app.use(
+  createProxyMiddleware({
+    target: gatewayTarget,
+    changeOrigin: true,
+    pathFilter: '/api/**',
+    on: {
+      error: (err, _req, res) => {
+        console.error('[auth-frontend proxy]', gatewayTarget, err.message);
+        if ('writeHead' in res && typeof res.writeHead === 'function') {
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ message: 'API Gateway injoignable', detail: err.message }));
+        }
+      },
+    },
+  }),
+);
 
 // Serve static files
 app.use(

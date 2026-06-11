@@ -1,0 +1,101 @@
+<!-- sub-service-list.component.html -->
+<div class="ss-layout">
+
+  <!-- Background particles -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <!-- HEADER -->
+  <header class="ss-header">
+    <div class="ss-header-left">
+      <button class="btn-ghost" (click)="goToDashboard()">
+        <span class="btn-ghost-arrow">←</span> Dashboard
+      </button>
+      <div class="divider-v"></div>
+      <div class="page-title-group">
+        <div class="page-eyebrow">Administration · Organisationnel</div>
+        <h1 class="page-title">Sous-Services</h1>
+      </div>
+    </div>
+    <button class="btn-primary" (click)="createSubService()">
+      <span class="btn-plus">＋</span>
+      Nouveau Sous-Service
+    </button>
+  </header>
+
+  <!-- STATS ROW -->
+  <div class="stats-row">
+    <div class="stat-pill">
+      <span class="stat-dot dot-blue"></span>
+      <span class="stat-num">{{ subServices.length }}</span>
+      <span class="stat-lbl">Sous-services</span>
+    </div>
+    <div class="stat-pill">
+      <span class="stat-dot dot-green"></span>
+      <span class="stat-num">{{ getTotalEmployees() }}</span>
+      <span class="stat-lbl">Employés assignés</span>
+    </div>
+    <div class="stat-pill">
+      <span class="stat-dot dot-amber"></span>
+      <span class="stat-num">{{ getUniqueServices() }}</span>
+      <span class="stat-lbl">Services parents</span>
+    </div>
+  </div>
+
+  <!-- CONTENT CARD -->
+  <div class="glass-card">
+
+    @if (loading) {
+      <div class="state-center">
+        <div class="loader-ring"></div>
+        <p class="state-text">Chargement des données…</p>
+      </div>
+    } @else if (subServices.length === 0) {
+      <div class="state-center">
+        <div class="empty-icon">📂</div>
+        <p class="state-text">Aucun sous-service trouvé</p>
+        <button class="btn-primary small" (click)="createSubService()">Créer le premier</button>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="ss-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Nom</th>
+              <th>Service</th>
+              <th>Employés</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (sub of subServices; track sub.id) {
+              <tr class="table-row">
+                <td><span class="code-badge">{{ sub.code }}</span></td>
+                <td class="td-name">{{ sub.name }}</td>
+                <td class="td-service">
+                  <span class="service-tag">{{ sub.serviceName }}</span>
+                </td>
+                <td>
+                  <span class="count-pill">
+                    <span class="count-dot"></span>
+                    {{ sub.employeesCount }}
+                  </span>
+                </td>
+                <td class="col-actions">
+                  <div class="action-row">
+                    <button class="act-btn act-view"  (click)="viewSubService(sub.id)">Voir</button>
+                    <button class="act-btn act-edit"  (click)="editSubService(sub.id)">Modifier</button>
+                    <button class="act-btn act-del"   (click)="deleteSubService(sub.id)">Supprimer</button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+  </div>
+</div>

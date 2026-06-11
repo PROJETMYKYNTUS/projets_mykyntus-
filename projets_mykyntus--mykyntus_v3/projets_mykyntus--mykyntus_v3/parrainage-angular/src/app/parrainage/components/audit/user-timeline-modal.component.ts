@@ -1,0 +1,79 @@
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { X } from 'lucide';
+import { LucideIconComponent } from '@/shared/lucide-icon.component';
+import type { JournalRow } from '../../audit/audit-types';
+
+interface TimelineItem {
+  id: string;
+  action: string;
+  item: string;
+  datetime: string;
+}
+
+@Component({
+  selector: 'app-user-timeline-modal',
+  standalone: true,
+  imports: [LucideIconComponent],
+  template: `
+    @if (open) {
+      <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-navy-950/70" (click)="close.emit()" role="presentation">
+        <div class="card-navy w-full max-w-lg max-h-[85vh] flex flex-col border border-navy-700 shadow-xl duration-200" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+          <div class="flex items-center justify-between p-4 border-b border-navy-800">
+            <div>
+              <h3 class="text-lg font-semibold text-white">Timeline — {{ userLabel }}</h3>
+              <p class="text-xs text-slate-500">{{ items.length }} événement(s)</p>
+            </div>
+            <button type="button" (click)="close.emit()" class="p-2 rounded-lg hover:bg-navy-800 transition-colors">
+              <app-lucide-icon [icon]="xIcon" className="w-5 h-5 text-slate-400" />
+            </button>
+          </div>
+          <div class="p-4 overflow-y-auto">
+            @if (items.length === 0) {
+              <p class="text-sm text-slate-500">Aucune action pour cet utilisateur sur la période chargée.</p>
+            } @else {
+              <div class="max-h-72 overflow-y-auto pr-1 space-y-4">
+                @for (it of items; track it.id) {
+                  <div class="relative pl-8">
+                    <span class="absolute left-[11px] top-0 bottom-0 w-px bg-navy-700"></span>
+                    <span class="absolute left-0 top-1.5 w-[22px] h-[22px] rounded-full bg-navy-900 border border-navy-700"></span>
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="space-y-1">
+                        <span [class]="'inline-flex text-[11px] px-2 py-0.5 rounded-md border ' + badgeClass(it.action)">{{ it.action }}</span>
+                        <p class="text-sm text-slate-200">{{ it.item }}</p>
+                      </div>
+                      <span class="text-xs text-slate-500 whitespace-nowrap">{{ it.datetime }}</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    }
+  `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class UserTimelineModalComponent {
+  @Input() userLabel = '';
+  @Input() open = false;
+  @Input({ required: true }) rows: JournalRow[] = [];
+  @Output() close = new EventEmitter<void>();
+
+  readonly xIcon = X;
+
+  get items(): TimelineItem[] {
+    return [...this.rows]
+      .filter((r) => r.employee === this.userLabel)
+      .sort((a, b) => b.datetime.localeCompare(a.datetime))
+      .map((r) => ({ id: r.id, action: `${r.action} · ${r.actionCode}`, item: r.item, datetime: r.datetime }));
+  }
+
+  badgeClass(action: string): string {
+    const a = action.toLowerCase();
+    if (a.includes('soumis')) return 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+    if (a.includes('vers')) return 'bg-violet-500/15 text-violet-300 border-violet-500/30';
+    if (a.includes('valid')) return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+    return 'bg-slate-500/15 text-slate-300 border-slate-500/30';
+  }
+}

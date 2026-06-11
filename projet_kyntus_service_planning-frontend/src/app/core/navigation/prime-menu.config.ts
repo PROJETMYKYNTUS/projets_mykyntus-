@@ -98,6 +98,12 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
     primeRoles: ['Superviseur'],
   },
   {
+    label: 'Import fiche prête',
+    route: PRIME_ROUTE,
+    primePath: '/prime-fiche-import',
+    primeRoles: ['Superviseur', 'Admin'],
+  },
+  {
     label: 'Templates fiche PRIME',
     route: PRIME_ROUTE,
     primePath: '/template-manager',

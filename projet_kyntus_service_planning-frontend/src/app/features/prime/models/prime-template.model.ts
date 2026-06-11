@@ -212,3 +212,37 @@ export function loadStoredTemplates(): StoredPrimeTemplate[] {
 export function persistTemplates(list: StoredPrimeTemplate[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ templates: list }));
 }
+
+/** Assemble un template éphémère pour l’aperçu feuille Excel (wizard, import, gestionnaire). */
+export function toPreviewStoredTemplate(
+  source: {
+    fileName?: string;
+    previewRows?: TemplateGridPreviewRow[];
+    rows?: string[][];
+    previewSheetName?: string;
+    formulas?: DetectedFormulaCell[];
+    calcSheets?: PrimeTemplateCalcSheets;
+    calcSheetOrigins?: Record<string, PrimeCalcSheetOrigin>;
+  },
+  displayName = 'Aperçu',
+): StoredPrimeTemplate {
+  const previewRows = source.rows?.length
+    ? source.rows.map((cells) => ({ cells }))
+    : (source.previewRows ?? []);
+  return {
+    fileName: source.fileName ?? '',
+    parsedAt: new Date().toISOString(),
+    sheets: [],
+    contractHints: [],
+    labelSample: [],
+    formulas: source.formulas ?? [],
+    previewRows,
+    previewSheetName: source.previewSheetName ?? 'Sheet1',
+    validation: { ok: true, errors: [], warnings: [] },
+    calcSheets: source.calcSheets,
+    calcSheetOrigins: source.calcSheetOrigins,
+    id: '__preview__',
+    displayName,
+    savedAt: new Date().toISOString(),
+  };
+}

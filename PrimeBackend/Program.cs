@@ -110,6 +110,7 @@ if (!string.IsNullOrWhiteSpace(conn))
     builder.Services.AddScoped<PrimeGlobalSynthesisLineService>();
     builder.Services.AddScoped<PrimeGlobalSynthesisPaymentService>();
     builder.Services.AddScoped<PrimeFicheMergedPreviewAccessService>();
+    builder.Services.AddScoped<PrimeFicheImportService>();
 }
 
 var app = builder.Build();

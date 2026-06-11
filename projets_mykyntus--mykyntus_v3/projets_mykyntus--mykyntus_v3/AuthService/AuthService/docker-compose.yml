@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres-auth
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Admin@123
+      POSTGRES_DB: AuthServiceDb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - auth-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  authservice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: authservice-api
+    ports:
+      - "5000:8080"
+      - "5001:8081"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=AuthServiceDb;Username=postgres;Password=Admin@123
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - auth-network
+
+networks:
+  auth-network:
+    driver: bridge
+
+volumes:
+  postgres-data:

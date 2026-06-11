@@ -1,0 +1,73 @@
+<div class="page-wrapper">
+
+  <div class="detail-card">
+
+    <!-- ===== HEADER ===== -->
+    <div class="detail-header">
+      <button class="btn-back" (click)="goBack()">
+        ← Retour
+      </button>
+
+      <h1>Détail de l’étage</h1>
+    </div>
+
+    <!-- ===== STATES ===== -->
+    @if (loading) {
+      <div class="state loading">
+        <div class="spinner"></div>
+        <p>Chargement en cours...</p>
+      </div>
+    } 
+    @else if (error) {
+      <div class="state error">
+        <p>{{ error }}</p>
+        <button class="btn-secondary" (click)="goBack()">Retour</button>
+      </div>
+    } 
+    @else if (floor) {
+
+      <!-- ===== CONTENT ===== -->
+      <div class="detail-body">
+
+        <div class="info-row">
+          <span class="label">N° Étage</span>
+          <span class="value">{{ floor.floorNumber }}</span>
+        </div>
+
+        <div class="info-row">
+          <span class="label">Nom</span>
+          <span class="value strong">{{ floor.name }}</span>
+        </div>
+
+        <div class="info-row">
+          <span class="label">Description</span>
+          <span class="value">
+            {{ floor.description || '—' }}
+          </span>
+        </div>
+
+        <div class="info-row">
+          <span class="label">Services</span>
+          <span class="badge">
+            {{ floor.servicesCount }}
+          </span>
+        </div>
+
+      </div>
+
+      <!-- ===== ACTIONS ===== -->
+      <div class="detail-actions">
+        <button class="btn-edit" (click)="editFloor()">
+          Modifier
+        </button>
+
+        <button class="btn-delete" (click)="deleteFloor()">
+          Supprimer
+        </button>
+      </div>
+
+    }
+
+  </div>
+
+</div>

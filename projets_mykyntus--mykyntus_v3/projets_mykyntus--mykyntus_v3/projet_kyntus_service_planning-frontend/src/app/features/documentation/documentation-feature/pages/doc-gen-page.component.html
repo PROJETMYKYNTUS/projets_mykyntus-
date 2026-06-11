@@ -1,0 +1,529 @@
+@if (role$ | async; as role) {
+  <div class="space-y-6">
+    <div class="doc-page-header">
+      <div>
+        <h3 class="doc-page-title">Génération de documents</h3>
+        <p class="doc-page-desc">
+          Collaborateurs et modèles issus de la base (annuaire <span class="font-mono text-slate-400">directory_users</span>,
+          modèles <span class="font-mono text-slate-400">document_templates</span>).
+        </p>
+      </div>
+    </div>
+
+    @if (loading) {
+      <p class="text-slate-400 text-sm">Chargement des listes…</p>
+    } @else if (loadError) {
+      <p class="text-red-400 text-sm">{{ loadError }}</p>
+    }
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div class="card-navy p-6 space-y-6">
+        <h4 class="text-sm font-bold text-white uppercase tracking-wider">Formulaire</h4>
+        <div class="space-y-4">
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-slate-400" for="doc-gen-user">Collaborateur (annuaire)</label>
+            <select
+              id="doc-gen-user"
+              name="userId"
+              class="doc-field py-2.5"
+              [(ngModel)]="selectedUserId"
+              (ngModelChange)="onEmployeeChange()"
+              [disabled]="loading || !!loadError"
+            >
+              <option value="">— Choisir —</option>
+              @for (u of users; track u.id) {
+                <option [value]="u.id">{{ userOptionLabel(u) }}</option>
+              }
+            </select>
+            @if (!loading && !loadError && users.length === 0) {
+              <p class="text-[11px] text-amber-500/90">Aucun utilisateur dans l’annuaire pour ce tenant.</p>
+            }
+          </div>
+
+          @if (selectedUserId && !loading && !loadError) {
+            <div class="space-y-2 rounded-lg border border-navy-700 bg-navy-900/40 p-3">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-xs font-medium text-slate-400">Demandes approuvées en attente de génération</label>
+              </div>
+              @if (requestsForSelectedEmployee().length === 0) {
+                <p class="text-[11px] leading-relaxed text-slate-500">
+                  Aucune demande <span class="font-semibold text-slate-400">approuvée et non générée</span> pour ce collaborateur.
+                  Traitez la file RH avant de générer un document.
+                </p>
+              } @else {
+                <ul class="max-h-52 overflow-y-auto divide-y divide-navy-800 rounded border border-navy-800">
+                  @for (req of requestsForSelectedEmployee(); track req.internalId) {
+                    <li
+                      class="cursor-pointer px-3 py-2.5 text-left text-xs outline-none transition-colors hover:bg-navy-800/80 focus-visible:ring-1 focus-visible:ring-blue-500 focus-visible:ring-opacity-60"
+                      [ngClass]="requestRowNgClass(req)"
+                      role="button"
+                      tabindex="0"
+                      (click)="pickLinkedRequest(req)"
+                      (keydown.enter)="pickLinkedRequest(req)"
+                      (keydown.space)="$event.preventDefault(); pickLinkedRequest(req)"
+                    >
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-semibold text-slate-200">{{ cleanDocumentRequestTypeLabel(req.type) }}</span>
+                        <span class="text-slate-500">{{ req.requestDate }}</span>
+                        <app-status-badge [status]="req.status"></app-status-badge>
+                      </div>
+                      @if (req.reason?.trim()) {
+                        <p class="mt-1 line-clamp-2 text-[10px] text-slate-500">
+                          <span class="font-semibold text-slate-500">Motif :</span>
+                          {{ req.reason }}
+                        </p>
+                      }
+                      @if (req.complementaryComments?.trim()) {
+                        <p class="mt-0.5 line-clamp-2 text-[10px] text-slate-500">
+                          <span class="font-semibold text-slate-500">Commentaire :</span>
+                          {{ req.complementaryComments }}
+                        </p>
+                      }
+                    </li>
+                  }
+                </ul>
+                <p class="text-[10px] text-slate-600">Sélectionnez une demande pour auto-remplir le flux RH de façon stricte.</p>
+              }
+            </div>
+          }
+
+          @if (canGenerate(role)) {
+            <div class="space-y-3 rounded-lg border border-navy-700 bg-navy-900/40 p-3">
+              <p class="text-xs font-bold text-white uppercase tracking-wide">Méthode de travail RH</p>
+              <p class="text-[11px] text-slate-500">Choisissez une seule méthode après avoir sélectionné une demande.</p>
+              <div class="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  class="rounded-lg px-3 py-2 text-xs font-semibold border transition whitespace-nowrap"
+                  [ngClass]="
+                    generationMode === 'template'
+                      ? 'border-blue-500/60 bg-blue-950/30 text-blue-300'
+                      : 'border-navy-600 text-slate-300 hover:bg-navy-800'
+                  "
+                  (click)="setGenerationMode('template')"
+                  [disabled]="!selectedLinkedRequest"
+                >
+                  Travailler avec un template
+                </button>
+                <button
+                  type="button"
+                  class="rounded-lg px-3 py-2 text-xs font-semibold border transition whitespace-nowrap"
+                  [ngClass]="
+                    generationMode === 'ready'
+                      ? 'border-amber-500/60 bg-amber-950/30 text-amber-300'
+                      : 'border-navy-600 text-slate-300 hover:bg-navy-800'
+                  "
+                  (click)="setGenerationMode('ready')"
+                  [disabled]="!selectedLinkedRequest"
+                >
+                  Importer un document déjà prêt
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (selectedLinkedRequest) {
+            <p class="text-[11px] text-blue-400/90">
+              Génération liée à la demande :
+              <span class="font-mono text-slate-300">{{ cleanDocumentRequestTypeLabel(selectedLinkedRequest.type) }}</span>
+              ({{ selectedLinkedRequest.requestDate }}, {{ selectedLinkedRequest.status }}).
+            </p>
+          } @else {
+            <p class="text-[11px] text-amber-400/90">
+              Sélectionnez d’abord une demande approuvée avant toute génération ou upload de document final.
+            </p>
+          }
+
+          @if (generationMode === 'template') {
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-slate-400" for="doc-gen-template">Modèle documentaire (actifs)</label>
+            <select
+              id="doc-gen-template"
+              name="templateId"
+              class="w-full bg-navy-800 border border-navy-700 rounded-lg p-2.5 text-sm text-slate-200 outline-none focus:border-blue-500"
+              [(ngModel)]="selectedTemplateId"
+              (ngModelChange)="onTemplateOrDateChanged()"
+              [disabled]="loading || !!loadError || !selectedLinkedRequest"
+            >
+              <option value="">— Choisir —</option>
+              @for (t of templates; track t.id) {
+                <option [value]="t.id">{{ templateOptionLabel(t) }}</option>
+              }
+            </select>
+            @if (selectedLinkedRequest && !loading && !loadError && templates.length === 0) {
+              <p class="text-[11px] text-amber-500/90">
+                Aucun modèle actif. Les modèles dynamiques se créent sous « Modèles ». Pour un document déjà prêt, utilisez
+                l’upload direct ci-dessus (sans modèle).
+              </p>
+            }
+            @if (selectedTemplate(); as st) {
+              @if ((st.kind ?? 'dynamic').toLowerCase() === 'static') {
+                <p class="text-[11px] text-amber-400/90 rounded border border-amber-500/25 px-2 py-1.5 bg-amber-950/20 leading-relaxed">
+                  Document statique : l’aperçu et la génération enregistrent une copie du fichier RH (sans fusion de variables).
+                </p>
+              }
+              @if (st.requiresPilotUpload) {
+                <p class="text-[11px] text-blue-400/90 leading-relaxed">
+                  Ce document prévoit qu’un pilote joigne un fichier (scan, etc.) — branchez l’upload côté flux métier si besoin.
+                </p>
+              }
+            }
+          </div>
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-slate-400" for="doc-gen-date">Date d’effet</label>
+            <div class="doc-date-with-picker">
+              <input
+                #docGenDate
+                id="doc-gen-date"
+                name="effectiveDate"
+                type="date"
+                class="doc-field doc-date-input"
+                [(ngModel)]="effectiveDate"
+                (ngModelChange)="onTemplateOrDateChanged()"
+                [disabled]="loading || !!loadError || !selectedLinkedRequest"
+              />
+              <button
+                type="button"
+                class="doc-date-calendar-btn"
+                title="Ouvrir le calendrier"
+                [disabled]="loading || !!loadError || !selectedLinkedRequest"
+                (click)="openNativeDatePicker(docGenDate, $event)"
+              >
+                <app-doc-icon name="calendar" klass="w-4 h-4"></app-doc-icon>
+              </button>
+            </div>
+          </div>
+          }
+
+          @if (generationMode === 'ready' && canGenerate(role)) {
+            <div class="space-y-3 rounded-lg border border-amber-500/25 bg-amber-950/15 p-3">
+              <p class="text-xs font-bold text-amber-400/95 uppercase tracking-wide">
+                Document déjà prêt (upload direct pilote)
+              </p>
+              <p class="text-[11px] text-slate-500 leading-relaxed">
+                Aucun template requis. Importez le fichier final, il sera envoyé au pilote avec traçabilité.
+              </p>
+              <label class="block text-[11px] text-slate-500">Fichier (PDF, DOCX, …) — stockage local / S3</label>
+              <label
+                class="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl border border-amber-400/45 bg-gradient-to-r from-amber-500/20 to-orange-500/20 px-4 py-2 text-xs font-semibold text-amber-200 shadow-lg shadow-amber-900/20 transition-all hover:-translate-y-0.5 hover:brightness-110"
+              >
+                <app-doc-icon name="file-up" klass="h-4 w-4"></app-doc-icon>
+                <span class="whitespace-nowrap">Choisir un fichier</span>
+                <input
+                  #readyFileInput
+                  type="file"
+                  class="hidden"
+                  accept=".pdf,.docx,.doc,.odt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.oasis.opendocument.text"
+                  (change)="onReadyUploadFileSelected($event)"
+                  [disabled]="busyReadyUpload || loading || !!loadError || !selectedLinkedRequest"
+                />
+              </label>
+              @if (readyUploadFile) {
+                <p class="text-[11px] text-emerald-400/90">Sélection : {{ readyUploadFile.name }}</p>
+              }
+              @if (readyUploadMessage) {
+                <p
+                  class="text-[11px] rounded border px-2 py-1.5"
+                  [ngClass]="
+                    readyUploadMessageOk
+                      ? 'text-emerald-400/95 border-emerald-500/30 bg-emerald-950/30'
+                      : 'text-amber-400/95 border-amber-500/30 bg-amber-950/25'
+                  "
+                >
+                  {{ readyUploadMessage }}
+                </p>
+              }
+              <button
+                type="button"
+                class="w-full sm:w-auto whitespace-nowrap rounded-lg bg-amber-600/90 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 hover:bg-amber-500"
+                [disabled]="isReadyUploadSendDisabled()"
+                [attr.title]="isReadyUploadSendDisabled() ? 'Choisissez d’abord un fichier (PDF, DOCX, …) puis envoyez.' : null"
+                (click)="submitReadyDocument(role)"
+              >
+                @if (busyReadyUpload) {
+                  <span>Enregistrement…</span>
+                } @else {
+                  <span>Importer et envoyer au pilote</span>
+                }
+              </button>
+            </div>
+          }
+          @if (generationMode === 'template') {
+            <p class="text-[11px] text-slate-500 rounded border border-navy-700 bg-navy-900/30 px-3 py-2">
+              Moteur local strict : aperçu automatique via le moteur interne après sélection du collaborateur, de la demande, du
+              modèle et de la date d’effet.
+            </p>
+          }
+
+          @if (generationMode === 'template' && hrVariablesForCurrentTemplate().length > 0) {
+            <div class="space-y-3 rounded-lg border border-blue-900/40 bg-blue-950/20 p-3">
+              <p class="text-xs font-bold text-slate-300 uppercase tracking-wide">Formulaire RH</p>
+              <p class="text-[11px] text-slate-500">
+                Les valeurs RH ont priorité sur le formulaire pilote puis sur la base employé.
+              </p>
+              @for (v of hrVariablesForCurrentTemplate(); track v.name) {
+                <div class="space-y-1">
+                  <label class="text-xs font-medium text-slate-400" [attr.for]="'hrv-' + v.name">
+                    {{ v.displayLabel || v.name }}
+                    @if (v.isRequired) {
+                      <span class="text-red-400">*</span>
+                    }
+                  </label>
+                  <input
+                    [id]="'hrv-' + v.name"
+                    type="text"
+                    class="w-full bg-navy-800 border border-navy-700 rounded-lg p-2.5 text-sm text-slate-200 outline-none focus:border-blue-500"
+                    [name]="'hrv_' + v.name"
+                    [(ngModel)]="hrFieldValues[v.name]"
+                    (ngModelChange)="onRhFieldValueChange()"
+                  />
+                </div>
+              }
+            </div>
+          }
+
+          @if (generationMode === 'template' && canGenerate(role) && selectedLinkedRequest) {
+            <div class="space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-3">
+              <p class="text-xs font-bold text-emerald-300/95 uppercase tracking-wide">Génération du document</p>
+              <p class="text-[11px] text-slate-500 leading-relaxed">
+                @if (hrVariablesForCurrentTemplate().length > 0) {
+                  Le bouton reste inactif tant que l’aperçu n’est pas prêt
+                  <span class="text-slate-400">et</span>
+                  que les champs RH obligatoires (*) ne sont pas renseignés.
+                } @else {
+                  Actif lorsque l’aperçu (à droite) est prêt — aligné sur le modèle ou le PDF officiel selon le cas.
+                }
+              </p>
+              <button
+                type="button"
+                class="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-900/30 transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none"
+                [disabled]="!canFinalizeGenerate(role) || busyGenerate || busyPreview"
+                [attr.title]="generateDocButtonHint(role) || null"
+                (click)="runGenerate(role)"
+              >
+                @if (busyGenerate) {
+                  <span>Génération en cours…</span>
+                } @else {
+                  <span>Générer le document</span>
+                }
+              </button>
+              @if (!canFinalizeGenerate(role) && !busyGenerate && !busyPreview) {
+                <p class="text-[10px] text-amber-400/90 leading-relaxed">{{ generateDocButtonHint(role) }}</p>
+              }
+            </div>
+          }
+
+          @if (previewKpi) {
+            <div class="rounded-lg border border-navy-700 bg-navy-950/50 p-3 space-y-1">
+              <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Pré-remplissage (KPI)</p>
+              <p class="text-[11px] text-slate-300">
+                Champs obligatoires du modèle :
+                <span class="font-mono text-emerald-400/95">{{ previewKpi.filledCount }}</span>
+                / {{ previewKpi.requiredTotal }} remplis automatiquement
+                <span class="text-slate-500">({{ previewKpi.filledPercent }} %)</span>
+                @if (previewKpi.missingCount > 0) {
+                  <span class="text-amber-400">
+                    — {{ previewKpi.missingCount }} manquant(s) ; marqués
+                    <span class="font-mono">________</span>
+                    dans l’aperçu.
+                  </span>
+                }
+              </p>
+            </div>
+          }
+
+          @if (previewMissingVariables.length > 0) {
+            <div class="rounded-lg border border-navy-700 bg-navy-950/50 p-4 space-y-2">
+              <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Contrôle des variables</p>
+              <p class="text-xs text-amber-400">
+                Variables obligatoires sans valeur : {{ previewMissingVariables.join(', ') }}
+              </p>
+            </div>
+          }
+
+          @if (downloadMenuDocumentId?.trim() && canGenerate(role)) {
+            <div
+              class="space-y-2 text-xs rounded-lg px-3 py-2 border"
+              [ngClass]="
+                lastGenerateMessage
+                  ? 'border-emerald-500/25 bg-emerald-950/30'
+                  : 'border-navy-600 bg-navy-900/40'
+              "
+            >
+              @if (lastGenerateMessage) {
+                <p class="text-emerald-400/90">{{ lastGenerateMessage }}</p>
+              } @else {
+                <p class="text-slate-400">
+                  PDF déjà disponible pour la demande sélectionnée — aperçu à droite. Téléchargement : PDF (.pdf) ou DOCX (.docx).
+                </p>
+              }
+              <div class="flex flex-wrap items-center gap-2">
+                <app-generated-document-format-menu
+                  [generatedDocumentId]="downloadMenuDocumentId"
+                  [fileNameBase]="exportFileHintForPreviewModal"
+                  appearance="standard"
+                />
+                <button
+                  type="button"
+                  class="w-full sm:w-auto py-2 px-3 rounded-lg font-semibold text-sm border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  [disabled]="busyGenerate || busyPreview"
+                  (click)="openLastGeneratedPreview(role)"
+                >
+                  Agrandir l’aperçu
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="card-navy p-6 flex flex-col border border-navy-800 min-h-[400px]">
+        <div class="flex items-center justify-between gap-2 mb-3 shrink-0">
+          <h4 class="text-sm font-bold text-white uppercase tracking-wider">Aperçu document (même source que le final)</h4>
+          <div class="flex items-center gap-2">
+            @if (canDownloadAiDirectExports) {
+              <details
+                class="doc-download-details relative z-[55]"
+                [class.pointer-events-none]="busyPreview"
+                [class.opacity-50]="busyPreview"
+              >
+                <summary
+                  class="btn-download !text-xs !px-2.5 !py-1.5 list-none [&::-webkit-details-marker]:hidden"
+                >
+                  <span aria-hidden="true">⬇</span>
+                  <span>Télécharger</span>
+                  <span class="opacity-90 text-xs" aria-hidden="true">▾</span>
+                </summary>
+                <div class="doc-download-dropdown absolute right-0 mt-2 py-1 z-[60]" role="menu">
+                  <p class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Télécharger en</p>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    [disabled]="busyPreview"
+                    (click)="downloadAiDirectExport('pdf')"
+                  >
+                    PDF (.pdf)
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    [disabled]="busyPreview"
+                    (click)="downloadAiDirectExport('docx')"
+                  >
+                    DOCX (.docx)
+                  </button>
+                </div>
+              </details>
+              <button
+                type="button"
+                class="py-1.5 px-2.5 rounded-lg text-xs font-semibold border border-slate-500/40 text-slate-300 hover:bg-slate-500/10 disabled:opacity-50"
+                [disabled]="busyPreview || busyGenerate"
+                (click)="regenerateAiDirectPreview()"
+              >
+                Régénérer
+              </button>
+            }
+            @if (downloadMenuDocumentId?.trim()) {
+              <app-generated-document-format-menu
+                [generatedDocumentId]="downloadMenuDocumentId"
+                [fileNameBase]="exportFileHintForPreviewModal"
+                appearance="standard"
+              />
+            }
+          </div>
+        </div>
+
+        <div class="flex flex-1 flex-col min-h-0">
+          @if (busyGenerate) {
+            <div class="empty-preview">
+              <div>
+                <p class="font-semibold text-slate-300 mb-1">Étape 2 — Génération du document officiel…</p>
+                <p class="text-sm">Le fichier affiché ensuite sera strictement le même que celui enregistré (Word ou PDF selon le modèle).</p>
+              </div>
+            </div>
+          } @else if (activeRightColumnPreviewKind === 'pdf' && documentUrl) {
+            <iframe
+              class="pdf-preview flex-1"
+              title="Aperçu du document final (PDF ou Word selon le cas)"
+              [src]="documentUrl | safeUrl"
+            ></iframe>
+            <p class="text-[11px] text-slate-500 mt-3">
+              @if (previewReady && canDownloadAiDirectExports) {
+                Aperçu temporaire disponible.
+              } @else if (previewReady && !downloadMenuDocumentId) {
+                Aperçu temporaire (non enregistré). Validez avec l’étape 2 pour produire le document officiel et activer le
+                téléchargement PDF (.pdf) ou DOCX (.docx).
+              } @else {
+                Document officiel — téléchargement PDF (.pdf) ou DOCX (.docx) via « Télécharger ».
+              }
+            </p>
+          } @else if (activeRightColumnPreviewKind === 'docx' && activeRightColumnPreviewHtml) {
+            <div class="flex-1 overflow-auto rounded border border-navy-800 bg-white p-6 text-left text-sm text-slate-900 shadow-inner [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_p]:mb-2 [&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_td]:border [&_td]:border-slate-300 [&_td]:p-1.5 [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-1.5 [&_th]:text-left [&_th]:font-semibold [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-6">
+              <div [innerHTML]="activeRightColumnPreviewHtml"></div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3">
+              Aperçu basé sur le fichier Word du modèle (mise en page conservée dans la mesure du navigateur). Le téléchargement
+              après génération conserve le format officiel.
+            </p>
+          } @else if (activeRightColumnPreviewKind === 'html' && activeRightColumnPreviewHtml) {
+            <div class="flex-1 overflow-auto rounded border border-navy-800 bg-white p-6 text-left text-sm text-slate-900 shadow-inner">
+              <div [innerHTML]="activeRightColumnPreviewHtml"></div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3">Aperçu HTML intégré.</p>
+          } @else if (activeRightColumnPreviewKind === 'text' && embedPreviewText) {
+            <pre class="flex-1 overflow-auto whitespace-pre-wrap rounded border border-navy-800 bg-slate-950 p-4 text-xs text-slate-200">{{ embedPreviewText }}</pre>
+            <p class="text-[11px] text-slate-500 mt-3">Aperçu texte intégré.</p>
+          } @else if (busyPreview) {
+            <div class="empty-preview">
+              <p class="font-semibold text-slate-300 mb-1">Étape 1 — Préparation de l’aperçu…</p>
+              <p class="text-sm text-slate-500">Rendu sans enregistrement (plus rapide pour les modèles Word d’origine).</p>
+            </div>
+          } @else if (embedDocumentId?.trim()) {
+            @if (embedPdfLoading) {
+              <div class="empty-preview">Chargement du document officiel…</div>
+            } @else if (embedPdfError) {
+              <div class="empty-preview" [ngClass]="isEmbeddedPreviewNonPdf ? 'text-slate-400' : 'text-red-400'">
+                {{ embedPdfError }}
+              </div>
+            } @else {
+              <div class="empty-preview">Préparation de l’aperçu…</div>
+            }
+          } @else {
+            <div class="empty-preview">
+              @if (generationMode === 'template' && selectedUserId && selectedTemplateId && selectedTemplate(); as st) {
+                @if ((st.kind ?? 'dynamic').toLowerCase() !== 'static') {
+                  <p class="text-sm text-slate-400 mb-2">
+                    L’aperçu est lancé automatiquement dès que le collaborateur, le modèle dynamique et la date d’effet sont
+                    choisis (Word d’origine ou PDF selon le modèle).
+                  </p>
+                } @else {
+                  <p class="text-sm text-slate-400 mb-2">
+                    Choisissez la <span class="text-slate-300 font-medium">date d’effet</span> : l’aperçu du fichier statique
+                    se charge automatiquement.
+                  </p>
+                }
+              } @else {
+                <p class="text-sm text-slate-400 mb-2">
+                  Sélectionnez un collaborateur et un modèle pour lancer l’aperçu automatique.
+                </p>
+              }
+              <p class="text-sm text-slate-500">
+                Vous pouvez aussi lier une demande déjà au statut <span class="text-slate-400">document généré</span> pour
+                charger le PDF existant.
+              </p>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <app-generated-document-preview-modal
+      [open]="previewOpen"
+      title="Document généré"
+      [subtitle]="previewModalSubtitle"
+      [generatedDocumentId]="downloadMenuDocumentId"
+      [exportFileNameBase]="exportFileHintForPreviewModal"
+      (closed)="closeLastGeneratedPreview()"
+    />
+  </div>
+}

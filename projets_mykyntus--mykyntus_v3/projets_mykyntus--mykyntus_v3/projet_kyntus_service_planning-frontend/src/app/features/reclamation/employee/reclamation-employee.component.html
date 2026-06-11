@@ -1,0 +1,400 @@
+<!-- src/app/features/reclamation/employee/reclamation-employee.component.html -->
+<!-- Intégrable dans le dashboard-employee comme vue additionnelle -->
+
+<div class="rp-root">
+
+  <!-- ══ TOAST ══ -->
+  <div class="rp-toast" [class.visible]="toastMsg" [class.rp-toast-error]="toastType==='error'">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <polyline *ngIf="toastType==='success'" points="20 6 9 17 4 12"/>
+      <circle   *ngIf="toastType==='error'"   cx="12" cy="12" r="10"/><line *ngIf="toastType==='error'" x1="15" y1="9" x2="9" y2="15"/><line *ngIf="toastType==='error'" x1="9" y1="9" x2="15" y2="15"/>
+    </svg>
+    {{ toastMsg }}
+  </div>
+
+  <!-- ══ SATISFACTION MODAL ══ -->
+  <div class="rp-overlay" *ngIf="showSatForm" (click)="showSatForm=false">
+    <div class="rp-modal" (click)="$event.stopPropagation()">
+      <div class="rp-modal-head">
+        <span>Évaluer le traitement</span>
+        <button (click)="showSatForm=false">×</button>
+      </div>
+      <p class="rp-modal-sub">Votre avis nous aide à améliorer notre service.</p>
+      <div class="rp-star-row">
+        <button *ngFor="let s of [1,2,3,4,5]" class="rp-star" [class.active]="satForm.note >= s" (click)="satForm.note=s">★</button>
+        <span class="rp-star-label">{{ satForm.note }}/5</span>
+      </div>
+      <textarea class="rp-textarea" [(ngModel)]="satForm.commentaire" placeholder="Commentaire (optionnel)" rows="3"></textarea>
+      <div class="rp-modal-actions">
+        <button class="rp-btn-ghost" (click)="showSatForm=false">Annuler</button>
+        <button class="rp-btn-primary" (click)="submitSatisfaction()">Envoyer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ HEADER ══ -->
+  <div class="rp-header">
+    <div class="rp-header-left">
+      <div class="rp-header-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+      </div>
+      <div>
+        <h2 class="rp-title">Réclamations &amp; Propositions</h2>
+        <p class="rp-sub">Soumettez et suivez vos demandes</p>
+      </div>
+    </div>
+    <button class="rp-btn-primary" (click)="subView='new'" *ngIf="subView==='list'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nouvelle demande
+    </button>
+  </div>
+
+  <!-- ══ MAIN TABS ══ -->
+  <div class="rp-tabs" *ngIf="subView==='list' || subView==='new'">
+    <button class="rp-tab" [class.active]="mainTab==='reclamations'" (click)="setTab('reclamations')">
+      Réclamations
+      <span class="rp-tab-count">{{ recTotal }}</span>
+    </button>
+    <button class="rp-tab" [class.active]="mainTab==='propositions'" (click)="setTab('propositions')">
+      Propositions
+      <span class="rp-tab-count">{{ propTotal }}</span>
+    </button>
+  </div>
+
+  <!-- ══ STATS STRIP ══ -->
+  <div class="rp-stats" *ngIf="subView==='list'">
+    <ng-container *ngIf="mainTab==='reclamations'">
+      <div class="rp-stat"><span class="rp-stat-val">{{ reclamations.length }}</span><span class="rp-stat-lbl">Total</span></div>
+      <div class="rp-stat-sep"></div>
+      <div class="rp-stat"><span class="rp-stat-val rp-val-warn">{{ recEnCours }}</span><span class="rp-stat-lbl">En cours</span></div>
+      <div class="rp-stat-sep"></div>
+      <div class="rp-stat"><span class="rp-stat-val rp-val-ok">{{ recTraitees }}</span><span class="rp-stat-lbl">Traitées</span></div>
+    </ng-container>
+    <ng-container *ngIf="mainTab==='propositions'">
+      <div class="rp-stat"><span class="rp-stat-val">{{ propositions.length }}</span><span class="rp-stat-lbl">Total</span></div>
+      <div class="rp-stat-sep"></div>
+      <div class="rp-stat"><span class="rp-stat-val rp-val-ok">{{ propApprouvees }}</span><span class="rp-stat-lbl">Approuvées</span></div>
+    </ng-container>
+  </div>
+
+  <!-- ══ LOADING ══ -->
+  <div class="emp-loading" *ngIf="loading">
+    <div class="emp-spinner"></div>
+    <p>Chargement…</p>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       VUE LIST — RÉCLAMATIONS
+  ════════════════════════════════════════════ -->
+  <ng-container *ngIf="subView==='list' && mainTab==='reclamations'">
+    <div class="rp-empty" *ngIf="reclamations.length===0">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      <h3>Aucune réclamation</h3>
+      <p>Vous n'avez pas encore soumis de réclamation.</p>
+      <button class="rp-btn-primary" (click)="subView='new'">Soumettre une réclamation</button>
+    </div>
+
+    <div class="rp-list" *ngIf="reclamations.length>0">
+      <div class="rp-item" *ngFor="let r of reclamations" (click)="openRec(r.id)">
+        <div class="rp-item-left">
+          <div class="rp-item-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          </div>
+          <div class="rp-item-body">
+            <div class="rp-item-title">{{ r.titre }}</div>
+            <div class="rp-item-meta">
+              <span class="rp-badge-type">{{ getTypeLabel(r.type) }}</span>
+              <span>·</span>
+              <span>{{ r.createdAt | date:'dd/MM/yyyy' }}</span>
+              <span *ngIf="r.assigneeNom">· Assigné à {{ r.assigneeNom }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="rp-item-right">
+          <span class="rp-prio" [ngClass]="getPriorityClass(r.priorite)">{{ r.priorite }}</span>
+          <span class="rp-status" [ngClass]="getStatusClass(r.status)">{{ r.status }}</span>
+          <button class="rp-btn-rate" *ngIf="canRate(r)" (click)="$event.stopPropagation(); openSatisfaction(r.id)">
+            ★ Évaluer
+          </button>
+          <span class="rp-rated" *ngIf="r.satisfactionNote">★ {{ r.satisfactionNote }}/5</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="rp-pagination" *ngIf="recPages.length > 1">
+      <button *ngFor="let p of recPages" [class.active]="p===recPage" (click)="changePage(p)">{{ p }}</button>
+    </div>
+  </ng-container>
+
+  <!-- ════════════════════════════════════════════
+       VUE LIST — PROPOSITIONS
+  ════════════════════════════════════════════ -->
+  <ng-container *ngIf="subView==='list' && mainTab==='propositions'">
+    <div class="rp-empty" *ngIf="propositions.length===0">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      <h3>Aucune proposition</h3>
+      <p>Partagez vos idées d'amélioration avec votre organisation.</p>
+      <button class="rp-btn-primary" (click)="subView='new'">Soumettre une proposition</button>
+    </div>
+
+    <div class="rp-list" *ngIf="propositions.length>0">
+      <div class="rp-item" *ngFor="let p of propositions" (click)="openProp(p.id)">
+        <div class="rp-item-left">
+          <div class="rp-item-icon rp-icon-prop">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          </div>
+          <div class="rp-item-body">
+            <div class="rp-item-title">{{ p.titre }}</div>
+            <div class="rp-item-meta">
+              <span *ngIf="p.beneficeAttendu" class="rp-badge-type">{{ p.beneficeAttendu | slice:0:40 }}…</span>
+              <span>{{ p.createdAt | date:'dd/MM/yyyy' }}</span>
+              <span *ngIf="p.assigneeNom">· Assigné à {{ p.assigneeNom }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="rp-item-right">
+          <span class="rp-prio" [ngClass]="getPriorityClass(p.priorite)">{{ p.priorite }}</span>
+          <span class="rp-status" [ngClass]="getStatusClass(p.status)">{{ p.status }}</span>
+          <button class="rp-btn-rate" *ngIf="canRate(p)" (click)="$event.stopPropagation(); openSatisfaction(p.id)">
+            ★ Évaluer
+          </button>
+          <span class="rp-rated" *ngIf="p.satisfactionNote">★ {{ p.satisfactionNote }}/5</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="rp-pagination" *ngIf="propPages.length > 1">
+      <button *ngFor="let p of propPages" [class.active]="p===propPage" (click)="changePage(p)">{{ p }}</button>
+    </div>
+  </ng-container>
+
+  <!-- ════════════════════════════════════════════
+       VUE NEW — FORMULAIRE
+  ════════════════════════════════════════════ -->
+  <div class="rp-form-wrap" *ngIf="subView==='new'">
+    <button class="rp-back-btn" (click)="subView='list'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Retour
+    </button>
+
+    <!-- Formulaire Réclamation -->
+    <div class="rp-form-card" *ngIf="mainTab==='reclamations'">
+      <div class="rp-form-head">
+        <div class="rp-form-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        </div>
+        <div>
+          <h3>Nouvelle réclamation</h3>
+          <p>Décrivez votre problème avec précision</p>
+        </div>
+      </div>
+
+      <div class="rp-form-group">
+        <label>Titre <span class="rp-req">*</span></label>
+        <input type="text" [(ngModel)]="newRec.titre" placeholder="Ex: Problème de planning semaine 18" maxlength="200" class="rp-input"/>
+        <span class="rp-char-count">{{ newRec.titre.length }}/200</span>
+      </div>
+
+      <div class="rp-form-group">
+        <label>Catégorie <span class="rp-req">*</span></label>
+        <select [(ngModel)]="newRec.type" class="rp-select">
+          <option value="ServiceQualite">Qualité de service</option>
+          <option value="RessourcesHumaines">Ressources humaines</option>
+          <option value="Technique">Technique</option>
+          <option value="Administrative">Administrative</option>
+          <option value="Autre">Autre</option>
+        </select>
+      </div>
+
+      <div class="rp-form-group">
+        <label>Description <span class="rp-req">*</span></label>
+        <textarea [(ngModel)]="newRec.description" placeholder="Décrivez en détail votre réclamation…" rows="5" maxlength="2000" class="rp-textarea"></textarea>
+        <span class="rp-char-count">{{ newRec.description.length }}/2000</span>
+      </div>
+
+      <div class="rp-form-actions">
+        <button class="rp-btn-ghost" (click)="subView='list'">Annuler</button>
+        <button class="rp-btn-primary" (click)="submitRec()"
+                [disabled]="submitting || !newRec.titre.trim() || !newRec.description.trim()">
+          <span *ngIf="submitting" class="rp-spinner-sm"></span>
+          {{ submitting ? 'Envoi…' : 'Soumettre la réclamation' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Formulaire Proposition -->
+    <div class="rp-form-card" *ngIf="mainTab==='propositions'">
+      <div class="rp-form-head">
+        <div class="rp-form-icon rp-icon-prop">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        </div>
+        <div>
+          <h3>Nouvelle proposition</h3>
+          <p>Partagez votre idée d'amélioration</p>
+        </div>
+      </div>
+
+      <div class="rp-form-group">
+        <label>Titre <span class="rp-req">*</span></label>
+        <input type="text" [(ngModel)]="newProp.titre" placeholder="Ex: Automatiser les rapports hebdomadaires" maxlength="200" class="rp-input"/>
+        <span class="rp-char-count">{{ newProp.titre.length }}/200</span>
+      </div>
+
+      <div class="rp-form-group">
+        <label>Description <span class="rp-req">*</span></label>
+        <textarea [(ngModel)]="newProp.description" placeholder="Décrivez votre proposition en détail…" rows="5" maxlength="2000" class="rp-textarea"></textarea>
+        <span class="rp-char-count">{{ newProp.description.length }}/2000</span>
+      </div>
+
+      <div class="rp-form-group">
+        <label>Bénéfice attendu <span class="rp-optional">(optionnel)</span></label>
+        <textarea [(ngModel)]="newProp.beneficeAttendu" placeholder="Ex: Gain de 2h par semaine pour l'équipe RH…" rows="3" maxlength="1000" class="rp-textarea"></textarea>
+      </div>
+
+      <div class="rp-form-actions">
+        <button class="rp-btn-ghost" (click)="subView='list'">Annuler</button>
+        <button class="rp-btn-primary" (click)="submitProp()"
+                [disabled]="submitting || !newProp.titre.trim() || !newProp.description.trim()">
+          <span *ngIf="submitting" class="rp-spinner-sm"></span>
+          {{ submitting ? 'Envoi…' : 'Soumettre la proposition' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       VUE DETAIL — RÉCLAMATION
+  ════════════════════════════════════════════ -->
+  <div class="rp-detail" *ngIf="subView==='detail' && selectedRec">
+    <div class="rp-detail-nav">
+      <button class="rp-back-btn" (click)="goBack()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Retour à la liste
+      </button>
+      <span class="rp-status" [ngClass]="getStatusClass(selectedRec.status)">{{ selectedRec.status }}</span>
+    </div>
+
+    <div class="rp-detail-card">
+      <div class="rp-detail-header">
+        <h2>{{ selectedRec.titre }}</h2>
+        <div class="rp-detail-meta">
+          <span class="rp-badge-type">{{ getTypeLabel(selectedRec.type) }}</span>
+          <span class="rp-prio" [ngClass]="getPriorityClass(selectedRec.priorite)">{{ selectedRec.priorite }}</span>
+          <span>Soumise le {{ selectedRec.createdAt | date:'dd/MM/yyyy à HH:mm' }}</span>
+          <span *ngIf="selectedRec.assigneeNom">· Assigné à <strong>{{ selectedRec.assigneeNom }}</strong></span>
+        </div>
+      </div>
+
+      <div class="rp-detail-section">
+        <div class="rp-section-label">Description</div>
+        <p class="rp-detail-text">{{ selectedRec.description }}</p>
+      </div>
+
+      <div class="rp-detail-section" *ngIf="selectedRec.commentaireTraitement">
+        <div class="rp-section-label">Commentaire de traitement</div>
+        <div class="rp-comment-box">{{ selectedRec.commentaireTraitement }}</div>
+      </div>
+
+      <div class="rp-detail-section" *ngIf="selectedRec.satisfactionNote">
+        <div class="rp-section-label">Votre évaluation</div>
+        <div class="rp-sat-display">
+          <span class="rp-stars">
+            <span *ngFor="let s of [1,2,3,4,5]" [class.filled]="(selectedRec.satisfactionNote || 0) >= s">★</span>
+          </span>
+          <span>{{ selectedRec.satisfactionNote }}/5</span>
+          <span *ngIf="selectedRec.satisfactionCommentaire">— {{ selectedRec.satisfactionCommentaire }}</span>
+        </div>
+      </div>
+
+      <button class="rp-btn-rate rp-btn-rate-lg" *ngIf="canRate(selectedRec)" (click)="openSatisfaction(selectedRec.id)">
+        ★ Évaluer le traitement
+      </button>
+
+      <!-- Historique -->
+      <div class="rp-detail-section" *ngIf="selectedRec.historique?.length">
+        <div class="rp-section-label">Historique</div>
+        <div class="rp-timeline">
+          <div class="rp-timeline-item" *ngFor="let h of selectedRec.historique">
+            <div class="rp-timeline-dot"></div>
+            <div class="rp-timeline-content">
+              <div class="rp-timeline-action"><strong>{{ h.action }}</strong> : {{ h.valeur }}</div>
+              <div class="rp-timeline-meta">{{ h.effectueParNom }} · {{ h.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       VUE DETAIL — PROPOSITION
+  ════════════════════════════════════════════ -->
+  <div class="rp-detail" *ngIf="subView==='detail' && selectedProp">
+    <div class="rp-detail-nav">
+      <button class="rp-back-btn" (click)="goBack()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Retour à la liste
+      </button>
+      <span class="rp-status" [ngClass]="getStatusClass(selectedProp.status)">{{ selectedProp.status }}</span>
+    </div>
+
+    <div class="rp-detail-card">
+      <div class="rp-detail-header">
+        <h2>{{ selectedProp.titre }}</h2>
+        <div class="rp-detail-meta">
+          <span class="rp-prio" [ngClass]="getPriorityClass(selectedProp.priorite)">{{ selectedProp.priorite }}</span>
+          <span>Soumise le {{ selectedProp.createdAt | date:'dd/MM/yyyy à HH:mm' }}</span>
+          <span *ngIf="selectedProp.assigneeNom">· Assigné à <strong>{{ selectedProp.assigneeNom }}</strong></span>
+        </div>
+      </div>
+
+      <div class="rp-detail-section">
+        <div class="rp-section-label">Description</div>
+        <p class="rp-detail-text">{{ selectedProp.description }}</p>
+      </div>
+
+      <div class="rp-detail-section" *ngIf="selectedProp.beneficeAttendu">
+        <div class="rp-section-label">Bénéfice attendu</div>
+        <p class="rp-detail-text">{{ selectedProp.beneficeAttendu }}</p>
+      </div>
+
+      <div class="rp-detail-section" *ngIf="selectedProp.commentaireEvaluation">
+        <div class="rp-section-label">Commentaire d'évaluation</div>
+        <div class="rp-comment-box">{{ selectedProp.commentaireEvaluation }}</div>
+      </div>
+
+      <div class="rp-detail-section" *ngIf="selectedProp.satisfactionNote">
+        <div class="rp-section-label">Votre évaluation</div>
+        <div class="rp-sat-display">
+          <span class="rp-stars">
+            <span *ngFor="let s of [1,2,3,4,5]" [class.filled]="(selectedProp.satisfactionNote || 0) >= s">★</span>
+          </span>
+          <span>{{ selectedProp.satisfactionNote }}/5</span>
+        </div>
+      </div>
+
+      <button class="rp-btn-rate rp-btn-rate-lg" *ngIf="canRate(selectedProp)" (click)="openSatisfaction(selectedProp.id)">
+        ★ Évaluer
+      </button>
+
+      <div class="rp-detail-section" *ngIf="selectedProp.historique?.length">
+        <div class="rp-section-label">Historique</div>
+        <div class="rp-timeline">
+          <div class="rp-timeline-item" *ngFor="let h of selectedProp.historique">
+            <div class="rp-timeline-dot"></div>
+            <div class="rp-timeline-content">
+              <div class="rp-timeline-action"><strong>{{ h.action }}</strong> : {{ h.valeur }}</div>
+              <div class="rp-timeline-meta">{{ h.effectueParNom }} · {{ h.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

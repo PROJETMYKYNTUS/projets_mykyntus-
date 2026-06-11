@@ -42,6 +42,8 @@ export const PRIME_VIEW_LOADERS: Record<string, PrimeLazyViewLoader> = {
     import('../pages/template-manager.component').then((m) => m.TemplateManagerComponent),
   '/prime-fiches-pilotes': () =>
     import('../pages/prime-fiches-pilotes-page.component').then((m) => m.PrimeFichesPilotesPageComponent),
+  '/prime-fiche-import': () =>
+    import('../pages/prime-fiche-import.component').then((m) => m.PrimeFicheImportComponent),
   '/prime-cellule-indicateurs': () =>
     import('../pages/prime-cellule-indicators-page.component').then(
       (m) => m.PrimeCelluleIndicatorsPageComponent,

@@ -53,6 +53,12 @@ services:
       <<: *kyntus-jwt
     ports:
       - "8520:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     depends_on:
       postgres:
         condition: service_healthy
@@ -339,7 +345,7 @@ services:
       auth-atlas-doc-users-seed:
         condition: service_completed_successfully
       auth-backend:
-        condition: service_started
+        condition: service_healthy
       planning-backend:
         condition: service_started
       formation-backend:

@@ -1,0 +1,103 @@
+/* features/contract/pages/contract-form/contract-form.component.css */
+
+.page-wrapper { padding: 28px 32px 48px; min-height: 100vh; color: #f0f6ff; font-family: 'Inter', sans-serif; }
+
+/* ── Header ── */
+.page-header  { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
+.page-title   { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: -.4px; margin-bottom: 4px; }
+.page-sub     { font-size: 13px; color: rgba(220,235,255,.55); }
+
+.btn-back {
+  background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.09);
+  color: rgba(220,235,255,.7); border-radius: 9px;
+  padding: 8px 14px; font-size: 13px; cursor: pointer;
+  transition: all .18s; white-space: nowrap; margin-top: 4px;
+}
+.btn-back:hover { background: rgba(255,255,255,.09); color: #f0f6ff; }
+
+/* ── Form card ── */
+.form-card {
+  background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.09);
+  border-radius: 16px; padding: 32px; max-width: 760px;
+}
+
+/* ── Sections ── */
+.form-section { margin-bottom: 32px; padding-bottom: 28px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.form-section:last-of-type { border-bottom: none; margin-bottom: 0; }
+
+.section-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 14px; font-weight: 700; margin-bottom: 16px;
+  color: rgba(220,235,255,.85);
+}
+
+/* ── Form groups ── */
+.form-group  { display: flex; flex-direction: column; gap: 6px; }
+.form-row    { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.form-group label {
+  font-size: 12.5px; font-weight: 600;
+  color: rgba(220,235,255,.6);
+}
+.req { color: #f43f5e; margin-left: 2px; }
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.09);
+  border-radius: 9px; color: #f0f6ff; font-size: 13.5px;
+  padding: 10px 14px; outline: none;
+  transition: border-color .2s; font-family: 'Inter', sans-serif;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: rgba(59,130,246,.5);
+  background: rgba(59,130,246,.06);
+}
+.form-group input::placeholder,
+.form-group textarea::placeholder { color: rgba(180,210,255,.35); }
+.form-group select option { background: #0d1a30; }
+.form-group textarea { resize: vertical; }
+
+.hint  { font-size: 11px; color: rgba(180,210,255,.4); }
+.error { font-size: 11px; color: #f43f5e; }
+
+/* ── Type grid ── */
+.type-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+
+.type-card {
+  background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.09);
+  border-radius: 12px; padding: 16px 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  cursor: pointer; transition: all .2s; text-align: center;
+}
+.type-card:hover { background: rgba(255,255,255,.09); transform: translateY(-2px); }
+.type-card.selected {
+  background: rgba(59,130,246,.15); border-color: rgba(59,130,246,.4);
+}
+.type-icon  { font-size: 24px; }
+.type-label { font-size: 14px; font-weight: 700; color: #f0f6ff; }
+.type-desc  { font-size: 11px; color: rgba(180,210,255,.5); }
+
+/* ── Footer ── */
+.form-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 28px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.07); }
+
+/* ── Buttons ── */
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: linear-gradient(135deg, #3b82f6, #4f46e5);
+  color: white; border: none; border-radius: 10px;
+  padding: 10px 22px; font-size: 13.5px; font-weight: 600;
+  cursor: pointer; transition: all .2s;
+  box-shadow: 0 4px 14px rgba(59,130,246,.35);
+}
+.btn-primary:hover    { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,.45); }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+  background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.09);
+  color: rgba(220,235,255,.6); border-radius: 10px;
+  padding: 10px 20px; font-size: 13.5px; font-weight: 500; cursor: pointer; transition: all .2s;
+}
+.btn-secondary:hover { background: rgba(255,255,255,.09); color: #f0f6ff; }

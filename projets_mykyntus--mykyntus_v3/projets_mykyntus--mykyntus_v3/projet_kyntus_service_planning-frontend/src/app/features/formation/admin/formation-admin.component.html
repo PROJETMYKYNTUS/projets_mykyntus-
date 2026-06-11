@@ -1,0 +1,122 @@
+<div class="fa-root">
+
+  <!-- TOAST -->
+  <div class="fa-toast" [class.visible]="toast.show" [class.error]="toast.type === 'error'">
+    {{ toast.message }}
+  </div>
+
+  <!-- HEADER -->
+  <div class="fa-header">
+    <div>
+      <h2 class="fa-title">Formations</h2>
+      <p class="fa-sub">Gérez les formations, validez et suivez les inscriptions</p>
+    </div>
+    <button class="fa-btn-create" (click)="openCreate()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nouvelle formation
+    </button>
+  </div>
+
+  <!-- LOADING -->
+  <div class="fa-loading" *ngIf="loading">
+    <div class="fa-spinner"></div>
+    <p>Chargement…</p>
+  </div>
+
+  <!-- EMPTY -->
+  <div class="fa-empty" *ngIf="!loading && formations.length === 0">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    <h3>Aucune formation</h3>
+    <p>Créez votre première formation.</p>
+  </div>
+
+  <!-- TABLE -->
+  <div class="fa-table-wrap" *ngIf="!loading && formations.length > 0">
+    <table class="fa-table">
+      <thead>
+        <tr>
+          <th>Titre</th>
+          <th>Formateur</th>
+          <th>Dates</th>
+          <th>Places</th>
+          <th>Prix</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let f of formations">
+          <td class="fa-td-title">{{ f.titre }}</td>
+          <td>{{ f.formateur }}</td>
+          <td class="fa-td-date">
+            {{ f.dateDebut | date:'dd/MM/yy' }} → {{ f.dateFin | date:'dd/MM/yy' }}
+          </td>
+          <td>{{ f.nombreInscrits }}/{{ f.capaciteMax }}</td>
+          <td>{{ f.prix | number:'1.0-0' }} MAD</td>
+          <td>
+            <span class="fa-badge" [ngClass]="getStatutClass(f.statut)">
+              {{ statutLabels[f.statut] }}
+            </span>
+          </td>
+          <td class="fa-td-actions">
+            <button class="fa-btn-edit" (click)="openEdit(f)" title="Modifier">✏️</button>
+            <button class="fa-btn-valid"
+                    *ngIf="f.statut === StatutFormation.Brouillon || f.statut === StatutFormation.EnAttente"
+                    (click)="valider(f)" title="Valider">✅</button>
+            <button class="fa-btn-del" (click)="delete(f)" title="Supprimer">🗑️</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- MODAL -->
+  <div class="fa-modal-overlay" *ngIf="showModal" (click)="showModal = false">
+    <div class="fa-modal" (click)="$event.stopPropagation()">
+      <div class="fa-modal-head">
+        <h3>{{ editMode ? 'Modifier la formation' : 'Nouvelle formation' }}</h3>
+        <button (click)="showModal = false">✕</button>
+      </div>
+      <div class="fa-modal-body">
+        <div class="fa-field">
+          <label>Titre</label>
+          <input [(ngModel)]="form.titre" placeholder="Titre de la formation" />
+        </div>
+        <div class="fa-field">
+          <label>Description</label>
+          <textarea [(ngModel)]="form.description" rows="3" placeholder="Description…"></textarea>
+        </div>
+        <div class="fa-field">
+          <label>Formateur</label>
+          <input [(ngModel)]="form.formateur" placeholder="Nom du formateur" />
+        </div>
+        <div class="fa-row">
+          <div class="fa-field">
+            <label>Date début</label>
+            <input type="date" [(ngModel)]="form.dateDebut" />
+          </div>
+          <div class="fa-field">
+            <label>Date fin</label>
+            <input type="date" [(ngModel)]="form.dateFin" />
+          </div>
+        </div>
+        <div class="fa-row">
+          <div class="fa-field">
+            <label>Capacité max</label>
+            <input type="number" [(ngModel)]="form.capaciteMax" min="1" />
+          </div>
+          <div class="fa-field">
+            <label>Prix (MAD)</label>
+            <input type="number" [(ngModel)]="form.prix" min="0" />
+          </div>
+        </div>
+      </div>
+      <div class="fa-modal-foot">
+        <button class="fa-btn-cancel" (click)="showModal = false">Annuler</button>
+        <button class="fa-btn-save" (click)="submit()">
+          {{ editMode ? 'Mettre à jour' : 'Créer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

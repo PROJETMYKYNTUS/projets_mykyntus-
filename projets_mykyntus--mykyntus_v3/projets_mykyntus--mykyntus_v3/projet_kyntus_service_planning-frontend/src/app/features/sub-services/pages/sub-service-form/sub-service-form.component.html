@@ -1,0 +1,86 @@
+<!-- sub-service-form.component.html -->
+<div class="ss-layout">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+
+  <!-- HEADER -->
+  <header class="ss-header">
+    <div class="ss-header-left">
+      <button class="btn-ghost" (click)="goBack()">
+        <span>←</span> Retour
+      </button>
+      <div class="divider-v"></div>
+      <div class="page-title-group">
+        <div class="page-eyebrow">{{ isEditMode ? 'Modification' : 'Création' }} · Sous-Service</div>
+        <h1 class="page-title">{{ isEditMode ? 'Modifier le' : 'Nouveau' }} Sous-Service</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- FORM CARD -->
+  <div class="form-glass-card">
+
+    <!-- Mode indicator -->
+    <div class="form-mode-bar">
+      <span class="mode-dot" [class.mode-edit]="isEditMode" [class.mode-create]="!isEditMode"></span>
+      <span class="mode-text">{{ isEditMode ? 'Mode édition — modifiez les champs puis enregistrez' : 'Remplissez les informations du nouveau sous-service' }}</span>
+    </div>
+
+    <form class="ss-form">
+
+      <div class="form-group">
+        <label class="form-label">
+          Service Parent
+          <span class="req-star">*</span>
+        </label>
+        <div class="select-wrap">
+          <select name="serviceId" [(ngModel)]="form.serviceId" class="ss-select">
+            <option [value]="0" disabled>-- Sélectionner un service --</option>
+            @for (service of services; track service.id) {
+              <option [value]="service.id">{{ service.name }}</option>
+            }
+          </select>
+          <span class="select-arrow">▾</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">
+            Nom du Sous-Service
+            <span class="req-star">*</span>
+          </label>
+          <input class="ss-input" name="name" type="text"
+                 [(ngModel)]="form.name"
+                 placeholder="Ex: Appel Post Kyntus" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            Code
+            <span class="req-star">*</span>
+          </label>
+          <input class="ss-input" name="code" type="text"
+                 [(ngModel)]="form.code"
+                 (blur)="checkCode()"
+                 placeholder="Ex: APK-01" />
+          @if (codeError) {
+            <p class="err-msg">⚠ {{ codeError }}</p>
+          }
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-cancel" type="button" (click)="goBack()">Annuler</button>
+        <button class="btn-save" type="button" (click)="submit()" [disabled]="submitting">
+          @if (submitting) {
+            <span class="btn-spinner"></span> Enregistrement…
+          } @else {
+            ✓ {{ isEditMode ? 'Enregistrer les modifications' : 'Créer le sous-service' }}
+          }
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>

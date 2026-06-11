@@ -1,0 +1,11 @@
+<Solution>
+  <Project Path="Conge.API/Conge.API.csproj" Id="eb0cd899-9a72-414b-a102-0e3c881bb137" />
+  <Project Path="Conge.Application/Conge.Application.csproj" Id="4928a554-b996-4d94-a320-b3c37a0079ab" />
+  <Project Path="Conge.Domain/Conge.Domain.csproj" Id="b5cac773-58f5-4e0f-91b2-a1ef9b35ef58" />
+  <Project Path="Conge.Infrastructure/Conge.Infrastructure.csproj" Id="59beee70-28e0-40bf-83a3-2b9dc99ae4e9" />
+  <Project Path="projetformationconges/Formation.API.csproj" />
+  <Project Path="src/Services/Formation/Formation.Application/Formation.Application.csproj" />
+  <Project Path="src/Services/Formation/Formation.Domain/Formation.Domain.csproj" />
+  <Project Path="src/Services/Formation/Formation.Infrastructure/Formation.Infrastructure.csproj" />
+  <Project Path="src/Services/Formation/Shared.Kernel/Shared.Kernel.csproj" />
+</Solution>

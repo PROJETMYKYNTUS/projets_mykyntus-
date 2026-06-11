@@ -1,0 +1,240 @@
+<div class="page-wrapper">
+
+  <!-- ── HEADER ── -->
+  <div class="page-header">
+    <button class="btn-back" (click)="goBack()">← Planning</button>
+    <div class="header-info">
+      <h1 class="page-title">⚙️ Configuration des Shifts</h1>
+      <p class="page-sub">Définissez les shifts et pauses avant la génération</p>
+    </div>
+    <div class="week-badge">
+      <span class="week-label">Semaine en cours</span>
+      <span class="week-value">{{ currentWeekCode }}</span>
+    </div>
+  </div>
+
+  <!-- ── SÉLECTEURS ── -->
+  <div class="selector-bar">
+    <div class="form-group">
+      <label>Sous-service <span class="req">*</span></label>
+      <select [(ngModel)]="subServiceId" (change)="onSubServiceChange()">
+        <option value="0" disabled>-- Sélectionner --</option>
+        <option *ngFor="let s of subServices" [value]="s.id">{{ s.name }}</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Semaine (Lundi) <span class="req">*</span></label>
+      <input type="date" [(ngModel)]="weekStartDate" (change)="onWeekChange()" />
+      <span class="week-preview" *ngIf="weekCode">{{ weekCode }}</span>
+    </div>
+
+    <div class="effectif-badge" *ngIf="totalEffectif > 0">
+      <span class="eb-label">Total employés</span>
+      <span class="eb-value">{{ totalEffectif }}</span>
+    </div>
+  </div>
+
+  <!-- ── MESSAGES ── -->
+  <div class="alert-error"   *ngIf="error">⚠️ {{ error }}</div>
+  <div class="alert-success" *ngIf="successMsg">{{ successMsg }}</div>
+
+  <!-- ── TABLEAU CONFIG SHIFTS ── -->
+  <div class="config-card">
+    <div class="card-header">
+      <div class="ch-left">
+        <span class="card-icon">📋</span>
+        <h2>Tableau des Shifts</h2>
+        <span class="shifts-count">{{ shifts.length }} shift(s)</span>
+      </div>
+      <button class="btn-add-shift" (click)="addShift()" [disabled]="shifts.length >= 8">
+        + Ajouter un shift
+      </button>
+    </div>
+
+    <!-- Tableau -->
+    <div class="table-wrapper">
+      <table class="shifts-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Label</th>
+            <th>Début</th>
+            <th>Fin (auto)</th>
+            <th>Durée travail</th>
+            <th>Pause début (plage)</th>
+            <th>Pause fin (plage)</th>
+            <th>Nb employés</th>
+            <th>%</th>
+            <th>Présence min</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let shift of shifts; let i = index" class="shift-row">
+
+            <!-- Ordre -->
+            <td class="td-order">{{ i + 1 }}</td>
+
+            <!-- Label -->
+            <td class="td-label">
+              <input
+                type="text"
+                [(ngModel)]="shift.label"
+                placeholder="Ex: Matin"
+                class="input-label" />
+            </td>
+
+            <!-- Heure début -->
+            <td class="td-start">
+              <select [(ngModel)]="shift.startTime" class="select-time">
+                <option *ngFor="let opt of startOptions" [value]="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </td>
+
+            <!-- Heure fin (calculée auto) -->
+            <td class="td-end">
+              <span class="end-time-badge">{{ getEndTime(shift) }}</span>
+            </td>
+
+            <!-- Durée travail -->
+            <td class="td-hours">
+              <div class="hours-input">
+                <input
+                  type="number"
+                  [(ngModel)]="shift.workHours"
+                  min="4" max="12"
+                  class="input-hours" />
+                <span class="hours-unit">h</span>
+              </div>
+            </td>
+
+            <!-- Pause début plage -->
+            <td class="td-break">
+              <select [(ngModel)]="shift.breakRangeStart" class="select-time">
+                <option [ngValue]="undefined">Auto ({{ getBreakRangeAuto(shift).split('→')[0] }})</option>
+                <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </td>
+
+            <!-- Pause fin plage -->
+            <td class="td-break">
+              <select [(ngModel)]="shift.breakRangeEnd" class="select-time">
+                <option [ngValue]="undefined">Auto ({{ getBreakRangeAuto(shift).split('→')[1] }})</option>
+                <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </td>
+
+            <!-- Nb employés -->
+            <td class="td-count">
+              <input
+                type="number"
+                [(ngModel)]="shift.requiredCount"
+                min="0"
+                class="input-count" />
+            </td>
+
+            <!-- Pourcentage -->
+            <td class="td-pct">
+              <span class="pct-badge" [class.pct-high]="getPercentage(shift) > 30">
+                {{ getPercentage(shift) }}%
+              </span>
+            </td>
+
+            <!-- Présence min -->
+            <td class="td-presence">
+              <div class="presence-input">
+                <input
+                  type="number"
+                  [(ngModel)]="shift.minPresencePercent"
+                  min="50" max="100"
+                  class="input-presence" />
+                <span class="hours-unit">%</span>
+              </div>
+            </td>
+
+            <!-- Supprimer -->
+            <td class="td-delete">
+              <button
+                class="btn-remove-shift"
+                (click)="removeShift(i)"
+                [disabled]="shifts.length <= 1"
+                title="Supprimer ce shift">
+                🗑️
+              </button>
+            </td>
+
+          </tr>
+        </tbody>
+
+        <!-- Footer total -->
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="7" class="total-label">Total</td>
+            <td class="total-count">{{ totalEffectif }}</td>
+            <td class="total-pct">100%</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- ── RÈGLE PAUSE ── -->
+    <div class="rule-info">
+      <span class="rule-icon">ℹ️</span>
+      <span>Règle fixe : <strong>70% présents</strong> en permanence
+        → max <strong>30%</strong> en pause simultanément</span>
+    </div>
+  </div>
+
+  <!-- ── PREVIEW CONFIG SAUVEGARDÉE ── -->
+  <div class="saved-config-card" *ngIf="savedConfig">
+    <div class="card-header">
+      <span class="card-icon">✅</span>
+      <h2>Config sauvegardée — {{ savedConfig.weekCode }}</h2>
+      <span class="total-badge">{{ savedConfig.totalEffectif }} employés</span>
+    </div>
+    <div class="saved-shifts">
+      <div class="saved-shift-item" *ngFor="let s of savedConfig.shifts">
+        <span class="ss-label">{{ s.label }}</span>
+        <span class="ss-time">{{ s.startTime }} → {{ s.endTime }}</span>
+        <span class="ss-break">☕ {{ s.breakRangeStart }} → {{ s.breakRangeEnd }}</span>
+        <span class="ss-count">👥 {{ s.requiredCount }} pers.</span>
+        <span class="ss-pct">{{ s.percentage }}%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BOUTONS ACTION ── -->
+  <div class="action-bar">
+
+    <!-- Sauvegarder config -->
+    <button
+      class="btn-save"
+      [disabled]="saving || !subServiceId || totalEffectif === 0"
+      (click)="saveConfig()">
+      <span *ngIf="!saving">💾 Sauvegarder la config</span>
+      <span *ngIf="saving">Sauvegarde...</span>
+    </button>
+
+    <!-- Générer planning -->
+    <button
+      class="btn-generate"
+      [disabled]="generating || !savedConfig"
+      (click)="generatePlanning()">
+      <span *ngIf="!generating">🚀 Générer le planning</span>
+      <span *ngIf="generating" class="generating-state">
+        <span class="dot-pulse"></span>
+        Génération en cours...
+      </span>
+    </button>
+
+  </div>
+
+</div>

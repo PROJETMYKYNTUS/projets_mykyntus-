@@ -1,0 +1,161 @@
+<!-- features/users/pages/user-import/user-import.component.html -->
+
+<div class="page-wrapper">
+
+  <!-- ── HEADER ── -->
+  <div class="page-header">
+    <button class="btn-back" (click)="goBack()">← Retour</button>
+    <div>
+      <h1 class="page-title">Import / Export Employés</h1>
+      <p class="page-sub">Importer jusqu'à 200+ employés en une seule opération</p>
+    </div>
+    <button class="btn-export" (click)="exportUsers()">
+      📥 Exporter tous les employés
+    </button>
+  </div>
+
+  <div class="content-grid">
+
+    <!-- ── COLONNE GAUCHE : Import ── -->
+    <div class="import-section">
+
+      <!-- Étape 1 : Template -->
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <div class="step-body">
+          <h3>Télécharger le template Excel</h3>
+          <p>Remplissez le fichier avec les informations de vos employés</p>
+          <button class="btn-template" (click)="downloadTemplate()">
+            📋 Télécharger le template
+          </button>
+        </div>
+      </div>
+
+      <!-- Étape 2 : Upload -->
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <div class="step-body">
+          <h3>Importer le fichier rempli</h3>
+          <p>Glissez-déposez votre fichier Excel ou cliquez pour sélectionner</p>
+
+          <!-- Zone drag & drop -->
+          <div
+            class="drop-zone"
+            [class.drag-over]="isDragOver"
+            [class.has-file]="selectedFile"
+            (dragover)="onDragOver($event)"
+            (dragleave)="onDragLeave()"
+            (drop)="onDrop($event)"
+            (click)="fileInput.click()">
+
+            <input
+              #fileInput
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              style="display:none"
+              (change)="onFileSelected($event)" />
+
+            <div class="drop-content" *ngIf="!selectedFile">
+              <span class="drop-icon">📂</span>
+              <p class="drop-text">Glissez votre fichier ici</p>
+              <p class="drop-sub">ou cliquez pour parcourir</p>
+              <span class="drop-formats">.xlsx · .xls · .csv</span>
+            </div>
+
+            <div class="file-selected" *ngIf="selectedFile">
+              <span class="file-icon">📊</span>
+              <div>
+                <p class="file-name">{{ selectedFile.name }}</p>
+                <p class="file-size">{{ getFileSize(selectedFile.size) }}</p>
+              </div>
+              <button class="btn-remove" (click)="removeFile($event)">✕</button>
+            </div>
+
+          </div>
+
+          <!-- Bouton import -->
+          <button
+            class="btn-import"
+            [disabled]="!selectedFile || importing"
+            (click)="importFile()">
+            <span *ngIf="!importing">🚀 Lancer l'import</span>
+            <span *ngIf="importing">
+              <span class="btn-spinner"></span>
+              Import en cours...
+            </span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── COLONNE DROITE : Résultats ── -->
+    <div class="result-section">
+
+      <!-- En attente -->
+      <div class="result-waiting" *ngIf="!importResult && !importing">
+        <span>📋</span>
+        <p>Le résultat de l'import<br>s'affichera ici</p>
+      </div>
+
+      <!-- Loading -->
+      <div class="result-loading" *ngIf="importing">
+        <div class="big-spinner"></div>
+        <p>Import en cours...</p>
+      </div>
+
+      <!-- Résultat -->
+      <div class="result-card" *ngIf="importResult && !importing">
+
+        <!-- Stats -->
+        <h3 class="result-title">📊 Résultat de l'import</h3>
+
+        <div class="result-stats">
+          <div class="stat-item total">
+            <span class="stat-value">{{ importResult.totalLignes }}</span>
+            <span class="stat-label">Lignes traitées</span>
+          </div>
+          <div class="stat-item success">
+            <span class="stat-value">{{ importResult.importes }}</span>
+            <span class="stat-label">✅ Importés</span>
+          </div>
+          <div class="stat-item error">
+            <span class="stat-value">{{ importResult.erreurs }}</span>
+            <span class="stat-label">❌ Erreurs</span>
+          </div>
+        </div>
+
+        <!-- Barre progression -->
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill"
+            [style.width.%]="getSuccessPercent()"
+            [class.all-good]="importResult.erreurs === 0">
+          </div>
+        </div>
+        <p class="progress-label">
+          {{ getSuccessPercent() | number:'1.0-0' }}% de succès
+        </p>
+
+        <!-- Détails erreurs -->
+        <div class="error-list" *ngIf="importResult.details.length > 0">
+          <h4>⚠️ Détail des erreurs</h4>
+          <div class="error-item" *ngFor="let d of importResult.details">
+            {{ d }}
+          </div>
+        </div>
+
+        <!-- Succès total -->
+        <div class="all-success" *ngIf="importResult.erreurs === 0">
+          ✅ Tous les employés ont été importés avec succès !
+        </div>
+
+        <!-- Bouton nouveau import -->
+        <button class="btn-reset" (click)="reset()">
+          Nouvel import
+        </button>
+
+      </div>
+    </div>
+
+  </div>
+</div>

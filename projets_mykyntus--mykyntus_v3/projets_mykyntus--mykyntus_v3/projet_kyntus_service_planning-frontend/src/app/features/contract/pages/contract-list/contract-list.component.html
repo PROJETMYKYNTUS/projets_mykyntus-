@@ -1,0 +1,212 @@
+<!-- features/contract/pages/contract-list/contract-list.component.html -->
+
+<div class="page-wrapper">
+
+  <!-- ── HEADER ── -->
+  <div class="page-header">
+    <div class="header-left">
+      <h1 class="page-title">Gestion des Contrats</h1>
+      <p class="page-sub">Suivi des contrats, périodes d'essai et alertes d'échéance</p>
+    </div>
+       <button class="btn-secondary" (click)="goToDashboard()">
+      🏠 Dashboard
+    </button>
+
+    <button class="btn-primary" (click)="goToCreate()">
+      ＋ Nouveau contrat
+    </button>
+  </div>
+
+  <!-- ── KPI ── -->
+  <div class="kpi-row">
+    <div class="kpi-card kc-blue">
+      <div class="kpi-icon">📄</div>
+      <div class="kpi-body">
+        <span class="kpi-label">Total</span>
+        <span class="kpi-value">{{ stats.total }}</span>
+      </div>
+    </div>
+    <div class="kpi-card kc-green">
+      <div class="kpi-icon">✅</div>
+      <div class="kpi-body">
+        <span class="kpi-label">Actifs</span>
+        <span class="kpi-value">{{ stats.actifs }}</span>
+      </div>
+    </div>
+    <div class="kpi-card kc-amber">
+      <div class="kpi-icon">⏳</div>
+      <div class="kpi-body">
+        <span class="kpi-label">Période d'essai</span>
+        <span class="kpi-value">{{ stats.periodeEssai }}</span>
+      </div>
+    </div>
+    <div class="kpi-card kc-rose">
+      <div class="kpi-icon">⚠️</div>
+      <div class="kpi-body">
+        <span class="kpi-label">Alertes</span>
+        <span class="kpi-value">{{ stats.alertes }}</span>
+      </div>
+    </div>
+    <div class="kpi-card kc-gray">
+      <div class="kpi-icon">🔴</div>
+      <div class="kpi-body">
+        <span class="kpi-label">Expirés</span>
+        <span class="kpi-value">{{ stats.expires }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FILTRES ── -->
+  <div class="filters-bar">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input
+        type="text"
+        placeholder="Rechercher un employé..."
+        [(ngModel)]="searchTerm"
+        (input)="applyFilters()" />
+    </div>
+
+    <div class="filter-selects">
+      <select [(ngModel)]="filterType" (change)="applyFilters()">
+        <option value="">Tous les types</option>
+        <option value="CDI">CDI</option>
+        <option value="CDD">CDD</option>
+        <option value="Stage">Stage</option>
+        <option value="Interim">Intérim</option>
+      </select>
+
+      <select [(ngModel)]="filterStatus" (change)="applyFilters()">
+        <option value="">Tous les statuts</option>
+        <option value="En période d'essai">Période d'essai</option>
+        <option value="Actif">Actif</option>
+        <option value="Expiré">Expiré</option>
+        <option value="Résilié">Résilié</option>
+      </select>
+
+      <button
+        class="btn-alert-filter"
+        [class.active]="filterAlerts"
+        (click)="toggleAlertFilter()">
+        ⚠️ Alertes seulement
+      </button>
+    </div>
+  </div>
+
+  <!-- ── TABLE ── -->
+  <div class="table-card">
+
+    <!-- Loading -->
+    <div class="table-loading" *ngIf="loading">
+      <div class="spinner"></div>
+      <span>Chargement des contrats...</span>
+    </div>
+
+    <!-- Table -->
+    <table class="data-table" *ngIf="!loading">
+      <thead>
+        <tr>
+          <th>Employé</th>
+          <th>Type</th>
+          <th>Statut</th>
+          <th>Date début</th>
+          <th>Date fin</th>
+          <th>Fin période essai</th>
+          <th>Jours restants</th>
+          <th>Alerte</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let c of filteredContracts"
+          [class.row-alert]="c.isAlertActive"
+          [class.row-expired]="c.status === 'Expiré'">
+
+          <td class="td-user">
+            <div class="avatar-circle">{{ getInitials(c.userFullName) }}</div>
+            <div>
+              <span class="user-name">{{ c.userFullName }}</span>
+              <span class="user-id">#{{ c.userId }}</span>
+            </div>
+          </td>
+
+          <td>
+            <span class="badge-type" [ngClass]="typeBadge(c.type)">{{ c.type }}</span>
+          </td>
+
+          <td>
+            <span class="badge-status" [ngClass]="statusBadge(c.status)">{{ c.status }}</span>
+          </td>
+
+          <td class="td-date">{{ c.startDate | date:'dd/MM/yyyy' }}</td>
+
+          <td class="td-date">
+            <span *ngIf="c.endDate">{{ c.endDate | date:'dd/MM/yyyy' }}</span>
+            <span class="muted" *ngIf="!c.endDate">—</span>
+          </td>
+
+          <td class="td-date">
+            <span *ngIf="c.probationEndDate">{{ c.probationEndDate | date:'dd/MM/yyyy' }}</span>
+            <span class="muted" *ngIf="!c.probationEndDate">—</span>
+          </td>
+
+          <td>
+            <div class="days-cell" *ngIf="c.joursRestants != null">
+              <div class="days-bar-bg">
+                <div class="days-bar-fill"
+                  [style.width.%]="daysPercent(c)"
+                  [ngClass]="daysBarClass(c.joursRestants!)">
+                </div>
+              </div>
+              <span [ngClass]="daysTextClass(c.joursRestants!)">{{ c.joursRestants }}j</span>
+            </div>
+            <span class="muted" *ngIf="c.joursRestants == null">—</span>
+          </td>
+
+          <td>
+            <span class="badge-alert on"  *ngIf="c.isAlertActive">⚠️ Alerte</span>
+            <span class="badge-alert off" *ngIf="!c.isAlertActive">✅ OK</span>
+          </td>
+
+          <td class="td-actions">
+            <button class="icon-btn" title="Détails"   (click)="goToDetail(c.id)">👁️</button>
+            <button class="icon-btn" title="Modifier"  (click)="goToEdit(c.id)">✏️</button>
+            <button class="icon-btn danger" title="Supprimer" (click)="openDeleteModal(c)">🗑️</button>
+          </td>
+        </tr>
+
+        <tr *ngIf="filteredContracts.length === 0 && !loading">
+          <td colspan="9">
+            <div class="empty-state">
+              <span>📋</span>
+              <p>Aucun contrat trouvé</p>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ── MODAL Suppression ── -->
+<div class="modal-overlay" *ngIf="showDeleteModal" (click)="closeModal()">
+  <div class="modal-box confirm-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Confirmer la suppression</h2>
+      <button class="close-btn" (click)="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="confirm-icon">🗑️</div>
+      <p>Supprimer le contrat de <strong>{{ contractToDelete?.userFullName }}</strong> ?</p>
+      <p class="warn-text">Cette action est irréversible.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="closeModal()">Annuler</button>
+      <button class="btn-danger" (click)="deleteContract()" [disabled]="deleting">
+        {{ deleting ? 'Suppression...' : 'Supprimer' }}
+      </button>
+    </div>
+  </div>
+</div>

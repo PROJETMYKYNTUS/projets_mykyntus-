@@ -1,0 +1,141 @@
+/* features/users/pages/user-import/user-import.component.css */
+
+.page-wrapper { padding: 28px 32px 48px; min-height: 100vh; color: #f0f6ff; font-family: 'Inter', sans-serif; }
+
+/* ── Header ── */
+.page-header  { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+.page-title   { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.page-sub     { font-size: 13px; color: rgba(220,235,255,.55); }
+.page-header > div { flex: 1; }
+
+.btn-back {
+  background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.09);
+  color: rgba(220,235,255,.7); border-radius: 9px;
+  padding: 8px 14px; font-size: 13px; cursor: pointer; transition: all .18s;
+}
+.btn-back:hover { background: rgba(255,255,255,.09); color: #f0f6ff; }
+
+.btn-export {
+  background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.25);
+  color: #34d399; border-radius: 10px;
+  padding: 10px 18px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .18s; white-space: nowrap;
+}
+.btn-export:hover { background: rgba(16,185,129,.22); }
+
+/* ── Layout ── */
+.content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+
+/* ── Step cards ── */
+.step-card {
+  display: flex; gap: 16px;
+  background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.09);
+  border-radius: 14px; padding: 22px;
+  margin-bottom: 16px;
+}
+
+.step-number {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #4f46e5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; flex-shrink: 0;
+}
+
+.step-body h3 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.step-body p  { font-size: 13px; color: rgba(220,235,255,.55); margin-bottom: 16px; line-height: 1.5; }
+
+.btn-template {
+  background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.25);
+  color: #60a5fa; border-radius: 9px;
+  padding: 9px 16px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .18s;
+}
+.btn-template:hover { background: rgba(59,130,246,.22); }
+
+/* ── Drop zone ── */
+.drop-zone {
+  border: 2px dashed rgba(255,255,255,.15); border-radius: 12px;
+  padding: 32px 20px; text-align: center;
+  cursor: pointer; transition: all .2s; margin-bottom: 16px;
+}
+.drop-zone:hover    { border-color: rgba(59,130,246,.4); background: rgba(59,130,246,.05); }
+.drop-zone.drag-over{ border-color: #3b82f6; background: rgba(59,130,246,.1); transform: scale(1.01); }
+.drop-zone.has-file { border-color: rgba(16,185,129,.4); background: rgba(16,185,129,.05); border-style: solid; }
+
+.drop-icon    { font-size: 36px; display: block; margin-bottom: 10px; }
+.drop-text    { font-size: 14px; font-weight: 600; color: #f0f6ff; margin-bottom: 4px; }
+.drop-sub     { font-size: 12px; color: rgba(220,235,255,.45); margin-bottom: 10px; }
+.drop-formats { font-size: 11px; background: rgba(255,255,255,.07); border-radius: 20px; padding: 3px 12px; color: rgba(220,235,255,.5); }
+
+.file-selected { display: flex; align-items: center; gap: 12px; }
+.file-icon     { font-size: 28px; flex-shrink: 0; }
+.file-name     { font-size: 13.5px; font-weight: 600; color: #f0f6ff; margin-bottom: 2px; }
+.file-size     { font-size: 11px; color: rgba(220,235,255,.5); }
+.btn-remove {
+  margin-left: auto; width: 26px; height: 26px; border-radius: 6px;
+  border: 1px solid rgba(244,63,94,.3); background: rgba(244,63,94,.1);
+  color: #f43f5e; font-size: 12px; cursor: pointer; flex-shrink: 0;
+}
+.btn-remove:hover { background: rgba(244,63,94,.2); }
+
+.btn-import {
+  width: 100%; padding: 12px;
+  background: linear-gradient(135deg, #3b82f6, #4f46e5);
+  color: white; border: none; border-radius: 10px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 4px 14px rgba(59,130,246,.35);
+}
+.btn-import:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,.45); }
+.btn-import:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btn-spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.3); border-top-color: white;
+  animation: spin .7s linear infinite; display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Result section ── */
+.result-waiting {
+  background: rgba(255,255,255,.04); border: 1px dashed rgba(255,255,255,.1);
+  border-radius: 14px; padding: 60px 20px; text-align: center;
+  color: rgba(180,210,255,.38);
+}
+.result-waiting span { font-size: 36px; display: block; margin-bottom: 12px; }
+.result-waiting p    { font-size: 14px; line-height: 1.6; }
+
+.result-loading { background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.09); border-radius: 14px; padding: 60px 20px; text-align: center; }
+.big-spinner { width: 42px; height: 42px; border-radius: 50%; border: 3px solid rgba(255,255,255,.09); border-top-color: #3b82f6; animation: spin .7s linear infinite; margin: 0 auto 16px; }
+.result-loading p { color: rgba(220,235,255,.6); font-size: 14px; }
+
+.result-card { background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.09); border-radius: 14px; padding: 24px; }
+.result-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 20px; }
+
+.result-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 20px; }
+.stat-item    { text-align: center; padding: 14px 10px; border-radius: 10px; }
+.stat-item.total   { background: rgba(255,255,255,.06); }
+.stat-item.success { background: rgba(16,185,129,.12); }
+.stat-item.error   { background: rgba(244,63,94,.1); }
+.stat-value { display: block; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; font-weight: 800; }
+.stat-label { font-size: 11.5px; color: rgba(220,235,255,.6); }
+
+.progress-bar-bg   { height: 6px; background: rgba(255,255,255,.08); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+.progress-bar-fill { height: 100%; background: #f59e0b; border-radius: 3px; transition: width .5s; }
+.progress-bar-fill.all-good { background: #10b981; }
+.progress-label { font-size: 12px; color: rgba(220,235,255,.5); margin-bottom: 20px; }
+
+.error-list { background: rgba(244,63,94,.07); border: 1px solid rgba(244,63,94,.2); border-radius: 10px; padding: 16px; margin-bottom: 16px; max-height: 200px; overflow-y: auto; }
+.error-list h4 { font-size: 13px; font-weight: 700; color: #fda4af; margin-bottom: 10px; }
+.error-item { font-size: 12px; color: rgba(220,235,255,.7); padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+.error-item:last-child { border-bottom: none; }
+
+.all-success { background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.25); border-radius: 10px; padding: 14px; text-align: center; font-size: 13.5px; color: #34d399; font-weight: 600; margin-bottom: 16px; }
+
+.btn-reset {
+  width: 100%; padding: 10px;
+  background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.09);
+  color: rgba(220,235,255,.6); border-radius: 10px;
+  font-size: 13px; cursor: pointer; transition: all .18s;
+}
+.btn-reset:hover { background: rgba(255,255,255,.09); color: #f0f6ff; }

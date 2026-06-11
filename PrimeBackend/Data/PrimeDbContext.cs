@@ -12,6 +12,7 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
     public DbSet<ServicePrimeIndicatorEntity> ServicePrimeIndicators => Set<ServicePrimeIndicatorEntity>();
     public DbSet<SupervisorCellulePrimeDraftEntity> SupervisorCellulePrimeDrafts => Set<SupervisorCellulePrimeDraftEntity>();
     public DbSet<EmployeePrimeServiceFicheEntity> EmployeePrimeServiceFiches => Set<EmployeePrimeServiceFicheEntity>();
+    public DbSet<PrimeHistoricalFicheEntity> PrimeHistoricalFiches => Set<PrimeHistoricalFicheEntity>();
     public DbSet<EmployeePrimeFicheValidationHistoryEntity> EmployeePrimeFicheValidationHistories =>
         Set<EmployeePrimeFicheValidationHistoryEntity>();
     // ---- Phase 1.3 : Administration ----
@@ -155,6 +156,8 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.Property(x => x.PrimeAmount).HasPrecision(12, 2);
             e.Property(x => x.ChallengeAmount).HasPrecision(12, 2);
             e.Property(x => x.TotalAmount).HasPrecision(12, 2);
+            e.Property(x => x.DetailGridPreviewSheetName).HasMaxLength(256);
+            e.Property(x => x.TemplateVersionRef).HasMaxLength(256);
             e.HasIndex(x => new { x.ServiceId, x.Period });
             e.HasIndex(x => new { x.SupervisorUserId, x.Period });
             e.HasIndex(x => new { x.EmployeeId, x.Period }).IsUnique();
@@ -184,6 +187,28 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
                 .WithMany(x => x.ValidationHistory)
                 .HasForeignKey(x => x.FicheId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PrimeHistoricalFicheEntity>(e =>
+        {
+            e.ToTable("prime_historical_fiche");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Period).HasMaxLength(16).IsRequired();
+            e.Property(x => x.CelluleId).HasMaxLength(128).IsRequired();
+            e.Property(x => x.ServiceId).HasMaxLength(128);
+            e.Property(x => x.RootPoleId).HasMaxLength(128).IsRequired();
+            e.Property(x => x.SupervisorUserId).HasMaxLength(128).IsRequired();
+            e.Property(x => x.EmployeeExternalName).HasMaxLength(512).IsRequired();
+            e.Property(x => x.EmployeeId).HasMaxLength(128);
+            e.Property(x => x.DetailGridPreviewSheetName).HasMaxLength(256);
+            e.Property(x => x.OriginFileName).HasMaxLength(512);
+            e.Property(x => x.Source).HasMaxLength(32).IsRequired();
+            e.Property(x => x.ImportedByUserId).HasMaxLength(128).IsRequired();
+            e.Property(x => x.PrimeAmount).HasPrecision(12, 2);
+            e.Property(x => x.ChallengeAmount).HasPrecision(12, 2);
+            e.Property(x => x.TotalAmount).HasPrecision(12, 2);
+            e.HasIndex(x => new { x.SupervisorUserId, x.Period });
+            e.HasIndex(x => new { x.CelluleId, x.Period });
         });
 
         // ---- Phase 1.3 : Administration ----

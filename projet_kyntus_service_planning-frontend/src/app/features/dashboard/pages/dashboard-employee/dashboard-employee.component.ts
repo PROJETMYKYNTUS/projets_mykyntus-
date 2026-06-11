@@ -7,7 +7,7 @@ import { NewsletterService, EmployeeNewsletter } from '../../../../core/services
 import { ReclamationEmployeeComponent } from '../../../reclamation/employee/reclamation-employee.component';
 import { FormationEmployeeComponent } from '../../../formation/employee/formation-employee.component';
 import { CongeEmployeComponent } from '../../../conge/pages/conge-employe/conge-employe.component';
-import { CongeManagerComponent } from '../../../conge/pages/conge-manager/conge-manager.component'; // ← AJOUT
+import { CongeManagerComponent } from '../../../conge/pages/conge-manager/conge-manager.component';
 
 interface DayAssignment {
   assignmentId: number;
@@ -39,7 +39,7 @@ interface MyPlanning {
     ReclamationEmployeeComponent,
     FormationEmployeeComponent,
     CongeEmployeComponent,
-    CongeManagerComponent,  // ← AJOUT
+    CongeManagerComponent,
   ],
   templateUrl: './dashboard-employee.component.html',
   styleUrls: ['./dashboard-employee.component.css']
@@ -47,8 +47,11 @@ interface MyPlanning {
 export class DashboardEmployeeComponent implements OnInit, OnDestroy {
 
   // ── Vues ──
-  currentView: 'home' | 'planning' | 'conges' | 'settings' | 'newsletters' | 'reclamations' | 'formations' = 'home';
+  currentView: 'home' | 'planning' | 'conges' | 'settings' |
+               'newsletters' | 'reclamations' | 'formations' |
+               'equipe-planning' = 'home';
   congesSubView: 'mes-conges' | 'equipe' = 'mes-conges';
+
   // ── User ──
   planning: MyPlanning | null = null;
   history: MyPlanning[] = [];
@@ -57,7 +60,11 @@ export class DashboardEmployeeComponent implements OnInit, OnDestroy {
   userId = 0;
   userName = 'Employé';
   userInitials = 'EK';
- 
+
+  // ── Planning Équipe ──
+  equipePlannings: any[] = [];
+  equipeLoading = false;
+  selectedEquipePlanning: any = null;
 
   // ── Notifications ──
   notifications: PlanningNotification[] = [];
@@ -77,14 +84,24 @@ export class DashboardEmployeeComponent implements OnInit, OnDestroy {
     Monday: 'Lundi', Tuesday: 'Mardi', Wednesday: 'Mercredi',
     Thursday: 'Jeudi', Friday: 'Vendredi', Saturday: 'Samedi'
   };
-userRole = (() => {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  return (user?.role ?? user?.Role ?? user?.roles?.[0] ?? '').trim();
-})();
-  // ── Getters rôle ──────────────────────────────────────────────────────────
- get isManager(): boolean {
-  return this.userRole.toLowerCase().trim() === 'manager';
-}
+
+  userRole = (() => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return (user?.role ?? user?.Role ?? user?.roles?.[0] ?? '').trim();
+  })();
+
+  // ── Getters rôle ──
+  get isManager(): boolean {
+    return this.userRole.toLowerCase().trim() === 'manager';
+  }
+
+  get isCoach(): boolean {
+    return this.userRole.toLowerCase().trim() === 'coach';
+  }
+
+  get isManagerOrCoach(): boolean {
+    return this.isManager || this.isCoach;
+  }
 
   get congesLabel(): string {
     return this.isManager ? 'Congés Équipe' : 'Mes Congés';
@@ -95,7 +112,6 @@ userRole = (() => {
       ? 'Validez les demandes de congés de votre équipe'
       : 'Gérez vos demandes de congés et absences';
   }
-  // ─────────────────────────────────────────────────────────────────────────
 
   constructor(
     private planningService: PlanningService,
@@ -148,20 +164,21 @@ userRole = (() => {
     this.notificationService.disconnect();
   }
 
-  // ── Navigation ────────────────────────────────────────────────────────────
-navigateTo(view: 'home' | 'planning' | 'conges' | 'settings' | 
-                 'newsletters' | 'reclamations' | 'formations'): void {
-  this.currentView = view;
-  if (view === 'planning' && !this.planning) this.loadCurrentPlanning();
-  if (view === 'newsletters') this.loadMyNewsletters();
-  // Reset sous-vue à chaque entrée
-  if (view === 'conges') this.congesSubView = 'mes-conges';
-}
+  // ── Navigation ──
+  navigateTo(view: 'home' | 'planning' | 'conges' | 'settings' |
+                   'newsletters' | 'reclamations' | 'formations' |
+                   'equipe-planning'): void {
+    this.currentView = view;
+    if (view === 'planning' && !this.planning) this.loadCurrentPlanning();
+    if (view === 'newsletters') this.loadMyNewsletters();
+    if (view === 'conges') this.congesSubView = 'mes-conges';
+    if (view === 'equipe-planning') this.loadEquipePlannings();
+  }
 
-// Nouvelle méthode
-navigateConges(sub: 'mes-conges' | 'equipe'): void {
-  this.congesSubView = sub;
-}
+  navigateConges(sub: 'mes-conges' | 'equipe'): void {
+    this.congesSubView = sub;
+  }
+
   openDocumentationApp(): void {
     const queryParams: Record<string, string> = { handoff: 'pilote' };
     try {
@@ -172,7 +189,24 @@ navigateConges(sub: 'mes-conges' | 'equipe'): void {
     void this.router.navigate(['/documentation'], { queryParams });
   }
 
-  // ── Planning ──────────────────────────────────────────────────────────────
+  // ── Planning Équipe ──
+  loadEquipePlannings(): void {
+    this.equipeLoading = true;
+    this.planningService.getEquipePlannings(this.userId).subscribe({
+      next: (data) => {
+        this.equipePlannings = data;
+        this.equipeLoading   = false;
+        if (data.length > 0) this.selectedEquipePlanning = data[0];
+      },
+      error: () => { this.equipePlannings = []; this.equipeLoading = false; }
+    });
+  }
+
+  getEmpDay(emp: any, day: string): any {
+    return emp.days?.find((d: any) => d.day === day) ?? null;
+  }
+
+  // ── Planning perso ──
   loadCurrentPlanning(): void {
     this.loading = true;
     this.planningService.getMyCurrentPlanning(this.userId).subscribe({
@@ -206,7 +240,7 @@ navigateConges(sub: 'mes-conges' | 'equipe'): void {
     });
   }
 
-  // ── Notifications ─────────────────────────────────────────────────────────
+  // ── Notifications ──
   toggleNotifications(): void {
     this.showNotifications = !this.showNotifications;
     if (this.showNotifications) this.notificationService.markAllRead();
@@ -227,7 +261,7 @@ navigateConges(sub: 'mes-conges' | 'equipe'): void {
     setTimeout(() => this.showToast = false, 5000);
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Helpers ──
   getDayLabel(day: string): string { return this.dayLabels[day] || day; }
 
   getDateForDay(assignedDate: string): string {
@@ -278,7 +312,7 @@ navigateConges(sub: 'mes-conges' | 'equipe'): void {
     });
   }
 
-  // ── Newsletters ───────────────────────────────────────────────────────────
+  // ── Newsletters ──
   loadMyNewsletters(): void {
     this.nlLoading = true;
     this.newsletterSvc.getMyNewsletters('Employees').subscribe({

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using MassTransit.JobService;
+using Microsoft.EntityFrameworkCore;
 using Planning.Messaging.Publishers;
 using PlanningService.Data;
 using PlanningService.DTOs;
@@ -155,9 +156,9 @@ public class UserService : IUserService
             prenom: user.FirstName,
             email: user.Email,
             managerId: manager != null ? manager.Guid : Guid.Empty,
-            serviceId: subService != null
-                            ? Guid.Parse(subService.ServiceId.ToString().PadLeft(32, '0'))
-                            : Guid.Empty,
+serviceId: subService?.Service != null
+    ? new Guid(subService.Service.Id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    : Guid.Empty,
             serviceNom: subService?.Service?.Name ?? string.Empty,
             dateEmbauche: user.HireDate,
             estMineur: false
@@ -241,9 +242,9 @@ public class UserService : IUserService
                 prenom: user.FirstName,
                 email: user.Email,
                 managerId: manager?.Guid ?? Guid.Empty,
-                serviceId: user.SubService != null
-                                ? Guid.Parse(user.SubService.ServiceId.ToString().PadLeft(32, '0'))
-                                : Guid.Empty,
+                serviceId: user.SubService?.Service != null
+    ? new Guid(user.SubService.Service.Id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    : Guid.Empty,
                 serviceNom: user.SubService?.Service?.Name ?? string.Empty,
                 dateEmbauche: DateTime.SpecifyKind(user.HireDate, DateTimeKind.Utc), // ← FIX
                 estMineur: false
@@ -312,7 +313,7 @@ public class UserService : IUserService
                       ? manager.Guid // ← REMPLACER
                       : Guid.Empty,
         serviceId: subService != null
-                      ? Guid.Parse(subService.ServiceId.ToString().PadLeft(32, '0'))
+ ? new Guid(subService.Service.Id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
                       : Guid.Empty,
         serviceNom: subService?.Service?.Name ?? string.Empty
     );

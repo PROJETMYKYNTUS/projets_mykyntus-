@@ -1,5 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using DocumentFormat.OpenXml.InkML;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PlanningService.Data;
 using PlanningService.DTOs.Planning;
+using PlanningService.Enums;
 using PlanningService.Interfaces;
 
 namespace PlanningService.Controllers;   // ✅ namespace ajouté
@@ -9,10 +13,11 @@ namespace PlanningService.Controllers;   // ✅ namespace ajouté
 public class PlanningController : ControllerBase
 {
     private readonly IPlanningService _planningService;
-
-    public PlanningController(IPlanningService planningService)
+    private readonly AppDbContext _context;
+    public PlanningController(IPlanningService planningService, AppDbContext context)
     {
         _planningService = planningService;
+        _context = context;
     }
 
     // ════════════════════════════════════════════════════
@@ -34,7 +39,57 @@ public class PlanningController : ControllerBase
         var result = await _planningService.GetPlanningByIdAsync(id);
         return result == null ? NotFound() : Ok(result);
     }
+    // GET api/planning/equipe?authUserId=13
+    [HttpGet("equipe")]
+    public async Task<IActionResult> GetEquipePlannings([FromQuery] int authUserId)
+    {
+        // Résoudre AuthUserId → User avec ses subServices et services gérés
+        var manager = await _context.Users
+            .Include(u => u.ManagedSubServices)
+            .Include(u => u.ManagedServices)
+            .FirstOrDefaultAsync(u => u.AuthUserId == authUserId);
 
+        if (manager == null) return NotFound();
+
+        var subServiceIds = manager.ManagedSubServices
+            .Select(s => s.SubServiceId)
+            .ToList();
+
+        var serviceIds = manager.ManagedServices
+            .Select(s => s.ServiceId)
+            .ToList();
+
+        // SubServices des services gérés
+        var subServicesFromServices = await _context.SubServices
+            .Where(ss => serviceIds.Contains(ss.ServiceId))
+            .Select(ss => ss.Id)
+            .ToListAsync();
+
+        subServiceIds = subServiceIds
+            .Union(subServicesFromServices)
+            .Distinct()
+            .ToList();
+
+        if (!subServiceIds.Any()) return Ok(new List<object>());
+
+        // Récupérer les plannings publiés de ces sous-services
+        var planningIds = await _context.WeeklyPlannings
+            .Where(p => subServiceIds.Contains(p.SubServiceId)
+                     && p.Status == PlanningStatus.Published)
+            .OrderByDescending(p => p.WeekStartDate)
+            .Take(10)
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        var result = new List<WeeklyPlanningResponseDto>();
+        foreach (var id in planningIds)
+        {
+            var dto = await _planningService.GetPlanningByIdAsync(id);
+            if (dto != null) result.Add(dto);
+        }
+
+        return Ok(result);
+    }
     // POST api/planning
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateWeeklyPlanningDto dto)
@@ -203,23 +258,37 @@ public class PlanningController : ControllerBase
     [HttpGet("my/current")]
     public async Task<IActionResult> GetMyCurrentPlanning([FromQuery] int userId)
     {
-        var result = await _planningService.GetMyCurrentPlanningAsync(userId);
+        // userId reçu = AuthUserId → résoudre le Planning ID
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.AuthUserId == userId);
+
+        if (user == null) return NotFound(new { message = "Utilisateur introuvable." });
+
+        var result = await _planningService.GetMyCurrentPlanningAsync(user.Id);
         return result == null ? NotFound() : Ok(result);
     }
 
-    // ✅ DOIT être AVANT my/history aussi
     [HttpGet("my/history")]
     public async Task<IActionResult> GetMyHistory([FromQuery] int userId)
     {
-        var result = await _planningService.GetMyPlanningHistoryAsync(userId);
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.AuthUserId == userId);
+
+        if (user == null) return Ok(new List<object>());
+
+        var result = await _planningService.GetMyPlanningHistoryAsync(user.Id);
         return Ok(result);
     }
 
-    // ✅ Route paramétrique EN DERNIER
     [HttpGet("my/{weekCode}")]
     public async Task<IActionResult> GetMyPlanning(string weekCode, [FromQuery] int userId)
     {
-        var result = await _planningService.GetMyPlanningAsync(userId, weekCode);
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.AuthUserId == userId);
+
+        if (user == null) return NotFound();
+
+        var result = await _planningService.GetMyPlanningAsync(user.Id, weekCode);
         return result == null ? NotFound() : Ok(result);
     }
 

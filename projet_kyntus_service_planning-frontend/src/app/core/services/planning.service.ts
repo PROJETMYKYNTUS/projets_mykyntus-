@@ -36,7 +36,12 @@ getMyCurrentPlanning(userId: number): Observable<any> {
       { headers: this.getHeaders() }
     );
   }
-
+getEquipePlannings(authUserId: number): Observable<any[]> {
+  return this.http.get<any[]>(
+    `${this.api}/planning/equipe?authUserId=${authUserId}`,
+    { headers: this.getHeaders() }
+  );
+}
   // ── Admin ─────────────────────────────────
   generatePlanning(dto: any): Observable<any> {
     return this.http.post(

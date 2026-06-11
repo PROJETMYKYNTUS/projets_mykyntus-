@@ -32,7 +32,13 @@ const routes: Routes = [
   loadComponent: () =>
     import('./pages/conge-manager/conge-manager.component')
       .then(m => m.CongeManagerComponent)
-}
+},
+  {
+    path: 'equipe',
+    loadComponent: () =>
+      import('./pages/planning-equipe/planning-equipe.component')
+        .then(m => m.PlanningEquipeComponent),
+  },
 ];
 
 @NgModule({

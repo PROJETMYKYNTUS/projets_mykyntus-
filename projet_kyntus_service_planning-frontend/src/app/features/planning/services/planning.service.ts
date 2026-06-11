@@ -202,7 +202,9 @@ export class PlanningService {
   constructor(private http: HttpClient) {}
 
   private getHeaders(): HttpHeaders {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem('token')
+      || localStorage.getItem('access_token')
+      || '';
     return new HttpHeaders({ Authorization: `Bearer ${token}` });
   }
 
@@ -259,6 +261,13 @@ export class PlanningService {
   getMyHistory(userId: number): Observable<any> {
     return this.http.get(
       `${this.api}/planning/my/history?userId=${userId}`,
+      { headers: this.getHeaders() }
+    );
+  }
+
+  getEquipePlannings(authUserId: number): Observable<WeeklyPlanningResponse[]> {
+    return this.http.get<WeeklyPlanningResponse[]>(
+      `${this.api}/planning/equipe?authUserId=${authUserId}`,
       { headers: this.getHeaders() }
     );
   }

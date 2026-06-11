@@ -15,15 +15,18 @@ namespace PlanningService.Services
     {
         private readonly AppDbContext _context;
         private readonly IHubContext<NewsletterHub> _hubContext;
+        private readonly IUserService _userService;
         private readonly ILogger<NewsletterService> _logger;
 
         public NewsletterService(
             AppDbContext context,
             IHubContext<NewsletterHub> hubContext,
-            ILogger<NewsletterService> logger) // Plus de UserManager ici
+            IUserService userService,
+            ILogger<NewsletterService> logger)
         {
             _context = context;
             _hubContext = hubContext;
+            _userService = userService;
             _logger = logger;
         }
 
@@ -181,8 +184,16 @@ namespace PlanningService.Services
             if (campaign is null || campaign.Status == CampaignStatus.Sent)
                 return false;
 
-            // Récupérer les users selon le rôle (remplace la table Subscribers)
+            await _userService.SyncMissingAuthUsersAsync();
+
             var users = await GetUsersByAudienceAsync(campaign.AudienceTarget);
+            if (users.Count == 0)
+            {
+                _logger.LogWarning(
+                    "Campagne [{Id}] : aucun destinataire pour l'audience {Audience}",
+                    campaignId, campaign.AudienceTarget);
+                return false;
+            }
 
             campaign.Status = CampaignStatus.Sending;
             campaign.TotalRecipients = users.Count;
@@ -196,8 +207,7 @@ namespace PlanningService.Services
                 // Créer un CampaignAnalytics par user ciblé
                 foreach (var user in users)
                 {
-                    // Conversion explicite pour éviter l'erreur de type
-                    string currentUserIdStr = user.Id.ToString();
+                    var currentUserIdStr = ResolveStoredAnalyticsUserId(user);
 
                     var alreadyExists = await _context.CampaignAnalytics
                         .AnyAsync(a => a.UserId == currentUserIdStr && a.CampaignId == campaign.Id);
@@ -285,12 +295,14 @@ namespace PlanningService.Services
         /// Retourne toutes les newsletters reçues dans le dashboard de l'utilisateur connecté.
         /// Filtre directement par UserId dans CampaignAnalytics (plus de SubscriberId).
         /// </summary>
-        public async Task<IEnumerable<EmployeeNewsletterDto>> GetNewslettersForEmployeeAsync(string userId)
+        public async Task<IEnumerable<EmployeeNewsletterDto>> GetNewslettersForEmployeeAsync(string userId, string? email = null)
         {
-            return await _context.CampaignAnalytics
+            var userIds = await ResolveAnalyticsUserIdsAsync(userId, email);
+
+            var results = await _context.CampaignAnalytics
                 .AsNoTracking()
                 .Include(a => a.Campaign).ThenInclude(c => c.Newsletter)
-                .Where(a => a.UserId == userId
+                .Where(a => userIds.Contains(a.UserId)
                          && a.Campaign.Status == CampaignStatus.Sent)
                 .OrderByDescending(a => a.ReceivedAt)
                 .Select(a => new EmployeeNewsletterDto
@@ -307,15 +319,20 @@ namespace PlanningService.Services
                     ReceivedAt       = a.ReceivedAt
                 })
                 .ToListAsync();
+
+            _logger.LogInformation(
+                "Newsletters inbox userId={UserId} email={Email} ids=[{Ids}] → {Count} résultat(s)",
+                userId, email ?? "-", string.Join(',', userIds), results.Count);
+
+            return results;
         }
 
         /// <summary>Marque une newsletter comme lue.</summary>
-        // Vérifiez que 'userId' est bien présent dans les paramètres (string)
-        public async Task<bool> MarkAsReadAsync(int analyticsId, string userId)
+        public async Task<bool> MarkAsReadAsync(int analyticsId, string userId, string? email = null)
         {
-            // On compare string (a.UserId) avec string (userId)
+            var userIds = await ResolveAnalyticsUserIdsAsync(userId, email);
             var analytics = await _context.CampaignAnalytics
-                .FirstOrDefaultAsync(a => a.Id == analyticsId && a.UserId == userId);
+                .FirstOrDefaultAsync(a => a.Id == analyticsId && userIds.Contains(a.UserId));
 
             if (analytics is null || analytics.IsRead) return false;
 
@@ -368,27 +385,108 @@ namespace PlanningService.Services
             // Map explicite : enum pluriel → nom de rôle singulier en BDD
             string targetRoleName = audience switch
             {
-                AudienceTarget.Employees => "EMPLOYEE",
-                AudienceTarget.Managers => "MANAGER",
+                AudienceTarget.Employees => "Employee",
+                AudienceTarget.Managers => "Manager",
                 AudienceTarget.Admins => "Admin",
                 AudienceTarget.Pilotes => "Pilote",
                 AudienceTarget.Coaches => "Coach",
                 AudienceTarget.RPs => "RP",
                 AudienceTarget.Audits => "Audit",
-                AudienceTarget.EquipeFormation => "Equipe formation",
+                AudienceTarget.EquipeFormation => "EquipeFormation",
                 _ => audience.ToString()
             };
             _logger.LogInformation("Recherche users avec rôle: '{Role}'", targetRoleName);
 
             var users = await _context.Users
                 .Include(u => u.Role)
-                .Where(u => u.Role.Name == targetRoleName)
+                .Where(u => u.IsActive && u.Role.Name == targetRoleName)
                 .ToListAsync();
 
             _logger.LogInformation("Users trouvés: {Count}", users.Count);
 
             return users;
         }
+        /// <summary>
+        /// Remplace les UserId analytics (id planning) par AuthUserId quand le lien existe.
+        /// </summary>
+        public async Task RepairCampaignAnalyticsUserIdsAsync()
+        {
+            var usersByPlanningId = await _context.Users
+                .Where(u => u.AuthUserId != null)
+                .ToDictionaryAsync(u => u.Id.ToString(), u => u);
+
+            var analytics = await _context.CampaignAnalytics.ToListAsync();
+            var repaired = 0;
+
+            foreach (var entry in analytics)
+            {
+                if (!usersByPlanningId.TryGetValue(entry.UserId, out var user))
+                    continue;
+
+                var canonical = user.AuthUserId!.Value.ToString();
+                if (entry.UserId == canonical)
+                    continue;
+
+                var duplicate = analytics.Any(a =>
+                    a.Id != entry.Id &&
+                    a.CampaignId == entry.CampaignId &&
+                    a.UserId == canonical);
+
+                if (duplicate)
+                    continue;
+
+                entry.UserId = canonical;
+                repaired++;
+            }
+
+            if (repaired > 0)
+            {
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("CampaignAnalytics : {Count} UserId corrigé(s) vers AuthUserId", repaired);
+            }
+        }
+
+        private static string ResolveStoredAnalyticsUserId(User user) =>
+            user.AuthUserId?.ToString() ?? user.Id.ToString();
+
+        /// <summary>
+        /// JWT NameIdentifier (AuthUserId) peut différer de l'id planning stocké en analytics.
+        /// </summary>
+        private async Task<List<string>> ResolveAnalyticsUserIdsAsync(string userId, string? email = null)
+        {
+            var ids = new HashSet<string>(StringComparer.Ordinal) { userId };
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                var byEmail = await _context.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Email == email);
+
+                if (byEmail != null)
+                {
+                    ids.Add(byEmail.Id.ToString());
+                    if (byEmail.AuthUserId.HasValue)
+                        ids.Add(byEmail.AuthUserId.Value.ToString());
+                }
+            }
+
+            if (int.TryParse(userId, out var numericId))
+            {
+                var planningUser = await _context.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.AuthUserId == numericId || u.Id == numericId);
+
+                if (planningUser != null)
+                {
+                    ids.Add(planningUser.Id.ToString());
+                    if (planningUser.AuthUserId.HasValue)
+                        ids.Add(planningUser.AuthUserId.Value.ToString());
+                }
+            }
+
+            return ids.ToList();
+        }
+
         private static CampaignResponseDto MapCampaignToDto(NewsletterCampaign c) => new()
         {
             Id               = c.Id,

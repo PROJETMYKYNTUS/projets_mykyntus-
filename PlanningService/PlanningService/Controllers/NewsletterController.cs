@@ -90,7 +90,7 @@ namespace PlanningService.Controllers
         {
             var success = await _newsletterService.PublishCampaignAsync(id);
             if (!success)
-                return BadRequest(new { message = "Impossible de publier la campagne (déjà envoyée ou introuvable)." });
+                return BadRequest(new { message = "Impossible de publier la campagne (déjà envoyée, introuvable ou aucun destinataire pour l'audience choisie)." });
 
             return Ok(new { message = "Newsletter publiée et envoyée aux dashboards des employés." });
         }

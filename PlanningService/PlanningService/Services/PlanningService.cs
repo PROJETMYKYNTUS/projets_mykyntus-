@@ -823,43 +823,48 @@ public class PlanningService : IPlanningService
     // ════════════════════════════════════════════════════
     // PUBLIER
     // ════════════════════════════════════════════════════
- public async Task<WeeklyPlanningResponseDto> PublishPlanningAsync(int planningId, int validatorId)
-{
-    var planning = await _context.WeeklyPlannings
-        .Include(p => p.ShiftAssignments)
-        .Include(p => p.SubService)
-        .FirstOrDefaultAsync(p => p.Id == planningId);
-
-    if (planning == null) throw new Exception("Planning introuvable");
-
-    planning.Status      = PlanningStatus.Published;
-    planning.ValidatedBy = validatorId;
-
-    await _context.SaveChangesAsync();
-
-    // ✅ Notifier chaque employé en temps réel
-    var userIds = planning.ShiftAssignments
-        .Select(a => a.UserId)
-        .Distinct()
-        .ToList();
-
-    foreach (var userId in userIds)
+    public async Task<WeeklyPlanningResponseDto> PublishPlanningAsync(int planningId, int validatorId)
     {
-            Console.WriteLine($"📢 Envoi notification à user_{userId}");
+        var planning = await _context.WeeklyPlannings
+            .Include(p => p.ShiftAssignments)
+            .Include(p => p.SubService)
+            .FirstOrDefaultAsync(p => p.Id == planningId);
+
+        if (planning == null) throw new Exception("Planning introuvable");
+
+        planning.Status = PlanningStatus.Published;
+        planning.ValidatedBy = validatorId;
+        await _context.SaveChangesAsync();
+
+        var planningUserIds = planning.ShiftAssignments
+            .Select(a => a.UserId)
+            .Distinct()
+            .ToList();
+
+        var users = await _context.Users
+            .Where(u => planningUserIds.Contains(u.Id) && u.AuthUserId != null)
+            .Select(u => new { u.Id, u.AuthUserId })
+            .ToListAsync();
+
+        foreach (var user in users)
+        {
+            Console.WriteLine($"📢 Envoi notification à user_{user.AuthUserId} (PlanningId={user.Id})");
+
             await _hubContext.Clients
-                .Group($"user_{userId}")
+                .Group($"user_{user.AuthUserId}")
                 .SendAsync("PlanningPublished", new
                 {
                     weekCode = planning.WeekCode,
                     subServiceName = planning.SubService.Name,
                     message = $"Votre planning {planning.WeekCode} est disponible !"
                 });
-            Console.WriteLine($"✅ Notification envoyée à user_{userId}");
+
+            Console.WriteLine($"✅ Notification envoyée à user_{user.AuthUserId}");
         }
 
-    return await GetPlanningByIdAsync(planning.Id)
-        ?? throw new Exception("Erreur publication planning.");
-}
+        return await GetPlanningByIdAsync(planning.Id)
+            ?? throw new Exception("Erreur publication planning.");
+    }
 
     // ════════════════════════════════════════════════════
     // GROUPES SAMEDI

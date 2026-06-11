@@ -1,0 +1,68 @@
+<div class="page-wrapper ky-page-shell">
+
+  <div class="page-header">
+    <div class="header-info">
+      <h1 class="page-title">Planning Équipe</h1>
+      <p class="page-sub">Plannings publiés des sous-services que vous gérez</p>
+    </div>
+    <button type="button" class="btn-back" (click)="goBack()">Retour aux plannings</button>
+  </div>
+
+  <div class="equipe-loading" *ngIf="equipeLoading">
+    <p>Chargement des plannings équipe…</p>
+  </div>
+
+  <div class="equipe-error" *ngIf="!equipeLoading && error">{{ error }}</div>
+
+  <div class="equipe-empty gen-card" *ngIf="!equipeLoading && !error && equipePlannings.length === 0">
+    <h2>Aucun planning publié</h2>
+    <p>Aucun planning n'est disponible pour votre équipe.</p>
+  </div>
+
+  <ng-container *ngIf="!equipeLoading && !error && equipePlannings.length > 0">
+    <div class="equipe-chips">
+      <button *ngFor="let p of equipePlannings"
+              type="button"
+              class="equipe-chip"
+              [class.active]="selectedEquipePlanning?.id === p.id"
+              (click)="selectedEquipePlanning = p">
+        {{ p.weekCode }} — {{ p.subServiceName }}
+      </button>
+    </div>
+
+    <div class="gen-card" *ngIf="selectedEquipePlanning">
+      <div class="card-header">
+        <h2>{{ selectedEquipePlanning.weekCode }} — {{ selectedEquipePlanning.subServiceName }}</h2>
+        <span class="status-published">Publié</span>
+      </div>
+
+      <div class="equipe-table-wrap">
+        <table class="equipe-table">
+          <thead>
+            <tr>
+              <th>Employé</th>
+              <th *ngFor="let day of weekDays">{{ dayLabels[day] }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let emp of selectedEquipePlanning.assignments">
+              <td class="emp-name">{{ emp.fullName }}</td>
+              <td *ngFor="let day of weekDays" class="emp-cell">
+                <ng-container *ngIf="getEmpDay(emp, day) as d">
+                  <span *ngIf="d.isHoliday" class="cell-ferie">Férié</span>
+                  <span *ngIf="d.isOnLeave && !d.isHoliday" class="cell-conge">Congé</span>
+                  <span *ngIf="!d.isOnLeave && !d.isHoliday && d.shiftLabel !== '—'" class="cell-shift">
+                    {{ d.shiftLabel }}<br><small>{{ d.startTime }}</small>
+                  </span>
+                  <span *ngIf="!d.isOnLeave && !d.isHoliday && (!d.shiftLabel || d.shiftLabel === '—')" class="cell-empty">—</span>
+                </ng-container>
+                <span *ngIf="!getEmpDay(emp, day)" class="cell-empty">—</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </ng-container>
+
+</div>

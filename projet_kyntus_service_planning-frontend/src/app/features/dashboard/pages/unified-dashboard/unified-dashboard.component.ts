@@ -77,15 +77,18 @@ export class UnifiedDashboardComponent implements OnInit {
         { label: 'Contrats', route: '/contracts', icon: this.icons.contracts },
         { label: 'Plannings', route: '/planning', icon: this.icons.calendar },
         { label: 'Réclamations', route: '/reclamations-admin', icon: this.icons.reclamations },
+        { label: 'Mes newsletters', route: '/mes-newsletters', icon: this.icons.reclamations },
       ];
     } else if (managerLike) {
       this.dashboardTitle = 'Espace manager';
       this.dashboardSubtitle = 'Suivi équipe, congés et formations';
       this.quickLinks = [
         { label: 'Plannings', route: '/planning', icon: this.icons.calendar },
+        { label: 'Planning Équipe', route: '/planning/equipe', icon: this.icons.calendar },
         { label: 'Congés', route: '/conge-gestion', icon: this.icons.calendar },
         { label: 'Réclamations', route: '/reclamations-admin', icon: this.icons.reclamations },
         { label: 'Formations', route: '/formations', icon: this.icons.formations },
+        { label: 'Mes newsletters', route: '/mes-newsletters', icon: this.icons.reclamations },
       ];
     } else if (employeeLike) {
       this.dashboardTitle = 'Mon espace';
@@ -95,6 +98,7 @@ export class UnifiedDashboardComponent implements OnInit {
         { label: 'Mes congés', route: '/mes-conges', icon: this.icons.calendar },
         { label: 'Mes formations', route: '/mes-formations', icon: this.icons.formations },
         { label: 'Réclamations', route: '/reclamations', icon: this.icons.reclamations },
+        { label: 'Mes newsletters', route: '/mes-newsletters', icon: this.icons.reclamations },
       ];
     } else {
       this.dashboardTitle = 'Tableau de bord';

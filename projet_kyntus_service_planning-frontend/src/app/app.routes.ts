@@ -94,6 +94,14 @@ export const routes: Routes = [
         data: { roles: ['Admin', 'RH'] },
         component: NewsletterAdminComponent,
       },
+      {
+        path: 'mes-newsletters',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Employee', 'Superviseur'] },
+        loadComponent: () =>
+          import('./features/newsletter-inbox/my-newsletters-page.component')
+            .then(m => m.MyNewslettersPageComponent),
+      },
 
       // ─── ORGANISATION ────────────────────────────
       {

@@ -522,6 +522,8 @@ const dto: SavePlanningCommentDto = {
   }
 
   // ── Navigation ────────────────────────────────────
+  goBack(): void { this.router.navigate(['/planning']); }
+
   getStatusClass(status: string): string {
     return ({ Draft: 'st-draft', Published: 'st-published' } as any)[status] ?? '';
   }

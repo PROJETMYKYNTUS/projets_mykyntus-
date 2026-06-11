@@ -24,13 +24,14 @@ export class KyntusNotificationInitService {
     const authUserId = this.session.getAuthUserId();
     if (!authUserId) return;
 
-    const planningUserId = await this.resolvePlanningUserId(authUserId);
+    // Planning hub utilise AuthUserId (JWT) ; reclamation hub utilise l'id planning local
+    const reclamationUserId = await this.resolvePlanningUserId(authUserId);
     const role = (this.session.getRole() || '').toLowerCase().trim();
 
     if (MANAGER_ROLES.has(role)) {
-      this.planningNotif.connectAsManager(planningUserId);
+      this.planningNotif.connectAsManager(reclamationUserId);
     } else {
-      this.planningNotif.connect(planningUserId);
+      this.planningNotif.connect(reclamationUserId);
     }
 
     this.hub.bootstrapAfterLogin();

@@ -1,0 +1,52 @@
+<div class="page-wrapper ky-page-shell">
+
+  <div class="page-header">
+    <div class="header-info">
+      <h1 class="page-title">Mes Newsletters</h1>
+      <p class="page-sub">Communications internes reçues selon votre rôle</p>
+    </div>
+    <div class="nl-stats" *ngIf="!loading && !error">
+      <span>{{ myNewsletters.length }} reçue(s)</span>
+      <span>{{ getReadCount() }} lue(s)</span>
+      <span *ngIf="getUnreadCount() > 0" class="nl-unread">{{ getUnreadCount() }} non lue(s)</span>
+    </div>
+  </div>
+
+  <div class="nl-loading" *ngIf="loading">Chargement des newsletters…</div>
+  <div class="nl-error" *ngIf="!loading && error">{{ error }}</div>
+
+  <div class="gen-card nl-empty" *ngIf="!loading && !error && myNewsletters.length === 0">
+    <h2>Aucune newsletter reçue</h2>
+    <p>Les campagnes ciblant votre rôle (Employee, Manager, etc.) apparaîtront ici après publication par le RH.</p>
+  </div>
+
+  <div class="nl-inbox" *ngIf="!loading && !error && myNewsletters.length > 0 && !selectedNewsletter">
+    <button type="button"
+            class="nl-item"
+            *ngFor="let nl of myNewsletters"
+            [class.unread]="!nl.isRead"
+            (click)="openNewsletter(nl)">
+      <div class="nl-item-main">
+        <strong [class.bold]="!nl.isRead">{{ nl.newsletterTitle }}</strong>
+        <span>{{ nl.newsletterSubject }}</span>
+        <small>Campagne : {{ nl.campaignName }}</small>
+      </div>
+      <div class="nl-item-meta">
+        <span>{{ nl.receivedAt | date:'dd/MM HH:mm' }}</span>
+        <span class="badge" [class.badge-new]="!nl.isRead">{{ nl.isRead ? 'Lu' : 'Nouveau' }}</span>
+      </div>
+    </button>
+  </div>
+
+  <div class="gen-card nl-detail" *ngIf="selectedNewsletter">
+    <button type="button" class="btn-back" (click)="closeNewsletter()">Retour à la liste</button>
+    <h2>{{ selectedNewsletter.newsletterTitle }}</h2>
+    <p class="nl-detail-subject">{{ selectedNewsletter.newsletterSubject }}</p>
+    <p class="nl-detail-meta">
+      Campagne : {{ selectedNewsletter.campaignName }} —
+      Reçue le {{ selectedNewsletter.receivedAt | date:'dd/MM/yyyy à HH:mm' }}
+    </p>
+    <div class="nl-detail-content" [innerHTML]="selectedNewsletter.htmlContent"></div>
+  </div>
+
+</div>

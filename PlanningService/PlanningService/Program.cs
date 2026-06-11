@@ -190,6 +190,13 @@ using (var scope = app.Services.CreateScope())
     await userService.SyncMissingAuthUsersAsync();
 }
 
+// Corrige les analytics newsletter (id planning → AuthUserId JWT)
+using (var scope = app.Services.CreateScope())
+{
+    var newsletterService = scope.ServiceProvider.GetRequiredService<INewsletterService>();
+    await newsletterService.RepairCampaignAnalyticsUserIdsAsync();
+}
+
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {

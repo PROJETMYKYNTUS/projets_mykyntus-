@@ -1,5 +1,3 @@
-import { KyntusSessionService } from '../../../../core/session/kyntus-session.service';
-import { inject } from '@angular/core';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -49,9 +47,15 @@ interface MyPlanning {
 export class DashboardEmployeeComponent implements OnInit, OnDestroy {
 
   // ── Vues ──
-  currentView: 'home' | 'planning' | 'conges' | 'settings' | 'newsletters' | 'reclamations' | 'formations' = 'home';
+  currentView: 'home' | 'planning' | 'conges' | 'settings' |
+               'newsletters' | 'reclamations' | 'formations' |
+               'equipe-planning' = 'home';
   congesSubView: 'mes-conges' | 'equipe' = 'mes-conges';
-  // ── User ──
+
+  // ── User & plannings équipe ──
+  equipePlannings: any[] = [];
+  equipeLoading = false;
+  selectedEquipePlanning: any = null;
   planning: MyPlanning | null = null;
   history: MyPlanning[] = [];
   loading = false;
@@ -84,9 +88,17 @@ userRole = (() => {
   return (user?.role ?? user?.Role ?? user?.roles?.[0] ?? '').trim();
 })();
   // ── Getters rôle ──────────────────────────────────────────────────────────
- get isManager(): boolean {
-  return this.userRole.toLowerCase().trim() === 'manager';
-}
+  get isManager(): boolean {
+    return this.userRole.toLowerCase().trim() === 'manager';
+  }
+
+  get isCoach(): boolean {
+    return this.userRole.toLowerCase().trim() === 'coach';
+  }
+
+  get isManagerOrCoach(): boolean {
+    return this.isManager || this.isCoach;
+  }
 
   get congesLabel(): string {
     return this.isManager ? 'Congés Équipe' : 'Mes Congés';
@@ -152,14 +164,15 @@ userRole = (() => {
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────
-navigateTo(view: 'home' | 'planning' | 'conges' | 'settings' | 
-                 'newsletters' | 'reclamations' | 'formations'): void {
-  this.currentView = view;
-  if (view === 'planning' && !this.planning) this.loadCurrentPlanning();
-  if (view === 'newsletters') this.loadMyNewsletters();
-  // Reset sous-vue à chaque entrée
-  if (view === 'conges') this.congesSubView = 'mes-conges';
-}
+  navigateTo(view: 'home' | 'planning' | 'conges' | 'settings' |
+                   'newsletters' | 'reclamations' | 'formations' |
+                   'equipe-planning'): void {
+    this.currentView = view;
+    if (view === 'planning' && !this.planning) this.loadCurrentPlanning();
+    if (view === 'newsletters') this.loadMyNewsletters();
+    if (view === 'conges') this.congesSubView = 'mes-conges';
+    if (view === 'equipe-planning') this.loadEquipePlannings();
+  }
 
 // Nouvelle méthode
 navigateConges(sub: 'mes-conges' | 'equipe'): void {
@@ -173,6 +186,26 @@ navigateConges(sub: 'mes-conges' | 'equipe'): void {
       if (email) queryParams['email'] = email;
     } catch { /* ignore */ }
     void this.router.navigate(['/documentation'], { queryParams });
+  }
+
+  // ── Planning équipe ───────────────────────────────────────────────────────
+  loadEquipePlannings(): void {
+    this.equipeLoading = true;
+    this.planningService.getEquipePlannings(this.userId).subscribe({
+      next: (data) => {
+        this.equipePlannings = data;
+        this.equipeLoading = false;
+        if (data.length > 0) this.selectedEquipePlanning = data[0];
+      },
+      error: () => {
+        this.equipePlannings = [];
+        this.equipeLoading = false;
+      }
+    });
+  }
+
+  getEmpDay(emp: any, day: string): any {
+    return emp.days?.find((d: any) => d.day === day) ?? null;
   }
 
   // ── Planning ──────────────────────────────────────────────────────────────

@@ -94,6 +94,7 @@ export class UserListComponent implements OnInit {
   return [partAns, partMois, partJour].filter(Boolean).join(' et ');
 }
 
+  goToDashboard(): void { this.router.navigate(['/dashboard']); }
   goimport() : void {this.router.navigate(['/users/import']);}
   viewUser(id: number): void { this.router.navigate(['/users', id]); }
   editUser(id: number): void { this.router.navigate(['/users', 'edit', id]); }

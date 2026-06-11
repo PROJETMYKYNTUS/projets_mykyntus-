@@ -20,8 +20,11 @@ namespace PlanningService.Interfaces
         Task<bool> CancelCampaignAsync(int campaignId);
 
         // ── Côté Employee / Manager : newsletters reçues ──────────────────────
-        Task<IEnumerable<EmployeeNewsletterDto>> GetNewslettersForEmployeeAsync(string userId);
-        Task<bool> MarkAsReadAsync(int analyticsId, string userId);
+        Task<IEnumerable<EmployeeNewsletterDto>> GetNewslettersForEmployeeAsync(string userId, string? email = null);
+        Task<bool> MarkAsReadAsync(int analyticsId, string userId, string? email = null);
+
+        /// <summary>Corrige les UserId analytics (id planning → AuthUserId JWT).</summary>
+        Task RepairCampaignAnalyticsUserIdsAsync();
 
         // ── Analytics ─────────────────────────────────────────────────────────
         Task<CampaignAnalyticsDto?> GetCampaignAnalyticsAsync(int campaignId);

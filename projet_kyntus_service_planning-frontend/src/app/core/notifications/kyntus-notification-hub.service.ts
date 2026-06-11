@@ -213,7 +213,7 @@ export class KyntusNotificationHubService {
           body: n.subject,
           read: n.read,
           createdAt: n.receivedAt instanceof Date ? n.receivedAt : new Date(n.receivedAt),
-          action: { route: '/newsletter' },
+          action: { route: '/mes-newsletters' },
         });
       });
     }

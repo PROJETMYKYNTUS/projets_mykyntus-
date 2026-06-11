@@ -55,18 +55,39 @@ export class NotificationService {
   // ✅ Subject dédié pour les composants qui écoutent les notifs reclamation
   public reclamationNotif$ = new Subject<ReclamationNotif>();
 
+  private getToken(): string {
+    return localStorage.getItem(this.TOKEN_KEY)
+        || localStorage.getItem('access_token')
+        || localStorage.getItem('jwt')
+        || '';
+  }
+
+  private getAuthUserIdFromToken(): string {
+    const token = this.getToken();
+    if (!token) return '';
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
+          ?? payload.sub
+          ?? payload.nameid
+          ?? '';
+    } catch {
+      return '';
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────
   // API publique
   // ─────────────────────────────────────────────────────────────
 
   connect(userId: number): void {
-    this.connectPlanningHub(userId);
+    this.connectPlanningHub();
     this.connectReclamationHub(userId, false);
     this.connectNewsletterHub();
   }
 
   connectAsManager(userId: number): void {
-    this.connectPlanningHub(userId);
+    this.connectPlanningHub();
     this.connectReclamationHub(userId, true);
     this.connectNewsletterHub();
   }
@@ -107,12 +128,14 @@ export class NotificationService {
   // Planning Hub
   // ─────────────────────────────────────────────────────────────
 
-private connectPlanningHub(userId: number): void {
+private connectPlanningHub(): void {
+  const authUserId = this.getAuthUserIdFromToken();
+
   this.connection = new signalR.HubConnectionBuilder()
     .withUrl('/hubs/planning', {
-      transport: signalR.HttpTransportType.WebSockets, // ← WebSocket
+      transport: signalR.HttpTransportType.WebSockets,
       skipNegotiation: false,
-      accessTokenFactory: () => localStorage.getItem(this.TOKEN_KEY) || ''
+      accessTokenFactory: () => this.getToken()
     })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
     .build();
@@ -133,8 +156,8 @@ private connectPlanningHub(userId: number): void {
     this.connection.onreconnected(async () => {
       console.log('🔄 Planning Hub reconnecté — re-join groupe');
       try {
-        await this.connection.invoke('JoinUserGroup', userId.toString());
-        console.log('✅ Planning Hub — groupe user re-rejoint:', userId);
+        await this.connection.invoke('JoinUserGroup', authUserId);
+        console.log('✅ Planning Hub — groupe user re-rejoint:', authUserId);
       } catch (err) {
         console.error('❌ Planning Hub re-join échoué:', err);
       }
@@ -146,9 +169,8 @@ private connectPlanningHub(userId: number): void {
 
     this.connection.start()
       .then(async () => {
-        console.log('✅ Planning Hub connecté');
-        await this.connection.invoke('JoinUserGroup', userId.toString());
-        console.log('✅ Planning Hub — userId:', userId);
+        console.log('✅ Planning Hub connecté — AuthUserId:', authUserId);
+        await this.connection.invoke('JoinUserGroup', authUserId);
       })
       .catch(err => console.error('❌ Planning Hub erreur:', err));
   }
@@ -163,7 +185,7 @@ private connectReclamationHub(userId: number, isManager: boolean): void {
       transport: signalR.HttpTransportType.WebSockets, // ← WebSocket
       skipNegotiation: false,
       accessTokenFactory: () => {
-        const token = localStorage.getItem(this.TOKEN_KEY) || '';
+        const token = this.getToken();
         console.log('🔑 Token envoyé au hub:', token ? 'OK' : 'VIDE ❌');
         return token;
       }
@@ -226,18 +248,19 @@ private connectReclamationHub(userId: number, isManager: boolean): void {
   }
 
   private connectNewsletterHub(): void {
-    const role = (localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user') || '{}').role : '') || '';
+    const rawRole = (localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user') || '{}').role : '') || '';
+    const role = rawRole.trim();
     const groupMap: Record<string, string> = {
-      Admin: 'Admin',
-      RH: 'Admin',
-      Manager: 'Manager',
-      Employee: 'Employee',
+      admin: 'Admin',
+      rh: 'Admin',
+      manager: 'Manager',
+      employee: 'Employee',
     };
-    const group = groupMap[role] ?? 'Employee';
+    const group = groupMap[role.toLowerCase()] ?? 'Employee';
 
     this.newsletterConnection = new signalR.HubConnectionBuilder()
       .withUrl('/hubs/newsletter', {
-        accessTokenFactory: () => localStorage.getItem(this.TOKEN_KEY) || '',
+        accessTokenFactory: () => this.getToken(),
       })
       .withAutomaticReconnect()
       .build();

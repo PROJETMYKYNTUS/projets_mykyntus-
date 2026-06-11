@@ -20,6 +20,9 @@ namespace PlanningService.Controllers
         private string CurrentUserId =>
             User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "unknown";
 
+        private string? CurrentUserEmail =>
+            User.FindFirstValue(ClaimTypes.Email);
+
         /// <summary>
         /// Récupère toutes les newsletters reçues pour l'utilisateur connecté.
         /// Le filtre par rôle est géré à la publication (via UserManager), pas ici.
@@ -27,7 +30,7 @@ namespace PlanningService.Controllers
         [HttpGet]
         public async Task<IActionResult> GetMyNewsletters()
         {
-            var newsletters = await _newsletterService.GetNewslettersForEmployeeAsync(CurrentUserId);
+            var newsletters = await _newsletterService.GetNewslettersForEmployeeAsync(CurrentUserId, CurrentUserEmail);
             return Ok(newsletters);
         }
 
@@ -37,7 +40,7 @@ namespace PlanningService.Controllers
         [HttpPatch("{analyticsId:int}/read")]
         public async Task<IActionResult> MarkAsRead(int analyticsId)
         {
-            var success = await _newsletterService.MarkAsReadAsync(analyticsId, CurrentUserId);
+            var success = await _newsletterService.MarkAsReadAsync(analyticsId, CurrentUserId, CurrentUserEmail);
             if (!success)
                 return BadRequest(new { message = "Impossible de marquer comme lu." });
 

@@ -106,6 +106,7 @@ export const MICROSERVICES: Microservice[] = [
     roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'],
     children: [
       { label: 'Plannings', route: '/planning' },
+      { label: 'Planning Équipe', route: '/planning/equipe', roles: ['Manager', 'Coach'] },
       { label: 'Configuration Shifts', route: '/planning/shift-config' },
       { label: 'Historique Samedis', route: '/planning/saturday-history' },
     ],
@@ -123,9 +124,9 @@ export const MICROSERVICES: Microservice[] = [
     id: 'communication',
     label: 'Communication',
     icon: ICONS.mail,
-    roles: ADMIN_RH,
     children: [
-      { label: 'Newsletters', route: '/newsletter', roles: ADMIN_RH },
+      { label: 'Mes newsletters', route: '/mes-newsletters', roles: ALL_ROLES },
+      { label: 'Gestion newsletters', route: '/newsletter', roles: ADMIN_RH },
     ],
   },
   {

@@ -16,3 +16,10 @@ public sealed class PrimeFicheTemplateUsageDto
     public string RecommendedAction =>
         CanHardDelete ? "hardDelete" : "archive";
 }
+
+/// <summary>Vérification d’unicité du nom affiché (brouillons superviseur en base).</summary>
+public sealed class PrimeFicheTemplateDisplayNameCheckDto
+{
+    public string DisplayName { get; init; } = "";
+    public bool Taken { get; init; }
+}

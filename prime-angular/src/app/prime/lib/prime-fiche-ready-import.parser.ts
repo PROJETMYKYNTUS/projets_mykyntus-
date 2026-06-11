@@ -2,7 +2,10 @@ import { parsePrimeFicheGrid } from './prime-fiche-grid.parser';
 import { parsePrimeTemplateExcel } from './excel-fiche-template.parser';
 import { buildTemplatePayloadFromSchemaDefaults } from './prime-fiche-payload-from-schema';
 import { extractMergedFicheTotals } from './prime-employee-fiche-merged-preview';
-import { buildStoredTemplateForDirectCommonUpload } from '../models/prime-template.model';
+import {
+  buildStoredTemplateForDirectCommonUpload,
+  type StoredPrimeTemplate,
+} from '../models/prime-template.model';
 import { computePreviewGridWithFormulas } from './prime-fiche-formula-eval';
 import type { PrimeFicheTemplateSchema } from '../models/prime-fiche-template.schema';
 
@@ -16,6 +19,7 @@ export interface ReadyFicheExcelParseResult {
   serviceSaisieJson: string;
   previewSheetName: string | null;
   schema: PrimeFicheTemplateSchema | null;
+  previewTemplate: StoredPrimeTemplate | null;
 }
 
 function schemaToPreviewRows(schema: PrimeFicheTemplateSchema): string[][] {
@@ -49,6 +53,7 @@ export async function parseReadyPrimeFicheExcel(
       serviceSaisieJson: '{}',
       previewSheetName: null,
       schema: null,
+      previewTemplate: null,
     };
   }
 
@@ -95,5 +100,6 @@ export async function parseReadyPrimeFicheExcel(
     serviceSaisieJson,
     previewSheetName: schema.sheetName ?? parsedWorkbook.sheets[0]?.name ?? 'Fiche_PRIME',
     schema,
+    previewTemplate: tpl,
   };
 }

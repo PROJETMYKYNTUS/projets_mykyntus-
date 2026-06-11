@@ -1,6 +1,14 @@
 node_modules
+**/node_modules
 dist
+**/dist
 .angular
+**/.angular
 .git
+.gitignore
 *.md
+*.log
+coverage
+.vscode
+.idea
 Exemplaire Prime.xlsx

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Data;
 using PrimeBackend.Dto;
@@ -54,5 +55,40 @@ public sealed class PrimeFicheTemplateReferenceService(PrimeDbContext db, PrimeO
             FrozenPilotFicheCount = frozenCount,
             ValidatedPilotFicheCount = validatedCount,
         };
+    }
+
+    /// <summary>
+    /// Vrai si un brouillon fiche commune du superviseur porte déjà ce nom affiché
+    /// (normalisation insensible à la casse / espaces).
+    /// </summary>
+    public async Task<bool> IsDisplayNameTakenAsync(
+        string supervisorUserId,
+        string displayName,
+        string? excludeTemplateId,
+        CancellationToken ct = default)
+    {
+        var key = NormalizeDisplayName(displayName);
+        if (string.IsNullOrEmpty(key)) return false;
+
+        var sup = supervisorUserId.Trim();
+        var celluleIds = await org.GetSupervisedCelluleIdsAsync(sup, ct);
+        if (celluleIds.Count == 0) return false;
+
+        var exclude = (excludeTemplateId ?? "").Trim();
+        var names = await db.SupervisorCellulePrimeDrafts.AsNoTracking()
+            .Where(d => d.SupervisorUserId == sup && celluleIds.Contains(d.CelluleId))
+            .Where(d => exclude.Length == 0 || d.TemplateId != exclude)
+            .Select(d => d.TemplateDisplayName)
+            .ToListAsync(ct);
+
+        return names.Any(n => NormalizeDisplayName(n) == key);
+    }
+
+    private static string NormalizeDisplayName(string name)
+    {
+        var trimmed = (name ?? "").Trim();
+        if (trimmed.Length == 0) return "";
+        var parts = trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(' ', parts).ToLower(CultureInfo.InvariantCulture);
     }
 }

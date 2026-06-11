@@ -48,8 +48,11 @@ import {
 import {
   PRIME_EXCEL_DIRECT_COMMON_TEMPLATE_ID,
   buildStoredTemplateForDirectCommonUpload,
+  directCommonUploadDisplayName,
+  isTemplateDisplayNameTaken,
   loadStoredTemplates,
   serializeTemplateCalcSnapshotV1,
+  templateDisplayNameConflictMessage,
 } from '../models/prime-template.model';
 import { parsePrimeTemplateExcel } from '../lib/excel-fiche-template.parser';
 import { parsePrimeFicheGrid } from '../lib/prime-fiche-grid.parser';
@@ -1545,6 +1548,7 @@ export class PrimeSaisieComponent {
         `Fiche commune enregistrée pour ${this.session.periodLabel()} (« ${tpl.displayName} »).`,
       );
       this.wizardEarlySaveIsError.set(false);
+      this.session.exitWizardToList();
     } catch (e: unknown) {
       this.wizardEarlySaveMessage.set(this.wizardSaveErrorMessage(e));
       this.wizardEarlySaveIsError.set(true);
@@ -1594,6 +1598,7 @@ export class PrimeSaisieComponent {
       const saved = await firstValueFrom(
         this.cellPrimeApi.upsertPoleDraft({
           supervisorUserId: u.id,
+          celluleId: orgKey,
           poleId: orgKey,
           period: this.session.periodLabel(),
           templateId: tpl.id,
@@ -2081,6 +2086,26 @@ export class PrimeSaisieComponent {
         this.commonExcelDirectError.set(errs);
         return;
       }
+      const displayName = directCommonUploadDisplayName(file.name);
+      if (isTemplateDisplayNameTaken(displayName, loadStoredTemplates())) {
+        this.commonExcelDirectError.set(templateDisplayNameConflictMessage(displayName));
+        return;
+      }
+      try {
+        const remote = await firstValueFrom(
+          this.cellPrimeApi
+            .checkFicheTemplateDisplayNameTaken(u.id, displayName, PRIME_EXCEL_DIRECT_COMMON_TEMPLATE_ID)
+            .pipe(catchError(() => of({ taken: false, displayName }))),
+        );
+        if (remote.taken) {
+          this.commonExcelDirectError.set(
+            `${templateDisplayNameConflictMessage(displayName)} (déjà utilisé sur une fiche commune en base).`,
+          );
+          return;
+        }
+      } catch {
+        /* contrôle local suffit hors ligne */
+      }
       const tpl = buildStoredTemplateForDirectCommonUpload(file.name, grid, parsedWb);
       if (!tpl) {
         this.commonExcelDirectError.set('Impossible de construire le template à partir du fichier.');
@@ -2094,6 +2119,7 @@ export class PrimeSaisieComponent {
       const saved = await firstValueFrom(
         this.cellPrimeApi.upsertPoleDraft({
           supervisorUserId: u.id,
+          celluleId: orgKey,
           poleId: orgKey,
           period: this.session.periodLabel(),
           templateId: tpl.id,
@@ -2107,6 +2133,7 @@ export class PrimeSaisieComponent {
         }),
       );
       this.session.setPolePrimeDraftId(saved.id);
+      this.session.bumpDraftListRefresh();
       this.session.setSessionTemplateFromDirectUpload(tpl);
       // Évite le passage auto « entry → result » du wizard pendant qu’on réinjecte le payload importé.
       untracked(() => this.poleAutoNavigated.set(true));

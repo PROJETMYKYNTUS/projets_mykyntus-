@@ -12,6 +12,7 @@ import { firstValueFrom } from 'rxjs';
 import { Upload, Eye, CheckCircle, AlertTriangle } from 'lucide';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
 import { PrimeCardComponent } from '../components/prime-card.component';
+import { PrimeTemplatePreviewComponent } from '../components/prime-template-preview.component';
 import {
   PrimeCellPrimeApiService,
   type EmployeePrimeCellFicheListItemDto,
@@ -35,11 +36,12 @@ import { parseFlatPrimeFicheCsv } from '../lib/prime-fiche-flat-csv.parser';
 import { parseReadyPrimeFicheExcel } from '../lib/prime-fiche-ready-import.parser';
 import { buildDetailSnapshotPayload } from '../lib/prime-fiche-detail-snapshot';
 import { summarizeGridDiagnostics } from '../lib/prime-fiche-grid-diagnostics';
+import { toPreviewStoredTemplate, type StoredPrimeTemplate } from '../models/prime-template.model';
 
 @Component({
   selector: 'app-prime-fiche-import',
   standalone: true,
-  imports: [FormsModule, LucideIconComponent, PrimeCardComponent],
+  imports: [FormsModule, LucideIconComponent, PrimeCardComponent, PrimeTemplatePreviewComponent],
   template: `
     <div class="flex flex-col min-h-0 p-4 sm:p-6 space-y-6 max-w-5xl mx-auto pb-16">
       <div>
@@ -221,22 +223,9 @@ import { summarizeGridDiagnostics } from '../lib/prime-fiche-grid-diagnostics';
         </div>
       </app-prime-card>
 
-      @if (previewRows().length) {
+      @if (previewTemplate()) {
         <app-prime-card title="Aperçu" [description]="previewSummary()">
-          <div class="max-h-64 overflow-auto rounded-lg border border-default">
-            <table class="min-w-full text-xs">
-              @for (row of previewRows().slice(0, 25); track $index; let ri = $index) {
-                <tr [class]="ri === 0 ? 'bg-navy-800/40' : ''">
-                  @for (cell of row; track $index) {
-                    <td class="border border-default px-2 py-1 whitespace-nowrap opacity-90">{{ cell }}</td>
-                  }
-                </tr>
-              }
-            </table>
-          </div>
-          @if (previewRows().length > 25) {
-            <p class="mt-2 text-xs text-muted">… {{ previewRows().length - 25 }} lignes supplémentaires</p>
-          }
+          <app-prime-template-preview [tpl]="previewTemplate()" />
         </app-prime-card>
       }
 
@@ -295,6 +284,7 @@ export class PrimeFicheImportComponent implements OnInit {
   readonly totalAmount = signal<number | null>(null);
   readonly serviceSaisieJson = signal('{}');
   readonly previewSheetName = signal<string | null>(null);
+  readonly previewTemplate = signal<StoredPrimeTemplate | null>(null);
 
   readonly cellules = signal<SupervisorOrgScopeCellule[]>([]);
   readonly pilots = signal<EmployeePrimeCellFicheListItemDto[]>([]);
@@ -450,6 +440,7 @@ export class PrimeFicheImportComponent implements OnInit {
     this.banner.set(null);
     this.parseBusy.set(true);
     this.previewRows.set([]);
+    this.previewTemplate.set(null);
     this.parseErrors.set([]);
     this.parseWarnings.set([]);
     this.parseSchemaOk.set(false);
@@ -467,6 +458,14 @@ export class PrimeFicheImportComponent implements OnInit {
         this.totalAmount.set(parsed.totalAmount);
         this.serviceSaisieJson.set(parsed.serviceSaisieJson);
         this.previewSheetName.set('CSV');
+        this.previewTemplate.set(
+          parsed.rows.length
+            ? toPreviewStoredTemplate(
+                { fileName: file.name, rows: parsed.rows, previewSheetName: 'CSV' },
+                'Aperçu CSV',
+              )
+            : null,
+        );
       } else if (/\.xlsx$/i.test(file.name)) {
         const buf = await file.arrayBuffer();
         const parsed = await parseReadyPrimeFicheExcel(file.name, buf);
@@ -479,6 +478,7 @@ export class PrimeFicheImportComponent implements OnInit {
         this.totalAmount.set(parsed.totalAmount);
         this.serviceSaisieJson.set(parsed.serviceSaisieJson);
         this.previewSheetName.set(parsed.previewSheetName);
+        this.previewTemplate.set(parsed.previewTemplate);
       } else {
         this.parseErrors.set(['Seuls les fichiers .xlsx et .csv sont acceptés.']);
       }

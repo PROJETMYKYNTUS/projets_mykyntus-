@@ -1,3 +1,8 @@
+# Build : NE PAS utiliser `docker compose up --build` (8 images en parallèle → cache containerd corrompu).
+#   1. Redémarrer Docker Desktop si erreur overlayfs/snapshots
+#   2. .\scripts\docker-recover.ps1
+#   3. .\scripts\docker-build-safe.ps1
+#   4. docker compose up -d
 # ─── Métadonnées (non consommées par Docker ; référence intégration Documentation) ───
 # API métier & temps réel : uniquement via api-gateway (hôte 5000 → conteneur 8080).
 # Les frontends nginx proxy /api/ et /hubs/ vers api-gateway — pas d’appel navigateur direct aux backends.

@@ -14,7 +14,8 @@ public sealed class EmployeePrimeServiceFicheController(
     PrimeDbContext? db,
     PrimeOrgScopeService org,
     PrimeFicheValidationSubmissionService? submission,
-    AnomalyDetectionService? anomalies) : ControllerBase
+    AnomalyDetectionService? anomalies,
+    PrimeDeletionGuardService? deletionGuard) : ControllerBase
 {
     private static EmployeePrimeServiceFicheResponseDto Map(
         EmployeePrimeServiceFicheEntity e,
@@ -247,6 +248,10 @@ public sealed class EmployeePrimeServiceFicheController(
             string.IsNullOrWhiteSpace(body.Period) || body.CellulePrimeDraftId == Guid.Empty)
             return BadRequest(new { error = "Champs obligatoires manquants." });
 
+        var periodTrim = body.Period.Trim();
+        if (!PrimePeriodRules.IsClosedPeriod(periodTrim))
+            return BadRequest(new { error = PrimePeriodRules.ClosedPeriodRequiredMessage(periodTrim) });
+
         var emp = await org.GetEmployeeAsync(body.EmployeeId, ct);
         if (emp is null) return NotFound(new { error = "Employé introuvable." });
         if (!await org.SupervisorOwnsCelluleAsync(body.SupervisorUserId, emp.CelluleId, ct))
@@ -435,5 +440,20 @@ public sealed class EmployeePrimeServiceFicheController(
 
         var draft = await db.SupervisorCellulePrimeDrafts.FirstOrDefaultAsync(x => x.Id == entity.CellulePrimeDraftId, ct);
         return draft is null ? Ok(new { ok = true }) : Ok(Map(entity, draft));
+    }
+
+    [HttpGet("{ficheId:guid}/deletion-check")]
+    public async Task<ActionResult<PilotFicheDeletionCheckDto>> DeletionCheck(Guid ficheId, CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        if (deletionGuard is null) return StatusCode(503, new { error = "Service de protection suppression non configuré." });
+
+        var (canDelete, reason) = await deletionGuard.CanDeletePilotFicheAsync(ficheId, ct);
+        return Ok(new PilotFicheDeletionCheckDto
+        {
+            FicheId = ficheId,
+            CanDelete = canDelete,
+            Reason = reason,
+        });
     }
 }

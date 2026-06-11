@@ -228,6 +228,17 @@ export interface CommonsDraftDeletionCheckDto {
   impact: DeletionImpactDto;
 }
 
+export interface PilotFicheDeletionCheckDto {
+  ficheId: string;
+  canDelete: boolean;
+  reason?: string | null;
+}
+
+export interface PrimeFicheTemplateDisplayNameCheckDto {
+  displayName: string;
+  taken: boolean;
+}
+
 export interface PrimeHistoricalFicheDetailSnapshotDto {
   historicalFicheId: string;
   version: number;
@@ -590,6 +601,27 @@ export class PrimeCellPrimeApiService {
     return this.http.get<PrimeFicheTemplateUsageDto>(
       `${base}/fiche-templates/${encodeURIComponent(templateId)}/usage`,
       { params: q },
+    );
+  }
+
+  checkFicheTemplateDisplayNameTaken(
+    supervisorUserId: string,
+    displayName: string,
+    excludeTemplateId?: string,
+  ): Observable<PrimeFicheTemplateDisplayNameCheckDto> {
+    let q = new HttpParams()
+      .set('supervisorUserId', supervisorUserId.trim())
+      .set('displayName', displayName.trim());
+    if (excludeTemplateId?.trim()) q = q.set('excludeTemplateId', excludeTemplateId.trim());
+    return this.http.get<PrimeFicheTemplateDisplayNameCheckDto>(
+      `${base}/fiche-templates/display-name-taken`,
+      { params: q },
+    );
+  }
+
+  getPilotFicheDeletionCheck(ficheId: string): Observable<PilotFicheDeletionCheckDto> {
+    return this.http.get<PilotFicheDeletionCheckDto>(
+      `${base}/employee-prime-cell-fiches/${encodeURIComponent(ficheId)}/deletion-check`,
     );
   }
 

@@ -314,6 +314,9 @@ FakesAssemblies/
 .ntvs_analysis.dat
 node_modules/
 
+# Angular build cache (local only; can exceed GitHub file size limits)
+prime-angular/.angular/
+
 # Visual Studio 6 build log
 *.plg
 

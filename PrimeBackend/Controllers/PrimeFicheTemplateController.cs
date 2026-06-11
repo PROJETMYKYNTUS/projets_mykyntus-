@@ -24,4 +24,30 @@ public sealed class PrimeFicheTemplateController(PrimeFicheTemplateReferenceServ
 
         return Ok(await refService.GetUsageAsync(templateId, supervisorUserId, role, ct));
     }
+
+    [HttpGet("display-name-taken")]
+    public async Task<ActionResult<PrimeFicheTemplateDisplayNameCheckDto>> CheckDisplayNameTaken(
+        [FromQuery] string supervisorUserId,
+        [FromQuery] string displayName,
+        [FromQuery] string? excludeTemplateId,
+        CancellationToken ct)
+    {
+        if (refService is null)
+            return StatusCode(503, new { error = "Base de données non configurée." });
+        if (string.IsNullOrWhiteSpace(supervisorUserId))
+            return BadRequest(new { error = "supervisorUserId est requis." });
+        if (string.IsNullOrWhiteSpace(displayName))
+            return BadRequest(new { error = "displayName est requis." });
+
+        var taken = await refService.IsDisplayNameTakenAsync(
+            supervisorUserId,
+            displayName,
+            excludeTemplateId,
+            ct);
+        return Ok(new PrimeFicheTemplateDisplayNameCheckDto
+        {
+            DisplayName = displayName.Trim(),
+            Taken = taken,
+        });
+    }
 }

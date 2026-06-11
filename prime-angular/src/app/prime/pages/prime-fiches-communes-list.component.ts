@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Settings,
   Trash2,
+  Upload,
 } from 'lucide';
 import { catchError, firstValueFrom, of } from 'rxjs';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
@@ -125,11 +126,20 @@ function httpErrMessage(err: unknown): string {
           </button>
           <button
             type="button"
+            (click)="onImportReady()"
+            class="inline-flex items-center gap-2 rounded-lg border border-default bg-card px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-navy-700/50"
+            title="Importer une fiche Excel ou CSV déjà remplie"
+          >
+            <app-lucide-icon [icon]="icons.upload" className="w-4 h-4" />
+            Importer fiche prête
+          </button>
+          <button
+            type="button"
             (click)="onAdd()"
             class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
           >
             <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
-            Ajouter une nouvelle fiche
+            Créer via saisie
           </button>
         </div>
       </header>
@@ -183,11 +193,19 @@ function httpErrMessage(err: unknown): string {
               <div class="mt-2 flex flex-wrap items-center justify-center gap-3">
                 <button
                   type="button"
+                  (click)="onImportReady()"
+                  class="inline-flex items-center gap-2 rounded-lg border border-default bg-card px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-navy-700/40"
+                >
+                  <app-lucide-icon [icon]="icons.upload" className="w-4 h-4" />
+                  Importer fiche prête
+                </button>
+                <button
+                  type="button"
                   (click)="onAdd()"
                   class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
                 >
                   <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
-                  Ajouter une nouvelle fiche
+                  Créer via saisie
                 </button>
                 <button
                   type="button"
@@ -503,6 +521,7 @@ export class PrimeFichesCommunesListComponent implements OnInit {
     arrowRight: ArrowRight,
     alert: AlertTriangle,
     settings: Settings,
+    upload: Upload,
   };
 
   readonly skeletonPlaceholders = [0, 1];
@@ -709,6 +728,10 @@ export class PrimeFichesCommunesListComponent implements OnInit {
 
   onAdd(): void {
     this.session.startWizardForSupervisor();
+  }
+
+  onImportReady(): void {
+    this.nav.requestView('/prime-import-fiche');
   }
 
   onOpenTemplateManager(): void {

@@ -1,6 +1,8 @@
-import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { Download } from 'lucide';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
+import { PrimeTemplatePreviewComponent } from './prime-template-preview.component';
+import { toPreviewStoredTemplate } from '../models/prime-template.model';
 import { downloadRawGridXlsx } from '../lib/prime-fiche-xlsx-export';
 import { primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
 import {
@@ -12,7 +14,7 @@ import { RoleService } from '../state/role.service';
 @Component({
   selector: 'app-prime-historical-fiche-preview-modal',
   standalone: true,
-  imports: [LucideIconComponent],
+  imports: [LucideIconComponent, PrimeTemplatePreviewComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (open()) {
@@ -79,15 +81,9 @@ import { RoleService } from '../state/role.service';
               </div>
             }
             <div class="flex-1 min-h-0 overflow-auto p-3">
-              <table class="text-[11px] border-collapse border border-navy-700 text-slate-200">
-                @for (row of rows(); track ri; let ri = $index) {
-                  <tr>
-                    @for (cell of row; track ci; let ci = $index) {
-                      <td class="border border-navy-800 px-1 py-0.5 whitespace-nowrap align-top">{{ cell }}</td>
-                    }
-                  </tr>
-                }
-              </table>
+              @if (previewTemplate(); as tpl) {
+                <app-prime-template-preview [tpl]="tpl" />
+              }
             </div>
           }
         </div>
@@ -116,6 +112,16 @@ export class PrimeHistoricalFichePreviewModalComponent {
   readonly errors = signal<string[]>([]);
   readonly banner = signal<string | null>(null);
   readonly canDownload = signal(false);
+  readonly previewSheetName = signal<string | null>(null);
+
+  readonly previewTemplate = computed(() => {
+    const r = this.rows();
+    if (!r.length) return null;
+    return toPreviewStoredTemplate(
+      { rows: r, previewSheetName: this.previewSheetName() ?? 'Fiche_PRIME' },
+      'Fiche historique',
+    );
+  });
 
   private loadedSnapshot: PrimeHistoricalFicheDetailSnapshotDto | null = null;
 
@@ -173,6 +179,7 @@ export class PrimeHistoricalFichePreviewModalComponent {
         const rows = snap.rows ?? [];
         this.rows.set(rows);
         this.errors.set(snap.errors ?? []);
+        this.previewSheetName.set(snap.previewSheetName ?? 'Fiche_PRIME');
         if (!rows.length) {
           this.banner.set('Aucune donnée à afficher.');
         }
@@ -191,6 +198,7 @@ export class PrimeHistoricalFichePreviewModalComponent {
     this.downloadBusy.set(false);
     this.rows.set([]);
     this.errors.set([]);
+    this.previewSheetName.set(null);
     this.banner.set(null);
     this.canDownload.set(false);
     this.loadedSnapshot = null;

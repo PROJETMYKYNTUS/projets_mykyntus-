@@ -12,6 +12,7 @@ import {
 } from 'lucide';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
 import { PrimeCardComponent } from '../components/prime-card.component';
+import { PrimeTemplatePreviewComponent } from '../components/prime-template-preview.component';
 import { parsePrimeTemplateExcel } from '../lib/excel-fiche-template.parser';
 import { parsePrimeFicheGrid } from '../lib/prime-fiche-grid.parser';
 import { summarizeGridDiagnostics } from '../lib/prime-fiche-grid-diagnostics';
@@ -23,6 +24,8 @@ import {
   isTemplateDisplayNameTaken,
   loadAllStoredTemplates,
   persistTemplates,
+  templateDisplayNameConflictMessage,
+  toPreviewStoredTemplate,
 } from '../models/prime-template.model';
 import type { PrimeFicheGridImportResult, PrimeFicheTemplateSchema } from '../models/prime-fiche-template.schema';
 import { primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
@@ -37,7 +40,7 @@ import { RoleService } from '../state/role.service';
 @Component({
   selector: 'app-template-manager',
   standalone: true,
-  imports: [LucideIconComponent, PrimeCardComponent],
+  imports: [LucideIconComponent, PrimeCardComponent, PrimeTemplatePreviewComponent],
   template: `
     <div class="p-6 sm:p-8 space-y-6 max-w-6xl mx-auto pb-16">
       <div class="flex flex-wrap items-start justify-between gap-4">
@@ -255,23 +258,9 @@ import { RoleService } from '../state/role.service';
         <app-prime-card
           className="mt-6"
           [title]="'Aperçu — ' + p.previewSheetName"
-          description="Extrait de la première feuille (valeurs et références de formules courtes)"
+          description="Feuille complète — style Excel, formules recalculées lorsque possible"
         >
-          <div class="overflow-x-auto rounded-lg border border-default">
-            <table class="w-full border-collapse text-xs">
-              <tbody>
-                @for (row of p.previewRows; track $index) {
-                  <tr class="border-b border-default/80 hover:bg-navy-700/20">
-                    @for (cell of row.cells; track $index) {
-                      <td class="max-w-[10rem] truncate border-r border-default/50 px-2 py-1.5 text-primary whitespace-nowrap">
-                        {{ cell || '·' }}
-                      </td>
-                    }
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+          <app-prime-template-preview [tpl]="previewTemplate()" />
         </app-prime-card>
 
         <app-prime-card
@@ -518,6 +507,12 @@ export class TemplateManagerComponent implements OnInit {
     isTemplateDisplayNameTaken(this.saveName(), this.stored()),
   );
 
+  readonly previewTemplate = computed((): StoredPrimeTemplate | null => {
+    const p = this.parsed();
+    if (!p) return null;
+    return toPreviewStoredTemplate(p, this.saveName().trim() || 'Aperçu');
+  });
+
   readonly canSave = computed(() => {
     const p = this.parsed();
     const name = this.saveName().trim();
@@ -638,15 +633,34 @@ export class TemplateManagerComponent implements OnInit {
     this.saveName.set('');
   }
 
-  saveTemplate(): void {
+  async saveTemplate(): Promise<void> {
     const p = this.parsed();
     const name = this.saveName().trim();
     if (!p || !p.validation.ok || !name) return;
     if (isTemplateDisplayNameTaken(name, this.stored())) {
-      this.saveBanner.set(`Impossible d’enregistrer : un template nommé « ${name} » existe déjà.`);
+      this.saveBanner.set(templateDisplayNameConflictMessage(name));
       this.saveBannerIsError.set(true);
       this.saisieCtaVisible.set(false);
       return;
+    }
+
+    const user = this.roleService.currentUser();
+    if (user?.id) {
+      try {
+        const remote = await firstValueFrom(
+          this.cellApi.checkFicheTemplateDisplayNameTaken(user.id, name),
+        );
+        if (remote.taken) {
+          this.saveBanner.set(
+            `${templateDisplayNameConflictMessage(name)} (déjà utilisé sur une fiche commune en base).`,
+          );
+          this.saveBannerIsError.set(true);
+          this.saisieCtaVisible.set(false);
+          return;
+        }
+      } catch {
+        /* hors ligne — contrôle localStorage suffit */
+      }
     }
 
     const row: StoredPrimeTemplate = {

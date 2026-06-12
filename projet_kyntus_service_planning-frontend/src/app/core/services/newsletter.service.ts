@@ -12,15 +12,15 @@ export type CampaignStatus = 'Draft' | 'Scheduled' | 'Sending' | 'Sent' | 'Cance
 export interface CreateNewsletterDto {
   title: string;
   subject: string;
-  htmlContent: string;
-  textContent?: string;
+  textContent: string;
+  coverImageUrl?: string;
 }
 
 export interface UpdateNewsletterDto {
   title?: string;
   subject?: string;
-  htmlContent?: string;
   textContent?: string;
+  coverImageUrl?: string;
 }
 
 export interface NewsletterResponse {
@@ -29,6 +29,7 @@ export interface NewsletterResponse {
   subject: string;
   htmlContent: string;
   textContent?: string;
+  coverImageUrl?: string;
   createdAt: string;
   updatedAt?: string;
   createdByUserId: string;
@@ -64,6 +65,7 @@ export interface EmployeeNewsletter {
   newsletterSubject: string;
   htmlContent: string;
   textContent?: string;
+  coverImageUrl?: string;
   isRead: boolean;
   readAt?: string | null;
   receivedAt: string;

@@ -17,8 +17,22 @@
 .title-section h1 {
   margin: 0;
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: -0.02em;
+}
+
+.eyebrow {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--soft-blue) 18%, var(--bg-card));
+  color: var(--blue-600);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .subtitle {
@@ -76,7 +90,20 @@
 }
 
 .prime-table {
-  min-width: 1180px;
+  min-width: 1280px;
+}
+
+.org-cell {
+  display: inline-block;
+  max-width: 180px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.org-cell--service {
+  color: var(--blue-600);
 }
 
 .user-cell {

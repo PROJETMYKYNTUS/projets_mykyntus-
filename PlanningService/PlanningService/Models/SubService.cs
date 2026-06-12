@@ -1,4 +1,4 @@
-﻿namespace PlanningService.Models;
+namespace PlanningService.Models;
 
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -18,6 +18,9 @@ public class SubService
     [Required]
     [MaxLength(20)]
     public string Code { get; set; }
+
+    [MaxLength(64)]
+    public string? PrimeServiceId { get; set; }
 
     public ICollection<User> Users { get; set; }
     public ICollection<WeeklyPlanning> WeeklyPlannings { get; set; }

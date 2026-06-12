@@ -105,52 +105,27 @@ export const routes: Routes = [
 
       // ─── ORGANISATION ────────────────────────────
       {
+        path: 'organisation',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadComponent: () =>
+          import('./features/prime/pages/organisation-management.component')
+            .then((m) => m.OrganisationManagementComponent),
+      },
+      {
         path: 'floors',
-        canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
-        loadComponent: () =>
-          import('./features/floors/pages/floor-list/floor-list.component')
-            .then(m => m.FloorListComponent),
-      },
-      {
-        path: 'floors/create',
-        canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
-        loadComponent: () =>
-          import('./features/floors/pages/floor-form/floor-form.component')
-            .then(m => m.FloorFormComponent),
-      },
-      {
-        path: 'floors/edit/:id',
-        canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
-        loadComponent: () =>
-          import('./features/floors/pages/floor-form/floor-form.component')
-            .then(m => m.FloorFormComponent),
-      },
-      {
-        path: 'floors/:id',
-        canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
-        loadComponent: () =>
-          import('./features/floors/pages/floor-detail/floor-detail.component')
-            .then(m => m.FloorDetailComponent),
+        redirectTo: '/organisation?tab=departments',
+        pathMatch: 'prefix',
       },
       {
         path: 'services',
-        canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
-        loadChildren: () =>
-          import('./features/services/services-routing-modules')
-            .then(m => m.ServicesRoutingModule),
+        redirectTo: '/organisation?tab=poles',
+        pathMatch: 'prefix',
       },
       {
         path: 'sub-services',
-        canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
-        loadChildren: () =>
-          import('./features/sub-services/sub-services-routing-module')
-            .then(m => m.SubServicesRoutingModule),
+        redirectTo: '/organisation?tab=cellules',
+        pathMatch: 'prefix',
       },
 
       // ─── RH — Employés & Imports ─────────────────
@@ -203,6 +178,14 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/conge/pages/conge-manager/conge-manager.component')
             .then(m => m.CongeManagerComponent),
+      },
+      {
+        path: 'conge-historique',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH', 'Manager'] },
+        loadComponent: () =>
+          import('./features/conge/pages/conge-historique/conge-historique.component')
+            .then(m => m.CongeHistoriqueComponent),
       },
       {
         path: 'mes-conges',

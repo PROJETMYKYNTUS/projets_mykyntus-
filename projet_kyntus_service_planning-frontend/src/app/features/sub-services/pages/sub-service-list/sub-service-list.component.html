@@ -11,21 +11,24 @@
     <div class="ss-header-left">
       <div class="page-title-group">
         <div class="page-eyebrow">Administration · Organisationnel</div>
-        <h1 class="page-title">Sous-Services</h1>
+        <h1 class="page-title">Services</h1>
       </div>
     </div>
-    <button class="btn-primary ky-btn-primary" (click)="createSubService()">
-      <span class="btn-plus">＋</span>
-      Nouveau Sous-Service
-    </button>
   </header>
+
+  <div class="org-mirror-banner ky-card">
+    <p>La structure organisationnelle (pôles, cellules, services) se configure dans Organisation RH.</p>
+    <button type="button" class="btn-primary ky-btn-primary" (click)="goToOrganisationRh()">
+      Gérer dans Organisation RH
+    </button>
+  </div>
 
   <!-- STATS ROW -->
   <div class="stats-row">
     <div class="stat-pill">
       <span class="stat-dot dot-blue"></span>
       <span class="stat-num">{{ subServices.length }}</span>
-      <span class="stat-lbl">Sous-services</span>
+      <span class="stat-lbl">Services</span>
     </div>
     <div class="stat-pill">
       <span class="stat-dot dot-green"></span>
@@ -35,7 +38,7 @@
     <div class="stat-pill">
       <span class="stat-dot dot-amber"></span>
       <span class="stat-num">{{ getUniqueServices() }}</span>
-      <span class="stat-lbl">Services parents</span>
+      <span class="stat-lbl">Cellules parentes</span>
     </div>
   </div>
 
@@ -50,8 +53,7 @@
     } @else if (subServices.length === 0) {
       <div class="state-center">
         <div class="empty-icon">—</div>
-        <p class="state-text">Aucun sous-service trouvé</p>
-        <button class="btn-primary ky-btn-primary small" (click)="createSubService()">Créer le premier</button>
+        <p class="state-text">Aucun service trouvé</p>
       </div>
     } @else {
       <div class="table-wrap">
@@ -60,9 +62,8 @@
             <tr>
               <th>Code</th>
               <th>Nom</th>
-              <th>Service</th>
+              <th>Cellule</th>
               <th>Employés</th>
-              <th class="col-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -78,13 +79,6 @@
                     <span class="count-dot"></span>
                     {{ sub.employeesCount }}
                   </span>
-                </td>
-                <td class="col-actions">
-                  <div class="action-row">
-                    <button class="act-btn act-view"  (click)="viewSubService(sub.id)">Voir</button>
-                    <button class="act-btn act-edit"  (click)="editSubService(sub.id)">Modifier</button>
-                    <button class="act-btn act-del"   (click)="deleteSubService(sub.id)">Supprimer</button>
-                  </div>
                 </td>
               </tr>
             }

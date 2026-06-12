@@ -95,8 +95,8 @@ builder.Services.AddScoped<IEmployePublisher, EmployePublisher>();
 
 builder.Services.AddMassTransit(x =>
 {
-    // Consumer : reçoit les congés validés depuis Conge Service
     x.AddConsumer<CongeValideConsumer>();
+    x.AddConsumer<OrgStructureConsumer>();
 
     x.UsingRabbitMq((ctx, cfg) =>
     {
@@ -106,10 +106,14 @@ builder.Services.AddMassTransit(x =>
             h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
         });
 
-        // Queue : écoute les congés validés depuis Conge Service
         cfg.ReceiveEndpoint("planning-conge-valide", e =>
         {
             e.ConfigureConsumer<CongeValideConsumer>(ctx);
+        });
+
+        cfg.ReceiveEndpoint("planning-org-structure", e =>
+        {
+            e.ConfigureConsumer<OrgStructureConsumer>(ctx);
         });
 
         cfg.ConfigureEndpoints(ctx);
@@ -181,7 +185,14 @@ using (var scope = app.Services.CreateScope())
 using (var scope = app.Services.CreateScope())
 {
     var planningDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await DockerComposePlanningDemoSeed.ApplyIfEnabledAsync(app.Configuration, planningDb);
+    try
+    {
+        await DockerComposePlanningDemoSeed.ApplyIfEnabledAsync(app.Configuration, planningDb);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠️ Demo seed planning ignoré: {ex.Message}");
+    }
 }
 // 🆕 Re-sync des users sans AuthUserId
 using (var scope = app.Services.CreateScope())

@@ -1,8 +1,10 @@
 using System.Text.Json.Serialization;
+using MassTransit;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using ParrainageBackend.Data;
 using Kyntus.Identity.Jwt;
+using ParrainageBackend.Messaging;
 using ParrainageBackend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,6 +42,27 @@ if (!string.IsNullOrWhiteSpace(conn))
     builder.Services.AddHostedService<ParrainageDatabaseInitializer>();
     builder.Services.AddHostedService<ReferralEligibilityHostedService>();
 }
+
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<EmployePortalSyncConsumer>();
+
+    x.UsingRabbitMq((ctx, cfg) =>
+    {
+        cfg.Host(builder.Configuration["RabbitMQ:Host"] ?? "rabbitmq", "/", h =>
+        {
+            h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
+            h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
+        });
+
+        cfg.ReceiveEndpoint("parrainage-employe-sync", e =>
+        {
+            e.ConfigureConsumer<EmployePortalSyncConsumer>(ctx);
+        });
+
+        cfg.ConfigureEndpoints(ctx);
+    });
+});
 
 var app = builder.Build();
 

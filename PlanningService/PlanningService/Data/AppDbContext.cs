@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using PlanningService.Models;
 
 namespace PlanningService.Data;
@@ -55,6 +55,21 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Role>()
             .HasIndex(r => r.Name)
             .IsUnique();
+
+        modelBuilder.Entity<Floor>()
+            .HasIndex(f => f.PrimePoleId)
+            .IsUnique()
+            .HasFilter("\"PrimePoleId\" IS NOT NULL");
+
+        modelBuilder.Entity<Service>()
+            .HasIndex(s => s.PrimeCelluleId)
+            .IsUnique()
+            .HasFilter("\"PrimeCelluleId\" IS NOT NULL");
+
+        modelBuilder.Entity<SubService>()
+            .HasIndex(s => s.PrimeServiceId)
+            .IsUnique()
+            .HasFilter("\"PrimeServiceId\" IS NOT NULL");
 
         // ── Service ──
         modelBuilder.Entity<Service>()

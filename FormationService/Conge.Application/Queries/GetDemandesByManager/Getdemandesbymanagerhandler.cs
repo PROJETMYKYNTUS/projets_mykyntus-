@@ -1,6 +1,5 @@
 ﻿using Conge.Application.DTOs;
-using Conge.Domain.Entities;
-using Conge.Domain.Exceptions;
+using Conge.Domain.Enums;
 using Conge.Domain.Interfaces;
 using MediatR;
 
@@ -24,14 +23,13 @@ public class GetDemandesByManagerHandler
         GetDemandesByManagerQuery request,
         CancellationToken ct)
     {
-        // 1. Récupérer le snapshot du manager pour vérifier son rôle
-        var manager = await _employeRepo.GetByEmployeIdAsync(request.ManagerId, ct)
-            ?? throw new EmployeNotFoundException(request.ManagerId);
+        var manager = await _employeRepo.GetByEmployeIdAsync(request.ManagerId, ct);
+        if (manager is null)
+            return Array.Empty<DemandeCongeDto>();
 
-        // 2. Récupérer les demandes selon le rôle
-        //    Manager  → demandes de son équipe (ManagerId = lui)
-        //    Admin/RH → demandes des managers  (ManagerId = lui)
-        var demandes = await _demandeRepo.GetByManagerIdAsync(request.ManagerId, ct);
+        var demandes = IsRhOrAdmin(manager.Role)
+            ? await _demandeRepo.GetByStatutAsync(StatutDemande.EnAttente, ct)
+            : await _demandeRepo.GetByManagerIdAsync(request.ManagerId, ct);
 
         // 3. Enrichir avec le nom de l'employé depuis le snapshot
         var result = new List<DemandeCongeDto>();
@@ -59,5 +57,12 @@ public class GetDemandesByManagerHandler
         }
 
         return result.OrderByDescending(r => r.DateDemande);
+    }
+
+    private static bool IsRhOrAdmin(string? role)
+    {
+        var r = role?.Trim() ?? string.Empty;
+        return r.Equals("RH", StringComparison.OrdinalIgnoreCase)
+            || r.Equals("Admin", StringComparison.OrdinalIgnoreCase);
     }
 }

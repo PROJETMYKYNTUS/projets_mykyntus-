@@ -1,9 +1,12 @@
-﻿import { Injectable } from '@angular/core';
+﻿import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { DocumentationHeaders } from '../models/documentation-headers';
 import type { DirectoryUserDto } from '../models/documentation.models';
+import { mapJwtRoleToDocumentationRole } from '../navigation/documentation-menu.config';
+import { KYNTUS_DEFAULT_TENANT } from '../session/kyntus-session.constants';
+import { KyntusSessionService } from '../session/kyntus-session.service';
 
 const STORAGE_USER_ID = 'documentation-dev-user-id';
 const STORAGE_USER_ROLE = 'documentation-dev-user-role';
@@ -18,6 +21,8 @@ const STORAGE_SCOPE_COACH_ID = 'documentation-scope-coach-id';
  */
 @Injectable({ providedIn: 'root' })
 export class DocumentationIdentityService {
+  private readonly session = inject(KyntusSessionService);
+
   readonly profile$ = new BehaviorSubject<DirectoryUserDto | null>(null);
   readonly directoryUsers$ = new BehaviorSubject<DirectoryUserDto[]>([]);
   /** Périmètre organisationnel (manager / coach) pour en-têtes X-Scope-* — navigation hiérarchique. */
@@ -64,6 +69,23 @@ export class DocumentationIdentityService {
     this.scopeCoachId = localStorage.getItem(STORAGE_SCOPE_COACH_ID)?.trim() ?? '';
     this.scopeManagerId$.next(this.scopeManagerId || null);
     this.scopeCoachId$.next(this.scopeCoachId || null);
+    this.syncFromJwtSession();
+  }
+
+  /** Aligne tenant / rôle documentation sur la session JWT (email résolu côté API). */
+  syncFromJwtSession(): void {
+    if (!this.session.isAuthenticated()) return;
+    if (!this.tenantId) {
+      this.setTenantId(KYNTUS_DEFAULT_TENANT);
+    }
+    const jwtRole = this.session.getRole();
+    if (!jwtRole) return;
+    const mapped = mapJwtRoleToDocumentationRole(jwtRole).toLowerCase();
+    if (!mapped) return;
+    if (!this.roleHeader || this.roleHeader === 'pilote') {
+      this.roleHeader = mapped;
+      localStorage.setItem(STORAGE_USER_ROLE, this.roleHeader);
+    }
   }
 
   /** Carte à fusionner sur les requêtes vers le microservice Documentation (voir intercepteur HTTP). */

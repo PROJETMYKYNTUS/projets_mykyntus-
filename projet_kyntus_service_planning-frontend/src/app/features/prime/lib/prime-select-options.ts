@@ -36,9 +36,20 @@ export function employeesForSelect(all: Employee[], selectedUserId?: string | nu
   return base;
 }
 
-/** Valeur sûre pour [value] d'un select : vide si l'id n'est pas dans les options. */
-export function selectValueOrEmpty(selectedId: string | null | undefined, optionIds: readonly string[]): string {
+/** Valeur affichée = valeur modèle si l'id est dans les options, sinon vide (et le modèle doit être aligné). */
+export function reconcileSelectModel(
+  selectedId: string | null | undefined,
+  optionIds: readonly string[],
+): string {
   const id = (selectedId ?? '').trim();
   if (!id) return '';
   return optionIds.includes(id) ? id : '';
+}
+
+/** @deprecated Utiliser reconcileSelectModel — même comportement. */
+export function selectValueOrEmpty(
+  selectedId: string | null | undefined,
+  optionIds: readonly string[],
+): string {
+  return reconcileSelectModel(selectedId, optionIds);
 }

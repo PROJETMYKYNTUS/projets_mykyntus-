@@ -229,7 +229,15 @@ namespace PlanningService.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("PrimePoleId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("PrimePoleId")
+                        .IsUnique()
+                        .HasFilter("\"PrimePoleId\" IS NOT NULL");
 
                     b.ToTable("Floors");
                 });
@@ -241,6 +249,9 @@ namespace PlanningService.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CoverImageUrl")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -711,10 +722,18 @@ namespace PlanningService.Migrations
                     b.Property<int>("ServiceId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("PrimeServiceId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
                         .IsUnique();
+
+                    b.HasIndex("PrimeServiceId")
+                        .IsUnique()
+                        .HasFilter("\"PrimeServiceId\" IS NOT NULL");
 
                     b.HasIndex("ServiceId");
 
@@ -936,12 +955,20 @@ namespace PlanningService.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("PrimeCelluleId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
                         .IsUnique();
 
                     b.HasIndex("FloorId");
+
+                    b.HasIndex("PrimeCelluleId")
+                        .IsUnique()
+                        .HasFilter("\"PrimeCelluleId\" IS NOT NULL");
 
                     b.ToTable("Services");
                 });

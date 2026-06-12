@@ -1,8 +1,7 @@
-﻿namespace Planning.Messaging.Publishers;
+namespace Planning.Messaging.Publishers;
 
 /// <summary>
 /// Contrat pour publier les événements employé vers RabbitMQ.
-/// Injecté dans les Services Planning via DI.
 /// </summary>
 public interface IEmployePublisher
 {
@@ -16,6 +15,10 @@ public interface IEmployePublisher
         string serviceNom,
         DateTime dateEmbauche,
         bool estMineur,
+        string role,
+        int? subServiceId = null,
+        string? primeServiceId = null,
+        Guid supervisorId = default,
         CancellationToken ct = default);
 
     Task PublishEmployeUpdatedAsync(
@@ -26,6 +29,10 @@ public interface IEmployePublisher
         Guid managerId,
         Guid serviceId,
         string serviceNom,
+        string role,
+        int? subServiceId = null,
+        string? primeServiceId = null,
+        Guid supervisorId = default,
         CancellationToken ct = default);
 
     Task PublishSoldeAnnuelAsync(

@@ -64,9 +64,8 @@ export class ContractService {
 
   // ── Contrats ──
   getAll(): Observable<ContractResponse[]> {
-  console.log('URL appelée:', this.base); // ← ajoute ça
-  return this.http.get<ContractResponse[]>(this.base);
-}
+    return this.http.get<ContractResponse[]>(this.base);
+  }
 
   getById(id: number): Observable<ContractResponse> {
     return this.http.get<ContractResponse>(`${this.base}/${id}`);

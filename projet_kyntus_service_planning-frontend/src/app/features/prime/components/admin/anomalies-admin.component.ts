@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { PrimeCardComponent } from '../prime-card.component';
+import { KyntusSelectSyncDirective } from '@/shared/directives/kyntus-select-sync.directive';
 import {
   PrimeAdminService,
   type AnomalyDto,
@@ -12,7 +14,7 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
 @Component({
   selector: 'app-anomalies-admin',
   standalone: true,
-  imports: [PrimeCardComponent],
+  imports: [PrimeCardComponent, KyntusSelectSyncDirective],
   template: `
     <app-prime-card title="Gestion des anomalies">
       <p class="text-muted text-sm mb-4">
@@ -58,8 +60,8 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
 
       <div class="flex flex-wrap gap-3 mb-4">
         <select
-          [value]="statusFilter()"
-          (change)="statusFilter.set($any($event.target).value)"
+          [kyntusSelectSync]="statusFilter()"
+          (kyntusSelectSyncChange)="statusFilter.set($event)"
           class="px-3 py-2 rounded-lg border border-default bg-app text-sm text-primary"
         >
           <option value="">Tous statuts</option>
@@ -69,8 +71,8 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
           <option value="Ignored">Ignored</option>
         </select>
         <select
-          [value]="severityFilter()"
-          (change)="severityFilter.set($any($event.target).value)"
+          [kyntusSelectSync]="severityFilter()"
+          (kyntusSelectSyncChange)="severityFilter.set($event)"
           class="px-3 py-2 rounded-lg border border-default bg-app text-sm text-primary"
         >
           <option value="">Toutes gravités</option>
@@ -215,6 +217,7 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
 export class AnomaliesAdminComponent implements OnInit {
   private readonly admin = inject(PrimeAdminService);
   private readonly nav = inject(PrimeNavRequestService);
+  private readonly router = inject(Router);
   private readonly sections = inject(PrimeSectionService);
   readonly permissions = inject(PrimeUiPermissionsService);
 
@@ -318,7 +321,7 @@ export class AnomaliesAdminComponent implements OnInit {
       this.setStatus(row, 'InReview');
     }
     if (row.type === 'InvalidScope') {
-      this.nav.requestView('/rh/organisation');
+      void this.router.navigateByUrl('/organisation');
       return;
     }
     if (row.type === 'WorkflowBlocked') {

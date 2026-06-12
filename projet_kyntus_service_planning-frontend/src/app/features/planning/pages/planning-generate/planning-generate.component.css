@@ -121,6 +121,10 @@
   margin-top: 6px;
 }
 
+.hint.warn {
+  color: #b45309;
+}
+
 .week-preview {
   display: inline-flex;
   margin-top: 8px;

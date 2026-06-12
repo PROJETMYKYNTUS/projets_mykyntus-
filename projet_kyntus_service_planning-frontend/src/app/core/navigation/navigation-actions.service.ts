@@ -1,6 +1,7 @@
 ﻿import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import type { MenuItem } from './microservices.config';
+import type { OrganisationRhTab } from './organisation-nav';
 import { PrimeNavRequestService } from '../../features/prime/services/prime-nav-request.service';
 import { PrimeSectionService } from '../../features/prime/state/prime-section.service';
 import { ParrainageNavService } from '../../features/parrainage/state/parrainage-nav.service';
@@ -48,6 +49,13 @@ export class NavigationActionsService {
 
     if (item.documentationTab !== undefined || item.documentationAuditSection !== undefined) {
       await this.applyDocumentationItem(item);
+      return;
+    }
+
+    if (item.organisationTab !== undefined) {
+      await this.openOrganisationRh(
+        item.organisationTab === 'home' ? undefined : item.organisationTab,
+      );
       return;
     }
 
@@ -160,10 +168,20 @@ export class NavigationActionsService {
   }
 
   async openPrimePath(primePath: string): Promise<void> {
+    if (primePath === '/rh/organisation') {
+      await this.openOrganisationRh();
+      return;
+    }
     await this.applyPrimeItem({
       label: 'PRIME',
       route: '/prime',
       primePath,
+    });
+  }
+
+  async openOrganisationRh(tab?: OrganisationRhTab): Promise<void> {
+    await this.router.navigate(['/organisation'], {
+      queryParams: tab ? { tab } : {},
     });
   }
 

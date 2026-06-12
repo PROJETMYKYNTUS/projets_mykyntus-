@@ -33,7 +33,7 @@ public sealed class NotificationsController(
             return Ok(all.Select(n => n.ToDto()).ToList());
 
         var referrals = await db.Referrals.AsNoTracking().ToListAsync(ct);
-        var filtered = workflow.FilterNotificationsForRole(all, referrals, role, userId);
+        var filtered = await workflow.FilterNotificationsForRoleAsync(all, referrals, role, userId, ct);
         return Ok(filtered.Select(n => n.ToDto()).ToList());
     }
 

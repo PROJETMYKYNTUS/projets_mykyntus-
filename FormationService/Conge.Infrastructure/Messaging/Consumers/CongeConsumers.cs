@@ -1,16 +1,12 @@
-﻿using Conge.Application.Commands.InitialiserSolde;
+using Conge.Application.Commands.InitialiserSolde;
 using Conge.Domain.Entities;
 using Conge.Domain.Interfaces;
-using Conge.Infrastructure.Persistence.Repositories;
+using Kyntus.Messaging.Contracts;
 using MassTransit;
 using MediatR;
-using Planning.Messaging.Messages;
+
 namespace Conge.Infrastructure.Messaging.Consumers;
 
-/// <summary>
-/// Consomme l'event EmployeCreated depuis le service RH.
-/// Crée le snapshot et initialise le solde de congé.
-/// </summary>
 public class EmployeCreatedConsumer : IConsumer<EmployeCreatedMessage>
 {
     private readonly IEmployeSnapshotRepository _employeRepo;
@@ -30,6 +26,8 @@ public class EmployeCreatedConsumer : IConsumer<EmployeCreatedMessage>
     public async Task Consume(ConsumeContext<EmployeCreatedMessage> context)
     {
         var msg = context.Message;
+        var managerId = msg.SupervisorId != Guid.Empty ? msg.SupervisorId : msg.ManagerId;
+        var role = string.IsNullOrWhiteSpace(msg.Role) ? KyntusRoleNames.Employee : msg.Role;
 
         var exists = await _employeRepo.ExistsAsync(msg.EmployeId, context.CancellationToken);
         if (!exists)
@@ -39,16 +37,16 @@ public class EmployeCreatedConsumer : IConsumer<EmployeCreatedMessage>
                 msg.Nom,
                 msg.Prenom,
                 msg.Email,
-                msg.ManagerId,
+                managerId,
                 msg.ServiceId,
                 msg.ServiceNom,
                 msg.DateEmbauche,
-                msg.EstMineur);
+                msg.EstMineur,
+                role);
             await _employeRepo.AddAsync(snapshot, context.CancellationToken);
             await _unitOfWork.SaveChangesAsync(context.CancellationToken);
         }
 
-        // ✅ Toujours initialiser le solde (idempotent côté handler)
         var employe = await _employeRepo.GetByEmployeIdAsync(msg.EmployeId, context.CancellationToken);
         var anciennete = employe!.GetAncienneteAnnees();
         await _mediator.Send(new InitialiserSoldeCommand(
@@ -59,9 +57,6 @@ public class EmployeCreatedConsumer : IConsumer<EmployeCreatedMessage>
     }
 }
 
-/// <summary>
-/// Consomme l'event EmployeUpdated pour mettre à jour le snapshot.
-/// </summary>
 public class EmployeUpdatedConsumer : IConsumer<EmployeUpdatedMessage>
 {
     private readonly IEmployeSnapshotRepository _employeRepo;
@@ -80,17 +75,17 @@ public class EmployeUpdatedConsumer : IConsumer<EmployeUpdatedMessage>
         var msg = context.Message;
         var snapshot = await _employeRepo.GetByEmployeIdAsync(msg.EmployeId, context.CancellationToken);
 
-        if (snapshot == null) return; // Pas encore créé, on ignore
+        if (snapshot == null) return;
 
-        snapshot.MettreAJour(msg.Nom, msg.Prenom, msg.Email, msg.ManagerId, msg.ServiceId, msg.ServiceNom);
+        var managerId = msg.SupervisorId != Guid.Empty ? msg.SupervisorId : msg.ManagerId;
+        var role = string.IsNullOrWhiteSpace(msg.Role) ? snapshot.Role : msg.Role;
+
+        snapshot.MettreAJour(msg.Nom, msg.Prenom, msg.Email, managerId, msg.ServiceId, msg.ServiceNom, role);
         _employeRepo.Update(snapshot);
         await _unitOfWork.SaveChangesAsync(context.CancellationToken);
     }
 }
 
-/// <summary>
-/// Consomme l'initialisation annuelle des soldes depuis le service RH (début d'année).
-/// </summary>
 public class SoldeAnnuelInitialiseConsumer : IConsumer<SoldeAnnuelInitialiseMessage>
 {
     private readonly IMediator _mediator;

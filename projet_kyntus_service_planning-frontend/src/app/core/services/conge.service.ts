@@ -28,6 +28,10 @@ export class CongeService {
     );
   }
 
+  getHistoriqueRh(annee: number): Observable<DemandeCongeDto[]> {
+    return this.http.get<DemandeCongeDto[]>(`${this.base}/historique?annee=${annee}`);
+  }
+
   demanderConge(cmd: DemanderCongeCommand): Observable<{ id: string }> {
     return this.http.post<{ id: string }>(this.base, cmd);
   }

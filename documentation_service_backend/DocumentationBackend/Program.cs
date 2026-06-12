@@ -8,9 +8,11 @@ using DocumentationBackend.Data;
 using DocumentationBackend.Infrastructure.Ai;
 using DocumentationBackend.Infrastructure;
 using DocumentationBackend.Infrastructure.Storage;
+using DocumentationBackend.Messaging;
 using DocumentationBackend.Middleware;
 using DocumentationBackend.Services;
 using Kyntus.Identity.Jwt;
+using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -80,7 +82,35 @@ builder.Services.Configure<DocumentWorkflowOptions>(
 builder.Services.AddSingleton<ITemplateBlobStorage, S3CompatibleTemplateBlobStorage>();
 builder.Services.AddScoped<IAiApiKeyResolver, AiApiKeyResolver>();
 builder.Services.AddHttpClient<IAiTemplateContentGenerator, OpenAiCompatibleTemplateContentGenerator>();
+builder.Services.AddScoped<DirectoryUserSyncService>();
 builder.Services.AddScoped<IDocumentTemplateManagementService, DocumentTemplateManagementService>();
+
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<EmployeDirectorySyncConsumer>();
+    x.AddConsumer<OrgStructureDirectorySyncConsumer>();
+
+    x.UsingRabbitMq((ctx, cfg) =>
+    {
+        cfg.Host(builder.Configuration["RabbitMQ:Host"] ?? "rabbitmq", "/", h =>
+        {
+            h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
+            h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
+        });
+
+        cfg.ReceiveEndpoint("documentation-employe-sync", e =>
+        {
+            e.ConfigureConsumer<EmployeDirectorySyncConsumer>(ctx);
+        });
+
+        cfg.ReceiveEndpoint("documentation-org-structure", e =>
+        {
+            e.ConfigureConsumer<OrgStructureDirectorySyncConsumer>(ctx);
+        });
+
+        cfg.ConfigureEndpoints(ctx);
+    });
+});
 
 var documentationCs = builder.Configuration.GetConnectionString("Documentation")
     ?? throw new InvalidOperationException("ConnectionStrings:Documentation manquante (voir appsettings).");

@@ -1,37 +1,26 @@
 namespace ParrainageBackend.Services;
 
 /// <summary>
-/// Port of parrainage-angular/src/app/parrainage/lib/org-hierarchy.ts. Used to scope
-/// notifications for MANAGER/COACH viewers (same logic as isReferrerUnderManager).
+/// Hiérarchie portail chargée depuis <c>parrainage_portal_user</c> (ParentId synchronisé depuis Prime).
 /// </summary>
 public static class OrgHierarchy
 {
-    private sealed record OrgNode(string Id, string? ParentId);
-
-    private static readonly List<OrgNode> Nodes = new()
+    public static bool IsReferrerUnderManager(
+        string viewerId,
+        string referrerId,
+        IReadOnlyDictionary<string, string?> parentByUserId)
     {
-        new OrgNode("rp-1", null),
-        new OrgNode("mgr-1", "rp-1"),
-        new OrgNode("coach-1", "mgr-1"),
-        new OrgNode("emp-1", "coach-1"),
-        new OrgNode("emp-2", "coach-1"),
-        new OrgNode("emp-3", "coach-1"),
-        new OrgNode("emp-4", "coach-1"),
-        new OrgNode("emp-5", "coach-1"),
-    };
-
-    public static bool IsReferrerUnderManager(string viewerId, string referrerId)
-    {
+        if (string.IsNullOrWhiteSpace(viewerId) || string.IsNullOrWhiteSpace(referrerId))
+            return false;
         if (viewerId == referrerId) return true;
-        var cur = Nodes.FirstOrDefault(n => n.Id == referrerId);
-        var guard = new HashSet<string>();
-        while (cur?.ParentId != null)
+
+        var guard = new HashSet<string>(StringComparer.Ordinal);
+        var cur = referrerId;
+        while (parentByUserId.TryGetValue(cur, out var parentId) && !string.IsNullOrWhiteSpace(parentId))
         {
-            if (cur.ParentId == viewerId) return true;
-            if (guard.Contains(cur.Id)) break;
-            guard.Add(cur.Id);
-            var parentId = cur.ParentId;
-            cur = Nodes.FirstOrDefault(n => n.Id == parentId);
+            if (parentId == viewerId) return true;
+            if (!guard.Add(cur)) break;
+            cur = parentId;
         }
 
         return false;

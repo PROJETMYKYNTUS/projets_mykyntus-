@@ -2,8 +2,8 @@
   <div class="page-header">
     <div class="header-left">
       <div>
-        <h1>Détail du Service</h1>
-        <p>Informations et sous-services associés</p>
+        <h1>Détail de la Cellule</h1>
+        <p>Informations et services associés</p>
       </div>
     </div>
   </div>
@@ -30,19 +30,19 @@
           <span class="value">{{ service.name }}</span>
         </div>
         <div class="info-row">
-          <span class="label">Étage</span>
+          <span class="label">Pôle</span>
           <span class="value">{{ service.floorName }}</span>
         </div>
       </div>
 
       <div class="subservices-section">
         <div class="subservices-header">
-          <h2>Sous-services</h2>
+          <h2>Services</h2>
           <span class="badge secondary">{{ service.subServices.length }}</span>
         </div>
 
         @if (service.subServices.length === 0) {
-          <div class="empty-state">Aucun sous-service pour ce service.</div>
+          <div class="empty-state">Aucun service pour cette cellule.</div>
         } @else {
           <div class="table-wrapper">
             <table class="prime-table">

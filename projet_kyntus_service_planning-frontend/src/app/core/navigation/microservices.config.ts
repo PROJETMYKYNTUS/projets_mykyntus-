@@ -1,8 +1,9 @@
-﻿import type { AdminSection, AuditSection, RpSection } from '../../features/prime/state/prime-section.service';
+import type { AdminSection, AuditSection, RpSection } from '../../features/prime/state/prime-section.service';
 import type { ParrainageView } from '../../features/parrainage/state/parrainage-nav.service';
 import type { AuditSectionId } from '../../features/parrainage/state/audit-section.service';
 import type { DocumentationTabId } from '../../features/documentation/services/documentation-navigation.service';
 import type { AuditInterfaceSectionId } from '../../features/documentation/services/audit-interface-nav.service';
+import type { OrganisationMenuEntry } from './organisation-nav';
 
 /**
  * Configuration centrale du menu latéral global des microservices.
@@ -34,6 +35,8 @@ export interface MenuItem {
   /** Onglet documentation (routes /documentation/...). */
   documentationTab?: DocumentationTabId;
   documentationAuditSection?: AuditInterfaceSectionId;
+  /** Onglet Organisation RH (route /organisation, query ?tab=). */
+  organisationTab?: OrganisationMenuEntry;
 }
 
 export interface Microservice {
@@ -73,9 +76,10 @@ export const MICROSERVICES: Microservice[] = [
     icon: ICONS.building,
     roles: ADMIN_RH,
     children: [
-      { label: 'Étages', route: '/floors', roles: ADMIN_RH },
-      { label: 'Services', route: '/services', roles: ADMIN_RH },
-      { label: 'Sous-services', route: '/sub-services', roles: ADMIN_RH },
+      { label: 'Organisation RH', route: '/organisation', organisationTab: 'home', roles: ADMIN_RH },
+      { label: 'Pôles', route: '/organisation', organisationTab: 'departments', roles: ADMIN_RH },
+      { label: 'Cellules', route: '/organisation', organisationTab: 'poles', roles: ADMIN_RH },
+      { label: 'Services', route: '/organisation', organisationTab: 'cellules', roles: ADMIN_RH },
     ],
   },
   {
@@ -84,6 +88,7 @@ export const MICROSERVICES: Microservice[] = [
     icon: ICONS.users,
     children: [
       { label: 'Employés', route: '/users', roles: ADMIN_RH },
+      { label: 'Nouvel employé', route: '/users/create', roles: ADMIN_RH },
       { label: 'Import employés', route: '/import', roles: ADMIN_RH },
       { label: 'Contrats', route: '/contracts', roles: MANAGER_ROLES },
       { label: 'Nouveaux Employés', route: '/new-employees', roles: MANAGER_ROLES },
@@ -95,7 +100,8 @@ export const MICROSERVICES: Microservice[] = [
     icon: ICONS.leave,
     children: [
       { label: 'Gestion des congés', route: '/conge-gestion', roles: MANAGER_ROLES },
-      { label: 'Congés (ancien)', route: '/conge', roles: MANAGER_ROLES },
+      { label: 'Historique des congés', route: '/conge-historique', roles: MANAGER_ROLES },
+      { label: 'Gestion des absences', route: '/conge', roles: MANAGER_ROLES },
       { label: 'Mes congés', route: '/mes-conges', roles: EMPLOYEE_ROLES },
     ],
   },

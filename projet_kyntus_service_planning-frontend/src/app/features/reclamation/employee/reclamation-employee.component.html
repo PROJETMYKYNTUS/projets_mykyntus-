@@ -1,7 +1,7 @@
 <!-- src/app/features/reclamation/employee/reclamation-employee.component.html -->
 <!-- Intégrable dans le dashboard-employee comme vue additionnelle -->
 
-<div class="rp-root">
+<div class="page-wrapper ky-page-shell rp-root">
 
   <!-- ══ TOAST ══ -->
   <div class="rp-toast" [class.visible]="toastMsg" [class.rp-toast-error]="toastType==='error'">
@@ -33,20 +33,13 @@
   </div>
 
   <!-- ══ HEADER ══ -->
-  <div class="rp-header">
-    <div class="rp-header-left">
-      <div class="rp-header-icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-        </svg>
-      </div>
-      <div>
-        <h2 class="rp-title">Réclamations &amp; Propositions</h2>
-        <p class="rp-sub">Soumettez et suivez vos demandes</p>
-      </div>
+  <div class="page-header">
+    <div class="header-left">
+      <span class="eyebrow">Qualité &amp; amélioration</span>
+      <h1 class="page-title">Réclamations &amp; Propositions</h1>
+      <p class="page-sub">Soumettez et suivez vos demandes</p>
     </div>
-    <button class="ky-btn-primary" (click)="subView='new'" *ngIf="subView==='list'">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <button type="button" class="ky-btn-primary btn-add" (click)="subView='new'" *ngIf="subView==='list'">
       Nouvelle demande
     </button>
   </div>
@@ -64,18 +57,15 @@
   </div>
 
   <!-- ══ STATS STRIP ══ -->
-  <div class="rp-stats" *ngIf="subView==='list'">
+  <div class="kpi-row" *ngIf="subView==='list'">
     <ng-container *ngIf="mainTab==='reclamations'">
-      <div class="rp-stat"><span class="rp-stat-val">{{ reclamations.length }}</span><span class="rp-stat-lbl">Total</span></div>
-      <div class="rp-stat-sep"></div>
-      <div class="rp-stat"><span class="rp-stat-val rp-val-warn">{{ recEnCours }}</span><span class="rp-stat-lbl">En cours</span></div>
-      <div class="rp-stat-sep"></div>
-      <div class="rp-stat"><span class="rp-stat-val rp-val-ok">{{ recTraitees }}</span><span class="rp-stat-lbl">Traitées</span></div>
+      <div class="kpi-card ky-card kc-blue"><span class="kpi-label">Total</span><span class="kpi-value">{{ reclamations.length }}</span></div>
+      <div class="kpi-card ky-card kc-amber"><span class="kpi-label">En cours</span><span class="kpi-value">{{ recEnCours }}</span></div>
+      <div class="kpi-card ky-card kc-green"><span class="kpi-label">Traitées</span><span class="kpi-value">{{ recTraitees }}</span></div>
     </ng-container>
     <ng-container *ngIf="mainTab==='propositions'">
-      <div class="rp-stat"><span class="rp-stat-val">{{ propositions.length }}</span><span class="rp-stat-lbl">Total</span></div>
-      <div class="rp-stat-sep"></div>
-      <div class="rp-stat"><span class="rp-stat-val rp-val-ok">{{ propApprouvees }}</span><span class="rp-stat-lbl">Approuvées</span></div>
+      <div class="kpi-card ky-card kc-blue"><span class="kpi-label">Total</span><span class="kpi-value">{{ propositions.length }}</span></div>
+      <div class="kpi-card ky-card kc-green"><span class="kpi-label">Approuvées</span><span class="kpi-value">{{ propApprouvees }}</span></div>
     </ng-container>
   </div>
 
@@ -97,7 +87,7 @@
     </div>
 
     <div class="rp-list" *ngIf="reclamations.length>0">
-      <div class="rp-item" *ngFor="let r of reclamations" (click)="openRec(r.id)">
+      <div class="rp-item ky-card" *ngFor="let r of reclamations" (click)="openRec(r.id)">
         <div class="rp-item-left">
           <div class="rp-item-icon">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
@@ -142,7 +132,7 @@
     </div>
 
     <div class="rp-list" *ngIf="propositions.length>0">
-      <div class="rp-item" *ngFor="let p of propositions" (click)="openProp(p.id)">
+      <div class="rp-item ky-card" *ngFor="let p of propositions" (click)="openProp(p.id)">
         <div class="rp-item-left">
           <div class="rp-item-icon rp-icon-prop">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
@@ -183,7 +173,7 @@
     </button>
 
     <!-- Formulaire Réclamation -->
-    <div class="rp-form-card" *ngIf="mainTab==='reclamations'">
+    <div class="rp-form-card ky-card" *ngIf="mainTab==='reclamations'">
       <div class="rp-form-head">
         <div class="rp-form-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
@@ -228,7 +218,7 @@
     </div>
 
     <!-- Formulaire Proposition -->
-    <div class="rp-form-card" *ngIf="mainTab==='propositions'">
+    <div class="rp-form-card ky-card" *ngIf="mainTab==='propositions'">
       <div class="rp-form-head">
         <div class="rp-form-icon rp-icon-prop">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
@@ -279,7 +269,7 @@
       <span class="rp-status" [ngClass]="getStatusClass(selectedRec.status)">{{ selectedRec.status }}</span>
     </div>
 
-    <div class="rp-detail-card">
+    <div class="rp-detail-card ky-card">
       <div class="rp-detail-header">
         <h2>{{ selectedRec.titre }}</h2>
         <div class="rp-detail-meta">
@@ -343,7 +333,7 @@
       <span class="rp-status" [ngClass]="getStatusClass(selectedProp.status)">{{ selectedProp.status }}</span>
     </div>
 
-    <div class="rp-detail-card">
+    <div class="rp-detail-card ky-card">
       <div class="rp-detail-header">
         <h2>{{ selectedProp.titre }}</h2>
         <div class="rp-detail-meta">

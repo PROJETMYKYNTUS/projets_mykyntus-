@@ -1,4 +1,5 @@
-﻿using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Spreadsheet;
+using Kyntus.Messaging.Contracts;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -45,6 +46,7 @@ namespace PlanningService.Services
                     Subject = n.Subject,
                     HtmlContent = n.HtmlContent,
                     TextContent = n.TextContent,
+                    CoverImageUrl = n.CoverImageUrl,
                     CreatedAt = n.CreatedAt,
                     UpdatedAt = n.UpdatedAt,
                     CreatedByUserId = n.CreatedByUserId,
@@ -70,6 +72,7 @@ namespace PlanningService.Services
                 Subject = n.Subject,
                 HtmlContent = n.HtmlContent,
                 TextContent = n.TextContent,
+                CoverImageUrl = n.CoverImageUrl,
                 CreatedAt = n.CreatedAt,
                 UpdatedAt = n.UpdatedAt,
                 CreatedByUserId = n.CreatedByUserId,
@@ -79,12 +82,16 @@ namespace PlanningService.Services
 
         public async Task<NewsletterResponseDto> CreateNewsletterAsync(CreateNewsletterDto dto, string userId)
         {
+            if (string.IsNullOrWhiteSpace(dto.TextContent))
+                throw new InvalidOperationException("Le contenu du message est obligatoire.");
+
             var newsletter = new Newsletter
             {
                 Title = dto.Title,
                 Subject = dto.Subject,
-                HtmlContent = dto.HtmlContent,
-                TextContent = dto.TextContent,
+                TextContent = dto.TextContent.Trim(),
+                CoverImageUrl = dto.CoverImageUrl,
+                HtmlContent = BuildHtmlContent(dto.TextContent, dto.CoverImageUrl),
                 CreatedByUserId = userId
             };
 
@@ -100,8 +107,11 @@ namespace PlanningService.Services
 
             if (dto.Title is not null)      newsletter.Title = dto.Title;
             if (dto.Subject is not null)    newsletter.Subject = dto.Subject;
-            if (dto.HtmlContent is not null) newsletter.HtmlContent = dto.HtmlContent;
             if (dto.TextContent is not null) newsletter.TextContent = dto.TextContent;
+            if (dto.CoverImageUrl is not null) newsletter.CoverImageUrl = dto.CoverImageUrl;
+            newsletter.HtmlContent = BuildHtmlContent(
+                newsletter.TextContent ?? string.Empty,
+                newsletter.CoverImageUrl);
             newsletter.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -314,6 +324,7 @@ namespace PlanningService.Services
                     NewsletterSubject = a.Campaign.Newsletter.Subject,
                     HtmlContent      = a.Campaign.Newsletter.HtmlContent,
                     TextContent      = a.Campaign.Newsletter.TextContent,
+                    CoverImageUrl    = a.Campaign.Newsletter.CoverImageUrl,
                     IsRead           = a.IsRead,
                     ReadAt           = a.ReadAt,
                     ReceivedAt       = a.ReceivedAt
@@ -385,12 +396,12 @@ namespace PlanningService.Services
             // Map explicite : enum pluriel → nom de rôle singulier en BDD
             string targetRoleName = audience switch
             {
-                AudienceTarget.Employees => "Employee",
-                AudienceTarget.Managers => "Manager",
+                AudienceTarget.Employees => KyntusRoleNames.Employee,
+                AudienceTarget.Managers => KyntusRoleNames.Manager,
                 AudienceTarget.Admins => "Admin",
-                AudienceTarget.Pilotes => "Pilote",
-                AudienceTarget.Coaches => "Coach",
-                AudienceTarget.RPs => "RP",
+                AudienceTarget.Pilotes => KyntusRoleNames.Pilote,
+                AudienceTarget.Coaches => KyntusRoleNames.Coach,
+                AudienceTarget.RPs => KyntusRoleNames.Rp,
                 AudienceTarget.Audits => "Audit",
                 AudienceTarget.EquipeFormation => "EquipeFormation",
                 _ => audience.ToString()
@@ -399,7 +410,13 @@ namespace PlanningService.Services
 
             var users = await _context.Users
                 .Include(u => u.Role)
-                .Where(u => u.IsActive && u.Role.Name == targetRoleName)
+                .Where(u => u.IsActive && (
+                    u.Role.Name == targetRoleName
+                    || (audience == AudienceTarget.Employees && KyntusRoleNames.IsPilote(u.Role.Name))
+                    || (audience == AudienceTarget.Managers && KyntusRoleNames.IsSuperviseur(u.Role.Name))
+                    || (audience == AudienceTarget.Pilotes && KyntusRoleNames.IsPilote(u.Role.Name))
+                    || (audience == AudienceTarget.Coaches && KyntusRoleNames.IsReferentTechnique(u.Role.Name))
+                    || (audience == AudienceTarget.RPs && KyntusRoleNames.IsChefDeProjet(u.Role.Name))))
                 .ToListAsync();
 
             _logger.LogInformation("Users trouvés: {Count}", users.Count);
@@ -501,5 +518,25 @@ namespace PlanningService.Services
             TotalRecipients  = c.TotalRecipients,
             CreatedAt        = c.CreatedAt
         };
+
+        private static string BuildHtmlContent(string textContent, string? coverImageUrl)
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(coverImageUrl))
+            {
+                parts.Add(
+                    $"""<p><img src="{coverImageUrl.Trim()}" alt="Illustration" style="max-width:100%;height:auto;border-radius:12px;margin-bottom:16px;" /></p>""");
+            }
+
+            if (!string.IsNullOrWhiteSpace(textContent))
+            {
+                var escaped = System.Net.WebUtility.HtmlEncode(textContent.Trim())
+                    .Replace("\r\n", "\n")
+                    .Replace("\n", "<br/>");
+                parts.Add($"<p style=\"line-height:1.6;\">{escaped}</p>");
+            }
+
+            return parts.Count > 0 ? string.Join(string.Empty, parts) : "<p></p>";
+        }
     }
 }

@@ -1,6 +1,6 @@
 <!-- src/app/features/reclamation/admin/reclamation-admin.component.html -->
 
-<div class="rp-root">
+<div class="page-wrapper ky-page-shell rp-root">
 
   <!-- ══ TOAST ══ -->
   <div class="rp-toast" [class.visible]="toastMsg" [class.rp-toast-error]="toastType==='error'">
@@ -8,17 +8,11 @@
   </div>
 
   <!-- ══ HEADER ══ -->
-  <div class="rp-header">
-    <div class="rp-header-left">
-      <div class="rp-header-icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-        </svg>
-      </div>
-      <div>
-        <h2 class="rp-title">Gestion Réclamations &amp; Propositions</h2>
-        <p class="rp-sub">Traitement, assignation et reporting</p>
-      </div>
+  <div class="page-header">
+    <div class="header-left">
+      <span class="eyebrow">Qualité &amp; amélioration</span>
+      <h1 class="page-title">Gestion Réclamations &amp; Propositions</h1>
+      <p class="page-sub">Traitement, assignation et reporting</p>
     </div>
   </div>
 
@@ -53,16 +47,18 @@
   <ng-container *ngIf="adminView==='list'">
 
     <!-- Filtres -->
-    <div class="rpa-filters">
-      <select class="rp-select" [(ngModel)]="filterStatus" (change)="applyFilters()">
+    <div class="filters-panel ky-card rpa-filters">
+      <div class="filters-toolbar">
+      <select class="filter-ctl ky-input" [(ngModel)]="filterStatus" (change)="applyFilters()">
         <option value="">Tous les statuts</option>
         <option *ngFor="let s of currentStatuts" [value]="s">{{ s }}</option>
       </select>
-      <select class="rp-select" [(ngModel)]="filterPriorite" (change)="applyFilters()" *ngIf="mainTab==='reclamations'">
+      <select class="filter-ctl ky-input" [(ngModel)]="filterPriorite" (change)="applyFilters()" *ngIf="mainTab==='reclamations'">
         <option value="">Toutes les priorités</option>
         <option *ngFor="let p of priorities" [value]="p">{{ p }}</option>
       </select>
-      <button class="rp-btn-ghost ky-btn-secondary" (click)="filterStatus=''; filterPriorite=''; applyFilters()">Réinitialiser</button>
+      <button type="button" class="ky-btn-secondary" (click)="filterStatus=''; filterPriorite=''; applyFilters()">Réinitialiser</button>
+      </div>
     </div>
 
     <!-- Tableau Réclamations -->
@@ -72,7 +68,7 @@
         <h3>Aucune réclamation</h3><p>Aucun résultat pour ces filtres.</p>
       </div>
       <div class="rp-list" *ngIf="reclamations.length>0">
-        <div class="rp-item" *ngFor="let r of reclamations" (click)="openDetail(r.id)">
+        <div class="rp-item ky-card" *ngFor="let r of reclamations" (click)="openDetail(r.id)">
           <div class="rp-item-left">
             <div class="rp-item-icon">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
@@ -106,7 +102,7 @@
         <h3>Aucune proposition</h3><p>Aucun résultat pour ces filtres.</p>
       </div>
       <div class="rp-list" *ngIf="propositions.length>0">
-        <div class="rp-item" *ngFor="let p of propositions" (click)="openDetail(p.id)">
+        <div class="rp-item ky-card" *ngFor="let p of propositions" (click)="openDetail(p.id)">
           <div class="rp-item-left">
             <div class="rp-item-icon rp-icon-prop">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
@@ -190,7 +186,7 @@
     </div>
 
     <!-- Détail réclamation -->
-    <div class="rp-detail-card" *ngIf="selectedRec">
+    <div class="rp-detail-card ky-card" *ngIf="selectedRec">
       <div class="rp-detail-header">
         <h2>{{ selectedRec.titre }}</h2>
         <div class="rp-detail-meta">
@@ -235,7 +231,7 @@
     </div>
 
     <!-- Détail proposition -->
-    <div class="rp-detail-card" *ngIf="selectedProp">
+    <div class="rp-detail-card ky-card" *ngIf="selectedProp">
       <div class="rp-detail-header">
         <h2>{{ selectedProp.titre }}</h2>
         <div class="rp-detail-meta">
@@ -292,18 +288,18 @@
       <button class="ky-btn-primary" (click)="loadReport()">Actualiser</button>
     </div>
 
-    <div class="rpa-report-grid">
-      <div class="rpa-kpi">
-        <div class="rpa-kpi-val">{{ report.totalDemandes }}</div>
-        <div class="rpa-kpi-lbl">Total demandes</div>
+    <div class="kpi-row">
+      <div class="kpi-card ky-card kc-blue">
+        <div class="kpi-value">{{ report.totalDemandes }}</div>
+        <div class="kpi-label">Total demandes</div>
       </div>
-      <div class="rpa-kpi">
-        <div class="rpa-kpi-val">{{ report.totalAvecNote }}</div>
-        <div class="rpa-kpi-lbl">Avec évaluation</div>
+      <div class="kpi-card ky-card kc-green">
+        <div class="kpi-value">{{ report.totalAvecNote }}</div>
+        <div class="kpi-label">Avec évaluation</div>
       </div>
-      <div class="rpa-kpi">
-        <div class="rpa-kpi-val">{{ report.moyenneNote | number:'1.1-1' }}</div>
-        <div class="rpa-kpi-lbl">Note moyenne /5</div>
+      <div class="kpi-card ky-card kc-amber">
+        <div class="kpi-value">{{ report.moyenneNote | number:'1.1-1' }}</div>
+        <div class="kpi-label">Note moyenne /5</div>
       </div>
     </div>
 

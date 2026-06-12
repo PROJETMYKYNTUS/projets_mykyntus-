@@ -2,11 +2,17 @@
   <div class="page-header">
     <div class="header-left">
       <div>
-        <h1>Gestion des Services</h1>
-        <p>Administration des services et sous-services</p>
+        <h1>Gestion des Cellules</h1>
+        <p>Miroir Planning — lecture seule</p>
       </div>
     </div>
-    <button class="btn btn-primary ky-btn-primary" (click)="createService()">+ Nouveau Service</button>
+  </div>
+
+  <div class="org-mirror-banner ky-card">
+    <p>La structure organisationnelle (pôles, cellules, services) se configure dans Organisation RH.</p>
+    <button type="button" class="btn btn-primary ky-btn-primary" (click)="goToOrganisationRh()">
+      Gérer dans Organisation RH
+    </button>
   </div>
 
   <div class="card ky-card">
@@ -22,7 +28,7 @@
       </div>
     } @else if (services.length === 0) {
       <div class="state empty">
-        <p>Aucun service trouvé.</p>
+        <p>Aucune cellule trouvée.</p>
         <button class="btn btn-primary ky-btn-primary" (click)="loadServices()">Recharger</button>
       </div>
     } @else {
@@ -32,9 +38,8 @@
             <tr>
               <th>Code</th>
               <th>Nom</th>
-              <th>Étage</th>
-              <th>Sous-services</th>
-              <th class="actions-col">Actions</th>
+              <th>Pôle</th>
+              <th>Services</th>
             </tr>
           </thead>
           <tbody>
@@ -44,11 +49,6 @@
                 <td class="service-name">{{ service.name }}</td>
                 <td>{{ service.floorName }}</td>
                 <td><span class="badge secondary">{{ service.subServicesCount }}</span></td>
-                <td class="actions">
-                  <button class="btn btn-view" (click)="viewService(service.id)">Voir</button>
-                  <button class="btn btn-edit" (click)="editService(service.id)">Modifier</button>
-                  <button class="btn btn-delete" (click)="deleteService(service.id)">Supprimer</button>
-                </td>
               </tr>
             }
           </tbody>

@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { KyntusSelectSyncDirective } from '@/shared/directives/kyntus-select-sync.directive';
 import { ParrainageRoleService } from '../state/parrainage-role.service';
 import { HierarchyDrillService } from '../state/hierarchy-drill.service';
-import { ORG_NODES, listCoachesUnderManager, listManagersUnderRp } from '../lib/org-hierarchy';
+import { getOrgNodes, listCoachesUnderManager, listManagersUnderRp } from '../lib/org-hierarchy';
 
 const LABELS: Record<string, string> = {
   'rp-1': 'RP',
@@ -12,13 +13,14 @@ const LABELS: Record<string, string> = {
 @Component({
   selector: 'app-pm-drill-bar',
   standalone: true,
+  imports: [KyntusSelectSyncDirective],
   template: `
     @if (role.user().role === 'MANAGER') {
       <div class="flex flex-wrap items-center gap-2 mb-4">
         <span class="text-xs text-muted uppercase">Périmètre</span>
         <select
-          [value]="drill.drill().coachId ?? ''"
-          (change)="setCoach($event)"
+          [kyntusSelectSync]="drill.drill().coachId ?? ''"
+          (kyntusSelectSyncChange)="setCoachId($event)"
           class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-primary"
         >
           <option value="">Coach</option>
@@ -31,8 +33,8 @@ const LABELS: Record<string, string> = {
       <div class="flex flex-wrap items-center gap-2 mb-4">
         <span class="text-xs text-muted uppercase">Périmètre</span>
         <select
-          [value]="drill.drill().managerId ?? ''"
-          (change)="setManager($event)"
+          [kyntusSelectSync]="drill.drill().managerId ?? ''"
+          (kyntusSelectSyncChange)="setManagerId($event)"
           class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-primary"
         >
           <option value="">Manager</option>
@@ -41,8 +43,8 @@ const LABELS: Record<string, string> = {
           }
         </select>
         <select
-          [value]="drill.drill().coachId ?? ''"
-          (change)="setCoach($event)"
+          [kyntusSelectSync]="drill.drill().coachId ?? ''"
+          (kyntusSelectSyncChange)="setCoachId($event)"
           [disabled]="!drill.drill().managerId"
           class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-primary disabled:opacity-50"
         >
@@ -62,26 +64,24 @@ export class PmDrillBarComponent {
 
   get managers() {
     const u = this.role.user();
-    return u.role === 'RP' ? listManagersUnderRp(ORG_NODES, u.id) : [];
+    return u.role === 'RP' ? listManagersUnderRp(getOrgNodes(), u.id) : [];
   }
 
   get coaches() {
     const u = this.role.user();
     const mgrId = u.role === 'RP' ? this.drill.drill().managerId : u.role === 'MANAGER' ? u.id : undefined;
-    return mgrId ? listCoachesUnderManager(ORG_NODES, mgrId) : [];
+    return mgrId ? listCoachesUnderManager(getOrgNodes(), mgrId) : [];
   }
 
   label(id: string): string {
     return LABELS[id] ?? id;
   }
 
-  setManager(event: Event): void {
-    const id = (event.target as HTMLSelectElement).value;
+  setManagerId(id: string): void {
     this.drill.setDrill({ managerId: id || undefined, coachId: undefined });
   }
 
-  setCoach(event: Event): void {
-    const id = (event.target as HTMLSelectElement).value;
+  setCoachId(id: string): void {
     this.drill.setDrill({ coachId: id || undefined });
   }
 }

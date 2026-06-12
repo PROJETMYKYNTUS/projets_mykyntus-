@@ -2,11 +2,14 @@ import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnInit,
   computed,
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
 import { finalize, type Observable } from 'rxjs';
 import {
   Activity,
@@ -19,6 +22,7 @@ import {
   Trash2,
 } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
+import { KyntusSelectSyncDirective } from '@/shared/directives/kyntus-select-sync.directive';
 import { PrimeCardComponent } from '../components/prime-card.component';
 import {
   PrimeOrgApiService,
@@ -28,9 +32,16 @@ import type { Department, Employee, LegacyCellule as Cellule, LegacyPole as Pole
 import {
   employeeSelectOptionLabel,
   employeesForOrgAssignmentSelect,
-  selectValueOrEmpty,
+  reconcileSelectModel,
 } from '../lib/prime-select-options';
 import { RoleService } from '../state/role.service';
+import { parseOrganisationRhTab } from '../../../core/navigation/organisation-nav';
+import {
+  ORG_DUPLICATE_CELLULE_MSG,
+  ORG_DUPLICATE_POLE_MSG,
+  ORG_DUPLICATE_SERVICE_MSG,
+  orgNamesEqual,
+} from '../lib/org-name-uniqueness';
 
 function matchAssignmentUserId(
   assignments: { userId: string; etageId?: string; serviceId?: string; celluleId?: string; sousServiceId?: string }[],
@@ -79,7 +90,7 @@ function httpErrMessage(err: unknown): string {
 @Component({
   selector: 'app-organisation-management',
   standalone: true,
-  imports: [LucideIconComponent, PrimeCardComponent],
+  imports: [LucideIconComponent, PrimeCardComponent, KyntusSelectSyncDirective],
   template: `
     @if (loading()) {
       <div class="p-8 flex justify-center">
@@ -137,7 +148,7 @@ function httpErrMessage(err: unknown): string {
               type="button"
               role="tab"
               [attr.aria-selected]="mainTab() === t.id"
-              (click)="mainTab.set(t.id)"
+              (click)="selectMainTab(t.id)"
               class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
               [class.bg-indigo-600]="mainTab() === t.id"
               [class.text-white]="mainTab() === t.id"
@@ -170,13 +181,16 @@ function httpErrMessage(err: unknown): string {
                 <button
                   type="button"
                   (click)="submitNewDepartment()"
-                  [disabled]="saving() || !newDepartmentName().trim()"
+                  [disabled]="saving() || !newDepartmentName().trim() || !!newDepartmentNameConflict()"
                   class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 shrink-0"
                 >
                   <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
                   Créer
                 </button>
               </div>
+              @if (newDepartmentNameConflict(); as msg) {
+                <p class="px-4 sm:px-6 pb-2 text-xs text-amber-400">{{ msg }}</p>
+              }
               <p class="px-4 sm:px-6 pb-3 text-xs text-slate-500 border-b border-navy-800 bg-navy-950/40">
                 Un pôle sans structure ne permet pas encore d’affecter un chef de projet : ajoutez au moins une cellule puis un service
                 depuis les onglets dédiés.
@@ -202,8 +216,8 @@ function httpErrMessage(err: unknown): string {
                         <td class="px-4 py-2.5">
                           <select
                             class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
-                            [value]="selectManagerValue(dept.id)"
-                            (change)="patchDraftManager(dept.id, selectVal($event))"
+                            [kyntusSelectSync]="draftManagerDept(dept.id)"
+                            (kyntusSelectSyncChange)="patchDraftManager(dept.id, $event)"
                           >
                             <option value="">— Sélectionner —</option>
                             @for (e of employeesForManagerRow(dept.id); track e.id) {
@@ -253,8 +267,8 @@ function httpErrMessage(err: unknown): string {
                   <span>Pôle</span>
                   <select
                     class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 min-w-[12rem]"
-                    [value]="newPoleDeptId()"
-                    (change)="newPoleDeptId.set(selectVal($event))"
+                    [kyntusSelectSync]="newPoleDeptId()"
+                    (kyntusSelectSyncChange)="newPoleDeptId.set($event)"
                   >
                     @for (d of data()?.departments ?? []; track d.id) {
                       <option [value]="d.id">{{ d.name }}</option>
@@ -274,13 +288,16 @@ function httpErrMessage(err: unknown): string {
                 <button
                   type="button"
                   (click)="submitNewPole()"
-                  [disabled]="saving() || !newPoleDeptId() || !newPoleName().trim()"
+                  [disabled]="saving() || !newPoleDeptId() || !newPoleName().trim() || !!newPoleNameConflict()"
                   class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 shrink-0"
                 >
                   <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
                   Créer la cellule
                 </button>
               </div>
+              @if (newPoleNameConflict(); as msg) {
+                <p class="px-4 sm:px-6 pb-2 text-xs text-amber-400">{{ msg }}</p>
+              }
               <p class="px-4 sm:px-6 pb-3 text-xs text-slate-500 border-b border-navy-800 bg-navy-950/40">
                 Vous pouvez affecter un superviseur dès qu’une cellule existe ; les services peuvent être ajoutés ensuite.
               </p>
@@ -307,8 +324,8 @@ function httpErrMessage(err: unknown): string {
                         <td class="px-4 py-2.5">
                           <select
                             class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
-                            [value]="selectSupervisorValue(row.poleId)"
-                            (change)="patchDraftSupervisor(row.poleId, selectVal($event))"
+                            [kyntusSelectSync]="draftSupervisorPole(row.poleId)"
+                            (kyntusSelectSyncChange)="patchDraftSupervisor(row.poleId, $event)"
                           >
                             <option value="">— Sélectionner —</option>
                             @for (e of employeesForSupervisorRow(row.poleId); track e.id) {
@@ -362,8 +379,8 @@ function httpErrMessage(err: unknown): string {
                   <span>Pôle</span>
                   <select
                     class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 min-w-[12rem]"
-                    [value]="newCellDeptId()"
-                    (change)="patchNewCellDept(selectVal($event))"
+                    [kyntusSelectSync]="newCellDeptId()"
+                    (kyntusSelectSyncChange)="patchNewCellDept($event)"
                   >
                     @for (d of data()?.departments ?? []; track d.id) {
                       <option [value]="d.id">{{ d.name }}</option>
@@ -374,8 +391,8 @@ function httpErrMessage(err: unknown): string {
                   <span>Cellule</span>
                   <select
                     class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 min-w-[12rem]"
-                    [value]="newCellPoleId()"
-                    (change)="newCellPoleId.set(selectVal($event))"
+                    [kyntusSelectSync]="newCellPoleId()"
+                    (kyntusSelectSyncChange)="newCellPoleId.set($event)"
                   >
                     @for (p of polesForNewCellForm(); track p.id) {
                       <option [value]="p.id">{{ p.name }}</option>
@@ -395,13 +412,16 @@ function httpErrMessage(err: unknown): string {
                 <button
                   type="button"
                   (click)="submitNewCellule()"
-                  [disabled]="saving() || !newCellPoleId() || !newCellName().trim()"
+                  [disabled]="saving() || !newCellPoleId() || !newCellName().trim() || !!newCellNameConflict()"
                   class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 shrink-0"
                 >
                   <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
                   Créer le service
                 </button>
               </div>
+              @if (newCellNameConflict(); as msg) {
+                <p class="px-4 sm:px-6 pb-2 text-xs text-amber-400">{{ msg }}</p>
+              }
               @if (polesForNewCellForm().length === 0) {
                 <p class="px-4 sm:px-6 py-2 text-xs text-amber-400/90">
                   Ce pôle n’a pas encore de cellule : créez-en une depuis l’onglet « Gestion des cellules », puis revenez
@@ -448,8 +468,8 @@ function httpErrMessage(err: unknown): string {
                         <td class="px-4 py-2.5">
                           <select
                             class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
-                            [value]="selectCoachValue(row.celluleId)"
-                            (change)="patchDraftCoach(row.celluleId, selectVal($event))"
+                            [kyntusSelectSync]="draftCoachCell(row.celluleId)"
+                            (kyntusSelectSyncChange)="patchDraftCoach(row.celluleId, $event)"
                           >
                             <option value="">— Sélectionner —</option>
                             @for (e of employeesForCoachRow(row.celluleId); track e.id) {
@@ -505,8 +525,8 @@ function httpErrMessage(err: unknown): string {
                             <div class="flex flex-wrap gap-2 items-end max-w-lg">
                               <select
                                 class="flex-1 min-w-[160px] rounded-lg border border-navy-700 bg-navy-900 px-2 py-2 text-sm text-slate-200"
-                                [value]="selectPilotValue(row.celluleId)"
-                                (change)="patchDraftPilotCell(row.celluleId, selectVal($event))"
+                                [kyntusSelectSync]="draftPilotCell(row.celluleId)"
+                                (kyntusSelectSyncChange)="patchDraftPilotCell(row.celluleId, $event)"
                                 [disabled]="!coachUserId(row.celluleId)"
                               >
                                 <option value="">— Pilote —</option>
@@ -517,8 +537,8 @@ function httpErrMessage(err: unknown): string {
                               @if (teamsForCell(row.celluleId).length > 1) {
                                 <select
                                   class="min-w-[120px] rounded-lg border border-navy-700 bg-navy-900 px-2 py-2 text-sm text-slate-200"
-                                  [value]="draftPilotTeamCell(row.celluleId)"
-                                  (change)="patchDraftPilotTeamCell(row.celluleId, selectVal($event))"
+                                  [kyntusSelectSync]="draftPilotTeamCell(row.celluleId)"
+                                  (kyntusSelectSyncChange)="patchDraftPilotTeamCell(row.celluleId, $event)"
                                 >
                                   @for (t of teamsForCell(row.celluleId); track t.id) {
                                     <option [value]="t.id">{{ t.name }}</option>
@@ -996,8 +1016,8 @@ function httpErrMessage(err: unknown): string {
                               @if (teamsForCell(sel.id).length > 1) {
                                 <select
                                   class="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-slate-200"
-                                  [value]="draftPilotTeamId()"
-                                  (change)="draftPilotTeamId.set(selectVal($event))"
+                                  [kyntusSelectSync]="draftPilotTeamId()"
+                                  (kyntusSelectSyncChange)="draftPilotTeamId.set($event)"
                                 >
                                   @for (t of teamsForCell(sel.id); track t.id) {
                                     <option [value]="t.id">{{ t.name }}</option>
@@ -1147,6 +1167,9 @@ function httpErrMessage(err: unknown): string {
 export class OrganisationManagementComponent implements OnInit {
   private readonly orgApi = inject(PrimeOrgApiService);
   private readonly role = inject(RoleService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly icons = {
     refresh: RefreshCw,
@@ -1191,6 +1214,14 @@ export class OrganisationManagementComponent implements OnInit {
   readonly draftPilotByCell = signal<Record<string, string>>({});
   readonly draftPilotTeamByCell = signal<Record<string, string>>({});
 
+  /** Lignes modifiées par l'utilisateur — préservées lors d'un rechargement silencieux. */
+  private readonly dirtyRowDrafts = signal({
+    mgr: new Set<string>(),
+    sup: new Set<string>(),
+    coach: new Set<string>(),
+    pilot: new Set<string>(),
+  });
+
   readonly expandedCellPilotIds = signal<Set<string>>(new Set());
 
   readonly draftEmployeeId = signal('');
@@ -1202,9 +1233,51 @@ export class OrganisationManagementComponent implements OnInit {
   readonly structurePilotEmpSearch = signal('');
   readonly structureActivityLog = signal<StructureLogEntry[]>([]);
 
+  readonly newDepartmentNameConflict = computed((): string | null => {
+    const name = this.newDepartmentName().trim();
+    if (!name) return null;
+    const dupe = (this.data()?.departments ?? []).some((d) => orgNamesEqual(d.name, name));
+    return dupe ? ORG_DUPLICATE_POLE_MSG : null;
+  });
+
+  readonly newPoleNameConflict = computed((): string | null => {
+    const name = this.newPoleName().trim();
+    const deptId = this.newPoleDeptId().trim();
+    if (!name || !deptId) return null;
+    const dept = this.data()?.departments.find((d) => d.id === deptId);
+    const dupe = (dept?.poles ?? []).some((p) => orgNamesEqual(p.name, name));
+    return dupe ? ORG_DUPLICATE_CELLULE_MSG : null;
+  });
+
+  readonly newCellNameConflict = computed((): string | null => {
+    const name = this.newCellName().trim();
+    const poleId = this.newCellPoleId().trim();
+    if (!name || !poleId) return null;
+    const dept = this.data()?.departments.find((d) => d.poles.some((p) => p.id === poleId));
+    const pole = dept?.poles.find((p) => p.id === poleId);
+    const dupe = (pole?.cells ?? []).some((c) => orgNamesEqual(c.name, name));
+    return dupe ? ORG_DUPLICATE_SERVICE_MSG : null;
+  });
+
   ngOnInit(): void {
     this.role.preferRhForOrgScreen();
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      this.mainTab.set(parseOrganisationRhTab(params.get('tab')));
+    });
     this.load(false);
+  }
+
+  selectMainTab(id: OrgMainTab): void {
+    this.mainTab.set(id);
+    const hadTabQuery = this.route.snapshot.queryParamMap.has('tab');
+    const tabQuery =
+      id === 'departments' ? (hadTabQuery ? 'departments' : null) : id;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: tabQuery },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   load(silent: boolean): void {
@@ -1229,6 +1302,13 @@ export class OrganisationManagementComponent implements OnInit {
   }
 
   private rebuildRowDraftsFromData(d: OrgAssignmentsOverview): void {
+    const dirty = this.dirtyRowDrafts();
+    const prevMgr = this.draftManagerByDept();
+    const prevSup = this.draftSupervisorByPole();
+    const prevCoach = this.draftCoachByCell();
+    const prevPilot = this.draftPilotByCell();
+    const prevPilotTeam = this.draftPilotTeamByCell();
+
     const mgr: Record<string, string> = {};
     const sup: Record<string, string> = {};
     const coach: Record<string, string> = {};
@@ -1236,20 +1316,18 @@ export class OrganisationManagementComponent implements OnInit {
     const pilotTeam: Record<string, string> = {};
 
     for (const dept of d.departments) {
-      mgr[dept.id] =
-        matchAssignmentUserId(d.managerEtage, [dept.id, ...dept.poles.map((p) => p.id)]) ?? '';
+      mgr[dept.id] = dirty.mgr.has(dept.id) ? (prevMgr[dept.id] ?? '') : '';
       for (const pole of dept.poles) {
-        const cellIds = pole.cells.map((c) => c.id);
-        const teamIds = pole.cells.flatMap((c) => (c.teams ?? []).map((t) => t.id));
-        sup[pole.id] =
-          matchAssignmentUserId(d.supervisorService, [pole.id, ...cellIds, ...teamIds]) ?? '';
+        sup[pole.id] = dirty.sup.has(pole.id) ? (prevSup[pole.id] ?? '') : '';
         for (const cell of pole.cells) {
-          const teamIdsForCell = (cell.teams ?? []).map((t) => t.id);
-          coach[cell.id] =
-            matchAssignmentUserId(d.coachSousService, [cell.id, ...teamIdsForCell]) ?? '';
-          pilotPick[cell.id] = '';
+          coach[cell.id] = dirty.coach.has(cell.id) ? (prevCoach[cell.id] ?? '') : '';
+          pilotPick[cell.id] = dirty.pilot.has(cell.id) ? (prevPilot[cell.id] ?? '') : '';
           const teams = cell.teams ?? [];
-          pilotTeam[cell.id] = teams[0]?.id ?? '';
+          const defaultTeam = teams[0]?.id ?? '';
+          pilotTeam[cell.id] = prevPilotTeam[cell.id] ?? defaultTeam;
+          if (!teams.some((t) => t.id === pilotTeam[cell.id])) {
+            pilotTeam[cell.id] = defaultTeam;
+          }
         }
       }
     }
@@ -1284,12 +1362,14 @@ export class OrganisationManagementComponent implements OnInit {
   patchNewCellDept(deptId: string): void {
     this.newCellDeptId.set(deptId);
     const poles = this.data()?.departments?.find((d) => d.id === deptId)?.poles ?? [];
+    const curPole = this.newCellPoleId();
+    if (curPole && poles.some((p) => p.id === curPole)) return;
     this.newCellPoleId.set(poles[0]?.id ?? '');
   }
 
   submitNewDepartment(): void {
     const name = this.newDepartmentName().trim();
-    if (!name) return;
+    if (!name || this.newDepartmentNameConflict()) return;
     this.runMutation(
       this.orgApi.createStructureDepartment(name),
       () => this.newDepartmentName.set(''),
@@ -1300,14 +1380,14 @@ export class OrganisationManagementComponent implements OnInit {
   submitNewPole(): void {
     const deptId = this.newPoleDeptId().trim();
     const name = this.newPoleName().trim();
-    if (!deptId || !name) return;
+    if (!deptId || !name || this.newPoleNameConflict()) return;
     this.runMutation(this.orgApi.createStructurePole(deptId, name), () => this.newPoleName.set(''), 'Cellule ajoutée');
   }
 
   submitNewCellule(): void {
     const poleId = this.newCellPoleId().trim();
     const name = this.newCellName().trim();
-    if (!poleId || !name) return;
+    if (!poleId || !name || this.newCellNameConflict()) return;
     this.runMutation(
       this.orgApi.createStructureCellule(poleId, name),
       () => this.newCellName.set(''),
@@ -1318,17 +1398,13 @@ export class OrganisationManagementComponent implements OnInit {
   private syncDraftFromSelection(): void {
     const sel = this.selection();
     if (!sel) return;
-    if (sel.kind === 'department') {
-      this.draftEmployeeId.set(this.managerUserId(sel.id) ?? '');
-      return;
+    const teams = sel.kind === 'cellule' ? this.teamsForCell(sel.id) : [];
+    if (teams.length > 0) {
+      const curTeam = this.draftPilotTeamId();
+      if (!curTeam || !teams.some((t) => t.id === curTeam)) {
+        this.draftPilotTeamId.set(teams[0]?.id ?? '');
+      }
     }
-    if (sel.kind === 'pole') {
-      this.draftEmployeeId.set(this.supervisorUserId(sel.id) ?? '');
-      return;
-    }
-    this.draftEmployeeId.set(this.coachUserId(sel.id) ?? '');
-    const teams = this.teamsForCell(sel.id);
-    this.draftPilotTeamId.set(teams[0]?.id ?? '');
   }
 
   private expandAllForDiscovery(departments: Department[]): void {
@@ -1567,19 +1643,55 @@ export class OrganisationManagementComponent implements OnInit {
     );
   }
 
-  selectManagerValue(deptId: string): string {
-    const opts = this.employeesForManagerRow(deptId).map((e) => e.id);
-    return selectValueOrEmpty(this.draftManagerDept(deptId), opts);
+  private markRowDraftDirty(kind: 'mgr' | 'sup' | 'coach' | 'pilot', id: string): void {
+    this.dirtyRowDrafts.update((d) => {
+      const next = { mgr: new Set(d.mgr), sup: new Set(d.sup), coach: new Set(d.coach), pilot: new Set(d.pilot) };
+      next[kind].add(id);
+      return next;
+    });
   }
 
-  selectSupervisorValue(poleId: string): string {
-    const opts = this.employeesForSupervisorRow(poleId).map((e) => e.id);
-    return selectValueOrEmpty(this.draftSupervisorPole(poleId), opts);
+  private clearRowDraftDirty(kind: 'mgr' | 'sup' | 'coach' | 'pilot', id: string): void {
+    this.dirtyRowDrafts.update((d) => {
+      const next = { mgr: new Set(d.mgr), sup: new Set(d.sup), coach: new Set(d.coach), pilot: new Set(d.pilot) };
+      next[kind].delete(id);
+      return next;
+    });
   }
 
-  selectCoachValue(cellId: string): string {
-    const opts = this.employeesForCoachRow(cellId).map((e) => e.id);
-    return selectValueOrEmpty(this.draftCoachCell(cellId), opts);
+  private reconcileDraftWithOptions(
+    draft: string,
+    options: Employee[],
+  ): string {
+    const opts = options.map((e) => e.id);
+    return reconcileSelectModel(draft, opts);
+  }
+
+  patchDraftManager(deptId: string, value: string): void {
+    const reconciled = this.reconcileDraftWithOptions(
+      value,
+      this.employeesForManagerRow(deptId),
+    );
+    this.draftManagerByDept.update((m) => ({ ...m, [deptId]: reconciled }));
+    if (reconciled) this.markRowDraftDirty('mgr', deptId);
+    else this.clearRowDraftDirty('mgr', deptId);
+  }
+
+  patchDraftSupervisor(poleId: string, value: string): void {
+    const reconciled = this.reconcileDraftWithOptions(
+      value,
+      this.employeesForSupervisorRow(poleId),
+    );
+    this.draftSupervisorByPole.update((m) => ({ ...m, [poleId]: reconciled }));
+    if (reconciled) this.markRowDraftDirty('sup', poleId);
+    else this.clearRowDraftDirty('sup', poleId);
+  }
+
+  patchDraftCoach(cellId: string, value: string): void {
+    const reconciled = this.reconcileDraftWithOptions(value, this.employeesForCoachRow(cellId));
+    this.draftCoachByCell.update((m) => ({ ...m, [cellId]: reconciled }));
+    if (reconciled) this.markRowDraftDirty('coach', cellId);
+    else this.clearRowDraftDirty('coach', cellId);
   }
 
   employeesForPilotRow(cellId: string): Employee[] {
@@ -1587,25 +1699,11 @@ export class OrganisationManagementComponent implements OnInit {
     return employeesForOrgAssignmentSelect(emps, this.draftPilotCell(cellId));
   }
 
-  selectPilotValue(cellId: string): string {
-    const opts = this.employeesForPilotRow(cellId).map((e) => e.id);
-    return selectValueOrEmpty(this.draftPilotCell(cellId), opts);
-  }
-
-  patchDraftManager(deptId: string, value: string): void {
-    this.draftManagerByDept.update((m) => ({ ...m, [deptId]: value }));
-  }
-
-  patchDraftSupervisor(poleId: string, value: string): void {
-    this.draftSupervisorByPole.update((m) => ({ ...m, [poleId]: value }));
-  }
-
-  patchDraftCoach(cellId: string, value: string): void {
-    this.draftCoachByCell.update((m) => ({ ...m, [cellId]: value }));
-  }
-
   patchDraftPilotCell(cellId: string, value: string): void {
-    this.draftPilotByCell.update((m) => ({ ...m, [cellId]: value }));
+    const reconciled = this.reconcileDraftWithOptions(value, this.employeesForPilotRow(cellId));
+    this.draftPilotByCell.update((m) => ({ ...m, [cellId]: reconciled }));
+    if (reconciled) this.markRowDraftDirty('pilot', cellId);
+    else this.clearRowDraftDirty('pilot', cellId);
   }
 
   patchDraftPilotTeamCell(cellId: string, value: string): void {
@@ -1684,7 +1782,7 @@ export class OrganisationManagementComponent implements OnInit {
 
   selectDepartment(d: Department): void {
     this.selection.set({ kind: 'department', id: d.id, name: d.name });
-    this.draftEmployeeId.set(this.managerUserId(d.id) ?? '');
+    this.draftEmployeeId.set('');
     this.draftPilotId.set('');
     this.draftPilotTeamId.set('');
     this.structureDetailEmpSearch.set('');
@@ -1698,7 +1796,7 @@ export class OrganisationManagementComponent implements OnInit {
       name: p.name,
       departmentId: d.id,
     });
-    this.draftEmployeeId.set(this.supervisorUserId(p.id) ?? '');
+    this.draftEmployeeId.set('');
     this.draftPilotId.set('');
     this.draftPilotTeamId.set('');
     this.structureDetailEmpSearch.set('');
@@ -1713,7 +1811,7 @@ export class OrganisationManagementComponent implements OnInit {
       poleId: p.id,
       departmentId: d.id,
     });
-    this.draftEmployeeId.set(this.coachUserId(c.id) ?? '');
+    this.draftEmployeeId.set('');
     const teams = c.teams ?? [];
     this.draftPilotId.set('');
     this.draftPilotTeamId.set(teams[0]?.id ?? '');
@@ -1859,7 +1957,10 @@ export class OrganisationManagementComponent implements OnInit {
     if (!id) return;
     this.runMutation(
       this.orgApi.setStructureManager(departmentId, id),
-      undefined,
+      () => {
+        this.clearRowDraftDirty('mgr', departmentId);
+        this.patchDraftManager(departmentId, '');
+      },
       'Chef de projet enregistré (liste pôles)',
     );
   }
@@ -1877,7 +1978,10 @@ export class OrganisationManagementComponent implements OnInit {
     if (!id) return;
     this.runMutation(
       this.orgApi.setStructureSupervisor(poleId, id),
-      undefined,
+      () => {
+        this.clearRowDraftDirty('sup', poleId);
+        this.patchDraftSupervisor(poleId, '');
+      },
       'Superviseur enregistré (liste cellules)',
     );
   }
@@ -1895,7 +1999,10 @@ export class OrganisationManagementComponent implements OnInit {
     if (!id) return;
     this.runMutation(
       this.orgApi.setStructureCoach(celluleId, id),
-      undefined,
+      () => {
+        this.clearRowDraftDirty('coach', celluleId);
+        this.patchDraftCoach(celluleId, '');
+      },
       'Référent technique enregistré (liste services)',
     );
   }
@@ -1918,7 +2025,10 @@ export class OrganisationManagementComponent implements OnInit {
         : undefined;
     this.runMutation(
       this.orgApi.addStructurePilot(celluleId, emp, teamId),
-      undefined,
+      () => {
+        this.clearRowDraftDirty('pilot', celluleId);
+        this.patchDraftPilotCell(celluleId, '');
+      },
       'Pilote ajouté (liste services)',
     );
   }
@@ -2005,6 +2115,7 @@ export class OrganisationManagementComponent implements OnInit {
       next: () => {
         onOk?.();
         if (logMessage) this.pushStructureLog(logMessage);
+        this.draftEmployeeId.set('');
         this.draftPilotId.set('');
         this.load(true);
       },

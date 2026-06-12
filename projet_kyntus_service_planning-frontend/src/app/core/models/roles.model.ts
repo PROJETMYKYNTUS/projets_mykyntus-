@@ -1,17 +1,32 @@
 export enum Role {
   EMPLOYEE        = 'employee',
+  PILOTE          = 'Pilote',
   RH              = 'RH',
   MANAGER         = 'Manager',
+  SUPERVISEUR     = 'Superviseur',
   COACH           = 'Coach',
+  REFERENT_TECHNIQUE = 'Referent_technique',
   RP              = 'RP',
+  CHEF_DE_PROJET  = 'Chef_de_projet',
   ADMIN           = 'Admin',
   AUDIT           = 'Audit',
   EQUIPE_FORMATION= 'Equipe_Formation'
 }
  
 const ALL_ROLES = [
-  Role.EMPLOYEE, Role.RH, Role.MANAGER, Role.COACH,
-  Role.RP, Role.ADMIN, Role.AUDIT, Role.EQUIPE_FORMATION
+  Role.EMPLOYEE, Role.PILOTE, Role.RH, Role.MANAGER, Role.SUPERVISEUR,
+  Role.COACH, Role.REFERENT_TECHNIQUE, Role.RP, Role.CHEF_DE_PROJET,
+  Role.ADMIN, Role.AUDIT, Role.EQUIPE_FORMATION
+];
+
+const EMPLOYEE_LIKE_ROLES = [
+  Role.EMPLOYEE, Role.PILOTE, Role.MANAGER, Role.SUPERVISEUR,
+  Role.COACH, Role.REFERENT_TECHNIQUE, Role.RP, Role.CHEF_DE_PROJET,
+  Role.AUDIT, Role.EQUIPE_FORMATION
+];
+
+const MANAGER_LIKE_ROLES = [
+  Role.RH, Role.MANAGER, Role.SUPERVISEUR, Role.RP, Role.CHEF_DE_PROJET, Role.ADMIN
 ];
  
 export const PERMISSIONS: Record<string, Record<string, Role[]>> = {
@@ -25,12 +40,12 @@ export const PERMISSIONS: Record<string, Record<string, Role[]>> = {
  
   dashboard: {
     admin:    [Role.RH, Role.ADMIN],
-    employee: [Role.EMPLOYEE, Role.MANAGER, Role.COACH, Role.RP, Role.AUDIT, Role.EQUIPE_FORMATION],
+    employee: EMPLOYEE_LIKE_ROLES,
   },
  
   planning: {
     view:   ALL_ROLES,
-    create: [Role.RH, Role.MANAGER, Role.ADMIN],
+    create: [Role.RH, Role.MANAGER, Role.SUPERVISEUR, Role.ADMIN],
   },
  
   // ── NOUVEAU ─────────────────────────────────────────────
@@ -40,24 +55,24 @@ export const PERMISSIONS: Record<string, Record<string, Role[]>> = {
     suivre:    ALL_ROLES,
  
     // Traitement et gestion
-    traiter:   [Role.RH, Role.MANAGER, Role.RP, Role.ADMIN],
-    assigner:  [Role.RH, Role.MANAGER, Role.RP, Role.ADMIN],
-    prioriser: [Role.RH, Role.MANAGER, Role.RP, Role.ADMIN],
+    traiter:   MANAGER_LIKE_ROLES,
+    assigner:  MANAGER_LIKE_ROLES,
+    prioriser: MANAGER_LIKE_ROLES,
  
     // Reporting
-    reporting: [Role.RH, Role.MANAGER, Role.RP, Role.ADMIN, Role.AUDIT],
+    reporting: [...MANAGER_LIKE_ROLES, Role.AUDIT],
  
     // Audit complet
-    historique:[Role.RP, Role.ADMIN, Role.AUDIT],
+    historique:[Role.RP, Role.CHEF_DE_PROJET, Role.ADMIN, Role.AUDIT],
   },
  
   proposition: {
     soumettre: ALL_ROLES,
     suivre:    ALL_ROLES,
-    evaluer:   [Role.RH, Role.MANAGER, Role.RP, Role.ADMIN],
-    assigner:  [Role.RH, Role.MANAGER, Role.RP, Role.ADMIN],
-    prioriser: [Role.RH, Role.MANAGER, Role.RP, Role.ADMIN],
-    reporting: [Role.RH, Role.MANAGER, Role.RP, Role.ADMIN, Role.AUDIT],
-    historique:[Role.RP, Role.ADMIN, Role.AUDIT],
+    evaluer:   MANAGER_LIKE_ROLES,
+    assigner:  MANAGER_LIKE_ROLES,
+    prioriser: MANAGER_LIKE_ROLES,
+    reporting: [...MANAGER_LIKE_ROLES, Role.AUDIT],
+    historique:[Role.RP, Role.CHEF_DE_PROJET, Role.ADMIN, Role.AUDIT],
   },
 };

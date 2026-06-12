@@ -25,6 +25,11 @@ public interface ISubServiceService
     Task<SubServiceDetailDto?> GetSubServiceWithEmployeesAsync(int id);
 
     /// <summary>
+    /// Récupérer les employés d'un sous-service
+    /// </summary>
+    Task<List<UserSimpleDto>> GetEmployeesBySubServiceAsync(int id);
+
+    /// <summary>
     /// Créer un nouveau sous-service
     /// </summary>
     Task<SubServiceDto> CreateSubServiceAsync(CreateSubServiceDto dto);

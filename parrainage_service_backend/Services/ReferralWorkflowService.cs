@@ -434,13 +434,17 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRule
         );
 
     /// <summary>Mirror of getNotificationsForRole in referral.service.ts.</summary>
-    public List<ReferralNotificationEntity> FilterNotificationsForRole(
+    public async Task<List<ReferralNotificationEntity>> FilterNotificationsForRoleAsync(
         List<ReferralNotificationEntity> all,
         List<ReferralEntity> referrals,
         string? role,
-        string? userId)
+        string? userId,
+        CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(role)) return all;
+
+        var parentByUserId = await db.PortalUsers.AsNoTracking()
+            .ToDictionaryAsync(u => u.Id, u => u.ParentId, ct);
 
         return all.Where(n =>
         {
@@ -466,7 +470,7 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRule
             if ((role == "MANAGER" || role == "COACH") && !string.IsNullOrEmpty(n.ReferralId))
             {
                 var refEntity = referrals.FirstOrDefault(r => r.Id == n.ReferralId);
-                if (refEntity != null && !OrgHierarchy.IsReferrerUnderManager(userId ?? string.Empty, refEntity.ReferrerId))
+                if (refEntity != null && !OrgHierarchy.IsReferrerUnderManager(userId ?? string.Empty, refEntity.ReferrerId, parentByUserId))
                     return false;
             }
 

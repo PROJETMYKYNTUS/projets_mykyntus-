@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 
 import { DocumentationGatewayDefaultHeaders } from '../models/documentation-gateway-default-headers';
 import { DocumentationIdentityService } from '../services/documentation-identity.service';
+import { KyntusSessionService } from '../session/kyntus-session.service';
 
 const DocumentationApiPrefix = '/api/documentation';
 const GenerateDocumentAiApiPrefix = '/api/generate-document-ai';
@@ -19,6 +20,7 @@ function shouldApplyDocumentationGatewayDefaults(url: string): boolean {
 @Injectable()
 export class DocumentationGatewayHeadersInterceptor implements HttpInterceptor {
   private readonly identity = inject(DocumentationIdentityService);
+  private readonly session = inject(KyntusSessionService);
 
   intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
     if (!shouldApplyDocumentationGatewayDefaults(req.url)) {
@@ -32,9 +34,11 @@ export class DocumentationGatewayHeadersInterceptor implements HttpInterceptor {
         headers = headers.set(key, value);
       }
     }
-    for (const [key, value] of Object.entries(DocumentationGatewayDefaultHeaders)) {
-      if (!headers.has(key)) {
-        headers = headers.set(key, value);
+    if (!this.session.isAuthenticated()) {
+      for (const [key, value] of Object.entries(DocumentationGatewayDefaultHeaders)) {
+        if (!headers.has(key)) {
+          headers = headers.set(key, value);
+        }
       }
     }
 

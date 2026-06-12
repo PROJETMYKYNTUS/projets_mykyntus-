@@ -1,11 +1,109 @@
 .rp-root {
-  min-height: 100vh;
-  padding: 32px 24px 48px;
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--soft-blue) 10%, transparent), transparent 22%),
-    linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-primary) 100%);
+  max-width: 1440px;
+  margin: 0 auto;
   color: var(--text-primary);
   font-family: var(--font-sans, 'Inter', ui-sans-serif, system-ui, sans-serif);
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.header-left {
+  min-width: 260px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--soft-blue) 18%, var(--bg-card));
+  color: var(--blue-600);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.page-title {
+  margin: 0 0 6px;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.page-sub {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+.btn-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.kpi-card {
+  padding: 14px 16px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpi-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.kpi-value {
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.kc-blue { border-left: 4px solid #3b82f6; }
+.kc-green { border-left: 4px solid #22c55e; }
+.kc-amber { border-left: 4px solid #f59e0b; }
+
+.filters-panel {
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.filters-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-ctl.ky-input {
+  width: auto;
+  min-width: 140px;
+  max-width: 180px;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 12px;
+  font-size: 0.84rem;
 }
 
 .rp-toast {

@@ -1,0 +1,160 @@
+<div class="page-wrapper ky-page-shell">
+  <div class="page-header">
+    <div class="header-left">
+      <span class="eyebrow">Congés</span>
+      <h1 class="page-title">Historique des congés</h1>
+      <p class="page-sub">Consultation des demandes par année et périmètre Organisation RH</p>
+      <p class="results-count"><strong>{{ filteredDemandes.length }}</strong> demande(s) affichée(s)</p>
+    </div>
+    <button type="button" class="ky-btn-secondary btn-refresh" (click)="loadData()" [disabled]="loading">
+      <app-lucide-icon [icon]="icons.refresh" className="w-4 h-4" />
+      Actualiser
+    </button>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-card ky-card kc-blue">
+      <span class="kpi-label">Demandes</span>
+      <span class="kpi-value">{{ statsTotal }}</span>
+    </div>
+    <div class="kpi-card ky-card kc-green">
+      <span class="kpi-label">Validées</span>
+      <span class="kpi-value">{{ statsValidees }}</span>
+    </div>
+    <div class="kpi-card ky-card kc-rose">
+      <span class="kpi-label">Refusées</span>
+      <span class="kpi-value">{{ statsRefusees }}</span>
+    </div>
+    <div class="kpi-card ky-card kc-amber">
+      <span class="kpi-label">Jours validés</span>
+      <span class="kpi-value">{{ statsJours }}</span>
+    </div>
+  </div>
+
+  <div class="filters-panel ky-card">
+    <div class="filters-toolbar">
+      <select
+        class="filter-ctl ky-input filter-ctl--year"
+        [kyntusSelectSync]="filterAnnee.toString()"
+        (kyntusSelectSyncChange)="patchFilterAnnee($event)"
+      >
+        @for (y of yearOptions; track y) {
+          <option [value]="y">{{ y }}</option>
+        }
+      </select>
+
+      <div class="filter-search">
+        <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+        <input
+          class="filter-search-input"
+          type="text"
+          placeholder="Employé, motif…"
+          [(ngModel)]="searchTerm"
+          (input)="applyFilters()"
+        />
+      </div>
+
+      <select class="filter-ctl ky-input" [(ngModel)]="filterStatut" (change)="applyFilters()">
+        <option value="">Statut</option>
+        <option [ngValue]="StatutDemande.EnAttente">En attente</option>
+        <option [ngValue]="StatutDemande.Validee">Validée</option>
+        <option [ngValue]="StatutDemande.Refusee">Refusée</option>
+        <option [ngValue]="StatutDemande.Annulee">Annulée</option>
+      </select>
+
+      <span class="filter-divider" aria-hidden="true"></span>
+
+      <select
+        class="filter-ctl ky-input filter-ctl--org"
+        [kyntusSelectSync]="filterPole"
+        (kyntusSelectSyncChange)="patchFilterPole($event)"
+      >
+        <option value="">Pôle</option>
+        @for (p of poleOptions; track p) {
+          <option [value]="p">{{ p }}</option>
+        }
+      </select>
+
+      <select
+        class="filter-ctl ky-input filter-ctl--org"
+        [kyntusSelectSync]="filterCellule"
+        (kyntusSelectSyncChange)="patchFilterCellule($event)"
+      >
+        <option value="">Cellule</option>
+        @for (c of celluleOptions; track c) {
+          <option [value]="c">{{ c }}</option>
+        }
+      </select>
+
+      <select
+        class="filter-ctl ky-input filter-ctl--org"
+        [kyntusSelectSync]="filterService"
+        (kyntusSelectSyncChange)="patchFilterService($event)"
+      >
+        <option value="">Service</option>
+        @for (s of serviceOptions; track s) {
+          <option [value]="s">{{ s }}</option>
+        }
+      </select>
+
+      <button type="button" class="filter-reset ky-btn-secondary" (click)="clearFilters()">Réinitialiser</button>
+    </div>
+  </div>
+
+  <div class="table-card ky-card">
+    @if (loading) {
+      <div class="state-loading">
+        <div class="spinner"></div>
+        <span>Chargement de l'historique…</span>
+      </div>
+    } @else if (error) {
+      <div class="state-error">{{ error }}</div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="prime-table">
+          <thead>
+            <tr>
+              <th>Employé</th>
+              <th>Organisation</th>
+              <th>Type</th>
+              <th>Période</th>
+              <th>Jours</th>
+              <th>Statut</th>
+              <th>Demande</th>
+              <th>Décision</th>
+              <th>Motif</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (d of filteredDemandes; track d.id) {
+              <tr>
+                <td class="td-user">
+                  <span class="user-name">{{ employeDisplayName(d) }}</span>
+                </td>
+                <td class="td-org">
+                  <span class="org-line">{{ employePerimeter(d.employeId).pole || '—' }}</span>
+                  <span class="org-sub">{{ employePerimeter(d.employeId).cellule || '' }}</span>
+                  <span class="org-sub org-sub--service">{{ employePerimeter(d.employeId).service || '' }}</span>
+                </td>
+                <td><span class="type-badge">{{ typeLabel(d) }}</span></td>
+                <td class="td-dates">{{ formatDate(d.dateDebut) }} → {{ formatDate(d.dateFin) }}</td>
+                <td class="td-days">{{ d.nombreJours }}j</td>
+                <td><span class="statut-badge" [ngClass]="statutClass(d.statut)">{{ statutLabels[d.statut] }}</span></td>
+                <td class="td-date">{{ formatDate(d.dateDemande) }}</td>
+                <td class="td-date">{{ formatDate(d.dateDecision) }}</td>
+                <td class="td-motif">{{ d.motif || d.commentaireManager || '—' }}</td>
+              </tr>
+            }
+            @if (filteredDemandes.length === 0) {
+              <tr>
+                <td colspan="9">
+                  <div class="empty-state">Aucune demande pour {{ filterAnnee }} avec ces filtres.</div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

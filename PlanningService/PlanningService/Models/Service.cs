@@ -1,4 +1,4 @@
-﻿using PlanningService.Models;
+using PlanningService.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -17,6 +17,9 @@ public class Service
     [Required]
     [MaxLength(20)]
     public string Code { get; set; }
+
+    [MaxLength(64)]
+    public string? PrimeCelluleId { get; set; }
 
     public ICollection<SubService> SubServices { get; set; }
     // 🆕 AJOUTER cette ligne dans Service.cs

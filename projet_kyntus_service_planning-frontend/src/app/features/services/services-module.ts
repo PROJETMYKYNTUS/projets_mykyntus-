@@ -5,6 +5,8 @@ export interface Service {
   name: string;
   code: string;
   subServicesCount: number;
+  /** Identifiant cellule Prime (Organisation RH). */
+  primeCelluleId?: string | null;
 }
 
 export interface ServiceDetail {

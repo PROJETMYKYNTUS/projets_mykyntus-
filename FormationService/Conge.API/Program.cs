@@ -1,6 +1,7 @@
 using Conge.Application.Behaviors;
 using Conge.Application.Contracts;
 using Conge.Domain.Interfaces;
+using Conge.Infrastructure.Data;
 using Conge.Infrastructure.Messaging;
 using Conge.Infrastructure.Messaging.Consumers;
 using Conge.Infrastructure.Messaging.Publishers;
@@ -12,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ?? Base de données PostgreSQL ??????????????????????????????????????????????
+// ?? Base de donnï¿½es PostgreSQL ??????????????????????????????????????????????
 builder.Services.AddDbContext<CongeDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("CongeDb")));
 
@@ -47,19 +48,19 @@ builder.Services.AddMassTransit(x =>
 
         cfg.ReceiveEndpoint("conge-employe-created", e =>
         {
-            e.Bind("Planning.Messaging.Messages:EmployeCreatedMessage");
+            e.Bind("Kyntus.Messaging.Contracts:EmployeCreatedMessage");
             e.ConfigureConsumer<EmployeCreatedConsumer>(ctx);
         });
 
         cfg.ReceiveEndpoint("conge-employe-updated", e =>
         {
-            e.Bind("Planning.Messaging.Messages:EmployeUpdatedMessage");
+            e.Bind("Kyntus.Messaging.Contracts:EmployeUpdatedMessage");
             e.ConfigureConsumer<EmployeUpdatedConsumer>(ctx);
         });
 
         cfg.ReceiveEndpoint("conge-solde-annuel", e =>
         {
-            e.Bind("Planning.Messaging.Messages:SoldeAnnuelInitialiseMessage");
+            e.Bind("Kyntus.Messaging.Contracts:SoldeAnnuelInitialiseMessage");
             e.ConfigureConsumer<SoldeAnnuelInitialiseConsumer>(ctx);
         });
 
@@ -92,17 +93,19 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// ?? Migrations automatiques au démarrage ?????????????????????????????????????
+// ?? Migrations automatiques au dï¿½marrage ?????????????????????????????????????
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CongeDbContext>();
     await db.Database.MigrateAsync();
+    var log = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Conge.Startup");
+    await DockerComposeCongeDemoSeed.ApplyIfEnabledAsync(app.Configuration, db, log);
 }
 
 // ?? Middleware pipeline ???????????????????????????????????????????????????????
 app.UseMiddleware<Conge.API.Middlewares.ExceptionMiddleware>();
 
-// ? CORS — doit être avant UseRouting et MapControllers
+// ? CORS ï¿½ doit ï¿½tre avant UseRouting et MapControllers
 app.UseCors("AllowAll");
 
 if (app.Environment.IsDevelopment())
@@ -118,7 +121,7 @@ if (app.Environment.IsProduction())
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Conge API v1"));
 }
 
-// ? HttpsRedirection désactivé — cause des conflits derrière Docker/Ocelot
+// ? HttpsRedirection dï¿½sactivï¿½ ï¿½ cause des conflits derriï¿½re Docker/Ocelot
 // app.UseHttpsRedirection();
 
 app.UseRouting();

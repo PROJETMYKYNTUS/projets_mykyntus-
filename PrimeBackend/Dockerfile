@@ -1,10 +1,12 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
+COPY Messaging.Contracts/Messaging.Contracts.csproj Messaging.Contracts/
 COPY Kyntus.Identity.Jwt/Kyntus.Identity.Jwt.csproj Kyntus.Identity.Jwt/
 COPY PrimeBackend/PrimeBackend.csproj PrimeBackend/
 RUN dotnet restore PrimeBackend/PrimeBackend.csproj
 
+COPY Messaging.Contracts/ Messaging.Contracts/
 COPY Kyntus.Identity.Jwt/ Kyntus.Identity.Jwt/
 COPY PrimeBackend/ PrimeBackend/
 RUN dotnet publish PrimeBackend/PrimeBackend.csproj -c Release -o /out

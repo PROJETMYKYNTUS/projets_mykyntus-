@@ -209,6 +209,28 @@ public static class PrimeSchemaPatches
         await EnsureSynthesisLineDualDecisionColumnsAsync(db, ct);
     }
 
+    /// <summary>
+    /// Colonnes snapshot détail fiche employé (migration 20260608140000 non appliquée sur certaines bases).
+    /// </summary>
+    public static async Task EnsureEmployeeFicheDetailSnapshotColumnsAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_employee_prime_service_fiche", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE prime_employee_prime_service_fiche
+              ADD COLUMN IF NOT EXISTS "DetailGridJson" text;
+            ALTER TABLE prime_employee_prime_service_fiche
+              ADD COLUMN IF NOT EXISTS "DetailGridPreviewSheetName" character varying(256);
+            ALTER TABLE prime_employee_prime_service_fiche
+              ADD COLUMN IF NOT EXISTS "TemplateVersionRef" character varying(256);
+            ALTER TABLE prime_employee_prime_service_fiche
+              ADD COLUMN IF NOT EXISTS "DetailGridFrozenAt" timestamp with time zone;
+            """,
+            ct);
+    }
+
     public static async Task EnsureGlobalPoolScopeSynthesisTablesAsync(PrimeDbContext db, CancellationToken ct = default)
     {
         if (!await TableExistsAsync(db, "prime_employee_prime_service_fiche", ct))

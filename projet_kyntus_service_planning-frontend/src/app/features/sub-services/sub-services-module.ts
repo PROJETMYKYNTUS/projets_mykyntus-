@@ -4,6 +4,8 @@ export interface SubService {
   serviceName: string;
   name: string;
   code: string;
+  /** Identifiant service Prime (Organisation RH). */
+  primeServiceId?: string | null;
   employeesCount: number;
 }
 

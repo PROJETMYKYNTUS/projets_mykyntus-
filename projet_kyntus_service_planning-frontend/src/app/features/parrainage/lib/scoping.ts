@@ -1,6 +1,6 @@
 import type { Referral, ParrainageRole, ParrainageUser } from '../models/referral.model';
 import {
-  ORG_NODES,
+  getOrgNodes,
   isReferrerUnderManager,
   piloteIdsForManagerDrill,
   piloteIdsForRpDrill,
@@ -39,13 +39,13 @@ export function getScopedReferrals(
       result = referrals;
       break;
     case 'RP': {
-      const piloteIds = piloteIdsForRpDrill(ORG_NODES, user.id, drill);
-      result = piloteIds === null ? [] : referrals.filter((r) => piloteIds.has(r.referrerId));
+      const piloteIds = piloteIdsForRpDrill(getOrgNodes(), user.id, drill);
+      result = referrals.filter((r) => piloteIds.includes(r.referrerId));
       break;
     }
     case 'MANAGER': {
-      const piloteIds = piloteIdsForManagerDrill(ORG_NODES, user.id, drill.coachId);
-      result = piloteIds === null ? [] : referrals.filter((r) => piloteIds.has(r.referrerId));
+      const piloteIds = piloteIdsForManagerDrill(getOrgNodes(), user.id, drill.coachId);
+      result = referrals.filter((r) => piloteIds.includes(r.referrerId));
       break;
     }
     case 'COACH':
@@ -58,7 +58,7 @@ export function getScopedReferrals(
       result = [];
   }
 
-  const orgIds = orgAllowedReferrerIds(user, ORG_NODES);
+  const orgIds = orgAllowedReferrerIds(user, getOrgNodes());
   if (orgIds === null) return result;
   return result.filter((r) => orgIds.has(r.referrerId));
 }

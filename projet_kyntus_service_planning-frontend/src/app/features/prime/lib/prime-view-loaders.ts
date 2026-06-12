@@ -10,8 +10,6 @@ export const PRIME_VIEW_LOADERS: Record<string, PrimeLazyViewLoader> = {
   '/rules': () => import('../pages/prime-rules-page.component').then((m) => m.PrimeRulesPageComponent),
   '/results': () =>
     import('../pages/prime-results-page.component').then((m) => m.PrimeResultsPageComponent),
-  '/rh/organisation': () =>
-    import('../pages/organisation-management.component').then((m) => m.OrganisationManagementComponent),
   '/validation': () =>
     import('../pages/prime-validation-page.component').then((m) => m.PrimeValidationPageComponent),
   '/validation-history': () =>

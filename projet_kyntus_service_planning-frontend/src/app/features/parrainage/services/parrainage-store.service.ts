@@ -10,6 +10,7 @@ import type {
 import type { AuditLogEntry, SystemConfig } from '../models/system-config.model';
 import { DEFAULT_SYSTEM_CONFIG } from '../models/system-config.model';
 import { ParrainageApiService } from './parrainage-api.service';
+import { mapApiOrgNodes, setOrgNodes } from '../lib/org-hierarchy';
 import { normalizeReferralProgramRules, syncLegacyBonusFields } from '../lib/referral-program';
 
 @Injectable({ providedIn: 'root' })
@@ -37,14 +38,16 @@ export class ParrainageStoreService {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const [referrals, rules, history, prefs, config, audit] = await Promise.all([
+      const [referrals, rules, history, prefs, config, audit, orgRows] = await Promise.all([
         this.api.getReferrals(),
         this.api.getRules(),
         this.api.getHistory(),
         this.api.getNotificationPreferences(),
         this.api.getConfig(),
         this.api.getAudit(),
+        this.api.getOrgNodes(),
       ]);
+      setOrgNodes(mapApiOrgNodes(orgRows));
       const notifications = await this.api.getNotifications(role, userId, projectId);
       this.referrals.set(referrals);
       this.rules.set(rules);

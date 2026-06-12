@@ -3,6 +3,8 @@ import { BehaviorSubject, Subscription, interval } from 'rxjs';
 
 import { DocumentationIdentityService } from '../../../core/services/documentation-identity.service';
 import type { AuditLogDto, DocumentRequestDto } from '../../../core/models/documentation.models';
+import { mapJwtRoleToDocumentationRole } from '../../../core/navigation/documentation-menu.config';
+import { KyntusSessionService } from '../../../core/session/kyntus-session.service';
 import type { NotificationItemUi } from '../models/notification-item.model';
 import { DocumentationApiService } from './documentation-api.service';
 import {
@@ -212,6 +214,7 @@ export class NotificationDataService {
   constructor(
     private readonly api: DocumentationApiService,
     private readonly identity: DocumentationIdentityService,
+    private readonly session: KyntusSessionService,
   ) {
     try {
       const raw = localStorage.getItem(READ_STORAGE_KEY);
@@ -222,13 +225,19 @@ export class NotificationDataService {
     } catch {
       /* ignore */
     }
-    this.reloadFromApi();
+    if (this.session.isAuthenticated()) {
+      this.identity.syncFromJwtSession();
+    }
+    if (this.session.isAuthenticated()) {
+      this.reloadFromApi();
+    }
     this.subscriptions.add(this.identity.contextRevision$.subscribe(() => this.reloadFromApi()));
     this.subscriptions.add(interval(120_000).subscribe(() => this.reloadFromApi()));
   }
 
   reloadFromApi(): void {
-    const role = this.identity.getCurrentRole();
+    if (!this.session.isAuthenticated()) return;
+    const role = this.effectiveRole();
 
     if (role === 'rh' || role === 'admin') {
       this.api.getDocumentRequestsPage(60, { status: 'pending', sortBy: 'createdAt', sortOrder: 'desc' }).subscribe({
@@ -285,6 +294,12 @@ export class NotificationDataService {
         this.emit();
       },
     });
+  }
+
+  private effectiveRole(): string {
+    const fromIdentity = this.identity.getCurrentRole();
+    if (fromIdentity) return fromIdentity;
+    return mapJwtRoleToDocumentationRole(this.session.getRole()).toLowerCase();
   }
 
   private persistRead(): void {

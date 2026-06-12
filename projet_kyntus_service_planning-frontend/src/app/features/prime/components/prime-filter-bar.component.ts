@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
+import { KyntusSelectSyncDirective } from '@/shared/directives/kyntus-select-sync.directive';
 import { Filter, Search } from 'lucide';
 
 export interface PrimeFilterBarFilter {
@@ -16,7 +17,7 @@ export interface PrimeFilterBarFilter {
 @Component({
   selector: 'app-prime-filter-bar',
   standalone: true,
-  imports: [LucideIconComponent],
+  imports: [LucideIconComponent, KyntusSelectSyncDirective],
   template: `
     <div
       class="flex flex-col sm:flex-row gap-4 items-center bg-card p-4 rounded-xl shadow-sm border border-default mb-6"
@@ -44,8 +45,8 @@ export interface PrimeFilterBarFilter {
           @for (filter of filters; track filter.name) {
             <select
               class="block w-full sm:w-auto pl-3 pr-8 py-2 text-sm border border-default rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-app text-primary"
-              [value]="filter.value"
-              (change)="filter.onChange($any($event.target).value)"
+              [kyntusSelectSync]="filter.value"
+              (kyntusSelectSyncChange)="filter.onChange($event)"
             >
               @if (!filter.hideAllOption) {
                 <option value="">{{ filter.allOptionLabel ?? ('Toutes les ' + filter.name.toLowerCase()) }}</option>

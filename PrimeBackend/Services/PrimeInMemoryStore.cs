@@ -948,25 +948,6 @@ public class PrimeInMemoryStore
         var dept = RequireDepartment(poleId);
         var deptKey = poleId.Trim();
 
-        DemoteExistingChefProjetOnRootPole(deptKey, emp.Id);
-
-        foreach (var row in _managerEtageAssignments.Where(a => a.PoleId == deptKey).ToList())
-        {
-            if (string.Equals(row.UserId, emp.Id, StringComparison.Ordinal)) continue;
-            var old = RequireEmployee(row.UserId);
-            string? parent = null;
-            string? cellId = null;
-            string? svcId = null;
-            if (TryGetFirstChildStructure(dept, out var p0, out var c0, out _))
-            {
-                cellId = p0.Id;
-                svcId = c0?.Id;
-                parent = (c0 is not null ? GetReferentTechniqueUserIdForCellule(c0.Id) : null) ?? GetSupervisorUserIdForPole(p0.Id);
-            }
-            ApplyPiloteFallback(old, dept.Id, cellId, svcId, parent);
-            _managerEtageAssignments.Remove(row);
-        }
-
         StripOrgStructureAssignmentsForUser(emp.Id);
 
         var parentChef = GetFirstChefProjetIdExcluding(emp.Id);
@@ -1017,21 +998,6 @@ public class PrimeInMemoryStore
         var (dept, pole) = GetDepartmentForPole(celluleId);
         var poleKey = pole.Id;
 
-        DemoteExistingSupervisorOnCellule(poleKey, emp.Id);
-
-        foreach (var row in _supervisorServiceAssignments.Where(a => a.ServiceId == poleKey).ToList())
-        {
-            if (string.Equals(row.UserId, emp.Id, StringComparison.Ordinal)) continue;
-            var old = RequireEmployee(row.UserId);
-            var cell0 = pole.Cells.FirstOrDefault();
-            string? parent = GetManagerUserIdForDepartment(dept.Id);
-            string? svcId = cell0?.Id;
-            if (cell0 is not null)
-                parent = GetReferentTechniqueUserIdForCellule(cell0.Id) ?? parent;
-            ApplyPiloteFallback(old, dept.Id, pole.Id, svcId, parent);
-            _supervisorServiceAssignments.Remove(row);
-        }
-
         StripOrgStructureAssignmentsForUser(emp.Id);
 
         var cell = pole.Cells.FirstOrDefault();
@@ -1069,20 +1035,6 @@ public class PrimeInMemoryStore
         if (!TryResolveCellulePath(serviceId, out var dept, out var pole, out var cell, out _))
             throw new KeyNotFoundException("Cellule ou service introuvable.");
         var cellKey = cell.Id;
-
-        DemoteExistingReferentOnService(serviceId, emp.Id);
-
-        foreach (var row in _coachSousServiceAssignments.Where(a => a.ServiceId == cellKey).ToList())
-        {
-            if (string.Equals(row.UserId, emp.Id, StringComparison.Ordinal)) continue;
-            var old = RequireEmployee(row.UserId);
-            old.Role = "Pilote";
-            old.PoleId = dept.Id;
-            old.CelluleId = pole.Id;
-            old.ServiceId = cell.Id;
-            old.ParentId = GetSupervisorUserIdForPole(pole.Id);
-            _coachSousServiceAssignments.Remove(row);
-        }
 
         StripOrgStructureAssignmentsForUser(emp.Id);
 
@@ -1523,8 +1475,9 @@ public class PrimeInMemoryStore
     /// <summary>Crée un département sans pôle (ajoutez ensuite des pôles et cellules avant d’affecter un manager).</summary>
     public Department CreateOrgDepartment(string name)
     {
-        var n = (name ?? "").Trim();
+        var n = OrgStructureRules.NormalizeOrgName(name);
         if (n.Length == 0) throw new ArgumentException("Le nom du département est requis.");
+        OrgStructureRules.EnsureUniquePoleName(_departments.Select(d => d.Name), n);
         var dept = new Department { Id = NewOrgNodeId("d"), Name = n, Poles = [] };
         _departments.Add(dept);
         RebuildOrgDerivedLists();
@@ -1534,8 +1487,9 @@ public class PrimeInMemoryStore
     public Pole CreateOrgPole(string poleId, string name)
     {
         var dept = RequireDepartment(poleId);
-        var n = (name ?? "").Trim();
+        var n = OrgStructureRules.NormalizeOrgName(name);
         if (n.Length == 0) throw new ArgumentException("Le nom du pôle est requis.");
+        OrgStructureRules.EnsureUniqueCelluleName(dept.Poles.Select(p => p.Name), n);
         var pole = new Pole
         {
             Id = NewOrgNodeId("p"),
@@ -1551,8 +1505,9 @@ public class PrimeInMemoryStore
     public Cellule CreateOrgCellule(string celluleId, string name)
     {
         var (_, pole) = GetDepartmentForPole(celluleId);
-        var n = (name ?? "").Trim();
+        var n = OrgStructureRules.NormalizeOrgName(name);
         if (n.Length == 0) throw new ArgumentException("Le nom de la cellule est requis.");
+        OrgStructureRules.EnsureUniqueServiceName(pole.Cells.Select(c => c.Name), n);
         var cellId = NewOrgNodeId("c");
         var serviceId = NewOrgNodeId("t");
         var cell = new Cellule

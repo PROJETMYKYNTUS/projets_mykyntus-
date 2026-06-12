@@ -1,6 +1,7 @@
-﻿// PlanningService/Models/UserManagedService.cs
 namespace PlanningService.Models;
 
+/// <summary>DEPRECATED : préférer les affectations Prime (Organisation RH).</summary>
+[Obsolete("Utiliser les affectations Prime (Organisation RH).")]
 public class UserManagedService
 {
     public int UserId { get; set; }

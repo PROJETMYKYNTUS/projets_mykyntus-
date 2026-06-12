@@ -10,6 +10,7 @@ public interface IDemandeCongeRepository
     Task<IEnumerable<DemandeConge>> GetByManagerIdAsync(Guid managerId, CancellationToken ct = default);
     Task<IEnumerable<DemandeConge>> GetByStatutAsync(StatutDemande statut, CancellationToken ct = default);
     Task<IEnumerable<DemandeConge>> GetHistoriqueAsync(Guid employeId, int annee, CancellationToken ct = default);
+    Task<IEnumerable<DemandeConge>> GetByAnneeAsync(int annee, CancellationToken ct = default);
     Task AddAsync(DemandeConge demande, CancellationToken ct = default);
 
     void Update(DemandeConge demande);

@@ -1,10 +1,12 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
+COPY Messaging.Contracts/Messaging.Contracts.csproj Messaging.Contracts/
 COPY Kyntus.Identity.Jwt/Kyntus.Identity.Jwt.csproj Kyntus.Identity.Jwt/
 COPY parrainage_service_backend/ParrainageBackend.csproj parrainage_service_backend/
 RUN dotnet restore parrainage_service_backend/ParrainageBackend.csproj
 
+COPY Messaging.Contracts/ Messaging.Contracts/
 COPY Kyntus.Identity.Jwt/ Kyntus.Identity.Jwt/
 COPY parrainage_service_backend/ parrainage_service_backend/
 RUN dotnet publish parrainage_service_backend/ParrainageBackend.csproj -c Release -o /app/publish /p:UseAppHost=false

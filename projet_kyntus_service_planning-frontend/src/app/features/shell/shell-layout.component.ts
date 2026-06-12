@@ -22,6 +22,7 @@ import { ShellNotificationBadgeComponent } from '../../shared/shell-controls/not
 import { ShellNotificationDropdownComponent } from '../../shared/shell-controls/notification-dropdown.component';
 import { ShellSettingsPanelComponent } from '../../shared/shell-controls/settings-panel.component';
 import { KyntusNotificationHubService } from '../../core/notifications/kyntus-notification-hub.service';
+import { KyntusNotificationInitService } from '../../core/notifications/kyntus-notification-init.service';
 import { KyntusShellUiService } from '../../core/notifications/kyntus-shell-ui.service';
 
 import { PrimeNavRequestService } from '../prime/services/prime-nav-request.service';
@@ -37,6 +38,7 @@ import { ParrainageNavService } from '../parrainage/state/parrainage-nav.service
 import { AuditSectionService } from '../parrainage/state/audit-section.service';
 
 import { isProjectLeadRole } from '../prime/lib/projectLeadRole';
+import { isOrganisationMenuEntryActive } from '../../core/navigation/organisation-nav';
 
 import { DocumentationNavigationService } from '../documentation/services/documentation-navigation.service';
 
@@ -95,6 +97,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
   readonly theme = inject(KyntusThemeService);
   readonly notifHub = inject(KyntusNotificationHubService);
+  readonly notifInit = inject(KyntusNotificationInitService);
   readonly shellUi = inject(KyntusShellUiService);
 
   readonly icons = { bell: Bell, settings: Settings, moon: Moon, sun: Sun };
@@ -166,7 +169,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
     }
 
-
+    this.notifInit.connectIfAuthenticated();
 
     this.refreshGroups();
 
@@ -358,7 +361,14 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
     }
 
+    if (item.organisationTab !== undefined) {
+      const tabParam = this.router.parseUrl(this.router.url).queryParams['tab'] ?? null;
+      return isOrganisationMenuEntryActive(item.organisationTab, path, tabParam);
+    }
 
+    if (item.route === '/organisation') {
+      return path === '/organisation';
+    }
 
     return !!item.route && path.startsWith(item.route);
 

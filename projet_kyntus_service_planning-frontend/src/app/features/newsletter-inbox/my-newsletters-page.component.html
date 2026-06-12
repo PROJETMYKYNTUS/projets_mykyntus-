@@ -1,52 +1,117 @@
 <div class="page-wrapper ky-page-shell">
 
   <div class="page-header">
-    <div class="header-info">
-      <h1 class="page-title">Mes Newsletters</h1>
+    <div class="header-left">
+      <span class="eyebrow">Communication</span>
+      <h1 class="page-title">
+        <app-lucide-icon [icon]="icons.mail" className="w-7 h-7" />
+        Mes newsletters
+      </h1>
       <p class="page-sub">Communications internes reçues selon votre rôle</p>
-    </div>
-    <div class="nl-stats" *ngIf="!loading && !error">
-      <span>{{ myNewsletters.length }} reçue(s)</span>
-      <span>{{ getReadCount() }} lue(s)</span>
-      <span *ngIf="getUnreadCount() > 0" class="nl-unread">{{ getUnreadCount() }} non lue(s)</span>
+      <p class="results-count" *ngIf="!loading && !error">
+        <strong>{{ filteredNewsletters.length }}</strong> message(s)
+        · <strong>{{ getReadCount() }}</strong> lu(s)
+        <span *ngIf="getUnreadCount() > 0"> · <strong class="unread-count">{{ getUnreadCount() }}</strong> non lu(s)</span>
+      </p>
     </div>
   </div>
 
-  <div class="nl-loading" *ngIf="loading">Chargement des newsletters…</div>
-  <div class="nl-error" *ngIf="!loading && error">{{ error }}</div>
-
-  <div class="gen-card nl-empty" *ngIf="!loading && !error && myNewsletters.length === 0">
-    <h2>Aucune newsletter reçue</h2>
-    <p>Les campagnes ciblant votre rôle (Employee, Manager, etc.) apparaîtront ici après publication par le RH.</p>
+  <div class="kpi-row" *ngIf="!loading && !error && myNewsletters.length > 0">
+    <div class="kpi-card ky-card kc-blue">
+      <span class="kpi-label">Reçues</span>
+      <span class="kpi-value">{{ myNewsletters.length }}</span>
+    </div>
+    <div class="kpi-card ky-card kc-green">
+      <span class="kpi-label">Lues</span>
+      <span class="kpi-value">{{ getReadCount() }}</span>
+    </div>
+    <div class="kpi-card ky-card kc-amber">
+      <span class="kpi-label">Non lues</span>
+      <span class="kpi-value">{{ getUnreadCount() }}</span>
+    </div>
   </div>
 
-  <div class="nl-inbox" *ngIf="!loading && !error && myNewsletters.length > 0 && !selectedNewsletter">
-    <button type="button"
-            class="nl-item"
-            *ngFor="let nl of myNewsletters"
-            [class.unread]="!nl.isRead"
-            (click)="openNewsletter(nl)">
-      <div class="nl-item-main">
+  <div class="filters-panel ky-card" *ngIf="!selectedNewsletter && !loading && myNewsletters.length > 0">
+    <div class="filters-toolbar">
+      <div class="filter-search">
+        <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+        <input
+          class="filter-search-input"
+          type="text"
+          placeholder="Rechercher…"
+          [(ngModel)]="searchTerm"
+          (input)="applyFilters()"
+        />
+      </div>
+      <button type="button" class="ky-btn-secondary" (click)="clearFilters()">Réinitialiser</button>
+    </div>
+  </div>
+
+  <div class="state-loading ky-card" *ngIf="loading">
+    <app-lucide-icon [icon]="icons.loader" className="w-5 h-5 spin" />
+    <span>Chargement des newsletters…</span>
+  </div>
+
+  <div class="state-error ky-card" *ngIf="!loading && error">{{ error }}</div>
+
+  <div class="state-empty ky-card" *ngIf="!loading && !error && myNewsletters.length === 0">
+    <app-lucide-icon [icon]="icons.inbox" className="w-10 h-10" />
+    <h3>Aucune newsletter reçue</h3>
+    <p>Les campagnes ciblant votre rôle apparaîtront ici après publication par le RH.</p>
+  </div>
+
+  <div class="state-empty ky-card" *ngIf="!loading && !error && myNewsletters.length > 0 && filteredNewsletters.length === 0 && !selectedNewsletter">
+    <p>Aucun résultat pour cette recherche.</p>
+    <button type="button" class="ky-btn-secondary" (click)="clearFilters()">Réinitialiser</button>
+  </div>
+
+  <div class="inbox-list" *ngIf="!loading && !error && filteredNewsletters.length > 0 && !selectedNewsletter">
+    <button
+      type="button"
+      class="inbox-item ky-card"
+      *ngFor="let nl of filteredNewsletters"
+      [class.unread]="!nl.isRead"
+      (click)="openNewsletter(nl)">
+      <div class="inbox-thumb" *ngIf="nl.coverImageUrl">
+        <img [src]="nl.coverImageUrl" alt="" />
+      </div>
+      <div class="inbox-thumb inbox-thumb--empty" *ngIf="!nl.coverImageUrl">
+        <app-lucide-icon [icon]="icons.mail" className="w-5 h-5" />
+      </div>
+      <div class="inbox-main">
         <strong [class.bold]="!nl.isRead">{{ nl.newsletterTitle }}</strong>
-        <span>{{ nl.newsletterSubject }}</span>
+        <span class="inbox-subject">{{ nl.newsletterSubject }}</span>
         <small>Campagne : {{ nl.campaignName }}</small>
       </div>
-      <div class="nl-item-meta">
+      <div class="inbox-meta">
         <span>{{ nl.receivedAt | date:'dd/MM HH:mm' }}</span>
-        <span class="badge" [class.badge-new]="!nl.isRead">{{ nl.isRead ? 'Lu' : 'Nouveau' }}</span>
+        <span class="status-badge" [class.status-new]="!nl.isRead">
+          <app-lucide-icon [icon]="nl.isRead ? icons.mailOpen : icons.mail" className="w-3.5 h-3.5" />
+          {{ nl.isRead ? 'Lu' : 'Nouveau' }}
+        </span>
       </div>
     </button>
   </div>
 
-  <div class="gen-card nl-detail" *ngIf="selectedNewsletter">
-    <button type="button" class="btn-back" (click)="closeNewsletter()">Retour à la liste</button>
+  <article class="detail-card ky-card" *ngIf="selectedNewsletter">
+    <button type="button" class="ky-btn-secondary btn-back" (click)="closeNewsletter()">← Retour à la liste</button>
     <h2>{{ selectedNewsletter.newsletterTitle }}</h2>
-    <p class="nl-detail-subject">{{ selectedNewsletter.newsletterSubject }}</p>
-    <p class="nl-detail-meta">
+    <p class="detail-subject">{{ selectedNewsletter.newsletterSubject }}</p>
+    <p class="detail-meta">
       Campagne : {{ selectedNewsletter.campaignName }} —
       Reçue le {{ selectedNewsletter.receivedAt | date:'dd/MM/yyyy à HH:mm' }}
     </p>
-    <div class="nl-detail-content" [innerHTML]="selectedNewsletter.htmlContent"></div>
-  </div>
-
+    <img
+      *ngIf="selectedNewsletter.coverImageUrl"
+      class="detail-cover"
+      [src]="selectedNewsletter.coverImageUrl"
+      alt="Illustration"
+    />
+    <div class="detail-content" *ngIf="selectedNewsletter.textContent; else htmlFallback">
+      {{ selectedNewsletter.textContent }}
+    </div>
+    <ng-template #htmlFallback>
+      <div class="detail-content detail-content--html" [innerHTML]="selectedNewsletter.htmlContent"></div>
+    </ng-template>
+  </article>
 </div>

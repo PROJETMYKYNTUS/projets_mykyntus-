@@ -31,12 +31,6 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
     primeRoles: ['Admin', 'RH', 'RP', 'Chef de projet', 'Manager', 'Superviseur', 'Coach', 'Référent technique'],
   },
   {
-    label: 'Affectations organisationnelles',
-    route: PRIME_ROUTE,
-    primePath: '/rh/organisation',
-    primeRoles: ['RH', 'Admin'],
-  },
-  {
     label: 'Validation',
     route: PRIME_ROUTE,
     primePath: '/validation',

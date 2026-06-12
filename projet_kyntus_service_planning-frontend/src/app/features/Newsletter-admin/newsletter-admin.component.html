@@ -98,13 +98,21 @@
       </div>
 
       <div class="nl-field nl-field-full">
-        <label for="newsletter-html">Contenu HTML</label>
-        <textarea class="ky-input" id="newsletter-html" rows="10" [(ngModel)]="newNewsletter.htmlContent" placeholder="<h2>Bonjour</h2><p>Votre contenu...</p>"></textarea>
+        <label for="newsletter-text">Contenu du message <span class="req">*</span></label>
+        <textarea class="ky-input" id="newsletter-text" rows="8" [(ngModel)]="newNewsletter.textContent" placeholder="Rédigez votre message en texte simple…"></textarea>
+        <span class="nl-hint">Pas de HTML requis — le message sera mis en forme automatiquement.</span>
       </div>
 
       <div class="nl-field nl-field-full">
-        <label for="newsletter-text">Version texte</label>
-        <textarea class="ky-input" id="newsletter-text" rows="5" [(ngModel)]="newNewsletter.textContent" placeholder="Version texte optionnelle pour fallback"></textarea>
+        <label for="newsletter-cover">Photo / illustration</label>
+        <div class="nl-image-upload">
+          <input id="newsletter-cover" type="file" accept="image/*" (change)="onCoverImageSelected($event)" />
+          <span class="nl-hint">JPG, PNG ou WebP — max 2 Mo</span>
+          <div class="nl-image-preview" *ngIf="coverImagePreview">
+            <img [src]="coverImagePreview" alt="Apercu illustration" />
+            <button type="button" class="ky-btn-secondary nl-btn-remove-image" (click)="removeCoverImage()">Retirer l'image</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -264,17 +272,13 @@
         </p>
       </div>
     </div>
-<section class="nl-preview">
-  <ng-container *ngIf="previewNewsletter">
+<section class="nl-preview ky-card" *ngIf="previewNewsletter">
+  <div class="nl-preview-head">
     <h3>{{ previewNewsletter.title }}</h3>
-    <p>{{ previewNewsletter.subject }}</p>
-    <span>Creee le {{ formatDate(previewNewsletter.createdAt) }}</span>
-    <span *ngIf="previewNewsletter.updatedAt">
-      Maj {{ formatDate(previewNewsletter.updatedAt) }}
-    </span>
-    <div class="nl-preview-html" [innerHTML]="previewNewsletter.htmlContent"></div>
-    <div class="nl-preview-text" *ngIf="previewNewsletter.textContent">
-      <pre>{{ previewNewsletter.textContent }}</pre>
-    </div>
-  </ng-container>        <!-- ✅ ng-container fermé AVANT section -->
-</section>               <!-- ✅ section fermé après -->
+    <button type="button" class="ky-btn-secondary" (click)="closeNewsletterPreview()">Fermer</button>
+  </div>
+  <p>{{ previewNewsletter.subject }}</p>
+  <img *ngIf="previewNewsletter.coverImageUrl" class="nl-preview-cover" [src]="previewNewsletter.coverImageUrl" alt="Illustration" />
+  <div class="nl-preview-text" *ngIf="previewNewsletter.textContent">{{ previewNewsletter.textContent }}</div>
+  <div class="nl-preview-html" *ngIf="!previewNewsletter.textContent" [innerHTML]="previewNewsletter.htmlContent"></div>
+</section>

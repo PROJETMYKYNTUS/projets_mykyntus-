@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { KyntusSelectSyncDirective } from '@/shared/directives/kyntus-select-sync.directive';
 import { drillSelectOptions } from '../../lib/hierarchyDrillDown';
 import { HierarchyDrillService } from '../../state/hierarchy-drill.service';
 import { RoleService } from '../../state/role.service';
@@ -6,12 +7,13 @@ import { RoleService } from '../../state/role.service';
 @Component({
   selector: 'app-rp-drill-bar',
   standalone: true,
+  imports: [KyntusSelectSyncDirective],
   template: `
     <div class="flex flex-wrap items-center gap-2">
       <select
         class="text-sm pl-3 pr-8 py-2 rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        [value]="hierarchy.drill().managerId ?? ''"
-        (change)="onManager($any($event.target).value)"
+        [kyntusSelectSync]="hierarchy.drill().managerId ?? ''"
+        (kyntusSelectSyncChange)="onManager($event)"
       >
         <option value="">Manager</option>
         @for (o of managers(); track o.value) {
@@ -21,8 +23,8 @@ import { RoleService } from '../../state/role.service';
       <select
         class="text-sm pl-3 pr-8 py-2 rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
         [disabled]="!hierarchy.drill().managerId"
-        [value]="hierarchy.drill().coachId ?? ''"
-        (change)="hierarchy.setCoachId($any($event.target).value || undefined)"
+        [kyntusSelectSync]="hierarchy.drill().coachId ?? ''"
+        (kyntusSelectSyncChange)="hierarchy.setCoachId($event || undefined)"
       >
         <option value="">Coach</option>
         @for (o of coaches(); track o.value) {

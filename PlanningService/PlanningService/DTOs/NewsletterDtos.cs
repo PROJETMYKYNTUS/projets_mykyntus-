@@ -8,16 +8,16 @@ namespace PlanningService.DTOs.Newsletter
     {
         public string Title { get; set; } = string.Empty;
         public string Subject { get; set; } = string.Empty;
-        public string HtmlContent { get; set; } = string.Empty;
-        public string? TextContent { get; set; }
+        public string TextContent { get; set; } = string.Empty;
+        public string? CoverImageUrl { get; set; }
     }
 
     public class UpdateNewsletterDto
     {
         public string? Title { get; set; }
         public string? Subject { get; set; }
-        public string? HtmlContent { get; set; }
         public string? TextContent { get; set; }
+        public string? CoverImageUrl { get; set; }
     }
 
     public class NewsletterResponseDto
@@ -27,6 +27,7 @@ namespace PlanningService.DTOs.Newsletter
         public string Subject { get; set; } = string.Empty;
         public string HtmlContent { get; set; } = string.Empty;
         public string? TextContent { get; set; }
+        public string? CoverImageUrl { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public string CreatedByUserId { get; set; } = string.Empty;
@@ -69,6 +70,7 @@ namespace PlanningService.DTOs.Newsletter
         public string NewsletterSubject { get; set; } = string.Empty;
         public string HtmlContent { get; set; } = string.Empty;
         public string? TextContent { get; set; }
+        public string? CoverImageUrl { get; set; }
         public bool IsRead { get; set; }
         public DateTime? ReadAt { get; set; }
         public DateTime ReceivedAt { get; set; }

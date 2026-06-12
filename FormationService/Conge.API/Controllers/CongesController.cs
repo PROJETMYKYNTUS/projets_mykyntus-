@@ -5,6 +5,7 @@ using Conge.Application.Commands.ValiderConge;
 using Conge.Application.Queries.GetDemandesByEmploye;
 using Conge.Application.Queries.GetDemandesByManager;
 using Conge.Application.Queries.GetHistorique;
+using Conge.Application.Queries.GetHistoriqueRh;
 using Conge.Application.Queries.GetSoldeByEmploye;
 using Conge.Domain.Enums;
 using MediatR;
@@ -46,6 +47,19 @@ public class CongesController : ControllerBase
     public async Task<IActionResult> GetDemandesByManager(Guid managerId, CancellationToken ct)
     {
         var result = await _mediator.Send(new GetDemandesByManagerQuery(managerId), ct);
+        return Ok(result);
+    }
+
+    /// <summary>GET /api/conges/historique — Historique global par année (RH)</summary>
+    [HttpGet("historique")]
+    public async Task<IActionResult> GetHistoriqueRh(
+        [FromQuery] int annee,
+        CancellationToken ct)
+    {
+        if (annee < 2000 || annee > 2100)
+            return BadRequest(new { message = "Année invalide." });
+
+        var result = await _mediator.Send(new GetHistoriqueRhQuery(annee), ct);
         return Ok(result);
     }
 

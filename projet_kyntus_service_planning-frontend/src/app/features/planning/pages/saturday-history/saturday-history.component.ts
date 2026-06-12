@@ -1,200 +1,48 @@
-// planning/pages/saturday-history/saturday-history.component.ts
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Calendar, CheckCircle, Circle, Save } from 'lucide';
+import { HttpClient } from '@angular/common/http';
+import { forkJoin } from 'rxjs';
+import { Calendar, CheckCircle, Circle, Inbox, Loader2, Save, Search, Users } from 'lucide';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
-import { PlanningService, SaturdayHistoryResponse, SetSaturdayHistoryDto } from '../../services/planning.service';
+import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-select-sync.directive';
+import {
+  PlanningService,
+  SaturdayHistoryResponse,
+  SetSaturdayHistoryDto,
+} from '../../services/planning.service';
+import { SubServiceService } from '../../../sub-services/services/sub-service.service';
+import { UserService } from '../../../users/services/user.service';
+import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
+import type { Department } from '../../../prime/models';
+import type { SubService } from '../../../sub-services/sub-services-module';
+import { buildOrgRhFilterOptions } from '../../../../core/org/org-structure-filter';
+import {
+  enrichUserOrgPerimeter,
+  orgPerimeterSummary,
+  type UserOrgPerimeterView,
+} from '../../../../core/org/user-org-perimeter';
+import {
+  findOrgSelectionByPrimeServiceId,
+  poleCells,
+} from '../../../../core/org/planning-org-picker';
+
+type SubServiceOption = {
+  id: number;
+  orgLabel: string;
+};
+
+type SaturdayEntryView = SaturdayHistoryResponse & {
+  perimeter: UserOrgPerimeterView;
+  searchText: string;
+};
 
 @Component({
   selector: 'app-saturday-history',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent],
-  template: `
-    <div class="page-wrapper ky-page-shell">
-      <h1 class="page-title">
-        <app-lucide-icon [icon]="icons.calendar" className="w-7 h-7" />
-        Historique Samedis
-      </h1>
-      <p class="page-sub">Saisir manuellement qui a travaillé samedi</p>
-
-      <div class="filters">
-        <select class="ky-input" [(ngModel)]="subServiceId" (change)="load()">
-          <option [value]="0" disabled>-- Sous-service --</option>
-          <option *ngFor="let s of subServices" [value]="s.id">{{ s.name }}</option>
-        </select>
-
-        <input class="ky-input" type="text" [(ngModel)]="weekCode"
-               placeholder="ex: 2026-W13"
-               (change)="load()" />
-      </div>
-
-      <div class="success-msg" *ngIf="successMsg">
-        <app-lucide-icon [icon]="icons.success" className="w-4 h-4" />
-        {{ successMsg }}
-      </div>
-
-      <div class="employees-list" *ngIf="entries.length > 0">
-        <div class="emp-row" *ngFor="let e of entries">
-          <span class="emp-name">{{ e.fullName }}</span>
-          <div class="toggle-group">
-            <button class="prime-btn-secondary btn-worked"
-                    [class.active]="e.workedSaturday"
-                    (click)="e.workedSaturday = true">
-              <app-lucide-icon [icon]="icons.worked" className="w-4 h-4" />
-              Travaillé
-            </button>
-            <button class="prime-btn-secondary btn-off"
-                    [class.active]="!e.workedSaturday"
-                    (click)="e.workedSaturday = false">
-              <app-lucide-icon [icon]="icons.off" className="w-4 h-4" />
-              OFF
-            </button>
-          </div>
-        </div>
-
-        <button class="ky-btn-primary btn-save" (click)="save()">
-          <app-lucide-icon [icon]="icons.save" className="w-4 h-4" />
-          Sauvegarder
-        </button>
-      </div>
-    </div>
-  `,
-  styles: [`
-  .page-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0 0 6px;
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: -0.02em;
-  }
-
-  .page-sub {
-    margin: 0 0 24px;
-    color: var(--text-muted);
-    font-size: 0.92rem;
-  }
-
-  .filters {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
-    flex-wrap: wrap;
-    padding: 20px;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 24px;
-    box-shadow: 0 18px 40px color-mix(in srgb, var(--navy-950) 10%, transparent);
-  }
-
-  .filters .ky-input {
-    min-width: 220px;
-  }
-
-  .success-msg {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 18px;
-    padding: 14px 16px;
-    background: color-mix(in srgb, #22c55e 12%, var(--bg-card));
-    border: 1px solid color-mix(in srgb, #22c55e 30%, var(--border-color));
-    border-radius: 16px;
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    font-weight: 600;
-  }
-
-  .employees-list {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 24px;
-    padding: 24px;
-    box-shadow: 0 18px 40px color-mix(in srgb, var(--navy-950) 10%, transparent);
-  }
-
-  .emp-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 16px 18px;
-    background: var(--bg-input);
-    border: 1px solid var(--border-color);
-    border-radius: 18px;
-    margin-bottom: 12px;
-    transition: all 0.22s ease;
-  }
-
-  .emp-row:hover {
-    background: var(--navy-700);
-    border-color: var(--border-color);
-  }
-
-  .emp-name {
-    color: var(--text-primary);
-    font-weight: 700;
-    font-size: 0.95rem;
-  }
-
-  .toggle-group {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .btn-worked,
-  .btn-off {
-    font-size: 0.84rem;
-  }
-
-  .btn-worked.active {
-    background: color-mix(in srgb, #22c55e 16%, var(--bg-card));
-    color: var(--text-primary);
-    border-color: color-mix(in srgb, #22c55e 40%, var(--border-color));
-  }
-
-  .btn-off.active {
-    background: color-mix(in srgb, #ef4444 16%, var(--bg-card));
-    color: var(--text-primary);
-    border-color: color-mix(in srgb, #ef4444 40%, var(--border-color));
-  }
-
-  .btn-save {
-    margin-top: 18px;
-  }
-
-  @media (max-width: 768px) {
-    .page-title {
-      font-size: 1.5rem;
-    }
-
-    .filters,
-    .employees-list {
-      border-radius: 18px;
-      padding: 18px;
-    }
-
-    .emp-row {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .toggle-group {
-      width: 100%;
-    }
-
-    .btn-worked,
-    .btn-off,
-    .btn-save {
-      width: 100%;
-      justify-content: center;
-    }
-  }
-`]
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective],
+  templateUrl: './saturday-history.component.html',
+  styleUrls: ['./saturday-history.component.css'],
 })
 export class SaturdayHistoryComponent implements OnInit {
   readonly icons = {
@@ -203,61 +51,304 @@ export class SaturdayHistoryComponent implements OnInit {
     worked: CheckCircle,
     off: Circle,
     save: Save,
+    search: Search,
+    users: Users,
+    inbox: Inbox,
+    loader: Loader2,
   };
 
-  subServices: any[] = [];
+  orgDepartments: Department[] = [];
+  subServices: SubService[] = [];
+  subServiceOptions: SubServiceOption[] = [];
   subServiceId = 0;
   weekCode = '';
-  entries: SaturdayHistoryResponse[] = [];
+  weekStartDate = '';
+  weekDateAdjusted = false;
+
+  allEntries: SaturdayEntryView[] = [];
+  filteredEntries: SaturdayEntryView[] = [];
+
+  searchTerm = '';
+  filterPole = '';
+  filterCellule = '';
+  filterService = '';
+  filterStatus: '' | 'worked' | 'off' = '';
+
+  poleOptions: string[] = [];
+  celluleOptions: string[] = [];
+  serviceOptions: string[] = [];
+
+  loading = false;
+  saving = false;
   successMsg = '';
+  error = '';
 
-  constructor(private planningService: PlanningService) {}
+  readonly orgPerimeterSummary = orgPerimeterSummary;
 
-ngOnInit(): void {
-  // ✅ D'abord définir la semaine
-  const now      = new Date();
-  const week     = this.getWeekNumber(now);
-  const prevWeek = week === 1 ? 52 : week - 1;
-  const year     = week === 1 ? now.getFullYear() - 1 : now.getFullYear();
-  this.weekCode  = `${year}-W${String(prevWeek).padStart(2, '0')}`;
+  constructor(
+    private planningService: PlanningService,
+    private subServiceService: SubServiceService,
+    private userService: UserService,
+    private orgApi: PrimeOrgApiService,
+    private http: HttpClient,
+    private cdr: ChangeDetectorRef,
+  ) {}
 
-  // ✅ Ensuite charger les sous-services et lancer load()
-  this.planningService.getSubServices().subscribe(data => {
-    this.subServices = data;
-    if (data.length > 0) {
-      this.subServiceId = data[0].id;
-      this.load(); // ✅ weekCode est déjà défini ici
-    }
-  });
-}
-
-  load(): void {
-    if (!this.subServiceId || !this.weekCode) return;
-    this.planningService.getSaturdayHistory(this.subServiceId, this.weekCode)
-      .subscribe(data => this.entries = data);
+  ngOnInit(): void {
+    this.initPreviousWeek();
+    this.loadContext();
   }
 
-  save(): void {
-    const dto: SetSaturdayHistoryDto = {
-      subServiceId: this.subServiceId,
-      weekCode:     this.weekCode,
-      entries:      this.entries.map(e => ({
-        userId:        e.userId,
-        workedSaturday: e.workedSaturday
-      }))
-    };
+  private initPreviousWeek(): void {
+    const now = new Date();
+    const monday = this.getMondayOfWeek(now);
+    monday.setDate(monday.getDate() - 7);
+    this.weekStartDate = this.formatDate(monday);
+    this.weekCode = this.getWeekCode(monday);
+  }
 
-    this.planningService.saveSaturdayHistory(dto).subscribe(() => {
-      this.successMsg = 'Historique sauvegardé !';
-      setTimeout(() => this.successMsg = '', 3000);
+  loadContext(): void {
+    this.loading = true;
+    forkJoin({
+      subServices: this.subServiceService.getAllSubServices(),
+      departments: this.http.get<Department[]>('/api/prime/departments'),
+      overview: this.orgApi.loadOverview(),
+    }).subscribe({
+      next: ({ subServices, departments, overview }) => {
+        this.orgDepartments = departments ?? [];
+        this.subServices = subServices ?? [];
+        this.subServiceOptions = this.buildSubServiceOptions(this.subServices);
+        if (this.subServiceOptions.length > 0) {
+          this.subServiceId = this.subServiceOptions[0].id;
+          this.load();
+        } else {
+          this.loading = false;
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loading = false;
+        this.error = 'Impossible de charger la structure organisationnelle.';
+        this.cdr.detectChanges();
+      },
     });
   }
 
-  private getWeekNumber(date: Date): number {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  private buildSubServiceOptions(subServices: SubService[]): SubServiceOption[] {
+    return subServices
+      .map((sub) => {
+        const primeId = sub.primeServiceId?.trim() ?? '';
+        const sel = primeId
+          ? findOrgSelectionByPrimeServiceId(this.orgDepartments, primeId)
+          : null;
+
+        let orgLabel = sub.name;
+        if (sel) {
+          const dept = this.orgDepartments.find((d) => d.id === sel.poleId);
+          const cellule = dept?.poles?.find((p) => p.id === sel.celluleId);
+          const service = cellule
+            ? poleCells(cellule).find((c) => c.id === sel.serviceId)
+            : undefined;
+          if (dept && cellule) {
+            orgLabel = `${dept.name} / ${cellule.name} / ${service?.name ?? sub.name}`;
+          }
+        }
+
+        return { id: sub.id, orgLabel };
+      })
+      .sort((a, b) => a.orgLabel.localeCompare(b.orgLabel, 'fr'));
+  }
+
+  load(): void {
+    if (!this.subServiceId || !this.weekCode) return;
+    this.loading = true;
+    this.error = '';
+    this.successMsg = '';
+
+    forkJoin({
+      history: this.planningService.getSaturdayHistory(this.subServiceId, this.weekCode),
+      users: this.userService.getAllUsers(),
+      overview: this.orgApi.loadOverview(),
+    }).subscribe({
+      next: ({ history, users, overview }) => {
+        const activeUsers = (users ?? []).filter((u) => u.isActive);
+        const perimeterById = new Map<number, UserOrgPerimeterView>();
+        for (const u of activeUsers) {
+          perimeterById.set(
+            u.id,
+            enrichUserOrgPerimeter(u, this.orgDepartments, overview, this.subServices),
+          );
+        }
+
+        this.allEntries = (history ?? []).map((entry) => {
+          const perimeter = perimeterById.get(entry.userId) ?? { pole: null, cellule: null, service: null };
+          const searchText = [
+            entry.fullName,
+            perimeter.pole,
+            perimeter.cellule,
+            perimeter.service,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          return { ...entry, perimeter, searchText };
+        });
+
+        this.refreshOrgFilterOptions();
+        this.applyFilters();
+        this.loading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loading = false;
+        this.error = 'Impossible de charger l\'historique.';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  refreshOrgFilterOptions(): void {
+    const opts = buildOrgRhFilterOptions(this.orgDepartments, {
+      pole: this.filterPole || undefined,
+      cellule: this.filterCellule || undefined,
+    });
+    this.poleOptions = opts.poles;
+    this.celluleOptions = opts.cellules;
+    this.serviceOptions = opts.services;
+  }
+
+  patchFilterPole(value: string): void {
+    this.filterPole = value;
+    this.filterCellule = '';
+    this.filterService = '';
+    this.refreshOrgFilterOptions();
+    this.applyFilters();
+  }
+
+  patchFilterCellule(value: string): void {
+    this.filterCellule = value;
+    this.filterService = '';
+    this.refreshOrgFilterOptions();
+    this.applyFilters();
+  }
+
+  patchFilterService(value: string): void {
+    this.filterService = value;
+    this.applyFilters();
+  }
+
+  applyFilters(): void {
+    let rows = [...this.allEntries];
+    const q = this.searchTerm.trim().toLowerCase();
+    if (q) rows = rows.filter((e) => e.searchText.includes(q));
+    if (this.filterPole) rows = rows.filter((e) => e.perimeter.pole === this.filterPole);
+    if (this.filterCellule) rows = rows.filter((e) => e.perimeter.cellule === this.filterCellule);
+    if (this.filterService) rows = rows.filter((e) => e.perimeter.service === this.filterService);
+    if (this.filterStatus === 'worked') rows = rows.filter((e) => e.workedSaturday);
+    if (this.filterStatus === 'off') rows = rows.filter((e) => !e.workedSaturday);
+    this.filteredEntries = rows;
+    this.cdr.detectChanges();
+  }
+
+  clearFilters(): void {
+    this.searchTerm = '';
+    this.filterPole = '';
+    this.filterCellule = '';
+    this.filterService = '';
+    this.filterStatus = '';
+    this.refreshOrgFilterOptions();
+    this.applyFilters();
+  }
+
+  onSubServiceChange(): void {
+    this.load();
+  }
+
+  onWeekChange(): void {
+    if (!this.weekStartDate) return;
+    const picked = this.parseDateInput(this.weekStartDate);
+    const monday = this.getMondayOfWeek(picked);
+    const mondayStr = this.formatDate(monday);
+    this.weekDateAdjusted = mondayStr !== this.weekStartDate;
+    this.weekStartDate = mondayStr;
+    this.weekCode = this.getWeekCode(monday);
+    this.load();
+  }
+
+  setWorked(entry: SaturdayEntryView, worked: boolean): void {
+    entry.workedSaturday = worked;
+    const source = this.allEntries.find((e) => e.userId === entry.userId);
+    if (source) source.workedSaturday = worked;
+    this.applyFilters();
+  }
+
+  save(): void {
+    if (!this.subServiceId || !this.weekCode || this.allEntries.length === 0) return;
+
+    this.saving = true;
+    this.error = '';
+    this.successMsg = '';
+
+    const dto: SetSaturdayHistoryDto = {
+      subServiceId: this.subServiceId,
+      weekCode: this.weekCode,
+      entries: this.allEntries.map((e) => ({
+        userId: e.userId,
+        workedSaturday: e.workedSaturday,
+      })),
+    };
+
+    this.planningService.saveSaturdayHistory(dto).subscribe({
+      next: () => {
+        this.saving = false;
+        this.successMsg = 'Historique sauvegardé !';
+        setTimeout(() => {
+          this.successMsg = '';
+          this.cdr.detectChanges();
+        }, 3000);
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.saving = false;
+        this.error = err.error?.message ?? 'Erreur lors de la sauvegarde.';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  get workedCount(): number {
+    return this.allEntries.filter((e) => e.workedSaturday).length;
+  }
+
+  private parseDateInput(value: string): Date {
+    const [y, m, d] = value.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  getMondayOfWeek(date: Date): Date {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    return d;
+  }
+
+  getWeekCode(monday: Date): string {
+    const year = monday.getFullYear();
+    const weekNum = this.getISOWeek(monday);
+    return `${year}-W${weekNum.toString().padStart(2, '0')}`;
+  }
+
+  getISOWeek(date: Date): number {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+    const week1 = new Date(d.getFullYear(), 0, 4);
+    return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000
+      - 3 + (week1.getDay() + 6) % 7) / 7);
+  }
+
+  formatDate(d: Date): string {
+    return d.toLocaleDateString('en-CA');
   }
 }

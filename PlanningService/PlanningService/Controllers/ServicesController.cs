@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PlanningService.DTOs;
 using PlanningService.Interfaces;
@@ -69,47 +69,12 @@ public class ServicesController : ControllerBase
     /// Créer un nouveau service
     /// </summary>
     [HttpPost]
-    //[Authorize(Roles = "RH")]
-    public async Task<ActionResult<ServiceDto>> CreateService([FromBody] CreateServiceDto dto)
-    {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+    public IActionResult CreateService([FromBody] CreateServiceDto dto) =>
+        StatusCode(403, new { message = "Structure en lecture seule. Gérer dans Organisation RH (Prime)." });
 
-        try
-        {
-            var service = await _serviceService.CreateServiceAsync(dto);
-            return CreatedAtAction(nameof(GetServiceById), new { id = service.Id }, service);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
-
-    /// <summary>
-    /// Mettre à jour un service
-    /// </summary>
     [HttpPut("{id}")]
-   // [Authorize(Roles = "RH")]
-    public async Task<ActionResult<ServiceDto>> UpdateService(int id, [FromBody] UpdateServiceDto dto)
-    {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
-        try
-        {
-            var service = await _serviceService.UpdateServiceAsync(id, dto);
-
-            if (service == null)
-                return NotFound(new { message = $"Le service avec l'ID {id} n'existe pas." });
-
-            return Ok(service);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+    public IActionResult UpdateService(int id, [FromBody] UpdateServiceDto dto) =>
+        StatusCode(403, new { message = "Structure en lecture seule. Gérer dans Organisation RH (Prime)." });
     /// <summary>
     /// Récupérer tous les services avec leurs sous-services (pour formulaire employee)
     /// </summary>
@@ -124,23 +89,8 @@ public class ServicesController : ControllerBase
     /// Supprimer un service
     /// </summary>
     [HttpDelete("{id}")]
-    //[Authorize(Roles = "RH")]
-    public async Task<IActionResult> DeleteService(int id)
-    {
-        try
-        {
-            var result = await _serviceService.DeleteServiceAsync(id);
-
-            if (!result)
-                return NotFound(new { message = $"Le service avec l'ID {id} n'existe pas." });
-
-            return NoContent();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+    public IActionResult DeleteService(int id) =>
+        StatusCode(403, new { message = "Structure en lecture seule. Gérer dans Organisation RH (Prime)." });
 
     /// <summary>
     /// Vérifier si un code de service est unique

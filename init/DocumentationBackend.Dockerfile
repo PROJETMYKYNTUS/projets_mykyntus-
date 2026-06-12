@@ -4,11 +4,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
+COPY Messaging.Contracts/Messaging.Contracts.csproj Messaging.Contracts/
 COPY Kyntus.Identity.Jwt/Kyntus.Identity.Jwt.csproj Kyntus.Identity.Jwt/
 COPY documentation_service_backend/DocumentationBackend/DocumentationBackend.csproj documentation_service_backend/DocumentationBackend/
 COPY documentation_service_backend/Documentation.Contracts/Documentation.Contracts.csproj documentation_service_backend/Documentation.Contracts/
 RUN dotnet restore "./documentation_service_backend/DocumentationBackend/DocumentationBackend.csproj"
 
+COPY Messaging.Contracts/ Messaging.Contracts/
 COPY Kyntus.Identity.Jwt/ Kyntus.Identity.Jwt/
 COPY documentation_service_backend/ documentation_service_backend/
 COPY init/patches/documentation-service/AppRoleHeaderParser.cs documentation_service_backend/DocumentationBackend/Api/AppRoleHeaderParser.cs

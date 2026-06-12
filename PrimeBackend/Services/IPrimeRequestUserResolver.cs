@@ -23,8 +23,14 @@ public interface IPrimeRequestUserResolver
             "Comptabilite" => "Comptabilité",
             "Coach" => PrimeFicheValidationRoles.ReferentTechnique,
             "ReferentTechnique" => PrimeFicheValidationRoles.ReferentTechnique,
+            "Référent technique" => PrimeFicheValidationRoles.ReferentTechnique,
             "ChefDeProjet" => PrimeFicheValidationRoles.ChefDeProjet,
+            "Chef de projet" => PrimeFicheValidationRoles.ChefDeProjet,
             "RP" => PrimeFicheValidationRoles.ChefDeProjet,
+            "Employee" => "Pilote",
+            "Pilote" => "Pilote",
+            "Superviseur" => "Superviseur",
+            "Manager" => "Manager",
             _ => x,
         };
     }

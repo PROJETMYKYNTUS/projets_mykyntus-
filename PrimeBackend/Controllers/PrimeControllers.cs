@@ -2,6 +2,7 @@ namespace PrimeBackend.Controllers;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Kyntus.Messaging.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Data;
@@ -189,7 +190,8 @@ public class PrimeOrgAssignmentsController(
     PrimeInMemoryStore store,
     PrimeDbContext? db,
     PrimeOrgScopeService org,
-    IConfiguration configuration) : ControllerBase
+    IConfiguration configuration,
+    IOrgStructureEventPublisher orgEvents) : ControllerBase
 {
     private static string NewPersistedOrgId(string prefix)
     {
@@ -201,13 +203,16 @@ public class PrimeOrgAssignmentsController(
     private async Task ExecuteOrgStructureMutationAsync(
         CancellationToken ct,
         Action mutation,
-        Func<Task>? beforeMutationAsync = null)
+        Func<Task>? beforeMutationAsync = null,
+        Func<Task>? afterMutationAsync = null)
     {
         if (db is null)
         {
             if (beforeMutationAsync is not null)
                 await beforeMutationAsync();
             mutation();
+            if (afterMutationAsync is not null)
+                await afterMutationAsync();
             return;
         }
 
@@ -235,6 +240,8 @@ public class PrimeOrgAssignmentsController(
         }
 
         store.HydrateOrganizationFromDatabase(db);
+        if (afterMutationAsync is not null)
+            await afterMutationAsync();
     }
 
     [HttpGet("etages")]
@@ -468,6 +475,16 @@ public class PrimeOrgAssignmentsController(
         var name = body.Name.Trim();
         if (db is not null)
         {
+            var poleNames = await db.Poles.AsNoTracking().Select(p => p.Name).ToListAsync(ct);
+            try
+            {
+                OrgStructureRules.EnsureUniquePoleName(poleNames, name);
+            }
+            catch (InvalidOperationException e)
+            {
+                return Conflict(new { error = e.Message });
+            }
+
             var id = NewPersistedOrgId("d");
             while (await db.Poles.AnyAsync(p => p.Id == id, ct))
                 id = NewPersistedOrgId("d");
@@ -476,6 +493,13 @@ public class PrimeOrgAssignmentsController(
             if (configuration.GetValue("Prime:AutoCreateMinimalOrg", false))
                 await org.EnsureRootPoleHasMinimalChildrenAsync(id, ct);
             store.HydrateOrganizationFromDatabase(db);
+            await orgEvents.PublishNodeCreatedAsync(new OrgNodeCreatedMessage
+            {
+                NodeId = id,
+                Name = name,
+                Level = OrgNodeLevel.Pole,
+                Code = $"POLE-{id}"
+            }, ct);
             return Ok(new Department { Id = id, Name = name, Poles = [] });
         }
 
@@ -486,6 +510,10 @@ public class PrimeOrgAssignmentsController(
         catch (ArgumentException e)
         {
             return BadRequest(new { error = e.Message });
+        }
+        catch (InvalidOperationException e)
+        {
+            return Conflict(new { error = e.Message });
         }
     }
 
@@ -501,12 +529,33 @@ public class PrimeOrgAssignmentsController(
             var deptId = departmentId.Trim();
             if (!await db.Poles.AnyAsync(p => p.Id == deptId, ct))
                 return NotFound(new { error = "Pôle racine introuvable." });
+            var siblingNames = await db.Cellules.AsNoTracking()
+                .Where(c => c.PoleId == deptId)
+                .Select(c => c.Name)
+                .ToListAsync(ct);
+            try
+            {
+                OrgStructureRules.EnsureUniqueCelluleName(siblingNames, n);
+            }
+            catch (InvalidOperationException e)
+            {
+                return Conflict(new { error = e.Message });
+            }
+
             var id = NewPersistedOrgId("p");
             while (await db.Cellules.AnyAsync(c => c.Id == id, ct))
                 id = NewPersistedOrgId("p");
             db.Cellules.Add(new CelluleEntity { Id = id, Name = n, PoleId = deptId });
             await db.SaveChangesAsync(ct);
             store.HydrateOrganizationFromDatabase(db);
+            await orgEvents.PublishNodeCreatedAsync(new OrgNodeCreatedMessage
+            {
+                NodeId = id,
+                Name = n,
+                Level = OrgNodeLevel.Cellule,
+                ParentNodeId = deptId,
+                Code = $"CELL-{id}"
+            }, ct);
             return Ok(new Pole { Id = id, Name = n, PoleId = deptId, Cellules = [] });
         }
 
@@ -522,6 +571,10 @@ public class PrimeOrgAssignmentsController(
         {
             return NotFound(new { error = e.Message });
         }
+        catch (InvalidOperationException e)
+        {
+            return Conflict(new { error = e.Message });
+        }
     }
 
     /// <summary><paramref name="celluleId"/> = identifiant de la cellule (table <c>prime_cellule</c>) ; crée un service feuille.</summary>
@@ -536,12 +589,33 @@ public class PrimeOrgAssignmentsController(
             var parentCelluleId = celluleId.Trim();
             if (!await db.Cellules.AnyAsync(c => c.Id == parentCelluleId, ct))
                 return NotFound(new { error = "Cellule introuvable." });
+            var siblingNames = await db.Services.AsNoTracking()
+                .Where(s => s.CelluleId == parentCelluleId)
+                .Select(s => s.Name)
+                .ToListAsync(ct);
+            try
+            {
+                OrgStructureRules.EnsureUniqueServiceName(siblingNames, n);
+            }
+            catch (InvalidOperationException e)
+            {
+                return Conflict(new { error = e.Message });
+            }
+
             var id = NewPersistedOrgId("c");
             while (await db.Services.AnyAsync(s => s.Id == id, ct))
                 id = NewPersistedOrgId("c");
             db.Services.Add(new ServiceEntity { Id = id, Name = n, CelluleId = parentCelluleId });
             await db.SaveChangesAsync(ct);
             store.HydrateOrganizationFromDatabase(db);
+            await orgEvents.PublishNodeCreatedAsync(new OrgNodeCreatedMessage
+            {
+                NodeId = id,
+                Name = n,
+                Level = OrgNodeLevel.Service,
+                ParentNodeId = parentCelluleId,
+                Code = $"SVC-{id}"
+            }, ct);
             return Ok(new Cellule
             {
                 Id = id,
@@ -566,6 +640,10 @@ public class PrimeOrgAssignmentsController(
         {
             return NotFound(new { error = e.Message });
         }
+        catch (InvalidOperationException e)
+        {
+            return Conflict(new { error = e.Message });
+        }
     }
 
     [HttpPost("structure/departments/{poleId}/manager")]
@@ -575,7 +653,15 @@ public class PrimeOrgAssignmentsController(
         {
             if (body is null || string.IsNullOrWhiteSpace(body.EmployeeId))
                 return BadRequest(new { error = "employeeId est requis." });
-            await ExecuteOrgStructureMutationAsync(ct, () => store.SetManagerForDepartment(body.EmployeeId, poleId));
+            await ExecuteOrgStructureMutationAsync(ct, () => store.SetManagerForDepartment(body.EmployeeId, poleId),
+                afterMutationAsync: () => orgEvents.PublishAssignmentChangedAsync(new OrgAssignmentChangedMessage
+                {
+                    Kind = OrgAssignmentKind.ChefDeProjet,
+                    NodeId = poleId,
+                    NodeLevel = OrgNodeLevel.Pole,
+                    EmployeeId = body.EmployeeId.Trim(),
+                    Removed = false
+                }, ct));
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
@@ -585,7 +671,15 @@ public class PrimeOrgAssignmentsController(
     [HttpDelete("structure/departments/{poleId}/manager")]
     public async Task<IActionResult> ClearManagerForDepartment(string poleId, CancellationToken ct)
     {
-        await ExecuteOrgStructureMutationAsync(ct, () => store.ClearManagerForDepartment(poleId));
+        await ExecuteOrgStructureMutationAsync(ct, () => store.ClearManagerForDepartment(poleId),
+            afterMutationAsync: () => orgEvents.PublishAssignmentChangedAsync(new OrgAssignmentChangedMessage
+            {
+                Kind = OrgAssignmentKind.ChefDeProjet,
+                NodeId = poleId,
+                NodeLevel = OrgNodeLevel.Pole,
+                EmployeeId = string.Empty,
+                Removed = true
+            }, ct));
         return NoContent();
     }
 
@@ -596,7 +690,15 @@ public class PrimeOrgAssignmentsController(
         {
             if (body is null || string.IsNullOrWhiteSpace(body.EmployeeId))
                 return BadRequest(new { error = "employeeId est requis." });
-            await ExecuteOrgStructureMutationAsync(ct, () => store.SetSupervisorForPole(body.EmployeeId, celluleId));
+            await ExecuteOrgStructureMutationAsync(ct, () => store.SetSupervisorForPole(body.EmployeeId, celluleId),
+                afterMutationAsync: () => orgEvents.PublishAssignmentChangedAsync(new OrgAssignmentChangedMessage
+                {
+                    Kind = OrgAssignmentKind.Superviseur,
+                    NodeId = celluleId,
+                    NodeLevel = OrgNodeLevel.Cellule,
+                    EmployeeId = body.EmployeeId.Trim(),
+                    Removed = false
+                }, ct));
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
@@ -617,7 +719,15 @@ public class PrimeOrgAssignmentsController(
         {
             if (body is null || string.IsNullOrWhiteSpace(body.EmployeeId))
                 return BadRequest(new { error = "employeeId est requis." });
-            await ExecuteOrgStructureMutationAsync(ct, () => store.SetCoachForCellule(body.EmployeeId, serviceId));
+            await ExecuteOrgStructureMutationAsync(ct, () => store.SetCoachForCellule(body.EmployeeId, serviceId),
+                afterMutationAsync: () => orgEvents.PublishAssignmentChangedAsync(new OrgAssignmentChangedMessage
+                {
+                    Kind = OrgAssignmentKind.ReferentTechnique,
+                    NodeId = serviceId,
+                    NodeLevel = OrgNodeLevel.Service,
+                    EmployeeId = body.EmployeeId.Trim(),
+                    Removed = false
+                }, ct));
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }

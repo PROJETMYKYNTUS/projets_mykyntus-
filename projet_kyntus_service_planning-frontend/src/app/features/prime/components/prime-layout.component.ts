@@ -134,7 +134,6 @@ export class PrimeLayoutComponent implements OnInit {
     const r = this.role.currentRole();
     const v = this.effectiveView();
     if (v === '/validation' || v === '/validation-history') return false;
-    if (r === 'Admin' && v === '/rh/organisation') return false;
     return r === 'Admin' || r === 'RP' || r === 'Audit';
   });
 

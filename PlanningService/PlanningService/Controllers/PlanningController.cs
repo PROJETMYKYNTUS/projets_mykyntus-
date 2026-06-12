@@ -98,9 +98,13 @@ public class PlanningController : ControllerBase
             var result = await _planningService.CreatePlanningAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException ex) when (ex.Message.Contains("existe déjà"))
         {
             return Conflict(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
     }
 
@@ -161,6 +165,10 @@ public class PlanningController : ControllerBase
         {
             var result = await _planningService.GeneratePlanningAsync(dto);
             return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {

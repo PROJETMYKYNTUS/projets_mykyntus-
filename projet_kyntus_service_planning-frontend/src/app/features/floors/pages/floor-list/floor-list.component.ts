@@ -1,8 +1,8 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
 import { FloorService } from '../../services/floor.service';
 import { Floor } from '../../models/floor.model';
+import { NavigationActionsService } from '../../../../core/navigation/navigation-actions.service';
 
 @Component({
   selector: 'app-floor-list',
@@ -18,7 +18,7 @@ export class FloorListComponent implements OnInit {
 
   constructor(
     private floorService: FloorService,
-    private router: Router,
+    private navActions: NavigationActionsService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -43,17 +43,7 @@ export class FloorListComponent implements OnInit {
     });
   }
 
-  goToDashboard(): void { this.router.navigate(['/dashboard']); }
-  viewFloor(id: number): void { this.router.navigate(['/floors', id]); }
-  editFloor(id: number): void { this.router.navigate(['/floors', 'edit', id]); }
-  createFloor(): void { this.router.navigate(['/floors', 'create']); }
-
-  deleteFloor(id: number): void {
-    if (confirm('Supprimer cet étage ?')) {
-      this.floorService.deleteFloor(id).subscribe({
-        next: () => this.loadFloors(),
-        error: (err: any) => alert(`Erreur: ${err.error?.message}`)
-      });
-    }
+  goToOrganisationRh(): void {
+    void this.navActions.openOrganisationRh('departments');
   }
 }

@@ -1,9 +1,10 @@
-﻿using Conge.Application.Contracts;
+using Conge.Application.Contracts;
 using Conge.Domain.Entities;
 using Conge.Domain.Enums;
 using Conge.Domain.Events;
 using Conge.Domain.Exceptions;
 using Conge.Domain.Interfaces;
+using Kyntus.Messaging.Contracts;
 using MediatR;
 
 namespace Conge.Application.Commands.DemanderConge;
@@ -43,7 +44,7 @@ public class DemanderCongeHandler : IRequestHandler<DemanderCongeCommand, Guid>
         // ✅ Employé → valide par son Manager
         Guid validateurId;
 
-        if (employe.Role == "Manager")
+        if (KyntusRoleNames.IsSuperviseur(employe.Role))
         {
             var adminRh = await _employeRepo.GetAdminOuRhAsync(ct)
                 ?? throw new EmployeNotFoundException(Guid.Empty);

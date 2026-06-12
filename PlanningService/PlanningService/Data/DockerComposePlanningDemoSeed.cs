@@ -21,11 +21,11 @@ internal static class DockerComposePlanningDemoSeed
         {
             var utc = DateTime.UtcNow;
             context.Roles.AddRange(
-                new Role { Name = "Employee", Description = "Employé", IsActive = true, CreatedAt = utc },
+                new Role { Name = "Pilote", Description = "Pilote", IsActive = true, CreatedAt = utc },
                 new Role { Name = "RH", Description = "Ressources humaines", IsActive = true, CreatedAt = utc },
-                new Role { Name = "Manager", Description = "Manager", IsActive = true, CreatedAt = utc },
-                new Role { Name = "Coach", Description = "Coach", IsActive = true, CreatedAt = utc },
-                new Role { Name = "RP", Description = "Responsable production", IsActive = true, CreatedAt = utc },
+                new Role { Name = "Superviseur", Description = "Superviseur de cellule", IsActive = true, CreatedAt = utc },
+                new Role { Name = "Référent technique", Description = "Référent technique", IsActive = true, CreatedAt = utc },
+                new Role { Name = "Chef de projet", Description = "Chef de projet", IsActive = true, CreatedAt = utc },
                 new Role { Name = "Admin", Description = "Administrateur", IsActive = true, CreatedAt = utc },
                 new Role { Name = "Audit", Description = "Audit", IsActive = true, CreatedAt = utc },
                 new Role { Name = "EquipeFormation", Description = "Équipe formation", IsActive = true, CreatedAt = utc });
@@ -68,11 +68,11 @@ internal static class DockerComposePlanningDemoSeed
         }
 
         var sub = await context.SubServices.OrderBy(s => s.Id).FirstAsync();
-        var roleEmployee = await context.Roles.FirstAsync(r => r.Name == "Employee");
+        var roleEmployee = await context.Roles.FirstAsync(r => r.Name == "Pilote");
         var roleRh = await context.Roles.FirstAsync(r => r.Name == "RH");
-        var roleManager = await context.Roles.FirstAsync(r => r.Name == "Manager");
-        var roleCoach = await context.Roles.FirstAsync(r => r.Name == "Coach");
-        var roleRp = await context.Roles.FirstAsync(r => r.Name == "RP");
+        var roleManager = await context.Roles.FirstAsync(r => r.Name == "Superviseur");
+        var roleCoach = await context.Roles.FirstAsync(r => r.Name == "Référent technique");
+        var roleRp = await context.Roles.FirstAsync(r => r.Name == "Chef de projet");
         var roleAdmin = await context.Roles.FirstAsync(r => r.Name == "Admin");
         var roleAudit = await context.Roles.FirstAsync(r => r.Name == "Audit");
         var roleFormation = await context.Roles.FirstAsync(r => r.Name == "EquipeFormation");

@@ -1,12 +1,13 @@
 ﻿namespace PlanningService.DTOs
 {
-    public record CreateCongeDto(
-    int UserId,
-    DateOnly StartDate,
-    DateOnly EndDate,
-    string? Reason,
-    string AbsenceType
-);
+    public class CreateCongeDto
+    {
+        public int UserId { get; set; }
+        public DateOnly StartDate { get; set; }
+        public DateOnly EndDate { get; set; }
+        public string? Reason { get; set; }
+        public string AbsenceType { get; set; } = "CongesPayes";
+    }
 
     public record SetSaturdaySlotDto(
         int UserId,

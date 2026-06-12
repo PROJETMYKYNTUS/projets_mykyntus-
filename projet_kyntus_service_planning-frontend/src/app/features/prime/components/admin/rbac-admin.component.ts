@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { forkJoin } from 'rxjs';
 import { PrimeCardComponent } from '../prime-card.component';
+import { KyntusSelectSyncDirective } from '@/shared/directives/kyntus-select-sync.directive';
 import {
   PrimeAdminService,
   type RbacCatalogDto,
@@ -16,7 +17,7 @@ const DEFAULT_SCOPES = ['Global', 'Pole', 'Cellule', 'Service', 'Self'] as const
 @Component({
   selector: 'app-rbac-admin',
   standalone: true,
-  imports: [PrimeCardComponent],
+  imports: [PrimeCardComponent, KyntusSelectSyncDirective],
   template: `
     <app-prime-card title="Gestion des accès (RBAC)">
       @if (loading()) {
@@ -35,8 +36,8 @@ const DEFAULT_SCOPES = ['Global', 'Pole', 'Cellule', 'Service', 'Self'] as const
           Rôle
           <select
             class="rounded-lg border border-default bg-input px-3 py-2 text-primary text-sm min-w-[12rem]"
-            [value]="selectedRole()"
-            (change)="onRoleChange($any($event.target).value)"
+            [kyntusSelectSync]="selectedRole()"
+            (kyntusSelectSyncChange)="onRoleChange($event)"
           >
             @for (r of roleOptions(); track r) {
               <option [value]="r">{{ r }}</option>
@@ -59,8 +60,8 @@ const DEFAULT_SCOPES = ['Global', 'Pole', 'Cellule', 'Service', 'Self'] as const
             <p class="text-[11px] uppercase tracking-wider text-muted">Simulation utilisateur</p>
             <select
               class="mt-2 w-full rounded-lg border border-default bg-card px-3 py-2 text-primary text-sm"
-              [value]="simulatedUserId()"
-              (change)="simulatedUserId.set($any($event.target).value)"
+              [kyntusSelectSync]="simulatedUserId()"
+              (kyntusSelectSyncChange)="simulatedUserId.set($event)"
             >
               <option value="">Rôle uniquement</option>
               @for (user of simulatedUsers(); track user.id) {

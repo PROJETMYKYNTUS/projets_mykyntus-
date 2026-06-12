@@ -1,67 +1,116 @@
-<div class="fe-root ky-page-shell">
+<div class="page-wrapper ky-page-shell">
 
-  <div class="fe-toast" [class.visible]="toast.show" [class.error]="toast.type === 'error'">
+  <div class="fe-toast ky-card" [class.visible]="toast.show" [class.error]="toast.type === 'error'">
+    <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
     {{ toast.message }}
   </div>
 
-  <div class="fe-header">
-    <div>
-      <h2 class="fe-title">Formations disponibles</h2>
-      <p class="fe-sub">Inscrivez-vous aux formations ouvertes</p>
+  <div class="page-header">
+    <div class="header-left">
+      <span class="eyebrow">Formation</span>
+      <h1 class="page-title">
+        <app-lucide-icon [icon]="icons.graduation" className="w-7 h-7" />
+        Mes formations
+      </h1>
+      <p class="page-sub">Consultez et inscrivez-vous aux formations ouvertes</p>
+      <p class="results-count" *ngIf="!loading">
+        <strong>{{ filteredFormations.length }}</strong> formation(s) disponible(s)
+      </p>
     </div>
   </div>
 
-  <div class="fe-loading" *ngIf="loading">
-    <div class="fe-spinner"></div>
-    <p>Chargement…</p>
+  <div class="kpi-row">
+    <div class="kpi-card ky-card kc-blue">
+      <span class="kpi-label">Ouvertes</span>
+      <span class="kpi-value">{{ stats.disponibles }}</span>
+    </div>
+    <div class="kpi-card ky-card kc-green">
+      <span class="kpi-label">Mes inscriptions</span>
+      <span class="kpi-value">{{ stats.inscrit }}</span>
+    </div>
+    <div class="kpi-card ky-card kc-amber">
+      <span class="kpi-label">Places restantes</span>
+      <span class="kpi-value">{{ stats.places }}</span>
+    </div>
   </div>
 
-  <div class="fe-empty" *ngIf="!loading && formations.length === 0">
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-      <rect x="3" y="4" width="18" height="18" rx="2"/>
-      <line x1="16" y1="2" x2="16" y2="6"/>
-      <line x1="8" y1="2" x2="8" y2="6"/>
-      <line x1="3" y1="10" x2="21" y2="10"/>
-    </svg>
+  <div class="filters-panel ky-card">
+    <div class="filters-toolbar">
+      <div class="filter-search">
+        <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+        <input
+          class="filter-search-input"
+          type="text"
+          placeholder="Rechercher une formation…"
+          [(ngModel)]="searchTerm"
+          (input)="applyFilters()"
+        />
+      </div>
+      <button type="button" class="filter-reset ky-btn-secondary" (click)="clearFilters()">
+        Réinitialiser
+      </button>
+    </div>
+  </div>
+
+  <div class="state-loading ky-card" *ngIf="loading">
+    <app-lucide-icon [icon]="icons.loader" className="w-5 h-5 spin" />
+    <span>Chargement des formations…</span>
+  </div>
+
+  <div class="state-empty ky-card" *ngIf="!loading && formations.length === 0">
+    <app-lucide-icon [icon]="icons.inbox" className="w-10 h-10" />
     <h3>Aucune formation disponible</h3>
     <p>Revenez plus tard pour voir les formations ouvertes.</p>
   </div>
 
-  <div class="fe-grid" *ngIf="!loading && formations.length > 0">
-    <div class="fe-card" *ngFor="let f of formations">
+  <div class="state-empty ky-card" *ngIf="!loading && formations.length > 0 && filteredFormations.length === 0">
+    <p>Aucune formation ne correspond à votre recherche.</p>
+    <button type="button" class="ky-btn-secondary" (click)="clearFilters()">Réinitialiser</button>
+  </div>
+
+  <div class="fe-grid" *ngIf="!loading && filteredFormations.length > 0">
+    <article class="fe-card ky-card" *ngFor="let f of filteredFormations">
       <div class="fe-card-head">
-        <span class="fe-badge" [ngClass]="getStatutClass(f.statut)">
+        <span class="status-badge" [ngClass]="getStatutClass(f.statut)">
           {{ statutLabels[f.statut] }}
         </span>
         <span class="fe-places" [class.complet]="estComplet(f)">
           {{ estComplet(f) ? 'Complet' : f.nombreInscrits + '/' + f.capaciteMax + ' inscrits' }}
         </span>
       </div>
+
       <h3 class="fe-card-title">{{ f.titre }}</h3>
-      <p class="fe-card-desc">{{ f.description }}</p>
+      <p class="fe-card-desc">{{ f.description || 'Aucune description.' }}</p>
+
       <div class="fe-card-meta">
         <div class="fe-meta-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          <app-lucide-icon [icon]="icons.user" className="w-4 h-4" />
           {{ f.formateur }}
         </div>
         <div class="fe-meta-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <app-lucide-icon [icon]="icons.calendar" className="w-4 h-4" />
           {{ f.dateDebut | date:'dd/MM/yyyy' }} → {{ f.dateFin | date:'dd/MM/yyyy' }}
         </div>
         <div class="fe-meta-item">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <app-lucide-icon [icon]="icons.clock" className="w-4 h-4" />
           {{ f.prix | number:'1.0-0' }} MAD
         </div>
       </div>
-    <button class="ky-btn-primary fe-btn-inscrire"
+
+      <button
+        type="button"
+        class="ky-btn-primary fe-btn-inscrire"
         [disabled]="estComplet(f) || estInscrit(f)"
-        [class.disabled]="estComplet(f) || estInscrit(f)"
         (click)="inscrire(f)">
-  @if (estComplet(f)) { Formation complète }
-  @else if (estInscrit(f)) {
-    <app-lucide-icon [icon]="icons.check" className="w-3.5 h-3.5 inline" /> Déjà inscrit
-  } @else { S'inscrire }
-</button>
-    </div>
+        @if (estComplet(f)) {
+          Formation complète
+        } @else if (estInscrit(f)) {
+          <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
+          Déjà inscrit
+        } @else {
+          S'inscrire
+        }
+      </button>
+    </article>
   </div>
 </div>

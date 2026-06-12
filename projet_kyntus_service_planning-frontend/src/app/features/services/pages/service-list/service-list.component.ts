@@ -1,8 +1,8 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
 import { ServiceService } from '../../services/service';
 import { Service } from '../../services-module';
+import { NavigationActionsService } from '../../../../core/navigation/navigation-actions.service';
 
 @Component({
   selector: 'app-service-list',
@@ -18,7 +18,7 @@ export class ServiceListComponent implements OnInit {
 
   constructor(
     private serviceService: ServiceService,
-    private router: Router,
+    private navActions: NavigationActionsService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -43,17 +43,7 @@ export class ServiceListComponent implements OnInit {
     });
   }
 
-  goToDashboard(): void { this.router.navigate(['/dashboard']); }
-  viewService(id: number): void { this.router.navigate(['/services', id]); }
-  editService(id: number): void { this.router.navigate(['/services', 'edit', id]); }
-  createService(): void { this.router.navigate(['/services', 'create']); }
-
-  deleteService(id: number): void {
-    if (confirm('Supprimer ce service ?')) {
-      this.serviceService.deleteService(id).subscribe({
-        next: () => this.loadServices(),
-        error: (err: any) => alert(`Erreur: ${err.error?.message}`)
-      });
-    }
+  goToOrganisationRh(): void {
+    void this.navActions.openOrganisationRh('poles');
   }
 }

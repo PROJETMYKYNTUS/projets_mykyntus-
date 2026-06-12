@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PlanningService.DTOs;
 using PlanningService.Interfaces;
@@ -59,60 +59,20 @@ public class FloorController : ControllerBase
     /// Créer un nouvel étage
     /// </summary>
     [HttpPost]
-  //  [Authorize(Roles = "RH")] // Seulement le RH peut créer des étages
-    public async Task<ActionResult<FloorDto>> CreateFloor([FromBody] CreateFloorDto dto)
+    public IActionResult CreateFloor([FromBody] CreateFloorDto dto)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
-        var floor = await _floorService.CreateFloorAsync(dto);
-        return CreatedAtAction(nameof(GetFloorById), new { id = floor.Id }, floor);
+        return StatusCode(403, new { message = "Structure en lecture seule. Gérer dans Organisation RH (Prime)." });
     }
 
-    /// <summary>
-    /// Mettre à jour un étage
-    /// </summary>
     [HttpPut("{id}")]
-    //[Authorize(Roles = "RH")] // Seulement le RH peut modifier des étages
-    public async Task<ActionResult<FloorDto>> UpdateFloor(int id, [FromBody] UpdateFloorDto dto)
+    public IActionResult UpdateFloor(int id, [FromBody] UpdateFloorDto dto)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
-        try
-        {
-            var floor = await _floorService.UpdateFloorAsync(id, dto);
-
-            if (floor == null)
-                return NotFound(new { message = $"L'étage avec l'ID {id} n'existe pas." });
-
-            return Ok(floor);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        return StatusCode(403, new { message = "Structure en lecture seule. Gérer dans Organisation RH (Prime)." });
     }
 
-    /// <summary>
-    /// Supprimer un étage
-    /// </summary>
     [HttpDelete("{id}")]
-    //[Authorize(Roles = "RH")] // Seulement le RH peut supprimer des étages
-    public async Task<IActionResult> DeleteFloor(int id)
+    public IActionResult DeleteFloor(int id)
     {
-        try
-        {
-            var result = await _floorService.DeleteFloorAsync(id);
-
-            if (!result)
-                return NotFound(new { message = $"L'étage avec l'ID {id} n'existe pas." });
-
-            return NoContent();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        return StatusCode(403, new { message = "Structure en lecture seule. Gérer dans Organisation RH (Prime)." });
     }
 }

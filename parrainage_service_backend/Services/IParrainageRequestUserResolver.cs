@@ -17,7 +17,10 @@ public interface IParrainageRequestUserResolver
         var x = role.Trim().ToUpperInvariant();
         return x switch
         {
-            "RESPONSABLE PROJET" or "RESPONSABLE_PROJET" => "RP",
+            "RESPONSABLE PROJET" or "RESPONSABLE_PROJET" or "CHEF DE PROJET" or "CHEF_DE_PROJET" => "RP",
+            "REFERENT TECHNIQUE" or "REFERENT_TECHNIQUE" or "RÉFÉRENT TECHNIQUE" => "COACH",
+            "SUPERVISEUR" => "MANAGER",
+            "PILOTE" or "EMPLOYEE" => "PILOTE",
             "ADMINISTRATEUR" => "ADMIN",
             "COMPTABILITE" or "COMPTABLE" => "COMPTA",
             _ => x,

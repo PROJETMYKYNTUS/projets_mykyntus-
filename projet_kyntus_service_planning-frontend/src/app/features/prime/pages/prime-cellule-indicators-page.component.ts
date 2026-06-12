@@ -21,6 +21,7 @@ import {
 import { catchError, forkJoin, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
+import { KyntusSelectSyncDirective } from '@/shared/directives/kyntus-select-sync.directive';
 import { PrimeCardComponent } from '../components/prime-card.component';
 import { getCellTemplateLinesOrDerived, parsePrimeSchemaFromDraftJson } from '../lib/prime-cell-schema-merge';
 import {
@@ -33,7 +34,7 @@ import {
   type SupervisorOrgScopeCellule,
   type SupervisorOrgScopePole,
 } from '../services/prime-org-api.service';
-import { selectValueOrEmpty } from '../lib/prime-select-options';
+import { reconcileSelectModel } from '../lib/prime-select-options';
 import { RoleService } from '../state/role.service';
 
 function httpErr(err: unknown): string {
@@ -50,7 +51,7 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
 @Component({
   selector: 'app-prime-cellule-indicators-page',
   standalone: true,
-  imports: [LucideIconComponent, PrimeCardComponent],
+  imports: [LucideIconComponent, PrimeCardComponent, KyntusSelectSyncDirective],
   template: `
     <div class="p-6 sm:p-8 space-y-6 max-w-4xl mx-auto pb-16">
       <div>
@@ -89,8 +90,8 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
               </div>
             } @else {
               <select
-                [value]="selectRhCelluleValue()"
-                (change)="onRhCelluleChange($any($event.target).value)"
+                [kyntusSelectSync]="selectedRhCelluleId()"
+                (kyntusSelectSyncChange)="onRhCelluleChange($event)"
                 [disabled]="!supervisorPole()"
                 class="w-full rounded-lg border border-default bg-input px-3 py-2 text-sm text-primary disabled:opacity-50"
               >
@@ -104,8 +105,8 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
           <div class="flex-1 min-w-[12rem]">
             <label class="block text-sm font-medium text-muted mb-1">Service</label>
             <select
-              [value]="selectServiceValue()"
-              (change)="onServiceChange($any($event.target).value)"
+              [kyntusSelectSync]="selectedServiceId()"
+              (kyntusSelectSyncChange)="onServiceChange($event)"
               [disabled]="!selectedRhCelluleId()"
               class="w-full rounded-lg border border-default bg-input px-3 py-2 text-sm text-primary disabled:opacity-50"
             >
@@ -483,14 +484,16 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
     this.reloadScope();
   }
 
+  /** @deprecated binding direct sur selectedRhCelluleId */
   selectRhCelluleValue(): string {
     const opts = this.rhCelluleOptions().map((c) => c.id);
-    return selectValueOrEmpty(this.selectedRhCelluleId(), opts);
+    return reconcileSelectModel(this.selectedRhCelluleId(), opts);
   }
 
+  /** @deprecated binding direct sur selectedServiceId */
   selectServiceValue(): string {
     const opts = this.serviceOptions().map((s) => s.id);
-    return selectValueOrEmpty(this.selectedServiceId(), opts);
+    return reconcileSelectModel(this.selectedServiceId(), opts);
   }
 
   private defaultPeriod(): string {
@@ -580,21 +583,34 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
   }
 
   onRhCelluleChange(celluleId: string): void {
-    this.selectedRhCelluleId.set(celluleId);
+    const nextCell = reconcileSelectModel(
+      (celluleId ?? '').trim(),
+      this.rhCelluleOptions().map((c) => c.id),
+    );
+    this.selectedRhCelluleId.set(nextCell);
     this.banner.set(null);
-    if (!celluleId) {
+    if (!nextCell) {
       this.selectedServiceId.set('');
       this.rows.set([]);
       this.templateStableOptions.set([]);
       return;
     }
-    const cell = this.rhCelluleOptions().find((c) => c.id === celluleId);
-    const firstSvc = cell?.services[0]?.id ?? '';
+    const cell = this.rhCelluleOptions().find((c) => c.id === nextCell);
+    const services = cell?.services ?? [];
+    const curSvc = this.selectedServiceId().trim();
+    if (curSvc && services.some((s) => s.id === curSvc)) {
+      return;
+    }
+    const firstSvc = services[0]?.id ?? '';
     this.onServiceChange(firstSvc);
   }
 
   onServiceChange(serviceId: string): void {
-    this.selectedServiceId.set(serviceId);
+    const nextSvc = reconcileSelectModel(
+      (serviceId ?? '').trim(),
+      this.serviceOptions().map((s) => s.id),
+    );
+    this.selectedServiceId.set(nextSvc);
     this.banner.set(null);
     if (!serviceId) {
       this.rows.set([]);

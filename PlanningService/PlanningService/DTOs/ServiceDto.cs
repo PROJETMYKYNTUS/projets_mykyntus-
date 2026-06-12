@@ -31,6 +31,8 @@ public class ServiceDto
     public string Name { get; set; } = string.Empty;
     public string Code { get; set; } = string.Empty;
     public int SubServicesCount { get; set; } // Nombre de sous-services
+    /// <summary>Identifiant cellule Prime (Organisation RH).</summary>
+    public string? PrimeCelluleId { get; set; }
 }
 
 /// <summary>

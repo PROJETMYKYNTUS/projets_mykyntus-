@@ -75,7 +75,13 @@ export class CongeService {
   }
 
   create(dto: CreateCongeDto): Observable<CongeItem> {
-    return this.http.post<CongeItem>(this.base, dto);
+    return this.http.post<CongeItem>(this.base, {
+      userId: dto.userId,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
+      reason: dto.reason ?? '',
+      absenceType: dto.absenceType,
+    });
   }
 
   update(id: number, dto: CreateCongeDto): Observable<CongeItem> {

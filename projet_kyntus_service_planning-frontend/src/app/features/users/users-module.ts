@@ -18,6 +18,9 @@ export interface User {
   roleName: string;
   subServiceId?: number;
   subServiceName?: string;
+  orgPoleName?: string | null;
+  orgCelluleName?: string | null;
+  orgServiceName?: string | null;
   managedSubServices: SubServiceSimple[];
   managedServices: ServiceSimple[];   // 🆕
   firstName: string;

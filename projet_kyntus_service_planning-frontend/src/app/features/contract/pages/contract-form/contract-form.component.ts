@@ -1,51 +1,78 @@
-// features/contract/pages/contract-form/contract-form.component.ts
-
 import { Component, OnInit, ViewEncapsulation, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { ContractService, CreateContractDto, UpdateContractDto } from '../../services/contract.service';
 import { UserService } from '../../../users/services/user.service';
+import { SubServiceService } from '../../../sub-services/services/sub-service.service';
+import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-select-sync.directive';
 import type { IconNode } from 'lucide';
-import { ClipboardList, Calendar, GraduationCap, RefreshCw, FileText, Save, Plus } from 'lucide';
-
-interface User { id: number; firstName: string; lastName: string; }
+import { ClipboardList, Calendar, GraduationCap, RefreshCw, FileText, Save, Plus, Search } from 'lucide';
+import type { User } from '../../../users/users-module';
+import type { Department } from '../../../prime/models';
+import { buildOrgRhFilterOptions } from '../../../../core/org/org-structure-filter';
+import {
+  enrichUserOrgPerimeter,
+  orgPerimeterSummary,
+  type UserOrgPerimeterView,
+} from '../../../../core/org/user-org-perimeter';
+import {
+  buildEmployeePickerRows,
+  filterEmployeePickerRows,
+  type EmployeePickerRow,
+} from '../../lib/contract-employee-filter';
 
 @Component({
   selector: 'app-contract-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, LucideIconComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective],
   templateUrl: './contract-form.component.html',
   styleUrls: ['./contract-form.component.css'],
   encapsulation: ViewEncapsulation.None
 })
 export class ContractFormComponent implements OnInit {
-
   contractForm!: FormGroup;
   isEditMode = false;
   editingId: number | null = null;
   saving = false;
-  users: User[] = [];
 
-  readonly icons = { notes: FileText, save: Save, plus: Plus };
+  employeeRows: EmployeePickerRow[] = [];
+  visibleEmployees: EmployeePickerRow[] = [];
+  employeeMatchTotal = 0;
+  selectedEmployee: EmployeePickerRow | null = null;
+  employeeSearch = '';
+  filterPole = '';
+  filterCellule = '';
+  filterService = '';
+  orgDepartments: Department[] = [];
+  poleOptions: string[] = [];
+  celluleOptions: string[] = [];
+  serviceOptions: string[] = [];
 
-  contractTypes: { value: string; label: string; icon: IconNode; desc: string }[] = [
-    { value: 'CDI',    label: 'CDI',    icon: ClipboardList, desc: 'Durée indéterminée' },
-    { value: 'CDD',    label: 'CDD',    icon: Calendar,      desc: 'Durée déterminée'   },
-    { value: 'Stage',  label: 'Stage',  icon: GraduationCap, desc: 'Stage de formation' },
-    { value: 'ANAPEC', label: 'ANAPEC', icon: RefreshCw,     desc: 'Mission temporaire' },
+  readonly icons = { notes: FileText, save: Save, plus: Plus, search: Search };
+  readonly orgPerimeterSummary = orgPerimeterSummary;
+
+  contractTypes: { value: string; label: string; icon: IconNode; desc: string; cssClass: string }[] = [
+    { value: 'CDI', label: 'CDI', icon: ClipboardList, desc: 'Durée indéterminée', cssClass: 'type-card--cdi' },
+    { value: 'CDD', label: 'CDD', icon: Calendar, desc: 'Durée déterminée', cssClass: 'type-card--cdd' },
+    { value: 'Stage', label: 'Stage', icon: GraduationCap, desc: 'Stage de formation', cssClass: 'type-card--stage' },
+    { value: 'ANAPEC', label: 'ANAPEC', icon: RefreshCw, desc: 'Mission temporaire', cssClass: 'type-card--anapec' },
   ];
 
   contractStatuses = [
     { label: "En période d'essai", value: 0 },
-    { label: 'Actif',              value: 1 },
-    { label: 'Expiré',             value: 2 },
-    { label: 'Résilié',            value: 3 },
+    { label: 'Actif', value: 1 },
+    { label: 'Expiré', value: 2 },
+    { label: 'Résilié', value: 3 },
   ];
 
   defaultProbation: Record<string, number> = {
-    CDI: 90, CDD: 30, Stage: 15, Interim: 0
+    CDI: 90, CDD: 30, Stage: 15, ANAPEC: 0, Interim: 0
   };
 
   constructor(
@@ -54,32 +81,29 @@ export class ContractFormComponent implements OnInit {
     private router: Router,
     private contractService: ContractService,
     private userService: UserService,
+    private subServiceService: SubServiceService,
+    private orgApi: PrimeOrgApiService,
+    private http: HttpClient,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
     this.buildForm();
-    this.loadUsers();
+    this.loadEmployees();
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id && id !== 'new') {
       this.isEditMode = true;
-      this.editingId  = +id;
-
-      // ✅ FIX — supprimer les validators qui bloquent en mode édition
+      this.editingId = +id;
       this.contractForm.get('userId')?.clearValidators();
       this.contractForm.get('userId')?.updateValueAndValidity();
-
       this.contractForm.get('startDate')?.clearValidators();
       this.contractForm.get('startDate')?.updateValueAndValidity();
-
       this.contractForm.get('endDate')?.clearValidators();
       this.contractForm.get('endDate')?.updateValueAndValidity();
-
       this.loadContract(+id);
     }
 
-    // Réactivité type → endDate required (création seulement)
     this.contractForm.get('type')?.valueChanges.subscribe(type => {
       if (!this.isEditMode) {
         const endCtrl = this.contractForm.get('endDate');
@@ -97,14 +121,14 @@ export class ContractFormComponent implements OnInit {
 
   buildForm(): void {
     this.contractForm = this.fb.group({
-      userId:             ['', Validators.required],
-      type:               ['CDI', Validators.required],
-      startDate:          ['', Validators.required],
-      endDate:            [''],
-      probationDays:      [null],
+      userId: ['', Validators.required],
+      type: ['CDI', Validators.required],
+      startDate: ['', Validators.required],
+      endDate: [''],
+      probationDays: [null],
       alertThresholdDays: [15],
-      status:             [0],
-      notes:              ['']
+      status: [0],
+      notes: ['']
     });
   }
 
@@ -114,18 +138,103 @@ export class ContractFormComponent implements OnInit {
     this.contractForm.patchValue({ type: value });
   }
 
-  loadUsers(): void {
-    this.userService.getAllUsers().subscribe({
-      next: (data: any[]) => {
-        this.users = data.map(u => ({
-          id:        u.id,
-          firstName: u.firstName ?? u.prenom ?? '',
-          lastName:  u.lastName  ?? u.nom    ?? ''
-        }));
+  loadEmployees(): void {
+    forkJoin({
+      users: this.userService.getAllUsers(),
+      departments: this.http.get<Department[]>('/api/prime/departments'),
+      overview: this.orgApi.loadOverview(),
+      subServices: this.subServiceService.getAllSubServices(),
+    }).subscribe({
+      next: ({ users, departments, overview, subServices }) => {
+        this.orgDepartments = departments ?? [];
+        const perimeterById = new Map<number, UserOrgPerimeterView>();
+        for (const u of users) {
+          perimeterById.set(
+            u.id,
+            enrichUserOrgPerimeter(u, departments ?? [], overview, subServices ?? []),
+          );
+        }
+        this.employeeRows = buildEmployeePickerRows(users, perimeterById);
+        this.refreshEmployeeFilters();
         this.cdr.detectChanges();
       },
-      error: err => console.error('Erreur chargement utilisateurs:', err)
+      error: () => {
+        this.userService.getAllUsers().subscribe({
+          next: (users) => {
+            const perimeterById = new Map<number, UserOrgPerimeterView>();
+            for (const u of users) {
+              perimeterById.set(u.id, enrichUserOrgPerimeter(u, [], null, []));
+            }
+            this.employeeRows = buildEmployeePickerRows(users, perimeterById);
+            this.orgDepartments = [];
+            this.refreshEmployeeFilters();
+            this.cdr.detectChanges();
+          },
+        });
+      },
     });
+  }
+
+  refreshEmployeeFilters(): void {
+    const orgOpts = buildOrgRhFilterOptions(this.orgDepartments, {
+      pole: this.filterPole || undefined,
+      cellule: this.filterCellule || undefined,
+    });
+    this.poleOptions = orgOpts.poles;
+    this.celluleOptions = orgOpts.cellules;
+    this.serviceOptions = orgOpts.services;
+
+    const result = filterEmployeePickerRows(this.employeeRows, {
+      search: this.employeeSearch,
+      pole: this.filterPole || undefined,
+      cellule: this.filterCellule || undefined,
+      service: this.filterService || undefined,
+    });
+    this.visibleEmployees = result.visible;
+    this.employeeMatchTotal = result.totalMatches;
+    this.cdr.detectChanges();
+  }
+
+  onEmployeeSearchChange(value: string): void {
+    this.employeeSearch = value;
+    this.refreshEmployeeFilters();
+  }
+
+  patchFilterPole(pole: string): void {
+    this.filterPole = pole;
+    this.filterCellule = '';
+    this.filterService = '';
+    this.refreshEmployeeFilters();
+  }
+
+  patchFilterCellule(cellule: string): void {
+    this.filterCellule = cellule;
+    this.filterService = '';
+    this.refreshEmployeeFilters();
+  }
+
+  patchFilterService(service: string): void {
+    this.filterService = service;
+    this.refreshEmployeeFilters();
+  }
+
+  clearEmployeeFilters(): void {
+    this.employeeSearch = '';
+    this.filterPole = '';
+    this.filterCellule = '';
+    this.filterService = '';
+    this.refreshEmployeeFilters();
+  }
+
+  selectEmployee(row: EmployeePickerRow): void {
+    this.selectedEmployee = row;
+    this.contractForm.patchValue({ userId: row.user.id });
+    this.contractForm.get('userId')?.markAsTouched();
+    this.cdr.detectChanges();
+  }
+
+  isEmployeeSelected(row: EmployeePickerRow): boolean {
+    return Number(this.f['userId'].value) === row.user.id;
   }
 
   loadContract(id: number): void {
@@ -133,21 +242,17 @@ export class ContractFormComponent implements OnInit {
       next: c => {
         const statusValue = this.contractStatuses.find(s => s.label === c.status)?.value ?? 0;
         this.contractForm.patchValue({
-          type:               c.type,
-          startDate:          c.startDate?.substring(0, 10) ?? '',
-          endDate:            c.endDate?.substring(0, 10)   ?? '',
+          type: c.type,
+          startDate: c.startDate?.substring(0, 10) ?? '',
+          endDate: c.endDate?.substring(0, 10) ?? '',
           alertThresholdDays: c.alertThresholdDays,
-          status:             statusValue,
-          notes:              c.notes ?? ''
+          status: statusValue,
+          notes: c.notes ?? ''
         });
         this.cdr.detectChanges();
       },
       error: err => console.error('Erreur chargement contrat:', err)
     });
-  }
-
-  statusLabelToValue(label: string): number {
-    return this.contractStatuses.find(s => s.label === label)?.value ?? 0;
   }
 
   onSubmit(): void {
@@ -163,19 +268,14 @@ export class ContractFormComponent implements OnInit {
       const dto: UpdateContractDto = {
         status: this.f['status'].value !== null ? this.f['status'].value : undefined,
       };
-
       const type = this.f['type'].value;
       if (type) dto.type = type;
-
       const endDate = this.f['endDate'].value;
       if (endDate && endDate !== '') dto.endDate = endDate;
-
       const probationDays = this.f['probationDays'].value;
       if (probationDays && probationDays > 0) dto.probationDays = probationDays;
-
       const alertDays = this.f['alertThresholdDays'].value;
       if (alertDays && alertDays > 0) dto.alertThresholdDays = alertDays;
-
       const notes = this.f['notes'].value;
       if (notes !== null && notes !== undefined) dto.notes = notes;
 
@@ -183,16 +283,15 @@ export class ContractFormComponent implements OnInit {
         next: () => { this.saving = false; this.router.navigate(['/contracts']); },
         error: err => { console.error('Erreur mise à jour:', err); this.saving = false; this.cdr.detectChanges(); }
       });
-
     } else {
       const dto: CreateContractDto = {
-        userId:             +this.f['userId'].value,
-        type:               this.f['type'].value,
-        startDate:          this.f['startDate'].value,
-        endDate:            this.f['endDate'].value || undefined,
-        probationDays:      this.f['probationDays'].value || undefined,
+        userId: +this.f['userId'].value,
+        type: this.f['type'].value,
+        startDate: this.f['startDate'].value,
+        endDate: this.f['endDate'].value || undefined,
+        probationDays: this.f['probationDays'].value || undefined,
         alertThresholdDays: this.f['alertThresholdDays'].value,
-        notes:              this.f['notes'].value
+        notes: this.f['notes'].value
       };
 
       this.contractService.create(dto).subscribe({

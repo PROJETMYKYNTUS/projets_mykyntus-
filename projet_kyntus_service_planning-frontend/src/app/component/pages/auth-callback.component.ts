@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { RedirectService } from '../../core/services/redirect.service';
+import { DocumentationIdentityService } from '../../core/services/documentation-identity.service';
+import { KyntusNotificationInitService } from '../../core/notifications/kyntus-notification-init.service';
 
 @Component({
   selector: 'app-auth-callback',
@@ -28,7 +30,9 @@ export class AuthCallbackComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private redirectService: RedirectService
+    private redirectService: RedirectService,
+    private readonly documentationIdentity: DocumentationIdentityService,
+    private readonly notificationInit: KyntusNotificationInitService,
   ) {}
 
   ngOnInit(): void {
@@ -69,6 +73,9 @@ export class AuthCallbackComponent implements OnInit {
         email,
         role
       }));
+
+      this.documentationIdentity.syncFromJwtSession();
+      this.notificationInit.connectIfAuthenticated();
 
       // ✅ UNE seule redirection — RedirectService décide selon le rôle
       setTimeout(() => this.redirectService.redirectAfterLogin(), 100);

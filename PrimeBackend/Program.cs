@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Data;
+using PrimeBackend.Messaging;
+using PrimeBackend.Services;
 using Kyntus.Identity.Jwt;
 using PrimeBackend.Infrastructure;
-using PrimeBackend.Services;
 
 var isEnrichCli = args.Length > 0 && args[0] == "enrich-demo";
 var builder = isEnrichCli
@@ -83,6 +85,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddKyntusJwtAuthentication(builder.Configuration);
 
 builder.Services.AddSingleton<PrimeInMemoryStore>();
+builder.Services.AddScoped<IOrgStructureEventPublisher, OrgStructureEventPublisher>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<PrimeAuditLogService>();
 builder.Services.AddScoped<PrimeRpQueryService>(sp =>
@@ -112,6 +115,27 @@ if (!string.IsNullOrWhiteSpace(conn))
     builder.Services.AddScoped<PrimeFicheMergedPreviewAccessService>();
     builder.Services.AddScoped<PrimeFicheImportService>();
 }
+
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<EmployeSyncConsumer>();
+
+    x.UsingRabbitMq((ctx, cfg) =>
+    {
+        cfg.Host(builder.Configuration["RabbitMQ:Host"] ?? "rabbitmq", "/", h =>
+        {
+            h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
+            h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
+        });
+
+        cfg.ReceiveEndpoint("prime-employe-sync", e =>
+        {
+            e.ConfigureConsumer<EmployeSyncConsumer>(ctx);
+        });
+
+        cfg.ConfigureEndpoints(ctx);
+    });
+});
 
 var app = builder.Build();
 app.UseCors("devCors");

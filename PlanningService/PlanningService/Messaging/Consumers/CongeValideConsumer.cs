@@ -1,5 +1,5 @@
-﻿using MassTransit;
-using Planning.Messaging.Messages;
+using Kyntus.Messaging.Contracts;
+using MassTransit;
 
 
 namespace PlanningService.Messaging.Consumers;

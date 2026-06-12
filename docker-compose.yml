@@ -15,6 +15,11 @@ x-kyntus-jwt: &kyntus-jwt
   JwtSettings__Issuer: ${KYNTUS_JWT_ISSUER:-AuthService}
   JwtSettings__Audience: ${KYNTUS_JWT_AUDIENCE:-AuthServiceClient}
 
+x-kyntus-rabbitmq: &kyntus-rabbitmq
+  RabbitMQ__Host: rabbitmq
+  RabbitMQ__Username: ${KYNTUS_RABBITMQ_USER:-guest}
+  RabbitMQ__Password: ${KYNTUS_RABBITMQ_PASSWORD:?Définir KYNTUS_RABBITMQ_PASSWORD dans .env}
+
 services:
 
   # ─── DATABASE UNIQUE ──────────────────────────────────
@@ -124,8 +129,8 @@ services:
 
   planning-backend:
     build:
-      context: ./PlanningService/PlanningService
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: PlanningService/PlanningService/Dockerfile
     container_name: kyntus_planning_backend
     restart: unless-stopped
     environment:
@@ -133,11 +138,13 @@ services:
       ASPNETCORE_URLS: http://+:8080
       KYNTUS_PLANNING_DEMO_SEED: "true"
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_PLANNING:?Définir KYNTUS_CONN_PLANNING dans .env}
-      <<: *kyntus-jwt
+      <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:
       - "8521:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - microservices-network
@@ -177,11 +184,13 @@ services:
       Documentation__DefaultTenantId: "atlas-tech-demo"
       DocumentationDb__Password: ${KYNTUS_DOCUMENTATION_DB_PASSWORD:?Définir KYNTUS_DOCUMENTATION_DB_PASSWORD dans .env}
       ConnectionStrings__Documentation: ${KYNTUS_CONN_DOCUMENTATION:?Définir KYNTUS_CONN_DOCUMENTATION dans .env}
-      <<: *kyntus-jwt
+      <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:
       - "8530:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - microservices-network
@@ -189,17 +198,16 @@ services:
   # ─── CONGE BACKEND ───────────────────────────────────
   conge-backend:
     build:
-      context: ./FormationService
-      dockerfile: Conge.API/Dockerfile
+      context: .
+      dockerfile: FormationService/Conge.API/Dockerfile
     container_name: kyntus_conge_backend
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      KYNTUS_CONGE_DEMO_SEED: "true"
       ConnectionStrings__CongeDb: ${KYNTUS_CONN_CONGE:?Définir KYNTUS_CONN_CONGE dans .env}
-      RabbitMQ__Host: rabbitmq
-      RabbitMQ__Username: ${KYNTUS_RABBITMQ_USER:-guest}
-      RabbitMQ__Password: ${KYNTUS_RABBITMQ_PASSWORD:?Définir KYNTUS_RABBITMQ_PASSWORD dans .env}
+      <<: *kyntus-rabbitmq
     ports:
       - "8540:8080"
     depends_on:
@@ -249,7 +257,7 @@ services:
       Prime__SeedDemoData: "true"
       Prime__EnrichDemoData: "true"
       Prime__AllowDemoSeedEndpoint: "true"
-      <<: *kyntus-jwt
+      <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:
       - "8550:8080"
     healthcheck:
@@ -260,6 +268,8 @@ services:
       start_period: 90s
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       prime-db-bootstrap:
         condition: service_completed_successfully
@@ -307,7 +317,7 @@ services:
       # POST /api/parrainage/dev/seed (outil dev, calqué Prime).
       Parrainage__AllowDemoSeedEndpoint: "true"
       Parrainage__UploadPath: "/app/uploads/cv"
-      <<: *kyntus-jwt
+      <<: [*kyntus-jwt, *kyntus-rabbitmq]
     volumes:
       - parrainage_cv_uploads:/app/uploads
     ports:
@@ -320,6 +330,8 @@ services:
       start_period: 90s
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       parrainage-db-bootstrap:
         condition: service_completed_successfully

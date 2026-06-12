@@ -1,3 +1,4 @@
+# Contexte Docker = racine du dépôt (voir docker-compose.yml service conge-backend).
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 8080
@@ -5,16 +6,18 @@ EXPOSE 8080
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-COPY ["Conge.API/Conge.API.csproj", "Conge.API/"]
-COPY ["Conge.Application/Conge.Application.csproj", "Conge.Application/"]
-COPY ["Conge.Domain/Conge.Domain.csproj", "Conge.Domain/"]
-COPY ["Conge.Infrastructure/Conge.Infrastructure.csproj", "Conge.Infrastructure/"]
+COPY Messaging.Contracts/Messaging.Contracts.csproj Messaging.Contracts/
+COPY FormationService/Conge.API/Conge.API.csproj FormationService/Conge.API/
+COPY FormationService/Conge.Application/Conge.Application.csproj FormationService/Conge.Application/
+COPY FormationService/Conge.Domain/Conge.Domain.csproj FormationService/Conge.Domain/
+COPY FormationService/Conge.Infrastructure/Conge.Infrastructure.csproj FormationService/Conge.Infrastructure/
 
-RUN dotnet restore "Conge.API/Conge.API.csproj"
+RUN dotnet restore "FormationService/Conge.API/Conge.API.csproj"
 
-COPY . .
+COPY Messaging.Contracts/ Messaging.Contracts/
+COPY FormationService/ FormationService/
 
-WORKDIR "/src/Conge.API"
+WORKDIR "/src/FormationService/Conge.API"
 RUN dotnet build "Conge.API.csproj" -c Release -o /app/build
 
 FROM build AS publish

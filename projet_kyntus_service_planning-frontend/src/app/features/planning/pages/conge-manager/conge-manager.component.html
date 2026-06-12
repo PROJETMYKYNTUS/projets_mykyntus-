@@ -1,108 +1,283 @@
-<!-- conge-manager.component.html -->
 <div class="page-wrapper ky-page-shell">
   <div class="page-header">
     <div class="header-info">
-      <h1 class="page-title">Gestion des Absences</h1>
-      <p class="page-sub">Enregistrement et suivi des absences par sous-service</p>
+      <span class="eyebrow">Congés &amp; absences</span>
+      <h1 class="page-title">Gestion des absences</h1>
+      <p class="page-sub">Enregistrement et suivi par périmètre Organisation RH</p>
+      <p class="results-count"><strong>{{ filteredConges.length }}</strong> absence(s) affichée(s)</p>
     </div>
-    <div class="header-actions">
-      <select class="ky-input select-subservice" [(ngModel)]="subServiceId" (change)="onSubServiceChange()">
-        <option [value]="0" disabled>-- Sous-service --</option>
-        <option *ngFor="let s of subServices" [value]="s.id">{{ s.name }}</option>
-      </select>
-      <button class="ky-btn-primary btn-add" (click)="openForm()">+ Nouvelle absence</button>
-    </div>
+    <button type="button" class="ky-btn-primary btn-add" (click)="openForm()">
+      <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
+      Nouvelle absence
+    </button>
   </div>
 
-  <div class="alert-success" *ngIf="successMsg">{{ successMsg }}</div>
-  <div class="alert-error"   *ngIf="error && !showForm">{{ error }}</div>
-
-  <div class="section-card">
-    <div class="card-header">
-      <span class="card-icon">Liste</span>
-      <h2>Absences enregistrées</h2>
-      <span class="count-badge" *ngIf="conges.length > 0">{{ conges.length }}</span>
-    </div>
-    <div class="state-loading" *ngIf="loading">
-      <div class="spinner"></div><span>Chargement...</span>
-    </div>
-    <div class="state-empty" *ngIf="!loading && conges.length === 0">
-      <app-lucide-icon [icon]="icons.inbox" className="w-8 h-8" /><p>Aucune absence pour ce sous-service</p>
-    </div>
-    <div class="conge-list" *ngIf="!loading && conges.length > 0">
-      <div class="conge-item" *ngFor="let c of conges">
-        <div class="ci-left">
-          <div class="ci-avatar">{{ c.fullName[0] }}</div>
-          <div class="ci-details">
-            <span class="ci-name">{{ c.fullName }}</span>
-            <span class="ci-dates">{{ formatDate(c.startDate) }} → {{ formatDate(c.endDate) }}</span>
-            <!-- ✅ TYPE D'ABSENCE affiché en badge -->
-            <span class="ci-type-badge">{{ getAbsenceLabel(c.absenceType) }}</span>
-            <!-- motif optionnel en dessous -->
-            <span class="ci-reason" *ngIf="c.reason">{{ c.reason }}</span>
-          </div>
-        </div>
-        <div class="ci-right">
-          <span class="ci-days">{{ getDaysCount(c.startDate, c.endDate) }}j</span>
-          <span class="status-badge st-approved">Approuvé</span>
-          <button class="btn-delete" (click)="deleteConge(c.id)">Supprimer</button>
-        </div>
+  <div class="filters-panel ky-card">
+    <div class="filters-toolbar">
+      <div class="filter-search">
+        <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+        <input
+          class="filter-search-input"
+          type="text"
+          placeholder="Employé, motif…"
+          [(ngModel)]="searchTerm"
+          (input)="applyFilters()"
+        />
       </div>
-    </div>
-  </div>
-</div>
 
-<!-- MODAL -->
-<div class="modal-overlay" *ngIf="showForm" (click)="closeForm()">
-  <div class="modal-card" (click)="$event.stopPropagation()">
-    <h3 class="modal-title">Nouvelle Absence</h3>
-    <div class="alert-error" *ngIf="error">{{ error }}</div>
+      <input
+        class="filter-ctl ky-input filter-ctl--date"
+        type="date"
+        [(ngModel)]="filterDateDebut"
+        (change)="applyFilters()"
+        title="Date début"
+      />
+      <span class="filter-date-sep">→</span>
+      <input
+        class="filter-ctl ky-input filter-ctl--date"
+        type="date"
+        [(ngModel)]="filterDateFin"
+        (change)="applyFilters()"
+        title="Date fin"
+      />
 
-    <!-- Employé -->
-    <div class="form-group">
-      <label>Employé <span class="req">*</span></label>
-      <select class="ky-input" [(ngModel)]="formUserId">
-        <option [ngValue]="0" disabled>-- Sélectionner --</option>
-        <option *ngFor="let e of employees" [ngValue]="e.id">{{ e.fullName }}</option>
+      <span class="filter-divider" aria-hidden="true"></span>
+
+      <select
+        class="filter-ctl ky-input filter-ctl--org"
+        [kyntusSelectSync]="filterPole"
+        (kyntusSelectSyncChange)="patchFilterPole($event)"
+      >
+        <option value="">Pôle</option>
+        @for (p of poleOptions; track p) {
+          <option [value]="p">{{ p }}</option>
+        }
       </select>
-    </div>
 
-    <!-- ✅ TYPE D'ABSENCE — ajouté avant les dates -->
-    <div class="form-group">
-      <label>Type d'absence <span class="req">*</span></label>
-      <select class="ky-input" [(ngModel)]="formAbsenceType">
-        <option *ngFor="let t of absenceTypes" [value]="t.value">{{ t.label }}</option>
+      <select
+        class="filter-ctl ky-input filter-ctl--org"
+        [kyntusSelectSync]="filterCellule"
+        (kyntusSelectSyncChange)="patchFilterCellule($event)"
+      >
+        <option value="">Cellule</option>
+        @for (c of celluleOptions; track c) {
+          <option [value]="c">{{ c }}</option>
+        }
       </select>
-    </div>
 
-    <!-- Dates -->
-    <div class="form-row">
-      <div class="form-group">
-        <label>Date début <span class="req">*</span></label>
-        <input class="ky-input" type="date" [(ngModel)]="formStartDate" />
-      </div>
-      <div class="form-group">
-        <label>Date fin <span class="req">*</span></label>
-        <input class="ky-input" type="date" [(ngModel)]="formEndDate" />
-      </div>
-    </div>
+      <select
+        class="filter-ctl ky-input filter-ctl--org"
+        [kyntusSelectSync]="filterService"
+        (kyntusSelectSyncChange)="patchFilterService($event)"
+      >
+        <option value="">Service</option>
+        @for (s of serviceOptions; track s) {
+          <option [value]="s">{{ s }}</option>
+        }
+      </select>
 
-    <div class="days-preview" *ngIf="formStartDate && formEndDate && formStartDate <= formEndDate">
-      Durée : <strong>{{ getDaysCount(formStartDate, formEndDate) }} jour(s)</strong>
-    </div>
-
-    <!-- Motif optionnel -->
-    <div class="form-group">
-      <label>Motif <span class="optional">(optionnel)</span></label>
-      <input class="ky-input" type="text" [(ngModel)]="formReason" placeholder="Précision supplémentaire..." />
-    </div>
-
-    <div class="modal-footer">
-      <button class="prime-btn-secondary btn-cancel" (click)="closeForm()">Annuler</button>
-      <button class="ky-btn-primary btn-confirm" [disabled]="saving" (click)="saveConge()">
-        <span *ngIf="!saving">Enregistrer</span>
-        <span *ngIf="saving">Enregistrement...</span>
+      <button type="button" class="filter-reset ky-btn-secondary" (click)="clearFilters()">
+        Réinitialiser
       </button>
     </div>
   </div>
+
+  @if (successMsg) {
+    <div class="alert-success">{{ successMsg }}</div>
+  }
+  @if (error && !showForm) {
+    <div class="alert-error">{{ error }}</div>
+  }
+
+  <div class="section-card ky-card">
+    <div class="card-header">
+      <h2>Absences enregistrées</h2>
+      @if (filteredConges.length > 0) {
+        <span class="count-badge">{{ filteredConges.length }}</span>
+      }
+    </div>
+
+    @if (loading) {
+      <div class="state-loading">
+        <div class="spinner"></div>
+        <span>Chargement…</span>
+      </div>
+    } @else if (filteredConges.length === 0) {
+      <div class="state-empty">
+        <app-lucide-icon [icon]="icons.inbox" className="w-8 h-8" />
+        <p>Aucune absence ne correspond aux filtres.</p>
+      </div>
+    } @else {
+      <div class="conge-list">
+        @for (c of filteredConges; track c.id) {
+          <div class="conge-item">
+            <div class="ci-left">
+              <div class="ci-avatar">{{ c.fullName[0] }}</div>
+              <div class="ci-details">
+                <span class="ci-name">{{ c.fullName }}</span>
+                <span class="ci-org">
+                  {{ userPerimeter(c.userId).pole || '—' }}
+                  @if (userPerimeter(c.userId).cellule) {
+                    / {{ userPerimeter(c.userId).cellule }}
+                  }
+                  @if (userPerimeter(c.userId).service) {
+                    / {{ userPerimeter(c.userId).service }}
+                  }
+                </span>
+                <span class="ci-dates">{{ formatDate(c.startDate) }} → {{ formatDate(c.endDate) }}</span>
+                <span class="ci-type-badge">{{ getAbsenceLabel(c.absenceType) }}</span>
+                @if (c.reason) {
+                  <span class="ci-reason">{{ c.reason }}</span>
+                }
+              </div>
+            </div>
+            <div class="ci-right">
+              <span class="ci-days">{{ getDaysCount(c.startDate, c.endDate) }}j</span>
+              <span class="status-badge st-approved">Approuvé</span>
+              <button type="button" class="btn-delete" (click)="deleteConge(c.id)">Supprimer</button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
 </div>
+
+@if (showForm) {
+  <div class="modal-overlay" (click)="closeForm()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <h3 class="modal-title">Nouvelle absence</h3>
+      @if (error) {
+        <div class="alert-error">{{ error }}</div>
+      }
+
+      <div class="form-section-title">Employé</div>
+      <p class="form-hint">Recherchez par nom ou filtrez par organisation (max. 40 résultats).</p>
+
+      <div class="form-filters">
+        <div class="form-search">
+          <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+          <input
+            class="form-search-input"
+            type="text"
+            placeholder="Nom, prénom, email…"
+            [ngModel]="formEmployeeSearch"
+            (ngModelChange)="onFormEmployeeSearchChange($event)"
+          />
+        </div>
+        <div class="form-filter-grid">
+          <select
+            class="ky-input form-filter-ctl"
+            [kyntusSelectSync]="formFilterPole"
+            (kyntusSelectSyncChange)="patchFormFilterPole($event)"
+          >
+            <option value="">Tous les pôles</option>
+            @for (p of formPoleOptions; track p) {
+              <option [value]="p">{{ p }}</option>
+            }
+          </select>
+          <select
+            class="ky-input form-filter-ctl"
+            [kyntusSelectSync]="formFilterCellule"
+            (kyntusSelectSyncChange)="patchFormFilterCellule($event)"
+          >
+            <option value="">Toutes les cellules</option>
+            @for (c of formCelluleOptions; track c) {
+              <option [value]="c">{{ c }}</option>
+            }
+          </select>
+          <select
+            class="ky-input form-filter-ctl"
+            [kyntusSelectSync]="formFilterService"
+            (kyntusSelectSyncChange)="patchFormFilterService($event)"
+          >
+            <option value="">Tous les services</option>
+            @for (s of formServiceOptions; track s) {
+              <option [value]="s">{{ s }}</option>
+            }
+          </select>
+          <button type="button" class="ky-btn-secondary form-filter-reset" (click)="clearFormEmployeeFilters()">
+            Effacer
+          </button>
+        </div>
+      </div>
+
+      <p class="form-results-meta">
+        {{ formEmployeeMatchTotal }} résultat(s)
+        @if (formEmployeeMatchTotal > visibleFormEmployees.length) {
+          — affichage des {{ visibleFormEmployees.length }} premiers
+        }
+      </p>
+
+      @if (selectedFormEmployee) {
+        <div class="selected-employee">
+          <strong>Sélectionné :</strong> {{ selectedFormEmployee.displayName }}
+          <span class="selected-meta">{{ orgPerimeterSummary(selectedFormEmployee.perimeter) }}</span>
+        </div>
+      }
+
+      <div class="employee-results">
+        @if (visibleFormEmployees.length === 0) {
+          <p class="empty-results">Aucun employé ne correspond — modifiez la recherche ou les filtres.</p>
+        } @else {
+          @for (row of visibleFormEmployees; track row.user.id) {
+            <button
+              type="button"
+              class="employee-option"
+              [class.selected]="isFormEmployeeSelected(row)"
+              (click)="selectFormEmployee(row)"
+            >
+              <span class="employee-option-name">{{ row.displayName }}</span>
+              <span class="employee-option-role">{{ row.user.roleName }}</span>
+              <span class="employee-option-org">{{ orgPerimeterSummary(row.perimeter) }}</span>
+            </button>
+          }
+        }
+      </div>
+
+      @if (!formUserId && saving === false) {
+        <p class="form-error-inline">Sélectionnez un employé pour continuer.</p>
+      }
+
+      <div class="form-section-title form-section-title--spaced">Détails de l'absence</div>
+
+      <div class="form-group">
+        <label>Type d'absence <span class="req">*</span></label>
+        <select class="ky-input" [(ngModel)]="formAbsenceType">
+          @for (t of absenceTypes; track t.value) {
+            <option [value]="t.value">{{ t.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date début <span class="req">*</span></label>
+          <input class="ky-input" type="date" [(ngModel)]="formStartDate" />
+        </div>
+        <div class="form-group">
+          <label>Date fin <span class="req">*</span></label>
+          <input class="ky-input" type="date" [(ngModel)]="formEndDate" />
+        </div>
+      </div>
+
+      @if (formStartDate && formEndDate && formStartDate <= formEndDate) {
+        <div class="days-preview">
+          Durée : <strong>{{ getDaysCount(formStartDate, formEndDate) }} jour(s)</strong>
+        </div>
+      }
+
+      <div class="form-group">
+        <label>Motif <span class="optional">(optionnel)</span></label>
+        <input class="ky-input" type="text" [(ngModel)]="formReason" placeholder="Précision…" />
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="prime-btn-secondary btn-cancel" (click)="closeForm()">Annuler</button>
+        <button type="button" class="ky-btn-primary btn-confirm" [disabled]="saving" (click)="saveConge()">
+          {{ saving ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

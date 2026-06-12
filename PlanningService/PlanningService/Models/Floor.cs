@@ -1,4 +1,4 @@
-﻿namespace PlanningService.Models;
+namespace PlanningService.Models;
 
 using System.ComponentModel.DataAnnotations;
 
@@ -13,6 +13,9 @@ public class Floor
     public int FloorNumber { get; set; }
 
     public string? Description { get; set; }
+
+    [MaxLength(64)]
+    public string? PrimePoleId { get; set; }
 
     public ICollection<Service> Services { get; set; }
 }

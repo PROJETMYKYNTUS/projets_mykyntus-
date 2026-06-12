@@ -27,7 +27,8 @@ public class ServiceService : IServiceService
                 FloorName = s.Floor.Name,
                 Name = s.Name,
                 Code = s.Code,
-                SubServicesCount = s.SubServices.Count
+                SubServicesCount = s.SubServices.Count,
+                PrimeCelluleId = s.PrimeCelluleId
             })
             .OrderBy(s => s.FloorName)
             .ThenBy(s => s.Name)
@@ -47,7 +48,8 @@ public class ServiceService : IServiceService
                 FloorName = s.Floor.Name,
                 Name = s.Name,
                 Code = s.Code,
-                SubServicesCount = s.SubServices.Count
+                SubServicesCount = s.SubServices.Count,
+                PrimeCelluleId = s.PrimeCelluleId
             })
             .OrderBy(s => s.Name)
             .ToListAsync();
@@ -70,7 +72,8 @@ public class ServiceService : IServiceService
             FloorName = service.Floor.Name,
             Name = service.Name,
             Code = service.Code,
-            SubServicesCount = service.SubServices.Count
+            SubServicesCount = service.SubServices.Count,
+            PrimeCelluleId = service.PrimeCelluleId
         };
     }
 
@@ -140,7 +143,8 @@ public class ServiceService : IServiceService
             FloorName = floor?.Name ?? "",
             Name = service.Name,
             Code = service.Code,
-            SubServicesCount = 0
+            SubServicesCount = 0,
+            PrimeCelluleId = service.PrimeCelluleId
         };
     }
 
@@ -182,7 +186,8 @@ public class ServiceService : IServiceService
             FloorName = service.Floor.Name,
             Name = service.Name,
             Code = service.Code,
-            SubServicesCount = service.SubServices.Count
+            SubServicesCount = service.SubServices.Count,
+            PrimeCelluleId = service.PrimeCelluleId
         };
     }
     public async Task<List<ServiceDetailDto>> GetAllServicesWithSubServicesAsync()

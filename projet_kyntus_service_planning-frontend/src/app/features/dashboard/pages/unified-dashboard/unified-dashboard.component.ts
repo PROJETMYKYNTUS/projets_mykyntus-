@@ -74,6 +74,7 @@ export class UnifiedDashboardComponent implements OnInit {
       this.dashboardSubtitle = 'Vue d’ensemble organisation, contrats et planification';
       this.quickLinks = [
         { label: 'Employés', route: '/users', icon: this.icons.users },
+        { label: 'Nouvel employé', route: '/users/create', icon: this.icons.users },
         { label: 'Contrats', route: '/contracts', icon: this.icons.contracts },
         { label: 'Plannings', route: '/planning', icon: this.icons.calendar },
         { label: 'Réclamations', route: '/reclamations-admin', icon: this.icons.reclamations },

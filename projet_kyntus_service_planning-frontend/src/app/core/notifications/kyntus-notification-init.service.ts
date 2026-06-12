@@ -16,7 +16,7 @@ export class KyntusNotificationInitService {
   private connected = false;
 
   connectIfAuthenticated(): void {
-    if (this.connected || !this.session.isAuthenticated()) return;
+    if (!this.session.isAuthenticated()) return;
     void this.bootstrap();
   }
 
@@ -28,14 +28,16 @@ export class KyntusNotificationInitService {
     const reclamationUserId = await this.resolvePlanningUserId(authUserId);
     const role = (this.session.getRole() || '').toLowerCase().trim();
 
-    if (MANAGER_ROLES.has(role)) {
-      this.planningNotif.connectAsManager(reclamationUserId);
-    } else {
-      this.planningNotif.connect(reclamationUserId);
+    if (!this.connected) {
+      if (MANAGER_ROLES.has(role)) {
+        this.planningNotif.connectAsManager(reclamationUserId);
+      } else {
+        this.planningNotif.connect(reclamationUserId);
+      }
+      this.connected = true;
     }
 
     this.hub.bootstrapAfterLogin();
-    this.connected = true;
   }
 
   private async resolvePlanningUserId(authUserId: number): Promise<number> {

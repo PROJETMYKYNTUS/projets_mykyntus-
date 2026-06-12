@@ -43,6 +43,14 @@ export interface AnomaliesResult {
   suspiciousEmails: { email: string; count: number; referralIds: string[] }[];
 }
 
+export interface ParrainageOrgNodeRow {
+  id: string;
+  parentId?: string | null;
+  email: string;
+  role: string;
+  name: string;
+}
+
 export interface ExportSnapshot {
   exportedAt: string;
   referrals: Referral[];
@@ -57,6 +65,10 @@ export interface ExportSnapshot {
 @Injectable({ providedIn: 'root' })
 export class ParrainageApiService {
   private readonly http = inject(HttpClient);
+
+  async getOrgNodes(): Promise<ParrainageOrgNodeRow[]> {
+    return firstValueFrom(this.http.get<ParrainageOrgNodeRow[]>(`${PREFIX}/org/nodes`));
+  }
 
   async getReferrals(): Promise<Referral[]> {
     const rows = await firstValueFrom(this.http.get<RawReferral[]>(`${PREFIX}/referrals`));

@@ -30,6 +30,8 @@ public class SubServiceDto
     public string ServiceName { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Code { get; set; } = string.Empty;
+    /// <summary>Identifiant feuille Prime (Organisation RH) — synchronisation miroir Planning.</summary>
+    public string? PrimeServiceId { get; set; }
     public int EmployeesCount { get; set; } // Nombre d'employés
 }
 

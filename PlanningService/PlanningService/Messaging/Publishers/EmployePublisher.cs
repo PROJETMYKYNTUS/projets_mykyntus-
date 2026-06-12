@@ -1,8 +1,6 @@
-﻿using MassTransit;
-using Planning.Messaging.Messages;
+using Kyntus.Messaging.Contracts;
+using MassTransit;
 using Planning.Messaging.Publishers;
-using PlanningService.Interfaces;
-
 
 namespace PlanningService.Messaging.Publishers;
 
@@ -27,6 +25,10 @@ public class EmployePublisher : IEmployePublisher
         string serviceNom,
         DateTime dateEmbauche,
         bool estMineur,
+        string role,
+        int? subServiceId = null,
+        string? primeServiceId = null,
+        Guid supervisorId = default,
         CancellationToken ct = default)
     {
         await _publishEndpoint.Publish(new EmployeCreatedMessage
@@ -39,10 +41,14 @@ public class EmployePublisher : IEmployePublisher
             ServiceId = serviceId,
             ServiceNom = serviceNom,
             DateEmbauche = dateEmbauche,
-            EstMineur = estMineur
+            EstMineur = estMineur,
+            Role = role,
+            SubServiceId = subServiceId,
+            PrimeServiceId = primeServiceId,
+            SupervisorId = supervisorId != Guid.Empty ? supervisorId : managerId
         }, ct);
 
-        _logger.LogInformation("📤 EmployeCreated publié → {EmployeId}", employeId);
+        _logger.LogInformation("EmployeCreated publié → {EmployeId} rôle={Role}", employeId, role);
     }
 
     public async Task PublishEmployeUpdatedAsync(
@@ -53,6 +59,10 @@ public class EmployePublisher : IEmployePublisher
         Guid managerId,
         Guid serviceId,
         string serviceNom,
+        string role,
+        int? subServiceId = null,
+        string? primeServiceId = null,
+        Guid supervisorId = default,
         CancellationToken ct = default)
     {
         await _publishEndpoint.Publish(new EmployeUpdatedMessage
@@ -63,10 +73,14 @@ public class EmployePublisher : IEmployePublisher
             Email = email,
             ManagerId = managerId,
             ServiceId = serviceId,
-            ServiceNom = serviceNom
+            ServiceNom = serviceNom,
+            Role = role,
+            SubServiceId = subServiceId,
+            PrimeServiceId = primeServiceId,
+            SupervisorId = supervisorId != Guid.Empty ? supervisorId : managerId
         }, ct);
 
-        _logger.LogInformation("📤 EmployeUpdated publié → {EmployeId}", employeId);
+        _logger.LogInformation("EmployeUpdated publié → {EmployeId} rôle={Role}", employeId, role);
     }
 
     public async Task PublishSoldeAnnuelAsync(
@@ -84,6 +98,6 @@ public class EmployePublisher : IEmployePublisher
             Annee = annee
         }, ct);
 
-        _logger.LogInformation("📤 SoldeAnnuel publié → {EmployeId} année {Annee}", employeId, annee);
+        _logger.LogInformation("SoldeAnnuel publié → {EmployeId} année {Annee}", employeId, annee);
     }
 }

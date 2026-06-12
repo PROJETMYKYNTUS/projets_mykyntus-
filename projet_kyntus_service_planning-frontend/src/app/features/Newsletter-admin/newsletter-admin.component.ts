@@ -46,9 +46,12 @@ export class NewsletterAdminComponent implements OnInit, OnDestroy {
   newNewsletter = {
     title: '',
     subject: '',
-    htmlContent: '',
-    textContent: ''
+    textContent: '',
+    coverImageUrl: '' as string | undefined,
   };
+
+  coverImagePreview = '';
+  coverImageFileName = '';
 
   newCampaign = {
     name: '',
@@ -133,18 +136,27 @@ export class NewsletterAdminComponent implements OnInit, OnDestroy {
   }
 
   submitNewsletter(): void {
-    if (!this.newNewsletter.title.trim() || !this.newNewsletter.subject.trim() || !this.newNewsletter.htmlContent.trim()) {
-      this.showToast('Remplissez les champs obligatoires de la newsletter', 'error');
+    if (!this.newNewsletter.title.trim() || !this.newNewsletter.subject.trim() || !this.newNewsletter.textContent.trim()) {
+      this.showToast('Remplissez le titre, le sujet et le contenu du message', 'error');
       return;
     }
 
     this.submittingNewsletter = true;
-    this.newsletterSvc.createNewsletter(this.newNewsletter)
+    const payload = {
+      title: this.newNewsletter.title.trim(),
+      subject: this.newNewsletter.subject.trim(),
+      textContent: this.newNewsletter.textContent.trim(),
+      coverImageUrl: this.newNewsletter.coverImageUrl || undefined,
+    };
+
+    this.newsletterSvc.createNewsletter(payload)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
           this.submittingNewsletter = false;
-          this.newNewsletter = { title: '', subject: '', htmlContent: '', textContent: '' };
+          this.newNewsletter = { title: '', subject: '', textContent: '', coverImageUrl: undefined };
+          this.coverImagePreview = '';
+          this.coverImageFileName = '';
           this.loadedViews.delete('list');
           this.setView('list');
           this.showToast('Newsletter creee avec succes');
@@ -154,6 +166,40 @@ export class NewsletterAdminComponent implements OnInit, OnDestroy {
           this.showToast('Erreur lors de la creation de la newsletter', 'error');
         }
       });
+  }
+
+  onCoverImageSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      this.showToast('Veuillez selectionner une image (JPG, PNG, WebP).', 'error');
+      input.value = '';
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      this.showToast('Image trop volumineuse (max 2 Mo).', 'error');
+      input.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      this.newNewsletter.coverImageUrl = result;
+      this.coverImagePreview = result;
+      this.coverImageFileName = file.name;
+      this.cdr.detectChanges();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removeCoverImage(): void {
+    this.newNewsletter.coverImageUrl = undefined;
+    this.coverImagePreview = '';
+    this.coverImageFileName = '';
   }
 
   deleteNewsletter(id: number): void {

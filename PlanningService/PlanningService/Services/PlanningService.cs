@@ -26,6 +26,8 @@ public class PlanningService : IPlanningService
     // ════════════════════════════════════════════════════
     public async Task<WeeklyPlanningResponseDto> CreatePlanningAsync(CreateWeeklyPlanningDto dto)
     {
+        await ValidatePlanningInputsAsync(dto.SubServiceId, dto.WeekStartDate, dto.TotalEffectif);
+
         var existing = await _context.WeeklyPlannings
             .FirstOrDefaultAsync(p => p.WeekCode == dto.WeekCode &&
                                       p.SubServiceId == dto.SubServiceId);
@@ -524,6 +526,7 @@ public class PlanningService : IPlanningService
             .FirstOrDefaultAsync(p => p.Id == dto.WeeklyPlanningId)
             ?? throw new Exception("Planning introuvable.");
 
+        await ValidatePlanningInputsAsync(planning.SubServiceId, planning.WeekStartDate, dto.TotalEffectif);
         planning.TotalEffectif = dto.TotalEffectif;
 
         var employees = await _context.Users
@@ -531,12 +534,16 @@ public class PlanningService : IPlanningService
             .OrderBy(u => u.EarlyShiftCount)
             .ToListAsync();
 
+        if (employees.Count == 0)
+            throw new InvalidOperationException("Ce service n'a aucun employé actif.");
+
         var shifts = await _context.Shifts
             .OrderBy(s => s.StartTime)
             .ToListAsync();
 
         if (shifts.Count < 4)
-            throw new Exception("Il faut au moins 4 shifts configurés.");
+            throw new InvalidOperationException(
+                "Il faut au moins 4 shifts configurés. Contactez l'administrateur.");
 
         await AutoAssignSaturdayGroupsAsync(planning.SubServiceId);
 
@@ -1580,6 +1587,29 @@ public class PlanningService : IPlanningService
         for (int h = 0; h < 4; h++)
             slots.Add(earliest.AddHours(h));
         return slots;
+    }
+
+    private async Task ValidatePlanningInputsAsync(int subServiceId, DateOnly weekStartDate, int totalEffectif)
+    {
+        if (weekStartDate.DayOfWeek != DayOfWeek.Monday)
+            throw new InvalidOperationException("La semaine doit commencer un lundi.");
+
+        if (totalEffectif <= 0)
+            throw new InvalidOperationException("L'effectif total doit être supérieur à 0.");
+
+        var subServiceExists = await _context.SubServices.AnyAsync(s => s.Id == subServiceId);
+        if (!subServiceExists)
+            throw new InvalidOperationException("Service introuvable.");
+
+        var employeeCount = await _context.Users
+            .CountAsync(u => u.SubServiceId == subServiceId && u.IsActive);
+
+        if (employeeCount == 0)
+            throw new InvalidOperationException("Ce service n'a aucun employé actif.");
+
+        if (totalEffectif > employeeCount)
+            throw new InvalidOperationException(
+                $"L'effectif ne peut pas dépasser {employeeCount} (employés actifs du service).");
     }
 
     private static int GetSaturdayGroupForWeek(DateOnly weekStart)

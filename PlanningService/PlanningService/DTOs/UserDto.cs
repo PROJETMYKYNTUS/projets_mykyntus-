@@ -7,6 +7,9 @@
     public string RoleName { get; set; } = string.Empty;
     public int? SubServiceId { get; set; }
     public string? SubServiceName { get; set; }
+    public string? OrgPoleName { get; set; }
+    public string? OrgCelluleName { get; set; }
+    public string? OrgServiceName { get; set; }
     public List<SubServiceSimpleDto> ManagedSubServices { get; set; } = new();
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;

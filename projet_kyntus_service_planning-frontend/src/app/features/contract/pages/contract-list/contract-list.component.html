@@ -1,81 +1,63 @@
-<!-- features/contract/pages/contract-list/contract-list.component.html -->
-
 <div class="page-wrapper ky-page-shell">
-
-  <!-- ── HEADER ── -->
   <div class="page-header">
     <div class="header-left">
+      <span class="eyebrow">Ressources Humaines</span>
       <h1 class="page-title">Gestion des Contrats</h1>
       <p class="page-sub">Suivi des contrats, périodes d'essai et alertes d'échéance</p>
+      <p class="results-count"><strong>{{ filteredContracts.length }}</strong> contrat(s) affiché(s)</p>
     </div>
-
     <button class="btn-primary ky-btn-primary" (click)="goToCreate()">
-      ＋ Nouveau contrat
+      <app-lucide-icon [icon]="icons.add" className="w-4 h-4" />
+      Nouveau contrat
     </button>
   </div>
 
-  <!-- ── KPI ── -->
   <div class="kpi-row">
-    <div class="kpi-card kc-blue">
-      <div class="kpi-icon">DOC</div>
-      <div class="kpi-body">
-        <span class="kpi-label">Total</span>
-        <span class="kpi-value">{{ stats.total }}</span>
-      </div>
+    <div class="kpi-card kc-blue ky-card">
+      <span class="kpi-label">Total</span>
+      <span class="kpi-value">{{ stats.total }}</span>
     </div>
-    <div class="kpi-card kc-green">
-      <div class="kpi-icon">OK</div>
-      <div class="kpi-body">
-        <span class="kpi-label">Actifs</span>
-        <span class="kpi-value">{{ stats.actifs }}</span>
-      </div>
+    <div class="kpi-card kc-green ky-card">
+      <span class="kpi-label">Actifs</span>
+      <span class="kpi-value">{{ stats.actifs }}</span>
     </div>
-    <div class="kpi-card kc-amber">
-      <div class="kpi-icon">PE</div>
-      <div class="kpi-body">
-        <span class="kpi-label">Période d'essai</span>
-        <span class="kpi-value">{{ stats.periodeEssai }}</span>
-      </div>
+    <div class="kpi-card kc-amber ky-card">
+      <span class="kpi-label">Période d'essai</span>
+      <span class="kpi-value">{{ stats.periodeEssai }}</span>
     </div>
-    <div class="kpi-card kc-rose">
-      <div class="kpi-icon">!</div>
-      <div class="kpi-body">
-        <span class="kpi-label">Alertes</span>
-        <span class="kpi-value">{{ stats.alertes }}</span>
-      </div>
+    <div class="kpi-card kc-rose ky-card">
+      <span class="kpi-label">Alertes</span>
+      <span class="kpi-value">{{ stats.alertes }}</span>
     </div>
-    <div class="kpi-card kc-gray">
-      <div class="kpi-icon">EXP</div>
-      <div class="kpi-body">
-        <span class="kpi-label">Expirés</span>
-        <span class="kpi-value">{{ stats.expires }}</span>
-      </div>
+    <div class="kpi-card kc-gray ky-card">
+      <span class="kpi-label">Expirés</span>
+      <span class="kpi-value">{{ stats.expires }}</span>
     </div>
   </div>
 
-  <!-- ── FILTRES ── -->
-  <div class="filters-bar">
-    <div class="search-box">
-      <span class="search-icon"></span>
-      <input
-        class="ky-input"
-        type="text"
-        placeholder="Rechercher un employé..."
-        [(ngModel)]="searchTerm"
-        (input)="applyFilters()" />
-    </div>
+  <div class="filters-panel ky-card">
+    <div class="filters-toolbar">
+      <div class="filter-search">
+        <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+        <input
+          class="filter-search-input"
+          type="text"
+          placeholder="Rechercher…"
+          [(ngModel)]="searchTerm"
+          (input)="applyFilters()"
+        />
+      </div>
 
-    <div class="filter-selects">
-      <select class="ky-input" [(ngModel)]="filterType" (change)="applyFilters()">
-        <option value="">Tous les types</option>
+      <select class="filter-ctl ky-input" [(ngModel)]="filterType" (change)="applyFilters()">
+        <option value="">Type</option>
         <option value="CDI">CDI</option>
         <option value="CDD">CDD</option>
         <option value="Stage">Stage</option>
-        <option value="Interim">Intérim</option>
+        <option value="ANAPEC">ANAPEC</option>
       </select>
 
-      <select class="ky-input" [(ngModel)]="filterStatus" (change)="applyFilters()">
-        <option value="">Tous les statuts</option>
+      <select class="filter-ctl ky-input" [(ngModel)]="filterStatus" (change)="applyFilters()">
+        <option value="">Statut</option>
         <option value="En période d'essai">Période d'essai</option>
         <option value="Actif">Actif</option>
         <option value="Expiré">Expiré</option>
@@ -83,128 +65,166 @@
       </select>
 
       <button
-        class="btn-alert-filter ky-btn-secondary"
+        type="button"
+        class="filter-chip ky-btn-secondary"
         [class.active]="filterAlerts"
-        (click)="toggleAlertFilter()">
-        Alertes seulement
+        (click)="toggleAlertFilter()"
+      >
+        Alertes
+      </button>
+
+      <span class="filter-divider" aria-hidden="true"></span>
+
+      <select
+        class="filter-ctl ky-input filter-ctl--org"
+        [kyntusSelectSync]="filterPole"
+        (kyntusSelectSyncChange)="patchFilterPole($event)"
+      >
+        <option value="">Pôle</option>
+        @for (p of poleOptions; track p) {
+          <option [value]="p">{{ p }}</option>
+        }
+      </select>
+
+      <select
+        class="filter-ctl ky-input filter-ctl--org"
+        [kyntusSelectSync]="filterCellule"
+        (kyntusSelectSyncChange)="patchFilterCellule($event)"
+      >
+        <option value="">Cellule</option>
+        @for (c of celluleOptions; track c) {
+          <option [value]="c">{{ c }}</option>
+        }
+      </select>
+
+      <select
+        class="filter-ctl ky-input filter-ctl--org"
+        [kyntusSelectSync]="filterService"
+        (kyntusSelectSyncChange)="patchFilterService($event)"
+      >
+        <option value="">Service</option>
+        @for (s of serviceOptions; track s) {
+          <option [value]="s">{{ s }}</option>
+        }
+      </select>
+
+      <button type="button" class="filter-reset ky-btn-secondary" (click)="clearFilters()" title="Réinitialiser les filtres">
+        Réinitialiser
       </button>
     </div>
   </div>
 
-  <!-- ── TABLE ── -->
   <div class="table-card ky-card">
-
-    <!-- Loading -->
-    <div class="table-loading" *ngIf="loading">
-      <div class="spinner"></div>
-      <span>Chargement des contrats...</span>
-    </div>
-
-    <!-- Table -->
-    <table class="prime-table" *ngIf="!loading">
-      <thead>
-        <tr>
-          <th>Employé</th>
-          <th>Type</th>
-          <th>Statut</th>
-          <th>Date début</th>
-          <th>Date fin</th>
-          <th>Fin période essai</th>
-          <th>Jours restants</th>
-          <th>Alerte</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          *ngFor="let c of filteredContracts"
-          [class.row-alert]="c.isAlertActive"
-          [class.row-expired]="c.status === 'Expiré'">
-
-          <td class="td-user">
-            <div class="avatar-circle">{{ getInitials(c.userFullName) }}</div>
-            <div>
-              <span class="user-name">{{ c.userFullName }}</span>
-              <span class="user-id">#{{ c.userId }}</span>
-            </div>
-          </td>
-
-          <td>
-            <span class="badge-type" [ngClass]="typeBadge(c.type)">{{ c.type }}</span>
-          </td>
-
-          <td>
-            <span class="badge-status" [ngClass]="statusBadge(c.status)">{{ c.status }}</span>
-          </td>
-
-          <td class="td-date">{{ c.startDate | date:'dd/MM/yyyy' }}</td>
-
-          <td class="td-date">
-            <span *ngIf="c.endDate">{{ c.endDate | date:'dd/MM/yyyy' }}</span>
-            <span class="muted" *ngIf="!c.endDate">—</span>
-          </td>
-
-          <td class="td-date">
-            <span *ngIf="c.probationEndDate">{{ c.probationEndDate | date:'dd/MM/yyyy' }}</span>
-            <span class="muted" *ngIf="!c.probationEndDate">—</span>
-          </td>
-
-          <td>
-            <div class="days-cell" *ngIf="c.joursRestants != null">
-              <div class="days-bar-bg">
-                <div class="days-bar-fill"
-                  [style.width.%]="daysPercent(c)"
-                  [ngClass]="daysBarClass(c.joursRestants!)">
-                </div>
-              </div>
-              <span [ngClass]="daysTextClass(c.joursRestants!)">{{ c.joursRestants }}j</span>
-            </div>
-            <span class="muted" *ngIf="c.joursRestants == null">—</span>
-          </td>
-
-          <td>
-            <span class="badge-alert on"  *ngIf="c.isAlertActive">Alerte</span>
-            <span class="badge-alert off" *ngIf="!c.isAlertActive">OK</span>
-          </td>
-
-          <td class="td-actions">
-            <button class="icon-btn" title="Détails"   (click)="goToDetail(c.id)">Voir</button>
-            <button class="icon-btn" title="Modifier"  (click)="goToEdit(c.id)">Modifier</button>
-            <button class="icon-btn danger" title="Supprimer" (click)="openDeleteModal(c)">Suppr.</button>
-          </td>
-        </tr>
-
-        <tr *ngIf="filteredContracts.length === 0 && !loading">
-          <td colspan="9">
-            <div class="empty-state">
-              <span>—</span>
-              <p>Aucun contrat trouvé</p>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-</div>
-
-<!-- ── MODAL Suppression ── -->
-<div class="modal-overlay" *ngIf="showDeleteModal" (click)="closeModal()">
-  <div class="modal-box confirm-modal ky-card" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h2>Confirmer la suppression</h2>
-      <button class="close-btn ky-btn-secondary" (click)="closeModal()">Fermer</button>
-    </div>
-    <div class="modal-body">
-      <div class="confirm-icon">!</div>
-      <p>Supprimer le contrat de <strong>{{ contractToDelete?.userFullName }}</strong> ?</p>
-      <p class="warn-text">Cette action est irréversible.</p>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-secondary ky-btn-secondary" (click)="closeModal()">Annuler</button>
-      <button class="btn-danger" (click)="deleteContract()" [disabled]="deleting">
-        {{ deleting ? 'Suppression...' : 'Supprimer' }}
-      </button>
-    </div>
+    @if (loading) {
+      <div class="table-loading">
+        <div class="spinner"></div>
+        <span>Chargement des contrats…</span>
+      </div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="prime-table">
+          <thead>
+            <tr>
+              <th>Employé</th>
+              <th>Organisation</th>
+              <th>Type</th>
+              <th>Statut</th>
+              <th>Début</th>
+              <th>Fin</th>
+              <th>Fin essai</th>
+              <th>Jours restants</th>
+              <th>Alerte</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (c of filteredContracts; track c.id) {
+              <tr [class.row-alert]="c.isAlertActive" [class.row-expired]="c.status === 'Expiré'">
+                <td class="td-user">
+                  <div class="avatar-circle">{{ getInitials(c.userFullName) }}</div>
+                  <div>
+                    <span class="user-name">{{ c.userFullName }}</span>
+                    <span class="user-id">#{{ c.userId }}</span>
+                  </div>
+                </td>
+                <td class="td-org">
+                  <span class="org-line">{{ userPerimeter(c.userId).pole || '—' }}</span>
+                  <span class="org-sub">{{ userPerimeter(c.userId).cellule || '' }}</span>
+                  <span class="org-sub org-sub--service">{{ userPerimeter(c.userId).service || '' }}</span>
+                </td>
+                <td><span class="badge-type" [ngClass]="typeBadge(c.type)">{{ c.type }}</span></td>
+                <td><span class="badge-status" [ngClass]="statusBadge(c.status)">{{ c.status }}</span></td>
+                <td class="td-date">{{ c.startDate | date:'dd/MM/yyyy' }}</td>
+                <td class="td-date">{{ c.endDate ? (c.endDate | date:'dd/MM/yyyy') : '—' }}</td>
+                <td class="td-date">{{ c.probationEndDate ? (c.probationEndDate | date:'dd/MM/yyyy') : '—' }}</td>
+                <td>
+                  @if (c.joursRestants != null) {
+                    <div class="days-cell">
+                      <div class="days-bar-bg">
+                        <div
+                          class="days-bar-fill"
+                          [style.width.%]="daysPercent(c)"
+                          [ngClass]="daysBarClass(c.joursRestants!)"
+                        ></div>
+                      </div>
+                      <span [ngClass]="daysTextClass(c.joursRestants!)">{{ c.joursRestants }}j</span>
+                    </div>
+                  } @else {
+                    <span class="muted">—</span>
+                  }
+                </td>
+                <td>
+                  @if (c.isAlertActive) {
+                    <span class="badge-alert on">Alerte</span>
+                  } @else {
+                    <span class="badge-alert off">OK</span>
+                  }
+                </td>
+                <td class="td-actions">
+                  <button type="button" class="icon-btn" title="Détails" (click)="goToDetail(c.id)">
+                    <app-lucide-icon [icon]="icons.eye" className="w-4 h-4" />
+                  </button>
+                  <button type="button" class="icon-btn" title="Modifier" (click)="goToEdit(c.id)">
+                    <app-lucide-icon [icon]="icons.edit" className="w-4 h-4" />
+                  </button>
+                  <button type="button" class="icon-btn danger" title="Supprimer" (click)="openDeleteModal(c)">
+                    <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+            }
+            @if (filteredContracts.length === 0) {
+              <tr>
+                <td colspan="10">
+                  <div class="empty-state">Aucun contrat ne correspond aux filtres.</div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
   </div>
 </div>
+
+@if (showDeleteModal) {
+  <div class="modal-overlay" (click)="closeModal()">
+    <div class="modal-box confirm-modal ky-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Confirmer la suppression</h2>
+        <button type="button" class="close-btn ky-btn-secondary" (click)="closeModal()">Fermer</button>
+      </div>
+      <div class="modal-body">
+        <app-lucide-icon [icon]="icons.warn" className="w-8 h-8 confirm-warn-icon" />
+        <p>Supprimer le contrat de <strong>{{ contractToDelete?.userFullName }}</strong> ?</p>
+        <p class="warn-text">Cette action est irréversible.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary ky-btn-secondary" (click)="closeModal()">Annuler</button>
+        <button type="button" class="btn-danger ky-btn-secondary" (click)="deleteContract()" [disabled]="deleting">
+          {{ deleting ? 'Suppression…' : 'Supprimer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -28,7 +28,6 @@ const PATH_REQUIREMENTS: Record<string, { action: UiPermissionAction; scope?: Rb
   '/types': { action: 'Configure', scope: 'Global' },
   '/rules': { action: 'Configure', scope: 'Global' },
   '/configuration': { action: 'Configure', scope: 'Global' },
-  '/rh/organisation': { action: 'Configure', scope: 'Global' },
   '/validation': { action: 'Validate' },
   '/validation-history': { action: 'Read' },
   '/results': { action: 'Read' },

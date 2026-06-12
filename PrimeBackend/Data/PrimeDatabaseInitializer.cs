@@ -45,6 +45,17 @@ public sealed class PrimeDatabaseInitializer(
             throw;
         }
 
+        try
+        {
+            await PrimeSchemaPatches.EnsureEmployeeFicheDetailSnapshotColumnsAsync(db, cancellationToken);
+            logger.LogInformation("PRIME : correctif schéma snapshot détail fiche employé appliqué.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "PRIME : correctif schéma snapshot détail fiche employé non appliqué.");
+            throw;
+        }
+
         await EnsurePrimeMetierTablesExistAsync(db, cancellationToken);
 
         var submission = scope.ServiceProvider.GetService<PrimeFicheValidationSubmissionService>();

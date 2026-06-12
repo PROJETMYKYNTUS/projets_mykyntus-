@@ -89,8 +89,21 @@ public class CongesController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCongeDto dto)
     {
-        if (!Enum.TryParse<AbsenceType>(dto.AbsenceType, out var absenceType))
+        if (dto.UserId <= 0)
+            return BadRequest(new { message = "Employé invalide." });
+
+        if (dto.EndDate < dto.StartDate)
+            return BadRequest(new { message = "La date de fin doit être après la date de début." });
+
+        if (!Enum.TryParse<AbsenceType>(dto.AbsenceType, ignoreCase: true, out var absenceType))
             return BadRequest(new { message = "Type d'absence invalide." });
+
+        var user = await _context.Users.FindAsync(dto.UserId);
+        if (user == null)
+            return BadRequest(new { message = "Employé introuvable." });
+
+        if (!user.IsActive)
+            return BadRequest(new { message = "Cet employé est inactif." });
 
         var conge = new Conge
         {
@@ -98,14 +111,24 @@ public class CongesController : ControllerBase
             StartDate = dto.StartDate,
             EndDate = dto.EndDate,
             Reason = dto.Reason ?? "",
-            AbsenceType = absenceType,  // ← NOUVEAU
+            AbsenceType = absenceType,
             Status = CongeStatus.Approved,
             CreatedAt = DateTime.UtcNow
         };
 
         _context.Conges.Add(conge);
         await _context.SaveChangesAsync();
-        return Ok(conge);
+        return Ok(new
+        {
+            id = conge.Id,
+            userId = conge.UserId,
+            fullName = $"{user.FirstName} {user.LastName}",
+            startDate = conge.StartDate,
+            endDate = conge.EndDate,
+            reason = conge.Reason,
+            absenceType = conge.AbsenceType.ToString(),
+            status = conge.Status.ToString()
+        });
     }
   
 

@@ -40,8 +40,15 @@ namespace PlanningService.Controllers
         public async Task<IActionResult> Create([FromBody] CreateNewsletterDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            var result = await _newsletterService.CreateNewsletterAsync(dto, CurrentUserId);
-            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+            try
+            {
+                var result = await _newsletterService.CreateNewsletterAsync(dto, CurrentUserId);
+                return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPut("{id:int}")]

@@ -26,6 +26,7 @@ import { PrimeAdminService, type AnomalyDto, type AuditLogDto } from '../../serv
 import { AuditPrimeService } from '../../services/audit-prime.service';
 import { getAuditOrgTree } from '../../lib/auditOrgUi';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
+import { KyntusSelectSyncDirective } from '@/shared/directives/kyntus-select-sync.directive';
 
 type SeverityLevel = 'INFO' | 'WARNING' | 'CRITICAL';
 type SortKey =
@@ -165,7 +166,7 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
 @Component({
   selector: 'app-audit-root',
   standalone: true,
-  imports: [LucideIconComponent],
+  imports: [LucideIconComponent, KyntusSelectSyncDirective],
   template: `
     <div class="prime-page-shell">
       <div>
@@ -251,8 +252,8 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
           <div class="bg-card border border-default rounded-xl p-4 space-y-3">
             <div class="flex flex-wrap items-end gap-3">
               <select
-                [value]="deptFilter()"
-                (change)="onDeptChange($event)"
+                [kyntusSelectSync]="deptFilter()"
+                (kyntusSelectSyncChange)="onDeptChange($event)"
                 [class]="orgSelectClass"
                 aria-label="Département"
               >
@@ -261,8 +262,8 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
                 }
               </select>
               <select
-                [value]="poleFilter()"
-                (change)="onPoleChange($event)"
+                [kyntusSelectSync]="poleFilter()"
+                (kyntusSelectSyncChange)="onPoleChange($event)"
                 [class]="orgSelectClass"
                 [disabled]="deptFilter() === 'Tous'"
                 aria-label="Pôle"
@@ -272,8 +273,8 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
                 }
               </select>
               <select
-                [value]="celluleFilter()"
-                (change)="onCelluleChange($event)"
+                [kyntusSelectSync]="celluleFilter()"
+                (kyntusSelectSyncChange)="onCelluleChange($event)"
                 [class]="orgSelectClass"
                 [disabled]="deptFilter() === 'Tous' || poleFilter() === 'Tous'"
                 aria-label="Cellule"
@@ -283,8 +284,8 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
                 }
               </select>
               <select
-                [value]="roleMetierFilter()"
-                (change)="onRoleMetierChange($event)"
+                [kyntusSelectSync]="roleMetierFilter()"
+                (kyntusSelectSyncChange)="onRoleMetierChange($event)"
                 [class]="orgSelectClass"
                 aria-label="Rôle métier"
               >
@@ -293,8 +294,8 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
                 }
               </select>
               <select
-                [value]="severityFilter()"
-                (change)="onSeverityChange($event)"
+                [kyntusSelectSync]="severityFilter()"
+                (kyntusSelectSyncChange)="onSeverityChange($event)"
                 [class]="orgSelectClass"
                 aria-label="Gravité"
               >
@@ -342,8 +343,8 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
                 [class]="filterBarClass"
               />
               <select
-                [value]="userFilter()"
-                (change)="onUserChange($event)"
+                [kyntusSelectSync]="userFilter()"
+                (kyntusSelectSyncChange)="onUserChange($event)"
                 [class]="orgSelectClass"
               >
                 @for (u of users(); track u) {
@@ -351,8 +352,8 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
                 }
               </select>
               <select
-                [value]="actionFilter()"
-                (change)="onActionChange($event)"
+                [kyntusSelectSync]="actionFilter()"
+                (kyntusSelectSyncChange)="onActionChange($event)"
                 [class]="orgSelectClass"
               >
                 @for (a of actions(); track a) {
@@ -993,25 +994,28 @@ export class AuditRootComponent implements OnInit {
     this.investigationMode.update((v) => !v);
   }
 
-  onDeptChange(ev: Event): void {
-    this.deptFilter.set((ev.target as HTMLSelectElement).value);
+  onDeptChange(value: string): void {
+    this.deptFilter.set(value);
+    this.poleFilter.set('Tous');
+    this.celluleFilter.set('Tous');
     this.page.set(1);
   }
-  onPoleChange(ev: Event): void {
-    this.poleFilter.set((ev.target as HTMLSelectElement).value);
+  onPoleChange(value: string): void {
+    this.poleFilter.set(value);
+    this.celluleFilter.set('Tous');
     this.page.set(1);
   }
-  onCelluleChange(ev: Event): void {
-    this.celluleFilter.set((ev.target as HTMLSelectElement).value);
+  onCelluleChange(value: string): void {
+    this.celluleFilter.set(value);
     this.page.set(1);
   }
-  onRoleMetierChange(ev: Event): void {
-    this.roleMetierFilter.set((ev.target as HTMLSelectElement).value);
+  onRoleMetierChange(value: string): void {
+    this.roleMetierFilter.set(value);
     this.page.set(1);
   }
-  onSeverityChange(ev: Event): void {
+  onSeverityChange(value: string): void {
     this.severityFilter.set(
-      (ev.target as HTMLSelectElement).value as (typeof SEVERITY_OPTIONS)[number],
+      value as (typeof SEVERITY_OPTIONS)[number],
     );
     this.page.set(1);
   }
@@ -1023,12 +1027,12 @@ export class AuditRootComponent implements OnInit {
     this.dateFilter.set((ev.target as HTMLInputElement).value);
     this.page.set(1);
   }
-  onUserChange(ev: Event): void {
-    this.userFilter.set((ev.target as HTMLSelectElement).value);
+  onUserChange(value: string): void {
+    this.userFilter.set(value);
     this.page.set(1);
   }
-  onActionChange(ev: Event): void {
-    this.actionFilter.set((ev.target as HTMLSelectElement).value);
+  onActionChange(value: string): void {
+    this.actionFilter.set(value);
     this.page.set(1);
   }
 

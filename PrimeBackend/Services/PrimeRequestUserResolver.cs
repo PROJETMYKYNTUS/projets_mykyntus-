@@ -111,6 +111,10 @@ public sealed class PrimeRequestUserResolver(
             "rp" => PrimeFicheValidationRoles.ChefDeProjet,
             "audit" => "Audit",
             "employee" => "Pilote",
+            "pilote" => "Pilote",
+            "superviseur" => "Superviseur",
+            "referent technique" or "referent_technique" => PrimeFicheValidationRoles.ReferentTechnique,
+            "chef de projet" or "chef_de_projet" => PrimeFicheValidationRoles.ChefDeProjet,
             "equipe formation" or "equipe_formation" => "RH",
             _ => authRole.Trim(),
         };

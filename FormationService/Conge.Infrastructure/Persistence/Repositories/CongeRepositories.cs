@@ -38,6 +38,12 @@ public class DemandeCongeRepository : IDemandeCongeRepository
             .OrderByDescending(d => d.DateDemande)
             .ToListAsync(ct);
 
+    public async Task<IEnumerable<DemandeConge>> GetByAnneeAsync(int annee, CancellationToken ct = default)
+        => await _context.DemandeConges
+            .Where(d => d.DateDebut.Year == annee || d.DateFin.Year == annee)
+            .OrderByDescending(d => d.DateDemande)
+            .ToListAsync(ct);
+
     public async Task AddAsync(DemandeConge demande, CancellationToken ct = default)
         => await _context.DemandeConges.AddAsync(demande, ct);
 

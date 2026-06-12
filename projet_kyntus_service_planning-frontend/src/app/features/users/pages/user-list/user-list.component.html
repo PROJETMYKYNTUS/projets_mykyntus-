@@ -1,115 +1,105 @@
-<div class="page ky-page-shell">
-  <div class="page-header">
-    <div class="header-left">
-      <div class="title-section">
-        <h1>Gestion des Employés</h1>
-        <p class="subtitle"><strong>{{ filteredUsers.length }}</strong> employé(s) trouvé(s)</p>
-        <button class="btn-import-export ky-btn-secondary" (click)="goimport()">
-  Import / Export
-</button>
-      </div>
-    </div>
-    <button class="btn btn-primary ky-btn-primary" (click)="createUser()">
-      <span class="plus-icon">+</span> Nouvel Employé
-    </button>
-  </div>
-
-  <div class="search-container">
-    <div class="search-box">
-      <span class="search-icon"><app-lucide-icon [icon]="icons.search" className="w-4 h-4" /></span>
-      <input
-        type="text"
-        class="search-input ky-input"
-        placeholder="Rechercher par nom, prénom ou email..."
-        [(ngModel)]="searchTerm"
-        (input)="onSearch()"
-      />
-    </div>
-  </div>
-
-  <div class="card ky-card">
-    @if (loading) {
-      <div class="state-box">
-        <div class="spinner"></div>
-        <p>Chargement des données en cours...</p>
-      </div>
-    } @else if (error) {
-      <div class="state-box error">
-        <div class="icon-error"><app-lucide-icon [icon]="icons.warn" className="w-5 h-5" /></div>
-        <p>{{ error }}</p>
-        <button class="btn btn-outline ky-btn-secondary" (click)="loadUsers()">Réessayer</button>
-      </div>
-    } @else if (filteredUsers.length === 0) {
-      <div class="state-box empty">
-        <p>Aucun employé ne correspond à "<strong>{{ searchTerm }}</strong>"</p>
-        <button class="btn btn-outline ky-btn-secondary" (click)="searchTerm=''; onSearch()">Effacer la recherche</button>
-      </div>
-    } @else {
-      <div class="table-wrapper">
-        <table class="prime-table">
-          <thead>
-            <tr>
-              <th>Collaborateur</th>
-              <th>Rôle</th>
-              <th>Service</th>
-              <th>Gestion</th>
-              <th>Embauche</th>
-              <th>Ancienneté</th>
-              <th>Statut</th>
-              <th class="col-actions">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (user of filteredUsers; track user.id) {
-              <tr>
-                <td>
-  <div class="user-cell">
-    <div class="user-avatar">{{ user.lastName[0] }}{{ user.firstName[0] }}</div>
-    <div class="user-info">
-      <div class="user-name-row">
-        <span class="name">{{ user.lastName }} {{ user.firstName }}</span>
-        <!-- ✅ Badge niveau -->
-        <span class="level-badge lv-{{ user.level }}">N{{ user.level }}</span>
-      </div>
-      <span class="email">{{ user.email }}</span>
-    </div>
-  </div>
-</td>
-                <td><span class="badge badge-role">{{ user.roleName }}</span></td>
-                <td>{{ user.subServiceName || '—' }}</td>
-           <!-- ✅ AFFICHE services + subservices -->
-<td>
-  <div class="tags-container">
-    @for (svc of user.managedServices; track svc.id) {
-      <span class="tag tag-service">{{ svc.name }}</span>
-    }
-    @for (sub of user.managedSubServices; track sub.id) {
-      <span class="tag tag-sub">{{ sub.name }}</span>
-    }
-    @if (user.managedServices.length === 0 && user.managedSubServices.length === 0) {
-      <span class="muted">—</span>
-    }
-  </div>
-</td>
-                <td>{{ user.hireDate | date:'dd/MM/yyyy' }}</td>
-                <td><span class="text-small">{{ getAnciennete(user.hireDate) }}</span></td>
-                <td>
-                  <span class="status-indicator" [class.inactive]="!user.isActive">
-                    {{ user.isActive ? 'Actif' : 'Inactif' }}
-                  </span>
-                </td>
-                <td class="col-actions">
-                  <div class="action-group">
-                    <button class="btn-action view" title="Voir" (click)="viewUser(user.id)"><app-lucide-icon [icon]="icons.eye" className="w-4 h-4" /></button>
-                    <button class="btn-action edit" title="Modifier" (click)="editUser(user.id)"><app-lucide-icon [icon]="icons.edit" className="w-4 h-4" /></button>
-                    <button class="btn-action delete" title="Supprimer" (click)="deleteUser(user.id)"><app-lucide-icon [icon]="icons.trash" className="w-4 h-4" /></button>
-                  </div>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    }
-  </div>
-</div>
+<div class="page ky-page-shell">
+  <div class="page-header">
+    <div class="header-left">
+      <div class="title-section">
+        <span class="eyebrow">Ressources Humaines</span>
+        <h1>Gestion des Employés</h1>
+        <p class="subtitle"><strong>{{ filteredUsers.length }}</strong> employé(s) trouvé(s)</p>
+        <button class="btn-import-export ky-btn-secondary" (click)="goimport()">
+          Import / Export
+        </button>
+      </div>
+    </div>
+    <button class="btn btn-primary ky-btn-primary" (click)="createUser()">
+      <span class="plus-icon">+</span> Nouvel Employé
+    </button>
+  </div>
+
+  <div class="search-container">
+    <div class="search-box ky-card">
+      <span class="search-icon"><app-lucide-icon [icon]="icons.search" className="w-4 h-4" /></span>
+      <input
+        type="text"
+        class="search-input ky-input"
+        placeholder="Rechercher par nom, prénom ou email..."
+        [(ngModel)]="searchTerm"
+        (input)="onSearch()"
+      />
+    </div>
+  </div>
+
+  <div class="card ky-card">
+    @if (loading) {
+      <div class="state-box">
+        <div class="spinner"></div>
+        <p>Chargement des données en cours...</p>
+      </div>
+    } @else if (error) {
+      <div class="state-box error">
+        <div class="icon-error"><app-lucide-icon [icon]="icons.warn" className="w-5 h-5" /></div>
+        <p>{{ error }}</p>
+        <button class="btn btn-outline ky-btn-secondary" (click)="loadUsers()">Réessayer</button>
+      </div>
+    } @else if (filteredUsers.length === 0) {
+      <div class="state-box empty">
+        <p>Aucun employé ne correspond à "<strong>{{ searchTerm }}</strong>"</p>
+        <button class="btn btn-outline ky-btn-secondary" (click)="searchTerm=''; onSearch()">Effacer la recherche</button>
+      </div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="prime-table">
+          <thead>
+            <tr>
+              <th>Collaborateur</th>
+              <th>Rôle</th>
+              <th>Pôle</th>
+              <th>Cellule</th>
+              <th>Service</th>
+              <th>Embauche</th>
+              <th>Ancienneté</th>
+              <th>Statut</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of filteredUsers; track user.id) {
+              <tr>
+                <td>
+                  <div class="user-cell">
+                    <div class="user-avatar">{{ user.lastName[0] }}{{ user.firstName[0] }}</div>
+                    <div class="user-info">
+                      <div class="user-name-row">
+                        <span class="name">{{ user.lastName }} {{ user.firstName }}</span>
+                        <span class="level-badge lv-{{ user.level }}">N{{ user.level }}</span>
+                      </div>
+                      <span class="email">{{ user.email }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="badge badge-role">{{ user.roleName }}</span></td>
+                <td><span class="org-cell">{{ orgCellLabel(userPerimeter(user).pole) }}</span></td>
+                <td><span class="org-cell">{{ orgCellLabel(userPerimeter(user).cellule) }}</span></td>
+                <td><span class="org-cell org-cell--service">{{ orgCellLabel(userPerimeter(user).service) }}</span></td>
+                <td>{{ user.hireDate | date:'dd/MM/yyyy' }}</td>
+                <td><span class="text-small">{{ getAnciennete(user.hireDate) }}</span></td>
+                <td>
+                  <span class="status-indicator" [class.inactive]="!user.isActive">
+                    {{ user.isActive ? 'Actif' : 'Inactif' }}
+                  </span>
+                </td>
+                <td class="col-actions">
+                  <div class="action-group">
+                    <button class="btn-action view" title="Voir" (click)="viewUser(user.id)"><app-lucide-icon [icon]="icons.eye" className="w-4 h-4" /></button>
+                    <button class="btn-action edit" title="Modifier" (click)="editUser(user.id)"><app-lucide-icon [icon]="icons.edit" className="w-4 h-4" /></button>
+                    <button class="btn-action delete" title="Supprimer" (click)="deleteUser(user.id)"><app-lucide-icon [icon]="icons.trash" className="w-4 h-4" /></button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+

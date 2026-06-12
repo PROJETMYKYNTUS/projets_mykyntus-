@@ -27,7 +27,8 @@ public class SubServiceService : ISubServiceService
                 ServiceName = ss.Service.Name,
                 Name = ss.Name,
                 Code = ss.Code,
-                EmployeesCount = ss.Users.Count
+                PrimeServiceId = ss.PrimeServiceId,
+                EmployeesCount = ss.Users.Count(u => u.IsActive)
             })
             .OrderBy(ss => ss.ServiceName)
             .ThenBy(ss => ss.Name)
@@ -47,7 +48,8 @@ public class SubServiceService : ISubServiceService
                 ServiceName = ss.Service.Name,
                 Name = ss.Name,
                 Code = ss.Code,
-                EmployeesCount = ss.Users.Count
+                PrimeServiceId = ss.PrimeServiceId,
+                EmployeesCount = ss.Users.Count(u => u.IsActive)
             })
             .OrderBy(ss => ss.Name)
             .ToListAsync();
@@ -70,6 +72,7 @@ public class SubServiceService : ISubServiceService
             ServiceName = subService.Service.Name,
             Name = subService.Name,
             Code = subService.Code,
+            PrimeServiceId = subService.PrimeServiceId,
             EmployeesCount = subService.Users.Count
         };
     }
@@ -103,6 +106,12 @@ public class SubServiceService : ISubServiceService
                 RoleName = u.Role.Name
             }).ToList()
         };
+    }
+
+    public async Task<List<UserSimpleDto>> GetEmployeesBySubServiceAsync(int id)
+    {
+        var detail = await GetSubServiceWithEmployeesAsync(id);
+        return detail?.Employees ?? [];
     }
 
     public async Task<SubServiceDto> CreateSubServiceAsync(CreateSubServiceDto dto)
@@ -141,6 +150,7 @@ public class SubServiceService : ISubServiceService
             ServiceName = service?.Name ?? "",
             Name = subService.Name,
             Code = subService.Code,
+            PrimeServiceId = subService.PrimeServiceId,
             EmployeesCount = 0
         };
     }
@@ -183,6 +193,7 @@ public class SubServiceService : ISubServiceService
             ServiceName = subService.Service.Name,
             Name = subService.Name,
             Code = subService.Code,
+            PrimeServiceId = subService.PrimeServiceId,
             EmployeesCount = subService.Users.Count
         };
     }

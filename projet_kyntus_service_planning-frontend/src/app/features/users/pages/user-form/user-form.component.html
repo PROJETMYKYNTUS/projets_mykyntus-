@@ -1,224 +1,518 @@
 <div class="page ky-page-shell">
+
   <div class="page-shell">
+
     <div class="page-header">
       <div class="header-left">
+        @if (isEditMode) {
+          <button type="button" class="btn-back ky-btn-secondary" (click)="goBack()">
+            Retour au détail
+          </button>
+        }
         <div class="header-copy">
-          <span class="eyebrow">Gestion des employés</span>
+          <span class="eyebrow">Ressources Humaines</span>
           <h1>{{ isEditMode ? "Modifier l'Employé" : "Nouvel Employé" }}</h1>
+
           <p class="subtitle">
+
             {{ isEditMode ? "Mettre à jour les informations du collaborateur" : "Créer un nouveau compte employé et définir ses accès" }}
+
           </p>
+
         </div>
+
       </div>
+
     </div>
+
+
 
     <div class="card ky-card">
+
       @if (loading) {
+
         <div class="state-box">
+
           <div class="spinner"></div>
+
           <p>Chargement des informations...</p>
+
         </div>
+
       } @else {
+
         @if (error) {
+
           <div class="alert alert-error">
+
             <strong>Erreur :</strong> {{ error }}
+
           </div>
+
         }
+
+
 
         @if (!isEditMode) {
+
           <div class="alert alert-info">
+
             <div class="alert-icon"><app-lucide-icon [icon]="icons.lock" className="w-5 h-5" /></div>
+
             <div>
+
               <strong>Mot de passe par défaut</strong>
+
               <p>Le compte sera créé avec le mot de passe : <strong>Azerty@123</strong></p>
+
             </div>
+
           </div>
+
         }
 
+
+
         <form class="form">
+
           <section class="form-section">
+
             <div class="section-heading">
+
               <h2>Informations personnelles</h2>
+
               <p>Renseignez l’identité et les coordonnées de l’employé.</p>
+
             </div>
+
+
 
             <div class="form-grid">
+
               <div class="form-group">
+
                 <label for="lastName">Nom <span class="required">*</span></label>
+
                 <input class="ky-input" id="lastName" name="lastName" type="text" [(ngModel)]="form.lastName" placeholder="Nom de famille" />
+
               </div>
 
+
+
               <div class="form-group">
+
                 <label for="firstName">Prénom <span class="required">*</span></label>
+
                 <input class="ky-input" id="firstName" name="firstName" type="text" [(ngModel)]="form.firstName" placeholder="Prénom" />
+
               </div>
 
+
+
               <div class="form-group">
+
                 <label for="email">Email <span class="required">*</span></label>
+
                 <input
+
                   class="ky-input"
+
                   id="email"
+
                   name="email"
+
                   type="email"
+
                   [(ngModel)]="form.email"
+
                   placeholder="email@exemple.com"
+
                   (blur)="checkEmail()"
+
                 />
+
                 @if (emailError) {
+
                   <span class="input-error">{{ emailError }}</span>
+
                 }
+
               </div>
 
+
+
               <div class="form-group">
+
                 <label for="hireDate">Date d'embauche <span class="required">*</span></label>
+
                 <input class="ky-input" id="hireDate" name="hireDate" type="date" [(ngModel)]="form.hireDate" />
+
               </div>
+
             </div>
+
           </section>
 
+
+
           <section class="form-section">
+
             <div class="section-heading">
+
               <h2>Positionnement</h2>
+
               <p>Définissez le niveau, le rôle et l’affectation de l’employé.</p>
+
             </div>
+
+
 
             <div class="form-group">
+
               <label>Niveau <span class="required">*</span></label>
+
               <div class="level-selector">
+
                 <button
+
                   type="button"
-                  class="level-btn"
+
+                  class="level-btn level-btn--1"
+
                   [class.active]="form.level === 1"
-                  (click)="form.level = 1"
+
+                  (click)="setLevel(1)"
+
                 >
+
                   <span class="level-badge">1</span>
+
                   <span class="level-content">
+
                     <span class="level-title">Débutant</span>
+
                     <span class="level-text">Prise de poste ou montée en compétence</span>
+
                   </span>
+
                 </button>
 
+
+
                 <button
+
                   type="button"
-                  class="level-btn"
+
+                  class="level-btn level-btn--2"
+
                   [class.active]="form.level === 2"
-                  (click)="form.level = 2"
+
+                  (click)="setLevel(2)"
+
                 >
+
                   <span class="level-badge">2</span>
+
                   <span class="level-content">
+
                     <span class="level-title">Intermédiaire</span>
+
                     <span class="level-text">Autonome sur les tâches courantes</span>
+
                   </span>
+
                 </button>
 
+
+
                 <button
+
                   type="button"
-                  class="level-btn"
+
+                  class="level-btn level-btn--3"
+
                   [class.active]="form.level === 3"
-                  (click)="form.level = 3"
+
+                  (click)="setLevel(3)"
+
                 >
+
                   <span class="level-badge">3</span>
+
                   <span class="level-content">
+
                     <span class="level-title">Expert</span>
+
                     <span class="level-text">Référent métier ou opérationnel</span>
+
                   </span>
+
                 </button>
+
               </div>
+
             </div>
+
+
 
             <div class="form-grid">
+
               <div class="form-group">
+
                 <label for="roleId">Rôle <span class="required">*</span></label>
+
                 <select class="ky-input" id="roleId" name="roleId" [(ngModel)]="form.roleId" (ngModelChange)="onRoleChange($event)">
-                  <option [value]="0" disabled>-- Sélectionner un rôle --</option>
+
+                  <option [ngValue]="0" disabled>-- Sélectionner un rôle --</option>
+
                   @for (role of roles; track role.id) {
-                    <option [value]="role.id">{{ role.name }}</option>
+
+                    <option [ngValue]="role.id">{{ role.name }}</option>
+
                   }
+
                 </select>
+
               </div>
 
-              <div class="form-group">
-                <label for="subServiceId">Sous-service</label>
-                <select class="ky-input" id="subServiceId" name="subServiceId" [(ngModel)]="form.subServiceId">
-                  <option [value]="null">-- Aucun (RH) --</option>
-                  @for (sub of subServices; track sub.id) {
-                    <option [value]="sub.id">{{ sub.name }}</option>
-                  }
-                </select>
-              </div>
             </div>
-          </section>
 
-          @if (canManageHierarchy) {
-            <section class="form-section">
-              <div class="section-heading">
-                <h2>Hiérarchie gérée</h2>
-                <p>Sélectionnez les services et sous-services supervisés par cet employé.</p>
-              </div>
 
-              <div class="tree-container">
-                @for (service of servicesTree; track service.id) {
-                  <div class="tree-service">
-                    <label class="tree-service-label" [class.checked]="isManagedService(service.id)">
-                      <div class="tree-main">
-                        <input
-                          type="checkbox"
-                          [checked]="isManagedService(service.id)"
-                          (change)="toggleManagedService(service.id)"
-                        />
-                        <span class="service-icon">SVC</span>
-                        <div class="tree-copy">
-                          <span class="tree-title">{{ service.name }}</span>
-                          <span class="tree-meta">{{ service.floorName }}</span>
-                        </div>
-                      </div>
-                    </label>
 
-                    <div class="tree-subservices">
-                      @for (sub of service.subServices; track sub.id) {
-                        <label class="tree-sub-label" [class.checked]="isManagedSubService(sub.id)">
-                          <div class="tree-main">
-                            <input
-                              type="checkbox"
-                              [checked]="isManagedSubService(sub.id)"
-                              (change)="toggleManagedSubService(sub.id)"
-                            />
-                            <span class="sub-icon"><app-lucide-icon [icon]="icons.folder" className="w-4 h-4" /></span>
-                            <div class="tree-copy">
-                              <span class="tree-title">{{ sub.name }}</span>
-                              <span class="tree-meta">Code : {{ sub.code }}</span>
-                            </div>
-                          </div>
-                        </label>
-                      }
-                    </div>
+            @if (showOrgAssignmentBlock) {
+
+              <div class="org-picker-block">
+
+                @if (roleDetectionSummary) {
+                  <div class="org-auto-detect">
+                    <app-lucide-icon [icon]="icons.detect" className="w-4 h-4" />
+                    <span>{{ roleDetectionSummary }}</span>
                   </div>
                 }
+
+                <p class="org-picker-hint">
+
+                  Affectation synchronisée avec
+
+                  <button type="button" class="link-inline" (click)="goToOrganisationRh()">Organisation RH</button>.
+
+                  @if (orgAssignmentHintText) {
+
+                    <span class="org-role-hint">{{ orgAssignmentHintText }}</span>
+
+                  }
+
+                  @if (!orgAssignmentRequired) {
+
+                    <span class="org-optional"> Optionnel pour ce rôle.</span>
+
+                  }
+
+                </p>
+
+                @if (orgLoading) {
+
+                  <p class="hint">Chargement de la structure…</p>
+
+                } @else {
+
+                  @if (showOrgFilterBar) {
+                    <div class="org-filters">
+                      <div class="search-box">
+                        <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+                        <input
+                          class="ky-input search-input"
+                          type="text"
+                          [placeholder]="showOrgFlatServiceSelect ? 'Rechercher un service, pôle ou cellule…' : 'Filtrer les options affichées…'"
+                          [ngModel]="orgStructureSearch"
+                          (ngModelChange)="onOrgSearchChange($event)"
+                        />
+                      </div>
+                      @if (showOrgFlatServiceSelect) {
+                        <div class="org-filter-grid">
+                          <select
+                            class="ky-input"
+                            [kyntusSelectSync]="orgFilterPoleId"
+                            (kyntusSelectSyncChange)="patchOrgFilterPole($event)"
+                          >
+                            <option value="">Tous les pôles</option>
+                            @for (p of orgPoleFilterOptions; track p.id) {
+                              <option [value]="p.id">{{ p.name }}</option>
+                            }
+                          </select>
+                          <select
+                            class="ky-input"
+                            [kyntusSelectSync]="orgFilterCelluleId"
+                            (kyntusSelectSyncChange)="patchOrgFilterCellule($event)"
+                            [disabled]="!orgFilterPoleId"
+                          >
+                            <option value="">Toutes les cellules</option>
+                            @for (c of orgCelluleFilterOptions; track c.id) {
+                              <option [value]="c.id">{{ c.name }}</option>
+                            }
+                          </select>
+                          <button type="button" class="btn-clear ky-btn-secondary" (click)="clearOrgFilters()">Réinitialiser</button>
+                        </div>
+                      } @else if (showOrgCascade && (showOrgPoleSelect || showOrgCelluleSelect || showOrgServiceSelect)) {
+                        <button type="button" class="btn-clear ky-btn-secondary" (click)="clearOrgFilters()">Effacer le filtre texte</button>
+                      }
+                    </div>
+                  }
+
+                  @if (showOrgFlatServiceSelect) {
+                    <p class="results-meta">
+                      {{ filteredFlatServices.totalMatches }} service(s)
+                      @if (filteredFlatServices.totalMatches > filteredFlatServices.visible.length) {
+                        — affichage des {{ filteredFlatServices.visible.length }} premiers (affinez la recherche)
+                      }
+                    </p>
+                    @if (orgServiceId) {
+                      <div class="selected-org">
+                        <strong>Sélectionné :</strong> {{ selectedOrgSummary }}
+                      </div>
+                    }
+                    <div class="org-service-results">
+                      @if (filteredFlatServices.visible.length === 0) {
+                        <p class="empty-results">Aucun service ne correspond — modifiez la recherche ou les filtres.</p>
+                      } @else {
+                        @for (opt of filteredFlatServices.visible; track opt.serviceId) {
+                          <button
+                            type="button"
+                            class="org-service-option"
+                            [class.selected]="isFlatServiceSelected(opt)"
+                            (click)="selectFlatService(opt)"
+                          >
+                            {{ opt.label }}
+                          </button>
+                        }
+                      }
+                    </div>
+                  } @else if (showOrgCascade) {
+                    <div class="form-grid org-grid">
+                      @if (showOrgPoleSelect) {
+                        <div class="form-group">
+                          <label for="orgPole">Pôle @if (orgAssignmentRequired) { <span class="required">*</span> }</label>
+                          <select
+                            class="ky-input"
+                            id="orgPole"
+                            [kyntusSelectSync]="orgPoleId"
+                            (kyntusSelectSyncChange)="patchOrgPole($event)"
+                            [disabled]="filteredOrgDepartments.length === 0"
+                          >
+                            <option value="">— Sélectionner un pôle —</option>
+                            @for (d of filteredOrgDepartments; track d.id) {
+                              <option [value]="d.id">{{ d.name }}</option>
+                            }
+                          </select>
+                          @if (orgStructureSearch && filteredOrgDepartments.length === 0) {
+                            <span class="input-error">Aucun pôle ne correspond au filtre.</span>
+                          }
+                        </div>
+                      }
+                      @if (showOrgCelluleSelect) {
+                        <div class="form-group">
+                          <label for="orgCellule">Cellule @if (orgAssignmentRequired) { <span class="required">*</span> }</label>
+                          <select
+                            class="ky-input"
+                            id="orgCellule"
+                            [kyntusSelectSync]="orgCelluleId"
+                            (kyntusSelectSyncChange)="patchOrgCellule($event)"
+                            [disabled]="!orgPoleId || filteredOrgCelluleOptions.length === 0"
+                          >
+                            <option value="">— Sélectionner une cellule —</option>
+                            @for (p of filteredOrgCelluleOptions; track p.id) {
+                              <option [value]="p.id">{{ p.name }}</option>
+                            }
+                          </select>
+                        </div>
+                      }
+                      @if (showOrgServiceSelect) {
+                        <div class="form-group">
+                          <label for="orgService">Service @if (orgAssignmentRequired) { <span class="required">*</span> }</label>
+                          <select
+                            class="ky-input"
+                            id="orgService"
+                            [kyntusSelectSync]="orgServiceId"
+                            (kyntusSelectSyncChange)="patchOrgService($event)"
+                            [disabled]="!orgCelluleId || filteredOrgServiceOptions.length === 0"
+                          >
+                            <option value="">— Sélectionner un service —</option>
+                            @for (s of filteredOrgServiceOptions; track s.id) {
+                              <option [value]="s.id">{{ s.name }}</option>
+                            }
+                          </select>
+                        </div>
+                      }
+                    </div>
+                    @if (orgServiceId || orgCelluleId || orgPoleId) {
+                      <div class="selected-org">
+                        <strong>Périmètre :</strong> {{ selectedOrgSummary }}
+                      </div>
+                    }
+                  }
+
+                  @if (orgMirrorWarning) {
+
+                    <p class="org-mirror-warn">{{ orgMirrorWarning }}</p>
+
+                  }
+
+                }
+
               </div>
-            </section>
-          }
+
+            }
+
+          </section>
+
+
 
           @if (isEditMode) {
+
             <section class="form-section compact">
+
               <div class="form-group checkbox-group">
+
                 <label class="checkbox-label">
+
                   <input name="isActive" type="checkbox" [(ngModel)]="form.isActive" />
+
                   <span>Compte actif</span>
+
                 </label>
+
               </div>
+
             </section>
+
           }
 
+
+
           <div class="form-actions">
+
             <button class="btn btn-outline ky-btn-secondary" type="button" (click)="goBack()" [disabled]="submitting">
+
               Annuler
+
             </button>
+
             <button class="btn btn-primary ky-btn-primary" type="button" (click)="submit()" [disabled]="submitting || !!emailError">
+
               {{ submitting ? "Enregistrement..." : (isEditMode ? "Enregistrer les modifications" : "Créer l'employé") }}
+
             </button>
+
           </div>
+
         </form>
+
       }
+
     </div>
+
   </div>
+
 </div>
+
+

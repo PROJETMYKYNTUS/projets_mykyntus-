@@ -1,8 +1,7 @@
 @import "../styles/reclamation-shared.css";
+
 .rp-root {
-  padding: 24px;
-  font-family: 'DM Sans', sans-serif;
-  color: var(--text-primary);
+  padding: 0;
 }
 
 /* ── Toast ────────────────────────────────────────── */

@@ -339,10 +339,9 @@ export class KyntusNotificationHubService {
 
   async refreshConges(): Promise<void> {
     if (!this.userPrefs.isSourceEnabled('conge')) return;
-    const authId = this.session.getAuthUserId();
-    if (!authId) return;
+    const userKey = this.session.getSubjectId() ?? String(this.session.getAuthUserId() || '');
+    if (!userKey) return;
     const role = (this.session.getRole() || '').toLowerCase();
-    const userKey = String(authId);
 
     try {
       const notifs: KyntusNotification[] = [];

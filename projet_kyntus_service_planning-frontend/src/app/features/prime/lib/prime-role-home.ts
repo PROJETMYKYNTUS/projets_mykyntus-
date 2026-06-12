@@ -30,7 +30,7 @@ export function getRoleHomeTarget(role: Role): RoleHomeTarget {
     case 'Coach':
       return { path: '/validation' };
     case 'RH':
-      return { path: '/rh/organisation' };
+      return { path: '/' };
     case 'Chef de projet':
       return { path: '/chef-projet/scope' };
     case 'Manager':

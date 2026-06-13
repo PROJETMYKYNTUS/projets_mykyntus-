@@ -1,0 +1,73 @@
+import { describe, expect, it } from 'vitest';
+import type { OrgAssignmentsOverview } from '../../features/prime/services/prime-org-api.service';
+import {
+  buildStructureOverwriteMessage,
+  findStructureIncumbent,
+  shouldConfirmOverwrite,
+  structureRoleLabel,
+} from './org-structure-incumbent.util';
+
+const overview = {
+  etages: [],
+  services: [],
+  sousServices: [],
+  departments: [],
+  employees: [
+    {
+      id: 'u1',
+      firstName: 'Alice',
+      lastName: 'Martin',
+      role: 'Chef de projet',
+      poleId: 'pole-a',
+    },
+    {
+      id: 'u2',
+      firstName: 'Bob',
+      lastName: 'Dupont',
+      role: 'Superviseur',
+      poleId: 'pole-a',
+      celluleId: 'cell-b',
+    },
+  ],
+  managerEtage: [{ id: 'a1', userId: 'u1', etageId: 'pole-a' }],
+  supervisorService: [{ id: 'a2', userId: 'u2', serviceId: 'cell-b', celluleId: 'cell-b' }],
+  coachSousService: [{ id: 'a3', userId: 'u2', serviceId: 'svc-c', sousServiceId: 'svc-c' }],
+  coachPilot: [],
+} as OrgAssignmentsOverview;
+
+describe('org-structure-incumbent.util', () => {
+  it('finds chef de projet incumbent on pole', () => {
+    const incumbent = findStructureIncumbent(overview, 'Chef de projet', {
+      orgPoleId: 'pole-a',
+    });
+    expect(incumbent).toEqual({ userId: 'u1', displayName: 'Alice Martin' });
+  });
+
+  it('finds superviseur incumbent on cellule', () => {
+    const incumbent = findStructureIncumbent(overview, 'Superviseur', {
+      orgCelluleId: 'cell-b',
+    });
+    expect(incumbent).toEqual({ userId: 'u2', displayName: 'Bob Dupont' });
+  });
+
+  it('skips overwrite confirmation when assignee is current incumbent', () => {
+    expect(shouldConfirmOverwrite('u1', 'u1')).toBe(false);
+    expect(shouldConfirmOverwrite('u1', 'u2')).toBe(true);
+    expect(shouldConfirmOverwrite(undefined, 'u2')).toBe(false);
+  });
+
+  it('maps role labels for confirmation messages', () => {
+    expect(structureRoleLabel('Chef de projet')).toBe('chef de projet');
+    expect(structureRoleLabel('Superviseur')).toBe('superviseur');
+    expect(structureRoleLabel('Référent technique')).toBe('référent technique');
+  });
+
+  it('builds overwrite confirmation message', () => {
+    expect(
+      buildStructureOverwriteMessage(
+        { userId: 'u1', displayName: 'Yasmine El Idrissi' },
+        'Chef de projet',
+      ),
+    ).toBe('Voulez-vous écraser le chef de projet actuel Yasmine El Idrissi ?');
+  });
+});

@@ -14,17 +14,20 @@ public class UserService : IUserService
     private readonly AppDbContext _context;
     private readonly IEmployePublisher _employePublisher;
     private readonly HttpClient _httpClient;
+    private readonly IPrimeEmployeeEnsureClient _primeEmployeeEnsure;
     private readonly ILogger<UserService> _logger;
 
     public UserService(
            AppDbContext context,
            IEmployePublisher employePublisher,
            HttpClient httpClient,
+           IPrimeEmployeeEnsureClient primeEmployeeEnsure,
            ILogger<UserService> logger)
     {
         _context = context;
         _employePublisher = employePublisher;
         _httpClient = httpClient;
+        _primeEmployeeEnsure = primeEmployeeEnsure;
         _logger = logger;
     }
 
@@ -91,6 +94,9 @@ public class UserService : IUserService
     }
     public async Task<UserDto> CreateUserAsync(CreateUserDto dto)
     {
+        if (!await IsEmailUniqueAsync(dto.Email))
+            throw new InvalidOperationException($"L'adresse email « {dto.Email.Trim()} » est déjà utilisée.");
+
         var user = new User
         {
             RoleId = dto.RoleId,
@@ -137,6 +143,7 @@ public class UserService : IUserService
 
         await _context.Entry(user).Reference(u => u.Role).LoadAsync();
         await PublishEmployeCreatedForUserAsync(user, dto.SubServiceId);
+        await _primeEmployeeEnsure.TryEnsureFromPlanningAsync(user);
 
         return await GetUserByIdAsync(user.Id)
             ?? throw new Exception("Erreur création utilisateur.");
@@ -235,6 +242,7 @@ public class UserService : IUserService
         await _context.SaveChangesAsync();
         await _context.Entry(user).Reference(u => u.Role).LoadAsync();
         await PublishEmployeUpdatedForUserAsync(user, dto.SubServiceId);
+        await _primeEmployeeEnsure.TryEnsureFromPlanningAsync(user);
 
         return await GetUserByIdAsync(id);
     }

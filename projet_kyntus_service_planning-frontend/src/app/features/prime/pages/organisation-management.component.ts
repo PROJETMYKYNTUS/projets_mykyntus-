@@ -42,6 +42,12 @@ import {
   ORG_DUPLICATE_SERVICE_MSG,
   orgNamesEqual,
 } from '../lib/org-name-uniqueness';
+import {
+  buildStructureOverwriteMessage,
+  employeeDisplayName,
+  shouldConfirmOverwrite,
+} from '../../../core/org/org-structure-incumbent.util';
+import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 function matchAssignmentUserId(
   assignments: { userId: string; etageId?: string; serviceId?: string; celluleId?: string; sousServiceId?: string }[],
@@ -1166,6 +1172,7 @@ function httpErrMessage(err: unknown): string {
 })
 export class OrganisationManagementComponent implements OnInit {
   private readonly orgApi = inject(PrimeOrgApiService);
+  private readonly confirmService = inject(KyntusConfirmService);
   private readonly role = inject(RoleService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -1952,9 +1959,34 @@ export class OrganisationManagementComponent implements OnInit {
     return t?.value ?? '';
   }
 
-  saveDepartmentManagerRow(departmentId: string): void {
+  private async confirmStructureReplace(
+    roleName: 'Chef de projet' | 'Superviseur' | 'Référent technique',
+    incumbentUserId: string | undefined,
+    newUserId: string,
+  ): Promise<boolean> {
+    if (!shouldConfirmOverwrite(incumbentUserId, newUserId)) {
+      return true;
+    }
+    const employees = this.data()?.employees ?? [];
+    const incumbent = {
+      userId: incumbentUserId!,
+      displayName: employeeDisplayName(employees, incumbentUserId!),
+    };
+    return this.confirmService.confirm({
+      title: 'Remplacer le titulaire actuel',
+      message: buildStructureOverwriteMessage(incumbent, roleName),
+      confirmLabel: 'Écraser et continuer',
+      cancelLabel: 'Annuler',
+      variant: 'warning',
+    });
+  }
+
+  async saveDepartmentManagerRow(departmentId: string): Promise<void> {
     const id = this.draftManagerByDept()[departmentId];
     if (!id) return;
+    if (!(await this.confirmStructureReplace('Chef de projet', this.managerUserId(departmentId), id))) {
+      return;
+    }
     this.runMutation(
       this.orgApi.setStructureManager(departmentId, id),
       () => {
@@ -1973,9 +2005,12 @@ export class OrganisationManagementComponent implements OnInit {
     );
   }
 
-  savePoleSupervisorRow(poleId: string): void {
+  async savePoleSupervisorRow(poleId: string): Promise<void> {
     const id = this.draftSupervisorByPole()[poleId];
     if (!id) return;
+    if (!(await this.confirmStructureReplace('Superviseur', this.supervisorUserId(poleId), id))) {
+      return;
+    }
     this.runMutation(
       this.orgApi.setStructureSupervisor(poleId, id),
       () => {
@@ -1994,9 +2029,12 @@ export class OrganisationManagementComponent implements OnInit {
     );
   }
 
-  saveCellCoachRow(celluleId: string): void {
+  async saveCellCoachRow(celluleId: string): Promise<void> {
     const id = this.draftCoachByCell()[celluleId];
     if (!id) return;
+    if (!(await this.confirmStructureReplace('Référent technique', this.coachUserId(celluleId), id))) {
+      return;
+    }
     this.runMutation(
       this.orgApi.setStructureCoach(celluleId, id),
       () => {
@@ -2033,9 +2071,12 @@ export class OrganisationManagementComponent implements OnInit {
     );
   }
 
-  saveDepartmentManager(departmentId: string): void {
+  async saveDepartmentManager(departmentId: string): Promise<void> {
     const id = this.draftEmployeeId();
     if (!id) return;
+    if (!(await this.confirmStructureReplace('Chef de projet', this.managerUserId(departmentId), id))) {
+      return;
+    }
     this.runMutation(
       this.orgApi.setStructureManager(departmentId, id),
       undefined,
@@ -2051,9 +2092,12 @@ export class OrganisationManagementComponent implements OnInit {
     );
   }
 
-  savePoleSupervisor(poleId: string): void {
+  async savePoleSupervisor(poleId: string): Promise<void> {
     const id = this.draftEmployeeId();
     if (!id) return;
+    if (!(await this.confirmStructureReplace('Superviseur', this.supervisorUserId(poleId), id))) {
+      return;
+    }
     this.runMutation(
       this.orgApi.setStructureSupervisor(poleId, id),
       undefined,
@@ -2069,9 +2113,12 @@ export class OrganisationManagementComponent implements OnInit {
     );
   }
 
-  saveCellCoach(celluleId: string): void {
+  async saveCellCoach(celluleId: string): Promise<void> {
     const id = this.draftEmployeeId();
     if (!id) return;
+    if (!(await this.confirmStructureReplace('Référent technique', this.coachUserId(celluleId), id))) {
+      return;
+    }
     this.runMutation(
       this.orgApi.setStructureCoach(celluleId, id),
       undefined,

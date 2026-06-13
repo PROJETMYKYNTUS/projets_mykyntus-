@@ -184,6 +184,16 @@ public class AuditPrimeController(PrimeInMemoryStore store) : ControllerBase
     public ActionResult<List<AuditAnomaly>> GetAnomalies() => store.GetAuditAnomalies();
 }
 
+public sealed class EnsureEmployeeFromPlanningRequest
+{
+    public Guid EmployeeId { get; init; }
+    public string FirstName { get; init; } = "";
+    public string LastName { get; init; } = "";
+    public string Email { get; init; } = "";
+    public string Role { get; init; } = "";
+    public string? PrimeServiceId { get; init; }
+}
+
 [ApiController]
 [Route("api/prime/org")]
 public class PrimeOrgAssignmentsController(
@@ -191,7 +201,8 @@ public class PrimeOrgAssignmentsController(
     PrimeDbContext? db,
     PrimeOrgScopeService org,
     IConfiguration configuration,
-    IOrgStructureEventPublisher orgEvents) : ControllerBase
+    IOrgStructureEventPublisher orgEvents,
+    IEmployeeDirectorySyncService employeeDirectorySync) : ControllerBase
 {
     private static string NewPersistedOrgId(string prefix)
     {
@@ -242,6 +253,31 @@ public class PrimeOrgAssignmentsController(
         store.HydrateOrganizationFromDatabase(db);
         if (afterMutationAsync is not null)
             await afterMutationAsync();
+    }
+
+    /// <summary>Garantit la présence d'un employé Prime avec Id = guid Planning (liaison synchrone Gestion employés).</summary>
+    [HttpPost("employees/ensure-from-planning")]
+    public async Task<ActionResult<object>> EnsureEmployeeFromPlanning(
+        [FromBody] EnsureEmployeeFromPlanningRequest body,
+        CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        if (body.EmployeeId == Guid.Empty)
+            return BadRequest(new { error = "employeeId est requis." });
+        if (string.IsNullOrWhiteSpace(body.Email))
+            return BadRequest(new { error = "email est requis." });
+
+        var employeeId = await employeeDirectorySync.EnsureFromPlanningAsync(
+            new EmployeeDirectoryUpsertRequest(
+                EmployeeId: body.EmployeeId,
+                FirstName: body.FirstName.Trim(),
+                LastName: body.LastName.Trim(),
+                Email: body.Email.Trim(),
+                Role: body.Role,
+                PrimeServiceId: body.PrimeServiceId),
+            ct);
+
+        return Ok(new { employeeId });
     }
 
     [HttpGet("etages")]

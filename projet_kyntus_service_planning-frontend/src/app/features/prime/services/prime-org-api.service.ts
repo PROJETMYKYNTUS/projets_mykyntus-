@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { Observable, forkJoin } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, forkJoin, throwError, timer } from 'rxjs';
+import { catchError, filter, map, switchMap, take, timeout } from 'rxjs/operators';
 import type { Cellule, Department, Employee, Pole } from '../models';
 
 const orgBase = '/api/prime/org';
@@ -84,6 +84,15 @@ export interface OrgAssignmentsOverview {
   coachPilot: CoachPilotLinkDto[];
 }
 
+export interface EnsureEmployeeFromPlanningDto {
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  primeServiceId?: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PrimeOrgApiService {
   private readonly http = inject(HttpClient);
@@ -126,6 +135,35 @@ export class PrimeOrgApiService {
           return { id: a.id, userId: a.userId, serviceId: sid, sousServiceId: sid };
         }),
       })),
+    );
+  }
+
+  /** Garantit la présence de l'employé dans Organisation RH (Id = guid Planning). */
+  ensureEmployeeFromPlanning(dto: EnsureEmployeeFromPlanningDto): Observable<{ employeeId: string }> {
+    return this.http.post<{ employeeId: string }>(`${orgBase}/employees/ensure-from-planning`, dto);
+  }
+
+  /** Attend la synchro RabbitMQ Planning → Prime (secours uniquement). */
+  waitForEmployee(employeeId: string, maxWaitMs = 15000): Observable<void> {
+    const id = employeeId.trim();
+    if (!id) {
+      return throwError(() => new Error('Identifiant employé Prime manquant.'));
+    }
+    return timer(0, 500).pipe(
+      switchMap(() => this.http.get<Employee[]>(`${primeBase}/employees`)),
+      map((employees) => employees.some((employee) => employee.id === id)),
+      filter(Boolean),
+      take(1),
+      timeout({ first: maxWaitMs }),
+      map(() => undefined),
+      catchError(() =>
+        throwError(
+          () =>
+            new Error(
+              'Employé non encore synchronisé dans Organisation RH. Réessayez dans quelques secondes.',
+            ),
+        ),
+      ),
     );
   }
 

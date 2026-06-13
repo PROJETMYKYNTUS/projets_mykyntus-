@@ -73,11 +73,14 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddHttpContextAccessor();
 
 // ── Services existants ────────────────────────────────────────────────────────
 builder.Services.AddScoped<IFloorService, FloorService>();
 builder.Services.AddScoped<IServiceService, ServiceService>();
 builder.Services.AddScoped<ISubServiceService, SubServiceService>();
+builder.Services.AddHttpClient("PrimeOrgSync");
+builder.Services.AddScoped<IPrimeEmployeeEnsureClient, PrimeEmployeeEnsureClient>();
 builder.Services.AddHttpClient<IUserService, UserService>(client =>
 {
     client.BaseAddress = new Uri("http://kyntus_auth_backend:8080/");
@@ -127,6 +130,7 @@ builder.Services.AddSignalR();
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
     {
+        opts.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         opts.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
     });

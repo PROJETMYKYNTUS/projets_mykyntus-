@@ -22,7 +22,7 @@ export function isSuperviseurRole(roleName: string): boolean {
 
 export function isReferentTechniqueRole(roleName: string): boolean {
   const r = normalizeRoleToken(roleName);
-  return r === 'coach' || r === 'referentechnique';
+  return r === 'coach' || r === 'referentechnique' || r === 'referenttechnique';
 }
 
 export function isPiloteRole(roleName: string): boolean {

@@ -100,6 +100,7 @@ if (!string.IsNullOrWhiteSpace(conn))
     if (builder.Configuration.GetValue("Prime:ApplyMigrations", true))
         builder.Services.AddHostedService<PrimeDatabaseInitializer>();
 
+    builder.Services.AddScoped<IEmployeeDirectorySyncService, EmployeeDirectorySyncService>();
     builder.Services.AddScoped<PrimeBackend.Services.AnomalyDetectionService>();
     builder.Services.AddScoped<PrimeValidationWorkflowRuntime>();
     builder.Services.AddScoped<PrimeFicheValidationSubmissionService>();

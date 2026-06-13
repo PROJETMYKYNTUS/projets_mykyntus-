@@ -641,7 +641,7 @@ public class PrimeInMemoryStore
     }
 
     private static bool IsProtectedStructureRole(string role) =>
-        role is "RH" or "Admin" or "Audit" or "Chef de projet";
+        role is "RH" or "Admin" or "Audit";
 
     private Department RequireDepartment(string poleId)
     {
@@ -948,6 +948,8 @@ public class PrimeInMemoryStore
         var dept = RequireDepartment(poleId);
         var deptKey = poleId.Trim();
 
+        DemoteExistingChefProjetOnRootPole(deptKey, emp.Id);
+
         StripOrgStructureAssignmentsForUser(emp.Id);
 
         var parentChef = GetFirstChefProjetIdExcluding(emp.Id);
@@ -998,6 +1000,8 @@ public class PrimeInMemoryStore
         var (dept, pole) = GetDepartmentForPole(celluleId);
         var poleKey = pole.Id;
 
+        DemoteExistingSupervisorOnCellule(poleKey, emp.Id);
+
         StripOrgStructureAssignmentsForUser(emp.Id);
 
         var cell = pole.Cells.FirstOrDefault();
@@ -1035,6 +1039,8 @@ public class PrimeInMemoryStore
         if (!TryResolveCellulePath(serviceId, out var dept, out var pole, out var cell, out _))
             throw new KeyNotFoundException("Cellule ou service introuvable.");
         var cellKey = cell.Id;
+
+        DemoteExistingReferentOnService(cellKey, emp.Id);
 
         StripOrgStructureAssignmentsForUser(emp.Id);
 

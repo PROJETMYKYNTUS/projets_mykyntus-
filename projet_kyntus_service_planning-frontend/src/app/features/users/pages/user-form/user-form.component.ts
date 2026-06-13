@@ -1,10 +1,11 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin, defer, of, Observable } from 'rxjs';
+import { forkJoin, defer, of, Observable, throwError } from 'rxjs';
 import { retry, switchMap, map, catchError } from 'rxjs/operators';
+import { formatHttpErrorMessage } from '../../../../core/lib/http-error-message.util';
+import { resolveUserGuid } from '../../../../core/lib/user-guid.util';
 import { UserService } from '../../services/user.service';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
 import { ServiceService } from '../../../services/services/service';
@@ -13,7 +14,7 @@ import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-select-sync.directive';
 import { LockKeyhole, Search, Sparkles } from 'lucide';
 import { NavigationActionsService } from '../../../../core/navigation/navigation-actions.service';
-import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
+import { PrimeOrgApiService, type OrgAssignmentsOverview } from '../../../prime/services/prime-org-api.service';
 import type { Department, LegacyCellule, LegacyPole } from '../../../prime/models';
 import type { SubService } from '../../../sub-services/sub-services-module';
 import type { Service } from '../../../services/services-module';
@@ -47,6 +48,12 @@ import {
   isChefDeProjetRole,
   type OrgRoleAssignmentDepth,
 } from '../../../../core/org/org-role-assignment';
+import {
+  buildStructureOverwriteMessage,
+  findStructureIncumbent,
+  shouldConfirmOverwrite,
+} from '../../../../core/org/org-structure-incumbent.util';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 interface RoleOption { id: number; name: string; }
 @Component({
   selector: 'app-user-form',
@@ -62,6 +69,7 @@ export class UserFormComponent implements OnInit {
   subServices: SubService[] = [];
   planningServices: Service[] = [];
   orgDepartments: Department[] = [];
+  orgOverview: OrgAssignmentsOverview | null = null;
   orgLoading = false;
   orgPoleId = '';
   orgCelluleId = '';
@@ -77,6 +85,7 @@ export class UserFormComponent implements OnInit {
   roles: RoleOption[] = [];
   private loadedManagedServiceIds: number[] = [];
   private loadedManagedSubServiceIds: number[] = [];
+  private loadedUserGuid = '';
   form = {
     roleId: 0,
     subServiceId: null as number | null,
@@ -93,9 +102,9 @@ export class UserFormComponent implements OnInit {
     private userService: UserService,
     private subServiceService: SubServiceService,
     private serviceService: ServiceService,
-    private http: HttpClient,
     private navActions: NavigationActionsService,
     private orgApi: PrimeOrgApiService,
+    private confirmService: KyntusConfirmService,
     private cdr: ChangeDetectorRef
   ) {}
   ngOnInit(): void {
@@ -146,7 +155,7 @@ export class UserFormComponent implements OnInit {
     return this.orgAssignmentDepth !== 'none';
   }
   get showOrgFlatServiceSelect(): boolean {
-    return isReferentTechniqueRole(this.selectedRoleName);
+    return false;
   }
   get showOrgCascade(): boolean {
     return this.showOrgAssignmentBlock && !this.showOrgFlatServiceSelect;
@@ -181,9 +190,7 @@ export class UserFormComponent implements OnInit {
     if (depth === 'pole') return 'Affectation automatique : Pôle';
     if (depth === 'cellule') return 'Affectation automatique : Pôle → Cellule';
     if (depth === 'service') {
-      return isReferentTechniqueRole(this.selectedRoleName)
-        ? 'Affectation automatique : Service (recherche et filtres)'
-        : 'Affectation automatique : Pôle → Cellule → Service';
+      return 'Affectation automatique : Pôle → Cellule → Service';
     }
     return '';
   }
@@ -227,20 +234,17 @@ export class UserFormComponent implements OnInit {
   loadOrgAndSubServices(): void {
     this.orgLoading = true;
     forkJoin({
-      departments: this.http.get<Department[]>('/api/prime/departments'),
+      overview: this.orgApi.loadOverview(),
       subServices: this.subServiceService.getAllSubServices(),
       services: this.serviceService.getAllServices(),
     }).subscribe({
-      next: ({ departments, subServices, services }) => {
-        this.orgDepartments = departments ?? [];
+      next: ({ overview, subServices, services }) => {
+        this.orgOverview = overview;
+        this.orgDepartments = overview.departments ?? [];
         this.subServices = subServices ?? [];
         this.planningServices = services ?? [];
         this.orgLoading = false;
-        if (this.form.subServiceId) {
-          this.applyOrgFromSubServiceId(this.form.subServiceId);
-        } else if (this.showOrgAssignmentBlock) {
-          this.ensureOrgPickerDefaults();
-        }
+        this.reconcileOrgPickerAfterLoad();
         this.cdr.detectChanges();
       },
       error: () => {
@@ -463,6 +467,70 @@ export class UserFormComponent implements OnInit {
       }
     }
   }
+  private reconcileOrgPickerAfterLoad(): void {
+    const guid = this.loadedUserGuid.trim();
+    const roleName = this.selectedRoleName;
+    if (guid && needsPrimeStructureAssignment(roleName)) {
+      if (this.applyOrgFromPrimeOverview(guid, roleName)) {
+        return;
+      }
+    }
+    if (this.form.subServiceId) {
+      this.applyOrgFromSubServiceId(this.form.subServiceId);
+    } else if (this.showOrgAssignmentBlock) {
+      this.ensureOrgPickerDefaults();
+    }
+  }
+  private applyOrgFromPrimeOverview(guid: string, roleName: string): boolean {
+    const overview = this.orgOverview;
+    if (!overview || !guid.trim()) return false;
+
+    if (isChefDeProjetRole(roleName)) {
+      const mgr = overview.managerEtage?.find((a) => a.userId === guid);
+      if (!mgr?.etageId) return false;
+      this.orgPoleId = mgr.etageId;
+      this.orgCelluleId = '';
+      this.orgServiceId = '';
+      this.orgMirrorWarning = null;
+      return true;
+    }
+
+    if (isSuperviseurRole(roleName)) {
+      const sup = overview.supervisorService?.find((a) => a.userId === guid);
+      if (!sup) return false;
+      const celluleId = (sup.celluleId ?? sup.serviceId ?? '').trim();
+      if (!celluleId) return false;
+      for (const dept of this.orgDepartments) {
+        for (const pole of dept.poles ?? []) {
+          if (pole.id === celluleId) {
+            this.orgPoleId = dept.id;
+            this.orgCelluleId = pole.id;
+            this.orgServiceId = '';
+            this.orgMirrorWarning = null;
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    if (isReferentTechniqueRole(roleName)) {
+      const coach = overview.coachSousService?.find((a) => a.userId === guid);
+      if (!coach) return false;
+      const svcId = (coach.serviceId ?? coach.sousServiceId ?? '').trim();
+      if (!svcId) return false;
+      const sel = findOrgSelectionByPrimeServiceId(this.orgDepartments, svcId);
+      if (!sel) return false;
+      this.orgPoleId = sel.poleId;
+      this.orgCelluleId = sel.celluleId;
+      this.orgServiceId = sel.serviceId;
+      this.form.subServiceId = resolveSubServiceIdByPrimeServiceId(this.subServices, svcId);
+      this.orgMirrorWarning = null;
+      return true;
+    }
+
+    return false;
+  }
   loadUser(id: number): void {
     this.loading = true;
     this.userService.getUserById(id).subscribe({
@@ -481,8 +549,9 @@ export class UserFormComponent implements OnInit {
         };
         this.loadedManagedServiceIds = user.managedServices?.map(s => s.id) ?? [];
         this.loadedManagedSubServiceIds = user.managedSubServices?.map(s => s.id) ?? [];
-        if (this.subServices.length > 0 && this.orgDepartments.length > 0) {
-          this.applyOrgFromSubServiceId(user.subServiceId);
+        this.loadedUserGuid = resolveUserGuid(user);
+        if (this.orgDepartments.length > 0) {
+          this.reconcileOrgPickerAfterLoad();
         }
         this.loading = false;
         this.cdr.detectChanges();
@@ -500,11 +569,14 @@ export class UserFormComponent implements OnInit {
     if (this.orgAssignmentDepth === 'none') {
       this.clearOrgAssignment();
     } else {
+      const depth = this.orgAssignmentDepth;
       this.orgServiceId = '';
       this.form.subServiceId = null;
       this.orgMirrorWarning = null;
-      if (this.orgAssignmentDepth === 'pole') {
+      if (depth === 'pole') {
         this.orgCelluleId = '';
+      } else if (depth === 'cellule') {
+        this.orgServiceId = '';
       }
       this.ensureOrgPickerDefaults();
     }
@@ -577,7 +649,11 @@ export class UserFormComponent implements OnInit {
       level: this.form.level,
     };
   }
-  private applyPrimeStructureAssignment(employeeGuid: string, roleName: string): Observable<void> {
+  private applyPrimeStructureAssignment(
+    employeeGuid: string,
+    roleName: string,
+    strict = false,
+  ): Observable<void> {
     if (!needsPrimeStructureAssignment(roleName)) {
       return of(undefined);
     }
@@ -597,10 +673,72 @@ export class UserFormComponent implements OnInit {
     return defer(() => call()).pipe(
       retry({ count: 10, delay: 800 }),
       map(() => undefined),
-      catchError(() => of(undefined)),
+      catchError((err) => (strict ? throwError(() => err) : of(undefined))),
     );
   }
+  private buildEnsureEmployeeDto(employeeGuid: string, roleName: string) {
+    const primeServiceId = this.orgServiceId.trim() || null;
+    return {
+      employeeId: employeeGuid,
+      firstName: this.form.firstName.trim(),
+      lastName: this.form.lastName.trim(),
+      email: this.form.email.trim(),
+      role: roleName,
+      primeServiceId,
+    };
+  }
+  private ensureEmployeeInPrime(employeeGuid: string, roleName: string): Observable<void> {
+    return this.orgApi.ensureEmployeeFromPlanning(this.buildEnsureEmployeeDto(employeeGuid, roleName)).pipe(
+      map(() => undefined),
+      catchError((ensureErr) =>
+        this.orgApi.waitForEmployee(employeeGuid, 3000).pipe(
+          map(() => undefined),
+          catchError(() => throwError(() => ensureErr)),
+        ),
+      ),
+    );
+  }
+  private syncPrimeStructureAssignment(employeeGuid: string, roleName: string): Observable<void> {
+    if (!needsPrimeStructureAssignment(roleName)) {
+      return of(undefined);
+    }
+    return this.ensureEmployeeInPrime(employeeGuid, roleName).pipe(
+      switchMap(() => this.applyPrimeStructureAssignment(employeeGuid, roleName, true)),
+    );
+  }
+  private async confirmStructureAssignmentIfNeeded(roleName: string): Promise<boolean> {
+    if (!needsPrimeStructureAssignment(roleName)) {
+      return true;
+    }
+    const overview = this.orgOverview;
+    if (!overview) {
+      this.error = 'Structure organisationnelle non chargée — réessayez dans quelques secondes.';
+      return false;
+    }
+    const incumbent = findStructureIncumbent(overview, roleName, {
+      orgPoleId: this.orgPoleId,
+      orgCelluleId: this.orgCelluleId,
+      orgServiceId: this.orgServiceId,
+    });
+    if (!incumbent) {
+      return true;
+    }
+    const assigneeGuid = this.isEditMode ? this.loadedUserGuid : null;
+    if (!shouldConfirmOverwrite(incumbent.userId, assigneeGuid)) {
+      return true;
+    }
+    return this.confirmService.confirm({
+      title: 'Remplacer le titulaire actuel',
+      message: buildStructureOverwriteMessage(incumbent, roleName),
+      confirmLabel: 'Écraser et continuer',
+      cancelLabel: 'Annuler',
+      variant: 'warning',
+    });
+  }
   submit(): void {
+    void this.submitAsync();
+  }
+  private async submitAsync(): Promise<void> {
     if (!this.form.roleId || !this.form.firstName.trim() ||
         !this.form.lastName.trim() || !this.form.email.trim() || !this.form.hireDate) {
       this.error = 'Tous les champs obligatoires doivent être remplis.';
@@ -610,6 +748,10 @@ export class UserFormComponent implements OnInit {
     const orgError = this.validateOrgAssignment();
     if (orgError) {
       this.error = orgError;
+      return;
+    }
+    const roleName = this.selectedRoleName;
+    if (!(await this.confirmStructureAssignmentIfNeeded(roleName))) {
       return;
     }
     this.submitting = true;
@@ -628,27 +770,42 @@ export class UserFormComponent implements OnInit {
         isActive: this.form.isActive,
         level: this.form.level,
       };
-      this.userService.updateUser(this.userId, dto).subscribe({
+      this.userService.updateUser(this.userId, dto).pipe(
+        switchMap(() => {
+          const guid = this.loadedUserGuid.trim();
+          if (!guid) {
+            return throwError(
+              () => new Error('Identifiant employé manquant — rechargez la fiche puis réessayez.'),
+            );
+          }
+          return this.syncPrimeStructureAssignment(guid, roleName);
+        }),
+      ).subscribe({
         next: () => this.router.navigate(['/users', this.userId]),
         error: (err) => {
-          this.error = `Erreur: ${err.error?.message || err.status}`;
+          this.error = formatHttpErrorMessage(err, 'Échec de la synchronisation Organisation RH.');
           this.submitting = false;
           this.cdr.detectChanges();
         }
       });
     } else {
       const dto = this.buildCreateUserDto();
-      const roleName = this.selectedRoleName;
       this.userService.createUser(dto).pipe(
-        switchMap((user) =>
-          this.applyPrimeStructureAssignment(user.guid, roleName).pipe(map(() => user)),
-        ),
+        switchMap((user) => {
+          const guid = resolveUserGuid(user);
+          if (!guid) {
+            return throwError(
+              () => new Error('Réponse serveur invalide : identifiant employé (guid) manquant.'),
+            );
+          }
+          return this.syncPrimeStructureAssignment(guid, roleName).pipe(map(() => user));
+        }),
       ).subscribe({
         next: (user) => {
           this.router.navigate(['/users', user.id]);
         },
         error: (err) => {
-          this.error = `Erreur: ${err.error?.message || err.status}`;
+          this.error = formatHttpErrorMessage(err);
           this.submitting = false;
           this.cdr.detectChanges();
         }

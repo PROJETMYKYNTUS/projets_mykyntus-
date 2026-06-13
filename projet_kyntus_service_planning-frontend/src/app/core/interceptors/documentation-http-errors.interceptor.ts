@@ -38,7 +38,7 @@ export class DocumentationHttpErrorsInterceptor implements HttpInterceptor {
           if (err.status === 401) {
             const msg = formatDocumentationUxMessage(
               err,
-              'Votre session n’a pas pu être vérifiée. Rechargez la page puis réessayez.',
+              'Session expirée ou authentification requise. Reconnectez-vous via le portail (8201) puis rouvrez Documentation.',
             );
             this.notify.showError(msg);
             return;

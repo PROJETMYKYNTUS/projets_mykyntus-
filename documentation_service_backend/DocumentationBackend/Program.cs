@@ -179,6 +179,32 @@ if (app.Configuration.GetValue("Documentation:ApplyBootstrapSchema", false))
         bootstrapLog.LogCritical(ex, "Documentation:ApplyBootstrapSchema — EnsureCreated failed");
         throw;
     }
+
+    try
+    {
+        await DocumentationSchemaBootstrap.ApplyPostSchemaObjectsAsync(db, bootstrapLog);
+    }
+    catch (Exception ex)
+    {
+        bootstrapLog.LogWarning(ex, "Documentation:ApplyBootstrapSchema — fonction REQ non appliquée (non bloquant).");
+    }
+}
+
+// Fonctions SQL (numérotation REQ) : idempotent même si EnsureCreated déjà exécuté auparavant.
+if (app.Configuration.GetValue("Documentation:ApplyPostSchemaObjects", true))
+{
+    await using var postSchemaScope = app.Services.CreateAsyncScope();
+    var postSchemaLog = postSchemaScope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("Documentation.SchemaBootstrap");
+    var postSchemaDb = postSchemaScope.ServiceProvider.GetRequiredService<DocumentationDbContext>();
+    try
+    {
+        await DocumentationSchemaBootstrap.ApplyPostSchemaObjectsAsync(postSchemaDb, postSchemaLog);
+    }
+    catch (Exception ex)
+    {
+        postSchemaLog.LogWarning(ex, "Documentation:ApplyPostSchemaObjects — fonction REQ non appliquée (schéma absent ?).");
+    }
 }
 
 if (app.Configuration.GetValue("Documentation:DemoDataSeed", false))

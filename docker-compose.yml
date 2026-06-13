@@ -180,6 +180,7 @@ services:
       ASPNETCORE_URLS: http://+:8080
       # Crée le schéma documentation + tables au premier démarrage (init.sql ne contient pas le DDL métier).
       Documentation__ApplyBootstrapSchema: "true"
+      Documentation__AllowHeaderContextFallback: "true"
       Documentation__DemoDataSeed: "true"
       Documentation__DefaultTenantId: "atlas-tech-demo"
       DocumentationDb__Password: ${KYNTUS_DOCUMENTATION_DB_PASSWORD:?Définir KYNTUS_DOCUMENTATION_DB_PASSWORD dans .env}

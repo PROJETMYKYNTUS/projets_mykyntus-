@@ -479,19 +479,52 @@ public sealed class DocumentTemplateManagementService(
             UpdatedAt = now,
         };
         db.DocumentTemplates.Add(template);
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         var versionVars = kind == DocumentTemplateKind.Static ? Array.Empty<TemplateVariableInput>() : variables;
-        var version = await CreateTemplateVersionInternalAsync(
-            template,
-            structuredContent,
-            "published",
-            originalAssetUri,
-            versionVars,
-            userId,
-            ct).ConfigureAwait(false);
+        var maxVersion = await db.DocumentTemplateVersions
+            .Where(v => v.TemplateId == template.Id)
+            .MaxAsync(v => (int?)v.VersionNumber, ct).ConfigureAwait(false) ?? 0;
 
+        var version = new DocumentTemplateVersion
+        {
+            Id = Guid.NewGuid(),
+            TemplateId = template.Id,
+            TenantId = tenant,
+            VersionNumber = maxVersion + 1,
+            Status = "published",
+            StructuredContent = structuredContent,
+            OriginalAssetUri = string.IsNullOrWhiteSpace(originalAssetUri) ? null : originalAssetUri.Trim(),
+            CreatedByUserId = userId,
+            CreatedAt = now,
+            PublishedAt = now,
+        };
+        db.DocumentTemplateVersions.Add(version);
         template.CurrentVersionId = version.Id;
+
+        var rows = versionVars
+            .Where(v => IsValidVariableName(v.Name))
+            .Select((v, index) => new DocumentTemplateVariable
+            {
+                Id = Guid.NewGuid(),
+                TemplateId = template.Id,
+                TemplateVersionId = version.Id,
+                VariableName = v.Name.Trim(),
+                VariableType = string.IsNullOrWhiteSpace(v.Type) ? "text" : v.Type.Trim().ToLowerInvariant(),
+                IsRequired = v.IsRequired,
+                DefaultValue = string.IsNullOrWhiteSpace(v.DefaultValue) ? null : v.DefaultValue.Trim(),
+                ValidationRule = string.IsNullOrWhiteSpace(v.ValidationRule) ? null : v.ValidationRule.Trim(),
+                DisplayLabel = string.IsNullOrWhiteSpace(v.DisplayLabel) ? null : v.DisplayLabel.Trim(),
+                FormScope = string.IsNullOrWhiteSpace(v.FormScope) ? "pilot" : v.FormScope.Trim().ToLowerInvariant(),
+                SourcePriority = v.SourcePriority ?? 20,
+                NormalizedName = string.IsNullOrWhiteSpace(v.NormalizedName) ? null : v.NormalizedName.Trim(),
+                RawPlaceholder = string.IsNullOrWhiteSpace(v.RawPlaceholder) ? null : v.RawPlaceholder.Trim(),
+                SortOrder = index,
+            })
+            .Take(MaxTemplateVariables)
+            .ToList();
+        if (rows.Count > 0)
+            db.DocumentTemplateVariables.AddRange(rows);
+
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         var detail = await MapDetailAsync(template.Id, ct).ConfigureAwait(false);

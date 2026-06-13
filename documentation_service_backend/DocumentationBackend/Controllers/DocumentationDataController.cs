@@ -23,9 +23,9 @@ namespace DocumentationBackend.Controllers;
 /// <summary>
 /// Données métier PostgreSQL (schéma documentation). Pas de mock : lecture/écriture réelle.
 /// Le contexte utilisateur est injecté par en-têtes (voir <see cref="DocumentationUserContextMiddleware"/>).
+/// L'authentification est assurée par le middleware (JWT ou en-têtes de repli), pas par [Authorize].
 /// </summary>
 [ApiController]
-[Authorize]
 [Route("api/documentation/data")]
 public class DocumentationDataController(
     DocumentationDbContext db,
@@ -949,6 +949,56 @@ public class DocumentationDataController(
         var star = Uri.EscapeDataString(payload.FileName);
         Response.Headers.Append("Content-Disposition", $"inline; filename=\"file\"; filename*=UTF-8''{star}");
         return File(payload.Content, payload.ContentType);
+    }
+
+    /// <summary>
+    /// Aperçu modèle : PDF natif ou DOCX rendu côté serveur (OpenXML, mise en page préservée).
+    /// </summary>
+    [HttpGet("document-templates/{id:guid}/template-preview")]
+    public async Task<IActionResult> GetTemplatePreview(Guid id, CancellationToken ct)
+    {
+        var template = await db.DocumentTemplates
+            .AsNoTracking()
+            .Include(t => t.CurrentVersion)
+            .FirstOrDefaultAsync(t => t.Id == id, ct);
+        if (template is null)
+            return NotFound();
+
+        var cv = template.CurrentVersion ?? await db.DocumentTemplateVersions.AsNoTracking()
+            .Where(v => v.TemplateId == template.Id)
+            .OrderByDescending(v => v.VersionNumber)
+            .FirstOrDefaultAsync(ct);
+        if (cv is null || string.IsNullOrWhiteSpace(cv.OriginalAssetUri))
+            return NotFound(new { message = "Aucun fichier source stocké pour ce modèle." });
+
+        if (!templateBlobStorage.IsConfigured)
+            return BadRequest(new { message = "MinIO / S3 n’est pas configuré (DocumentTemplates:Minio)." });
+
+        var payload = await templateBlobStorage.TryReadObjectAsync(cv.OriginalAssetUri, ct);
+        if (payload is null)
+            return NotFound(new { message = "Fichier introuvable dans MinIO ou trop volumineux (limite 52 Mo)." });
+
+        var fileName = payload.FileName;
+        var contentType = payload.ContentType;
+        var bytes = payload.Content;
+        var lower = fileName.ToLowerInvariant();
+
+        if (lower.EndsWith(".docx", StringComparison.Ordinal)
+            || contentType.Contains("wordprocessingml", StringComparison.OrdinalIgnoreCase))
+        {
+            var emptyValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            bytes = originalDocxTemplateRender.Render(bytes, emptyValues);
+            contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            Response.Headers.Append("X-Preview-Source", "original-docx");
+        }
+        else
+        {
+            Response.Headers.Append("X-Preview-Source", "source-file");
+        }
+
+        var star = Uri.EscapeDataString(fileName);
+        Response.Headers.Append("Content-Disposition", $"inline; filename=\"file\"; filename*=UTF-8''{star}");
+        return File(bytes, contentType);
     }
 
     [HttpPost("document-templates")]
@@ -3375,6 +3425,13 @@ public class DocumentationDataController(
         var v = (value ?? string.Empty).Trim();
         if (string.IsNullOrEmpty(v))
             return string.Empty;
+
+        var lowerKey = (key ?? string.Empty).Trim().ToLowerInvariant();
+        if (lowerKey.Contains("date", StringComparison.Ordinal)
+            && DateTime.TryParse(v, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsedDate))
+        {
+            return parsedDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        }
 
         var lower = v.ToLowerInvariant();
         if (lower is "-" or "—" or "_" or "x" or "(x)" or "()" or "( )")

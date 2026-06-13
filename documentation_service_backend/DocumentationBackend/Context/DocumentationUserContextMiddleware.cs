@@ -14,6 +14,8 @@ public sealed class DocumentationUserContextMiddleware(
     IConfiguration configuration)
 {
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private readonly bool _allowHeaderContextFallback =
+        configuration.GetValue("Documentation:AllowHeaderContextFallback", false);
 
     public async Task InvokeAsync(
         HttpContext httpContext,
@@ -76,7 +78,7 @@ public sealed class DocumentationUserContextMiddleware(
             return;
         }
 
-        if (hostEnvironment.IsDevelopment())
+        if (hostEnvironment.IsDevelopment() || _allowHeaderContextFallback)
         {
             userContext.LoadFromHeaders(httpContext.Request.Headers, hostEnvironment);
             if (!await TryContinueForDataPathAsync(httpContext, userContext, path))

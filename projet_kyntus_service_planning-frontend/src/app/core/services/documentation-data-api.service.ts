@@ -1,4 +1,4 @@
-﻿import { HttpClient, HttpErrorResponse, HttpParams, HttpResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams, HttpResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, catchError, throwError } from 'rxjs';
 
@@ -356,6 +356,17 @@ export class DocumentationDataApiService {
   /** Fichier source (blob) — prévisualisation PDF/DOCX dans l’app (pas de CORS MinIO). */
   getTemplateSourceFileBlob(templateId: string): Observable<HttpResponse<Blob>> {
     return this.http.get(`${this.dataRoot}/document-templates/${encodeURIComponent(templateId)}/template-file`, {
+      observe: 'response',
+      responseType: 'blob',
+    });
+  }
+
+  /**
+   * Aperçu fidèle DOCX (rendu serveur OpenXML) ou PDF natif.
+   * En-tête optionnel X-Preview-Source: original-docx | source-file.
+   */
+  getTemplatePreviewBlob(templateId: string): Observable<HttpResponse<Blob>> {
+    return this.http.get(`${this.dataRoot}/document-templates/${encodeURIComponent(templateId)}/template-preview`, {
       observe: 'response',
       responseType: 'blob',
     });

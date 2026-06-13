@@ -2,11 +2,9 @@
   <div class="card-navy p-4 space-y-3">
     <h3 class="text-lg font-bold text-primary">Nouveau modèle RH</h3>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-      <input class="doc-field" [(ngModel)]="form.code" placeholder="Code modèle" />
       <input
-        class="doc-field"
+        class="doc-field md:col-span-2"
         [(ngModel)]="form.name"
-        (ngModelChange)="onNameChanged($event)"
         placeholder="Nom du modèle"
       />
       <input
@@ -45,27 +43,19 @@
         <span class="template-action-button__label">
           @if (creatingTemplate) {
             <span class="template-action-button__spinner" aria-hidden="true"></span>
-            <span>Création…</span>
+            <span>{{ createProgressLabel ?? 'Création…' }}</span>
           } @else {
             <span>Créer</span>
           }
         </span>
       </button>
     </div>
+    <app-doc-inline-feedback
+      [message]="createFormFeedback?.message ?? null"
+      [tone]="createFormFeedback?.tone ?? 'info'"
+    ></app-doc-inline-feedback>
   </div>
 
-  @if (lastMessage) {
-    <p
-      class="text-sm rounded-lg border px-3 py-2"
-      [ngClass]="{
-        'border-emerald-500/35 bg-emerald-950/40 text-emerald-100': bannerToneComputed === 'success',
-        'border-amber-500/35 bg-amber-950/35 text-amber-100': bannerToneComputed === 'info',
-        'border-red-500/40 bg-red-950/35 text-red-100': bannerToneComputed === 'error',
-      }"
-    >
-      {{ lastMessage }}
-    </p>
-  }
   @if (loading) {
     <p class="text-muted text-sm">Chargement des modèles…</p>
   } @else if (error) {
@@ -89,6 +79,10 @@
       }
     </button>
   </div>
+  <app-doc-inline-feedback
+    [message]="cleanupFeedback?.message ?? null"
+    [tone]="cleanupFeedback?.tone ?? 'info'"
+  ></app-doc-inline-feedback>
 
   <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
     @if (!loading && !error && templates.length === 0) {
@@ -233,6 +227,10 @@
               </span>
             </button>
           </div>
+          <app-doc-inline-feedback
+            [message]="cardFeedbackFor(template.id)?.message ?? null"
+            [tone]="cardFeedbackFor(template.id)?.tone ?? 'info'"
+          ></app-doc-inline-feedback>
         </div>
       </div>
     }
@@ -460,6 +458,10 @@
             }
           </button>
         </div>
+        <app-doc-inline-feedback
+          [message]="detailPanelFeedback?.message ?? null"
+          [tone]="detailPanelFeedback?.tone ?? 'info'"
+        ></app-doc-inline-feedback>
       }
     </div>
   }
@@ -510,14 +512,21 @@
               class="h-[75vh] w-full rounded border border-default bg-slate-900"
               title="Aperçu PDF"
             ></iframe>
-          } @else if (previewKind === 'docx' && previewDocxHtml) {
-            <p class="mb-2 px-1 text-[10px] text-muted">
-              DOCX affiché en HTML (titres, tableaux, listes) — le rendu peut différer légèrement de Word.
-            </p>
-            <div
-              class="max-h-[75vh] overflow-y-auto rounded border border-default bg-white p-6 text-left text-sm text-slate-900 shadow-inner [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_p]:mb-2 [&_table]:my-2 [&_table]:w-full [&_table]:max-w-full [&_table]:border-collapse [&_table]:text-xs [&_td]:border [&_td]:border-slate-300 [&_td]:p-1.5 [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-1.5 [&_th]:text-left [&_th]:font-semibold [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-6"
-              [innerHTML]="previewDocxHtml"
-            ></div>
+          } @else if (previewKind === 'docx-file' && previewBlobUrl) {
+            <div class="flex h-[75vh] flex-col items-center justify-center gap-4 p-8 text-center">
+              <p class="text-sm text-primary">
+                Aperçu DOCX fidèle (mise en page préservée côté serveur). Téléchargez le fichier pour l’ouvrir dans Word.
+              </p>
+              <a
+                class="btn-download no-underline"
+                [href]="previewBlobUrl"
+                [attr.download]="previewFileName ?? 'modele.docx'"
+                (click)="$event.stopPropagation()"
+              >
+                <span aria-hidden="true">⬇</span>
+                <span>Télécharger le DOCX</span>
+              </a>
+            </div>
           } @else if (previewKind === 'other') {
             <div class="space-y-3 p-6 text-center text-sm text-primary">
               <p>Aperçu intégré non disponible pour ce type de fichier.</p>

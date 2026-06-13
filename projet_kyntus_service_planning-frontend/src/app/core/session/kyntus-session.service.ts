@@ -4,7 +4,40 @@ import { KYNTUS_JWT_CLAIMS, type KyntusStoredUser } from './kyntus-session.const
 @Injectable({ providedIn: 'root' })
 export class KyntusSessionService {
   getToken(): string | null {
-    return localStorage.getItem('token') || localStorage.getItem('accessToken');
+    const token =
+      localStorage.getItem('token') ||
+      localStorage.getItem('accessToken') ||
+      localStorage.getItem('access_token');
+    if (!token?.trim()) return null;
+    if (!this.isTokenNotExpired(token)) {
+      this.clearAuthStorage();
+      return null;
+    }
+    return token;
+  }
+
+  isAuthenticated(): boolean {
+    return !!this.getToken();
+  }
+
+  /** Retire les jetons expirés ou illisibles pour permettre le repli en-têtes documentation. */
+  private isTokenNotExpired(token: string): boolean {
+    try {
+      const part = token.split('.')[1];
+      if (!part) return false;
+      const payload = JSON.parse(atob(part)) as { exp?: unknown };
+      const exp = typeof payload.exp === 'number' ? payload.exp : Number(payload.exp);
+      if (!Number.isFinite(exp) || exp <= 0) return true;
+      return exp * 1000 > Date.now() + 5_000;
+    } catch {
+      return false;
+    }
+  }
+
+  private clearAuthStorage(): void {
+    localStorage.removeItem('token');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('access_token');
   }
 
   getStoredUser(): KyntusStoredUser | null {
@@ -50,10 +83,6 @@ export class KyntusSessionService {
     const raw = this.getJwtPayload()[KYNTUS_JWT_CLAIMS.nameIdentifier];
     const n = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
     return Number.isFinite(n) ? n : 0;
-  }
-
-  isAuthenticated(): boolean {
-    return !!this.getToken();
   }
 
   private getJwtRole(): string {

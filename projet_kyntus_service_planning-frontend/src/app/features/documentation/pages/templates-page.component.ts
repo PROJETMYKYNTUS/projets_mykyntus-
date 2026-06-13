@@ -1,26 +1,34 @@
-﻿import { CommonModule } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
+import { CommonModule } from '@angular/common';
+import { HttpErrorResponse, HttpResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-browser';
-import mammoth from 'mammoth';
-import { Subscription, forkJoin, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { Subscription, forkJoin, of, Observable, throwError } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 
 import { DocumentationDataApiService } from '../../../core/services/documentation-data-api.service';
-import { DocumentationNotificationService } from '../../../core/services/documentation-notification.service';
+import { DocumentationIdentityService } from '../../../core/services/documentation-identity.service';
+import { KyntusSessionService } from '../../../core/session/kyntus-session.service';
 import type {
   DocumentTemplateDetailDto,
   DocumentTemplateListItemDto,
   TemplateVariableDto,
 } from '../../../core/models/documentation.models';
-import { formatDocumentationUxMessage } from '../../../core/lib/documentation-ux-messages';
+import { formatDocumentationUxMessage, formatDocumentationValidationError } from '../../../core/lib/documentation-ux-messages';
+import {
+  buildSampleJsonFromVariables,
+  buildSampleValuesFromVariables,
+} from '../../../core/lib/documentation-template-sample.util';
 import { DocIconComponent } from '../components/doc-icon/doc-icon.component';
+import {
+  DocInlineFeedbackComponent,
+  DocInlineFeedbackTone,
+} from '../components/doc-inline-feedback/doc-inline-feedback.component';
 
 @Component({
   standalone: true,
   selector: 'app-templates-page',
-  imports: [CommonModule, FormsModule, DocIconComponent],
+  imports: [CommonModule, FormsModule, DocIconComponent, DocInlineFeedbackComponent],
   templateUrl: './templates-page.component.html',
   styles: [`
     .template-action-row {
@@ -114,7 +122,10 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
   loading = true;
   error: string | null = null;
   selectedTemplateId: string | null = null;
-  lastMessage: string | null = null;
+  createFormFeedback: InlineFeedback | null = null;
+  detailPanelFeedback: InlineFeedback | null = null;
+  cleanupFeedback: InlineFeedback | null = null;
+  readonly cardFeedback = new Map<string, InlineFeedback>();
   uploadFile: File | null = null;
   form = {
     code: '',
@@ -129,26 +140,29 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
   testRunRendered: string | null = null;
   missingVariables: string[] = [];
 
-  /** Modale prévisualisation (PDF natif, DOCX → HTML via mammoth). */
+  /** Modale prévisualisation (PDF natif, DOCX rendu serveur). */
   previewOpen = false;
   previewLoading = false;
   previewTitle = '';
-  previewKind: 'pdf' | 'docx' | 'other' | null = null;
+  previewKind: 'pdf' | 'docx' | 'docx-file' | 'other' | null = null;
   previewPdfSafeUrl: SafeResourceUrl | null = null;
-  previewDocxHtml: SafeHtml | null = null;
   previewFileName: string | null = null;
   /** URL blob pour iframe PDF / lien Télécharger — public pour le template. */
   previewBlobUrl: string | null = null;
   cleaningDrafts = false;
   creatingTemplate = false;
+  createProgressLabel: string | null = null;
   private readonly templateActionLoading = new Map<string, TemplateAction>();
+  private readonly feedbackTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly previewBlobCache = new Map<string, Blob>();
 
   private sub = new Subscription();
 
   constructor(
     private readonly data: DocumentationDataApiService,
+    private readonly identity: DocumentationIdentityService,
+    private readonly session: KyntusSessionService,
     private readonly sanitizer: DomSanitizer,
-    private readonly notify: DocumentationNotificationService,
   ) {}
 
   ngOnInit(): void {
@@ -174,67 +188,45 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     );
   }
 
-  /** Couleur de la bannière selon le libellé (sans toucher à la logique métier des messages). */
-  get bannerToneComputed(): 'success' | 'error' | 'info' {
-    const raw = this.lastMessage ?? '';
-    if (!raw.trim()) return 'success';
-    const m = raw.toLowerCase();
-    if (
-      m.includes('échec') ||
-      m.includes('impossible') ||
-      m.includes('refus') ||
-      m.includes('introuvable') ||
-      m.includes('bloqué')
-    ) {
-      return 'error';
-    }
-    if (
-      m.includes('obligatoire') ||
-      m.includes('choisissez un fichier') ||
-      m.includes('choisissez un') ||
-      m.includes('activez le modèle') ||
-      m.includes('renseignez') ||
-      m.includes('nom technique') ||
-      m.includes('json de données') ||
-      m.includes('double') ||
-      m.includes('invalide')
-    ) {
-      return 'info';
-    }
-    return 'success';
-  }
-
-  ngOnDestroy(): void {
-    this.closePreview();
-    this.sub.unsubscribe();
+  /** Feedback inline pour une carte modèle. */
+  cardFeedbackFor(templateId: string): InlineFeedback | null {
+    return this.cardFeedback.get(templateId) ?? null;
   }
 
   generate(t: DocumentTemplateListItemDto): void {
     if (this.isTemplateActionLoading(t.id)) return;
     if (!t.isActive) {
-      this.lastMessage = 'Activez le modèle (bouton Activer) avant de générer un PDF.';
+      this.setCardFeedback(t.id, 'Activez le modèle (bouton Activer) avant de générer un PDF.', 'info');
       return;
     }
     this.setTemplateActionLoading(t.id, 'generate');
-    this.lastMessage = null;
-    const sample = this.parseSampleData() ?? {};
-    const body: { documentTypeId?: string; variables: Record<string, string> } = { variables: sample };
-    if (t.documentTypeId?.trim()) body.documentTypeId = t.documentTypeId.trim();
+    this.clearCardFeedback(t.id);
     this.sub.add(
-      this.data.generateFromDocumentTemplate(t.id, body).subscribe({
-        next: (res) => {
-          this.clearTemplateActionLoading(t.id);
-          this.lastMessage = `Généré : ${res.fileName} — ${res.storageUri}`;
-          this.notify.showSuccess('Document généré avec succès.');
-          this.reloadTemplates();
+      this.data.getDocumentTemplate(t.id).subscribe({
+        next: (detail) => {
+          const vars = detail.currentVersion?.variables ?? [];
+          const sample = buildSampleValuesFromVariables(vars);
+          const body: { documentTypeId?: string; variables: Record<string, string> } = { variables: sample };
+          if (t.documentTypeId?.trim()) body.documentTypeId = t.documentTypeId.trim();
+          this.data.generateFromDocumentTemplate(t.id, body).subscribe({
+            next: (res) => {
+              this.clearTemplateActionLoading(t.id);
+              this.setCardFeedback(t.id, `Généré : ${res.fileName}`, 'success');
+              this.reloadTemplates();
+            },
+            error: (err) => {
+              this.clearTemplateActionLoading(t.id);
+              this.setCardFeedback(
+                t.id,
+                formatDocumentationValidationError(err, 'Échec de la génération.'),
+                'error',
+              );
+            },
+          });
         },
         error: (err) => {
           this.clearTemplateActionLoading(t.id);
-          this.lastMessage = this.apiErrorMessage(
-            err,
-            'Échec de la génération (vérifiez les en-têtes et la session).',
-          );
-          this.notify.showError(this.lastMessage);
+          this.setCardFeedback(t.id, this.apiErrorMessage(err, 'Impossible de charger le modèle.'), 'error');
         },
       }),
     );
@@ -242,15 +234,15 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
 
   createTemplate(): void {
     if (this.creatingTemplate) return;
-    this.lastMessage = null;
+    this.clearCreateFeedback();
     if (!this.form.name.trim()) {
-      this.lastMessage = 'Le nom est obligatoire.';
+      this.setCreateFeedback('Le nom est obligatoire.', 'info');
       return;
     }
 
     const effectiveCode = this.resolveTemplateCode();
     if (!effectiveCode) {
-      this.lastMessage = 'Impossible de générer un code template. Renseignez le nom ou le code.';
+      this.setCreateFeedback('Impossible de générer un code template. Renseignez le nom.', 'info');
       return;
     }
 
@@ -258,6 +250,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
 
     if (this.uploadFile) {
       this.creatingTemplate = true;
+      this.createProgressLabel = 'Envoi du fichier…';
       this.sub.add(
         this.data
           .createTemplateFromUploadFile({
@@ -271,24 +264,27 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
           .subscribe({
             next: (res) => {
               this.creatingTemplate = false;
-              this.lastMessage = `Le modèle « ${res.name} » a été créé avec succès. Ouvrez le détail pour vérifier les formulaires Pilote / RH.`;
-              this.notify.showSuccess('Modèle créé. Vérifiez les formulaires dans le détail du modèle.');
+              this.createProgressLabel = null;
+              this.setCreateFeedback(
+                `Le modèle « ${res.name} » a été créé. Ouvrez le détail pour vérifier les formulaires Pilote / RH.`,
+                'success',
+              );
               this.clearForm();
               this.reloadTemplates(() => this.selectTemplate(res.id));
             },
             error: (err) => {
               this.creatingTemplate = false;
-              this.lastMessage = this.apiErrorMessage(
-                err,
-                "Échec de l'import du modèle. Vérifiez le stockage des fichiers puis réessayez.",
+              this.createProgressLabel = null;
+              this.setCreateFeedback(
+                this.apiErrorMessage(err, "Échec de l'import du modèle. Vérifiez le stockage des fichiers puis réessayez."),
+                'error',
               );
-              this.notify.showError(this.lastMessage);
             },
           }),
       );
       return;
     }
-    this.lastMessage = 'Choisissez un fichier modèle (PDF ou DOCX) via « Importer ».';
+    this.setCreateFeedback('Choisissez un fichier modèle (PDF ou DOCX) via « Importer ».', 'info');
   }
 
   selectTemplate(templateId: string, afterLoad?: () => void): void {
@@ -302,7 +298,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
         next: (res) => {
           this.clearTemplateActionLoading(templateId);
           this.selectedTemplate = this.normalizeTemplateDetailScopes(res);
-          this.sampleDataRaw = this.buildSampleJsonFromVariables(this.selectedTemplate.currentVersion?.variables ?? []);
+          this.sampleDataRaw = buildSampleJsonFromVariables(this.selectedTemplate.currentVersion?.variables ?? []);
           window.setTimeout(() => {
             const el = document.getElementById('template-detail-panel');
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -311,8 +307,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.clearTemplateActionLoading(templateId);
-          this.lastMessage = 'Impossible de charger le détail du template.';
-          this.notify.showError(this.lastMessage);
+          this.setDetailFeedback('Impossible de charger le détail du template.', 'error');
         },
       }),
     );
@@ -327,34 +322,32 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
   downloadTemplateSource(t: DocumentTemplateListItemDto): void {
     if (this.isTemplateActionLoading(t.id)) return;
     this.setTemplateActionLoading(t.id, 'downloadSource');
+    this.clearCardFeedback(t.id);
     this.sub.add(
-      this.data.getTemplateSourceFileBlob(t.id).subscribe({
+      this.ensureDocumentationProfile().pipe(
+        switchMap((ready) => {
+          if (!ready) {
+            return throwError(() => new HttpErrorResponse({ status: 401, error: { message: 'Session expirée — reconnectez-vous.' } }));
+          }
+          return this.fetchTemplateSourceWithRetry(t.id);
+        }),
+      ).subscribe({
         next: (resp) => {
           this.clearTemplateActionLoading(t.id);
           const blob = resp.body;
           if (!blob?.size) {
-            this.lastMessage = 'Fichier vide ou introuvable.';
-            this.notify.showError(this.lastMessage);
+            this.setCardFeedback(t.id, 'Fichier vide ou introuvable.', 'error');
             return;
           }
           const fn =
             this.fileNameFromContentDisposition(resp.headers.get('content-disposition')) ??
             `${(t.name || 'modele').replace(/[/\\?%*:|"<>]/g, '_')}`;
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fn;
-          a.rel = 'noopener';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          this.notify.showSuccess('Téléchargement démarré.');
+          this.triggerBrowserDownload(blob, fn);
+          this.setCardFeedback(t.id, 'Téléchargement démarré.', 'success');
         },
         error: (err: HttpErrorResponse) => {
           this.clearTemplateActionLoading(t.id);
-          this.lastMessage = this.apiErrorMessage(err, 'Échec du téléchargement du modèle.');
-          this.notify.showError(this.lastMessage);
+          this.setCardFeedback(t.id, this.apiErrorMessage(err, 'Échec du téléchargement du modèle.'), 'error');
         },
       }),
     );
@@ -370,7 +363,6 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     this.previewLoading = false;
     this.previewKind = null;
     this.previewPdfSafeUrl = null;
-    this.previewDocxHtml = null;
     this.previewFileName = null;
     if (this.previewBlobUrl) {
       URL.revokeObjectURL(this.previewBlobUrl);
@@ -384,26 +376,42 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
   }
 
   private openTemplatePreview(templateId: string, title: string): void {
-    this.lastMessage = null;
     this.closePreview();
     this.previewOpen = true;
     this.previewLoading = true;
     this.previewTitle = title;
 
     this.sub.add(
-      this.data.getTemplateSourceFileBlob(templateId).subscribe({
+      this.ensureDocumentationProfile().pipe(
+        switchMap((ready) => {
+          if (!ready) {
+            return throwError(() => new HttpErrorResponse({ status: 401, error: { message: 'Session expirée — reconnectez-vous.' } }));
+          }
+          const cached = this.previewBlobCache.get(templateId);
+          if (cached) {
+            return of(new HttpResponse({ body: cached, status: 200, statusText: 'OK' }));
+          }
+          return this.data.getTemplatePreviewBlob(templateId).pipe(
+            map((resp) => {
+              if (resp.body?.size) {
+                this.previewBlobCache.set(templateId, resp.body);
+              }
+              return resp;
+            }),
+          );
+        }),
+      ).subscribe({
         next: (resp) => {
           const blob = resp.body;
           if (!blob || blob.size === 0) {
             this.previewLoading = false;
             this.previewOpen = false;
             this.clearTemplateActionLoading(templateId);
-            this.lastMessage = 'Fichier vide ou introuvable.';
-            this.notify.showError(this.lastMessage);
+            this.setCardFeedback(templateId, 'Fichier vide ou introuvable.', 'error');
             return;
           }
-          const headerCt = resp.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
-          const fn = this.fileNameFromContentDisposition(resp.headers.get('content-disposition')) ?? 'document';
+          const headerCt = resp.headers?.get('content-type')?.split(';')[0]?.trim() ?? blob.type;
+          const fn = this.fileNameFromContentDisposition(resp.headers?.get('content-disposition') ?? null) ?? 'document';
           this.previewFileName = fn;
           void this.applyPreviewBlob(templateId, blob, headerCt, fn);
         },
@@ -411,8 +419,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
           void this.handlePreviewHttpError(err).then((msg) => {
             this.previewLoading = false;
             this.previewOpen = false;
-            this.lastMessage = msg;
-            this.notify.showError(msg);
+            this.setCardFeedback(templateId, msg, 'error');
             this.clearTemplateActionLoading(templateId);
           });
         },
@@ -444,16 +451,9 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
       ct === 'application/msword' ||
       lower.endsWith('.docx')
     ) {
-      try {
-        const buf = await blob.arrayBuffer();
-        const result = await mammoth.convertToHtml({ arrayBuffer: buf });
-        this.previewDocxHtml = this.sanitizer.bypassSecurityTrustHtml(result.value);
-        this.previewKind = 'docx';
-      } catch {
-        const url = URL.createObjectURL(blob);
-        this.previewBlobUrl = url;
-        this.previewKind = 'other';
-      }
+      const url = URL.createObjectURL(blob);
+      this.previewBlobUrl = url;
+      this.previewKind = 'docx-file';
       this.previewLoading = false;
       this.clearTemplateActionLoading(templateId);
       return;
@@ -511,33 +511,25 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  private buildSampleJsonFromVariables(vars: TemplateVariableDto[]): string {
-    if (vars.length === 0) {
-      return '{}';
-    }
-    const o: Record<string, string> = {};
-    for (const v of vars) {
-      o[v.name] = '';
-    }
-    return `${JSON.stringify(o, null, 2)}`;
-  }
-
   toggleTemplateStatus(template: DocumentTemplateListItemDto): void {
     if (this.isTemplateActionLoading(template.id)) return;
     this.setTemplateActionLoading(template.id, 'toggle');
+    this.clearCardFeedback(template.id);
     this.sub.add(
       this.data.setTemplateStatus(template.id, !template.isActive).subscribe({
         next: () => {
           this.clearTemplateActionLoading(template.id);
-          this.lastMessage = `Template ${template.code} ${template.isActive ? 'désactivé' : 'activé'}.`;
-          this.notify.showSuccess(template.isActive ? 'Modèle désactivé.' : 'Modèle activé.');
+          this.setCardFeedback(
+            template.id,
+            template.isActive ? 'Modèle désactivé.' : 'Modèle activé.',
+            'success',
+          );
           this.reloadTemplates();
           if (this.selectedTemplateId === template.id) this.selectTemplate(template.id);
         },
         error: () => {
           this.clearTemplateActionLoading(template.id);
-          this.lastMessage = 'Échec mise à jour du statut.';
-          this.notify.showError(this.lastMessage);
+          this.setCardFeedback(template.id, 'Échec mise à jour du statut.', 'error');
         },
       }),
     );
@@ -642,19 +634,19 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
   /** Enregistre la définition des formulaires Pilote / RH / DB (version courante). */
   savePilotDefinitions(): void {
     if (!this.selectedTemplate?.currentVersion?.variables?.length) {
-      this.lastMessage = 'Aucune variable à enregistrer.';
+      this.setDetailFeedback('Aucune variable à enregistrer.', 'info');
       return;
     }
     const names = new Set<string>();
     for (const v of this.selectedTemplate.currentVersion.variables) {
       const raw = v.name.trim();
       if (!raw) {
-        this.lastMessage = 'Chaque donnée nécessaire doit avoir un nom technique (ex: cin, rib).';
+        this.setDetailFeedback('Chaque donnée nécessaire doit avoir un nom technique (ex: cin, rib).', 'info');
         return;
       }
       const normalized = raw.toLowerCase();
       if (names.has(normalized)) {
-        this.lastMessage = `Nom de variable en double: ${raw}`;
+        this.setDetailFeedback(`Nom de variable en double: ${raw}`, 'info');
         return;
       }
       names.add(normalized);
@@ -680,14 +672,12 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
         next: (res) => {
           this.selectedTemplate = this.normalizeTemplateDetailScopes(res);
           this.pilotVarBusy = false;
-          this.lastMessage = 'Formulaires Pilote / RH / DB enregistrés.';
-          this.sampleDataRaw = this.buildSampleJsonFromVariables(this.selectedTemplate.currentVersion?.variables ?? []);
-          this.notify.showSuccess('Formulaires enregistrés.');
+          this.setDetailFeedback('Formulaires Pilote / RH / DB enregistrés.', 'success');
+          this.sampleDataRaw = buildSampleJsonFromVariables(this.selectedTemplate.currentVersion?.variables ?? []);
         },
         error: (err) => {
           this.pilotVarBusy = false;
-          this.lastMessage = this.apiErrorMessage(err, 'Échec enregistrement des formulaires.');
-          this.notify.showError(this.lastMessage);
+          this.setDetailFeedback(this.apiErrorMessage(err, 'Échec enregistrement des formulaires.'), 'error');
         },
       }),
     );
@@ -722,12 +712,12 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
         })
         .subscribe({
           next: (res) => {
-            this.lastMessage = `Version ${res.versionNumber} publiée.`;
+            this.setDetailFeedback(`Version ${res.versionNumber} publiée.`, 'success');
             this.selectTemplate(this.selectedTemplate!.id);
             this.reloadTemplates();
           },
           error: (err) => {
-            this.lastMessage = this.apiErrorMessage(err, 'Échec publication version.');
+            this.setDetailFeedback(this.apiErrorMessage(err, 'Échec publication version.'), 'error');
           },
         }),
     );
@@ -737,7 +727,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     if (!this.selectedTemplate) return;
     const sample = this.parseSampleData();
     if (!sample) {
-      this.lastMessage = 'JSON de données fictives invalide.';
+      this.setDetailFeedback('JSON de données fictives invalide.', 'info');
       return;
     }
     this.sub.add(
@@ -746,7 +736,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
           this.testRunRendered = res.renderedContent;
           this.missingVariables = res.missingVariables;
         },
-        error: () => (this.lastMessage = 'Échec test-run template.'),
+        error: () => this.setDetailFeedback('Échec test-run template.', 'error'),
       }),
     );
   }
@@ -770,16 +760,12 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     this.uploadFile = f ?? null;
   }
 
-  onNameChanged(value: string): void {
-    if (this.form.code.trim()) return;
-    this.form.code = this.buildTemplateCodeFromName(value);
-  }
-
   deleteTemplate(template: DocumentTemplateListItemDto): void {
     if (this.isTemplateActionLoading(template.id)) return;
     const ok = window.confirm(`Supprimer le template « ${template.name} » ?`);
     if (!ok) return;
     this.setTemplateActionLoading(template.id, 'delete');
+    this.clearCardFeedback(template.id);
     this.sub.add(
       this.data.deleteTemplate(template.id).subscribe({
         next: () => {
@@ -788,14 +774,12 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
             this.selectedTemplateId = null;
             this.selectedTemplate = null;
           }
-          this.lastMessage = `Template supprimé : ${template.code}`;
-          this.notify.showSuccess('Modèle supprimé.');
+          this.setCardFeedback(template.id, `Modèle supprimé : ${template.code}`, 'success');
           this.reloadTemplates();
         },
         error: (err) => {
           this.clearTemplateActionLoading(template.id);
-          this.lastMessage = this.apiErrorMessage(err, 'Suppression refusée.');
-          this.notify.showError(this.lastMessage);
+          this.setCardFeedback(template.id, this.apiErrorMessage(err, 'Suppression refusée.'), 'error');
         },
       }),
     );
@@ -805,7 +789,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     if (this.cleaningDrafts) return;
     const candidates = this.templates.filter((t) => !t.isActive);
     if (candidates.length === 0) {
-      this.lastMessage = 'Aucun template inactif à nettoyer.';
+      this.setCleanupFeedback('Aucun template inactif à nettoyer.', 'info');
       return;
     }
     const ok = window.confirm(
@@ -832,16 +816,19 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
           const success = results.filter((r) => r.ok).length;
           const fails = results.filter((r) => !r.ok);
           if (fails.length === 0) {
-            this.lastMessage = `Nettoyage terminé : ${success} template(s) supprimé(s).`;
+            this.setCleanupFeedback(`Nettoyage terminé : ${success} template(s) supprimé(s).`, 'success');
           } else {
             const sample = fails.slice(0, 3).map((f) => `${f.code}: ${f.reason}`).join(' | ');
-            this.lastMessage = `Nettoyage partiel : ${success} supprimé(s), ${fails.length} bloqué(s). ${sample}`;
+            this.setCleanupFeedback(
+              `Nettoyage partiel : ${success} supprimé(s), ${fails.length} bloqué(s). ${sample}`,
+              'info',
+            );
           }
           this.reloadTemplates();
         },
         error: () => {
           this.cleaningDrafts = false;
-          this.lastMessage = 'Échec du nettoyage des brouillons.';
+          this.setCleanupFeedback('Échec du nettoyage des brouillons.', 'error');
         },
       }),
     );
@@ -871,11 +858,119 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
   }
 
   private resolveTemplateCode(): string {
-    const explicit = this.form.code.trim().toUpperCase();
-    if (explicit) return explicit;
     const generated = this.buildTemplateCodeFromName(this.form.name);
     this.form.code = generated;
     return generated;
+  }
+
+  ngOnDestroy(): void {
+    this.closePreview();
+    for (const timer of this.feedbackTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.feedbackTimers.clear();
+    this.sub.unsubscribe();
+  }
+
+  private ensureDocumentationProfile(): Observable<boolean> {
+    if (this.identity.getCurrentUserId()?.trim()) {
+      return of(true);
+    }
+    if (!this.session.isAuthenticated()) {
+      return of(false);
+    }
+    return this.data.getDirectoryUserMe().pipe(
+      map((me) => {
+        if (me?.id?.trim()) {
+          this.identity.applyProfile(me);
+          return true;
+        }
+        return false;
+      }),
+      catchError(() => of(false)),
+    );
+  }
+
+  private fetchTemplateSourceWithRetry(templateId: string): Observable<HttpResponse<Blob>> {
+    return this.data.getTemplateSourceFileBlob(templateId).pipe(
+      catchError((err: HttpErrorResponse) => {
+        if (err.status !== 401 && err.status !== 403) {
+          return throwError(() => err);
+        }
+        return this.data.getDirectoryUserMe().pipe(
+          switchMap((me) => {
+            if (me?.id?.trim()) {
+              this.identity.applyProfile(me);
+              return this.data.getTemplateSourceFileBlob(templateId);
+            }
+            return throwError(() => err);
+          }),
+          catchError(() => throwError(() => err)),
+        );
+      }),
+    );
+  }
+
+  private triggerBrowserDownload(blob: Blob, fileName: string): void {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  private setCreateFeedback(message: string, tone: DocInlineFeedbackTone): void {
+    this.createFormFeedback = { message, tone };
+    this.scheduleFeedbackClear('create', () => (this.createFormFeedback = null));
+  }
+
+  private clearCreateFeedback(): void {
+    this.createFormFeedback = null;
+    this.clearFeedbackTimer('create');
+  }
+
+  private setDetailFeedback(message: string, tone: DocInlineFeedbackTone): void {
+    this.detailPanelFeedback = { message, tone };
+    this.scheduleFeedbackClear('detail', () => (this.detailPanelFeedback = null));
+  }
+
+  private setCardFeedback(templateId: string, message: string, tone: DocInlineFeedbackTone): void {
+    this.cardFeedback.set(templateId, { message, tone });
+    this.scheduleFeedbackClear(`card-${templateId}`, () => this.cardFeedback.delete(templateId));
+  }
+
+  private clearCardFeedback(templateId: string): void {
+    this.cardFeedback.delete(templateId);
+    this.clearFeedbackTimer(`card-${templateId}`);
+  }
+
+  private setCleanupFeedback(message: string, tone: DocInlineFeedbackTone): void {
+    this.cleanupFeedback = { message, tone };
+    this.scheduleFeedbackClear('cleanup', () => (this.cleanupFeedback = null));
+  }
+
+  private scheduleFeedbackClear(key: string, clear: () => void): void {
+    this.clearFeedbackTimer(key);
+    const delay = key.startsWith('card-') ? 7000 : 5500;
+    this.feedbackTimers.set(
+      key,
+      setTimeout(() => {
+        clear();
+        this.feedbackTimers.delete(key);
+      }, delay),
+    );
+  }
+
+  private clearFeedbackTimer(key: string): void {
+    const timer = this.feedbackTimers.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      this.feedbackTimers.delete(key);
+    }
   }
 
   private buildTemplateCodeFromName(name: string): string {
@@ -892,3 +987,8 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
 }
 
 type TemplateAction = 'detail' | 'visualize' | 'downloadSource' | 'toggle' | 'delete' | 'generate';
+
+interface InlineFeedback {
+  message: string;
+  tone: DocInlineFeedbackTone;
+}

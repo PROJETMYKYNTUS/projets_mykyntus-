@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { DocumentationGatewayDefaultHeaders } from '../models/documentation-gateway-default-headers';
+import { DocumentationHeaders } from '../models/documentation-headers';
 import { DocumentationIdentityService } from '../services/documentation-identity.service';
 import { KyntusSessionService } from '../session/kyntus-session.service';
 
@@ -35,7 +36,7 @@ export class DocumentationGatewayHeadersInterceptor implements HttpInterceptor {
       }
     }
     if (!this.session.isAuthenticated()) {
-      for (const [key, value] of Object.entries(DocumentationGatewayDefaultHeaders)) {
+      for (const [key, value] of Object.entries(this.resolveGatewayDefaultHeaders())) {
         if (!headers.has(key)) {
           headers = headers.set(key, value);
         }
@@ -43,5 +44,18 @@ export class DocumentationGatewayHeadersInterceptor implements HttpInterceptor {
     }
 
     return next.handle(req.clone({ headers }));
+  }
+
+  /** En-têtes de repli : profil RH démo si le rôle stocké indique RH, sinon pilote. */
+  private resolveGatewayDefaultHeaders(): Record<string, string> {
+    const role = (this.identity.getCurrentRole() || this.session.getRole() || '').trim().toLowerCase();
+    if (role === 'rh' || role === 'admin') {
+      return {
+        ...DocumentationGatewayDefaultHeaders,
+        [DocumentationHeaders.userId]: '11111111-1111-4111-8111-111111111102',
+        [DocumentationHeaders.userRole]: 'rh',
+      };
+    }
+    return { ...DocumentationGatewayDefaultHeaders };
   }
 }

@@ -7,6 +7,7 @@ function friendlyFallbackForStatus(status: number): string {
     case 400:
       return 'Certaines informations sont invalides. Vérifiez les champs puis réessayez.';
     case 401:
+      return 'Session expirée ou authentification requise. Reconnectez-vous puis réessayez.';
     case 403:
       return 'Vous n’avez pas les droits nécessaires pour effectuer cette action.';
     case 404:
@@ -35,6 +36,15 @@ function normalizeBackendMessage(message: string): string {
   }
   if (lower.includes('tenant') && lower.includes('header')) {
     return 'Le contexte de votre espace n’a pas pu être identifié. Rechargez la page puis réessayez.';
+  }
+  if (lower.includes('jwt') || lower.includes('authentification jwt')) {
+    return 'Session expirée. Reconnectez-vous puis réessayez.';
+  }
+  if (lower.includes('contexte utilisateur documentation incomplet')) {
+    return 'Profil documentation incomplet. Rechargez la page ou reconnectez-vous.';
+  }
+  if (lower.includes('email absent du jeton')) {
+    return 'Session invalide (email absent). Reconnectez-vous.';
   }
   if (lower.includes('identity') || lower.includes('user context')) {
     return 'Votre session est incomplète. Rechargez la page puis réessayez.';
@@ -83,4 +93,39 @@ export function formatDocumentationUxMessage(
   }
 
   return fallback?.trim() || 'Une erreur inattendue est survenue. Merci de réessayer.';
+}
+
+type ValidationErrorPayload = {
+  message?: unknown;
+  detail?: unknown;
+  title?: unknown;
+  missingVariables?: unknown;
+  invalidVariables?: unknown;
+};
+
+/** Message enrichi pour les erreurs de génération document (champs manquants / invalides). */
+export function formatDocumentationValidationError(error: unknown, fallback?: string): string {
+  if (!(error instanceof HttpErrorResponse)) {
+    return formatDocumentationUxMessage(error, fallback);
+  }
+
+  const payload = (error.error ?? null) as ValidationErrorPayload | null;
+  const base = formatDocumentationUxMessage(error, fallback);
+  const parts = [base];
+
+  const missing = Array.isArray(payload?.missingVariables)
+    ? payload!.missingVariables.filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+    : [];
+  const invalid = Array.isArray(payload?.invalidVariables)
+    ? payload!.invalidVariables.filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+    : [];
+
+  if (missing.length) {
+    parts.push(`Champs manquants : ${missing.join(', ')}`);
+  }
+  if (invalid.length) {
+    parts.push(`Champs invalides : ${invalid.join(', ')}`);
+  }
+
+  return parts.join(' — ');
 }

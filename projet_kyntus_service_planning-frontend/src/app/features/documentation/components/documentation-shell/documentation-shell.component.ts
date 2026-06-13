@@ -1,4 +1,4 @@
-﻿import { CommonModule } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { Subscription, catchError, map, of } from 'rxjs';
@@ -94,6 +94,10 @@ export class DocumentationShellComponent implements OnInit, OnDestroy {
           this.identity.applyProfile(me);
           this.nav.syncRoleFromIdentity(mapApiRoleToDocumentationRole(me.role));
           this.identity.bumpContextRevision();
+        } else if (this.session.isAuthenticated()) {
+          this.notifications.showError(
+            'Profil documentation introuvable pour votre compte. Vérifiez l’annuaire ou reconnectez-vous.',
+          );
         }
       });
   }

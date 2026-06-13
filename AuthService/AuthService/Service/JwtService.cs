@@ -24,9 +24,16 @@ namespace AuthService.Services
         {
             _configuration = configuration;
             _secretKey = _configuration["JwtSettings:Secret"] ?? throw new InvalidOperationException("JWT SecretKey non configurée");
-            _issuer = _configuration["Jwt:Issuer"] ?? "AuthService";
-            _audience = _configuration["Jwt:Audience"] ?? "AuthServiceClient";
-            _accessTokenExpirationMinutes = int.Parse(_configuration["Jwt:AccessTokenExpirationMinutes"] ?? "15");
+            _issuer = _configuration["JwtSettings:Issuer"]
+                ?? _configuration["Jwt:Issuer"]
+                ?? "AuthService";
+            _audience = _configuration["JwtSettings:Audience"]
+                ?? _configuration["Jwt:Audience"]
+                ?? "AuthServiceClient";
+            _accessTokenExpirationMinutes = int.Parse(
+                _configuration["JwtSettings:AccessTokenExpirationMinutes"]
+                ?? _configuration["Jwt:AccessTokenExpirationMinutes"]
+                ?? "60");
         }
 
         public string GenerateAccessToken(User user)

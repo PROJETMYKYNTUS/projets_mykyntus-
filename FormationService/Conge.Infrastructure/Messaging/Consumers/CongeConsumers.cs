@@ -80,7 +80,14 @@ public class EmployeUpdatedConsumer : IConsumer<EmployeUpdatedMessage>
         var managerId = msg.SupervisorId != Guid.Empty ? msg.SupervisorId : msg.ManagerId;
         var role = string.IsNullOrWhiteSpace(msg.Role) ? snapshot.Role : msg.Role;
 
-        snapshot.MettreAJour(msg.Nom, msg.Prenom, msg.Email, managerId, msg.ServiceId, msg.ServiceNom, role);
+        if (msg.SkipOrgStructureFields)
+        {
+            snapshot.MettreAJourIdentite(msg.Nom, msg.Prenom, msg.Email);
+        }
+        else
+        {
+            snapshot.MettreAJour(msg.Nom, msg.Prenom, msg.Email, managerId, msg.ServiceId, msg.ServiceNom, role);
+        }
         _employeRepo.Update(snapshot);
         await _unitOfWork.SaveChangesAsync(context.CancellationToken);
     }

@@ -15,34 +15,30 @@ public sealed class EmployePortalSyncConsumer(
     public Task Consume(ConsumeContext<EmployeCreatedMessage> context) =>
         UpsertAsync(context.Message, context.CancellationToken);
 
-    public Task Consume(ConsumeContext<EmployeUpdatedMessage> context)
-    {
-        var msg = context.Message;
-        return UpsertAsync(new EmployeCreatedMessage
-        {
-            EmployeId = msg.EmployeId,
-            Nom = msg.Nom,
-            Prenom = msg.Prenom,
-            Email = msg.Email,
-            ManagerId = msg.ManagerId,
-            ServiceId = msg.ServiceId,
-            ServiceNom = msg.ServiceNom,
-            DateEmbauche = DateTime.UtcNow,
-            EstMineur = false,
-            Role = msg.Role,
-            SubServiceId = msg.SubServiceId,
-            PrimeServiceId = msg.PrimeServiceId,
-            SupervisorId = msg.SupervisorId
-        }, context.CancellationToken);
-    }
+    public Task Consume(ConsumeContext<EmployeUpdatedMessage> context) =>
+        UpsertAsync(context.Message, context.CancellationToken);
 
-    private async Task UpsertAsync(EmployeCreatedMessage msg, CancellationToken ct)
+    private async Task UpsertAsync(EmployeCreatedMessage msg, CancellationToken ct) =>
+        await UpsertCoreAsync(msg.EmployeId, msg.Email, msg.Prenom, msg.Nom, msg.Role, msg.SupervisorId, skipRoleUpdate: false, ct);
+
+    private async Task UpsertAsync(EmployeUpdatedMessage msg, CancellationToken ct) =>
+        await UpsertCoreAsync(msg.EmployeId, msg.Email, msg.Prenom, msg.Nom, msg.Role, msg.SupervisorId, skipRoleUpdate: msg.SkipOrgStructureFields, ct);
+
+    private async Task UpsertCoreAsync(
+        Guid employeId,
+        string emailRaw,
+        string prenom,
+        string nom,
+        string planningRole,
+        Guid supervisorId,
+        bool skipRoleUpdate,
+        CancellationToken ct)
     {
-        var email = msg.Email.Trim().ToLowerInvariant();
-        var portalId = msg.EmployeId.ToString();
-        var role = KyntusPortalRoleMapping.ToParrainageRole(msg.Role);
-        var parentId = msg.SupervisorId != Guid.Empty ? msg.SupervisorId.ToString() : null;
-        var displayName = $"{msg.Prenom} {msg.Nom}".Trim();
+        var email = emailRaw.Trim().ToLowerInvariant();
+        var portalId = employeId.ToString();
+        var role = KyntusPortalRoleMapping.ToParrainageRole(planningRole);
+        var parentId = supervisorId != Guid.Empty ? supervisorId.ToString() : null;
+        var displayName = $"{prenom} {nom}".Trim();
 
         var row = await db.PortalUsers.FirstOrDefaultAsync(
             u => u.Email.ToLower() == email || u.Id == portalId, ct);
@@ -63,7 +59,8 @@ public sealed class EmployePortalSyncConsumer(
             row.Id = portalId;
             row.Email = email;
             row.Name = string.IsNullOrWhiteSpace(displayName) ? row.Name : displayName;
-            row.Role = role;
+            if (!skipRoleUpdate)
+                row.Role = role;
             if (parentId is not null)
                 row.ParentId = parentId;
         }

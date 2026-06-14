@@ -63,6 +63,7 @@ public class EmployePublisher : IEmployePublisher
         int? subServiceId = null,
         string? primeServiceId = null,
         Guid supervisorId = default,
+        bool skipOrgStructureFields = false,
         CancellationToken ct = default)
     {
         await _publishEndpoint.Publish(new EmployeUpdatedMessage
@@ -77,7 +78,8 @@ public class EmployePublisher : IEmployePublisher
             Role = role,
             SubServiceId = subServiceId,
             PrimeServiceId = primeServiceId,
-            SupervisorId = supervisorId != Guid.Empty ? supervisorId : managerId
+            SupervisorId = supervisorId != Guid.Empty ? supervisorId : managerId,
+            SkipOrgStructureFields = skipOrgStructureFields
         }, ct);
 
         _logger.LogInformation("EmployeUpdated publié → {EmployeId} rôle={Role}", employeId, role);

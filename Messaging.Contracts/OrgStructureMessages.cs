@@ -47,6 +47,8 @@ public record OrgAssignmentChangedMessage
     public OrgNodeLevel NodeLevel { get; init; }
     public string EmployeeId { get; init; } = string.Empty;
     public string? EmployeeEmail { get; init; }
+    /// <summary>Rôle métier après affectation (ex. Superviseur, Chef de projet).</summary>
+    public string? NewRole { get; init; }
     public string? ParentEmployeeId { get; init; }
     public bool Removed { get; init; }
 }

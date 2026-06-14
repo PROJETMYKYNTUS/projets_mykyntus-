@@ -36,6 +36,8 @@ public record EmployeUpdatedMessage
     public int? SubServiceId { get; init; }
     public string? PrimeServiceId { get; init; }
     public Guid SupervisorId { get; init; }
+    /// <summary>Ne pas écraser Role / périmètre org Prime (sync depuis Organisation RH).</summary>
+    public bool SkipOrgStructureFields { get; init; }
 }
 
 /// <summary>

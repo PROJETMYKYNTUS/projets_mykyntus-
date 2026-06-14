@@ -1531,15 +1531,27 @@ export class OrganisationManagementComponent implements OnInit {
     );
   });
 
+  /** Employés rattachés au nœud (legacy : department=pôle, pole=cellule, cellule=service feuille). */
+  private employeesForStructureSelection(
+    sel: OrgTreeSelection,
+    employees: readonly Employee[],
+  ): Employee[] {
+    if (sel.kind === 'department') {
+      return employees.filter((e) => e.poleId === sel.id || e.departementId === sel.id);
+    }
+    if (sel.kind === 'pole') {
+      return employees.filter((e) => e.celluleId === sel.id);
+    }
+    return employees.filter(
+      (e) => e.serviceId === sel.id || (e.serviceId === '' && e.celluleId === sel.id),
+    );
+  }
+
   /** Membres rattachés au nœud sélectionné (vue structure, panneau droit). */
   readonly structureContextMembers = computed((): Employee[] => {
     const sel = this.selection();
     const employees = this.data()?.employees ?? [];
-    let scope: Employee[];
-    if (!sel) scope = employees;
-    else if (sel.kind === 'department') scope = employees.filter((e) => e.departementId === sel.id);
-    else if (sel.kind === 'pole') scope = employees.filter((e) => e.poleId === sel.id);
-    else scope = employees.filter((e) => e.celluleId === sel.id);
+    const scope = sel ? this.employeesForStructureSelection(sel, employees) : employees;
     return [...scope].sort((a, b) =>
       `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'fr'),
     );
@@ -1563,7 +1575,7 @@ export class OrganisationManagementComponent implements OnInit {
     if (sel.kind === 'department') {
       const d = depts.find((x) => x.id === sel.id);
       const sansSup = (d?.poles ?? []).filter((p) => !this.supervisorUserId(p.id)).length;
-      const effectif = employees.filter((e) => e.departementId === sel.id).length;
+      const effectif = this.employeesForStructureSelection(sel, employees).length;
       return {
         scopeTitle: sel.name,
         effectif,
@@ -1581,7 +1593,7 @@ export class OrganisationManagementComponent implements OnInit {
         }
       }
       const sansCoach = cells.filter((c) => !this.coachUserId(c.id)).length;
-      const effectif = employees.filter((e) => e.poleId === sel.id).length;
+      const effectif = this.employeesForStructureSelection(sel, employees).length;
       return {
         scopeTitle: sel.name,
         effectif,
@@ -1591,7 +1603,7 @@ export class OrganisationManagementComponent implements OnInit {
     }
     const teams = this.teamsForCell(sel.id);
     const nPilotes = this.pilotsInCell(sel.id).length;
-    const effectif = employees.filter((e) => e.celluleId === sel.id).length;
+    const effectif = this.employeesForStructureSelection(sel, employees).length;
     const vacants =
       teams.length > 0
         ? `${Math.max(0, teams.length - nPilotes)} poste(s) pilote à compléter (approx.)`

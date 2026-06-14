@@ -255,6 +255,36 @@ public class PrimeOrgAssignmentsController(
             await afterMutationAsync();
     }
 
+    private async Task PublishStructureAssignmentAsync(
+        OrgAssignmentKind kind,
+        string nodeId,
+        OrgNodeLevel nodeLevel,
+        string employeeId,
+        bool removed,
+        CancellationToken ct)
+    {
+        string? email = null;
+        string? newRole = null;
+        if (!removed && !string.IsNullOrWhiteSpace(employeeId) && db is not null)
+        {
+            var emp = await db.Employees.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Id == employeeId.Trim(), ct);
+            email = emp?.Email;
+            newRole = emp?.Role;
+        }
+
+        await orgEvents.PublishAssignmentChangedAsync(new OrgAssignmentChangedMessage
+        {
+            Kind = kind,
+            NodeId = nodeId,
+            NodeLevel = nodeLevel,
+            EmployeeId = employeeId.Trim(),
+            EmployeeEmail = email,
+            NewRole = newRole,
+            Removed = removed
+        }, ct);
+    }
+
     /// <summary>Garantit la présence d'un employé Prime avec Id = guid Planning (liaison synchrone Gestion employés).</summary>
     [HttpPost("employees/ensure-from-planning")]
     public async Task<ActionResult<object>> EnsureEmployeeFromPlanning(
@@ -278,6 +308,15 @@ public class PrimeOrgAssignmentsController(
             ct);
 
         return Ok(new { employeeId });
+    }
+
+    /// <summary>Fusionne les employés en doublon (même email) — conserve le guid Planning si présent.</summary>
+    [HttpPost("employees/dedupe-by-email")]
+    public async Task<ActionResult<object>> DedupeEmployeesByEmail(CancellationToken ct)
+    {
+        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        var merged = await employeeDirectorySync.DedupeByEmailAsync(ct);
+        return Ok(new { merged });
     }
 
     [HttpGet("etages")]
@@ -690,14 +729,8 @@ public class PrimeOrgAssignmentsController(
             if (body is null || string.IsNullOrWhiteSpace(body.EmployeeId))
                 return BadRequest(new { error = "employeeId est requis." });
             await ExecuteOrgStructureMutationAsync(ct, () => store.SetManagerForDepartment(body.EmployeeId, poleId),
-                afterMutationAsync: () => orgEvents.PublishAssignmentChangedAsync(new OrgAssignmentChangedMessage
-                {
-                    Kind = OrgAssignmentKind.ChefDeProjet,
-                    NodeId = poleId,
-                    NodeLevel = OrgNodeLevel.Pole,
-                    EmployeeId = body.EmployeeId.Trim(),
-                    Removed = false
-                }, ct));
+                afterMutationAsync: () => PublishStructureAssignmentAsync(
+                    OrgAssignmentKind.ChefDeProjet, poleId, OrgNodeLevel.Pole, body.EmployeeId.Trim(), false, ct));
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
@@ -708,14 +741,8 @@ public class PrimeOrgAssignmentsController(
     public async Task<IActionResult> ClearManagerForDepartment(string poleId, CancellationToken ct)
     {
         await ExecuteOrgStructureMutationAsync(ct, () => store.ClearManagerForDepartment(poleId),
-            afterMutationAsync: () => orgEvents.PublishAssignmentChangedAsync(new OrgAssignmentChangedMessage
-            {
-                Kind = OrgAssignmentKind.ChefDeProjet,
-                NodeId = poleId,
-                NodeLevel = OrgNodeLevel.Pole,
-                EmployeeId = string.Empty,
-                Removed = true
-            }, ct));
+            afterMutationAsync: () => PublishStructureAssignmentAsync(
+                OrgAssignmentKind.ChefDeProjet, poleId, OrgNodeLevel.Pole, string.Empty, true, ct));
         return NoContent();
     }
 
@@ -727,14 +754,8 @@ public class PrimeOrgAssignmentsController(
             if (body is null || string.IsNullOrWhiteSpace(body.EmployeeId))
                 return BadRequest(new { error = "employeeId est requis." });
             await ExecuteOrgStructureMutationAsync(ct, () => store.SetSupervisorForPole(body.EmployeeId, celluleId),
-                afterMutationAsync: () => orgEvents.PublishAssignmentChangedAsync(new OrgAssignmentChangedMessage
-                {
-                    Kind = OrgAssignmentKind.Superviseur,
-                    NodeId = celluleId,
-                    NodeLevel = OrgNodeLevel.Cellule,
-                    EmployeeId = body.EmployeeId.Trim(),
-                    Removed = false
-                }, ct));
+                afterMutationAsync: () => PublishStructureAssignmentAsync(
+                    OrgAssignmentKind.Superviseur, celluleId, OrgNodeLevel.Cellule, body.EmployeeId.Trim(), false, ct));
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }
@@ -756,14 +777,8 @@ public class PrimeOrgAssignmentsController(
             if (body is null || string.IsNullOrWhiteSpace(body.EmployeeId))
                 return BadRequest(new { error = "employeeId est requis." });
             await ExecuteOrgStructureMutationAsync(ct, () => store.SetCoachForCellule(body.EmployeeId, serviceId),
-                afterMutationAsync: () => orgEvents.PublishAssignmentChangedAsync(new OrgAssignmentChangedMessage
-                {
-                    Kind = OrgAssignmentKind.ReferentTechnique,
-                    NodeId = serviceId,
-                    NodeLevel = OrgNodeLevel.Service,
-                    EmployeeId = body.EmployeeId.Trim(),
-                    Removed = false
-                }, ct));
+                afterMutationAsync: () => PublishStructureAssignmentAsync(
+                    OrgAssignmentKind.ReferentTechnique, serviceId, OrgNodeLevel.Service, body.EmployeeId.Trim(), false, ct));
             return NoContent();
         }
         catch (KeyNotFoundException e) { return NotFound(new { error = e.Message }); }

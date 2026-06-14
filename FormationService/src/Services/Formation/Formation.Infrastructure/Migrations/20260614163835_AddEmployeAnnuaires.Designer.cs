@@ -3,6 +3,7 @@ using System;
 using Formation.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Formation.Infrastructure.Migrations
 {
     [DbContext(typeof(FormationDbContext))]
-    partial class FormationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260614163835_AddEmployeAnnuaires")]
+    partial class AddEmployeAnnuaires
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

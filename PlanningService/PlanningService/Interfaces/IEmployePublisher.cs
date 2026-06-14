@@ -33,6 +33,7 @@ public interface IEmployePublisher
         int? subServiceId = null,
         string? primeServiceId = null,
         Guid supervisorId = default,
+        bool skipOrgStructureFields = false,
         CancellationToken ct = default);
 
     Task PublishSoldeAnnuelAsync(

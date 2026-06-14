@@ -1,6 +1,13 @@
 import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import { PrimeCardComponent } from '../components/prime-card.component';
-import { resolveEmployeeOrgLabels } from '../lib/org-display-labels';
+import {
+  dedupeEmployeesByEmail,
+  employeesInChefProjetPole,
+  resolveChefProjetPoleId,
+  resolvePlatformOrgLabels,
+} from '../../../core/org/platform-org-perimeter';
+import { PrimeOrgApiService } from '../services/prime-org-api.service';
 import { PrimeService } from '../services/prime.service';
 import { RoleService } from '../state/role.service';
 
@@ -70,6 +77,7 @@ interface ScopeRow {
 })
 export class ChefProjetScopePageComponent {
   private readonly roleService = inject(RoleService);
+  private readonly orgApi = inject(PrimeOrgApiService);
 
   readonly rows = signal<ScopeRow[]>([]);
   readonly loading = signal(true);
@@ -84,12 +92,17 @@ export class ChefProjetScopePageComponent {
 
   private fetch(): void {
     this.loading.set(true);
-    const poleId = this.roleService.currentUser().poleId;
-    void Promise.all([PrimeService.getEmployees(), PrimeService.getDepartments()]).then(([employees, departments]) => {
-      const scopeEmployees = employees.filter((e) => e.poleId === poleId);
+    const current = this.roleService.currentUser();
+    void Promise.all([
+      PrimeService.getEmployees(),
+      PrimeService.getDepartments(),
+      firstValueFrom(this.orgApi.loadOverview()),
+    ]).then(([employees, departments, overview]) => {
+      const poleId = resolveChefProjetPoleId(current.id, current, overview ?? null);
+      const scopeEmployees = dedupeEmployeesByEmail(employeesInChefProjetPole(employees, poleId));
 
       const mapped: ScopeRow[] = scopeEmployees.map((e) => {
-        const labels = resolveEmployeeOrgLabels(e, departments);
+        const labels = resolvePlatformOrgLabels(e, departments, overview ?? null);
         return {
           id: e.id,
           fullName: `${e.firstName} ${e.lastName}`,

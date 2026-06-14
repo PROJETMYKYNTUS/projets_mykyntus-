@@ -90,6 +90,23 @@ public class EmployeSnapshotRepository : IEmployeSnapshotRepository
         => await _context.EmployeSnapshots
             .FirstOrDefaultAsync(e => e.EmployeId == employeId, ct);
 
+    public async Task<EmployeSnapshot?> GetByEmployeIdOrEmailAsync(
+        Guid employeId,
+        string? email,
+        CancellationToken ct = default)
+    {
+        var row = await GetByEmployeIdAsync(employeId, ct);
+        if (row is not null)
+            return row;
+
+        if (string.IsNullOrWhiteSpace(email))
+            return null;
+
+        var normalized = email.Trim().ToLowerInvariant();
+        return await _context.EmployeSnapshots
+            .FirstOrDefaultAsync(e => e.Email.ToLower() == normalized, ct);
+    }
+
     public async Task<IEnumerable<EmployeSnapshot>> GetByManagerIdAsync(Guid managerId, CancellationToken ct = default)
         => await _context.EmployeSnapshots
             .Where(e => e.ManagerId == managerId)

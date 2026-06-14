@@ -1,12 +1,13 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  effect,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import { PrimeCardComponent } from '../components/prime-card.component';
-import { resolveEmployeeOrgLabels } from '../lib/org-display-labels';
+import {
+  dedupeEmployeesByEmail,
+  employeesInSuperviseurCellule,
+  resolvePlatformOrgLabels,
+  resolveSuperviseurCelluleId,
+} from '../../../core/org/platform-org-perimeter';
+import { PrimeOrgApiService } from '../services/prime-org-api.service';
 import { PrimeService } from '../services/prime.service';
 import { RoleService } from '../state/role.service';
 
@@ -33,7 +34,7 @@ interface ScopeRow {
         <div>
           <h1 class="prime-page-title">Périmètre Superviseur</h1>
           <p class="prime-page-subtitle">
-            Vue des référents techniques et pilotes rattachés au superviseur courant (même périmètre qu’avant « coachs »).
+            Collaborateurs rattachés à la cellule que vous supervisez (référents techniques, pilotes).
           </p>
         </div>
 
@@ -57,9 +58,7 @@ interface ScopeRow {
                 } @else {
                   @for (item of rows(); track item.id) {
                     <tr>
-                      <td>
-                        <span class="prime-cell-strong">{{ item.fullName }}</span>
-                      </td>
+                      <td><span class="prime-cell-strong">{{ item.fullName }}</span></td>
                       <td><span class="prime-cell-muted">{{ item.role }}</span></td>
                       <td><span class="prime-cell-muted">{{ item.pole }}</span></td>
                       <td><span class="prime-cell-muted">{{ item.cellule }}</span></td>
@@ -78,6 +77,7 @@ interface ScopeRow {
 })
 export class SuperviseurScopePageComponent {
   private readonly roleService = inject(RoleService);
+  private readonly orgApi = inject(PrimeOrgApiService);
 
   readonly rows = signal<ScopeRow[]>([]);
   readonly loading = signal(true);
@@ -91,37 +91,32 @@ export class SuperviseurScopePageComponent {
 
   private fetch(): void {
     this.loading.set(true);
-    const userId = this.roleService.currentUser().id;
-    void Promise.all([PrimeService.getEmployees(), PrimeService.getDepartments()]).then(
-      ([employees, departments]) => {
-        const directReferents = employees.filter(
-          (e) =>
-            (e.role === 'Référent technique' || e.role === 'Coach') && e.parentId === userId,
-        );
-        const referentIds = new Set(directReferents.map((c) => c.id));
-        const scopeEmployees = employees.filter(
-          (e) =>
-            e.id === userId ||
-            referentIds.has(e.id) ||
-            (e.role === 'Pilote' && e.parentId !== undefined && referentIds.has(e.parentId)),
-        );
+    const current = this.roleService.currentUser();
+    void Promise.all([
+      PrimeService.getEmployees(),
+      PrimeService.getDepartments(),
+      firstValueFrom(this.orgApi.loadOverview()),
+    ]).then(([employees, departments, overview]) => {
+      const celluleId = resolveSuperviseurCelluleId(current.id, current, overview ?? null);
+      const scopeEmployees = dedupeEmployeesByEmail(
+        employeesInSuperviseurCellule(employees, celluleId),
+      );
 
-        const mapped: ScopeRow[] = scopeEmployees.map((e) => {
-          const labels = resolveEmployeeOrgLabels(e, departments);
-          return {
-            id: e.id,
-            fullName: `${e.firstName} ${e.lastName}`,
-            role: e.role,
-            pole: labels.pole,
-            cellule: labels.cellule,
-            service: labels.service,
-          };
-        });
+      const mapped: ScopeRow[] = scopeEmployees.map((e) => {
+        const labels = resolvePlatformOrgLabels(e, departments, overview ?? null);
+        return {
+          id: e.id,
+          fullName: `${e.firstName} ${e.lastName}`,
+          role: e.role,
+          pole: labels.pole,
+          cellule: labels.cellule,
+          service: labels.service,
+        };
+      });
 
-        mapped.sort((a, b) => a.fullName.localeCompare(b.fullName));
-        this.rows.set(mapped);
-        this.loading.set(false);
-      },
-    );
+      mapped.sort((a, b) => a.fullName.localeCompare(b.fullName));
+      this.rows.set(mapped);
+      this.loading.set(false);
+    });
   }
 }

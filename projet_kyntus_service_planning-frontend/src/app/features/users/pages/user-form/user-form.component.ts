@@ -622,8 +622,11 @@ export class UserFormComponent implements OnInit {
     }
     return null;
   }
-  private buildCreateUserDto(): CreateUserDto {
-    const depth = this.orgAssignmentDepth;
+  /** Champs communs création / édition — recalcule managed* depuis les sélecteurs org. */
+  private buildUserMutationDto(): Pick<
+    CreateUserDto,
+    'roleId' | 'subServiceId' | 'managedSubServiceIds' | 'managedServiceIds' | 'firstName' | 'lastName' | 'email' | 'level'
+  > {
     const roleName = this.selectedRoleName;
     let subServiceId = this.form.subServiceId ?? undefined;
     let managedServiceIds: number[] = [];
@@ -645,8 +648,13 @@ export class UserFormComponent implements OnInit {
       firstName: this.form.firstName,
       lastName: this.form.lastName,
       email: this.form.email,
-      hireDate: this.toISOString(this.form.hireDate),
       level: this.form.level,
+    };
+  }
+  private buildCreateUserDto(): CreateUserDto {
+    return {
+      ...this.buildUserMutationDto(),
+      hireDate: this.toISOString(this.form.hireDate),
     };
   }
   private applyPrimeStructureAssignment(
@@ -759,16 +767,9 @@ export class UserFormComponent implements OnInit {
     const hireDateISO = this.toISOString(this.form.hireDate);
     if (this.isEditMode && this.userId) {
       const dto: UpdateUserDto = {
-        roleId: this.resolvedRoleId(),
-        subServiceId: this.form.subServiceId ?? undefined,
-        managedSubServiceIds: this.loadedManagedSubServiceIds,
-        managedServiceIds: this.loadedManagedServiceIds,
-        firstName: this.form.firstName,
-        lastName: this.form.lastName,
-        email: this.form.email,
+        ...this.buildUserMutationDto(),
         hireDate: hireDateISO,
         isActive: this.form.isActive,
-        level: this.form.level,
       };
       this.userService.updateUser(this.userId, dto).pipe(
         switchMap(() => {

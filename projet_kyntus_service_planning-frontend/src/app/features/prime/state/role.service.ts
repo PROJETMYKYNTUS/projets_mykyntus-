@@ -30,7 +30,7 @@ export class RoleService {
   readonly currentUser = computed<Employee>(() => {
     const role = this.currentRole();
     const list = this.employees();
-    return resolveEmployeeForRole(list, role, this.selectedUserId());
+    return resolveEmployeeForRole(list, role, this.selectedUserId(), this.session.getEmail());
   });
 
   private employeesRequested = false;
@@ -93,7 +93,15 @@ export class RoleService {
       return;
     }
     const stored = this.selectedUserId();
-    const resolved = resolveEmployeeForRole(list, role, stored);
+    if (stored && !list.some((e) => e.id === stored)) {
+      try {
+        sessionStorage.removeItem(USER_STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+      this.selectedUserId.set(null);
+    }
+    const resolved = resolveEmployeeForRole(list, role, this.selectedUserId(), email);
     if (!stored || stored !== resolved.id) this.setUserId(resolved.id);
   }
 

@@ -37,6 +37,7 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<EmployeCreatedConsumer>();
     x.AddConsumer<EmployeUpdatedConsumer>();
     x.AddConsumer<SoldeAnnuelInitialiseConsumer>();
+    x.AddConsumer<OrgAssignmentCongeSyncConsumer>();
 
     x.UsingRabbitMq((ctx, cfg) =>
     {
@@ -62,6 +63,12 @@ builder.Services.AddMassTransit(x =>
         {
             e.Bind("Kyntus.Messaging.Contracts:SoldeAnnuelInitialiseMessage");
             e.ConfigureConsumer<SoldeAnnuelInitialiseConsumer>(ctx);
+        });
+
+        cfg.ReceiveEndpoint("conge-org-assignment", e =>
+        {
+            e.Bind("Kyntus.Messaging.Contracts:OrgAssignmentChangedMessage");
+            e.ConfigureConsumer<OrgAssignmentCongeSyncConsumer>(ctx);
         });
 
         cfg.ConfigureEndpoints(ctx);

@@ -49,8 +49,104 @@ public sealed class OrgStructureConsumer(AppDbContext db, ILogger<OrgStructureCo
         await db.SaveChangesAsync();
     }
 
-    public Task Consume(ConsumeContext<OrgAssignmentChangedMessage> context) =>
-        Task.CompletedTask;
+    public async Task Consume(ConsumeContext<OrgAssignmentChangedMessage> context)
+    {
+        var msg = context.Message;
+        if (msg.Removed || string.IsNullOrWhiteSpace(msg.EmployeeId))
+            return;
+
+        var user = await ResolveUserAsync(msg, context.CancellationToken);
+        if (user is null)
+        {
+            logger.LogWarning(
+                "OrgAssignmentChanged : utilisateur introuvable id={EmployeeId} email={Email}",
+                msg.EmployeeId,
+                msg.EmployeeEmail);
+            return;
+        }
+
+        var roleName = ResolveRoleName(msg);
+        var role = await db.Roles.FirstOrDefaultAsync(r => r.Name == roleName, context.CancellationToken);
+        if (role is not null)
+            user.RoleId = role.Id;
+
+        await ClearManagedLinksAsync(user.Id, context.CancellationToken);
+
+        if (msg.Kind == OrgAssignmentKind.Superviseur && !string.IsNullOrWhiteSpace(msg.NodeId))
+        {
+            var planningService = await db.Services
+                .FirstOrDefaultAsync(s => s.PrimeCelluleId == msg.NodeId.Trim(), context.CancellationToken);
+            if (planningService is not null)
+            {
+                db.UserManagedServices.Add(new UserManagedService
+                {
+                    UserId = user.Id,
+                    ServiceId = planningService.Id
+                });
+            }
+        }
+        else if (msg.Kind == OrgAssignmentKind.ReferentTechnique && !string.IsNullOrWhiteSpace(msg.NodeId))
+        {
+            var sub = await db.SubServices
+                .FirstOrDefaultAsync(s => s.PrimeServiceId == msg.NodeId.Trim(), context.CancellationToken);
+            if (sub is not null)
+            {
+                user.SubServiceId = sub.Id;
+                db.UserSubServices.Add(new UserSubService { UserId = user.Id, SubServiceId = sub.Id });
+            }
+        }
+        else if (msg.Kind == OrgAssignmentKind.ChefDeProjet)
+        {
+            user.SubServiceId = null;
+        }
+
+        await db.SaveChangesAsync(context.CancellationToken);
+        logger.LogInformation(
+            "Planning miroir OrgAssignment {Kind} user={UserId} rôle={Role}",
+            msg.Kind,
+            user.Id,
+            roleName);
+    }
+
+    private static string ResolveRoleName(OrgAssignmentChangedMessage msg)
+    {
+        if (!string.IsNullOrWhiteSpace(msg.NewRole))
+            return KyntusRoleNames.NormalizePlanningRole(msg.NewRole);
+
+        return msg.Kind switch
+        {
+            OrgAssignmentKind.ChefDeProjet => KyntusRoleNames.ChefDeProjet,
+            OrgAssignmentKind.Superviseur => KyntusRoleNames.Superviseur,
+            OrgAssignmentKind.ReferentTechnique => KyntusRoleNames.ReferentTechnique,
+            OrgAssignmentKind.Pilote => KyntusRoleNames.Pilote,
+            _ => KyntusRoleNames.Employee
+        };
+    }
+
+    private async Task<User?> ResolveUserAsync(OrgAssignmentChangedMessage msg, CancellationToken ct)
+    {
+        var id = msg.EmployeeId.Trim();
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Guid.ToString() == id, ct);
+        if (user is not null)
+            return user;
+
+        if (!string.IsNullOrWhiteSpace(msg.EmployeeEmail))
+        {
+            var email = msg.EmployeeEmail.Trim().ToLowerInvariant();
+            return await db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
+        }
+
+        return null;
+    }
+
+    private async Task ClearManagedLinksAsync(int userId, CancellationToken ct)
+    {
+        var managedSubs = db.UserSubServices.Where(us => us.UserId == userId);
+        db.UserSubServices.RemoveRange(managedSubs);
+        var managedSvcs = db.UserManagedServices.Where(us => us.UserId == userId);
+        db.UserManagedServices.RemoveRange(managedSvcs);
+        await db.SaveChangesAsync(ct);
+    }
 
     private async Task UpsertFloorAsync(string primePoleId, string name, string code)
     {

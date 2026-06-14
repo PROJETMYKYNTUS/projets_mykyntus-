@@ -1,9 +1,11 @@
 using Formation.Application.Commands.CreateFormation;
 using Formation.Domain.Entities;
+using Formation.Infrastructure.Messaging;
 using Formation.Infrastructure.Persistence;
 using Formation.Infrastructure.Repositories;
 using Formation.Domain.Interfaces;
 using Formation.API.Middlewares;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +20,36 @@ builder.Services.AddMediatR(cfg =>
 
 // Repositories
 builder.Services.AddScoped<IFormationRepository, FormationRepository>();
+
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<FormationEmployeCreatedConsumer>();
+    x.AddConsumer<FormationEmployeUpdatedConsumer>();
+    x.AddConsumer<FormationOrgAssignmentSyncConsumer>();
+
+    x.UsingRabbitMq((ctx, cfg) =>
+    {
+        cfg.Host(builder.Configuration["RabbitMQ:Host"] ?? "rabbitmq", "/", h =>
+        {
+            h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
+            h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
+        });
+
+        cfg.ReceiveEndpoint("formation-employe-sync", e =>
+        {
+            e.ConfigureConsumer<FormationEmployeCreatedConsumer>(ctx);
+            e.ConfigureConsumer<FormationEmployeUpdatedConsumer>(ctx);
+        });
+
+        cfg.ReceiveEndpoint("formation-org-assignment", e =>
+        {
+            e.Bind("Kyntus.Messaging.Contracts:OrgAssignmentChangedMessage");
+            e.ConfigureConsumer<FormationOrgAssignmentSyncConsumer>(ctx);
+        });
+
+        cfg.ConfigureEndpoints(ctx);
+    });
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

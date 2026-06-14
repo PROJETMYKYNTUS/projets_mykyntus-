@@ -341,8 +341,8 @@ public class UserService : IUserService
                 .ThenInclude(u => u.Role)
             .Where(us => us.SubServiceId == subServiceId.Value
                       && us.User.Role != null
-                      && (KyntusRoleNames.IsSuperviseur(us.User.Role.Name)
-                          || string.Equals(us.User.Role.Name, KyntusRoleNames.Manager, StringComparison.Ordinal)))
+                      && (us.User.Role.Name == KyntusRoleNames.Superviseur
+                          || us.User.Role.Name == KyntusRoleNames.Manager))
             .Select(us => us.User)
             .FirstOrDefaultAsync();
 

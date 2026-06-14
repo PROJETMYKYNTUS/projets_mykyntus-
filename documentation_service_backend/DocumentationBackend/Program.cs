@@ -89,6 +89,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<EmployeDirectorySyncConsumer>();
     x.AddConsumer<OrgStructureDirectorySyncConsumer>();
+    x.AddConsumer<OrgAssignmentDirectorySyncConsumer>();
 
     x.UsingRabbitMq((ctx, cfg) =>
     {

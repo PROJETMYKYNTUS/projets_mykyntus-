@@ -106,7 +106,12 @@ export function resolveEmployeeForRole(
   list: Employee[],
   role: Role,
   preferredUserId: string | null,
+  loginEmail?: string | null,
 ): Employee {
+  if (loginEmail) {
+    const byEmail = findEmployeeByLoginEmail(list, loginEmail);
+    if (byEmail) return byEmail;
+  }
   if (preferredUserId) {
     const picked = list.find((e) => e.id === preferredUserId);
     if (picked && employeeMatchesUiRole(picked, role)) return picked;

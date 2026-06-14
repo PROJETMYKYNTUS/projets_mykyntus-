@@ -71,6 +71,22 @@ public class EmployeSnapshot
         DerniereModification = DateTime.UtcNow;
     }
 
+    public void MettreAJourIdentite(string nom, string prenom, string email)
+    {
+        Nom = nom;
+        Prenom = prenom;
+        Email = email;
+        DerniereModification = DateTime.UtcNow;
+    }
+
+    public void MettreAJourRole(string role, Guid? managerId = null)
+    {
+        Role = role;
+        if (managerId is { } mid && mid != Guid.Empty)
+            ManagerId = mid;
+        DerniereModification = DateTime.UtcNow;
+    }
+
     public int GetAncienneteAnnees()
     {
         var today = DateTime.Today;

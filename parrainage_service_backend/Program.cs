@@ -46,6 +46,7 @@ if (!string.IsNullOrWhiteSpace(conn))
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<EmployePortalSyncConsumer>();
+    x.AddConsumer<OrgAssignmentPortalSyncConsumer>();
 
     x.UsingRabbitMq((ctx, cfg) =>
     {
@@ -58,6 +59,7 @@ builder.Services.AddMassTransit(x =>
         cfg.ReceiveEndpoint("parrainage-employe-sync", e =>
         {
             e.ConfigureConsumer<EmployePortalSyncConsumer>(ctx);
+            e.ConfigureConsumer<OrgAssignmentPortalSyncConsumer>(ctx);
         });
 
         cfg.ConfigureEndpoints(ctx);

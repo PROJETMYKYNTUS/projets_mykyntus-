@@ -14,7 +14,7 @@ const MISSING = '—';
  */
 export function resolveEmployeeOrgLabels(
   employee: Employee,
-  departments: Department[],
+  departments: readonly Department[],
 ): EmployeeOrgDisplayLabels {
   const poleKey = (employee.departementId ?? employee.poleId ?? '').trim();
   const celluleKey = (employee.celluleId ?? '').trim();

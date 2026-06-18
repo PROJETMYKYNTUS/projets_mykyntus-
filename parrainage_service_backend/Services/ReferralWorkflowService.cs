@@ -443,8 +443,13 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRule
     {
         if (string.IsNullOrWhiteSpace(role)) return all;
 
-        var parentByUserId = await db.PortalUsers.AsNoTracking()
-            .ToDictionaryAsync(u => u.Id, u => u.ParentId, ct);
+        var needsHierarchy = role is "MANAGER" or "COACH";
+        Dictionary<string, string?>? parentByUserId = null;
+        if (needsHierarchy)
+        {
+            parentByUserId = await db.PortalUsers.AsNoTracking()
+                .ToDictionaryAsync(u => u.Id, u => u.ParentId, ct);
+        }
 
         return all.Where(n =>
         {
@@ -467,10 +472,10 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRule
                 }
             }
 
-            if ((role == "MANAGER" || role == "COACH") && !string.IsNullOrEmpty(n.ReferralId))
+            if (needsHierarchy && !string.IsNullOrEmpty(n.ReferralId))
             {
                 var refEntity = referrals.FirstOrDefault(r => r.Id == n.ReferralId);
-                if (refEntity != null && !OrgHierarchy.IsReferrerUnderManager(userId ?? string.Empty, refEntity.ReferrerId, parentByUserId))
+                if (refEntity != null && !OrgHierarchy.IsReferrerUnderManager(userId ?? string.Empty, refEntity.ReferrerId, parentByUserId!))
                     return false;
             }
 

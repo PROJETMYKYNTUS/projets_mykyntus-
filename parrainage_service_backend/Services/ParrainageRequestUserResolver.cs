@@ -66,25 +66,43 @@ public sealed class ParrainageRequestUserResolver(
 
         var email = principal.GetEmail();
         if (string.IsNullOrWhiteSpace(email))
-            return null;
+            return ResolveFromJwtClaims(principal, queryProjectId);
 
         using var scope = serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetService<ParrainageDbContext>();
         if (db is null)
-            return null;
+            return ResolveFromJwtClaims(principal, queryProjectId);
 
         var needle = email.Trim().ToLowerInvariant();
         var row = db.PortalUsers.AsNoTracking()
             .FirstOrDefault(u => u.Email.ToLower() == needle);
         if (row is null)
         {
-            logger.LogWarning("PARRAINAGE : aucun utilisateur portail pour {Email}", email);
-            return null;
+            logger.LogWarning(
+                "PARRAINAGE : aucun utilisateur portail pour {Email} — repli sur les claims JWT.",
+                email);
+            return ResolveFromJwtClaims(principal, queryProjectId);
         }
 
         var role = IParrainageRequestUserResolver.NormalizeRole(row.Role);
         var projectId = queryProjectId ?? row.ProjectId;
         return new ParrainageResolvedUser(row.Id, role, projectId, IsDefault: false);
+    }
+
+    private static ParrainageResolvedUser? ResolveFromJwtClaims(
+        System.Security.Claims.ClaimsPrincipal principal,
+        string? queryProjectId)
+    {
+        var userId = principal.GetSubjectId()?.ToString();
+        var roleRaw = principal.GetAuthRole();
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(roleRaw))
+            return null;
+
+        var role = IParrainageRequestUserResolver.NormalizeRole(roleRaw);
+        if (!AllowedRoles.Contains(role))
+            role = "PILOTE";
+
+        return new ParrainageResolvedUser(userId, role, queryProjectId, IsDefault: true);
     }
 
     private static string? FirstNonEmpty(string? a, string? b)

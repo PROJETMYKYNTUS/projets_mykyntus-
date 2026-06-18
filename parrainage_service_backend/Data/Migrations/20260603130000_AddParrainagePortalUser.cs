@@ -12,22 +12,22 @@ public partial class AddParrainagePortalUser : Migration
             name: "parrainage_portal_user",
             columns: table => new
             {
-                id = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
-                email = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
-                name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
-                role = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
-                project_id = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
-                parent_id = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true)
+                Id = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                Email = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                Name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                Role = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                ProjectId = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
+                ParentId = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true)
             },
             constraints: table =>
             {
-                table.PrimaryKey("pk_parrainage_portal_user", x => x.id);
+                table.PrimaryKey("PK_parrainage_portal_user", x => x.Id);
             });
 
         migrationBuilder.CreateIndex(
-            name: "ix_parrainage_portal_user_email",
+            name: "IX_parrainage_portal_user_Email",
             table: "parrainage_portal_user",
-            column: "email",
+            column: "Email",
             unique: true);
     }
 

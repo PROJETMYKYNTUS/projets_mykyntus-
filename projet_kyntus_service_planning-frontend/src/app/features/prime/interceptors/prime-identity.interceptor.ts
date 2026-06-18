@@ -1,6 +1,6 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { employeeMatchesUiRole } from '../lib/prime-employee-utils';
+import { employeeMatchesUiRole } from '../lib/prime-demo-users';
 import { toPrimeRoleHeader } from '../lib/prime-role-header';
 import { RoleService } from '../state/role.service';
 

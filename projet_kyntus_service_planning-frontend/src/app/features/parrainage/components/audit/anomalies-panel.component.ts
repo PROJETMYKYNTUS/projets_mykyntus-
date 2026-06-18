@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Output } from '@angul
 import { AlertTriangle, GitBranch } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { SeverityBadgeComponent } from './audit-badges.component';
-import type { AnomalyRow } from '../../audit/audit-types';
+import { ANOMALIES_DEMO, type AnomalyRow } from '../../audit/audit-demo-data';
 
 @Component({
   selector: 'app-anomalies-panel',
@@ -10,10 +10,10 @@ import type { AnomalyRow } from '../../audit/audit-types';
   imports: [LucideIconComponent, SeverityBadgeComponent],
   template: `
     <div class="space-y-4">
-      @if (anomalies.length === 0) {
-        <p class="text-sm text-muted">Aucune anomalie détectée pour le moment.</p>
-      } @else {
-        <div class="grid gap-3">
+      <p class="text-xs text-muted">
+        Détection automatique : suppressions massives, géolocalisation, plages horaires. Les cas ci-dessous sont des exemples démo.
+      </p>
+      <div class="grid gap-3">
         @for (a of anomalies; track a.id) {
           <div class="card-navy p-4 border border-rose-900/30 bg-rose-950/10 flex flex-col md:flex-row md:items-center md:justify-between gap-3 hover:border-rose-800/50 transition-colors duration-200">
             <div class="space-y-1">
@@ -41,7 +41,6 @@ import type { AnomalyRow } from '../../audit/audit-types';
           </div>
         }
       </div>
-      }
     </div>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -50,7 +49,7 @@ export class AnomaliesPanelComponent {
   @Output() investigate = new EventEmitter<AnomalyRow>();
   @Output() openTimeline = new EventEmitter<AnomalyRow>();
 
-  readonly anomalies: AnomalyRow[] = [];
+  readonly anomalies = ANOMALIES_DEMO;
   readonly alertIcon = AlertTriangle;
   readonly gitIcon = GitBranch;
 

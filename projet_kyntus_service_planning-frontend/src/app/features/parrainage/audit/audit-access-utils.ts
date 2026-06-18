@@ -1,4 +1,4 @@
-import type { AccessLogRow } from './audit-types';
+import type { AccessLogRow } from './audit-demo-data';
 
 export type AccessRowView = AccessLogRow & { bruteForce: boolean };
 

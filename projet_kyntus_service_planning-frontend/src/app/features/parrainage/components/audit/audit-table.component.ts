@@ -14,12 +14,11 @@ import type { JournalRow, SortKey } from '../../audit/audit-types';
         <app-lucide-icon [icon]="inboxIcon" className="w-5 h-5 text-muted" />
         <div>
           <p class="text-primary text-sm">Aucune donnée disponible</p>
-          <p class="text-xs text-muted">Le journal d'audit s'affichera lorsque des événements seront enregistrés.</p>
+          <p class="text-xs text-muted">Affichage de démonstration avec des lignes fictives.</p>
         </div>
       </div>
     }
 
-    @if (!hasNoData) {
     <div class="card-navy overflow-x-auto border border-default/80 transition-shadow hover:shadow-lg hover:shadow-navy-950/40">
       <table class="w-full text-sm min-w-[1100px]">
         <thead class="bg-card/55 text-primary font-semibold">
@@ -62,14 +61,17 @@ import type { JournalRow, SortKey } from '../../audit/audit-types';
           }
         </tbody>
       </table>
+      @if (isMockDisplay) {
+        <p class="px-4 py-2 text-[11px] text-muted border-t border-default">Mode démo actif (aucune ligne réelle sur ce filtre).</p>
+      }
     </div>
-    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuditTableComponent {
   @Input({ required: true }) visibleRows: JournalRow[] = [];
   @Input() hasNoData = false;
+  @Input() isMockDisplay = false;
   @Input({ required: true }) sortKey!: SortKey;
   @Input({ required: true }) sortDir: 'asc' | 'desc' = 'desc';
   @Output() toggleSort = new EventEmitter<SortKey>();

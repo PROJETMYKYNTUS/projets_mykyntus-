@@ -11,11 +11,10 @@ import { UserTimelineModalComponent } from '../../components/audit/user-timeline
 import { ParrainageStoreService } from '../../services/parrainage-store.service';
 import { ParrainageRoleService } from '../../state/parrainage-role.service';
 import { AuditSectionService } from '../../state/audit-section.service';
-import { enrichAuditRowFromId, getAuditOrgTree } from '../../lib/audit-org-ui';
+import { enrichAuditRowFromId } from '../../lib/audit-org-ui';
 import type { JournalRow, SortKey, SeverityLevel } from '../../audit/audit-types';
-import type { AnomalyRow } from '../../audit/audit-demo-data';
+import type { AnomalyRow } from '../../audit/audit-types';
 
-const ORG = getAuditOrgTree();
 const ROLE_FILTER_OPTIONS = ['Tous', 'RP', 'Manager', 'Coach', 'Pilote'] as const;
 const SEVERITY_OPTIONS = ['Tous', 'INFO', 'WARNING', 'CRITICAL'] as const;
 const ACTION_CHIPS = ['CREATE', 'UPDATE', 'DELETE', 'APPROVE', 'CONFIG'] as const;
@@ -140,7 +139,7 @@ const PAGE_SIZE = 8;
             <div class="card-navy p-4 space-y-3 border border-default/80">
               <div class="flex flex-wrap items-end gap-3">
                 <select [value]="deptFilter()" (change)="onDeptChange($any($event.target).value)" [class]="selClass" aria-label="Département">
-                  @for (d of deptOptions; track d) { <option [value]="d">{{ d === 'Tous' ? 'Département' : d }}</option> }
+                  @for (d of deptOptions(); track d) { <option [value]="d">{{ d === 'Tous' ? 'Département' : d }}</option> }
                 </select>
                 <select [value]="poleFilter()" (change)="onPoleChange($any($event.target).value)" [class]="selClass" [disabled]="deptFilter() === 'Tous'" aria-label="Pôle">
                   @for (p of poleOptions(); track p) { <option [value]="p">{{ p === 'Tous' ? 'Pôle' : p }}</option> }
@@ -184,9 +183,8 @@ const PAGE_SIZE = 8;
             </div>
 
             <app-audit-table
-              [visibleRows]="visibleRows()"
+              [visibleRows]="pagedRows()"
               [hasNoData]="hasNoData()"
-              [isMockDisplay]="isMockDisplay()"
               [sortKey]="sortKey()"
               [sortDir]="sortDir()"
               (toggleSort)="toggleSort($event)"
@@ -235,7 +233,7 @@ export class AdminAuditPageComponent {
   readonly severityOptions = SEVERITY_OPTIONS;
   readonly actionChips = ['Tous', ...ACTION_CHIPS];
   readonly selClass = 'bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary min-w-[140px]';
-  readonly deptOptions = ['Tous', ...ORG.map((d) => d.dept)];
+  readonly deptOptions = computed(() => ['Tous', ...Array.from(new Set(this.rows().map((r) => r.departement).filter((d) => d && d !== '—')))]);
 
   readonly rows = computed(() => this.buildRows());
 
@@ -305,15 +303,17 @@ export class AdminAuditPageComponent {
 
   readonly poleOptions = computed(() => {
     if (this.deptFilter() === 'Tous') return ['Tous'];
-    const d = ORG.find((x) => x.dept === this.deptFilter());
-    return ['Tous', ...(d?.poles.map((p) => p.name) ?? [])];
+    return ['Tous', ...Array.from(new Set(this.rows().filter((r) => r.departement === this.deptFilter()).map((r) => r.pole).filter((p) => p && p !== '—')))];
   });
 
   readonly celluleOptions = computed(() => {
     if (this.deptFilter() === 'Tous' || this.poleFilter() === 'Tous') return ['Tous'];
-    const d = ORG.find((x) => x.dept === this.deptFilter());
-    const p = d?.poles.find((x) => x.name === this.poleFilter());
-    return ['Tous', ...(p?.cellules ?? [])];
+    return ['Tous', ...Array.from(new Set(
+      this.rows()
+        .filter((r) => r.departement === this.deptFilter() && r.pole === this.poleFilter())
+        .map((r) => r.cellule)
+        .filter((c) => c && c !== '—'),
+    ))];
   });
 
   readonly users = computed(() => ['Tous', ...Array.from(new Set(this.rows().map((r) => r.employee)))]);
@@ -352,15 +352,7 @@ export class AdminAuditPageComponent {
   readonly safePage = computed(() => Math.min(this.page(), this.totalPages()));
   readonly pagedRows = computed(() => this.filteredRows().slice((this.safePage() - 1) * PAGE_SIZE, this.safePage() * PAGE_SIZE));
 
-  private readonly fallbackRows: JournalRow[] = [
-    enrichJournal({ id: 'mock-1', datetime: '2026-03-27 08:10', employee: 'Audit Bot', action: 'Création', item: 'Parrainage Martin / Leila', status: 'En attente', ...enrichAuditRowFromId('mock-1') }, 'mock-1', false),
-    enrichJournal({ id: 'mock-2', datetime: '2026-03-27 09:55', employee: 'RH Parrainage', action: 'Validation', item: 'Prime parrainage T2', status: 'Validé', ...enrichAuditRowFromId('mock-2') }, 'mock-2', false),
-    enrichJournal({ id: 'mock-3', datetime: '2026-03-27 10:33', employee: 'Comptable', action: 'Suppression', item: 'Dossier doublon #P-44', status: 'Rejeté', ...enrichAuditRowFromId('mock-3') }, 'mock-3', false),
-  ];
-
-  readonly visibleRows = computed(() => (this.pagedRows().length > 0 ? this.pagedRows() : this.fallbackRows));
   readonly hasNoData = computed(() => this.rows().length === 0);
-  readonly isMockDisplay = computed(() => this.pagedRows().length === 0);
 
   setFilter<T>(sig: { set: (v: T) => void }, value: T): void {
     sig.set(value);

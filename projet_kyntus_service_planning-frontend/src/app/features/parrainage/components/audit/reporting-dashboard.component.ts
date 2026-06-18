@@ -1,13 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { Download, FileSpreadsheet, FileText } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
-import {
-  ACTIONS_BY_ROLE,
-  ACTIONS_BY_TYPE,
-  ACTIVITY_BY_DAY,
-  REPORTING_KPIS,
-  TOP_ACTIVE_USERS,
-} from '../../audit/audit-demo-data';
+import { EMPTY_REPORTING_KPIS, type ReportingKpis } from '../../audit/audit-types';
 
 const toCsv = (headers: string[], data: Array<Array<string | number>>) =>
   [headers.join(';'), ...data.map((d) => d.join(';'))].join('\n');
@@ -76,90 +70,87 @@ const download = (name: string, content: string, mime: string) => {
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="card-navy p-5 border border-default/80">
-          <h3 class="text-sm font-semibold text-primary mb-4">Actions par type</h3>
-          <div class="flex flex-col md:flex-row items-center gap-6">
-            <div class="w-36 h-36 rounded-full shrink-0 border border-default shadow-inner transition-transform hover:scale-105 duration-300" [style.background]="pieGradient" title="Répartition par type d'action"></div>
-            <ul class="space-y-2 text-sm text-primary">
-              @for (x of actionsByType; track x.label) {
-                <li class="flex items-center gap-2">
-                  <span class="w-3 h-3 rounded-sm shrink-0" [style.background]="x.color"></span>
-                  {{ x.label }} — {{ x.value }}%
-                </li>
-              }
-            </ul>
-          </div>
-        </div>
-        <div class="card-navy p-5 border border-default/80">
-          <div class="space-y-2">
-            <p class="text-xs text-muted">Activité par jour (volume d'événements)</p>
-            <div class="flex items-end gap-2 h-36">
-              @for (d of activityByDay; track d.day) {
-                <div class="flex-1 flex flex-col items-center gap-1">
-                  <div class="w-full rounded-t bg-gradient-to-t from-blue-600/80 to-blue-400/40 min-h-[4px] transition-all duration-300 hover:from-blue-500/90" [style.height.%]="(d.v / maxActivity) * 100" [title]="d.v + ' événements'"></div>
-                  <span class="text-[10px] text-muted">{{ d.day }}</span>
-                </div>
-              }
+      @if (hasData) {
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="card-navy p-5 border border-default/80">
+            <h3 class="text-sm font-semibold text-primary mb-4">Actions par type</h3>
+            <div class="flex flex-col md:flex-row items-center gap-6">
+              <div class="w-36 h-36 rounded-full shrink-0 border border-default shadow-inner transition-transform hover:scale-105 duration-300" [style.background]="pieGradient" title="Répartition par type d'action"></div>
+              <ul class="space-y-2 text-sm text-primary">
+                @for (x of actionsByType; track x.label) {
+                  <li class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-sm shrink-0" [style.background]="x.color"></span>
+                    {{ x.label }} — {{ x.value }}%
+                  </li>
+                }
+              </ul>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div class="card-navy p-5 border border-default/80">
-        <h3 class="text-sm font-semibold text-primary mb-3">Répartition par rôle</h3>
-        <div class="space-y-2">
-          @for (r of actionsByRole; track r.role) {
-            <div class="flex items-center gap-3">
-              <span class="w-24 text-xs text-muted">{{ r.role }}</span>
-              <div class="flex-1 h-2 rounded-full bg-card overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-soft-blue to-blue-400 transition-all duration-500" [style.width.%]="r.pct"></div>
+          <div class="card-navy p-5 border border-default/80">
+            <div class="space-y-2">
+              <p class="text-xs text-muted">Activité par jour (volume d'événements)</p>
+              <div class="flex items-end gap-2 h-36">
+                @for (d of activityByDay; track d.day) {
+                  <div class="flex-1 flex flex-col items-center gap-1">
+                    <div class="w-full rounded-t bg-gradient-to-t from-blue-600/80 to-blue-400/40 min-h-[4px] transition-all duration-300 hover:from-blue-500/90" [style.height.%]="(d.v / maxActivity) * 100" [title]="d.v + ' événements'"></div>
+                    <span class="text-[10px] text-muted">{{ d.day }}</span>
+                  </div>
+                }
               </div>
-              <span class="w-10 text-xs text-muted text-right">{{ r.pct }}%</span>
             </div>
-          }
+          </div>
         </div>
-      </div>
 
-      <div class="card-navy p-5 border border-default/80">
-        <h3 class="text-sm font-semibold text-primary mb-3">Top utilisateurs actifs</h3>
-        <div class="space-y-2">
-          @for (u of topUsers; track u.name; let i = $index) {
-            <div class="flex items-center justify-between gap-3 text-sm">
-              <span class="text-muted w-6">{{ i + 1 }}.</span>
-              <span class="flex-1 text-primary truncate">{{ u.name }}</span>
-              <span class="text-muted tabular-nums">{{ u.actions }}</span>
-            </div>
-          }
+        <div class="card-navy p-5 border border-default/80">
+          <h3 class="text-sm font-semibold text-primary mb-3">Répartition par rôle</h3>
+          <div class="space-y-2">
+            @for (r of actionsByRole; track r.role) {
+              <div class="flex items-center gap-3">
+                <span class="w-24 text-xs text-muted">{{ r.role }}</span>
+                <div class="flex-1 h-2 rounded-full bg-card overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-soft-blue to-blue-400 transition-all duration-500" [style.width.%]="r.pct"></div>
+                </div>
+                <span class="w-10 text-xs text-muted text-right">{{ r.pct }}%</span>
+              </div>
+            }
+          </div>
         </div>
-      </div>
+
+        <div class="card-navy p-5 border border-default/80">
+          <h3 class="text-sm font-semibold text-primary mb-3">Top utilisateurs actifs</h3>
+          <div class="space-y-2">
+            @for (u of topUsers; track u.name; let i = $index) {
+              <div class="flex items-center justify-between gap-3 text-sm">
+                <span class="text-muted w-6">{{ i + 1 }}.</span>
+                <span class="flex-1 text-primary truncate">{{ u.name }}</span>
+                <span class="text-muted tabular-nums">{{ u.actions }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      } @else {
+        <p class="text-sm text-muted">Aucune donnée de reporting disponible pour le moment.</p>
+      }
     </div>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ReportingDashboardComponent {
-  readonly kpis = REPORTING_KPIS;
-  readonly actionsByType = ACTIONS_BY_TYPE;
-  readonly activityByDay = ACTIVITY_BY_DAY;
-  readonly actionsByRole = ACTIONS_BY_ROLE;
-  readonly topUsers = TOP_ACTIVE_USERS;
+  readonly kpis: ReportingKpis = EMPTY_REPORTING_KPIS;
+  readonly actionsByType: { label: string; value: number; color: string }[] = [];
+  readonly activityByDay: { day: string; v: number }[] = [];
+  readonly actionsByRole: { role: string; pct: number }[] = [];
+  readonly topUsers: { name: string; actions: number }[] = [];
+  readonly hasData = false;
 
   readonly fileTextIcon = FileText;
   readonly downloadIcon = Download;
   readonly sheetIcon = FileSpreadsheet;
 
-  readonly maxActivity = Math.max(...ACTIVITY_BY_DAY.map((d) => d.v), 1);
+  readonly maxActivity = 1;
 
   get pieGradient(): string {
-    const total = this.actionsByType.reduce((s, x) => s + x.value, 0);
-    let acc = 0;
-    const segments = this.actionsByType.map((x) => {
-      const start = (acc / total) * 360;
-      acc += x.value;
-      const end = (acc / total) * 360;
-      return `${x.color} ${start}deg ${end}deg`;
-    });
-    return `conic-gradient(${segments.join(', ')})`;
+    return 'conic-gradient(rgb(51, 65, 85) 0deg 360deg)';
   }
 
   print(): void {
@@ -171,7 +162,6 @@ export class ReportingDashboardComponent {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Rapport audit — PDF</title>
 <style>body{font-family:system-ui;padding:24px;background:#0f172a;color:#e2e8f0;} h1{color:#93c5fd;} table{border-collapse:collapse;width:100%;margin-top:16px;} td,th{border:1px solid #334155;padding:8px;text-align:left;font-size:12px;}</style></head><body>
 <h1>Rapport analytique — Audit Parrainage</h1>
-<p>Période : mars 2026 (démo)</p>
 <table>
 <tr><th>Indicateur</th><th>Valeur</th></tr>
 <tr><td>Total actions</td><td>${k.totalActions}</td></tr>
@@ -181,7 +171,6 @@ export class ReportingDashboardComponent {
 <tr><td>Anomalies détectées</td><td>${k.anomaliesCount}</td></tr>
 <tr><td>Top utilisateur</td><td>${k.topUser} (${k.topUserActions} actions)</td></tr>
 </table>
-<p style="margin-top:24px;font-size:11px;color:#64748b;">Ouvrez via le navigateur puis Fichier → Imprimer → Enregistrer au format PDF.</p>
 </body></html>`;
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const a = document.createElement('a');
@@ -208,10 +197,7 @@ export class ReportingDashboardComponent {
   }
 
   exportMonthlyCsv(): void {
-    const csv = toCsv(
-      ['Semaine', 'Jour', 'Volume'],
-      this.activityByDay.map((d) => ['S12-2026', d.day, d.v]),
-    );
+    const csv = toCsv(['Semaine', 'Jour', 'Volume'], []);
     download('activite-mensuelle-audit.csv', csv, 'text/csv;charset=utf-8');
   }
 }

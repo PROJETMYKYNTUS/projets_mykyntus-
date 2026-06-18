@@ -7,8 +7,8 @@ import {
   output,
   signal,
 } from '@angular/core';
-import type { AdminWorkflowConfig, WorkflowAction } from '../../mock-data/admin';
-import { WORKFLOW_ACTIONS } from '../../mock-data/admin';
+import type { AdminWorkflowConfig, WorkflowAction } from '../../models/admin.models';
+import { WORKFLOW_ACTIONS } from '../../models/admin.models';
 
 const roleDetails: Record<string, { description: string; responsibilities: string }> = {
   Coach: { description: 'Encadrement direct des pilotes.', responsibilities: 'Valider/Rejeter en premier niveau.' },

@@ -1,12 +1,4 @@
-import type { AuditAnomaly, AuditOperation, AuditTrailLog } from '../mock-data/audit';
-import {
-  mockAuditAnomalies,
-  mockAuditCharts,
-  mockAuditKpis,
-  mockAuditOperations,
-  mockAuditTrailLogs,
-} from '../mock-data/audit';
-import { isPrimeDemoMockEnabled } from '../mock-data/prime-demo-config';
+import type { AuditAnomaly, AuditOperation, AuditTrailLog } from '../models/audit.models';
 import { primeApiGet } from './prime-http';
 
 export type AuditHistoryFilter = {
@@ -47,10 +39,6 @@ export const AuditPrimeService = {
     const openAnomalies = anomalies.filter((a) => a.status === 'Open').length;
     const validated = summary.rhApproved ?? 0;
     const rejected = summary.rejected ?? 0;
-    const useDemo = isPrimeDemoMockEnabled() && summary.total === 0;
-    if (useDemo) {
-      return { kpis: mockAuditKpis, charts: mockAuditCharts };
-    }
     return {
       kpis: {
         totalPrimes: summary.total,
@@ -80,8 +68,7 @@ export const AuditPrimeService = {
 
   getOperations: async (): Promise<AuditOperation[]> => {
     const logs = await primeApiGet<AuditLogDto[]>('/api/prime/admin/audit-logs?take=200');
-    if (isPrimeDemoMockEnabled() && logs.length === 0) return mockAuditOperations;
-    const mapped = logs.map((r) => ({
+    return logs.map((r) => ({
       id: r.id,
       employeeName: r.userDisplayName,
       projectName: r.entityType ?? '—',
@@ -90,37 +77,29 @@ export const AuditPrimeService = {
       date: (r.at ?? '').slice(0, 10),
       status: 'En cours' as const,
     }));
-    if (isPrimeDemoMockEnabled() && mapped.every((o) => o.steps.length === 0)) {
-      return mockAuditOperations;
-    }
-    return mapped;
   },
 
   getAuditTrailLogs: async (): Promise<AuditTrailLog[]> => {
     const logs = await primeApiGet<AuditLogDto[]>('/api/prime/admin/audit-logs?take=300');
-    if (isPrimeDemoMockEnabled() && logs.length === 0) return mockAuditTrailLogs;
-    const mapped = logs.map((r) => ({
+    return logs.map((r) => ({
       id: r.id,
       user: r.userDisplayName,
       action: r.action,
       date: r.at ?? '',
       detail: r.detailJson ?? '',
     }));
-    return mapped.length > 0 ? mapped : isPrimeDemoMockEnabled() ? mockAuditTrailLogs : mapped;
   },
 
   getAnomalies: async (): Promise<AuditAnomaly[]> => {
     const rows = await primeApiGet<
       { id: string; type: string; description: string; status: string }[]
     >('/api/prime/admin/anomalies?take=100');
-    if (isPrimeDemoMockEnabled() && rows.length === 0) return mockAuditAnomalies;
-    const mapped = rows.map((r) => ({
+    return rows.map((r) => ({
       id: r.id,
       type: 'Incohérence' as const,
       description: r.description,
       status: (r.status === 'Resolved' ? 'Corrigée' : 'Ouverte') as AuditAnomaly['status'],
     }));
-    return mapped.length > 0 ? mapped : isPrimeDemoMockEnabled() ? mockAuditAnomalies : mapped;
   },
 };
 

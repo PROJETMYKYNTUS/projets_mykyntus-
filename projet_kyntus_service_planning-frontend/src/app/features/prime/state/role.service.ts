@@ -6,21 +6,21 @@ import {
   employeeMatchesUiRole,
   pickDefaultEmployeeForRole,
   resolveEmployeeForRole,
-} from '../lib/prime-demo-users';
+} from '../lib/prime-employee-utils';
 import { KyntusSessionService } from '../../../core/session/kyntus-session.service';
 import { mapJwtRoleToPrimeRole } from '../../../core/session/kyntus-role-ui.config';
-import { findEmployeeByLoginEmail } from '../lib/prime-demo-users';
+import { findEmployeeByLoginEmail } from '../lib/prime-employee-utils';
 import { primeApiGet } from '../services/prime-http';
 
-const ROLE_STORAGE_KEY = 'prime.demoRole';
-const USER_STORAGE_KEY = 'prime.demoUserId';
+const ROLE_STORAGE_KEY = 'prime.role';
+const USER_STORAGE_KEY = 'prime.userId';
 
 @Injectable({ providedIn: 'root' })
 export class RoleService {
   private readonly session = inject(KyntusSessionService);
   readonly currentRole = signal<Role>('Superviseur');
   readonly employees = signal<Employee[]>([]);
-  /** Identité démo sélectionnée dans la barre (mode développeur). */
+  /** Identité sélectionnée dans la barre (mode développeur). */
   readonly selectedUserId = signal<string | null>(RoleService.readStoredUserId());
 
   readonly employeesForCurrentRole = computed(() =>

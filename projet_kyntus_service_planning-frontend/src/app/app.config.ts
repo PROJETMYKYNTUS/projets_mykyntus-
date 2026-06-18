@@ -15,9 +15,7 @@ import {
   DocumentationIdentityService,
   documentationIdentityInitFactory,
 } from './core/services/documentation-identity.service';
-import { parrainageDemoInterceptor } from './features/parrainage/interceptors/parrainage-demo.interceptor';
 import { parrainageIdentityInterceptor } from './features/parrainage/interceptors/parrainage-identity.interceptor';
-import { primeDemoInterceptor } from './features/prime/interceptors/prime-demo.interceptor';
 import { primeIdentityInterceptor } from './features/prime/interceptors/prime-identity.interceptor';
 import {
   KyntusNotificationInitService,
@@ -34,8 +32,6 @@ export const appConfig: ApplicationConfig = {
       withInterceptors([
         primeIdentityInterceptor,
         parrainageIdentityInterceptor,
-        primeDemoInterceptor,
-        parrainageDemoInterceptor,
       ]),
     ),
     {

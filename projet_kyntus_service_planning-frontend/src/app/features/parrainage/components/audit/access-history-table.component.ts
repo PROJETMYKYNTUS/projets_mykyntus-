@@ -2,8 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/c
 import { Search, Shield } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { SeverityBadgeComponent } from './audit-badges.component';
-import { ACCESS_LOG_DEMO } from '../../audit/audit-demo-data';
 import { enrichAccessWithBruteForce, accessTypeLabel, AccessRowView } from '../../audit/audit-access-utils';
+import type { AccessLogRow } from '../../audit/audit-types';
 
 @Component({
   selector: 'app-access-history-table',
@@ -43,6 +43,11 @@ import { enrichAccessWithBruteForce, accessTypeLabel, AccessRowView } from '../.
             </tr>
           </thead>
           <tbody class="divide-y divide-default">
+            @if (filtered().length === 0) {
+              <tr>
+                <td colspan="8" class="px-4 py-8 text-center text-sm text-muted">Aucun historique d'accès disponible.</td>
+              </tr>
+            }
             @for (r of filtered(); track r.id) {
               <tr class="hover:bg-input/35 transition-colors">
                 <td class="px-4 py-3 text-primary font-medium">{{ r.user }}</td>
@@ -79,7 +84,7 @@ export class AccessHistoryTableComponent {
   readonly shieldIcon = Shield;
 
   readonly q = signal('');
-  private readonly rows = enrichAccessWithBruteForce(ACCESS_LOG_DEMO);
+  private readonly rows = enrichAccessWithBruteForce([] as AccessLogRow[]);
 
   readonly filtered = computed(() => {
     const qq = this.q().trim().toLowerCase();

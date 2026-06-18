@@ -1,0 +1,10 @@
+{
+  "_comment": "Sauvegarde des URLs LAN/déploiement — ne pas modifier. Restaurer via: .\\scripts\\switch-kyntus-urls.ps1 -Profile deploy",
+  "profile": "deploy",
+  "host": "10.10.10.25",
+  "gateway": "http://10.10.10.25:8500",
+  "planningSpa": "http://10.10.10.25:8200",
+  "authFrontend": "http://10.10.10.25:8201",
+  "authLogin": "http://10.10.10.25:8201/login",
+  "planningAuthCallback": "http://10.10.10.25:8200/auth-callback"
+}

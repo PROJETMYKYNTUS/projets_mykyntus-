@@ -1,0 +1,43 @@
+name: verify-unification
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - 'EmployeeDirectoryBackend/**'
+      - 'PlanningService/**'
+      - 'PrimeBackend/**'
+      - 'FormationService/**'
+      - 'scripts/verify-unification.ps1'
+      - 'docker-compose.yml'
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build Employee Directory
+        run: dotnet build EmployeeDirectoryBackend/EmployeeDirectory.API/EmployeeDirectory.API.csproj -c Release
+
+      - name: Build Planning
+        run: dotnet build PlanningService/PlanningService/PlanningService.csproj -c Release
+
+      - name: Build Congé
+        run: dotnet build FormationService/Conge.API/Conge.API.csproj -c Release
+
+      - name: Build Auth
+        run: dotnet build AuthService/AuthService/AuthService.csproj -c Release
+
+      - name: Verify script syntax
+        shell: pwsh
+        run: |
+          $null = [System.Management.Automation.Language.Parser]::ParseFile(
+            'scripts/verify-unification.ps1', [ref]$null, [ref]$null)
+          Write-Host "verify-unification.ps1 OK"

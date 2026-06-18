@@ -1,0 +1,237 @@
+<div class="page ky-page-shell">
+
+  <div class="page-shell">
+
+    <div class="page-header">
+
+      <div class="header-left">
+
+        <button type="button" class="btn-back ky-btn-secondary" (click)="goBack()">
+
+          <app-lucide-icon [icon]="icons.back" className="w-4 h-4" />
+
+          Retour à la liste
+
+        </button>
+
+        <div class="header-copy">
+
+          <span class="eyebrow">Ressources Humaines</span>
+
+          <h1>Détail de l'employé</h1>
+
+          <p class="subtitle">Informations du compte et périmètre organisationnel</p>
+
+        </div>
+
+      </div>
+
+
+
+      @if (user) {
+
+        <div class="header-actions">
+
+          <button type="button" class="btn btn-outline ky-btn-secondary" (click)="editUser()">
+
+            <app-lucide-icon [icon]="icons.edit" className="w-4 h-4" />
+
+            Modifier
+
+          </button>
+
+          <button type="button" class="btn btn-danger" (click)="deleteUser()">
+
+            <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+
+            Supprimer
+
+          </button>
+
+        </div>
+
+      }
+
+    </div>
+
+
+
+    <div class="card ky-card">
+
+      @if (loading) {
+
+        <div class="state-box">
+
+          <div class="spinner"></div>
+
+          <p>Chargement des informations...</p>
+
+        </div>
+
+      } @else if (error) {
+
+        <div class="state-box error">
+
+          <p>{{ error }}</p>
+
+          <button type="button" class="btn btn-outline ky-btn-secondary" (click)="goBack()">Retour</button>
+
+        </div>
+
+      } @else if (user) {
+
+        <section class="profile-hero">
+
+          <div class="avatar">{{ user.firstName[0] }}{{ user.lastName[0] }}</div>
+
+          <div class="profile-main">
+
+            <h2>{{ user.firstName }} {{ user.lastName }}</h2>
+
+            <p class="email">{{ user.email }}</p>
+
+            <div class="profile-badges">
+
+              <span class="badge badge-role">{{ user.roleName }}</span>
+
+              <span class="level-badge lv-{{ user.level }}">N{{ user.level }} — {{ levelLabel(user.level) }}</span>
+
+              <span class="status-indicator" [class.inactive]="!user.isActive">
+
+                {{ user.isActive ? 'Actif' : 'Inactif' }}
+
+              </span>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+
+        <section class="form-section">
+
+          <div class="section-heading">
+
+            <h2>Périmètre organisationnel</h2>
+
+            <p>Affectation synchronisée avec Organisation RH (pôle → cellule → service).</p>
+
+          </div>
+
+          <div class="org-breadcrumb">{{ perimeterSummary }}</div>
+
+          <div class="info-grid org-grid">
+
+            <div class="info-item">
+
+              <span class="info-label">Pôle</span>
+
+              <span class="info-value">{{ orgCellLabel(perimeter.pole) }}</span>
+
+            </div>
+
+            <div class="info-item">
+
+              <span class="info-label">Cellule</span>
+
+              <span class="info-value">{{ orgCellLabel(perimeter.cellule) }}</span>
+
+            </div>
+
+            <div class="info-item">
+
+              <span class="info-label">Service</span>
+
+              <span class="info-value info-value--accent">{{ orgCellLabel(perimeter.service) }}</span>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+
+        <section class="form-section">
+
+          <div class="section-heading">
+
+            <h2>Informations RH</h2>
+
+          </div>
+
+          <div class="info-grid">
+
+            <div class="info-item">
+
+              <span class="info-label">Date d'embauche</span>
+
+              <span class="info-value">{{ user.hireDate | date:'dd/MM/yyyy' }}</span>
+
+            </div>
+
+            <div class="info-item">
+
+              <span class="info-label">Ancienneté</span>
+
+              <span class="info-value">{{ getAnciennete(user.hireDate) }}</span>
+
+            </div>
+
+            <div class="info-item">
+
+              <span class="info-label">Compte créé le</span>
+
+              <span class="info-value">{{ user.createdAt | date:'dd/MM/yyyy' }}</span>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+
+        @if (user.managedServices.length || user.managedSubServices.length) {
+
+          <section class="form-section">
+
+            <div class="section-heading">
+
+              <h2>Périmètre supervisé</h2>
+
+              <p>Responsabilités hiérarchiques enregistrées dans Planning.</p>
+
+            </div>
+
+            <div class="tags-container">
+
+              @for (svc of user.managedServices; track svc.id) {
+
+                <span class="tag tag-service">{{ svc.floorName }} / {{ svc.name }}</span>
+
+              }
+
+              @for (sub of user.managedSubServices; track sub.id) {
+
+                <span class="tag tag-sub">{{ sub.serviceName }} / {{ sub.name }}</span>
+
+              }
+
+            </div>
+
+          </section>
+
+        }
+
+      }
+
+    </div>
+
+  </div>
+
+</div>
+
+

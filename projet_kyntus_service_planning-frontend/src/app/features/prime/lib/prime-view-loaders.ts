@@ -1,0 +1,68 @@
+import type { Type } from '@angular/core';
+
+export type PrimeLazyViewLoader = () => Promise<Type<unknown>>;
+
+/** Chargement à la demande des écrans Prime (évite un seul chunk monolithique au premier accès). */
+export const PRIME_VIEW_LOADERS: Record<string, PrimeLazyViewLoader> = {
+  '/dashboard': () =>
+    import('../pages/dashboard-page.component').then((m) => m.DashboardPageComponent),
+  '/types': () => import('../pages/prime-types-page.component').then((m) => m.PrimeTypesPageComponent),
+  '/rules': () => import('../pages/prime-rules-page.component').then((m) => m.PrimeRulesPageComponent),
+  '/results': () =>
+    import('../pages/prime-results-page.component').then((m) => m.PrimeResultsPageComponent),
+  '/validation': () =>
+    import('../pages/prime-validation-page.component').then((m) => m.PrimeValidationPageComponent),
+  '/validation-history': () =>
+    import('../pages/prime-validation-history-page.component').then(
+      (m) => m.PrimeValidationHistoryPageComponent,
+    ),
+  '/chef-projet/scope': () =>
+    import('../pages/chef-projet-scope-page.component').then((m) => m.ChefProjetScopePageComponent),
+  '/global-pool': () =>
+    import('../pages/prime-global-pool-page.component').then((m) => m.PrimeGlobalPoolPageComponent),
+  '/synthesis-tracking': () =>
+    import('../pages/prime-synthesis-tracking-page.component').then(
+      (m) => m.PrimeSynthesisTrackingPageComponent,
+    ),
+  '/history': () =>
+    import('../pages/prime-history-page.component').then((m) => m.PrimeHistoryPageComponent),
+  '/team-performance': () =>
+    import('../pages/team-performance-page.component').then((m) => m.TeamPerformancePageComponent),
+  '/configuration': () =>
+    import('../pages/prime-configuration-page.component').then((m) => m.PrimeConfigurationPageComponent),
+  '/superviseur/scope': () =>
+    import('../pages/superviseur-scope-page.component').then((m) => m.SuperviseurScopePageComponent),
+  '/prime-saisie-list': () =>
+    import('../pages/prime-fiches-communes-list.component').then((m) => m.PrimeFichesCommunesListComponent),
+  '/prime-saisie-form': () =>
+    import('../pages/prime-saisie.component').then((m) => m.PrimeSaisieComponent),
+  '/template-manager': () =>
+    import('../pages/template-manager.component').then((m) => m.TemplateManagerComponent),
+  '/prime-fiches-pilotes': () =>
+    import('../pages/prime-fiches-pilotes-page.component').then((m) => m.PrimeFichesPilotesPageComponent),
+  '/prime-fiche-import': () =>
+    import('../pages/prime-fiche-import.component').then((m) => m.PrimeFicheImportComponent),
+  '/prime-cellule-indicateurs': () =>
+    import('../pages/prime-cellule-indicators-page.component').then(
+      (m) => m.PrimeCelluleIndicatorsPageComponent,
+    ),
+  '/prime-saisie-cellule': () =>
+    import('../pages/prime-saisie-cellule-page.component').then((m) => m.PrimeSaisieCellulePageComponent),
+  '/notifications': () =>
+    import('../pages/notifications-page.component').then((m) => m.NotificationsPageComponent),
+  '/settings': () =>
+    import('../pages/settings-page.component').then((m) => m.SettingsPageComponent),
+  '/employee/dashboard': () =>
+    import('../pages/employee/employee-dashboard-page.component').then(
+      (m) => m.EmployeeDashboardPageComponent,
+    ),
+  '/employee/primes': () =>
+    import('../pages/employee/my-primes-page.component').then((m) => m.MyPrimesPageComponent),
+  '/employee/performance': () =>
+    import('../pages/employee/my-performance-page.component').then((m) => m.MyPerformancePageComponent),
+};
+
+export function resolvePrimeLazyViewKey(effectiveView: string): string {
+  const key = effectiveView === '/' ? '/dashboard' : effectiveView;
+  return PRIME_VIEW_LOADERS[key] ? key : '/dashboard';
+}

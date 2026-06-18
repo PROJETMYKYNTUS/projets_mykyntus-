@@ -1,0 +1,207 @@
+<div class="page-wrapper ky-page-shell">
+
+  <div class="page-header">
+    <div class="header-info">
+      <span class="eyebrow">Planning</span>
+      <h1 class="page-title">Configuration des Shifts</h1>
+      <p class="page-sub">Définissez les shifts et pauses avant la génération</p>
+    </div>
+    <div class="week-badge">
+      <span class="week-label">Semaine en cours</span>
+      <span class="week-value">{{ currentWeekCode }}</span>
+    </div>
+  </div>
+
+  <div class="filters-panel ky-card selector-bar">
+    <div class="form-group">
+      <label>Service <span class="req">*</span></label>
+      <select class="ky-input filter-ctl--wide" [(ngModel)]="subServiceId" (ngModelChange)="onSubServiceChange()">
+        <option [ngValue]="0" disabled>-- Sélectionner --</option>
+        <option *ngFor="let s of subServiceOptions" [ngValue]="s.id">{{ s.orgLabel }}</option>
+      </select>
+      <span class="hint" *ngIf="subServiceId && serviceEmployeeCount > 0">
+        Effectif actif : {{ serviceEmployeeCount }} employé(s)
+      </span>
+    </div>
+
+    <div class="form-group">
+      <label>Semaine (Lundi) <span class="req">*</span></label>
+      <input class="ky-input" type="date" [(ngModel)]="weekStartDate" (change)="onWeekChange()" />
+      <span class="hint">Seuls les lundis sont acceptés.</span>
+      <span class="week-preview" *ngIf="weekCode">{{ weekCode }}</span>
+      <span class="hint warn" *ngIf="weekDateAdjusted">Date ajustée au lundi.</span>
+    </div>
+
+    <div class="effectif-badge" *ngIf="totalEffectif > 0">
+      <span class="eb-label">Total shifts</span>
+      <span class="eb-value">{{ totalEffectif }}</span>
+      <span class="eb-cap" *ngIf="serviceEmployeeCount > 0">/ {{ serviceEmployeeCount }} max</span>
+    </div>
+  </div>
+
+  <div class="alert-error" *ngIf="error">{{ error }}</div>
+  <div class="alert-success" *ngIf="successMsg">{{ successMsg }}</div>
+
+  <div class="config-card ky-card">
+    <div class="card-header">
+      <div class="ch-left">
+        <span class="card-icon"><app-lucide-icon [icon]="icons.settings" className="w-5 h-5" /></span>
+        <h2>Tableau des Shifts</h2>
+        <span class="shifts-count">{{ shifts.length }} shift(s)</span>
+      </div>
+      <button type="button" class="ky-btn-secondary btn-add-shift" (click)="addShift()" [disabled]="shifts.length >= 8">
+        <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
+        Ajouter un shift
+      </button>
+    </div>
+
+    <div class="table-wrapper" *ngIf="!loading">
+      <table class="prime-table prime-table--dense shifts-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Label</th>
+            <th>Début</th>
+            <th>Fin (auto)</th>
+            <th>Durée travail</th>
+            <th>Pause début</th>
+            <th>Pause fin</th>
+            <th>Nb employés</th>
+            <th>%</th>
+            <th>Présence min</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let shift of shifts; let i = index" class="shift-row">
+            <td class="td-order">{{ i + 1 }}</td>
+            <td class="td-label">
+              <input type="text" [(ngModel)]="shift.label" placeholder="Ex: Matin" class="ky-input input-label" />
+            </td>
+            <td class="td-start">
+              <select [(ngModel)]="shift.startTime" class="ky-input select-time">
+                <option *ngFor="let opt of startOptions" [value]="opt.value">{{ opt.label }}</option>
+              </select>
+            </td>
+            <td class="td-end">
+              <span class="end-time-badge">{{ getEndTime(shift) }}</span>
+            </td>
+            <td class="td-hours">
+              <div class="hours-input">
+                <input type="number" [(ngModel)]="shift.workHours" min="4" max="12" class="ky-input input-hours" />
+                <span class="hours-unit">h</span>
+              </div>
+            </td>
+            <td class="td-break">
+              <select [(ngModel)]="shift.breakRangeStart" class="ky-input select-time">
+                <option [ngValue]="undefined">Auto ({{ getBreakRangeAuto(shift).split('→')[0] }})</option>
+                <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">{{ opt.label }}</option>
+              </select>
+            </td>
+            <td class="td-break">
+              <select [(ngModel)]="shift.breakRangeEnd" class="ky-input select-time">
+                <option [ngValue]="undefined">Auto ({{ getBreakRangeAuto(shift).split('→')[1] }})</option>
+                <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">{{ opt.label }}</option>
+              </select>
+            </td>
+            <td class="td-count">
+              <input
+                type="number"
+                [(ngModel)]="shift.requiredCount"
+                (ngModelChange)="onRequiredCountChange()"
+                min="0"
+                class="ky-input input-count"
+              />
+            </td>
+            <td class="td-pct">
+              <span class="pct-badge" [class.pct-high]="getPercentage(shift) > 30">
+                {{ getPercentage(shift) }}%
+              </span>
+            </td>
+            <td class="td-presence">
+              <div class="presence-input">
+                <input type="number" [(ngModel)]="shift.minPresencePercent" min="50" max="100" class="ky-input input-presence" />
+                <span class="hours-unit">%</span>
+              </div>
+            </td>
+            <td class="td-delete">
+              <button
+                type="button"
+                class="btn-remove-shift"
+                (click)="removeShift(i)"
+                [disabled]="shifts.length <= 1"
+                title="Supprimer ce shift">
+                <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+              </button>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="7" class="total-label">Total</td>
+            <td class="total-count">{{ totalEffectif }}</td>
+            <td class="total-pct">100%</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="state-loading" *ngIf="loading">
+      <div class="spinner"></div>
+      <span>Chargement de la config…</span>
+    </div>
+
+    <div class="rule-info">
+      <app-lucide-icon [icon]="icons.info" className="w-4 h-4" />
+      <span>Règle fixe : <strong>70% présents</strong> en permanence → max <strong>30%</strong> en pause simultanément</span>
+    </div>
+  </div>
+
+  <div class="saved-config-card ky-card" *ngIf="savedConfig">
+    <div class="card-header">
+      <span class="card-icon"><app-lucide-icon [icon]="icons.coffee" className="w-5 h-5" /></span>
+      <h2>Config sauvegardée — {{ savedConfig.weekCode }}</h2>
+      <span class="total-badge">{{ savedConfig.totalEffectif }} employés</span>
+    </div>
+    <div class="saved-shifts">
+      <div class="saved-shift-item" *ngFor="let s of savedConfig.shifts">
+        <span class="ss-label">{{ s.label }}</span>
+        <span class="ss-time">{{ s.startTime }} → {{ s.endTime }}</span>
+        <span class="ss-break">
+          <app-lucide-icon [icon]="icons.coffee" className="w-3.5 h-3.5 inline" />
+          {{ s.breakRangeStart }} → {{ s.breakRangeEnd }}
+        </span>
+        <span class="ss-count">
+          <app-lucide-icon [icon]="icons.users" className="w-3.5 h-3.5 inline" />
+          {{ s.requiredCount }} pers.
+        </span>
+        <span class="ss-pct">{{ s.percentage }}%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-bar">
+    <button
+      type="button"
+      class="ky-btn-secondary btn-save"
+      [disabled]="saving || !subServiceId || totalEffectif === 0 || (serviceEmployeeCount > 0 && totalEffectif > serviceEmployeeCount)"
+      (click)="saveConfig()">
+      <span *ngIf="!saving"><app-lucide-icon [icon]="icons.save" className="w-4 h-4 inline" /> Sauvegarder la config</span>
+      <span *ngIf="saving">Sauvegarde…</span>
+    </button>
+
+    <button
+      type="button"
+      class="ky-btn-primary btn-generate"
+      [disabled]="generating || !savedConfig"
+      (click)="generatePlanning()">
+      <span *ngIf="!generating">Générer le planning</span>
+      <span *ngIf="generating" class="generating-state">
+        <span class="dot-pulse"></span>
+        Génération en cours…
+      </span>
+    </button>
+  </div>
+
+</div>

@@ -1,0 +1,113 @@
+.service-form-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.page-header,
+.card {
+  width: 100%;
+  max-width: 760px;
+}
+
+.page-header {
+  margin-bottom: 20px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-left h1 {
+  margin: 0;
+  font-size: 1.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.header-left p {
+  margin: 6px 0 0;
+  font-size: 0.96rem;
+}
+
+.card {
+  padding: 32px;
+}
+
+.form-container {
+  display: grid;
+  gap: 22px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+label {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+label span {
+  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
+}
+
+.input-error {
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
+}
+
+.alert.error {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 14px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.state {
+  padding: 24px;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 12px;
+  border: 3px solid color-mix(in srgb, var(--soft-blue) 30%, var(--border-color));
+  border-top-color: var(--text-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 22px;
+    border-radius: 18px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}

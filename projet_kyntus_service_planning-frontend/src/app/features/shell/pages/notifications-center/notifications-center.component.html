@@ -1,0 +1,55 @@
+<div class="ks-notif-center">
+  <header class="ks-notif-center-head">
+    <div>
+      <h1>Centre de notifications</h1>
+      <p>Toutes vos alertes de la plateforme Kyntus, regroupées au même endroit.</p>
+    </div>
+    <div class="ks-notif-center-actions">
+      <button type="button" class="ks-btn-secondary" (click)="markAllRead()">
+        <app-lucide-icon [icon]="icons.markAll" className="w-4 h-4" />
+        Tout marquer comme lu
+      </button>
+    </div>
+  </header>
+
+  <div class="ks-notif-filters">
+    @for (opt of filterOptions(); track opt.id) {
+      <button
+        type="button"
+        class="ks-notif-filter"
+        [class.active]="activeFilter() === opt.id"
+        (click)="setFilter(opt.id)"
+      >
+        {{ opt.label }}
+      </button>
+    }
+  </div>
+
+  <div class="ks-notif-list-wrap">
+    @if (filteredNotifications().length === 0) {
+      <div class="ks-notif-empty-state">
+        <app-lucide-icon [icon]="icons.bell" className="w-10 h-10" />
+        <p>Aucune notification</p>
+        <a routerLink="/home">Retour à l'accueil</a>
+      </div>
+    } @else {
+      <ul class="ks-notif-list">
+        @for (n of filteredNotifications(); track n.id) {
+          <li>
+            <button type="button" class="ks-notif-row" [class.unread]="!n.read" (click)="openNotification(n)">
+              <span class="ks-notif-row-dot" [class.read]="n.read"></span>
+              <span class="ks-notif-row-body">
+                <span class="ks-notif-row-meta">
+                  <span class="ks-notif-source-tag">{{ sourceLabel(n.source) }}</span>
+                  <span class="ks-notif-row-date">{{ formatDate(n.createdAt) }}</span>
+                </span>
+                <span class="ks-notif-row-title">{{ n.title }}</span>
+                <span class="ks-notif-row-msg">{{ n.body }}</span>
+              </span>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</div>

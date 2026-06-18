@@ -1,0 +1,116 @@
+<div class="kyntus-shell" [class.sidebar-open]="sidebarOpen" [class.sidebar-collapsed]="sidebarCollapsed">
+
+  <aside class="ks-sidebar">
+    <div class="ks-brand">
+      <button type="button" class="ks-collapse-btn" (click)="toggleCollapse()" [attr.title]="sidebarCollapsed ? 'Déplier' : 'Replier'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline [attr.points]="sidebarCollapsed ? '9 18 15 12 9 6' : '15 18 9 12 15 6'"/>
+        </svg>
+      </button>
+      <img src="/assets/kyntus-logo.jpg" alt="Kyntus Morocco" class="ks-brand-logo-img" (error)="logoError = true" *ngIf="!logoError" />
+      <div class="ks-brand-logo" *ngIf="logoError">K</div>
+      <div class="ks-brand-text" *ngIf="!sidebarCollapsed">
+        <strong>Kyntus</strong>
+        <span>Morocco — Plateforme RH</span>
+      </div>
+    </div>
+
+    <nav class="ks-nav">
+      <a class="ks-home" routerLink="/home" routerLinkActive="active" (click)="sidebarOpen = false">
+        <span class="ks-ic" [innerHTML]="icon(homeIcon)"></span>
+        <span *ngIf="!sidebarCollapsed">Accueil</span>
+      </a>
+
+      <span class="ks-nav-label" *ngIf="!sidebarCollapsed">Microservices</span>
+
+      <div class="ks-group" *ngFor="let g of groups">
+        <button type="button" class="ks-group-head" [class.open]="isOpen(g.id)" (click)="toggleGroup(g.id)">
+          <span class="ks-ic" [innerHTML]="icon(g.icon)"></span>
+          <span class="ks-group-label" *ngIf="!sidebarCollapsed">{{ g.label }}</span>
+          <span class="ks-chevron" *ngIf="!sidebarCollapsed" [class.open]="isOpen(g.id)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+
+        <div class="ks-sub" *ngIf="isOpen(g.id) && !sidebarCollapsed">
+          <a *ngFor="let item of g.children"
+             class="ks-sub-item"
+             [class.active]="isItemActive(item)"
+             (click)="onItemClick(item)">
+            <span class="ks-dot"></span>
+            {{ item.label }}
+            <span class="ks-ext" *ngIf="item.externalUrl" title="Ouvre dans un nouvel onglet">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </span>
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="ks-quick-actions" *ngIf="!sidebarCollapsed">
+      <button type="button" class="ks-quick-btn" (click)="openNotifications()">
+        <app-lucide-icon [icon]="icons.bell" className="w-4 h-4" />
+        Notifications
+        <app-shell-notification-badge [count]="notifHub.unreadCount()" />
+      </button>
+      <button type="button" class="ks-quick-btn" (click)="openSettingsPage()">
+        <app-lucide-icon [icon]="icons.settings" className="w-4 h-4" />
+        Paramètres
+      </button>
+    </div>
+
+    <div class="ks-sidebar-footer">
+      <div class="ks-user-row" *ngIf="!sidebarCollapsed">
+        <div class="ks-user-av">{{ userInitials }}</div>
+        <div class="ks-user-info">
+          <strong>{{ currentUser?.username || 'Utilisateur' }}</strong>
+          <span>{{ role || currentUser?.email || '—' }}</span>
+        </div>
+      </div>
+      <button class="ks-logout" (click)="logout()" [attr.title]="sidebarCollapsed ? 'Déconnexion' : null">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span *ngIf="!sidebarCollapsed">Déconnexion</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="ks-overlay" (click)="sidebarOpen = false"></div>
+
+  <div class="ks-main">
+    <header class="ks-topbar">
+      <button class="ks-burger" (click)="toggleSidebar()" title="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="ks-topbar-title">
+        <strong>Plateforme unifiée Kyntus</strong>
+        <span>Gestion RH par microservices</span>
+      </div>
+      <div class="ks-topbar-right">
+        <button type="button" class="ks-tb-icon" (click)="theme.toggleTheme()" [attr.aria-label]="theme.theme() === 'light' ? 'Mode sombre' : 'Mode clair'">
+          <app-lucide-icon [icon]="theme.theme() === 'light' ? icons.moon : icons.sun" className="w-4 h-4" />
+        </button>
+        <div class="ks-tb-notif-wrap" #notifWrap>
+          <button type="button" class="ks-tb-icon" (click)="toggleNotifDropdown($event)" aria-label="Notifications">
+            <app-lucide-icon [icon]="icons.bell" className="w-5 h-5" />
+            <app-shell-notification-badge [count]="notifHub.unreadCount()" />
+          </button>
+          <app-shell-notification-dropdown />
+        </div>
+        <button type="button" class="ks-tb-icon" (click)="openSettings()" aria-label="Paramètres">
+          <app-lucide-icon [icon]="icons.settings" className="w-4 h-4" />
+        </button>
+        <div class="ks-pill">
+          <span class="ks-dot-pulse"></span>
+          Système actif
+        </div>
+        <div class="ks-tb-av">{{ userInitials }}</div>
+      </div>
+    </header>
+
+    <main class="ks-content" [ngClass]="moduleContentClass">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+
+  <app-shell-settings-panel />
+</div>

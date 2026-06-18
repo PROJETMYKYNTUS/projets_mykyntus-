@@ -1,0 +1,204 @@
+<div class="page-wrapper ky-page-shell">
+
+  <div class="fa-toast ky-card" [class.visible]="toast.show" [class.error]="toast.type === 'error'">
+    <app-lucide-icon
+      [icon]="toast.type === 'success' ? icons.validate : icons.delete"
+      className="w-4 h-4"
+    />
+    {{ toast.message }}
+  </div>
+
+  <div class="page-header">
+    <div class="header-left">
+      <span class="eyebrow">Formation</span>
+      <h1 class="page-title">Gestion des formations</h1>
+      <p class="page-sub">Créez, validez et suivez les inscriptions aux formations</p>
+      <p class="results-count" *ngIf="!loading">
+        <strong>{{ filteredFormations.length }}</strong> formation(s) affichée(s)
+      </p>
+    </div>
+    <button type="button" class="ky-btn-primary btn-add" (click)="openCreate()">
+      <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
+      Nouvelle formation
+    </button>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-card ky-card kc-blue">
+      <span class="kpi-label">Total</span>
+      <span class="kpi-value">{{ stats.total }}</span>
+    </div>
+    <div class="kpi-card ky-card kc-amber">
+      <span class="kpi-label">À valider</span>
+      <span class="kpi-value">{{ stats.pending }}</span>
+    </div>
+    <div class="kpi-card ky-card kc-green">
+      <span class="kpi-label">Actives</span>
+      <span class="kpi-value">{{ stats.active }}</span>
+    </div>
+    <div class="kpi-card ky-card kc-gray">
+      <span class="kpi-label">Inscriptions</span>
+      <span class="kpi-value">{{ stats.inscriptions }}</span>
+    </div>
+  </div>
+
+  <div class="filters-panel ky-card">
+    <div class="filters-toolbar">
+      <div class="filter-search">
+        <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+        <input
+          class="filter-search-input"
+          type="text"
+          placeholder="Titre, formateur…"
+          [(ngModel)]="searchTerm"
+          (input)="applyFilters()"
+        />
+      </div>
+
+      <select class="filter-ctl ky-input" [(ngModel)]="filterStatut" (change)="applyFilters()">
+        <option value="">Statut</option>
+        <option [ngValue]="StatutFormation.Brouillon">Brouillon</option>
+        <option [ngValue]="StatutFormation.EnAttente">En attente</option>
+        <option [ngValue]="StatutFormation.Validee">Validée</option>
+        <option [ngValue]="StatutFormation.EnCours">En cours</option>
+        <option [ngValue]="StatutFormation.Terminee">Terminée</option>
+        <option [ngValue]="StatutFormation.Annulee">Annulée</option>
+      </select>
+
+      <button type="button" class="filter-reset ky-btn-secondary" (click)="clearFilters()">
+        Réinitialiser
+      </button>
+    </div>
+  </div>
+
+  <div class="table-card ky-card">
+    <div class="state-loading" *ngIf="loading">
+      <app-lucide-icon [icon]="icons.loader" className="w-5 h-5 spin" />
+      <span>Chargement des formations…</span>
+    </div>
+
+    <div class="state-empty" *ngIf="!loading && formations.length === 0">
+      <app-lucide-icon [icon]="icons.inbox" className="w-10 h-10" />
+      <h3>Aucune formation</h3>
+      <p>Créez votre première formation pour commencer.</p>
+      <button type="button" class="ky-btn-primary" (click)="openCreate()">
+        <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
+        Nouvelle formation
+      </button>
+    </div>
+
+    <div class="state-empty" *ngIf="!loading && formations.length > 0 && filteredFormations.length === 0">
+      <p>Aucune formation ne correspond aux filtres.</p>
+      <button type="button" class="ky-btn-secondary" (click)="clearFilters()">Réinitialiser</button>
+    </div>
+
+    <div class="table-wrapper" *ngIf="!loading && filteredFormations.length > 0">
+      <table class="prime-table">
+        <thead>
+          <tr>
+            <th>Titre</th>
+            <th>Formateur</th>
+            <th>Dates</th>
+            <th>Places</th>
+            <th>Prix</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let f of filteredFormations">
+            <td class="td-title">{{ f.titre }}</td>
+            <td>{{ f.formateur }}</td>
+            <td class="td-date">
+              {{ f.dateDebut | date:'dd/MM/yy' }} → {{ f.dateFin | date:'dd/MM/yy' }}
+            </td>
+            <td>
+              <span class="places-badge">
+                <app-lucide-icon [icon]="icons.users" className="w-3.5 h-3.5" />
+                {{ f.nombreInscrits }}/{{ f.capaciteMax }}
+              </span>
+            </td>
+            <td>{{ f.prix | number:'1.0-0' }} MAD</td>
+            <td>
+              <span class="status-badge" [ngClass]="getStatutClass(f.statut)">
+                {{ statutLabels[f.statut] }}
+              </span>
+            </td>
+            <td class="td-actions">
+              <button type="button" class="ky-btn-secondary btn-icon" (click)="openEdit(f)" title="Modifier">
+                <app-lucide-icon [icon]="icons.edit" className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                class="ky-btn-secondary btn-icon btn-valid"
+                *ngIf="f.statut === StatutFormation.Brouillon || f.statut === StatutFormation.EnAttente"
+                (click)="valider(f)"
+                title="Valider">
+                <app-lucide-icon [icon]="icons.validate" className="w-4 h-4" />
+              </button>
+              <button type="button" class="ky-btn-secondary btn-icon btn-del" (click)="delete(f)" title="Supprimer">
+                <app-lucide-icon [icon]="icons.delete" className="w-4 h-4" />
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="modal-overlay" *ngIf="showModal" (click)="showModal = false">
+    <div class="modal ky-card" (click)="$event.stopPropagation()">
+      <div class="modal-head">
+        <div>
+          <span class="modal-eyebrow">{{ editMode ? 'Modification' : 'Création' }}</span>
+          <h3>{{ editMode ? 'Modifier la formation' : 'Nouvelle formation' }}</h3>
+        </div>
+        <button type="button" class="modal-close" (click)="showModal = false" aria-label="Fermer">
+          <app-lucide-icon [icon]="icons.close" className="w-5 h-5" />
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-field">
+          <label>Titre <span class="req">*</span></label>
+          <input class="ky-input" [(ngModel)]="form.titre" placeholder="Titre de la formation" />
+        </div>
+        <div class="form-field">
+          <label>Description</label>
+          <textarea class="ky-input" [(ngModel)]="form.description" rows="3" placeholder="Description…"></textarea>
+        </div>
+        <div class="form-field">
+          <label>Formateur <span class="req">*</span></label>
+          <input class="ky-input" [(ngModel)]="form.formateur" placeholder="Nom du formateur" />
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Date début</label>
+            <input class="ky-input" type="date" [(ngModel)]="form.dateDebut" />
+          </div>
+          <div class="form-field">
+            <label>Date fin</label>
+            <input class="ky-input" type="date" [(ngModel)]="form.dateFin" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Capacité max</label>
+            <input class="ky-input" type="number" [(ngModel)]="form.capaciteMax" min="1" />
+          </div>
+          <div class="form-field">
+            <label>Prix (MAD)</label>
+            <input class="ky-input" type="number" [(ngModel)]="form.prix" min="0" />
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-foot">
+        <button type="button" class="ky-btn-secondary" (click)="showModal = false">Annuler</button>
+        <button type="button" class="ky-btn-primary" (click)="submit()">
+          {{ editMode ? 'Mettre à jour' : 'Créer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

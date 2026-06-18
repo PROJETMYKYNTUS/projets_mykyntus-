@@ -1,0 +1,375 @@
+<div class="page-wrapper ky-page-shell">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Import guidé des employés</h1>
+      <p class="page-sub">
+        Analyse, mapping des colonnes, prévisualisation et import des employés avec validation organisationnelle.
+      </p>
+      <p class="hint template-hint">
+        Utilisez le modèle Excel standard : identité, rôle, pôle, cellule, service et niveau (Débutant / Intermédiaire / Expert)
+        (feuilles Employés, Référentiels et Notice). Les rôles Admin et Manager ne peuvent pas être importés.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="ky-btn-secondary" (click)="goToHistory()">Historique</button>
+      <button type="button" class="ky-btn-secondary" *ngIf="isAdmin" (click)="goToConfig()">Configuration</button>
+      <button type="button" class="ky-btn-secondary" (click)="downloadTemplate()">Télécharger le modèle Excel</button>
+    </div>
+  </div>
+
+  <div class="stepper" *ngIf="currentStep !== 'config' && !showHistory">
+    <button
+      type="button"
+      class="stepper-item"
+      *ngFor="let step of steps; let i = index"
+      [class.active]="step.id === currentStep"
+      [class.done]="stepIndex() > i"
+      [disabled]="!canNavigateToStep(step.id)"
+      (click)="goToStep(step.id, true)">
+      <span class="stepper-num">{{ i + 1 }}</span>
+      <span class="stepper-label">{{ step.label }}</span>
+    </button>
+  </div>
+
+  <!-- Configuration admin -->
+  <div class="ky-card config-panel" *ngIf="currentStep === 'config'">
+    <h2>Champs importables</h2>
+    <p class="hint">Les champs désactivés sont ignorés même s'ils sont présents dans le fichier.</p>
+    <table class="mapping-table">
+      <thead>
+        <tr>
+          <th>Champ</th>
+          <th>Actif</th>
+          <th>Obligatoire (création)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let field of configFields">
+          <td>{{ field.label }} <span class="field-key">({{ field.fieldKey }})</span></td>
+          <td><input type="checkbox" [(ngModel)]="field.isEnabled" /></td>
+          <td><input type="checkbox" [(ngModel)]="field.isRequiredOnCreate" [disabled]="!field.isEnabled" /></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="actions-row">
+      <button type="button" class="ky-btn-secondary" (click)="goToStep('file')">Retour</button>
+      <button type="button" class="ky-btn-primary" (click)="saveConfig()">Enregistrer</button>
+    </div>
+  </div>
+
+  <!-- Historique -->
+  <div class="ky-card" *ngIf="showHistory">
+    <div class="panel-head">
+      <h2>Historique des imports</h2>
+      <button type="button" class="ky-btn-secondary" (click)="closeHistory()">Fermer</button>
+    </div>
+    <table class="mapping-table" *ngIf="history.length; else noHistory">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Fichier</th>
+          <th>Lignes</th>
+          <th>Créés</th>
+          <th>Màj</th>
+          <th>Erreurs</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let job of history">
+          <td>{{ formatDate(job.startedAt) }}</td>
+          <td>{{ job.fileName }}</td>
+          <td>{{ job.totalLignes }}</td>
+          <td>{{ job.crees }}</td>
+          <td>{{ job.misAJour }}</td>
+          <td>{{ job.erreurs }}</td>
+          <td><button type="button" class="link-btn" (click)="viewJob(job.id)">Détail</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <ng-template #noHistory><p class="hint">Aucun import enregistré.</p></ng-template>
+  </div>
+
+  <!-- Étape fichier -->
+  <div class="content-grid" *ngIf="currentStep === 'file' && !showHistory">
+    <div class="ky-card resume-banner" *ngIf="draftResumeHint">
+      <p>{{ draftResumeHint }}</p>
+      <div class="actions-row">
+        <button type="button" class="ky-btn-primary" (click)="resumeDraft()">Reprendre</button>
+        <button type="button" class="ky-btn-secondary" (click)="discardDraft()">Recommencer</button>
+      </div>
+    </div>
+
+    <div class="ky-card resume-banner saved-progress" *ngIf="hasSavedProgress() && !draftResumeHint">
+      <p>Import en cours : {{ savedProgressLabel() }}</p>
+      <div class="actions-row">
+        <button type="button" class="ky-btn-primary" (click)="goToStep(resumeProgressStep())">Continuer</button>
+        <button type="button" class="ky-btn-secondary" (click)="resetWizard()">Abandonner</button>
+      </div>
+    </div>
+
+    <div class="ky-card">
+      <h2>1. Déposer le fichier</h2>
+      <p class="hint">
+        Téléchargez d'abord le
+        <button type="button" class="link-btn" (click)="downloadTemplate()">modèle Excel complet</button>
+        (.xlsx, .csv — max 5 Mo)
+      </p>
+      <div
+        class="drop-zone"
+        [class.drag-over]="isDragOver"
+        [class.has-file]="selectedFile"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave()"
+        (drop)="onDrop($event)"
+        (click)="fileInput.click()">
+        <input #fileInput type="file" accept=".xlsx,.xls,.csv" hidden (change)="onFileSelected($event)" />
+        <ng-container *ngIf="!selectedFile">
+          <p class="drop-text">Glissez votre fichier ici ou cliquez pour parcourir</p>
+        </ng-container>
+        <ng-container *ngIf="selectedFile">
+          <p class="drop-text">{{ selectedFile.name }}</p>
+          <p class="hint">{{ (selectedFile.size / 1024) | number:'1.0-0' }} Ko</p>
+        </ng-container>
+      </div>
+      <p class="error-text" *ngIf="analyzeError">{{ analyzeError }}</p>
+      <button
+        type="button"
+        class="ky-btn-primary full-width"
+        [disabled]="!selectedFile || analyzing"
+        (click)="analyzeFile()">
+        {{ analyzing ? 'Analyse en cours…' : 'Analyser le fichier' }}
+      </button>
+    </div>
+    <div class="ky-card result-card">
+      <h3>En attente</h3>
+      <p class="hint">Le résultat de l'analyse et de l'import s'affichera aux étapes suivantes.</p>
+    </div>
+  </div>
+
+  <!-- Mapping -->
+  <div class="ky-card" *ngIf="currentStep === 'mapping' && analyzeResult">
+    <h2>2. Correspondance des colonnes</h2>
+    <p class="hint">
+      Fichier : {{ analyzeResult.fileName }} — {{ analyzeResult.totalRows }} lignes.
+      L'ordre des colonnes n'a pas d'importance : seul le mapping compte.
+      Laissez « — Ignorer — » sur les colonnes inutiles ou vides au milieu du fichier.
+    </p>
+    <div class="alerts" *ngIf="analyzeResult.alerts.length">
+      <p *ngFor="let alert of analyzeResult.alerts" class="alert-item">{{ alert }}</p>
+    </div>
+    <div class="mapping-validation" *ngIf="mappingIssues.length">
+      <p class="validation-title">Contrôle du mapping</p>
+      <p *ngFor="let issue of mappingErrors()" class="alert-item alert-error">{{ issue.message }}</p>
+      <p *ngFor="let issue of mappingWarnings()" class="alert-item">{{ issue.message }}</p>
+    </div>
+    <table class="mapping-table">
+      <thead>
+        <tr>
+          <th>Colonne fichier</th>
+          <th>Confiance</th>
+          <th>Champ cible</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let m of mappings; let i = index" [class.row-ignored]="!m.fieldKey || isColumnIgnorable(m.columnIndex)">
+          <td>{{ columnHeaderLabel(m.columnIndex) }}</td>
+          <td>
+            <span
+              class="badge"
+              [class.high]="columnSuggestedConfidence(m.columnIndex) === 'high'"
+              *ngIf="m.fieldKey">
+              {{ columnSuggestedConfidence(m.columnIndex) }}
+            </span>
+            <span class="hint" *ngIf="!m.fieldKey">—</span>
+          </td>
+          <td>
+            <select [(ngModel)]="mappings[i].fieldKey" (ngModelChange)="onMappingChange()">
+              <option [ngValue]="null">— Ignorer —</option>
+              <option *ngFor="let f of fieldOptions()" [ngValue]="f.fieldKey">{{ f.label }}</option>
+            </select>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="actions-row">
+      <button type="button" class="ky-btn-secondary" (click)="goToStep('file')">Retour</button>
+      <button type="button" class="ky-btn-primary" (click)="goToPreview()">Prévisualiser</button>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div class="ky-card" *ngIf="currentStep === 'preview' && analyzeResult">
+    <h2>3. Prévisualisation</h2>
+    <p class="hint">Échantillon des premières lignes après mapping (confiance rôle/org dans l'étape Organisation)</p>
+    <div class="preview-scroll">
+      <table class="mapping-table compact">
+        <thead>
+          <tr>
+            <th *ngFor="let f of fieldOptions()">{{ f.label }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of analyzeResult.previewRows">
+            <td *ngFor="let f of fieldOptions()">{{ row[f.fieldKey] ?? '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="actions-row">
+      <button type="button" class="ky-btn-secondary" (click)="goToStep('mapping')">Retour</button>
+      <button type="button" class="ky-btn-primary" (click)="goToOrg()">Organisation</button>
+    </div>
+  </div>
+
+  <!-- Organisation -->
+  <div class="ky-card" *ngIf="currentStep === 'org' && analyzeResult">
+    <h2>4. Organisation</h2>
+    <p class="hint">
+      Validez les correspondances approximatives et les créations d'organisation proposées (Annuaire → miroir Planning).
+      Cette analyse utilise le mapping de colonnes que vous venez de valider.
+    </p>
+
+    <p class="hint" *ngIf="revalidatingOrg">Analyse organisation en cours…</p>
+    <p class="alert-item alert-error" *ngIf="orgRevalidateError">{{ orgRevalidateError }}</p>
+
+    <div class="mapping-validation" *ngIf="orgErrors().length">
+      <p class="validation-title">Erreurs organisation / rôle</p>
+      <p *ngFor="let issue of orgErrors()" class="alert-item alert-error">{{ issue.message }} (ligne {{ issue.lineNumber }})</p>
+    </div>
+
+    <div class="mapping-validation" *ngIf="orgWarnings().length">
+      <p class="validation-title">Alertes</p>
+      <p *ngFor="let issue of orgWarnings()" class="alert-item">{{ issue.message }} (ligne {{ issue.lineNumber }})</p>
+    </div>
+
+    <div *ngIf="fuzzyMatchesNeedingApproval().length" class="org-section">
+      <h3>Correspondances à confirmer</h3>
+      <table class="mapping-table compact">
+        <thead>
+          <tr>
+            <th>Ligne</th>
+            <th>Champ</th>
+            <th>Fichier</th>
+            <th>Proposition</th>
+            <th>Accepter</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let match of fuzzyMatchesNeedingApproval()">
+            <td>{{ match.lineNumber }}</td>
+            <td>{{ match.fieldKey }}</td>
+            <td>{{ match.sourceValue }}</td>
+            <td>{{ match.matchedValue }}</td>
+            <td>
+              <input
+                type="checkbox"
+                [checked]="isFuzzyMatchAccepted(match)"
+                (change)="toggleFuzzyMatch(match, $any($event.target).checked)" />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="approvedOrgCreations.length" class="org-section">
+      <h3>Créations proposées</h3>
+      <table class="mapping-table compact">
+        <thead>
+          <tr>
+            <th>Créer</th>
+            <th>Description</th>
+            <th>Lignes concernées</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of approvedOrgCreations">
+            <td><input type="checkbox" [(ngModel)]="item.approved" (ngModelChange)="onOrgApprovalChange()" /></td>
+            <td>{{ item.confirmationLabel }}</td>
+            <td>{{ item.affectedLineNumbers.join(', ') }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="hint" *ngIf="!revalidatingOrg && !approvedOrgCreations.length && !fuzzyMatchesNeedingApproval().length && !orgNewNameWarnings().length">
+      Aucun élément organisationnel à créer détecté. Vérifiez que les colonnes Pôle / Cellule / Service sont bien mappées et que les noms correspondent au référentiel ou seront créés via les cases ci-dessous après ré-analyse.
+    </p>
+
+    <div class="actions-row">
+      <button type="button" class="ky-btn-secondary" (click)="goToStep('preview')">Retour</button>
+      <button type="button" class="ky-btn-primary" (click)="goToConfirm()" [disabled]="orgErrors().length > 0 || revalidatingOrg">
+        Continuer
+      </button>
+    </div>
+  </div>
+
+  <!-- Confirm -->
+  <div class="ky-card" *ngIf="currentStep === 'confirm' && analyzeResult">
+    <h2>5. Confirmation</h2>
+    <ul class="confirm-list">
+      <li><strong>Fichier :</strong> {{ analyzeResult.fileName }}</li>
+      <li><strong>Lignes :</strong> {{ analyzeResult.totalRows }}</li>
+      <li><strong>Colonnes mappées :</strong> {{ mappedColumnCount() }}</li>
+      <li *ngIf="pendingOrgCount()"><strong>Organisations à créer :</strong> {{ pendingOrgCount() }}</li>
+      <li *ngIf="acceptedFuzzyMatches.length"><strong>Correspondances floues acceptées :</strong> {{ acceptedFuzzyMatches.length }}</li>
+    </ul>
+    <p class="hint">
+      Règles : email = identifiant unique · cellule vide = pas d'écrasement · mot de passe optionnel (défaut système).
+    </p>
+    <div class="actions-row">
+      <button type="button" class="ky-btn-secondary" (click)="goToStep('org')">Retour</button>
+      <button type="button" class="ky-btn-primary" [disabled]="executing" (click)="executeImport()">
+        {{ executing ? 'Import en cours…' : 'Lancer l\'import' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Report -->
+  <div class="ky-card" *ngIf="currentStep === 'report' && report">
+    <h2>6. Rapport d'import</h2>
+    <div class="stats-grid">
+      <div class="stat"><span class="stat-val">{{ report.totalLignes }}</span><span class="stat-lbl">Lignes</span></div>
+      <div class="stat ok"><span class="stat-val">{{ report.crees }}</span><span class="stat-lbl">Créés</span></div>
+      <div class="stat ok"><span class="stat-val">{{ report.misAJour }}</span><span class="stat-lbl">Mis à jour</span></div>
+      <div class="stat"><span class="stat-val">{{ report.ignores }}</span><span class="stat-lbl">Ignorés</span></div>
+      <div class="stat err"><span class="stat-val">{{ report.erreurs }}</span><span class="stat-lbl">Erreurs</span></div>
+    </div>
+    <div class="org-created" *ngIf="report.orgNodesCreated?.length">
+      <h3>Organisations créées</h3>
+      <ul>
+        <li *ngFor="let node of report.orgNodesCreated">
+          {{ node.nodeType }} « {{ node.name }} »<span *ngIf="node.pole"> — pôle {{ node.pole }}</span>
+        </li>
+      </ul>
+    </div>
+    <div class="actions-row">
+      <button type="button" class="ky-btn-secondary" (click)="exportErrors()" *ngIf="report.erreurs > 0">
+        Exporter erreurs (CSV)
+      </button>
+      <button type="button" class="ky-btn-primary" (click)="resetWizard()">Nouvel import</button>
+    </div>
+    <div class="preview-scroll report-lines">
+      <table class="mapping-table compact">
+        <thead>
+          <tr>
+            <th>Ligne</th>
+            <th>Email</th>
+            <th>Action</th>
+            <th>Message</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let line of report.lignes" [class.row-error]="line.action === 'error'">
+            <td>{{ line.lineNumber }}</td>
+            <td>{{ line.email ?? '—' }}</td>
+            <td>{{ actionLabel(line.action) }}</td>
+            <td>{{ line.message ?? '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/*.user
+**/*.log
+**/logs.txt
+**/*.ndjson
+**/.git/
+**/TemplateManagementV1-TestPlan.md

@@ -1,0 +1,494 @@
+.nl-admin-shell {
+  display: block;
+  --nl-radius-lg: 24px;
+  --nl-radius-md: 18px;
+  --nl-radius-sm: 14px;
+}
+
+.nl-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 28px;
+  border-radius: var(--nl-radius-lg);
+  margin-bottom: 20px;
+}
+
+.nl-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--nl-primary-soft, color-mix(in srgb, var(--soft-blue) 18%, var(--bg-card)));
+  color: var(--nl-primary-dark, var(--blue-600));
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nl-hero-copy h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.nl-hero-copy p {
+  margin: 0;
+  max-width: 760px;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.nl-hero-actions,
+.nl-card-actions,
+.nl-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nl-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.nl-tab {
+  border-radius: 999px;
+  padding: 11px 16px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nl-tab.active {
+  background: var(--blue-600);
+  border-color: var(--blue-600);
+  color: var(--bg-card);
+}
+
+.nl-grid-top {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.nl-stat-card {
+  padding: 22px;
+  border-radius: var(--nl-radius-md);
+}
+
+.nl-stat-card strong {
+  display: block;
+  margin: 10px 0 6px;
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.nl-stat-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nl-panel {
+  border-radius: var(--nl-radius-lg);
+  padding: 24px;
+}
+
+.nl-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.nl-panel-head h2,
+.nl-subpanel h3,
+.nl-empty h3,
+.nl-progress-head h3 {
+  margin: 0 0 6px;
+  color: var(--text-primary);
+}
+
+.nl-state,
+.nl-empty {
+  padding: 28px;
+  text-align: center;
+  border-radius: var(--nl-radius-md);
+  border-style: dashed;
+}
+
+.nl-empty-inner {
+  padding: 18px;
+}
+
+.nl-card-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+}
+
+.nl-card {
+  border-radius: var(--nl-radius-md);
+  padding: 20px;
+}
+
+.nl-card-head,
+.nl-campaign-top,
+.nl-progress-head,
+.nl-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nl-card-head h3,
+.nl-campaign-top h4 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.nl-meta,
+.nl-modal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 14px 0 18px;
+  font-size: 0.78rem;
+}
+
+.nl-badge,
+.nl-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.nl-badge {
+  background: color-mix(in srgb, var(--soft-blue) 18%, var(--bg-card));
+  color: var(--blue-600);
+}
+
+.nl-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.nl-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nl-field-full {
+  grid-column: 1 / -1;
+}
+
+.nl-field label {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.nl-field textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.req {
+  color: #dc2626;
+}
+
+.nl-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.nl-image-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nl-image-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 360px;
+}
+
+.nl-image-preview img {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+}
+
+.nl-btn-remove-image {
+  align-self: flex-start;
+}
+
+.nl-preview {
+  margin-top: 22px;
+  padding: 20px;
+}
+
+.nl-preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.nl-preview-cover {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 16px;
+  margin: 12px 0;
+  border: 1px solid var(--border-color);
+}
+
+.nl-preview-text {
+  margin-top: 12px;
+  white-space: pre-wrap;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+.nl-form-actions {
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+.nl-campaign-layout {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 18px;
+}
+
+.nl-subpanel {
+  border-radius: var(--nl-radius-md);
+  padding: 20px;
+}
+
+.nl-subpanel h3 {
+  font-size: 1.05rem;
+}
+
+.nl-campaign-list {
+  display: grid;
+  gap: 14px;
+}
+
+.nl-campaign-card {
+  border-radius: var(--nl-radius-md);
+  padding: 18px;
+}
+
+.nl-campaign-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  margin: 14px 0 18px;
+  font-size: 0.84rem;
+}
+
+.nl-analytics {
+  display: grid;
+  gap: 18px;
+}
+
+.nl-analytics-main {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.nl-analytics-card,
+.nl-progress-card {
+  border-radius: var(--nl-radius-md);
+  padding: 20px;
+}
+
+.nl-analytics-card strong,
+.nl-progress-head strong {
+  display: block;
+  font-size: 1.8rem;
+  margin-top: 8px;
+  color: var(--text-primary);
+}
+
+.nl-progress-bar {
+  height: 14px;
+  margin: 16px 0 14px;
+  background: var(--border-color);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.nl-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue-600);
+}
+
+.nl-btn-danger {
+  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
+}
+
+.nl-preview {
+  margin-top: 22px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 22px;
+}
+
+.nl-preview h3 {
+  margin: 0 0 6px;
+  color: var(--text-primary);
+}
+
+.nl-preview-html {
+  margin-top: 12px;
+  padding: 18px;
+  border-radius: 16px;
+}
+
+.nl-preview-text {
+  margin-top: 18px;
+}
+
+.nl-preview-text pre {
+  margin: 0;
+  padding: 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: 16px;
+  background: var(--navy-900);
+  overflow: auto;
+}
+
+.nl-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--navy-950) 45%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.nl-modal {
+  width: min(900px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  border-radius: 24px;
+  padding: 24px;
+}
+
+.nl-close {
+  border: none;
+  background: transparent;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.nl-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1100;
+  max-width: 360px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  color: var(--bg-card);
+}
+
+.nl-toast.error {
+  background: color-mix(in srgb, #ef4444 75%, var(--navy-950));
+}
+
+code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--soft-blue) 12%, var(--bg-card));
+}
+
+@media (max-width: 1100px) {
+  .nl-grid-top,
+  .nl-analytics-main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nl-campaign-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .nl-hero,
+  .nl-panel {
+    padding: 20px;
+    border-radius: 18px;
+  }
+
+  .nl-hero,
+  .nl-panel-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .nl-hero-copy h1 {
+    font-size: 1.5rem;
+  }
+
+  .nl-grid-top,
+  .nl-form-grid,
+  .nl-analytics-main,
+  .nl-campaign-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .nl-card-list {
+    grid-template-columns: 1fr;
+  }
+
+  .nl-form-actions,
+  .nl-hero-actions,
+  .nl-card-actions {
+    flex-wrap: wrap;
+  }
+
+  .nl-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

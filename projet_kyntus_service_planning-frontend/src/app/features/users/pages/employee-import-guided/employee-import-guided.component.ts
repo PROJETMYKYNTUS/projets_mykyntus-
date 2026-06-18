@@ -1,0 +1,964 @@
+import { CommonModule } from '@angular/common';
+
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, inject } from '@angular/core';
+
+import { FormsModule } from '@angular/forms';
+
+import { RouterLink } from '@angular/router';
+
+import { EMPLOYEE_IMPORT_HOST } from './employee-import-host.context';
+
+import {
+
+  AcceptedFuzzyOrgMatch,
+
+  EmployeeImportAnalyzeResponse,
+
+  EmployeeImportFieldConfig,
+
+  EmployeeImportJobSummary,
+
+  EmployeeImportMappingItem,
+
+  EmployeeImportReport,
+
+  EmployeeImportService,
+
+  PendingOrgCreation,
+
+} from '../../services/employee-import.service';
+
+import {
+
+  MappingValidationIssue,
+
+  validateEmployeeImportMappings,
+
+} from './employee-import-mapping.validation';
+
+import {
+  headerDisplayLabel,
+  isIgnorableHeader,
+  suggestedConfidenceForColumn,
+} from './employee-import-column.utils';
+
+import {
+
+  clearEmployeeImportWizardDraft,
+
+  EmployeeImportWizardStep,
+
+  loadEmployeeImportWizardDraft,
+
+  saveEmployeeImportWizardDraft,
+
+} from './employee-import-wizard.draft';
+
+
+
+@Component({
+
+  selector: 'app-employee-import-guided',
+
+  standalone: true,
+
+  imports: [CommonModule, FormsModule, RouterLink],
+
+  templateUrl: './employee-import-guided.component.html',
+
+  styleUrls: ['./employee-import-guided.component.css'],
+
+})
+
+export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
+
+  private readonly importSvc = inject(EmployeeImportService);
+  private readonly host = inject(EMPLOYEE_IMPORT_HOST, { optional: true });
+  private readonly cdr = inject(ChangeDetectorRef);
+
+
+
+  readonly steps: { id: EmployeeImportWizardStep; label: string }[] = [
+
+    { id: 'file', label: 'Fichier' },
+
+    { id: 'mapping', label: 'Mapping' },
+
+    { id: 'preview', label: 'Prévisualisation' },
+
+    { id: 'org', label: 'Organisation' },
+
+    { id: 'confirm', label: 'Confirmation' },
+
+    { id: 'report', label: 'Rapport' },
+
+  ];
+
+
+
+  currentStep: EmployeeImportWizardStep = 'file';
+
+  isAdmin = false;
+
+
+
+  configFields: EmployeeImportFieldConfig[] = [];
+
+  selectedFile: File | null = null;
+
+  isDragOver = false;
+
+  analyzing = false;
+
+  executing = false;
+
+  revalidatingOrg = false;
+
+  analyzeError: string | null = null;
+
+
+
+  analyzeResult: EmployeeImportAnalyzeResponse | null = null;
+
+  mappings: EmployeeImportMappingItem[] = [];
+
+  mappingIssues: MappingValidationIssue[] = [];
+
+  report: EmployeeImportReport | null = null;
+
+  approvedOrgCreations: PendingOrgCreation[] = [];
+
+  acceptedFuzzyMatches: AcceptedFuzzyOrgMatch[] = [];
+
+  history: EmployeeImportJobSummary[] = [];
+
+  showHistory = false;
+
+  draftResumeHint: string | null = null;
+  furthestStepIndex = 0;
+
+
+
+  ngOnInit(): void {
+
+    const role = (this.host?.getRole() ?? '').toLowerCase();
+
+    this.isAdmin = role === 'admin';
+
+    this.loadConfig();
+
+    this.tryRestoreDraft();
+
+  }
+
+
+
+  ngOnDestroy(): void {
+
+    this.persistDraft();
+
+  }
+
+
+
+  loadConfig(): void {
+
+    this.importSvc.getConfig().subscribe({
+
+      next: (fields) => {
+
+        this.configFields = fields;
+
+        this.cdr.detectChanges();
+
+      },
+
+    });
+
+  }
+
+
+
+  saveConfig(): void {
+
+    this.importSvc.updateConfig(this.configFields).subscribe({
+
+      next: (fields) => {
+
+        this.configFields = fields;
+
+        this.cdr.detectChanges();
+
+      },
+
+      error: () => alert('Impossible de sauvegarder la configuration.'),
+
+    });
+
+  }
+
+
+
+  goToConfig(): void {
+
+    this.persistDraft();
+
+    this.currentStep = 'config';
+
+    this.cdr.detectChanges();
+
+  }
+
+
+
+  goToHistory(): void {
+
+    this.persistDraft();
+
+    this.showHistory = true;
+
+    this.importSvc.getHistory().subscribe({
+
+      next: (items) => {
+
+        this.history = items;
+
+        this.cdr.detectChanges();
+
+      },
+
+    });
+
+  }
+
+
+
+  closeHistory(): void {
+
+    this.showHistory = false;
+
+    this.cdr.detectChanges();
+
+  }
+
+
+
+  viewJob(jobId: string): void {
+
+    this.importSvc.getJob(jobId).subscribe({
+
+      next: (r) => {
+
+        this.report = r;
+
+        this.currentStep = 'report';
+
+        this.showHistory = false;
+
+        this.cdr.detectChanges();
+
+      },
+
+    });
+
+  }
+
+
+
+  downloadTemplate(): void {
+
+    this.importSvc.triggerTemplateDownload();
+
+  }
+
+
+
+  onDragOver(e: DragEvent): void {
+
+    e.preventDefault();
+
+    this.isDragOver = true;
+
+  }
+
+
+
+  onDragLeave(): void {
+
+    this.isDragOver = false;
+
+  }
+
+
+
+  onDrop(e: DragEvent): void {
+
+    e.preventDefault();
+
+    this.isDragOver = false;
+
+    const file = e.dataTransfer?.files[0];
+
+    if (file) this.setFile(file);
+
+  }
+
+
+
+  onFileSelected(e: Event): void {
+
+    const input = e.target as HTMLInputElement;
+
+    const file = input.files?.[0];
+
+    if (file) this.setFile(file);
+
+  }
+
+
+
+  setFile(file: File): void {
+
+    if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
+
+      alert('Format non supporté. Utilisez .xlsx ou .csv');
+
+      return;
+
+    }
+
+    this.selectedFile = file;
+
+    this.analyzeResult = null;
+
+    this.mappings = [];
+
+    this.mappingIssues = [];
+
+    this.approvedOrgCreations = [];
+
+    this.acceptedFuzzyMatches = [];
+
+    this.report = null;
+
+    this.analyzeError = null;
+
+    this.draftResumeHint = null;
+
+    clearEmployeeImportWizardDraft();
+    this.furthestStepIndex = 0;
+    this.cdr.detectChanges();
+  }
+
+  analyzeFile(): void {
+
+    if (!this.selectedFile) return;
+
+    this.analyzing = true;
+
+    this.analyzeError = null;
+
+    this.importSvc.analyze(this.selectedFile).subscribe({
+
+      next: (result) => {
+
+        this.analyzeResult = {
+          ...result,
+          pendingOrgCreations: result.pendingOrgCreations ?? [],
+          resolvedRows: result.resolvedRows ?? [],
+          orgLineIssues: result.orgLineIssues ?? [],
+        };
+
+        this.mappings = result.suggestedMappings.map((m) => ({
+          columnIndex: m.columnIndex,
+          fieldKey: isIgnorableHeader(result.headers[m.columnIndex])
+            ? null
+            : m.suggestedFieldKey,
+        }));
+
+        this.initOrgStepState();
+
+        this.analyzing = false;
+        this.furthestStepIndex = this.stepIndexFor('mapping');
+        this.goToStep('mapping');
+
+      },
+
+      error: (err) => {
+
+        this.analyzing = false;
+
+        this.analyzeError = err?.error ?? err?.message ?? 'Analyse impossible.';
+
+        this.cdr.detectChanges();
+
+      },
+
+    });
+
+  }
+
+
+
+  fieldOptions(): EmployeeImportFieldConfig[] {
+
+    return (this.analyzeResult?.activeFields ?? this.configFields).filter((f) => f.isEnabled);
+
+  }
+
+
+
+  onMappingChange(): void {
+
+    this.refreshMappingValidation();
+
+    this.persistDraft();
+
+  }
+
+
+
+  refreshMappingValidation(): void {
+
+    if (!this.analyzeResult) {
+
+      this.mappingIssues = [];
+
+      return;
+
+    }
+
+    this.mappingIssues = validateEmployeeImportMappings(
+
+      this.mappings,
+
+      this.analyzeResult.headers,
+
+      this.analyzeResult.suggestedMappings,
+
+      this.fieldOptions(),
+
+    );
+
+  }
+
+
+
+  mappingErrors(): MappingValidationIssue[] {
+
+    return this.mappingIssues.filter((i) => i.severity === 'error');
+
+  }
+
+
+
+  mappingWarnings(): MappingValidationIssue[] {
+
+    return this.mappingIssues.filter((i) => i.severity === 'warning');
+
+  }
+
+
+
+  goToPreview(): void {
+    this.refreshMappingValidation();
+    if (!this.confirmMappingWarnings()) return;
+    this.goToStep('preview');
+  }
+
+  private confirmMappingWarnings(): boolean {
+    const errors = this.mappingErrors();
+    if (errors.length) {
+      alert(errors.map((e) => e.message).join('\n'));
+      return false;
+    }
+
+    const warnings = this.mappingWarnings();
+    if (warnings.length) {
+      return confirm(
+        'Le mapping semble incohérent :\n\n' +
+          warnings.map((w) => `• ${w.message}`).join('\n') +
+          '\n\nContinuer quand même ?',
+      );
+    }
+
+    return true;
+  }
+
+
+
+  goToOrg(): void {
+    this.refreshMappingValidation();
+    if (!this.confirmMappingWarnings()) return;
+    if (!this.analyzeResult) return;
+
+    if (!this.hasOrgColumnsMapped()) {
+      alert('Mappez au moins les colonnes Pôle, Cellule ou Service avant l\'étape Organisation.');
+      return;
+    }
+
+    this.revalidatingOrg = true;
+    this.orgRevalidateError = null;
+    this.importSvc.revalidateOrg({
+      importSessionId: this.analyzeResult.importSessionId,
+      mappings: this.mappings,
+    }).subscribe({
+      next: (result) => {
+        this.analyzeResult = {
+          ...this.analyzeResult!,
+          pendingOrgCreations: result.pendingOrgCreations ?? [],
+          resolvedRows: result.resolvedRows ?? [],
+          orgLineIssues: result.orgLineIssues ?? [],
+        };
+        this.initOrgStepState();
+        this.revalidatingOrg = false;
+        this.furthestStepIndex = Math.max(this.furthestStepIndex, this.stepIndexFor('org'));
+        this.currentStep = 'org';
+        this.persistDraft();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.revalidatingOrg = false;
+        this.orgRevalidateError = err?.error ?? err?.message ?? 'Analyse organisation impossible.';
+        alert(this.orgRevalidateError);
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  orgRevalidateError: string | null = null;
+
+  hasOrgColumnsMapped(): boolean {
+    return this.mappings.some((m) => m.fieldKey === 'pole' || m.fieldKey === 'cellule' || m.fieldKey === 'service');
+  }
+
+  orgNewNameWarnings() {
+    return (this.analyzeResult?.orgLineIssues ?? []).filter(
+      (i) => i.severity === 'warning' && i.message.includes('à créer'),
+    );
+  }
+
+  goToConfirm(): void {
+    if (!this.validateOrgStep()) return;
+    this.goToStep('confirm');
+  }
+
+  orgErrors() {
+    return (this.analyzeResult?.orgLineIssues ?? []).filter((i) => i.severity === 'error');
+  }
+
+  orgWarnings() {
+    return (this.analyzeResult?.orgLineIssues ?? []).filter((i) => i.severity === 'warning');
+  }
+
+  fuzzyMatchesNeedingApproval(): AcceptedFuzzyOrgMatch[] {
+    const rows = this.analyzeResult?.resolvedRows ?? [];
+    const matches: AcceptedFuzzyOrgMatch[] = [];
+    for (const row of rows) {
+      for (const hint of row.orgHints ?? []) {
+        if (hint.confidence !== 'medium' || !hint.matchedValue) continue;
+        matches.push({
+          lineNumber: row.lineNumber,
+          fieldKey: hint.fieldKey,
+          sourceValue: hint.sourceValue,
+          matchedValue: hint.matchedValue,
+        });
+      }
+    }
+    return matches;
+  }
+
+  isFuzzyMatchAccepted(match: AcceptedFuzzyOrgMatch): boolean {
+    return this.acceptedFuzzyMatches.some(
+      (a) =>
+        a.lineNumber === match.lineNumber &&
+        a.fieldKey === match.fieldKey &&
+        a.sourceValue === match.sourceValue &&
+        a.matchedValue === match.matchedValue,
+    );
+  }
+
+  toggleFuzzyMatch(match: AcceptedFuzzyOrgMatch, checked: boolean): void {
+    this.acceptedFuzzyMatches = this.acceptedFuzzyMatches.filter(
+      (a) =>
+        !(
+          a.lineNumber === match.lineNumber &&
+          a.fieldKey === match.fieldKey &&
+          a.sourceValue === match.sourceValue
+        ),
+    );
+    if (checked) {
+      this.acceptedFuzzyMatches.push(match);
+    }
+    this.persistDraft();
+  }
+
+  pendingOrgCount(): number {
+    return this.approvedOrgCreations.filter((p) => p.approved).length;
+  }
+
+  private initOrgStepState(): void {
+    this.approvedOrgCreations = (this.analyzeResult?.pendingOrgCreations ?? []).map((p) => ({
+      ...p,
+      approved: p.approved ?? true,
+    }));
+    this.acceptedFuzzyMatches = this.fuzzyMatchesNeedingApproval();
+  }
+
+  private validateOrgStep(): boolean {
+    const errors = this.orgErrors();
+    if (errors.length) {
+      alert(errors.map((e) => `Ligne ${e.lineNumber} : ${e.message}`).join('\n'));
+      return false;
+    }
+
+    const approved = this.approvedOrgCreations.filter((p) => p.approved);
+    if (this.approvedOrgCreations.length > 0 && approved.length === 0) {
+      alert('Cochez au moins un élément organisationnel à créer, ou corrigez les noms dans le fichier.');
+      return false;
+    }
+
+    const pending = approved;
+    if (pending.length > 0) {
+      const labels = pending.map((p) => `• ${p.confirmationLabel}`).join('\n');
+      return confirm(
+        `Êtes-vous sûr de créer les organisations suivantes ?\n\n${labels}\n\nCes nœuds seront créés dans votre référentiel organisationnel local.`,
+      );
+    }
+
+    return true;
+  }
+
+  executeImport(): void {
+
+    if (!this.analyzeResult) return;
+
+    this.executing = true;
+
+    this.importSvc.execute({
+      importSessionId: this.analyzeResult.importSessionId,
+      mappings: this.mappings,
+      confirmOrgProvision: this.pendingOrgCount() > 0,
+      approvedOrgCreations: this.approvedOrgCreations.filter((p) => p.approved),
+      acceptedFuzzyMatches: this.acceptedFuzzyMatches,
+    }).subscribe({
+
+      next: (result) => {
+
+        this.report = result;
+
+        this.executing = false;
+
+        this.host?.onImportCompleted?.();
+
+        clearEmployeeImportWizardDraft();
+
+        this.goToStep('report');
+
+      },
+
+      error: (err) => {
+
+        this.executing = false;
+
+        alert(err?.error ?? err?.message ?? 'Import échoué.');
+
+        this.cdr.detectChanges();
+
+      },
+
+    });
+
+  }
+
+
+
+  resetWizard(): void {
+
+    this.selectedFile = null;
+
+    this.analyzeResult = null;
+
+    this.mappings = [];
+
+    this.mappingIssues = [];
+
+    this.approvedOrgCreations = [];
+
+    this.acceptedFuzzyMatches = [];
+
+    this.report = null;
+
+    this.analyzeError = null;
+
+    this.draftResumeHint = null;
+
+    clearEmployeeImportWizardDraft();
+    this.furthestStepIndex = 0;
+    this.currentStep = 'file';
+    this.cdr.detectChanges();
+  }
+
+  resumeDraft(): void {
+
+    const draft = loadEmployeeImportWizardDraft();
+
+    if (!draft) return;
+
+    this.applyDraft(draft);
+
+    this.draftResumeHint = null;
+
+    this.cdr.detectChanges();
+
+  }
+
+
+
+  discardDraft(): void {
+
+    clearEmployeeImportWizardDraft();
+
+    this.draftResumeHint = null;
+
+    this.analyzeResult = null;
+
+    this.mappings = [];
+
+    this.mappingIssues = [];
+
+    this.approvedOrgCreations = [];
+
+    this.acceptedFuzzyMatches = [];
+
+    this.furthestStepIndex = 0;
+    this.currentStep = 'file';
+    this.cdr.detectChanges();
+  }
+
+  goToStep(step: EmployeeImportWizardStep, viaStepper = false): void {
+    if (viaStepper && step === 'org') {
+      this.goToOrg();
+      return;
+    }
+    if (viaStepper && !this.canNavigateToStep(step)) return;
+    if (step === 'report' && !this.report) return;
+    if (step !== 'file' && step !== 'config' && !this.analyzeResult) return;
+
+    const targetIdx = this.stepIndexFor(step);
+    if (targetIdx > this.stepIndex() && targetIdx >= this.stepIndexFor('preview')) {
+      this.refreshMappingValidation();
+      if (!this.confirmMappingWarnings()) return;
+    }
+    if (targetIdx > this.stepIndexFor('org') && step === 'confirm' && !this.validateOrgStep()) {
+      return;
+    }
+
+    this.currentStep = step;
+    this.furthestStepIndex = Math.max(this.furthestStepIndex, targetIdx);
+    if (step === 'mapping') {
+      this.refreshMappingValidation();
+    }
+    this.persistDraft();
+    this.cdr.detectChanges();
+  }
+
+  canNavigateToStep(step: EmployeeImportWizardStep): boolean {
+    if (step === 'report') return !!this.report;
+    if (step === 'file') return true;
+    if (!this.analyzeResult) return false;
+    return this.stepIndexFor(step) <= this.furthestStepIndex;
+  }
+
+
+
+  exportErrors(): void {
+
+    if (this.report?.importJobId) {
+
+      this.importSvc.downloadErrorsCsv(this.report.importJobId);
+
+    }
+
+  }
+
+
+
+  stepIndex(): number {
+
+    return this.stepIndexFor(this.currentStep);
+
+  }
+
+
+
+  stepIndexFor(step: EmployeeImportWizardStep): number {
+
+    const idx = this.steps.findIndex((s) => s.id === step);
+
+    return idx >= 0 ? idx : 0;
+
+  }
+
+
+
+  actionLabel(action: string): string {
+
+    switch (action) {
+
+      case 'create': return 'Créé';
+
+      case 'update': return 'Mis à jour';
+
+      case 'error': return 'Erreur';
+
+      default: return 'Ignoré';
+
+    }
+
+  }
+
+
+
+  mappedColumnCount(): number {
+
+    return this.mappings.filter((m) => !!m.fieldKey).length;
+
+  }
+
+  columnHeaderLabel(columnIndex: number): string {
+    return headerDisplayLabel(this.analyzeResult?.headers[columnIndex], columnIndex);
+  }
+
+  columnSuggestedConfidence(columnIndex: number): string {
+    return suggestedConfidenceForColumn(columnIndex, this.analyzeResult?.suggestedMappings ?? []);
+  }
+
+  isColumnIgnorable(columnIndex: number): boolean {
+    return isIgnorableHeader(this.analyzeResult?.headers[columnIndex]);
+  }
+
+
+
+  formatDate(value: string | null | undefined): string {
+
+    if (!value) return '—';
+
+    return new Date(value).toLocaleString('fr-FR');
+
+  }
+
+
+
+  hasSavedProgress(): boolean {
+
+    return !!this.analyzeResult && this.currentStep !== 'report';
+
+  }
+
+
+
+  resumeProgressStep(): EmployeeImportWizardStep {
+    const step = this.steps[this.furthestStepIndex]?.id;
+    if (!step || step === 'report' || step === 'file') return 'mapping';
+    return step;
+  }
+
+  savedProgressLabel(): string {
+    if (!this.analyzeResult) return '';
+    const resumeStep = this.currentStep === 'file'
+      ? this.steps[this.furthestStepIndex]?.label
+      : this.steps.find((s) => s.id === this.currentStep)?.label;
+    return `${this.analyzeResult.fileName} — reprendre à « ${resumeStep ?? 'Mapping'} »`;
+  }
+
+
+
+  private tryRestoreDraft(): void {
+
+    const draft = loadEmployeeImportWizardDraft();
+
+    if (!draft) return;
+
+
+
+    const stepLabel = this.steps.find((s) => s.id === draft.currentStep)?.label ?? draft.currentStep;
+
+    this.draftResumeHint =
+
+      `Import en cours (${draft.analyzeResult.fileName}, ${draft.analyzeResult.totalRows} lignes, étape « ${stepLabel} »).`;
+
+
+
+    if (draft.currentStep !== 'file') {
+
+      this.applyDraft(draft);
+
+      this.draftResumeHint = null;
+
+    }
+
+    this.cdr.detectChanges();
+
+  }
+
+
+
+  private applyDraft(draft: ReturnType<typeof loadEmployeeImportWizardDraft>): void {
+
+    if (!draft) return;
+
+    this.analyzeResult = draft.analyzeResult;
+
+    this.mappings = draft.mappings;
+
+    this.approvedOrgCreations = draft.approvedOrgCreations ?? [];
+
+    this.acceptedFuzzyMatches = draft.acceptedFuzzyMatches ?? [];
+    this.furthestStepIndex = draft.furthestStepIndex ?? this.stepIndexFor(draft.currentStep);
+    this.currentStep = draft.currentStep === 'config' || draft.currentStep === 'history'
+
+      ? 'mapping'
+
+      : draft.currentStep;
+
+    this.report = null;
+
+    this.refreshMappingValidation();
+
+  }
+
+
+
+  onOrgApprovalChange(): void {
+    this.persistDraft();
+  }
+
+  private persistDraft(): void {
+
+    if (!this.analyzeResult || this.currentStep === 'report') return;
+
+    if (this.currentStep === 'config' || this.showHistory) return;
+
+
+
+    saveEmployeeImportWizardDraft({
+
+      version: 1,
+
+      savedAt: new Date().toISOString(),
+
+      currentStep: this.currentStep,
+
+      analyzeResult: this.analyzeResult,
+      mappings: this.mappings,
+      furthestStepIndex: this.furthestStepIndex,
+      approvedOrgCreations: this.approvedOrgCreations,
+      acceptedFuzzyMatches: this.acceptedFuzzyMatches,
+    });
+
+  }
+
+}
+
+

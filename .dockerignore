@@ -1,0 +1,8 @@
+# Contexte racine pour les builds docker compose (planning, conge, prime, parrainage, documentation).
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/.git/
+**/node_modules/
+**/.cursor/

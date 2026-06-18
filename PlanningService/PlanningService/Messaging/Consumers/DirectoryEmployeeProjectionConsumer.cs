@@ -1,0 +1,89 @@
+using Kyntus.Messaging.Contracts;
+using MassTransit;
+using Microsoft.EntityFrameworkCore;
+using PlanningService.Data;
+using PlanningService.Models;
+
+namespace PlanningService.Messaging.Consumers;
+
+public sealed class DirectoryEmployeeProjectionConsumer(AppDbContext db) :
+    IConsumer<DirectoryEmployeeChangedMessage>
+{
+    public async Task Consume(ConsumeContext<DirectoryEmployeeChangedMessage> context)
+    {
+        var msg = context.Message;
+        if (msg.IsDeleted)
+        {
+            var del = await db.Users.FirstOrDefaultAsync(u => u.Guid == msg.EmployeeId, context.CancellationToken);
+            if (del is not null) del.IsActive = false;
+            await db.SaveChangesAsync(context.CancellationToken);
+            return;
+        }
+
+        var user = await db.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Guid == msg.EmployeeId, context.CancellationToken);
+
+        if (user is null)
+        {
+            user = await db.Users.FirstOrDefaultAsync(
+                u => u.Email.ToLower() == msg.Email.Trim().ToLower(),
+                context.CancellationToken);
+        }
+
+        var role = await db.Roles.FirstOrDefaultAsync(
+            r => r.Name == KyntusRoleNames.NormalizePlanningRole(msg.Role),
+            context.CancellationToken);
+        if (role is null)
+            role = await db.Roles.FirstOrDefaultAsync(r => r.Name == "Employee", context.CancellationToken);
+
+        if (user is null)
+        {
+            if (role is null) return;
+            user = new User
+            {
+                Guid = msg.EmployeeId,
+                Email = msg.Email.Trim(),
+                FirstName = msg.FirstName.Trim(),
+                LastName = msg.LastName.Trim(),
+                RoleId = role.Id,
+                IsActive = msg.IsActive,
+                HireDate = DateTime.UtcNow,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Azerty@123"),
+            };
+            if (!string.IsNullOrWhiteSpace(msg.ServiceId))
+            {
+                var sub = await db.SubServices.FirstOrDefaultAsync(
+                    s => s.PrimeServiceId == msg.ServiceId,
+                    context.CancellationToken);
+                if (sub is not null)
+                    user.SubServiceId = sub.Id;
+            }
+            db.Users.Add(user);
+        }
+        else
+        {
+            user.Guid = msg.EmployeeId;
+            user.Email = msg.Email.Trim();
+            user.FirstName = msg.FirstName.Trim();
+            user.LastName = msg.LastName.Trim();
+            user.IsActive = msg.IsActive;
+            if (role is not null && !IsStructureRole(user.Role?.Name))
+                user.RoleId = role.Id;
+            if (!string.IsNullOrWhiteSpace(msg.ServiceId))
+            {
+                var sub = await db.SubServices.FirstOrDefaultAsync(
+                    s => s.PrimeServiceId == msg.ServiceId,
+                    context.CancellationToken);
+                if (sub is not null) user.SubServiceId = sub.Id;
+            }
+        }
+
+        await db.SaveChangesAsync(context.CancellationToken);
+    }
+
+    private static bool IsStructureRole(string? role) =>
+        KyntusRoleNames.IsChefDeProjet(role)
+        || KyntusRoleNames.IsSuperviseur(role)
+        || KyntusRoleNames.IsReferentTechnique(role);
+}

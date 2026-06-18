@@ -1,0 +1,153 @@
+<!-- features/planning/pages/planning-generator/planning-generator.component.html -->
+
+<div class="page-wrapper ky-page-shell">
+
+  <!-- ── HEADER ── -->
+  <div class="page-header">
+    <div class="header-info">
+      <h1 class="page-title">Génération Planning</h1>
+      <p class="page-sub">Algorithme intelligent de distribution des shifts</p>
+    </div>
+    <div class="week-badge">
+      <span class="week-label">Semaine en cours</span>
+      <span class="week-value">{{ currentWeekCode }}</span>
+    </div>
+  </div>
+
+  <!-- ── GRILLE PRINCIPALE ── -->
+  <div class="main-grid">
+
+    <!-- ── COLONNE GAUCHE : Formulaire génération ── -->
+    <div class="gen-card">
+      <div class="card-header">
+        <span class="card-icon"><app-lucide-icon [icon]="icons.calendar" className="w-5 h-5" /></span>
+        <h2>Nouveau Planning</h2>
+      </div>
+
+      <!-- Service -->
+      <div class="form-group">
+        <label>Service <span class="req">*</span></label>
+        <select class="ky-input" [(ngModel)]="subServiceId" (ngModelChange)="onSubServiceChange()">
+          <option [ngValue]="0" disabled>-- Sélectionner --</option>
+          <option *ngFor="let s of subServiceOptions" [ngValue]="s.id">{{ s.orgLabel }}</option>
+        </select>
+        <span class="hint" *ngIf="subServiceId && serviceEmployeeCount > 0">
+          Effectif du service : {{ serviceEmployeeCount }} employé(s) actif(s)
+        </span>
+        <span class="hint warn" *ngIf="subServiceId && serviceEmployeeCount === 0">
+          Ce service n'a aucun employé actif — génération impossible.
+        </span>
+      </div>
+
+      <!-- Semaine -->
+      <div class="form-group">
+        <label>Semaine (Lundi) <span class="req">*</span></label>
+        <input class="ky-input" type="date" [(ngModel)]="weekStartDate" (change)="onWeekChange()" />
+        <span class="hint">Seuls les lundis sont acceptés — la date est ajustée automatiquement.</span>
+        <span class="week-preview" *ngIf="weekCode">{{ weekCode }}</span>
+        <span class="hint warn" *ngIf="weekDateAdjusted">Date ajustée au lundi de la semaine sélectionnée.</span>
+      </div>
+
+      <!-- Effectif -->
+      <div class="form-group">
+        <label>Effectif total nécessaire <span class="req">*</span></label>
+        <input
+          class="ky-input"
+          type="number"
+          [(ngModel)]="totalEffectif"
+          (ngModelChange)="onEffectifChange()"
+          min="1"
+          [max]="serviceEmployeeCount > 0 ? serviceEmployeeCount : null"
+          placeholder="Ex: 20"
+        />
+        <span class="hint" *ngIf="serviceEmployeeCount > 0">
+          Maximum : {{ serviceEmployeeCount }} (effectif actif du service). Le système répartit équitablement sur les 4 shifts.
+        </span>
+        <span class="hint" *ngIf="serviceEmployeeCount === 0">Sélectionnez un service avec des employés actifs.</span>
+      </div>
+
+      <!-- Preview quotas -->
+      <div class="quota-preview" *ngIf="totalEffectif > 0">
+        <p class="quota-title"><app-lucide-icon [icon]="icons.chart" className="w-4 h-4 inline" /> Distribution automatique :</p>
+        <div class="quota-grid">
+          <div class="quota-item" *ngFor="let h of ['8h','9h','10h','11h']; let i = index">
+            <span class="quota-shift">{{ h }}</span>
+            <span class="quota-count">
+              {{ Math.floor(totalEffectif / 4) + (i < totalEffectif % 4 ? 1 : 0) }}
+            </span>
+            <span class="quota-pct">pers.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="alert-error"   *ngIf="error"><app-lucide-icon [icon]="icons.warn" className="w-4 h-4 inline" /> {{ error }}</div>
+      <div class="alert-success" *ngIf="successMsg"><app-lucide-icon [icon]="icons.success" className="w-4 h-4 inline" /> {{ successMsg }}</div>
+
+      <!-- Bouton générer -->
+      <button class="ky-btn-primary btn-generate" [disabled]="!canGenerate" (click)="generatePlanning()">
+        <span *ngIf="!generating"><app-lucide-icon [icon]="icons.rocket" className="w-4 h-4 inline" /> Générer le planning</span>
+        <span *ngIf="generating" class="generating-state">
+          <span class="dot-pulse"></span>
+          Génération en cours...
+        </span>
+      </button>
+
+      <!-- Info algorithme -->
+      <div class="algo-info">
+        <p class="algo-title"><app-lucide-icon [icon]="icons.bot" className="w-4 h-4 inline" /> Algorithme intelligent :</p>
+        <ul>
+          <li>Distribution équitable des shifts sur la semaine</li>
+          <li>Rotation basée sur l'historique de chaque employé</li>
+          <li>Respect de la règle samedi (Groupe A / B)</li>
+          <li>Nouveaux employés → samedi 8h automatique</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── COLONNE DROITE : Historique plannings ── -->
+    <div class="history-card">
+      <div class="card-header">
+        <span class="card-icon"><app-lucide-icon [icon]="icons.list" className="w-5 h-5" /></span>
+        <h2>Plannings existants</h2>
+        <span class="count-badge" *ngIf="plannings.length > 0">{{ plannings.length }}</span>
+      </div>
+
+      <!-- Loading -->
+      <div class="state-loading" *ngIf="loading">
+        <div class="spinner"></div>
+        <span>Chargement...</span>
+      </div>
+
+      <!-- Vide -->
+      <div class="state-empty" *ngIf="!loading && plannings.length === 0">
+        <app-lucide-icon [icon]="icons.inbox" className="w-8 h-8" />
+        <p>Aucun planning pour ce service</p>
+      </div>
+
+      <!-- Liste -->
+      <div class="planning-list" *ngIf="!loading && plannings.length > 0">
+        <div class="planning-item" *ngFor="let p of plannings" (click)="viewPlanning(p.id)">
+          <div class="pi-left">
+            <span class="pi-week">{{ p.weekCode }}</span>
+            <span class="pi-sub">{{ p.subServiceName }}</span>
+            <span class="pi-effectif"><app-lucide-icon [icon]="icons.users" className="w-3.5 h-3.5 inline" /> {{ p.totalEffectif }} employés</span>
+          </div>
+          <div class="pi-right">
+            <span class="status-badge" [ngClass]="getStatusClass(p.status)">
+              {{ getStatusLabel(p.status) }}
+            </span>
+            <!-- ✅ NOUVEAU — Bouton supprimer -->
+            <button class="btn-delete-planning"
+                    (click)="deletePlanning(p.id, $event)"
+                    title="Supprimer ce planning">
+              <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+            </button>
+            <span class="pi-arrow">→</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

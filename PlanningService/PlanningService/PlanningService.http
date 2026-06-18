@@ -1,0 +1,6 @@
+@PlanningService_HostAddress = http://localhost:5201
+
+GET {{PlanningService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,10 @@
+{
+  "_comment": "Profil test local (localhost). Activer via: .\\scripts\\switch-kyntus-urls.ps1 -Profile local",
+  "profile": "local",
+  "host": "localhost",
+  "gateway": "http://localhost:8500",
+  "planningSpa": "http://localhost:8200",
+  "authFrontend": "http://localhost:8201",
+  "authLogin": "http://localhost:8201/login",
+  "planningAuthCallback": "http://localhost:8200/auth-callback"
+}

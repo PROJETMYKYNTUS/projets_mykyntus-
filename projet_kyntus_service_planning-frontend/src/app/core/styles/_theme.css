@@ -1,0 +1,71 @@
+/* Shell Kyntus — variables dérivées du design system Prime (kyntus-prime-theme.css) */
+
+body.theme-dark,
+body.dark {
+  color-scheme: dark;
+}
+
+body.theme-light {
+  --ks-sidebar-bg: var(--bg-sidebar);
+  --ks-sidebar-bg2: var(--bg-primary);
+  --ks-page-bg: var(--bg-primary);
+  --ks-sidebar-text: var(--text-muted);
+  --ks-sidebar-text-active: var(--electric-blue);
+  --ks-sidebar-border: var(--border-color);
+  --ks-main-text: var(--text-primary);
+  --ks-main-muted: var(--text-muted);
+  --ks-topbar-h: 64px;
+  --ks-accent-glow: 0 0 14px color-mix(in srgb, var(--electric-blue) 25%, transparent);
+}
+
+body.theme-dark {
+  --ks-sidebar-bg: var(--bg-sidebar);
+  --ks-sidebar-bg2: var(--navy-900);
+  --ks-page-bg: var(--bg-primary);
+  --ks-sidebar-text: var(--text-muted);
+  --ks-sidebar-text-active: var(--electric-blue);
+  --ks-sidebar-border: var(--border-color);
+  --ks-main-text: var(--text-primary);
+  --ks-main-muted: var(--text-muted);
+}
+
+body.theme-light {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+body.theme-dark {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.page-enter,
+.ky-page-enter {
+  animation: ky-page-enter 0.25s ease-out;
+}
+
+@keyframes ky-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ks-content.module-prime,
+.ks-content.module-parrainage,
+.ks-content.module-documentation {
+  padding: 0;
+  min-height: calc(100vh - var(--ks-topbar-h, 64px));
+}
+
+.ks-content.module-prime,
+.ks-content.module-parrainage,
+.ks-content.module-documentation,
+.ks-content:not(.module-prime):not(.module-parrainage):not(.module-documentation) {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}

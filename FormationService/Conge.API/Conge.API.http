@@ -1,0 +1,6 @@
+@Conge.API_HostAddress = http://localhost:5186
+
+GET {{Conge.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

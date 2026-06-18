@@ -1,0 +1,93 @@
+<div class="ks-settings-page">
+  <header class="ks-settings-page-head">
+    <h1>Paramètres</h1>
+    <p>Profil, apparence et préférences de notification pour toute la plateforme.</p>
+  </header>
+
+  <section class="ks-settings-section">
+    <h2>Profil</h2>
+    <div class="ks-settings-card">
+      <div class="ks-profile-row">
+        <div class="ks-profile-av">{{ (user()?.username || 'U').substring(0, 2).toUpperCase() }}</div>
+        <div>
+          <strong>{{ user()?.username || 'Utilisateur' }}</strong>
+          <span>{{ user()?.email || '—' }}</span>
+          <span class="ks-profile-role">{{ role() || '—' }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ks-settings-section">
+    <h2>Apparence</h2>
+    <div class="ks-settings-card">
+      <div class="ks-theme-row">
+        <span>Thème de l'interface</span>
+        <div class="ks-theme-btns">
+          <button
+            type="button"
+            [class.active]="theme.theme() === 'light'"
+            (click)="setTheme('light')"
+          >
+            <app-lucide-icon [icon]="icons.sun" className="w-4 h-4" />
+            Clair
+          </button>
+          <button
+            type="button"
+            [class.active]="theme.theme() === 'dark'"
+            (click)="setTheme('dark')"
+          >
+            <app-lucide-icon [icon]="icons.moon" className="w-4 h-4" />
+            Sombre
+          </button>
+        </div>
+      </div>
+      <label class="ks-toggle-row">
+        <span>Mode compact</span>
+        <input
+          type="checkbox"
+          [checked]="prefs.preferences().compactMode"
+          (change)="toggleCompact()"
+        />
+      </label>
+    </div>
+  </section>
+
+  <section class="ks-settings-section">
+    <h2>Notifications</h2>
+    <div class="ks-settings-card">
+      <p class="ks-settings-hint">Choisissez les domaines pour lesquels vous souhaitez recevoir des alertes.</p>
+      @for (item of notifPrefLabels; track item.key) {
+        <label class="ks-toggle-row">
+          <span>{{ item.label }}</span>
+          <input
+            type="checkbox"
+            [checked]="prefs.preferences().notifications[item.key]"
+            (change)="toggleNotifPref(item.key)"
+          />
+        </label>
+      }
+      <a routerLink="/notifications" class="ks-settings-link">Voir le centre de notifications</a>
+    </div>
+  </section>
+
+  @if (adminLinks().length > 0) {
+    <section class="ks-settings-section">
+      <h2>
+        <app-lucide-icon [icon]="icons.shield" className="w-5 h-5 inline" />
+        Administration
+      </h2>
+      <div class="ks-settings-card">
+        @for (link of adminLinks(); track link.label) {
+          <button type="button" class="ks-admin-link" (click)="openAdminLink(link)">
+            <span>
+              <strong>{{ link.label }}</strong>
+              <small>{{ link.description }}</small>
+            </span>
+            <app-lucide-icon [icon]="icons.external" className="w-4 h-4" />
+          </button>
+        }
+      </div>
+    </section>
+  }
+</div>

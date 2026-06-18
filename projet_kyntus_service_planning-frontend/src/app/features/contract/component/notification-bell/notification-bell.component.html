@@ -1,0 +1,82 @@
+<div class="bell-wrapper">
+
+  <!-- ── Bouton cloche ── -->
+  <button class="bell-btn ky-btn-secondary" (click)="togglePanel()">
+    <span class="bell-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></span>
+    <span class="bell-count" *ngIf="unreadCount > 0">
+      {{ unreadCount > 99 ? '99+' : unreadCount }}
+    </span>
+  </button>
+
+  <!-- ── Panel dropdown ── -->
+  <div class="notif-panel ky-card" *ngIf="isOpen">
+
+    <div class="panel-header">
+      <div class="panel-title-row">
+        <span class="panel-title">Notifications</span>
+        <span class="panel-count" *ngIf="unreadCount > 0">{{ unreadCount }} active(s)</span>
+      </div>
+      <button class="btn-see-all ky-btn-secondary" (click)="goToNotificationList()">Voir tout →</button>
+    </div>
+
+    <div class="panel-loading" *ngIf="loading">
+      <div class="mini-spinner ky-spin"></div>
+      <span>Chargement...</span>
+    </div>
+
+    <!-- ✅ SECTION RÉCLAMATIONS SignalR -->
+    <ng-container *ngIf="reclamationNotifications.length > 0">
+      <div class="panel-section-label">Réclamations & Propositions</div>
+
+      <div class="notif-list">
+        <div class="notif-item notif-reclamation"
+             [class.unread]="!n.read"
+             *ngFor="let n of reclamationNotifications"
+             (click)="onReclamationClick(n)">
+          <div class="notif-icon-wrap ic-reclamation">
+            <span class="ic-label">MSG</span>
+          </div>
+          <div class="notif-content">
+            <p class="notif-message">{{ n.message }}</p>
+            <span class="notif-time">{{ n.receivedAt | date:'HH:mm' }}</span>
+          </div>
+          <span class="unread-dot" *ngIf="!n.read"></span>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- SECTION CONTRATS HTTP -->
+    <ng-container *ngIf="!loading && contractNotifications.length > 0">
+      <div class="panel-section-label">Alertes contrats</div>
+
+      <div class="notif-list">
+        <div class="notif-item"
+             *ngFor="let n of contractNotifications"
+             (click)="onContractClick(n)">
+          <div class="notif-icon-wrap" [ngClass]="getIconClass(n.type)">
+            <span class="ic-label">!</span>
+          </div>
+          <div class="notif-content">
+            <p class="notif-message">{{ n.message }}</p>
+            <div class="notif-meta">
+              <span class="notif-user">{{ n.userFullName }}</span>
+              <span class="notif-time">{{ n.createdAt | date:'dd/MM/yyyy' }}</span>
+            </div>
+          </div>
+          <span class="arrow-icon">›</span>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- Vide total -->
+    <div class="panel-empty"
+         *ngIf="!loading && contractNotifications.length === 0 && reclamationNotifications.length === 0">
+      <span class="ic-ok">OK</span>
+      <p>Aucune notification</p>
+      <small>Tout est à jour</small>
+    </div>
+
+  </div>
+
+  <div class="bell-overlay" *ngIf="isOpen" (click)="closePanel()"></div>
+</div>

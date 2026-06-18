@@ -1,0 +1,166 @@
+.service-detail-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.page-header,
+.card {
+  width: 100%;
+  max-width: 820px;
+}
+
+.page-header {
+  margin-bottom: 20px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-left h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.header-left p {
+  margin: 6px 0 0;
+  font-size: 0.95rem;
+}
+
+.card {
+  padding: 32px;
+}
+
+.service-info {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 20px;
+  border-radius: 16px;
+}
+
+.label {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.value {
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.84rem;
+  background: color-mix(in srgb, var(--soft-blue) 15%, var(--bg-card));
+}
+
+.badge.secondary {
+  background: var(--bg-input);
+  color: var(--blue-600);
+}
+
+.subservices-section {
+  margin-top: 24px;
+}
+
+.subservices-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.subservices-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.empty-state {
+  padding: 22px;
+  text-align: center;
+  border-radius: 16px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.btn-delete {
+  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
+}
+
+.state {
+  padding: 28px;
+  border-radius: 18px;
+  text-align: center;
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 12px;
+  border: 3px solid color-mix(in srgb, var(--soft-blue) 30%, var(--border-color));
+  border-top-color: var(--text-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 22px;
+    border-radius: 18px;
+  }
+
+  .info-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .value {
+    text-align: left;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .btn-edit,
+  .btn-delete,
+  .btn-light {
+    width: 100%;
+  }
+}

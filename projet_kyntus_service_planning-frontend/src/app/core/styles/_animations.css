@@ -1,0 +1,94 @@
+/* Animations globales Kyntus — utilitaires partagés */
+
+@keyframes ky-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ky-spin {
+  animation: ky-spin 0.8s linear infinite;
+}
+
+@keyframes ky-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.ky-pulse {
+  animation: ky-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes ky-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ky-fade-up {
+  animation: ky-fade-up 0.35s ease-out forwards;
+}
+
+.ky-fade-up-delay-1 {
+  animation-delay: 0.05s;
+}
+.ky-fade-up-delay-2 {
+  animation-delay: 0.1s;
+}
+.ky-fade-up-delay-3 {
+  animation-delay: 0.15s;
+}
+
+@keyframes ky-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ky-pop-in {
+  animation: ky-pop-in 0.2s ease-out;
+}
+
+@keyframes ky-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ky-slide-down {
+  animation: ky-slide-down 0.2s ease-out;
+}
+
+@keyframes ky-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.ky-blink {
+  animation: ky-blink 1.5s ease-in-out infinite;
+}

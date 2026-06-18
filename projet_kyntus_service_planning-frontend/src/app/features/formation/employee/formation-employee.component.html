@@ -1,0 +1,116 @@
+<div class="page-wrapper ky-page-shell">
+
+  <div class="fe-toast ky-card" [class.visible]="toast.show" [class.error]="toast.type === 'error'">
+    <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
+    {{ toast.message }}
+  </div>
+
+  <div class="page-header">
+    <div class="header-left">
+      <span class="eyebrow">Formation</span>
+      <h1 class="page-title">
+        <app-lucide-icon [icon]="icons.graduation" className="w-7 h-7" />
+        Mes formations
+      </h1>
+      <p class="page-sub">Consultez et inscrivez-vous aux formations ouvertes</p>
+      <p class="results-count" *ngIf="!loading">
+        <strong>{{ filteredFormations.length }}</strong> formation(s) disponible(s)
+      </p>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-card ky-card kc-blue">
+      <span class="kpi-label">Ouvertes</span>
+      <span class="kpi-value">{{ stats.disponibles }}</span>
+    </div>
+    <div class="kpi-card ky-card kc-green">
+      <span class="kpi-label">Mes inscriptions</span>
+      <span class="kpi-value">{{ stats.inscrit }}</span>
+    </div>
+    <div class="kpi-card ky-card kc-amber">
+      <span class="kpi-label">Places restantes</span>
+      <span class="kpi-value">{{ stats.places }}</span>
+    </div>
+  </div>
+
+  <div class="filters-panel ky-card">
+    <div class="filters-toolbar">
+      <div class="filter-search">
+        <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+        <input
+          class="filter-search-input"
+          type="text"
+          placeholder="Rechercher une formation…"
+          [(ngModel)]="searchTerm"
+          (input)="applyFilters()"
+        />
+      </div>
+      <button type="button" class="filter-reset ky-btn-secondary" (click)="clearFilters()">
+        Réinitialiser
+      </button>
+    </div>
+  </div>
+
+  <div class="state-loading ky-card" *ngIf="loading">
+    <app-lucide-icon [icon]="icons.loader" className="w-5 h-5 spin" />
+    <span>Chargement des formations…</span>
+  </div>
+
+  <div class="state-empty ky-card" *ngIf="!loading && formations.length === 0">
+    <app-lucide-icon [icon]="icons.inbox" className="w-10 h-10" />
+    <h3>Aucune formation disponible</h3>
+    <p>Revenez plus tard pour voir les formations ouvertes.</p>
+  </div>
+
+  <div class="state-empty ky-card" *ngIf="!loading && formations.length > 0 && filteredFormations.length === 0">
+    <p>Aucune formation ne correspond à votre recherche.</p>
+    <button type="button" class="ky-btn-secondary" (click)="clearFilters()">Réinitialiser</button>
+  </div>
+
+  <div class="fe-grid" *ngIf="!loading && filteredFormations.length > 0">
+    <article class="fe-card ky-card" *ngFor="let f of filteredFormations">
+      <div class="fe-card-head">
+        <span class="status-badge" [ngClass]="getStatutClass(f.statut)">
+          {{ statutLabels[f.statut] }}
+        </span>
+        <span class="fe-places" [class.complet]="estComplet(f)">
+          {{ estComplet(f) ? 'Complet' : f.nombreInscrits + '/' + f.capaciteMax + ' inscrits' }}
+        </span>
+      </div>
+
+      <h3 class="fe-card-title">{{ f.titre }}</h3>
+      <p class="fe-card-desc">{{ f.description || 'Aucune description.' }}</p>
+
+      <div class="fe-card-meta">
+        <div class="fe-meta-item">
+          <app-lucide-icon [icon]="icons.user" className="w-4 h-4" />
+          {{ f.formateur }}
+        </div>
+        <div class="fe-meta-item">
+          <app-lucide-icon [icon]="icons.calendar" className="w-4 h-4" />
+          {{ f.dateDebut | date:'dd/MM/yyyy' }} → {{ f.dateFin | date:'dd/MM/yyyy' }}
+        </div>
+        <div class="fe-meta-item">
+          <app-lucide-icon [icon]="icons.clock" className="w-4 h-4" />
+          {{ f.prix | number:'1.0-0' }} MAD
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="ky-btn-primary fe-btn-inscrire"
+        [disabled]="estComplet(f) || estInscrit(f)"
+        (click)="inscrire(f)">
+        @if (estComplet(f)) {
+          Formation complète
+        } @else if (estInscrit(f)) {
+          <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
+          Déjà inscrit
+        } @else {
+          S'inscrire
+        }
+      </button>
+    </article>
+  </div>
+</div>

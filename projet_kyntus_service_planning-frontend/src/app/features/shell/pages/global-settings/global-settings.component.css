@@ -1,0 +1,178 @@
+.ks-settings-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+}
+
+.ks-settings-page-head h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+}
+
+.ks-settings-page-head p {
+  margin: 0 0 28px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.ks-settings-section {
+  margin-bottom: 28px;
+}
+
+.ks-settings-section h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ks-settings-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.ks-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ks-profile-av {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--blue-600), var(--electric-blue));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.ks-profile-row strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.ks-profile-row span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+.ks-profile-role {
+  font-size: 0.75rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--electric-blue) !important;
+  font-weight: 600;
+}
+
+.ks-theme-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.ks-theme-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.ks-theme-btns button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ks-theme-btns button.active {
+  background: color-mix(in srgb, var(--blue-600) 15%, var(--bg-card));
+  border-color: var(--blue-600);
+  color: var(--electric-blue);
+  font-weight: 600;
+}
+
+.ks-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.ks-toggle-row:first-of-type {
+  border-top: none;
+}
+
+.ks-settings-hint {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.ks-settings-link {
+  display: inline-block;
+  margin-top: 12px;
+  color: var(--electric-blue);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.ks-admin-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 0;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.ks-admin-link:last-child {
+  border-bottom: none;
+}
+
+.ks-admin-link strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.ks-admin-link small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.ks-admin-link:hover strong {
+  color: var(--electric-blue);
+}

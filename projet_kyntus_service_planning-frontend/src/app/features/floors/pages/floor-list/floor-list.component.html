@@ -1,0 +1,56 @@
+<div class="page-container ky-page-shell">
+  <header class="page-header">
+    <div class="header-content">
+      <div class="title-section">
+        <h1>Gestion des Pôles</h1>
+        <p><span class="dot-active"></span> Miroir Planning — lecture seule</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="org-mirror-banner ky-card">
+    <p>La structure organisationnelle (pôles, cellules, services) se configure dans Organisation RH.</p>
+    <button type="button" class="btn-primary-add ky-btn-primary" (click)="goToOrganisationRh()">
+      Gérer dans Organisation RH
+    </button>
+  </div>
+
+  <div class="main-card ky-card">
+    <div class="card-info-bar">
+      <span class="table-title">Liste des pôles</span>
+      <span class="badge-count">{{ floors.length }} pôles enregistrés</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="prime-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nom du pôle</th>
+            <th>Description</th>
+            <th class="text-center">Cellules</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (floor of floors; track floor.id; let i = $index) {
+            <tr class="pro-row">
+              <td class="id-cell">#{{ i + 1 }}</td>
+              <td>
+                <div class="floor-name-wrapper">
+                  <div class="floor-badge">P{{ i + 1 }}</div>
+                  <span class="text-white-bold">{{ floor.name }}</span>
+                </div>
+              </td>
+              <td class="text-soft">{{ floor.description || '—' }}</td>
+              <td class="text-center">
+                <span class="status-pill" [class.warning]="floor.servicesCount === 0">
+                  {{ floor.servicesCount }} cellules
+                </span>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

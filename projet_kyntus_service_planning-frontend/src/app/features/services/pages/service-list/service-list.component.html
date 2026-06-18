@@ -1,0 +1,59 @@
+<div class="service-page ky-page-shell">
+  <div class="page-header">
+    <div class="header-left">
+      <div>
+        <h1>Gestion des Cellules</h1>
+        <p>Miroir Planning — lecture seule</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="org-mirror-banner ky-card">
+    <p>La structure organisationnelle (pôles, cellules, services) se configure dans Organisation RH.</p>
+    <button type="button" class="btn btn-primary ky-btn-primary" (click)="goToOrganisationRh()">
+      Gérer dans Organisation RH
+    </button>
+  </div>
+
+  <div class="card ky-card">
+    @if (loading) {
+      <div class="state loading">
+        <div class="spinner"></div>
+        <p>Chargement en cours...</p>
+      </div>
+    } @else if (error) {
+      <div class="state error">
+        <p>{{ error }}</p>
+        <button class="btn btn-danger ky-btn-secondary" (click)="loadServices()">Réessayer</button>
+      </div>
+    } @else if (services.length === 0) {
+      <div class="state empty">
+        <p>Aucune cellule trouvée.</p>
+        <button class="btn btn-primary ky-btn-primary" (click)="loadServices()">Recharger</button>
+      </div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="prime-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Nom</th>
+              <th>Pôle</th>
+              <th>Services</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (service of services; track service.id) {
+              <tr>
+                <td><span class="badge">{{ service.code }}</span></td>
+                <td class="service-name">{{ service.name }}</td>
+                <td>{{ service.floorName }}</td>
+                <td><span class="badge secondary">{{ service.subServicesCount }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

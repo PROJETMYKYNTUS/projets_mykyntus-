@@ -16,17 +16,15 @@ import { SubServiceService } from '../../../sub-services/services/sub-service.se
 import { UserService } from '../../../users/services/user.service';
 import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
 import type { Department } from '../../../prime/models';
+import type { OperationalDepartmentNode, OrgPoleNode } from '../../../prime/models/org-tree.types';
 import type { SubService } from '../../../sub-services/sub-services-module';
-import { buildOrgRhFilterOptions } from '../../../../core/org/org-structure-filter';
+import { buildOperationalOrgFilterOptions } from '../../../../core/org/org-structure-filter';
+import { buildSubServiceOrgLabels } from '../../../../core/org/operational-org-picker';
 import {
   enrichUserOrgPerimeter,
   orgPerimeterSummary,
   type UserOrgPerimeterView,
 } from '../../../../core/org/user-org-perimeter';
-import {
-  findOrgSelectionByPrimeServiceId,
-  poleCells,
-} from '../../../../core/org/planning-org-picker';
 
 type SubServiceOption = {
   id: number;
@@ -58,7 +56,9 @@ export class SaturdayHistoryComponent implements OnInit {
     loader: Loader2,
   };
 
-  orgDepartments: Department[] = [];
+  operationalDepartments: OperationalDepartmentNode[] = [];
+  unassignedPoles: OrgPoleNode[] = [];
+  legacyDepartments: Department[] = [];
   subServices: SubService[] = [];
   subServiceOptions: SubServiceOption[] = [];
   subServiceId = 0;
@@ -70,11 +70,13 @@ export class SaturdayHistoryComponent implements OnInit {
   filteredEntries: SaturdayEntryView[] = [];
 
   searchTerm = '';
+  filterOperationalDepartment = '';
   filterPole = '';
   filterCellule = '';
   filterService = '';
   filterStatus: '' | 'worked' | 'off' = '';
 
+  operationalDepartmentOptions: string[] = [];
   poleOptions: string[] = [];
   celluleOptions: string[] = [];
   serviceOptions: string[] = [];
@@ -116,7 +118,9 @@ export class SaturdayHistoryComponent implements OnInit {
       overview: this.orgApi.loadOverview(),
     }).subscribe({
       next: ({ subServices, departments, overview }) => {
-        this.orgDepartments = departments ?? [];
+        this.operationalDepartments = overview.operationalDepartments ?? [];
+        this.unassignedPoles = overview.unassignedPoles ?? [];
+        this.legacyDepartments = departments?.length ? departments : (overview.departments ?? []);
         this.subServices = subServices ?? [];
         this.subServiceOptions = this.buildSubServiceOptions(this.subServices);
         if (this.subServiceOptions.length > 0) {
@@ -136,27 +140,17 @@ export class SaturdayHistoryComponent implements OnInit {
   }
 
   private buildSubServiceOptions(subServices: SubService[]): SubServiceOption[] {
-    return subServices
-      .map((sub) => {
-        const primeId = sub.primeServiceId?.trim() ?? '';
-        const sel = primeId
-          ? findOrgSelectionByPrimeServiceId(this.orgDepartments, primeId)
-          : null;
-
-        let orgLabel = sub.name;
-        if (sel) {
-          const dept = this.orgDepartments.find((d) => d.id === sel.poleId);
-          const cellule = dept?.poles?.find((p) => p.id === sel.celluleId);
-          const service = cellule
-            ? poleCells(cellule).find((c) => c.id === sel.serviceId)
-            : undefined;
-          if (dept && cellule) {
-            orgLabel = `${dept.name} / ${cellule.name} / ${service?.name ?? sub.name}`;
-          }
-        }
-
-        return { id: sub.id, orgLabel };
-      })
+    const labels = buildSubServiceOrgLabels(
+      subServices,
+      this.operationalDepartments,
+      this.unassignedPoles,
+      this.legacyDepartments,
+    );
+    return labels
+      .map((l) => ({
+        id: l.subServiceId,
+        orgLabel: [l.operationalDepartment, l.pole, l.cellule, l.service].filter(Boolean).join(' / ') || l.name,
+      }))
       .sort((a, b) => a.orgLabel.localeCompare(b.orgLabel, 'fr'));
   }
 
@@ -179,7 +173,7 @@ export class SaturdayHistoryComponent implements OnInit {
         for (const u of activeUsers) {
           perimeterById.set(
             u.id,
-            enrichUserOrgPerimeter(u, this.orgDepartments, overview, this.subServices),
+            enrichUserOrgPerimeter(u, this.legacyDepartments, overview, this.subServices),
           );
         }
 
@@ -187,6 +181,7 @@ export class SaturdayHistoryComponent implements OnInit {
           const perimeter = perimeterById.get(entry.userId) ?? { operationalDepartment: null, pole: null, cellule: null, service: null };
           const searchText = [
             entry.fullName,
+            perimeter.operationalDepartment,
             perimeter.pole,
             perimeter.cellule,
             perimeter.service,
@@ -211,13 +206,24 @@ export class SaturdayHistoryComponent implements OnInit {
   }
 
   refreshOrgFilterOptions(): void {
-    const opts = buildOrgRhFilterOptions(this.orgDepartments, {
+    const opts = buildOperationalOrgFilterOptions(this.operationalDepartments, {
+      operationalDepartment: this.filterOperationalDepartment || undefined,
       pole: this.filterPole || undefined,
       cellule: this.filterCellule || undefined,
     });
+    this.operationalDepartmentOptions = opts.operationalDepartments;
     this.poleOptions = opts.poles;
     this.celluleOptions = opts.cellules;
     this.serviceOptions = opts.services;
+  }
+
+  patchFilterOperationalDepartment(value: string): void {
+    this.filterOperationalDepartment = value;
+    this.filterPole = '';
+    this.filterCellule = '';
+    this.filterService = '';
+    this.refreshOrgFilterOptions();
+    this.applyFilters();
   }
 
   patchFilterPole(value: string): void {
@@ -244,6 +250,9 @@ export class SaturdayHistoryComponent implements OnInit {
     let rows = [...this.allEntries];
     const q = this.searchTerm.trim().toLowerCase();
     if (q) rows = rows.filter((e) => e.searchText.includes(q));
+    if (this.filterOperationalDepartment) {
+      rows = rows.filter((e) => e.perimeter.operationalDepartment === this.filterOperationalDepartment);
+    }
     if (this.filterPole) rows = rows.filter((e) => e.perimeter.pole === this.filterPole);
     if (this.filterCellule) rows = rows.filter((e) => e.perimeter.cellule === this.filterCellule);
     if (this.filterService) rows = rows.filter((e) => e.perimeter.service === this.filterService);
@@ -255,6 +264,7 @@ export class SaturdayHistoryComponent implements OnInit {
 
   clearFilters(): void {
     this.searchTerm = '';
+    this.filterOperationalDepartment = '';
     this.filterPole = '';
     this.filterCellule = '';
     this.filterService = '';

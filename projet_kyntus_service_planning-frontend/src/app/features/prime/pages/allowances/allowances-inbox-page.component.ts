@@ -20,7 +20,6 @@ import { PrimeCardComponent } from '../../components/prime-card.component';
 import {
   canValidateAtStep,
   currentAllowancePeriod,
-  inboxStepLabel,
   allowanceSourceLabel,
 } from '../../lib/allowance-status';
 
@@ -56,7 +55,16 @@ import {
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
         </div>
       } @else if (filteredRows().length === 0) {
-        <app-prime-card description="Aucune demande en attente pour votre file de validation." />
+        <app-prime-card title="Aucune demande en attente">
+          <p class="text-sm text-muted mb-3">
+            Aucune demande en attente pour votre file de validation.
+          </p>
+          @if (role.currentRole() === 'RH') {
+            <button type="button" class="prime-btn-secondary text-sm" (click)="goSupervision()">
+              Voir le suivi global
+            </button>
+          }
+        </app-prime-card>
       } @else {
         <div class="space-y-4">
           @for (r of filteredRows(); track r.id) {
@@ -90,7 +98,7 @@ import {
 })
 export class AllowancesInboxPageComponent implements OnInit {
   private readonly api = inject(AllowanceApiService);
-  private readonly role = inject(RoleService);
+  readonly role = inject(RoleService);
   private readonly rejectDialog = inject(AllowanceRejectDialogService);
   private readonly inboxBadge = inject(AllowanceInboxBadgeService);
   private readonly dept = inject(DepartmentContextService);
@@ -105,7 +113,13 @@ export class AllowancesInboxPageComponent implements OnInit {
   filterPeriod = currentAllowancePeriod();
   filterDeptId = '';
 
-  readonly pageTitle = computed(() => inboxStepLabel(this.role.currentRole()));
+  readonly pageTitle = computed(() => {
+    if (this.role.currentRole() === 'RH') return 'Validation RH — Primes Support';
+    if (this.role.currentRole() === 'Comptabilité' || this.role.currentRole() === 'Comptable') {
+      return 'Validation comptabilité — Primes Support';
+    }
+    return 'File de validation — Primes Support';
+  });
   readonly pageSubtitle = computed(() => {
     const role = this.role.currentRole();
     if (role === 'RH') return 'Demandes soumises par les managers Support, en attente de votre validation.';
@@ -192,6 +206,10 @@ export class AllowancesInboxPageComponent implements OnInit {
 
   applyFilters(): void {
     // computed filteredRows reacts automatically
+  }
+
+  goSupervision(): void {
+    this.nav.requestView('/allowances/supervision');
   }
 
   private async load(): Promise<void> {

@@ -21,6 +21,7 @@ export interface User {
   orgPoleName?: string | null;
   orgCelluleName?: string | null;
   orgServiceName?: string | null;
+  orgOperationalDepartmentName?: string | null;
   managedSubServices: SubServiceSimple[];
   managedServices: ServiceSimple[];   // 🆕
   firstName: string;

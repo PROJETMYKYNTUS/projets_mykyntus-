@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { primeApiGet, primeApiPatch, primeApiPost } from './prime-http';
+import { primeApiGet, primeApiPatch, primeApiPost, primeApiDelete } from './prime-http';
 
 export interface AllowanceTypeDto {
   id: string;
@@ -68,6 +68,68 @@ export interface BusinessDepartmentMirrorDto {
   poleIds: string[];
 }
 
+export type AllowanceTreatmentStatus =
+  | 'NotStarted'
+  | 'HasDrafts'
+  | 'Submitted'
+  | 'Validated'
+  | 'Rejected'
+  | 'NoBonus';
+
+export interface AllowanceTeamProgressSummaryDto {
+  totalEmployees: number;
+  notStartedCount: number;
+  inProgressCount: number;
+  submittedCount: number;
+  validatedCount: number;
+  noBonusCount: number;
+  totalAmount: number;
+}
+
+export interface AllowanceTeamMemberProgressDto {
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  requestCount: number;
+  draftCount: number;
+  submittedCount: number;
+  treatmentStatus: AllowanceTreatmentStatus;
+  noBonusMarked: boolean;
+}
+
+export interface AllowanceTeamProgressDto {
+  period: string;
+  summary: AllowanceTeamProgressSummaryDto;
+  members: AllowanceTeamMemberProgressDto[];
+}
+
+export interface AllowanceEmployeeAllocationsDto {
+  employeeId: string;
+  period: string;
+  requests: AllowanceRequestDto[];
+  availableTypes: AllowanceTypeDto[];
+  noBonusMarked: boolean;
+  noBonusComment?: string;
+  noBonusMarkedAt?: string;
+}
+
+export interface AllowanceHistoryEntryDto {
+  request: AllowanceRequestDto;
+  employeeFirstName: string;
+  employeeLastName: string;
+}
+
+export interface AllowancePeriodSummaryDto {
+  period: string;
+  requestCount: number;
+  draftCount: number;
+  submittedCount: number;
+  validatedCount: number;
+  noBonusCount: number;
+  totalAmount: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AllowanceApiService {
   getContext(): Promise<AllowanceContextDto> {
@@ -76,6 +138,51 @@ export class AllowanceApiService {
 
   listTeamMembers(): Promise<AllowanceTeamMemberDto[]> {
     return primeApiGet<AllowanceTeamMemberDto[]>('/api/prime/allowances/team');
+  }
+
+  getTeamProgress(period: string): Promise<AllowanceTeamProgressDto> {
+    return primeApiGet<AllowanceTeamProgressDto>(
+      `/api/prime/allowances/team-progress?period=${encodeURIComponent(period.trim())}`,
+    );
+  }
+
+  getEmployeeAllocations(period: string, employeeId: string): Promise<AllowanceEmployeeAllocationsDto> {
+    const params = new URLSearchParams({
+      period: period.trim(),
+      employeeId: employeeId.trim(),
+    });
+    return primeApiGet<AllowanceEmployeeAllocationsDto>(
+      `/api/prime/allowances/employee-allocations?${params.toString()}`,
+    );
+  }
+
+  generateTeamProposals(period: string): Promise<{ created: number }> {
+    return primeApiPost<{ created: number }>(
+      `/api/prime/allowances/team/generate-proposals?period=${encodeURIComponent(period.trim())}`,
+      {},
+    );
+  }
+
+  markNoBonus(period: string, employeeId: string, comment?: string): Promise<{ marked: boolean }> {
+    const params = new URLSearchParams({ period: period.trim(), employeeId: employeeId.trim() });
+    return primeApiPost<{ marked: boolean }>(`/api/prime/allowances/no-bonus?${params.toString()}`, { comment: comment ?? null });
+  }
+
+  clearNoBonus(period: string, employeeId: string): Promise<{ cleared: boolean }> {
+    const params = new URLSearchParams({ period: period.trim(), employeeId: employeeId.trim() });
+    return primeApiDelete<{ cleared: boolean }>(`/api/prime/allowances/no-bonus?${params.toString()}`);
+  }
+
+  getHistory(fromPeriod?: string, toPeriod?: string): Promise<AllowanceHistoryEntryDto[]> {
+    const params = new URLSearchParams();
+    if (fromPeriod?.trim()) params.set('fromPeriod', fromPeriod.trim());
+    if (toPeriod?.trim()) params.set('toPeriod', toPeriod.trim());
+    const q = params.toString();
+    return primeApiGet<AllowanceHistoryEntryDto[]>(`/api/prime/allowances/history${q ? `?${q}` : ''}`);
+  }
+
+  getPeriodSummaries(): Promise<AllowancePeriodSummaryDto[]> {
+    return primeApiGet<AllowancePeriodSummaryDto[]>('/api/prime/allowances/period-summaries');
   }
 
   listTypes(): Promise<AllowanceTypeDto[]> {

@@ -4,7 +4,9 @@ import type {
   OrgPoleNode,
   OrgServiceNode,
 } from '../../features/prime/models/org-tree.types';
+import type { Department } from '../../features/prime/models';
 import { normalizeOrgSearch } from './org-structure-filter';
+import { findOrgSelectionByPrimeServiceId, poleCells } from './planning-org-picker';
 
 export type OperationalOrgSelection = {
   operationalDeptId: string;
@@ -283,4 +285,76 @@ export function filterOperationalServicesBySearch(
   const q = normalizeOrgSearch(search);
   if (!q) return [...services];
   return services.filter((s) => s.name.toLowerCase().includes(q));
+}
+
+export type SubServiceOrgLabels = {
+  subServiceId: number;
+  name: string;
+  operationalDepartment: string | null;
+  pole: string | null;
+  cellule: string | null;
+  service: string | null;
+};
+
+export function buildSubServiceOrgLabels(
+  subServices: readonly { id: number; name: string; primeServiceId?: string | null }[],
+  operationalDepartments: readonly OperationalDepartmentNode[],
+  unassignedPoles: readonly OrgPoleNode[],
+  legacyDepartments: readonly Department[],
+): SubServiceOrgLabels[] {
+  return subServices.map((sub) => {
+    const primeId = sub.primeServiceId?.trim() ?? '';
+    if (!primeId) {
+      return {
+        subServiceId: sub.id,
+        name: sub.name,
+        operationalDepartment: null,
+        pole: null,
+        cellule: null,
+        service: sub.name,
+      };
+    }
+    const opSel = findOperationalSelectionByServiceId(operationalDepartments, unassignedPoles, primeId);
+    if (opSel) {
+      const summary = operationalSelectionSummary(
+        operationalDepartments,
+        unassignedPoles,
+        opSel.operationalDeptId,
+        opSel.poleId,
+        opSel.celluleId,
+        opSel.serviceId,
+      );
+      const parts = summary === '—' ? [] : summary.split(' / ');
+      return {
+        subServiceId: sub.id,
+        name: sub.name,
+        operationalDepartment: parts[0] ?? null,
+        pole: parts[1] ?? null,
+        cellule: parts[2] ?? null,
+        service: parts[3] ?? sub.name,
+      };
+    }
+    const legacySel = findOrgSelectionByPrimeServiceId(legacyDepartments, primeId);
+    if (!legacySel) {
+      return {
+        subServiceId: sub.id,
+        name: sub.name,
+        operationalDepartment: null,
+        pole: null,
+        cellule: null,
+        service: sub.name,
+      };
+    }
+    const dept = legacyDepartments.find((d) => d.id === legacySel.poleId);
+    const cellule = dept?.poles?.find((p) => p.id === legacySel.celluleId);
+    const service = cellule ? poleCells(cellule).find((c) => c.id === legacySel.serviceId) : undefined;
+    return {
+      subServiceId: sub.id,
+      name: sub.name,
+      operationalDepartment: null,
+      pole: dept?.name ?? null,
+      cellule: cellule?.name ?? null,
+      service: service?.name ?? sub.name,
+    };
+  });
 }

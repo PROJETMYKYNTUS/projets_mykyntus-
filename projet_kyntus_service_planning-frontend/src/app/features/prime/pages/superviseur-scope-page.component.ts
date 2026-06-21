@@ -15,6 +15,7 @@ interface ScopeRow {
   id: string;
   fullName: string;
   role: string;
+  operationalDepartment: string;
   service: string;
   cellule: string;
   pole: string;
@@ -45,6 +46,7 @@ interface ScopeRow {
                 <tr>
                   <th>Collaborateur</th>
                   <th>Rôle</th>
+                  <th>Département</th>
                   <th>Pôle</th>
                   <th>Cellule</th>
                   <th>Service</th>
@@ -53,13 +55,14 @@ interface ScopeRow {
               <tbody>
                 @if (rows().length === 0) {
                   <tr>
-                    <td colspan="5" class="text-center prime-cell-muted py-8">Aucune donnée.</td>
+                    <td colspan="6" class="text-center prime-cell-muted py-8">Aucune donnée.</td>
                   </tr>
                 } @else {
                   @for (item of rows(); track item.id) {
                     <tr>
                       <td><span class="prime-cell-strong">{{ item.fullName }}</span></td>
                       <td><span class="prime-cell-muted">{{ item.role }}</span></td>
+                      <td><span class="prime-cell-muted">{{ item.operationalDepartment }}</span></td>
                       <td><span class="prime-cell-muted">{{ item.pole }}</span></td>
                       <td><span class="prime-cell-muted">{{ item.cellule }}</span></td>
                       <td><span class="prime-cell-muted">{{ item.service }}</span></td>
@@ -94,20 +97,25 @@ export class SuperviseurScopePageComponent {
     const current = this.roleService.currentUser();
     void Promise.all([
       PrimeService.getEmployees(),
-      PrimeService.getDepartments(),
       firstValueFrom(this.orgApi.loadOverview()),
-    ]).then(([employees, departments, overview]) => {
+      PrimeService.getOperationalOrgTree(),
+    ]).then(async ([employees, overview, orgTree]) => {
+      const useLegacyFallback =
+        (orgTree.operationalDepartments?.length ?? 0) === 0 &&
+        (orgTree.unassignedPoles?.length ?? 0) === 0;
+      const legacyDepartments = useLegacyFallback ? await PrimeService.getDepartments() : [];
       const celluleId = resolveSuperviseurCelluleId(current.id, current, overview ?? null);
       const scopeEmployees = dedupeEmployeesByEmail(
         employeesInSuperviseurCellule(employees, celluleId),
       );
 
       const mapped: ScopeRow[] = scopeEmployees.map((e) => {
-        const labels = resolvePlatformOrgLabels(e, departments, overview ?? null);
+        const labels = resolvePlatformOrgLabels(e, legacyDepartments, overview ?? null);
         return {
           id: e.id,
           fullName: `${e.firstName} ${e.lastName}`,
           role: e.role,
+          operationalDepartment: labels.operationalDepartment,
           pole: labels.pole,
           cellule: labels.cellule,
           service: labels.service,

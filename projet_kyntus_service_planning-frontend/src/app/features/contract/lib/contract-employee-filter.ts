@@ -20,6 +20,7 @@ export function buildEmployeePickerRows(
         displayName,
         u.email,
         u.roleName,
+        perimeter.operationalDepartment,
         perimeter.pole,
         perimeter.cellule,
         perimeter.service,
@@ -35,6 +36,7 @@ export function buildEmployeePickerRows(
 
 export type EmployeePickerFilters = {
   search?: string;
+  operationalDepartment?: string;
   pole?: string;
   cellule?: string;
   service?: string;
@@ -48,6 +50,9 @@ export function filterEmployeePickerRows(
   let matched = rows;
   const q = opts.search?.trim().toLowerCase();
   if (q) matched = matched.filter((row) => row.searchText.includes(q));
+  if (opts.operationalDepartment) {
+    matched = matched.filter((row) => row.perimeter.operationalDepartment === opts.operationalDepartment);
+  }
   if (opts.pole) matched = matched.filter((row) => row.perimeter.pole === opts.pole);
   if (opts.cellule) matched = matched.filter((row) => row.perimeter.cellule === opts.cellule);
   if (opts.service) matched = matched.filter((row) => row.perimeter.service === opts.service);
@@ -56,7 +61,7 @@ export function filterEmployeePickerRows(
 
 export function uniqueOrgValues(
   rows: EmployeePickerRow[],
-  key: 'pole' | 'cellule' | 'service' | 'supportDepartmentName',
+  key: 'operationalDepartment' | 'pole' | 'cellule' | 'service' | 'supportDepartmentName',
 ): string[] {
   const set = new Set<string>();
   for (const row of rows) {

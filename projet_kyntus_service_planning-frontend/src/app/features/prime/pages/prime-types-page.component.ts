@@ -46,7 +46,7 @@ import { cn } from '@/lib/utils';
                 <tr>
                   <th class="px-6 py-3 font-medium tracking-wider">Name</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Category</th>
-                  <th class="px-6 py-3 font-medium tracking-wider">Department</th>
+                  <th class="px-6 py-3 font-medium tracking-wider">Département op.</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Status</th>
                   <th class="px-6 py-3 font-medium tracking-wider text-right">Actions</th>
                 </tr>
@@ -152,7 +152,7 @@ import { cn } from '@/lib/utils';
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium text-muted mb-1">Department</label>
+              <label class="block text-sm font-medium text-muted mb-1">Département opérationnel</label>
               <select
                 class="w-full px-3 py-2 border border-default rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-input text-primary"
                 required
@@ -224,7 +224,7 @@ export class PrimeTypesPageComponent implements OnInit {
 
   readonly filterBarFilters = computed<PrimeFilterBarFilter[]>(() => [
     {
-      name: 'Department',
+      name: 'Département op.',
       value: this.deptFilter(),
       onChange: this.setDeptFilter,
       options: this.departments().map((d) => ({ label: d.name, value: d.id })),
@@ -232,10 +232,12 @@ export class PrimeTypesPageComponent implements OnInit {
   ]);
 
   ngOnInit(): void {
-    void Promise.all([PrimeService.getPrimeTypes(), PrimeService.getDepartments()]).then(
-      ([typesData, deptsData]) => {
+    void Promise.all([PrimeService.getPrimeTypes(), PrimeService.getOperationalOrgTree()]).then(
+      ([typesData, orgTree]) => {
         this.types.set(typesData);
-        this.departments.set(deptsData);
+        this.departments.set(
+          (orgTree.operationalDepartments ?? []).map((d) => ({ id: d.id, name: d.name, poles: [] })),
+        );
         this.loading.set(false);
       },
     );

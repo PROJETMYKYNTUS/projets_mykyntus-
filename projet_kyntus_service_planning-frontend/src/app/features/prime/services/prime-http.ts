@@ -81,3 +81,16 @@ export async function primeApiPatch<T>(path: string, body: unknown): Promise<T> 
   }
   return res.json() as Promise<T>;
 }
+
+export async function primeApiDelete<T>(path: string): Promise<T> {
+  const res = await fetch(`${PRIME_API_BASE}${path}`, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}

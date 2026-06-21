@@ -8,13 +8,19 @@ import { Injectable, signal } from '@angular/core';
  * cible (ex. liste fiches communes → pilotage cellule), consommée par la page destinataire
  * via un `effect` puis remise à `null` avec {@link clearRequestedPeriod}.
  */
+export type PrimeNavRequestedAction = 'create';
+
 @Injectable({ providedIn: 'root' })
 export class PrimeNavRequestService {
   private readonly _pendingPath = signal<string | null>(null);
   private readonly _requestedPeriod = signal<string | null>(null);
+  private readonly _requestedAction = signal<PrimeNavRequestedAction | null>(null);
+  private readonly _requestedStatusFilter = signal<string | null>(null);
 
   readonly pendingPath = this._pendingPath.asReadonly();
   readonly requestedPeriod = this._requestedPeriod.asReadonly();
+  readonly requestedAction = this._requestedAction.asReadonly();
+  readonly requestedStatusFilter = this._requestedStatusFilter.asReadonly();
 
   /** Vue Prime active (synchronisée par le layout pour le menu global). */
   private readonly _activePath = signal<string>('/');
@@ -26,6 +32,24 @@ export class PrimeNavRequestService {
 
   requestView(path: string): void {
     this._pendingPath.set(path);
+  }
+
+  requestViewWithAction(path: string, action: PrimeNavRequestedAction): void {
+    this._requestedAction.set(action);
+    this._pendingPath.set(path);
+  }
+
+  requestViewWithStatusFilter(path: string, status: string): void {
+    this._requestedStatusFilter.set(status);
+    this._pendingPath.set(path);
+  }
+
+  clearRequestedAction(): void {
+    this._requestedAction.set(null);
+  }
+
+  clearRequestedStatusFilter(): void {
+    this._requestedStatusFilter.set(null);
   }
 
   /** Navigation + transmission d'une période pré-sélectionnée à la page cible. */
@@ -68,5 +92,7 @@ export class PrimeNavRequestService {
     this._pendingPath.set(null);
     this._requestedPeriod.set(null);
     this._requestedSynthesisScope.set(null);
+    this._requestedAction.set(null);
+    this._requestedStatusFilter.set(null);
   }
 }

@@ -35,13 +35,21 @@ public class PrimeController(PrimeDbContext? db, PrimeOrgScopeService org) : Con
         }
     }
 
-    /// <summary>Lecture référentiel org (bootstrap Directory, SPA authentifiée).</summary>
+    /// <summary>Lecture référentiel org legacy (bootstrap Directory, SPA authentifiée) — 3 niveaux, deprecated.</summary>
     [AllowAnonymous]
     [HttpGet("departments")]
     public async Task<ActionResult<List<Department>>> GetPoles(CancellationToken ct) =>
         db == null
             ? StatusCode(503, new { error = "Base de données non configurée." })
             : Ok(await org.GetLegacyDepartmentTreeAsync(ct));
+
+    /// <summary>Arbre opérationnel 4 niveaux (département → pôle → cellule → service).</summary>
+    [AllowAnonymous]
+    [HttpGet("org/operational-departments")]
+    public async Task<ActionResult<OperationalOrgTreeDto>> GetOperationalDepartments(CancellationToken ct) =>
+        db == null
+            ? StatusCode(503, new { error = "Base de données non configurée." })
+            : Ok(await org.GetOperationalOrgTreeAsync(ct));
 
     [AllowAnonymous]
     [HttpGet("employees")]

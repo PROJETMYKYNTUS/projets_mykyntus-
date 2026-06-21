@@ -13,6 +13,7 @@ import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kynt
 import { Calendar, RefreshCw, Search } from 'lucide';
 import type { User } from '../../../users/users-module';
 import type { Department } from '../../../prime/models';
+import type { OperationalDepartmentNode, OrgPoleNode } from '../../../prime/models/org-tree.types';
 import {
   DemandeCongeDto,
   StatutDemande,
@@ -21,9 +22,10 @@ import {
   TypeCongeExceptionnelLabels,
   TypeConge,
 } from '../../../../core/models/conge.models';
-import { buildOrgRhFilterOptions } from '../../../../core/org/org-structure-filter';
+import { buildOperationalOrgFilterOptions } from '../../../../core/org/org-structure-filter';
 import {
   enrichUserOrgPerimeter,
+  orgPerimeterSummary,
   type UserOrgPerimeterView,
 } from '../../../../core/org/user-org-perimeter';
 
@@ -50,16 +52,22 @@ export class CongeHistoriqueComponent implements OnInit {
   filterAnnee = new Date().getFullYear();
   yearOptions: number[] = [];
   filterStatut: StatutDemande | '' = '';
+  filterOperationalDepartment = '';
   filterPole = '';
   filterCellule = '';
   filterService = '';
   searchTerm = '';
 
+  operationalDepartmentOptions: string[] = [];
   poleOptions: string[] = [];
   celluleOptions: string[] = [];
   serviceOptions: string[] = [];
-  orgDepartments: Department[] = [];
+  operationalDepartments: OperationalDepartmentNode[] = [];
+  unassignedPoles: OrgPoleNode[] = [];
+  legacyDepartments: Department[] = [];
   private perimeterByEmployeGuid = new Map<string, UserOrgPerimeterView>();
+
+  readonly orgPerimeterSummary = orgPerimeterSummary;
 
   constructor(
     private congeService: CongeService,
@@ -88,7 +96,9 @@ export class CongeHistoriqueComponent implements OnInit {
     }).subscribe({
       next: ({ demandes, users, departments, overview, subServices }) => {
         this.allDemandes = demandes ?? [];
-        this.orgDepartments = departments ?? [];
+        this.operationalDepartments = overview.operationalDepartments ?? [];
+        this.unassignedPoles = overview.unassignedPoles ?? [];
+        this.legacyDepartments = departments?.length ? departments : (overview.departments ?? []);
         this.buildPerimeters(users ?? [], overview, subServices ?? []);
         this.refreshOrgFilterOptions();
         this.applyFilters();
@@ -114,7 +124,7 @@ export class CongeHistoriqueComponent implements OnInit {
       if (!guid) continue;
       this.perimeterByEmployeGuid.set(
         guid,
-        enrichUserOrgPerimeter(u, this.orgDepartments, overview, subServices),
+        enrichUserOrgPerimeter(u, this.legacyDepartments, overview, subServices),
       );
     }
   }
@@ -125,10 +135,12 @@ export class CongeHistoriqueComponent implements OnInit {
   }
 
   refreshOrgFilterOptions(): void {
-    const opts = buildOrgRhFilterOptions(this.orgDepartments, {
+    const opts = buildOperationalOrgFilterOptions(this.operationalDepartments, {
+      operationalDepartment: this.filterOperationalDepartment || undefined,
       pole: this.filterPole || undefined,
       cellule: this.filterCellule || undefined,
     });
+    this.operationalDepartmentOptions = opts.operationalDepartments;
     this.poleOptions = opts.poles;
     this.celluleOptions = opts.cellules;
     this.serviceOptions = opts.services;
@@ -137,6 +149,15 @@ export class CongeHistoriqueComponent implements OnInit {
   patchFilterAnnee(annee: string): void {
     this.filterAnnee = Number(annee) || new Date().getFullYear();
     this.loadData();
+  }
+
+  patchFilterOperationalDepartment(dept: string): void {
+    this.filterOperationalDepartment = dept;
+    this.filterPole = '';
+    this.filterCellule = '';
+    this.filterService = '';
+    this.refreshOrgFilterOptions();
+    this.applyFilters();
   }
 
   patchFilterPole(pole: string): void {
@@ -162,6 +183,7 @@ export class CongeHistoriqueComponent implements OnInit {
   clearFilters(): void {
     this.searchTerm = '';
     this.filterStatut = '';
+    this.filterOperationalDepartment = '';
     this.filterPole = '';
     this.filterCellule = '';
     this.filterService = '';
@@ -176,12 +198,15 @@ export class CongeHistoriqueComponent implements OnInit {
       rows = rows.filter((d) => {
         const name = this.employeDisplayName(d).toLowerCase();
         const p = this.employePerimeter(d.employeId);
-        const hay = [name, d.motif, p.pole, p.cellule, p.service].filter(Boolean).join(' ').toLowerCase();
+        const hay = [name, d.motif, p.operationalDepartment, p.pole, p.cellule, p.service].filter(Boolean).join(' ').toLowerCase();
         return hay.includes(term);
       });
     }
     if (this.filterStatut !== '') {
       rows = rows.filter((d) => d.statut === +this.filterStatut);
+    }
+    if (this.filterOperationalDepartment) {
+      rows = rows.filter((d) => this.employePerimeter(d.employeId).operationalDepartment === this.filterOperationalDepartment);
     }
     if (this.filterPole) {
       rows = rows.filter((d) => this.employePerimeter(d.employeId).pole === this.filterPole);

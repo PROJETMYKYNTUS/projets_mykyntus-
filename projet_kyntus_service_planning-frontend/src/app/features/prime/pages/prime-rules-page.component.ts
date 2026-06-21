@@ -166,11 +166,13 @@ export class PrimeRulesPageComponent implements OnInit {
     void Promise.all([
       PrimeService.getPrimeRules(),
       PrimeService.getPrimeTypes(),
-      PrimeService.getDepartments(),
-    ]).then(([rulesData, typesData, deptsData]) => {
+      PrimeService.getOperationalOrgTree(),
+    ]).then(([rulesData, typesData, orgTree]) => {
       this.rules.set(rulesData);
       this.types.set(typesData);
-      this.departments.set(deptsData);
+      this.departments.set(
+        (orgTree.operationalDepartments ?? []).map((d) => ({ id: d.id, name: d.name, poles: [] })),
+      );
       this.loading.set(false);
     });
   }

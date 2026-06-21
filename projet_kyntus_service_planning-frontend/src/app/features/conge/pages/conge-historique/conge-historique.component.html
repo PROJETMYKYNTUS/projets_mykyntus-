@@ -64,6 +64,17 @@
 
       <select
         class="filter-ctl ky-input filter-ctl--org"
+        [kyntusSelectSync]="filterOperationalDepartment"
+        (kyntusSelectSyncChange)="patchFilterOperationalDepartment($event)"
+      >
+        <option value="">Département</option>
+        @for (d of operationalDepartmentOptions; track d) {
+          <option [value]="d">{{ d }}</option>
+        }
+      </select>
+
+      <select
+        class="filter-ctl ky-input filter-ctl--org"
         [kyntusSelectSync]="filterPole"
         (kyntusSelectSyncChange)="patchFilterPole($event)"
       >
@@ -130,9 +141,7 @@
                   <span class="user-name">{{ employeDisplayName(d) }}</span>
                 </td>
                 <td class="td-org">
-                  <span class="org-line">{{ employePerimeter(d.employeId).pole || '—' }}</span>
-                  <span class="org-sub">{{ employePerimeter(d.employeId).cellule || '' }}</span>
-                  <span class="org-sub org-sub--service">{{ employePerimeter(d.employeId).service || '' }}</span>
+                  <span class="org-line">{{ orgPerimeterSummary(employePerimeter(d.employeId)) }}</span>
                 </td>
                 <td><span class="type-badge">{{ typeLabel(d) }}</span></td>
                 <td class="td-dates">{{ formatDate(d.dateDebut) }} → {{ formatDate(d.dateFin) }}</td>

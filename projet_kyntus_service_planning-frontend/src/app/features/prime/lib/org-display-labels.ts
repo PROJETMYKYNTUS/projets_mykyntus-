@@ -1,6 +1,7 @@
 import type { Department, Employee } from '../models';
 
 export interface EmployeeOrgDisplayLabels {
+  operationalDepartment: string;
   pole: string;
   cellule: string;
   service: string;
@@ -57,6 +58,7 @@ export function resolveEmployeeOrgLabels(
         for (const c of p.cells) {
           if (c.id === serviceKey) {
             return {
+              operationalDepartment: MISSING,
               pole: d.name?.trim() || pole,
               cellule: p.name?.trim() || cellule,
               service: c.name?.trim() || MISSING,
@@ -66,6 +68,7 @@ export function resolveEmployeeOrgLabels(
             const sid = (t as { serviceId?: string }).serviceId;
             if (t.id === serviceKey || t.id === `${serviceKey}-team` || sid === serviceKey) {
               return {
+                operationalDepartment: MISSING,
                 pole: d.name?.trim() || pole,
                 cellule: p.name?.trim() || cellule,
                 service: t.name?.trim() || c.name?.trim() || MISSING,
@@ -77,5 +80,5 @@ export function resolveEmployeeOrgLabels(
     }
   }
 
-  return { pole, cellule, service };
+  return { operationalDepartment: MISSING, pole, cellule, service };
 }

@@ -114,45 +114,85 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
   { label: 'Ma performance', route: PRIME_ROUTE, primePath: '/employee/performance', primeRoles: ['Pilote'] },
 ];
 
+/** Ordre menu manager Support : action principale en premier. */
+const SUPPORT_MANAGER_MENU_ORDER: readonly string[] = [
+  '/allowances/allocation',
+  '/allowances/dashboard',
+  '/allowances/progress',
+  '/allowances/history',
+];
+
+function sortAllowanceMenuItems(items: MenuItem[]): MenuItem[] {
+  return [...items].sort((a, b) => {
+    const ai = SUPPORT_MANAGER_MENU_ORDER.indexOf(a.primePath ?? '');
+    const bi = SUPPORT_MANAGER_MENU_ORDER.indexOf(b.primePath ?? '');
+    const aOrder = ai >= 0 ? ai : 99;
+    const bOrder = bi >= 0 ? bi : 99;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return (a.label ?? '').localeCompare(b.label ?? '', 'fr');
+  });
+}
+
 /** Track Allowances — départements Support (module Parrainage exclu). */
 export const PRIME_ALLOWANCE_MENU_ITEMS: Array<
   MenuItem & { primeRoles: Role[]; departmentKinds?: ('Support' | 'Operational')[] }
 > = [
   {
-    label: 'Primes Support — Tableau de bord',
+    label: 'Affectation équipe',
     route: PRIME_ROUTE,
-    primePath: '/allowances',
-    primeRoles: ['Manager', 'RH', 'Admin'],
-    departmentKinds: ['Support'],
-  },
-  {
-    label: 'Demandes de prime',
-    route: PRIME_ROUTE,
-    primePath: '/allowances/requests',
+    primePath: '/allowances/allocation',
     primeRoles: ['Manager'],
     departmentKinds: ['Support'],
   },
   {
-    label: 'Validation primes Support',
+    label: 'Tableau de bord',
     route: PRIME_ROUTE,
-    primePath: '/allowances/inbox',
-    primeRoles: ['Manager', 'RH', 'Comptabilité'],
+    primePath: '/allowances/dashboard',
+    primeRoles: ['Manager'],
+    departmentKinds: ['Support'],
   },
   {
-    label: 'Supervision primes Support',
+    label: 'Avancement de traitement',
+    route: PRIME_ROUTE,
+    primePath: '/allowances/progress',
+    primeRoles: ['Manager'],
+    departmentKinds: ['Support'],
+  },
+  {
+    label: 'Historique',
+    route: PRIME_ROUTE,
+    primePath: '/allowances/history',
+    primeRoles: ['Manager'],
+    departmentKinds: ['Support'],
+  },
+  {
+    label: 'Synthèse',
+    route: PRIME_ROUTE,
+    primePath: '/allowances',
+    primeRoles: ['RH', 'Admin'],
+    departmentKinds: ['Support'],
+  },
+  {
+    label: 'Validation RH',
+    route: PRIME_ROUTE,
+    primePath: '/allowances/inbox',
+    primeRoles: ['RH', 'Comptabilité'],
+  },
+  {
+    label: 'Mes primes reçues',
+    route: PRIME_ROUTE,
+    primePath: '/allowances/my',
+    primeRoles: ['Pilote'],
+    departmentKinds: ['Support'],
+  },
+  {
+    label: 'Suivi global',
     route: PRIME_ROUTE,
     primePath: '/allowances/supervision',
     primeRoles: ['RH', 'Admin'],
   },
   {
-    label: 'Mes primes Support',
-    route: PRIME_ROUTE,
-    primePath: '/allowances/my',
-    primeRoles: ['Pilote', 'Manager'],
-    departmentKinds: ['Support'],
-  },
-  {
-    label: 'Catalogue primes Support',
+    label: 'Types de prime',
     route: PRIME_ROUTE,
     primePath: '/allowances/catalog',
     primeRoles: ['RH', 'Admin'],
@@ -191,11 +231,13 @@ export function buildPrimeMenuItemsForRole(
 
   if (role === 'Manager' && managerTrack === 'support') {
     return withAllowanceSection(
-      PRIME_ALLOWANCE_MENU_ITEMS.filter((i) => {
-        if (!i.primeRoles.includes(role)) return false;
-        const p = i.primePath;
-        return !!p && (SUPPORT_MANAGER_ALLOWED_PATHS as readonly string[]).includes(p);
-      }),
+      sortAllowanceMenuItems(
+        PRIME_ALLOWANCE_MENU_ITEMS.filter((i) => {
+          if (!i.primeRoles.includes(role)) return false;
+          const p = i.primePath;
+          return !!p && (SUPPORT_MANAGER_ALLOWED_PATHS as readonly string[]).includes(p);
+        }),
+      ),
     );
   }
 

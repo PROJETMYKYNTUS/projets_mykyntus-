@@ -2,7 +2,7 @@ import type { DepartmentContextService } from '../services/allowance-api.service
 import type { PrimeNavRequestService } from '../services/prime-nav-request.service';
 import { resolveManagerHomePath } from './prime-nav-access';
 import { buildPrimeDepartmentManagerNav } from './prime-manager-nav';
-import { resolveManagerPrimeTrack } from './prime-manager-track';
+import { managerHomePathForTrack, resolveManagerPrimeTrack } from './prime-manager-track';
 import type { Role } from '../models';
 
 /** Redirige un manager opérationnel hors des écrans Primes Support. */
@@ -30,6 +30,6 @@ export function redirectSupportManagerToAllowancesIfNeeded(
   const managerNav = buildPrimeDepartmentManagerNav(dept);
   if (resolveManagerPrimeTrack(role, managerNav) !== 'support') return false;
   if (currentPath.startsWith('/allowances')) return false;
-  nav.requestView('/allowances');
+  nav.requestView(managerHomePathForTrack('support'));
   return true;
 }

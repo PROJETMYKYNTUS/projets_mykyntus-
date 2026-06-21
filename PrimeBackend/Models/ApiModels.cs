@@ -114,6 +114,8 @@ public class Employee
     public string? CelluleId { get; set; }
     public string Email { get; set; } = "";
     public string? Avatar { get; set; }
+    public string? BusinessDepartmentId { get; set; }
+    public string? BusinessDepartmentKind { get; set; }
 }
 
 public class PrimeType

@@ -43,6 +43,17 @@
 
       <select
         class="filter-ctl ky-input filter-ctl--org"
+        [kyntusSelectSync]="filterOperationalDepartment"
+        (kyntusSelectSyncChange)="patchFilterOperationalDepartment($event)"
+      >
+        <option value="">Département</option>
+        @for (d of operationalDepartmentOptions; track d) {
+          <option [value]="d">{{ d }}</option>
+        }
+      </select>
+
+      <select
+        class="filter-ctl ky-input filter-ctl--org"
         [kyntusSelectSync]="filterPole"
         (kyntusSelectSyncChange)="patchFilterPole($event)"
       >
@@ -113,15 +124,7 @@
               <div class="ci-avatar">{{ c.fullName[0] }}</div>
               <div class="ci-details">
                 <span class="ci-name">{{ c.fullName }}</span>
-                <span class="ci-org">
-                  {{ userPerimeter(c.userId).pole || '—' }}
-                  @if (userPerimeter(c.userId).cellule) {
-                    / {{ userPerimeter(c.userId).cellule }}
-                  }
-                  @if (userPerimeter(c.userId).service) {
-                    / {{ userPerimeter(c.userId).service }}
-                  }
-                </span>
+                <span class="ci-org">{{ orgPerimeterSummary(userPerimeter(c.userId)) }}</span>
                 <span class="ci-dates">{{ formatDate(c.startDate) }} → {{ formatDate(c.endDate) }}</span>
                 <span class="ci-type-badge">{{ getAbsenceLabel(c.absenceType) }}</span>
                 @if (c.reason) {
@@ -164,6 +167,16 @@
           />
         </div>
         <div class="form-filter-grid">
+          <select
+            class="ky-input form-filter-ctl"
+            [kyntusSelectSync]="formFilterOperationalDepartment"
+            (kyntusSelectSyncChange)="patchFormFilterOperationalDepartment($event)"
+          >
+            <option value="">Tous les départements</option>
+            @for (d of formOperationalDepartmentOptions; track d) {
+              <option [value]="d">{{ d }}</option>
+            }
+          </select>
           <select
             class="ky-input form-filter-ctl"
             [kyntusSelectSync]="formFilterPole"

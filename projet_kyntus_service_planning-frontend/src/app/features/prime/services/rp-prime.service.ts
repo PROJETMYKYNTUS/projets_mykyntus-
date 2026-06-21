@@ -59,11 +59,22 @@ type ChefProjetDashboardStats = {
 };
 
 async function combinedRpPiloteScope(rpUserId: string, drill: HierarchyDrillSelection): Promise<Set<string> | null> {
-  const employees = await PrimeService.getEmployees();
-  const departments = await PrimeService.getDepartments();
+  const [employees, orgTree, legacyDepts] = await Promise.all([
+    PrimeService.getEmployees(),
+    PrimeService.getOperationalOrgTree(),
+    PrimeService.getDepartments(),
+  ]);
+  const useLegacyFallback =
+    (orgTree.operationalDepartments?.length ?? 0) === 0 &&
+    (orgTree.unassignedPoles?.length ?? 0) === 0;
   const piloteScope = piloteIdsForRpDrill(employees, rpUserId, drill);
   if (piloteScope === null) return null;
-  const orgScope = orgAllowedEmployeeIds('RP', rpUserId, employees, departments);
+  const orgScope = orgAllowedEmployeeIds(
+    'RP',
+    rpUserId,
+    employees,
+    useLegacyFallback ? legacyDepts : [],
+  );
   return intersectNullableEmployeeSets(piloteScope, orgScope) ?? new Set<string>();
 }
 

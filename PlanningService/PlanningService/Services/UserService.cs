@@ -19,6 +19,7 @@ public class UserService : IUserService
     private readonly IDirectoryEmployeeEnsureClient _directoryEmployeeEnsure;
     private readonly IDirectoryEmployeeWriteClient _directoryEmployeeWrite;
     private readonly IDirectoryHierarchyClient _directoryHierarchy;
+    private readonly IDirectoryOrgWriteClient _directoryOrg;
     private readonly IConfiguration _configuration;
     private readonly ILogger<UserService> _logger;
     private readonly IEmployeeFieldService _fieldService;
@@ -30,6 +31,7 @@ public class UserService : IUserService
            IDirectoryEmployeeEnsureClient directoryEmployeeEnsure,
            IDirectoryEmployeeWriteClient directoryEmployeeWrite,
            IDirectoryHierarchyClient directoryHierarchy,
+           IDirectoryOrgWriteClient directoryOrg,
            IConfiguration configuration,
            ILogger<UserService> logger,
            IEmployeeFieldService fieldService)
@@ -40,6 +42,7 @@ public class UserService : IUserService
         _directoryEmployeeEnsure = directoryEmployeeEnsure;
         _directoryEmployeeWrite = directoryEmployeeWrite;
         _directoryHierarchy = directoryHierarchy;
+        _directoryOrg = directoryOrg;
         _configuration = configuration;
         _logger = logger;
         _fieldService = fieldService;
@@ -62,7 +65,8 @@ public class UserService : IUserService
             .ToListAsync();
 
         var customByUser = await _fieldService.LoadCustomFieldsForUsersAsync(users.Select(u => u.Id).ToList());
-        return users.Select(u => ToDto(u, customByUser.GetValueOrDefault(u.Id))).ToList();
+        var orgCtx = await LoadOrgNameContextAsync();
+        return users.Select(u => ToDto(u, customByUser.GetValueOrDefault(u.Id), orgCtx)).ToList();
     }
     public async Task<List<UserDto>> GetUsersBySubServiceAsync(int subServiceId)
     {
@@ -76,7 +80,8 @@ public class UserService : IUserService
             .ToListAsync();
 
         var customByUser = await _fieldService.LoadCustomFieldsForUsersAsync(users.Select(u => u.Id).ToList());
-        return users.Select(u => ToDto(u, customByUser.GetValueOrDefault(u.Id))).ToList();
+        var orgCtx = await LoadOrgNameContextAsync();
+        return users.Select(u => ToDto(u, customByUser.GetValueOrDefault(u.Id), orgCtx)).ToList();
     }
 
     public async Task<UserDto?> GetUserByIdAsync(int id)
@@ -99,7 +104,8 @@ public class UserService : IUserService
             return null;
 
         var customByUser = await _fieldService.LoadCustomFieldsForUsersAsync([user.Id]);
-        return ToDto(user, customByUser.GetValueOrDefault(user.Id));
+        var orgCtx = await LoadOrgNameContextAsync();
+        return ToDto(user, customByUser.GetValueOrDefault(user.Id), orgCtx);
     }
     public async Task SyncMissingAuthUsersAsync()
     {
@@ -469,7 +475,8 @@ public class UserService : IUserService
             return null;
 
         var customByUser = await _fieldService.LoadCustomFieldsForUsersAsync([user.Id]);
-        return ToDto(user, customByUser.GetValueOrDefault(user.Id));
+        var orgCtx = await LoadOrgNameContextAsync();
+        return ToDto(user, customByUser.GetValueOrDefault(user.Id), orgCtx);
     }
 
     private async Task PublishEmployeCreatedForUserAsync(User user, int? subServiceId)
@@ -554,7 +561,32 @@ public class UserService : IUserService
         int? SubServiceId,
         string? PrimeServiceId);
 
-    private static UserDto ToDto(User u, Dictionary<string, string?>? customFields = null)
+    private sealed record OrgNameContext(
+        Dictionary<string, string> PoleIdToDeptName,
+        Dictionary<string, string> DeptIdToName,
+        Dictionary<Guid, string> EmployeeOperationalDeptId);
+
+    private async Task<OrgNameContext> LoadOrgNameContextAsync()
+    {
+        var depts = await _directoryOrg.GetOperationalDepartmentsAsync();
+        var poleToDept = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var deptIdToName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var dept in depts)
+        {
+            if (!string.IsNullOrWhiteSpace(dept.Id))
+                deptIdToName[dept.Id.Trim()] = dept.Name?.Trim() ?? dept.Code?.Trim() ?? dept.Id;
+            foreach (var poleId in dept.PoleIds ?? [])
+            {
+                if (string.IsNullOrWhiteSpace(poleId)) continue;
+                poleToDept[poleId.Trim()] = dept.Name?.Trim() ?? dept.Code?.Trim() ?? dept.Id;
+            }
+        }
+
+        var employeeDeptIds = await _directoryOrg.GetEmployeeOperationalBusinessDepartmentIdsAsync();
+        return new OrgNameContext(poleToDept, deptIdToName, employeeDeptIds.ToDictionary(k => k.Key, v => v.Value));
+    }
+
+    private static UserDto ToDto(User u, Dictionary<string, string?>? customFields, OrgNameContext orgCtx)
     {
         var (pole, cellule, service) = ResolveOrgNames(u);
         return new UserDto
@@ -568,6 +600,7 @@ public class UserService : IUserService
             OrgPoleName = pole,
             OrgCelluleName = cellule,
             OrgServiceName = service,
+            OrgOperationalDepartmentName = ResolveOperationalDepartmentName(u, orgCtx),
             ManagedSubServices = u.ManagedSubServices?.Select(us => new SubServiceSimpleDto
             {
                 Id = us.SubService.Id,
@@ -589,6 +622,26 @@ public class UserService : IUserService
             Level = u.Level,
             CustomFields = customFields ?? new Dictionary<string, string?>()
         };
+    }
+
+    private static string? ResolveOperationalDepartmentName(User u, OrgNameContext orgCtx)
+    {
+        if (orgCtx.EmployeeOperationalDeptId.TryGetValue(u.Guid, out var deptId)
+            && orgCtx.DeptIdToName.TryGetValue(deptId, out var managerDeptName))
+        {
+            return managerDeptName;
+        }
+
+        var poleId = u.SubService?.Service?.Floor?.PrimePoleId
+            ?? u.ManagedSubServices?.FirstOrDefault()?.SubService?.Service?.Floor?.PrimePoleId
+            ?? u.ManagedServices?.FirstOrDefault()?.Service?.Floor?.PrimePoleId;
+        if (!string.IsNullOrWhiteSpace(poleId)
+            && orgCtx.PoleIdToDeptName.TryGetValue(poleId.Trim(), out var deptName))
+        {
+            return deptName;
+        }
+
+        return null;
     }
 
     private static (string? Pole, string? Cellule, string? Service) ResolveOrgNames(User u)

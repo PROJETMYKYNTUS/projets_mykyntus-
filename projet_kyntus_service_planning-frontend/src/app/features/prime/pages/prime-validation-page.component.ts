@@ -6,8 +6,10 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { forkJoin, switchMap } from 'rxjs';
+import { firstValueFrom, forkJoin, switchMap } from 'rxjs';
+import { resolvePlatformOrgLabels } from '../../../core/org/platform-org-perimeter';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
+import { PrimeOrgApiService } from '../services/prime-org-api.service';
 import { AlertCircle, Check, CheckCheck, History, X } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { PrimeFicheValidationTimelineComponent } from '../components/prime-fiche-validation-timeline.component';
@@ -28,6 +30,7 @@ import {
   type WorkflowValidationMetaDto,
   type WorkflowValidationSummaryDto,
 } from '../services/prime-fiche-result.service';
+import type { OrgAssignmentsOverview } from '../services/prime-org-api.service';
 import { PRIME_USER_LOAD_ERROR, primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
 import { formatWorkflowPipeline } from '../lib/workflow-step-rechain';
 import { rolesMatchWorkflowApprover } from '../lib/workflow-role-match';
@@ -265,7 +268,11 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
                       </td>
                       <td>
                         @let org = orgLabels(item);
-                        <div class="text-xs uppercase tracking-wider prime-cell-muted">Cellule</div>
+                        @if (org.operationalDepartment) {
+                          <div class="text-xs uppercase tracking-wider prime-cell-muted">Département</div>
+                          <div class="prime-cell-strong">{{ org.operationalDepartment }}</div>
+                        }
+                        <div class="text-xs uppercase tracking-wider prime-cell-muted mt-1">Cellule</div>
                         <div class="prime-cell-strong">{{ org.cellule }}</div>
                         <div class="text-xs prime-cell-muted mt-1">Service: {{ org.service }}</div>
                         @if (org.pole) {
@@ -419,12 +426,14 @@ export class PrimeValidationPageComponent {
   readonly roleService = inject(RoleService);
   private readonly api = inject(PrimeFicheResultService);
   private readonly nav = inject(PrimeNavRequestService);
+  private readonly orgApi = inject(PrimeOrgApiService);
 
   readonly icons = { alert: AlertCircle, check: Check, x: X, checkAll: CheckCheck, history: History };
 
   readonly workflowMeta = signal<WorkflowValidationMetaDto | null>(null);
   readonly summaryDto = signal<WorkflowValidationSummaryDto | null>(null);
-  readonly departments = signal<Department[]>([]);
+  readonly legacyDepartments = signal<Department[]>([]);
+  readonly orgOverview = signal<OrgAssignmentsOverview | null>(null);
   readonly periodOptions = signal<{ label: string; value: string }[]>([]);
   readonly results = signal<EmployeePrimeServiceFicheValidationDto[]>([]);
   readonly loading = signal(true);
@@ -629,15 +638,21 @@ export class PrimeValidationPageComponent {
             periods: this.api.periods(),
             rows: this.api.list(listFilters),
             summary: this.api.summary(listFilters),
-            departments: PrimeService.getDepartments(),
+            overview: firstValueFrom(this.orgApi.loadOverview()),
+            orgTree: PrimeService.getOperationalOrgTree(),
+            legacyDepartments: PrimeService.getDepartments(),
           }),
         ),
       )
       .subscribe({
-      next: ({ meta, periods, rows, summary, departments }) => {
+      next: ({ meta, periods, rows, summary, overview, orgTree, legacyDepartments }) => {
         this.workflowMeta.set(meta);
         this.summaryDto.set(summary);
-        this.departments.set(departments);
+        this.orgOverview.set(overview);
+        const useLegacyFallback =
+          (orgTree.operationalDepartments?.length ?? 0) === 0 &&
+          (orgTree.unassignedPoles?.length ?? 0) === 0;
+        this.legacyDepartments.set(useLegacyFallback ? legacyDepartments : []);
         const opts = periods.map((p) => ({ label: p, value: p }));
         this.periodOptions.set(opts);
         if (period && !periods.includes(period) && periods.length > 0) {
@@ -675,6 +690,7 @@ export class PrimeValidationPageComponent {
   }
 
   orgLabels(item: EmployeePrimeServiceFicheValidationDto): {
+    operationalDepartment: string | null;
     cellule: string;
     service: string;
     pole: string | null;
@@ -683,21 +699,32 @@ export class PrimeValidationPageComponent {
     const svcFromDto = (item.serviceName ?? '').trim();
     if (cellFromDto && svcFromDto) {
       return {
+        operationalDepartment: null,
         cellule: cellFromDto,
         service: svcFromDto,
         pole: item.poleName?.trim() || null,
       };
     }
     const emp = this.getEmployee(item.employeeId);
-    const deptById = new Map(this.departments().map((d) => [d.id, d]));
-    const dept = deptById.get(emp?.departementId ?? emp?.poleId ?? '');
-    const pole = dept?.poles.find((p) => p.id === (emp?.poleId ?? item.celluleId));
-    const cellule = pole?.cells.find((c) => c.id === item.celluleId);
-    const service = cellule?.teams.find((t) => t.id === item.serviceId);
+    if (emp) {
+      const labels = resolvePlatformOrgLabels(
+        emp,
+        this.legacyDepartments(),
+        this.orgOverview(),
+      );
+      return {
+        operationalDepartment:
+          labels.operationalDepartment !== '—' ? labels.operationalDepartment : null,
+        cellule: labels.cellule,
+        service: labels.service,
+        pole: labels.pole !== '—' ? labels.pole : item.poleName?.trim() || null,
+      };
+    }
     return {
-      cellule: cellule?.name ?? item.celluleId,
-      service: service?.name ?? item.serviceId,
-      pole: item.poleName?.trim() || pole?.name || null,
+      operationalDepartment: null,
+      cellule: cellFromDto || item.celluleId,
+      service: svcFromDto || item.serviceId,
+      pole: item.poleName?.trim() || null,
     };
   }
 

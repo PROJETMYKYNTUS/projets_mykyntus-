@@ -1,4 +1,5 @@
 import type { Department, LegacyCellule, LegacyPole } from '../../features/prime/models';
+import type { OperationalDepartmentNode } from '../../features/prime/models/org-tree.types';
 import type { OrgFlatServiceOption } from './planning-org-picker';
 import { poleCells } from './planning-org-picker';
 
@@ -119,4 +120,83 @@ export function buildOrgRhFilterOptions(
   const services = sortOrgNames(serviceSet);
 
   return { poles, cellules, services };
+}
+
+export type OperationalOrgFilterSelection = {
+  operationalDepartment?: string;
+  pole?: string;
+  cellule?: string;
+};
+
+export type OperationalOrgFilterOptions = {
+  operationalDepartments: string[];
+  poles: string[];
+  cellules: string[];
+  services: string[];
+};
+
+/** Options de filtres 4 niveaux : département → pôle → cellule → service. */
+export function buildOperationalOrgFilterOptions(
+  operationalDepartments: readonly OperationalDepartmentNode[],
+  selection: OperationalOrgFilterSelection = {},
+): OperationalOrgFilterOptions {
+  const deptNames = sortOrgNames(
+    operationalDepartments.map((d) => d.name?.trim()).filter((n): n is string => !!n),
+  );
+
+  const scopedDepts = selection.operationalDepartment
+    ? operationalDepartments.filter((d) => d.name === selection.operationalDepartment)
+    : operationalDepartments;
+
+  const poleSet = new Set<string>();
+  for (const dept of scopedDepts) {
+    for (const pole of dept.poles ?? []) {
+      const name = pole.name?.trim();
+      if (name) poleSet.add(name);
+    }
+  }
+  const poles = sortOrgNames(poleSet);
+
+  const celluleSet = new Set<string>();
+  const scopedForCellules = selection.pole
+    ? scopedDepts.flatMap((dept) =>
+        (dept.poles ?? [])
+          .filter((pole) => pole.name === selection.pole)
+          .map((pole) => ({ dept, pole })),
+      )
+    : scopedDepts.flatMap((dept) => (dept.poles ?? []).map((pole) => ({ dept, pole })));
+
+  for (const { pole } of scopedForCellules) {
+    for (const cellule of pole.cellules ?? []) {
+      const name = cellule.name?.trim();
+      if (name) celluleSet.add(name);
+    }
+  }
+  const cellules = sortOrgNames(celluleSet);
+
+  const serviceSet = new Set<string>();
+  const scopedForServices = selection.cellule
+    ? scopedForCellules.filter(({ pole }) =>
+        (pole.cellules ?? []).some((c) => c.name === selection.cellule),
+      )
+    : scopedForCellules;
+
+  for (const { pole } of scopedForServices) {
+    const cellulesInScope = selection.cellule
+      ? (pole.cellules ?? []).filter((c) => c.name === selection.cellule)
+      : pole.cellules ?? [];
+    for (const cellule of cellulesInScope) {
+      for (const service of cellule.services ?? []) {
+        const name = service.name?.trim();
+        if (name) serviceSet.add(name);
+      }
+    }
+  }
+
+  return {
+    operationalDepartments: deptNames,
+    poles,
+    cellules,
+    services: sortOrgNames(serviceSet),
+  };
 }

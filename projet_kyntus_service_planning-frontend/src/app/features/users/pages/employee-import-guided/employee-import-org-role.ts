@@ -1,5 +1,5 @@
 /** Profondeur organisationnelle requise à l'import employés (sans synonyme Manager → Superviseur). */
-export type EmployeeImportOrgDepth = 'none' | 'pole' | 'cellule' | 'service';
+export type EmployeeImportOrgDepth = 'none' | 'operationalDepartment' | 'pole' | 'cellule' | 'service';
 
 function normalizeToken(value: string): string {
   return value
@@ -38,12 +38,14 @@ export function employeeImportOrgDepth(roleName: string | null | undefined): Emp
 
 export function requiredOrgColumnsMessage(depth: EmployeeImportOrgDepth): string {
   switch (depth) {
+    case 'operationalDepartment':
+      return 'Département opérationnel requis.';
     case 'pole':
-      return 'Chef de projet : le Pôle est requis.';
+      return 'Chef de projet : Département opérationnel et Pôle sont requis.';
     case 'cellule':
-      return 'Superviseur : Pôle et Cellule sont requis.';
+      return 'Superviseur : Département opérationnel, Pôle et Cellule sont requis.';
     case 'service':
-      return 'Pilote / Référent technique : Pôle, Cellule et Service sont requis.';
+      return 'Pilote / Référent technique : Département opérationnel, Pôle, Cellule et Service sont requis.';
     default:
       return '';
   }

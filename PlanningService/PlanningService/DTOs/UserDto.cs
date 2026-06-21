@@ -1,4 +1,4 @@
-﻿public class UserDto
+public class UserDto
 {
     public int Id { get; set; }
     public Guid Guid { get; set; }      // ← AJOUTER
@@ -10,6 +10,7 @@
     public string? OrgPoleName { get; set; }
     public string? OrgCelluleName { get; set; }
     public string? OrgServiceName { get; set; }
+    public string? OrgOperationalDepartmentName { get; set; }
     public List<SubServiceSimpleDto> ManagedSubServices { get; set; } = new();
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;

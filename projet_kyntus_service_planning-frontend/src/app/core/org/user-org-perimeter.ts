@@ -53,6 +53,20 @@ export function resolveSupportDepartmentLabel(
   return name || code || null;
 }
 
+export function applyOperationalBusinessDepartmentToPerimeter(
+  view: UserOrgPerimeterView,
+  employee: DirectoryEmployeeOrgRef | undefined,
+  businessDepartments: readonly BusinessDepartmentRef[],
+): UserOrgPerimeterView {
+  if (view.isSupport || !employee?.businessDepartmentId) return view;
+  const dept = businessDepartments.find((d) => d.id === employee.businessDepartmentId);
+  const kind = (employee.businessDepartmentKind ?? dept?.kind ?? '').toLowerCase();
+  if (kind !== 'operational') return view;
+  const label = resolveSupportDepartmentLabel(employee.businessDepartmentId, businessDepartments);
+  if (!label) return view;
+  return { ...view, operationalDepartment: label };
+}
+
 export function applySupportDepartmentToPerimeter(
   view: UserOrgPerimeterView,
   employee: DirectoryEmployeeOrgRef | undefined,
@@ -101,7 +115,7 @@ export function orgPerimeterSummary(view: UserOrgPerimeterView): string {
 
 export function orgPerimeterFromUser(user: User): UserOrgPerimeterView {
   return {
-    operationalDepartment: null,
+    operationalDepartment: user.orgOperationalDepartmentName?.trim() || null,
     pole: user.orgPoleName?.trim() || null,
     cellule: user.orgCelluleName?.trim() || null,
     service: user.orgServiceName?.trim() || user.subServiceName?.trim() || null,
@@ -179,6 +193,7 @@ export function enrichUserOrgPerimeter(
   const directoryEmployee = directoryEmployees.find(
     (e) => e.id.trim().toLowerCase() === guid.toLowerCase(),
   );
+  view = applyOperationalBusinessDepartmentToPerimeter(view, directoryEmployee, businessDepartments);
   return applySupportDepartmentToPerimeter(view, directoryEmployee, businessDepartments);
 }
 

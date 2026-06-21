@@ -116,6 +116,76 @@ public class AllowanceWorkflowTests
         Assert.All(paths, p => Assert.DoesNotContain("parrainage", p, StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public async Task CreateAsync_RejectsDuplicateEmployeeTypePeriod()
+    {
+        var (db, requests, typeId, _) = await SeedDraftRequestAsync();
+        await using (db)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => requests.CreateAsync("mgr", new CreateAllowanceRequestBody
+            {
+                EmployeeId = "e1",
+                AllowanceTypeId = typeId,
+                Period = "2026-06",
+                Amount = 600m,
+                Reason = "Dup",
+            }, CancellationToken.None));
+        }
+    }
+
+    [Fact]
+    public void TeamPilotage_DeriveTreatmentStatus()
+    {
+        Assert.Equal("NotStarted", AllowanceTeamPilotageService.DeriveTreatmentStatus([]));
+        Assert.Equal("NoBonus", AllowanceTeamPilotageService.DeriveTreatmentStatus([], noBonusMarked: true));
+        var draft = new AllowanceRequestEntity { Status = AllowanceRequestStatuses.Draft };
+        Assert.Equal("HasDrafts", AllowanceTeamPilotageService.DeriveTreatmentStatus([draft]));
+        var submitted = new AllowanceRequestEntity { Status = AllowanceRequestStatuses.ManagerApproved };
+        Assert.Equal("Submitted", AllowanceTeamPilotageService.DeriveTreatmentStatus([submitted]));
+        var validated = new AllowanceRequestEntity { Status = AllowanceRequestStatuses.RhApproved };
+        Assert.Equal("Validated", AllowanceTeamPilotageService.DeriveTreatmentStatus([validated]));
+    }
+
+    [Fact]
+    public async Task TeamProgress_ReturnsAllDirectReports()
+    {
+        var options = new DbContextOptionsBuilder<PrimeDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var db = new PrimeDbContext(options);
+        var deptId = Guid.NewGuid().ToString();
+        db.BusinessDepartments.Add(new BusinessDepartmentEntity
+        {
+            Id = deptId, Code = "IT", Name = "IT", Kind = "Support", ManagerEmployeeId = "mgr", IsActive = true,
+        });
+        db.Employees.AddRange(
+            new EmployeeEntity { Id = "mgr", FirstName = "M", LastName = "G", Role = "Manager", Email = "m@t.ma", PoleId = "", BusinessDepartmentId = deptId, BusinessDepartmentKind = "Support" },
+            new EmployeeEntity { Id = "e1", FirstName = "Salma", LastName = "E", Role = "Pilote", Email = "s@t.ma", ParentId = "mgr", PoleId = "", BusinessDepartmentId = deptId, BusinessDepartmentKind = "Support" },
+            new EmployeeEntity { Id = "e2", FirstName = "Haji", LastName = "B", Role = "Pilote", Email = "h@t.ma", ParentId = "mgr", PoleId = "", BusinessDepartmentId = deptId, BusinessDepartmentKind = "Support" });
+        await db.SaveChangesAsync();
+
+        var scope = new AllowanceScopeService(db);
+        var catalog = new AllowanceCatalogService(db);
+        var pilotage = new AllowanceTeamPilotageService(db, scope, catalog);
+        var progress = await pilotage.GetTeamProgressAsync("mgr", "2026-06", CancellationToken.None);
+
+        Assert.Equal(2, progress.Summary.TotalEmployees);
+        Assert.Equal(2, progress.Summary.NotStartedCount);
+        Assert.Equal(2, progress.Members.Count);
+    }
+
+    [Fact]
+    public void AllowanceMenu_IncludesAllocationPath()
+    {
+        var paths = new[]
+        {
+            "/allowances",
+            "/allowances/allocation",
+            "/allowances/inbox",
+        };
+        Assert.Contains("/allowances/allocation", paths);
+    }
+
     private static async Task<(PrimeDbContext Db, AllowanceRequestService Requests, Guid TypeId, Guid RequestId)> SeedDraftRequestAsync()
     {
         var options = new DbContextOptionsBuilder<PrimeDbContext>()

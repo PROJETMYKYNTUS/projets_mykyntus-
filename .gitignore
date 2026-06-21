@@ -440,3 +440,18 @@ FodyWeavers.xsd
 
 # IAM WO report generator output (regenerate with tools/iam-wo-pptx)
 tools/iam-wo-pptx/output/*.pptx
+
+# Rapport PFE (hors dépôt — dossier local Desktop/Rapport_PFE_*)
+Rapport_PFE*
+/Rapport_PFE*
+*.aux
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.bbl
+*.blg
+*.bcf
+*.run.xml

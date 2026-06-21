@@ -64,9 +64,25 @@ export const PRIME_VIEW_LOADERS: Record<string, PrimeLazyViewLoader> = {
     import('../pages/allowances/allowances-dashboard-page.component').then(
       (m) => m.AllowancesDashboardPageComponent,
     ),
+  '/allowances/dashboard': () =>
+    import('../pages/allowances/allowances-manager-dashboard-page.component').then(
+      (m) => m.AllowancesManagerDashboardPageComponent,
+    ),
+  '/allowances/progress': () =>
+    import('../pages/allowances/allowances-progress-page.component').then(
+      (m) => m.AllowancesProgressPageComponent,
+    ),
+  '/allowances/history': () =>
+    import('../pages/allowances/allowances-history-page.component').then(
+      (m) => m.AllowancesHistoryPageComponent,
+    ),
+  '/allowances/allocation': () =>
+    import('../pages/allowances/allowances-allocation-page.component').then(
+      (m) => m.AllowancesAllocationPageComponent,
+    ),
   '/allowances/requests': () =>
-    import('../pages/allowances/allowances-requests-page.component').then(
-      (m) => m.AllowancesRequestsPageComponent,
+    import('../pages/allowances/allowances-allocation-page.component').then(
+      (m) => m.AllowancesAllocationPageComponent,
     ),
   '/allowances/inbox': () =>
     import('../pages/allowances/allowances-inbox-page.component').then((m) => m.AllowancesInboxPageComponent),

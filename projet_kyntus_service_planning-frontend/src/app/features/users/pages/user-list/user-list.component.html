@@ -87,6 +87,8 @@
 
               <th>Rôle</th>
 
+              <th>Département</th>
+
               <th>Pôle</th>
 
               <th>Cellule</th>
@@ -142,11 +144,12 @@
                 <td><span class="badge badge-role">{{ user.roleName }}</span></td>
 
                 @if (userPerimeter(user).isSupport) {
-                  <td colspan="3">
+                  <td colspan="4">
                     <span class="badge badge-support">Support</span>
                     <span class="org-cell org-cell--support">{{ orgCellLabel(userPerimeter(user).supportDepartmentName) }}</span>
                   </td>
                 } @else {
+                  <td><span class="org-cell org-cell--dept">{{ orgCellLabel(userPerimeter(user).operationalDepartment) }}</span></td>
                   <td><span class="org-cell">{{ orgCellLabel(userPerimeter(user).pole) }}</span></td>
                   <td><span class="org-cell">{{ orgCellLabel(userPerimeter(user).cellule) }}</span></td>
                   <td><span class="org-cell org-cell--service">{{ orgCellLabel(userPerimeter(user).service) }}</span></td>

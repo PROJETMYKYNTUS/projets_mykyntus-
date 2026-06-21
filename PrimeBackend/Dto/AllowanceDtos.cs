@@ -74,3 +74,53 @@ public record BusinessDepartmentMirrorDto(
     string? ManagerEmployeeId,
     bool IsActive,
     IReadOnlyList<string> PoleIds);
+
+public record AllowanceTeamProgressSummaryDto(
+    int TotalEmployees,
+    int NotStartedCount,
+    int InProgressCount,
+    int SubmittedCount,
+    int ValidatedCount,
+    int NoBonusCount,
+    decimal TotalAmount);
+
+public record AllowanceTeamMemberProgressDto(
+    string EmployeeId,
+    string FirstName,
+    string LastName,
+    string Email,
+    int RequestCount,
+    int DraftCount,
+    int SubmittedCount,
+    string TreatmentStatus,
+    bool NoBonusMarked);
+
+public record AllowanceTeamProgressDto(
+    string Period,
+    AllowanceTeamProgressSummaryDto Summary,
+    IReadOnlyList<AllowanceTeamMemberProgressDto> Members);
+
+public record AllowanceEmployeeAllocationsDto(
+    string EmployeeId,
+    string Period,
+    IReadOnlyList<AllowanceRequestDto> Requests,
+    IReadOnlyList<AllowanceTypeDto> AvailableTypes,
+    bool NoBonusMarked,
+    string? NoBonusComment,
+    DateTimeOffset? NoBonusMarkedAt);
+
+public record MarkNoBonusBody(string? Comment);
+
+public record AllowanceHistoryEntryDto(
+    AllowanceRequestDto Request,
+    string EmployeeFirstName,
+    string EmployeeLastName);
+
+public record AllowancePeriodSummaryDto(
+    string Period,
+    int RequestCount,
+    int DraftCount,
+    int SubmittedCount,
+    int ValidatedCount,
+    int NoBonusCount,
+    decimal TotalAmount);

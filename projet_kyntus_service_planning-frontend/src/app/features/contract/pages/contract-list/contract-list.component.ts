@@ -14,11 +14,13 @@ import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-
 import { AlertTriangle, Eye, FilePlus2, Pencil, Search, Trash2 } from 'lucide';
 import type { User } from '../../../users/users-module';
 import type { Department } from '../../../prime/models';
+import type { OperationalDepartmentNode, OrgPoleNode } from '../../../prime/models/org-tree.types';
 import {
   enrichUserOrgPerimeter,
+  orgPerimeterSummary,
   type UserOrgPerimeterView,
 } from '../../../../core/org/user-org-perimeter';
-import { buildOrgRhFilterOptions } from '../../../../core/org/org-structure-filter';
+import { buildOperationalOrgFilterOptions } from '../../../../core/org/org-structure-filter';
 
 interface Stats {
   total: number;
@@ -42,7 +44,9 @@ export class ContractListComponent implements OnInit {
   contracts: ContractResponse[] = [];
   filteredContracts: ContractResponse[] = [];
   private perimeterByUserId = new Map<number, UserOrgPerimeterView>();
-  orgDepartments: Department[] = [];
+  operationalDepartments: OperationalDepartmentNode[] = [];
+  unassignedPoles: OrgPoleNode[] = [];
+  legacyDepartments: Department[] = [];
 
   loading = false;
   deleting = false;
@@ -51,13 +55,17 @@ export class ContractListComponent implements OnInit {
   filterType = '';
   filterStatus = '';
   filterAlerts = false;
+  filterOperationalDepartment = '';
   filterPole = '';
   filterCellule = '';
   filterService = '';
 
+  operationalDepartmentOptions: string[] = [];
   poleOptions: string[] = [];
   celluleOptions: string[] = [];
   serviceOptions: string[] = [];
+
+  readonly orgPerimeterSummary = orgPerimeterSummary;
 
   showDeleteModal = false;
   contractToDelete: ContractResponse | null = null;
@@ -93,7 +101,10 @@ export class ContractListComponent implements OnInit {
     }).subscribe({
       next: ({ contracts, users, departments, overview, subServices }) => {
         this.contracts = contracts;
-        this.buildPerimeters(users, departments ?? [], overview, subServices ?? []);
+        this.operationalDepartments = overview.operationalDepartments ?? [];
+        this.unassignedPoles = overview.unassignedPoles ?? [];
+        this.legacyDepartments = departments?.length ? departments : (overview.departments ?? []);
+        this.buildPerimeters(users, overview, subServices ?? []);
         this.applyFilters();
         this.computeStats();
         this.loading = false;
@@ -119,16 +130,14 @@ export class ContractListComponent implements OnInit {
 
   private buildPerimeters(
     users: User[],
-    departments: Department[],
     overview: Parameters<typeof enrichUserOrgPerimeter>[2],
     subServices: Parameters<typeof enrichUserOrgPerimeter>[3],
   ): void {
-    this.orgDepartments = departments;
     this.perimeterByUserId.clear();
     for (const u of users) {
       this.perimeterByUserId.set(
         u.id,
-        enrichUserOrgPerimeter(u, departments, overview, subServices),
+        enrichUserOrgPerimeter(u, this.legacyDepartments, overview, subServices),
       );
     }
     this.refreshOrgFilterOptions();
@@ -139,13 +148,24 @@ export class ContractListComponent implements OnInit {
   }
 
   refreshOrgFilterOptions(): void {
-    const opts = buildOrgRhFilterOptions(this.orgDepartments, {
+    const opts = buildOperationalOrgFilterOptions(this.operationalDepartments, {
+      operationalDepartment: this.filterOperationalDepartment || undefined,
       pole: this.filterPole || undefined,
       cellule: this.filterCellule || undefined,
     });
+    this.operationalDepartmentOptions = opts.operationalDepartments;
     this.poleOptions = opts.poles;
     this.celluleOptions = opts.cellules;
     this.serviceOptions = opts.services;
+  }
+
+  patchFilterOperationalDepartment(dept: string): void {
+    this.filterOperationalDepartment = dept;
+    this.filterPole = '';
+    this.filterCellule = '';
+    this.filterService = '';
+    this.refreshOrgFilterOptions();
+    this.applyFilters();
   }
 
   patchFilterPole(pole: string): void {
@@ -173,6 +193,7 @@ export class ContractListComponent implements OnInit {
     this.filterType = '';
     this.filterStatus = '';
     this.filterAlerts = false;
+    this.filterOperationalDepartment = '';
     this.filterPole = '';
     this.filterCellule = '';
     this.filterService = '';
@@ -190,6 +211,7 @@ export class ContractListComponent implements OnInit {
           c.userFullName,
           c.type,
           c.status,
+          p.operationalDepartment,
           p.pole,
           p.cellule,
           p.service,
@@ -200,6 +222,9 @@ export class ContractListComponent implements OnInit {
     if (this.filterType) r = r.filter((c) => c.type === this.filterType);
     if (this.filterStatus) r = r.filter((c) => c.status === this.filterStatus);
     if (this.filterAlerts) r = r.filter((c) => c.isAlertActive);
+    if (this.filterOperationalDepartment) {
+      r = r.filter((c) => this.userPerimeter(c.userId).operationalDepartment === this.filterOperationalDepartment);
+    }
     if (this.filterPole) {
       r = r.filter((c) => this.userPerimeter(c.userId).pole === this.filterPole);
     }

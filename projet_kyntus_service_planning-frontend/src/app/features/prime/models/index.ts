@@ -75,6 +75,8 @@ export interface Employee {
   celluleId: string;
   email: string;
   avatar?: string;
+  businessDepartmentId?: string;
+  businessDepartmentKind?: string;
 
   // ---- LEGACY COMPAT (Phase 0 — à supprimer en Phase 1.6) ----
   /** @deprecated Utiliser serviceId. */

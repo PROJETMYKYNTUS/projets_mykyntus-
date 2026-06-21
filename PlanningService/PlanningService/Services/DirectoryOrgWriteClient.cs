@@ -8,6 +8,7 @@ public interface IDirectoryOrgWriteClient
 {
     Task<string> CreatePoleAsync(string name, Guid businessDepartmentId, CancellationToken ct = default);
     Task<IReadOnlyList<DirectoryOperationalDepartmentJson>> GetOperationalDepartmentsAsync(CancellationToken ct = default);
+    Task<IReadOnlyDictionary<Guid, string>> GetEmployeeOperationalBusinessDepartmentIdsAsync(CancellationToken ct = default);
     Task<string> CreateCelluleAsync(string poleDirectoryId, string name, CancellationToken ct = default);
     Task<string> CreateServiceAsync(string celluleDirectoryId, string name, CancellationToken ct = default);
 
@@ -48,6 +49,32 @@ public sealed class DirectoryOrgWriteClient(
         return (depts ?? [])
             .Where(d => string.Equals(d.Kind, "Operational", StringComparison.OrdinalIgnoreCase) && d.IsActive != false)
             .ToList();
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, string>> GetEmployeeOperationalBusinessDepartmentIdsAsync(
+        CancellationToken ct = default)
+    {
+        var client = CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "api/directory/employees");
+        AttachAuth(request);
+
+        var response = await client.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            logger.LogWarning("Directory employees fetch failed {Status}", response.StatusCode);
+            return new Dictionary<Guid, string>();
+        }
+
+        var employees = await response.Content.ReadFromJsonAsync<List<DirectoryEmployeeOrgJson>>(cancellationToken: ct);
+        var map = new Dictionary<Guid, string>();
+        foreach (var e in employees ?? [])
+        {
+            if (!Guid.TryParse(e.Id, out var guid)) continue;
+            if (string.IsNullOrWhiteSpace(e.BusinessDepartmentId)) continue;
+            if (!string.Equals(e.BusinessDepartmentKind, "Operational", StringComparison.OrdinalIgnoreCase)) continue;
+            map[guid] = e.BusinessDepartmentId.Trim();
+        }
+        return map;
     }
 
     public Task<string> CreateCelluleAsync(string poleDirectoryId, string name, CancellationToken ct = default) =>
@@ -145,6 +172,13 @@ public sealed class DirectoryOrgWriteClient(
     {
         public string Id { get; set; } = "";
     }
+
+    private sealed class DirectoryEmployeeOrgJson
+    {
+        public string Id { get; set; } = "";
+        public string? BusinessDepartmentId { get; set; }
+        public string? BusinessDepartmentKind { get; set; }
+    }
 }
 
 public sealed class DirectoryOperationalDepartmentJson
@@ -154,4 +188,5 @@ public sealed class DirectoryOperationalDepartmentJson
     public string Name { get; set; } = "";
     public string Kind { get; set; } = "";
     public bool? IsActive { get; set; }
+    public List<string> PoleIds { get; set; } = [];
 }

@@ -6,13 +6,16 @@ import {
   signal,
   OnInit,
 } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
+import { resolvePlatformOrgLabels } from '../../../../core/org/platform-org-perimeter';
 import { ThemeService } from '../../state/theme.service';
 import { RoleService } from '../../state/role.service';
-import type { Department, Role } from '../../models';
 import { SettingsService } from '../../services/settings.service';
 import type { NotificationPreferences } from '../../models/settings.model';
 import { PrimeService } from '../../services/prime.service';
-import { formatOrgCompactLine, getPersonalOrgLabels } from '../../lib/personalOrgLabels';
+import { PrimeOrgApiService } from '../../services/prime-org-api.service';
+import type { Role } from '../../models';
+import { formatOrgCompactLine } from '../../lib/personalOrgLabels';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { cn } from '@/lib/utils';
 
@@ -179,6 +182,7 @@ const ROLE_LABEL: Record<Role, string> = {
 export class SettingsModuleComponent implements OnInit {
   readonly themeService = inject(ThemeService);
   readonly roleService = inject(RoleService);
+  private readonly orgApi = inject(PrimeOrgApiService);
 
   readonly roleLabel = ROLE_LABEL;
   readonly icons = { user: User, bell: Bell, layers: Layers, moon: Moon, sun: Sun, check: CheckCircle2 };
@@ -201,13 +205,24 @@ export class SettingsModuleComponent implements OnInit {
   ngOnInit(): void {
     this.roleService.ensureEmployeesLoaded();
     this.prefs.set(SettingsService.getNotificationPreferences());
-    void PrimeService.getDepartments().then((depts) => {
-      const org = getPersonalOrgLabels(this.roleService.currentUser(), depts);
+    void Promise.all([
+      firstValueFrom(this.orgApi.loadOverview()),
+      PrimeService.getOperationalOrgTree(),
+      PrimeService.getDepartments(),
+    ]).then(([overview, orgTree, legacyDepts]) => {
+      const useLegacyFallback =
+        (orgTree.operationalDepartments?.length ?? 0) === 0 &&
+        (orgTree.unassignedPoles?.length ?? 0) === 0;
+      const labels = resolvePlatformOrgLabels(
+        this.roleService.currentUser(),
+        useLegacyFallback ? legacyDepts : [],
+        overview ?? null,
+      );
       this.orgCompact.set(
         formatOrgCompactLine({
-          departement: org.departement,
-          pole: org.pole,
-          cellule: org.cellule,
+          departement: labels.operationalDepartment,
+          pole: labels.pole,
+          cellule: labels.cellule,
         }),
       );
     });

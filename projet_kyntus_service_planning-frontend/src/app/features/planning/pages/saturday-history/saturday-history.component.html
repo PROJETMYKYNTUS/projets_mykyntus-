@@ -36,6 +36,15 @@
 
       <select
         class="filter-ctl ky-input filter-ctl--org"
+        [kyntusSelectSync]="filterOperationalDepartment"
+        (kyntusSelectSyncChange)="patchFilterOperationalDepartment($event)"
+      >
+        <option value="">Département</option>
+        <option *ngFor="let d of operationalDepartmentOptions" [value]="d">{{ d }}</option>
+      </select>
+
+      <select
+        class="filter-ctl ky-input filter-ctl--org"
         [kyntusSelectSync]="filterPole"
         (kyntusSelectSyncChange)="patchFilterPole($event)"
       >

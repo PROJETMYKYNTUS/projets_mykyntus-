@@ -128,6 +128,7 @@ if (!string.IsNullOrWhiteSpace(conn))
     builder.Services.AddScoped<AllowanceScopeService>();
     builder.Services.AddScoped<AllowanceCatalogService>();
     builder.Services.AddScoped<AllowanceRequestService>();
+    builder.Services.AddScoped<AllowanceTeamPilotageService>();
     builder.Services.AddScoped<AllowanceRuleEngineService>();
 }
 

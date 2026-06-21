@@ -101,3 +101,15 @@ public class AllowanceRuleEntity
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; }
 }
+
+/// <summary>Marquage explicite « aucune prime ce mois » pour un collaborateur × période.</summary>
+public class AllowanceNoBonusMarkerEntity
+{
+    public Guid Id { get; set; }
+    public string EmployeeId { get; set; } = "";
+    public string BusinessDepartmentId { get; set; } = "";
+    public string Period { get; set; } = "";
+    public string MarkedByUserId { get; set; } = "";
+    public string? Comment { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}

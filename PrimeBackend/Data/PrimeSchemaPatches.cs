@@ -663,6 +663,18 @@ public static class PrimeSchemaPatches
                 "IsActive" boolean NOT NULL DEFAULT TRUE,
                 "CreatedAt" timestamp with time zone NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS prime_allowance_no_bonus_marker (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "EmployeeId" character varying(128) NOT NULL,
+                "BusinessDepartmentId" character varying(64) NOT NULL,
+                "Period" character varying(16) NOT NULL,
+                "MarkedByUserId" character varying(128) NOT NULL,
+                "Comment" character varying(512) NULL,
+                "CreatedAt" timestamp with time zone NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_prime_allowance_no_bonus_marker_EmployeeId_Period"
+                ON prime_allowance_no_bonus_marker ("EmployeeId", "Period");
             """,
             ct);
     }

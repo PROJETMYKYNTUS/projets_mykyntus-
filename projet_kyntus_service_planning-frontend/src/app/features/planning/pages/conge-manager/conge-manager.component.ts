@@ -13,9 +13,14 @@ import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { Inbox, Plus, Search } from 'lucide';
 import type { Department } from '../../../prime/models';
+import type { OperationalDepartmentNode, OrgPoleNode } from '../../../prime/models/org-tree.types';
 import type { SubService } from '../../../sub-services/sub-services-module';
 import type { User } from '../../../users/users-module';
-import { buildOrgRhFilterOptions } from '../../../../core/org/org-structure-filter';
+import { buildOperationalOrgFilterOptions } from '../../../../core/org/org-structure-filter';
+import {
+  buildSubServiceOrgLabels,
+  type SubServiceOrgLabels,
+} from '../../../../core/org/operational-org-picker';
 import {
   enrichUserOrgPerimeter,
   orgPerimeterSummary,
@@ -26,18 +31,6 @@ import {
   filterEmployeePickerRows,
   type EmployeePickerRow,
 } from '../../../contract/lib/contract-employee-filter';
-import {
-  findOrgSelectionByPrimeServiceId,
-  poleCells,
-} from '../../../../core/org/planning-org-picker';
-
-type SubServiceOrgView = {
-  subServiceId: number;
-  name: string;
-  pole: string | null;
-  cellule: string | null;
-  service: string | null;
-};
 
 @Component({
   selector: 'app-conge-manager',
@@ -49,8 +42,10 @@ type SubServiceOrgView = {
 export class CongeManagerComponent implements OnInit {
   readonly icons = { inbox: Inbox, plus: Plus, search: Search };
 
-  orgDepartments: Department[] = [];
-  subServiceOrgViews: SubServiceOrgView[] = [];
+  operationalDepartments: OperationalDepartmentNode[] = [];
+  unassignedPoles: OrgPoleNode[] = [];
+  legacyDepartments: Department[] = [];
+  subServiceOrgViews: SubServiceOrgLabels[] = [];
   allUsers: User[] = [];
   employeeRows: EmployeePickerRow[] = [];
   visibleFormEmployees: EmployeePickerRow[] = [];
@@ -61,13 +56,16 @@ export class CongeManagerComponent implements OnInit {
   allConges: CongeItem[] = [];
   filteredConges: CongeItem[] = [];
 
+  operationalDepartmentOptions: string[] = [];
   poleOptions: string[] = [];
   celluleOptions: string[] = [];
   serviceOptions: string[] = [];
+  formOperationalDepartmentOptions: string[] = [];
   formPoleOptions: string[] = [];
   formCelluleOptions: string[] = [];
   formServiceOptions: string[] = [];
 
+  filterOperationalDepartment = '';
   filterPole = '';
   filterCellule = '';
   filterService = '';
@@ -76,6 +74,7 @@ export class CongeManagerComponent implements OnInit {
   searchTerm = '';
 
   formEmployeeSearch = '';
+  formFilterOperationalDepartment = '';
   formFilterPole = '';
   formFilterCellule = '';
   formFilterService = '';
@@ -126,9 +125,16 @@ export class CongeManagerComponent implements OnInit {
       overview: this.orgApi.loadOverview(),
     }).subscribe({
       next: ({ subServices, departments, users, overview }) => {
-        this.orgDepartments = departments ?? [];
+        this.operationalDepartments = overview.operationalDepartments ?? [];
+        this.unassignedPoles = overview.unassignedPoles ?? [];
+        this.legacyDepartments = departments?.length ? departments : (overview.departments ?? []);
         this.allUsers = (users ?? []).filter((u) => u.isActive);
-        this.subServiceOrgViews = this.buildSubServiceOrgViews(subServices ?? []);
+        this.subServiceOrgViews = buildSubServiceOrgLabels(
+          subServices ?? [],
+          this.operationalDepartments,
+          this.unassignedPoles,
+          this.legacyDepartments,
+        );
         this.buildUserPerimeters(this.allUsers, overview, subServices ?? []);
         this.employeeRows = buildEmployeePickerRows(this.allUsers, this.perimeterByUserId);
         this.refreshOrgFilterOptions();
@@ -143,32 +149,6 @@ export class CongeManagerComponent implements OnInit {
     });
   }
 
-  private buildSubServiceOrgViews(subServices: SubService[]): SubServiceOrgView[] {
-    return subServices.map((sub) => {
-      const primeId = sub.primeServiceId?.trim() ?? '';
-      const sel = primeId ? findOrgSelectionByPrimeServiceId(this.orgDepartments, primeId) : null;
-      if (!sel) {
-        return {
-          subServiceId: sub.id,
-          name: sub.name,
-          pole: null,
-          cellule: null,
-          service: sub.name,
-        };
-      }
-      const dept = this.orgDepartments.find((d) => d.id === sel.poleId);
-      const cellule = dept?.poles?.find((p) => p.id === sel.celluleId);
-      const service = cellule ? poleCells(cellule).find((c) => c.id === sel.serviceId) : undefined;
-      return {
-        subServiceId: sub.id,
-        name: sub.name,
-        pole: dept?.name ?? null,
-        cellule: cellule?.name ?? null,
-        service: service?.name ?? sub.name,
-      };
-    });
-  }
-
   private buildUserPerimeters(
     users: User[],
     overview: Parameters<typeof enrichUserOrgPerimeter>[2],
@@ -178,7 +158,7 @@ export class CongeManagerComponent implements OnInit {
     for (const u of users) {
       this.perimeterByUserId.set(
         u.id,
-        enrichUserOrgPerimeter(u, this.orgDepartments, overview, subServices),
+        enrichUserOrgPerimeter(u, this.legacyDepartments, overview, subServices),
       );
     }
   }
@@ -188,26 +168,31 @@ export class CongeManagerComponent implements OnInit {
   }
 
   refreshOrgFilterOptions(): void {
-    const opts = buildOrgRhFilterOptions(this.orgDepartments, {
+    const opts = buildOperationalOrgFilterOptions(this.operationalDepartments, {
+      operationalDepartment: this.filterOperationalDepartment || undefined,
       pole: this.filterPole || undefined,
       cellule: this.filterCellule || undefined,
     });
+    this.operationalDepartmentOptions = opts.operationalDepartments;
     this.poleOptions = opts.poles;
     this.celluleOptions = opts.cellules;
     this.serviceOptions = opts.services;
   }
 
   refreshFormEmployeeFilters(): void {
-    const orgOpts = buildOrgRhFilterOptions(this.orgDepartments, {
+    const orgOpts = buildOperationalOrgFilterOptions(this.operationalDepartments, {
+      operationalDepartment: this.formFilterOperationalDepartment || undefined,
       pole: this.formFilterPole || undefined,
       cellule: this.formFilterCellule || undefined,
     });
+    this.formOperationalDepartmentOptions = orgOpts.operationalDepartments;
     this.formPoleOptions = orgOpts.poles;
     this.formCelluleOptions = orgOpts.cellules;
     this.formServiceOptions = orgOpts.services;
 
     const result = filterEmployeePickerRows(this.employeeRows, {
       search: this.formEmployeeSearch,
+      operationalDepartment: this.formFilterOperationalDepartment || undefined,
       pole: this.formFilterPole || undefined,
       cellule: this.formFilterCellule || undefined,
       service: this.formFilterService || undefined,
@@ -219,10 +204,22 @@ export class CongeManagerComponent implements OnInit {
 
   matchingSubServiceIds(): number[] {
     let views = [...this.subServiceOrgViews];
+    if (this.filterOperationalDepartment) {
+      views = views.filter((v) => v.operationalDepartment === this.filterOperationalDepartment);
+    }
     if (this.filterPole) views = views.filter((v) => v.pole === this.filterPole);
     if (this.filterCellule) views = views.filter((v) => v.cellule === this.filterCellule);
     if (this.filterService) views = views.filter((v) => v.service === this.filterService);
     return views.map((v) => v.subServiceId);
+  }
+
+  patchFilterOperationalDepartment(dept: string): void {
+    this.filterOperationalDepartment = dept;
+    this.filterPole = '';
+    this.filterCellule = '';
+    this.filterService = '';
+    this.refreshOrgFilterOptions();
+    this.loadConges();
   }
 
   patchFilterPole(pole: string): void {
@@ -246,6 +243,7 @@ export class CongeManagerComponent implements OnInit {
   }
 
   clearFilters(): void {
+    this.filterOperationalDepartment = '';
     this.filterPole = '';
     this.filterCellule = '';
     this.filterService = '';
@@ -293,6 +291,7 @@ export class CongeManagerComponent implements OnInit {
     this.formUserId = 0;
     this.selectedFormEmployee = null;
     this.formEmployeeSearch = '';
+    this.formFilterOperationalDepartment = this.filterOperationalDepartment;
     this.formFilterPole = this.filterPole;
     this.formFilterCellule = this.filterCellule;
     this.formFilterService = this.filterService;
@@ -301,6 +300,14 @@ export class CongeManagerComponent implements OnInit {
     this.formReason = '';
     this.formAbsenceType = 'CongesPayes';
     this.error = '';
+    this.refreshFormEmployeeFilters();
+  }
+
+  patchFormFilterOperationalDepartment(dept: string): void {
+    this.formFilterOperationalDepartment = dept;
+    this.formFilterPole = '';
+    this.formFilterCellule = '';
+    this.formFilterService = '';
     this.refreshFormEmployeeFilters();
   }
 
@@ -324,6 +331,7 @@ export class CongeManagerComponent implements OnInit {
 
   clearFormEmployeeFilters(): void {
     this.formEmployeeSearch = '';
+    this.formFilterOperationalDepartment = '';
     this.formFilterPole = '';
     this.formFilterCellule = '';
     this.formFilterService = '';
@@ -359,7 +367,7 @@ export class CongeManagerComponent implements OnInit {
     if (term) {
       rows = rows.filter((c) => {
         const p = this.userPerimeter(c.userId);
-        const hay = [c.fullName, c.reason, p.pole, p.cellule, p.service]
+        const hay = [c.fullName, c.reason, p.operationalDepartment, p.pole, p.cellule, p.service]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();

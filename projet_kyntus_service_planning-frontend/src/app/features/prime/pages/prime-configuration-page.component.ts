@@ -3,7 +3,7 @@ import { Building2, FolderTree, Network, Settings, Users } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { PrimeCardComponent } from '../components/prime-card.component';
 import { PrimeService } from '../services/prime.service';
-import type { Department } from '../models';
+import type { OperationalDepartmentNode } from '../models/org-tree.types';
 
 @Component({
   selector: 'app-prime-configuration-page',
@@ -34,9 +34,9 @@ import type { Department } from '../models';
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div class="lg:col-span-1 space-y-6">
-            <app-prime-card title="Organization Structure" description="Current active departments">
+            <app-prime-card title="Organization Structure" description="Départements opérationnels actifs">
               <div class="space-y-4">
-                @for (dept of departments(); track dept.id) {
+                @for (dept of operationalDepartments(); track dept.id) {
                   <div
                     class="p-4 border border-default rounded-xl hover:border-indigo-500/40 hover:bg-navy-800/60 transition-colors cursor-pointer"
                   >
@@ -65,9 +65,9 @@ import type { Department } from '../models';
           </div>
 
           <div class="lg:col-span-2 space-y-6">
-            <app-prime-card title="Structure Details" description="Operations Department">
+            <app-prime-card title="Structure Details" description="Département opérationnel">
               <div class="space-y-6">
-                @for (pole of firstDeptPoles(); track pole.id) {
+                @for (pole of firstOperationalDeptPoles(); track pole.id) {
                   <div class="bg-navy-900 rounded-xl p-5 border border-default">
                     <div class="flex items-center justify-between mb-4">
                       <div class="flex items-center gap-2">
@@ -83,7 +83,7 @@ import type { Department } from '../models';
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      @for (cell of pole.cells; track cell.id) {
+                      @for (cell of pole.cellules; track cell.id) {
                         <div class="bg-card p-4 rounded-lg border border-default shadow-sm">
                           <div class="flex items-center gap-2 mb-3">
                             <app-lucide-icon
@@ -93,13 +93,13 @@ import type { Department } from '../models';
                             <h4 class="font-medium text-primary">{{ cell.name }}</h4>
                           </div>
                           <div class="space-y-2 pl-6 border-l-2 border-slate-100">
-                            @for (team of cell.teams; track team.id) {
+                            @for (svc of cell.services; track svc.id) {
                               <div class="flex items-center gap-2 text-sm text-slate-600">
                                 <app-lucide-icon
                                   [icon]="icons.users"
                                   className="w-3.5 h-3.5 text-slate-400"
                                 />
-                                {{ team.name }}
+                                {{ svc.name }}
                               </div>
                             }
                           </div>
@@ -126,13 +126,13 @@ export class PrimeConfigurationPageComponent implements OnInit {
     users: Users,
   };
 
-  readonly departments = signal<Department[]>([]);
+  readonly operationalDepartments = signal<OperationalDepartmentNode[]>([]);
   readonly loading = signal(true);
-  readonly firstDeptPoles = computed(() => this.departments()[0]?.poles ?? []);
+  readonly firstOperationalDeptPoles = computed(() => this.operationalDepartments()[0]?.poles ?? []);
 
   ngOnInit(): void {
-    void PrimeService.getDepartments().then((data) => {
-      this.departments.set(data);
+    void PrimeService.getOperationalOrgTree().then((tree) => {
+      this.operationalDepartments.set(tree.operationalDepartments ?? []);
       this.loading.set(false);
     });
   }

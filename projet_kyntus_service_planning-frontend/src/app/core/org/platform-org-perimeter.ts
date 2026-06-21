@@ -4,6 +4,7 @@ import { enrichUserOrgPerimeter } from './user-org-perimeter';
 import { resolveEmployeeOrgLabels } from '../../features/prime/lib/org-display-labels';
 
 export interface PlatformOrgLabels {
+  operationalDepartment: string;
   pole: string;
   cellule: string;
   service: string;
@@ -64,6 +65,7 @@ export function resolvePlatformOrgLabels(
   );
   const legacy = resolveEmployeeOrgLabels(employee, departments);
   return {
+    operationalDepartment: enriched.operationalDepartment?.trim() || legacy.operationalDepartment,
     pole: enriched.pole?.trim() || legacy.pole,
     cellule: enriched.cellule?.trim() || legacy.cellule,
     service: enriched.service?.trim() || legacy.service,

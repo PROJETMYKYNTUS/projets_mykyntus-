@@ -36,6 +36,7 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
     public DbSet<AllowanceRequestHistoryEntity> AllowanceRequestHistories => Set<AllowanceRequestHistoryEntity>();
     public DbSet<AllowanceWorkflowStepEntity> AllowanceWorkflowSteps => Set<AllowanceWorkflowStepEntity>();
     public DbSet<AllowanceRuleEntity> AllowanceRules => Set<AllowanceRuleEntity>();
+    public DbSet<AllowanceNoBonusMarkerEntity> AllowanceNoBonusMarkers => Set<AllowanceNoBonusMarkerEntity>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -464,6 +465,18 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.Property(x => x.BusinessDepartmentId).HasMaxLength(64);
             e.Property(x => x.DataSource).HasMaxLength(64);
             e.HasOne(x => x.AllowanceType).WithMany().HasForeignKey(x => x.AllowanceTypeId);
+        });
+
+        modelBuilder.Entity<AllowanceNoBonusMarkerEntity>(e =>
+        {
+            e.ToTable("prime_allowance_no_bonus_marker");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.EmployeeId).HasMaxLength(128);
+            e.Property(x => x.BusinessDepartmentId).HasMaxLength(64);
+            e.Property(x => x.Period).HasMaxLength(16);
+            e.Property(x => x.MarkedByUserId).HasMaxLength(128);
+            e.Property(x => x.Comment).HasMaxLength(512);
+            e.HasIndex(x => new { x.EmployeeId, x.Period }).IsUnique();
         });
 
         modelBuilder.Entity<OutboxMessage>(e =>

@@ -1,7 +1,13 @@
 import { Department, Employee, PrimeResult, PrimeRule, PrimeType, Role } from '../models';
+import type { OperationalDepartmentNode, OrgPoleNode } from '../models/org-tree.types';
 import { applyDrillDownToEmployeeRows, type HierarchyDrillSelection } from '../lib/hierarchyDrillDown';
 import { OrgAssignmentService } from './org-assignment.service';
 import { primeApiGet } from './prime-http';
+
+export interface OperationalOrgTreeResponse {
+  operationalDepartments: OperationalDepartmentNode[];
+  unassignedPoles: OrgPoleNode[];
+}
 
 export interface PrimeDashboardStats {
   totalPrimesThisMonth: number;
@@ -37,7 +43,11 @@ export function getNextStatusAfterApproval(
 }
 
 export const PrimeService = {
+  /** Legacy 3 niveaux — préférer getOperationalOrgTree(). */
   getDepartments: (): Promise<Department[]> => primeApiGet('/api/prime/departments'),
+
+  getOperationalOrgTree: (): Promise<OperationalOrgTreeResponse> =>
+    primeApiGet('/api/prime/org/operational-departments'),
 
   getEmployees: (): Promise<Employee[]> => primeApiGet('/api/prime/employees'),
 

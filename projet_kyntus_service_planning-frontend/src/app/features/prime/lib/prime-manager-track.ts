@@ -6,9 +6,11 @@ export type ManagerPrimeTrack = 'support' | 'operational' | 'none';
 
 /** Chemins autorisés pour un manager de département Support (track Allowances uniquement). */
 export const SUPPORT_MANAGER_ALLOWED_PATHS = [
-  '/allowances',
+  '/allowances/dashboard',
+  '/allowances/allocation',
+  '/allowances/progress',
+  '/allowances/history',
   '/allowances/requests',
-  '/allowances/my',
 ] as const;
 
 /** Chemins autorisés pour un manager de département opérationnel (track PRIME classique). */
@@ -40,7 +42,7 @@ export function isOperationalManagerPrimePath(path: string): boolean {
 }
 
 export function managerHomePathForTrack(track: ManagerPrimeTrack): string {
-  if (track === 'support') return '/allowances';
+  if (track === 'support') return '/allowances/dashboard';
   if (track === 'operational') return '/';
   return '/global-pool';
 }

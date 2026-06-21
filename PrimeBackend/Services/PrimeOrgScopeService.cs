@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Data;
+using PrimeBackend.Dto;
 using PrimeBackend.Models;
 
 namespace PrimeBackend.Services;
@@ -232,7 +233,7 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
         return dict;
     }
 
-    /// <summary>Même arbre « Department → Pole → Cellule → Team » que <see cref="PrimeInMemoryStore.HydrateOrganizationFromDatabase"/> pour compat JSON Angular.</summary>
+    /// <summary>Même arbre « Department → Pole → Cellule → Team » que <see cref="PrimeInMemoryStore.HydrateOrganizationFromDatabase"/> pour compat JSON Angular (legacy 3 niveaux — préférer <see cref="GetOperationalOrgTreeAsync"/>).</summary>
     public async Task<List<Department>> GetLegacyDepartmentTreeAsync(CancellationToken ct = default)
     {
         if (db == null) return [];
@@ -276,6 +277,63 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
         return list;
     }
 
+    /// <summary>Arbre opérationnel 4 niveaux : département → pôle → cellule → service.</summary>
+    public async Task<OperationalOrgTreeDto> GetOperationalOrgTreeAsync(CancellationToken ct = default)
+    {
+        if (db == null)
+            return new OperationalOrgTreeDto([], []);
+
+        var poles = await db.Poles.AsNoTracking()
+            .Include(p => p.Cellules)
+            .ThenInclude(c => c.Services)
+            .OrderBy(p => p.Name)
+            .ToListAsync(ct);
+
+        var operationalDepts = await db.BusinessDepartments.AsNoTracking()
+            .Include(d => d.PoleAssignments)
+            .Where(d => d.IsActive && d.Kind == "Operational")
+            .OrderBy(d => d.Name)
+            .ToListAsync(ct);
+
+        var poleById = poles.ToDictionary(p => p.Id, StringComparer.Ordinal);
+        var assignedPoleIds = operationalDepts
+            .SelectMany(d => d.PoleAssignments.Select(a => a.PoleId))
+            .ToHashSet(StringComparer.Ordinal);
+
+        static OrgPoleOverviewDto MapPole(PoleEntity p) => new(
+            p.Id,
+            p.Name,
+            p.Cellules.OrderBy(c => c.Name).Select(c => new OrgCelluleOverviewDto(
+                c.Id,
+                c.Name,
+                c.Services.OrderBy(s => s.Name).Select(s => new OrgServiceOverviewDto(s.Id, s.Name)).ToList())).ToList());
+
+        var operationalDepartments = operationalDepts.Select(d => new OperationalDepartmentOverviewDto(
+            d.Id,
+            d.Code,
+            d.Name,
+            d.ManagerEmployeeId,
+            d.PoleAssignments
+                .Select(a => a.PoleId)
+                .Where(poleById.ContainsKey)
+                .Select(id => MapPole(poleById[id]))
+                .OrderBy(p => p.Name, StringComparer.Ordinal)
+                .ToList())).ToList();
+
+        var unassignedPoles = poles
+            .Where(p => !assignedPoleIds.Contains(p.Id))
+            .Select(MapPole)
+            .ToList();
+
+        return new OperationalOrgTreeDto(operationalDepartments, unassignedPoles);
+    }
+
+    public async Task<List<OperationalDepartmentOverviewDto>> GetOperationalDepartmentTreeAsync(CancellationToken ct = default)
+    {
+        var tree = await GetOperationalOrgTreeAsync(ct);
+        return tree.OperationalDepartments.ToList();
+    }
+
     public async Task<List<Employee>> GetLegacyEmployeesAsync(CancellationToken ct = default)
     {
         if (db == null) return [];
@@ -294,6 +352,8 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
             ServiceId = e.ServiceId,
             Email = e.Email,
             Avatar = e.Avatar,
+            BusinessDepartmentId = e.BusinessDepartmentId,
+            BusinessDepartmentKind = e.BusinessDepartmentKind,
         }).ToList();
     }
 

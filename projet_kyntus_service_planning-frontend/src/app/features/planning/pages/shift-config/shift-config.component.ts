@@ -12,12 +12,11 @@ import {
   ShiftOption
 } from '../../services/planning.service';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
+import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
 import type { SubService } from '../../../sub-services/sub-services-module';
 import type { Department } from '../../../prime/models';
-import {
-  findOrgSelectionByPrimeServiceId,
-  poleCells,
-} from '../../../../core/org/planning-org-picker';
+import type { OperationalDepartmentNode, OrgPoleNode } from '../../../prime/models/org-tree.types';
+import { buildSubServiceOrgLabels } from '../../../../core/org/operational-org-picker';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { Coffee, Info, Plus, Save, Settings, Trash2, Users } from 'lucide';
@@ -51,7 +50,9 @@ export class ShiftConfigComponent implements OnInit {
   weekCode = '';
   weekStartDate = '';
 
-  orgDepartments: Department[] = [];
+  operationalDepartments: OperationalDepartmentNode[] = [];
+  unassignedPoles: OrgPoleNode[] = [];
+  legacyDepartments: Department[] = [];
   subServiceOptions: SubServiceOption[] = [];
   serviceEmployeeCount = 0;
   weekDateAdjusted = false;
@@ -71,6 +72,7 @@ export class ShiftConfigComponent implements OnInit {
   constructor(
     private planningService: PlanningService,
     private subServiceService: SubServiceService,
+    private orgApi: PrimeOrgApiService,
     private http: HttpClient,
     private router: Router,
     private cdr: ChangeDetectorRef
@@ -111,9 +113,12 @@ export class ShiftConfigComponent implements OnInit {
     forkJoin({
       subServices: this.subServiceService.getAllSubServices(),
       departments: this.http.get<Department[]>('/api/prime/departments'),
+      overview: this.orgApi.loadOverview(),
     }).subscribe({
-      next: ({ subServices, departments }) => {
-        this.orgDepartments = departments ?? [];
+      next: ({ subServices, departments, overview }) => {
+        this.operationalDepartments = overview.operationalDepartments ?? [];
+        this.unassignedPoles = overview.unassignedPoles ?? [];
+        this.legacyDepartments = departments?.length ? departments : (overview.departments ?? []);
         this.subServiceOptions = this.buildSubServiceOptions(subServices ?? []);
         if (this.subServiceOptions.length > 0) {
           this.subServiceId = this.subServiceOptions[0].id;
@@ -129,32 +134,19 @@ export class ShiftConfigComponent implements OnInit {
   }
 
   private buildSubServiceOptions(subServices: SubService[]): SubServiceOption[] {
-    return subServices
-      .map((sub) => {
-        const primeId = sub.primeServiceId?.trim() ?? '';
-        const sel = primeId
-          ? findOrgSelectionByPrimeServiceId(this.orgDepartments, primeId)
-          : null;
-
-        let orgLabel = sub.name;
-        if (sel) {
-          const dept = this.orgDepartments.find((d) => d.id === sel.poleId);
-          const cellule = dept?.poles?.find((p) => p.id === sel.celluleId);
-          const service = cellule
-            ? poleCells(cellule).find((c) => c.id === sel.serviceId)
-            : undefined;
-          if (dept && cellule) {
-            orgLabel = `${dept.name} / ${cellule.name} / ${service?.name ?? sub.name}`;
-          }
-        }
-
-        return {
-          id: sub.id,
-          name: sub.name,
-          orgLabel,
-          employeesCount: sub.employeesCount ?? 0,
-        };
-      })
+    const labels = buildSubServiceOrgLabels(
+      subServices,
+      this.operationalDepartments,
+      this.unassignedPoles,
+      this.legacyDepartments,
+    );
+    return labels
+      .map((l) => ({
+        id: l.subServiceId,
+        name: l.name,
+        orgLabel: [l.operationalDepartment, l.pole, l.cellule, l.service].filter(Boolean).join(' / ') || l.name,
+        employeesCount: subServices.find((s) => s.id === l.subServiceId)?.employeesCount ?? 0,
+      }))
       .sort((a, b) => a.orgLabel.localeCompare(b.orgLabel, 'fr'));
   }
 

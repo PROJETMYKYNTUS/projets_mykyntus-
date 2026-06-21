@@ -13,6 +13,7 @@ namespace PrimeBackend.Controllers;
 public class AllowanceController(
     AllowanceCatalogService catalog,
     AllowanceRequestService requests,
+    AllowanceTeamPilotageService pilotage,
     AllowanceScopeService scope,
     AllowanceRuleEngineService ruleEngine,
     PrimeDbContext db,
@@ -195,6 +196,114 @@ public class AllowanceController(
             managedDepartmentCode = managedDept?.Code,
             directReportCount,
         });
+    }
+
+    [HttpGet("team-progress")]
+    public async Task<ActionResult<AllowanceTeamProgressDto>> TeamProgress(
+        [FromQuery] string period, CancellationToken ct)
+    {
+        var (userId, role, err) = await ResolveAsync(ct);
+        if (err is not null) return err;
+        if (!role.Equals("Manager", StringComparison.OrdinalIgnoreCase)) return Forbid();
+        if (string.IsNullOrWhiteSpace(period)) return BadRequest(new { error = "Période requise." });
+        try
+        {
+            return Ok(await pilotage.GetTeamProgressAsync(userId, period, ct));
+        }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+    }
+
+    [HttpGet("employee-allocations")]
+    public async Task<ActionResult<AllowanceEmployeeAllocationsDto>> EmployeeAllocations(
+        [FromQuery] string period, [FromQuery] string employeeId, CancellationToken ct)
+    {
+        var (userId, role, err) = await ResolveAsync(ct);
+        if (err is not null) return err;
+        if (!role.Equals("Manager", StringComparison.OrdinalIgnoreCase)) return Forbid();
+        if (string.IsNullOrWhiteSpace(period) || string.IsNullOrWhiteSpace(employeeId))
+            return BadRequest(new { error = "Période et employeeId requis." });
+        try
+        {
+            return Ok(await pilotage.GetEmployeeAllocationsAsync(userId, employeeId, period, ct));
+        }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+    }
+
+    [HttpPost("team/generate-proposals")]
+    public async Task<ActionResult<object>> GenerateTeamProposals([FromQuery] string period, CancellationToken ct)
+    {
+        var (userId, role, err) = await ResolveAsync(ct);
+        if (err is not null) return err;
+        if (!role.Equals("Manager", StringComparison.OrdinalIgnoreCase)) return Forbid();
+        if (string.IsNullOrWhiteSpace(period)) return BadRequest(new { error = "Période requise." });
+        if (!await scope.IsSupportDepartmentManagerAsync(userId, ct)) return Forbid();
+        var deptId = await scope.GetManagerDepartmentIdAsync(userId, ct);
+        if (deptId is null) return Forbid();
+        var count = await ruleEngine.GenerateProposalsAsync(period, deptId, userId, ct);
+        return Ok(new { created = count });
+    }
+
+    [HttpPost("no-bonus")]
+    public async Task<ActionResult<object>> MarkNoBonus(
+        [FromQuery] string period, [FromQuery] string employeeId,
+        [FromBody] MarkNoBonusBody? body, CancellationToken ct)
+    {
+        var (userId, role, err) = await ResolveAsync(ct);
+        if (err is not null) return err;
+        if (!role.Equals("Manager", StringComparison.OrdinalIgnoreCase)) return Forbid();
+        if (string.IsNullOrWhiteSpace(period) || string.IsNullOrWhiteSpace(employeeId))
+            return BadRequest(new { error = "Période et employeeId requis." });
+        try
+        {
+            await pilotage.MarkNoBonusAsync(userId, employeeId, period, body?.Comment, ct);
+            return Ok(new { marked = true });
+        }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (InvalidOperationException e) { return BadRequest(new { error = e.Message }); }
+    }
+
+    [HttpDelete("no-bonus")]
+    public async Task<ActionResult<object>> ClearNoBonus(
+        [FromQuery] string period, [FromQuery] string employeeId, CancellationToken ct)
+    {
+        var (userId, role, err) = await ResolveAsync(ct);
+        if (err is not null) return err;
+        if (!role.Equals("Manager", StringComparison.OrdinalIgnoreCase)) return Forbid();
+        if (string.IsNullOrWhiteSpace(period) || string.IsNullOrWhiteSpace(employeeId))
+            return BadRequest(new { error = "Période et employeeId requis." });
+        try
+        {
+            await pilotage.ClearNoBonusAsync(userId, employeeId, period, ct);
+            return Ok(new { cleared = true });
+        }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+    }
+
+    [HttpGet("history")]
+    public async Task<ActionResult<List<AllowanceHistoryEntryDto>>> History(
+        [FromQuery] string? fromPeriod, [FromQuery] string? toPeriod, CancellationToken ct)
+    {
+        var (userId, role, err) = await ResolveAsync(ct);
+        if (err is not null) return err;
+        if (!role.Equals("Manager", StringComparison.OrdinalIgnoreCase)) return Forbid();
+        try
+        {
+            return Ok(await pilotage.GetHistoryAsync(userId, fromPeriod, toPeriod, ct));
+        }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+    }
+
+    [HttpGet("period-summaries")]
+    public async Task<ActionResult<List<AllowancePeriodSummaryDto>>> PeriodSummaries(CancellationToken ct)
+    {
+        var (userId, role, err) = await ResolveAsync(ct);
+        if (err is not null) return err;
+        if (!role.Equals("Manager", StringComparison.OrdinalIgnoreCase)) return Forbid();
+        try
+        {
+            return Ok(await pilotage.GetPeriodSummariesAsync(userId, ct));
+        }
+        catch (UnauthorizedAccessException) { return Forbid(); }
     }
 
     [HttpGet("team")]

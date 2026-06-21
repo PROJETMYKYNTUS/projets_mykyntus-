@@ -96,7 +96,7 @@
             @if (perimeter.isSupport) {
               <p>Département Support — équipe plate (Allowances).</p>
             } @else {
-              <p>Affectation synchronisée avec Organisation RH (pôle → cellule → service).</p>
+              <p>Affectation synchronisée avec Organisation RH (département → pôle → cellule → service).</p>
             }
 
           </div>
@@ -112,6 +112,14 @@
             </div>
           } @else {
             <div class="info-grid org-grid">
+
+              <div class="info-item">
+
+                <span class="info-label">Département opérationnel</span>
+
+                <span class="info-value info-value--accent">{{ orgCellLabel(perimeter.operationalDepartment) }}</span>
+
+              </div>
 
               <div class="info-item">
 

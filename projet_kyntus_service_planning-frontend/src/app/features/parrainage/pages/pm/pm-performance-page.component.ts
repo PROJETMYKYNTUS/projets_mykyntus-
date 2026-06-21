@@ -12,9 +12,10 @@ import { getScopedReferrals } from '../../lib/scoping';
   imports: [MonthlyChartComponent],
   template: `
     <section class="flex-1 space-y-6">
-      <p class="text-sm text-muted max-w-3xl">
-        Meilleurs parraineurs et statistiques.
-      </p>
+      <div>
+        <h1 class="prime-page-title">Performance de l'équipe</h1>
+        <p class="ky-page-subtitle">Meilleurs parraineurs et statistiques.</p>
+      </div>
 
       <app-monthly-chart [referrals]="scoped()" />
 

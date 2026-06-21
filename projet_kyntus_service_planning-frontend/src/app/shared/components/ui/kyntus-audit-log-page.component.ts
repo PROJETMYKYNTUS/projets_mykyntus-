@@ -8,7 +8,7 @@ import { KyntusPageHeaderComponent } from './kyntus-page-header.component';
   imports: [KyntusPageHeaderComponent, KyntusAuditDrawerComponent],
   template: `
     <section class="kyntus-audit-log-page">
-      <app-kyntus-page-header [title]="title" [subtitle]="subtitle" [eyebrow]="eyebrow">
+      <app-kyntus-page-header [title]="title" [subtitle]="subtitle">
         <ng-content select="[headerActions]" actions />
       </app-kyntus-page-header>
 
@@ -51,7 +51,6 @@ import { KyntusPageHeaderComponent } from './kyntus-page-header.component';
 export class KyntusAuditLogPageComponent {
   @Input({ required: true }) title!: string;
   @Input() subtitle = '';
-  @Input() eyebrow = '';
   @Input() drawerOpen = false;
   @Input() drawerTitle = 'Détail';
   @Input() drawerFields: KyntusAuditField[] = [];

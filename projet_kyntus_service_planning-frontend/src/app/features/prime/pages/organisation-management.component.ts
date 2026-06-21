@@ -27,15 +27,16 @@ import { PrimeCardComponent } from '../components/prime-card.component';
 import {
   PrimeOrgApiService,
   type OrgAssignmentsOverview,
+  type StructuralRoleAssignmentResult,
 } from '../services/prime-org-api.service';
-import type { Department, Employee, LegacyCellule as Cellule, LegacyPole as Pole, Role, Team } from '../models';
+import type { Employee, Team } from '../models';
 import {
   employeeSelectOptionLabel,
   employeesForOrgAssignmentSelect,
   reconcileSelectModel,
 } from '../lib/prime-select-options';
 import { RoleService } from '../state/role.service';
-import { parseOrganisationRhTab } from '../../../core/navigation/organisation-nav';
+import { parseOrganisationRhTab, type OrganisationRhTab } from '../../../core/navigation/organisation-nav';
 import {
   ORG_DUPLICATE_CELLULE_MSG,
   ORG_DUPLICATE_POLE_MSG,
@@ -43,11 +44,15 @@ import {
   orgNamesEqual,
 } from '../lib/org-name-uniqueness';
 import {
+  buildCrossRoleOverwriteMessage,
   buildStructureOverwriteMessage,
   employeeDisplayName,
+  findEmployeeStructuralRole,
+  findStructureIncumbent,
   shouldConfirmOverwrite,
 } from '../../../core/org/org-structure-incumbent.util';
 import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
+import type { OperationalDepartmentNode, OrgCelluleNode, OrgPoleNode } from '../models/org-tree.types';
 
 function matchAssignmentUserId(
   assignments: { userId: string; etageId?: string; serviceId?: string; celluleId?: string; sousServiceId?: string }[],
@@ -63,32 +68,48 @@ function matchAssignmentUserId(
 }
 
 export type OrgTreeSelection =
-  | { kind: 'department'; id: string; name: string }
-  | { kind: 'pole'; id: string; name: string; departmentId: string }
-  | { kind: 'cellule'; id: string; name: string; poleId: string; departmentId: string };
+  | { kind: 'metierDepartment'; id: string; name: string; code: string }
+  | { kind: 'pole'; id: string; name: string; metierDepartmentId: string }
+  | { kind: 'cellule'; id: string; name: string; poleId: string; metierDepartmentId: string }
+  | { kind: 'service'; id: string; name: string; celluleId: string; poleId: string; metierDepartmentId: string };
 
 export type FlatPoleRow = {
-  departmentId: string;
-  departmentName: string;
+  metierDepartmentId: string;
+  metierDepartmentName: string;
   poleId: string;
   poleName: string;
+  unassigned: boolean;
 };
 
 export type FlatCelluleRow = FlatPoleRow & {
   celluleId: string;
   celluleName: string;
+  /** Nom de la cellule parente (onglet Services uniquement). */
+  parentCelluleName?: string;
 };
 
-export type OrgMainTab = 'departments' | 'poles' | 'cellules' | 'structure';
+export type OrgMainTab = OrganisationRhTab;
 
 export type StructureLogEntry = { at: string; message: string };
 
 function httpErrMessage(err: unknown): string {
   if (err instanceof HttpErrorResponse) {
-    const body = err.error as { error?: string } | string | null;
-    if (body && typeof body === 'object' && typeof body.error === 'string') return body.error;
-    if (typeof body === 'string' && body.length) return body;
-    return 'Une erreur est survenue. Réessayez ultérieurement.';
+    const body = err.error as
+      | { error?: string; title?: string; detail?: string; message?: string }
+      | string
+      | null;
+    if (body && typeof body === 'object') {
+      if (typeof body.error === 'string' && body.error.trim()) return body.error;
+      if (typeof body.detail === 'string' && body.detail.trim()) return body.detail;
+      if (typeof body.title === 'string' && body.title.trim()) return body.title;
+      if (typeof body.message === 'string' && body.message.trim()) return body.message;
+    }
+    if (typeof body === 'string' && body.trim()) return body.trim();
+    if (err.status === 0) return 'Impossible de joindre le serveur. Vérifiez votre connexion.';
+    if (err.status >= 500) {
+      return `Erreur serveur (${err.status}). Réessayez ou contactez l’administrateur.`;
+    }
+    return `Erreur HTTP ${err.status}. Réessayez ultérieurement.`;
   }
   return err instanceof Error ? err.message : 'Erreur inconnue';
 }
@@ -96,7 +117,11 @@ function httpErrMessage(err: unknown): string {
 @Component({
   selector: 'app-organisation-management',
   standalone: true,
-  imports: [LucideIconComponent, PrimeCardComponent, KyntusSelectSyncDirective],
+  imports: [
+    LucideIconComponent,
+    PrimeCardComponent,
+    KyntusSelectSyncDirective,
+  ],
   template: `
     @if (loading()) {
       <div class="p-8 flex justify-center">
@@ -108,6 +133,11 @@ function httpErrMessage(err: unknown): string {
           <div>
             <h1 class="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Organisation RH</h1>
             <div class="mt-3 max-w-3xl space-y-2 text-sm leading-relaxed text-slate-400">
+              <p>
+                <span class="font-medium text-slate-300">Départements opérationnels</span> — managers métier
+                (interface Prime classique) distincts des
+                <span class="font-medium text-slate-300">chefs de projet</span> par pôle.
+              </p>
               <p>
                 <span class="font-medium text-slate-300">Gestion par listes</span> — tous les pôles, cellules et
                 services, avec affectation ligne par ligne. Les rôles et la hiérarchie sont alignés automatiquement
@@ -169,11 +199,120 @@ function httpErrMessage(err: unknown): string {
         </div>
 
         @switch (mainTab()) {
-          @case ('departments') {
-            <app-prime-card className="p-0" title="Gestion des pôles" description="Un chef de projet par pôle.">
+          @case ('metier-departments') {
+            <app-prime-card
+              className="p-0"
+              title="Départements opérationnels"
+              description="Manager métier (interface Prime classique). Distinct du chef de projet, rattaché à chaque pôle."
+            >
               <div
                 class="px-4 py-3 sm:px-6 border-b border-navy-800 bg-navy-950/40 flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-end"
               >
+                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[12rem] flex-1 max-w-md">
+                  <span>Nom du département</span>
+                  <input
+                    type="text"
+                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500"
+                    placeholder="Ex. Opérations terrain"
+                    [value]="newMetierDeptName()"
+                    (input)="newMetierDeptName.set($any($event.target).value)"
+                  />
+                </label>
+                <button
+                  type="button"
+                  (click)="submitNewMetierDepartment()"
+                  [disabled]="saving() || !newMetierDeptName().trim() || !!newMetierDeptNameConflict()"
+                  class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 shrink-0"
+                >
+                  <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
+                  Créer
+                </button>
+              </div>
+              @if (newMetierDeptNameConflict(); as msg) {
+                <p class="px-4 sm:px-6 pb-2 text-xs text-amber-400">{{ msg }}</p>
+              }
+              <p class="px-4 sm:px-6 py-2 text-xs text-slate-400 border-b border-navy-800">
+                {{ filteredMetierDepartmentsForTable().length }} département(s) affiché(s)
+              </p>
+              <div class="overflow-x-auto">
+                <table class="prime-table prime-table--dense w-full text-sm text-left">
+                  <thead>
+                    <tr>
+                      <th class="font-medium">Département</th>
+                      <th class="font-medium">Manager actuel</th>
+                      <th class="font-medium min-w-[220px]">Nouveau manager</th>
+                      <th class="font-medium w-40 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (d of filteredMetierDepartmentsForTable(); track d.id) {
+                      <tr>
+                        <td class="px-4 py-2.5">
+                          <span class="prime-cell-strong">{{ d.code }} — {{ d.name }}</span>
+                        </td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ metierManagerLabel(d.id) }}</span></td>
+                        <td class="px-4 py-2.5">
+                          <select
+                            class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
+                            [kyntusSelectSync]="draftMetierManager(d.id)"
+                            (kyntusSelectSyncChange)="patchDraftMetierManager(d.id, $event)"
+                          >
+                            <option value="">— Sélectionner —</option>
+                            @for (e of assignableEmployees(); track e.id) {
+                              <option [value]="e.id">{{ employeeOptionLabel(e) }}</option>
+                            }
+                          </select>
+                        </td>
+                        <td class="px-4 py-2.5 text-right">
+                          <div class="inline-flex flex-wrap justify-end gap-2">
+                            <button
+                              type="button"
+                              (click)="saveMetierManagerRow(d.id)"
+                              [disabled]="saving() || !draftMetierManager(d.id)"
+                              class="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                            >
+                              Enregistrer
+                            </button>
+                            <button
+                              type="button"
+                              (click)="clearMetierManagerRow(d.id)"
+                              [disabled]="saving() || !d.managerEmployeeId"
+                              class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
+                            >
+                              Retirer
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    } @empty {
+                      <tr>
+                        <td colspan="4" class="px-4 py-10 text-center text-slate-500 text-sm">
+                          Aucun département. Créez-en un avant d’ajouter des pôles.
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </app-prime-card>
+          }
+          @case ('departments') {
+            <app-prime-card className="p-0" title="Pôles" description="Un chef de projet par pôle. Parent obligatoire : département métier.">
+              <div
+                class="px-4 py-3 sm:px-6 border-b border-navy-800 bg-navy-950/40 flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-end"
+              >
+                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[10rem]">
+                  <span>Département métier</span>
+                  <select
+                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 min-w-[12rem]"
+                    [kyntusSelectSync]="newPoleBusinessDeptId()"
+                    (kyntusSelectSyncChange)="newPoleBusinessDeptId.set($event)"
+                  >
+                    @for (d of data()?.operationalDepartments ?? []; track d.id) {
+                      <option [value]="d.id">{{ d.code }} — {{ d.name }}</option>
+                    }
+                  </select>
+                </label>
                 <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[12rem] flex-1 max-w-md">
                   <span>Nouveau pôle</span>
                   <input
@@ -187,20 +326,21 @@ function httpErrMessage(err: unknown): string {
                 <button
                   type="button"
                   (click)="submitNewDepartment()"
-                  [disabled]="saving() || !newDepartmentName().trim() || !!newDepartmentNameConflict()"
+                  [disabled]="saving() || !newPoleBusinessDeptId() || !newDepartmentName().trim() || !!newDepartmentNameConflict()"
                   class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 shrink-0"
                 >
                   <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
                   Créer
                 </button>
               </div>
+              @if ((data()?.operationalDepartments?.length ?? 0) === 0) {
+                <p class="px-4 sm:px-6 py-2 text-xs text-amber-400/90">
+                  Créez d’abord un département opérationnel (onglet Départements).
+                </p>
+              }
               @if (newDepartmentNameConflict(); as msg) {
                 <p class="px-4 sm:px-6 pb-2 text-xs text-amber-400">{{ msg }}</p>
               }
-              <p class="px-4 sm:px-6 pb-3 text-xs text-slate-500 border-b border-navy-800 bg-navy-950/40">
-                Un pôle sans structure ne permet pas encore d’affecter un chef de projet : ajoutez au moins une cellule puis un service
-                depuis les onglets dédiés.
-              </p>
               <p class="px-4 sm:px-6 py-2 text-xs text-slate-400 border-b border-navy-800">
                 {{ filteredDepartmentsForTable().length }} pôle(s) affiché(s)
               </p>
@@ -208,54 +348,86 @@ function httpErrMessage(err: unknown): string {
                 <table class="prime-table prime-table--dense w-full text-sm text-left">
                   <thead>
                     <tr>
+                      <th class="font-medium">Département</th>
                       <th class="font-medium max-w-[min(100%,20rem)]">Pôle</th>
                       <th class="font-medium">Chef de projet actuel</th>
                       <th class="font-medium min-w-[220px]">Nouveau chef de projet</th>
-                      <th class="font-medium w-40 text-right">Actions</th>
+                      <th class="font-medium w-48 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    @for (dept of filteredDepartmentsForTable(); track dept.id) {
+                    @for (row of filteredDepartmentsForTable(); track row.poleId) {
                       <tr>
-                        <td class="px-4 py-2.5"><span class="prime-cell-strong">{{ dept.name }}</span></td>
-                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ managerLabel(dept.id) }}</span></td>
+                        <td class="px-4 py-2.5">
+                          @if (row.unassigned) {
+                            <span class="text-xs text-amber-400">Sans département</span>
+                          } @else {
+                            <span class="prime-cell-muted">{{ row.metierDepartmentName }}</span>
+                          }
+                        </td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-strong">{{ row.poleName }}</span></td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ managerLabel(row.poleId) }}</span></td>
                         <td class="px-4 py-2.5">
                           <select
                             class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
-                            [kyntusSelectSync]="draftManagerDept(dept.id)"
-                            (kyntusSelectSyncChange)="patchDraftManager(dept.id, $event)"
+                            [kyntusSelectSync]="draftManagerDept(row.poleId)"
+                            (kyntusSelectSyncChange)="patchDraftManager(row.poleId, $event)"
                           >
                             <option value="">— Sélectionner —</option>
-                            @for (e of employeesForManagerRow(dept.id); track e.id) {
+                            @for (e of employeesForManagerRow(row.poleId); track e.id) {
                               <option [value]="e.id">{{ employeeOptionLabel(e) }}</option>
                             }
                           </select>
                         </td>
                         <td class="px-4 py-2.5 text-right">
-                          <div class="inline-flex flex-wrap justify-end gap-2">
-                            <button
-                              type="button"
-                              (click)="saveDepartmentManagerRow(dept.id)"
-                              [disabled]="saving() || !draftManagerDept(dept.id)"
-                              class="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-50"
-                            >
-                              Enregistrer
-                            </button>
-                            <button
-                              type="button"
-                              (click)="clearDepartmentManagerRow(dept.id)"
-                              [disabled]="saving() || !managerUserId(dept.id)"
-                              class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
-                            >
-                              Retirer
-                            </button>
+                          <div class="inline-flex flex-col items-end gap-2">
+                            @if (row.unassigned) {
+                              <div class="flex flex-wrap justify-end gap-2 items-center">
+                                <select
+                                  class="rounded-lg border border-navy-700 bg-navy-950 px-2 py-1 text-xs text-slate-200 min-w-[10rem]"
+                                  [kyntusSelectSync]="draftAttachPole(row.poleId)"
+                                  (kyntusSelectSyncChange)="patchDraftAttachPole(row.poleId, $event)"
+                                >
+                                  <option value="">Rattacher à…</option>
+                                  @for (d of data()?.operationalDepartments ?? []; track d.id) {
+                                    <option [value]="d.id">{{ d.name }}</option>
+                                  }
+                                </select>
+                                <button
+                                  type="button"
+                                  (click)="attachOrphanPole(row.poleId)"
+                                  [disabled]="saving() || !draftAttachPole(row.poleId)"
+                                  class="rounded-md bg-amber-700 px-2 py-1 text-xs text-white disabled:opacity-50"
+                                >
+                                  Rattacher
+                                </button>
+                              </div>
+                            }
+                            <div class="inline-flex flex-wrap justify-end gap-2">
+                              <button
+                                type="button"
+                                (click)="saveDepartmentManagerRow(row.poleId)"
+                                [disabled]="saving() || !draftManagerDept(row.poleId)"
+                                class="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                              >
+                                Enregistrer
+                              </button>
+                              <button
+                                type="button"
+                                (click)="clearDepartmentManagerRow(row.poleId)"
+                                [disabled]="saving() || !managerUserId(row.poleId)"
+                                class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
+                              >
+                                Retirer
+                              </button>
+                            </div>
                           </div>
                         </td>
                       </tr>
                     } @empty {
                       <tr>
-                        <td colspan="4" class="px-4 py-10 text-center text-slate-500 text-sm">
-                          Aucun pôle à afficher. Créez un pôle ou modifiez la recherche.
+                        <td colspan="5" class="px-4 py-10 text-center text-slate-500 text-sm">
+                          Aucun pôle à afficher. Créez un département puis un pôle.
                         </td>
                       </tr>
                     }
@@ -265,10 +437,22 @@ function httpErrMessage(err: unknown): string {
             </app-prime-card>
           }
           @case ('poles') {
-            <app-prime-card className="p-0" title="Gestion des cellules" description="Un superviseur par cellule.">
+            <app-prime-card className="p-0" title="Cellules" description="Un superviseur par cellule.">
               <div
                 class="px-4 py-3 sm:px-6 border-b border-navy-800 bg-navy-950/40 flex flex-col lg:flex-row lg:flex-wrap gap-3 lg:items-end"
               >
+                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[10rem]">
+                  <span>Département</span>
+                  <select
+                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 min-w-[12rem]"
+                    [kyntusSelectSync]="newPoleMetierDeptId()"
+                    (kyntusSelectSyncChange)="patchNewPoleMetierDept($event)"
+                  >
+                    @for (d of data()?.operationalDepartments ?? []; track d.id) {
+                      <option [value]="d.id">{{ d.code }} — {{ d.name }}</option>
+                    }
+                  </select>
+                </label>
                 <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[10rem]">
                   <span>Pôle</span>
                   <select
@@ -276,8 +460,8 @@ function httpErrMessage(err: unknown): string {
                     [kyntusSelectSync]="newPoleDeptId()"
                     (kyntusSelectSyncChange)="newPoleDeptId.set($event)"
                   >
-                    @for (d of data()?.departments ?? []; track d.id) {
-                      <option [value]="d.id">{{ d.name }}</option>
+                    @for (p of polesForMetierDept(newPoleMetierDeptId()); track p.id) {
+                      <option [value]="p.id">{{ p.name }}</option>
                     }
                   </select>
                 </label>
@@ -314,6 +498,7 @@ function httpErrMessage(err: unknown): string {
                 <table class="prime-table prime-table--dense w-full text-sm text-left">
                   <thead>
                     <tr>
+                      <th class="font-medium">Département</th>
                       <th class="font-medium">Pôle</th>
                       <th class="font-medium">Cellule</th>
                       <th class="px-4 py-2.5 font-medium">Superviseur actuel</th>
@@ -322,19 +507,20 @@ function httpErrMessage(err: unknown): string {
                     </tr>
                   </thead>
                   <tbody>
-                    @for (row of filteredPolesForTable(); track row.poleId) {
+                    @for (row of filteredPolesForTable(); track row.celluleId) {
                       <tr>
-                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.departmentName }}</span></td>
-                        <td class="px-4 py-2.5"><span class="prime-cell-strong">{{ row.poleName }}</span></td>
-                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ supervisorLabel(row.poleId) }}</span></td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.metierDepartmentName }}</span></td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.poleName }}</span></td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-strong">{{ row.celluleName }}</span></td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ supervisorLabel(row.celluleId) }}</span></td>
                         <td class="px-4 py-2.5">
                           <select
                             class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
-                            [kyntusSelectSync]="draftSupervisorPole(row.poleId)"
-                            (kyntusSelectSyncChange)="patchDraftSupervisor(row.poleId, $event)"
+                            [kyntusSelectSync]="draftSupervisorPole(row.celluleId)"
+                            (kyntusSelectSyncChange)="patchDraftSupervisor(row.celluleId, $event)"
                           >
                             <option value="">— Sélectionner —</option>
-                            @for (e of employeesForSupervisorRow(row.poleId); track e.id) {
+                            @for (e of employeesForSupervisorRow(row.celluleId); track e.id) {
                               <option [value]="e.id">{{ employeeOptionLabel(e) }}</option>
                             }
                           </select>
@@ -343,16 +529,16 @@ function httpErrMessage(err: unknown): string {
                           <div class="inline-flex flex-wrap justify-end gap-2">
                             <button
                               type="button"
-                              (click)="savePoleSupervisorRow(row.poleId)"
-                              [disabled]="saving() || !draftSupervisorPole(row.poleId)"
+                              (click)="savePoleSupervisorRow(row.celluleId)"
+                              [disabled]="saving() || !draftSupervisorPole(row.celluleId)"
                               class="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                             >
                               Enregistrer
                             </button>
                             <button
                               type="button"
-                              (click)="clearPoleSupervisorRow(row.poleId)"
-                              [disabled]="saving() || !supervisorUserId(row.poleId)"
+                              (click)="clearPoleSupervisorRow(row.celluleId)"
+                              [disabled]="saving() || !supervisorUserId(row.celluleId)"
                               class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
                             >
                               Retirer
@@ -375,12 +561,24 @@ function httpErrMessage(err: unknown): string {
           @case ('cellules') {
             <app-prime-card
               className="p-0"
-              title="Gestion des services"
+              title="Services"
               description="Référent technique par service ; pilotes rattachés listés par ligne."
             >
               <div
                 class="px-4 py-3 sm:px-6 border-b border-navy-800 bg-navy-950/40 flex flex-col xl:flex-row xl:flex-wrap gap-3 xl:items-end"
               >
+                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[10rem]">
+                  <span>Département</span>
+                  <select
+                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 min-w-[12rem]"
+                    [kyntusSelectSync]="newCellMetierDeptId()"
+                    (kyntusSelectSyncChange)="patchNewCellMetierDept($event)"
+                  >
+                    @for (d of data()?.operationalDepartments ?? []; track d.id) {
+                      <option [value]="d.id">{{ d.code }} — {{ d.name }}</option>
+                    }
+                  </select>
+                </label>
                 <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[10rem]">
                   <span>Pôle</span>
                   <select
@@ -388,8 +586,8 @@ function httpErrMessage(err: unknown): string {
                     [kyntusSelectSync]="newCellDeptId()"
                     (kyntusSelectSyncChange)="patchNewCellDept($event)"
                   >
-                    @for (d of data()?.departments ?? []; track d.id) {
-                      <option [value]="d.id">{{ d.name }}</option>
+                    @for (p of polesForNewCellForm(); track p.id) {
+                      <option [value]="p.id">{{ p.name }}</option>
                     }
                   </select>
                 </label>
@@ -400,8 +598,8 @@ function httpErrMessage(err: unknown): string {
                     [kyntusSelectSync]="newCellPoleId()"
                     (kyntusSelectSyncChange)="newCellPoleId.set($event)"
                   >
-                    @for (p of polesForNewCellForm(); track p.id) {
-                      <option [value]="p.id">{{ p.name }}</option>
+                    @for (c of cellulesForPole(newCellDeptId()); track c.id) {
+                      <option [value]="c.id">{{ c.name }}</option>
                     }
                   </select>
                 </label>
@@ -428,10 +626,9 @@ function httpErrMessage(err: unknown): string {
               @if (newCellNameConflict(); as msg) {
                 <p class="px-4 sm:px-6 pb-2 text-xs text-amber-400">{{ msg }}</p>
               }
-              @if (polesForNewCellForm().length === 0) {
+              @if (cellulesForPole(newCellDeptId()).length === 0) {
                 <p class="px-4 sm:px-6 py-2 text-xs text-amber-400/90">
-                  Ce pôle n’a pas encore de cellule : créez-en une depuis l’onglet « Gestion des cellules », puis revenez
-                  ici pour ajouter un service.
+                  Ce pôle n’a pas encore de cellule : créez-en une depuis l’onglet « Cellules », puis revenez ici.
                 </p>
               }
               <p class="px-4 sm:px-6 py-2 text-xs text-slate-400 border-b border-navy-800">
@@ -442,6 +639,7 @@ function httpErrMessage(err: unknown): string {
                   <thead>
                     <tr>
                       <th class="font-medium w-10"></th>
+                      <th class="px-4 py-2.5 font-medium">Département</th>
                       <th class="px-4 py-2.5 font-medium">Pôle</th>
                       <th class="px-4 py-2.5 font-medium">Cellule</th>
                       <th class="px-4 py-2.5 font-medium">Service</th>
@@ -467,8 +665,9 @@ function httpErrMessage(err: unknown): string {
                             />
                           </button>
                         </td>
-                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.departmentName }}</span></td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.metierDepartmentName }}</span></td>
                         <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.poleName }}</span></td>
+                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.parentCelluleName }}</span></td>
                         <td class="px-4 py-2.5"><span class="prime-cell-strong">{{ row.celluleName }}</span></td>
                         <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ coachLabel(row.celluleId) }}</span></td>
                         <td class="px-4 py-2.5">
@@ -565,7 +764,7 @@ function httpErrMessage(err: unknown): string {
                       }
                     } @empty {
                       <tr>
-                        <td colspan="7" class="px-4 py-10 text-center text-slate-500 text-sm">
+                        <td colspan="8" class="px-4 py-10 text-center text-slate-500 text-sm">
                           Aucun service à afficher. Créez un service ou modifiez la recherche.
                         </td>
                       </tr>
@@ -588,44 +787,42 @@ function httpErrMessage(err: unknown): string {
                 <div
                   class="-m-6 flex-1 max-h-[min(70vh,36rem)] overflow-y-auto overscroll-y-contain p-4 md:p-5 space-y-4 bg-navy-950/40"
                 >
-                  @for (dept of filteredDepartments(); track dept.id) {
+                  @for (md of filteredOperationalTree(); track md.id) {
                     <div
                       class="rounded-xl border border-navy-800/70 bg-navy-900/45 overflow-hidden shadow-sm shadow-black/10"
                     >
                       <button
                         type="button"
-                        [class]="deptTreeRowClass(dept.id)"
-                        (click)="toggleDept(dept.id); selectDepartment(dept)"
+                        [class]="deptTreeRowClass(md.id)"
+                        (click)="toggleDept(md.id); selectMetierDepartment(md)"
                       >
                         <span class="flex h-full items-center justify-center shrink-0">
                           <app-lucide-icon
-                            [icon]="deptExpanded(dept.id) ? icons.chevDown : icons.chevRight"
+                            [icon]="deptExpanded(md.id) ? icons.chevDown : icons.chevRight"
                             className="w-4 h-4 text-slate-500"
                           />
                         </span>
                         <span class="min-w-0 flex items-center gap-2 font-semibold leading-snug text-slate-100">
                           <span
-                            class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-sky-500/20 text-sky-100 ring-1 ring-sky-500/35"
-                            >Pôle</span
+                            class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-amber-500/20 text-amber-100 ring-1 ring-amber-500/35"
+                            >Dépt</span
                           >
-                          <span class="truncate">{{ dept.name }}</span>
+                          <span class="truncate">{{ md.code }} — {{ md.name }}</span>
                         </span>
                         <span
-                          class="min-w-0 text-xs leading-snug text-slate-400 text-right tabular-nums truncate"
-                          [attr.title]="structureBadgeTitle(managerBadge(dept.id), 'Chef de projet')"
-                          >{{ managerBadge(dept.id) || '—' }}</span
+                          class="min-w-0 text-xs leading-snug text-slate-400 text-right truncate"
+                          [attr.title]="structureBadgeTitle(metierManagerLabel(md.id), 'Manager')"
+                          >{{ metierManagerLabel(md.id) }}</span
                         >
                       </button>
-                      @if (deptExpanded(dept.id)) {
+                      @if (deptExpanded(md.id)) {
                         <div class="border-t border-navy-800/50 pl-3 ml-2 mr-1 space-y-2.5 pb-3 pt-1">
-                          @for (pole of dept.poles; track pole.id) {
-                            <div
-                              class="rounded-lg border border-navy-800/55 bg-navy-950/55 overflow-hidden"
-                            >
+                          @for (pole of md.poles; track pole.id) {
+                            <div class="rounded-lg border border-navy-800/55 bg-navy-950/55 overflow-hidden">
                               <button
                                 type="button"
                                 [class]="poleTreeRowClass(pole.id)"
-                                (click)="togglePole(pole.id); selectPole(dept, pole)"
+                                (click)="togglePole(pole.id); selectPole(md, pole)"
                               >
                                 <span class="flex items-center justify-center shrink-0">
                                   <app-lucide-icon
@@ -635,45 +832,85 @@ function httpErrMessage(err: unknown): string {
                                 </span>
                                 <span class="min-w-0 flex items-center gap-2 text-sm font-medium leading-snug text-slate-200">
                                   <span
-                                    class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-emerald-500/20 text-emerald-100 ring-1 ring-emerald-500/35"
-                                    >Cell.</span
+                                    class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-sky-500/20 text-sky-100 ring-1 ring-sky-500/35"
+                                    >Pôle</span
                                   >
                                   <span class="truncate">{{ pole.name }}</span>
                                 </span>
                                 <span
                                   class="min-w-0 text-xs leading-snug text-slate-400 text-right truncate"
-                                  [attr.title]="structureBadgeTitle(supervisorBadge(pole.id), 'Superviseur')"
-                                  >{{ supervisorBadge(pole.id) || '—' }}</span
+                                  [attr.title]="structureBadgeTitle(managerBadge(pole.id), 'Chef de projet')"
+                                  >{{ managerBadge(pole.id) || '—' }}</span
                                 >
                               </button>
                               @if (poleExpanded(pole.id)) {
                                 <div class="border-t border-navy-800/45 pl-2.5 ml-1.5 space-y-1 pb-2.5 pt-0.5">
-                                  @for (cell of pole.cells; track cell.id) {
-                                    <button
-                                      type="button"
-                                      [class]="cellButtonClass(cell.id)"
-                                      (click)="selectCellule(dept, pole, cell)"
-                                    >
-                                      <span class="w-3 shrink-0 block" aria-hidden="true"></span>
-                                      <span class="min-w-0 flex items-center gap-2 truncate">
-                                        <span
-                                          class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-violet-500/20 text-violet-100 ring-1 ring-violet-500/35"
-                                          >Svc.</span
-                                        >
-                                        <span class="truncate">{{ cell.name }}</span>
-                                      </span>
-                                      <span
-                                        class="min-w-0 text-xs text-slate-400 text-right truncate"
-                                        [attr.title]="structureBadgeTitle(coachBadge(cell.id), 'Référent technique')"
-                                        >{{ coachBadge(cell.id) || '—' }}</span
+                                  @for (cell of pole.cellules; track cell.id) {
+                                    <div class="rounded-md border border-navy-800/40 overflow-hidden">
+                                      <button
+                                        type="button"
+                                        [class]="celluleTreeRowClass(cell.id)"
+                                        (click)="toggleCelluleExpand(cell.id); selectCellule(md, pole, cell)"
                                       >
-                                    </button>
+                                        <span class="flex items-center justify-center shrink-0">
+                                          <app-lucide-icon
+                                            [icon]="celluleExpanded(cell.id) ? icons.chevDown : icons.chevRight"
+                                            className="w-3 h-3 text-slate-500"
+                                          />
+                                        </span>
+                                        <span class="min-w-0 flex items-center gap-2 truncate text-sm">
+                                          <span
+                                            class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-emerald-500/20 text-emerald-100 ring-1 ring-emerald-500/35"
+                                            >Cell.</span
+                                          >
+                                          <span class="truncate">{{ cell.name }}</span>
+                                        </span>
+                                        <span
+                                          class="min-w-0 text-xs text-slate-400 text-right truncate"
+                                          [attr.title]="structureBadgeTitle(supervisorBadge(cell.id), 'Superviseur')"
+                                          >{{ supervisorBadge(cell.id) || '—' }}</span
+                                        >
+                                      </button>
+                                      @if (celluleExpanded(cell.id)) {
+                                        <div class="border-t border-navy-800/40 pl-2 space-y-0.5 pb-1">
+                                          @for (svc of cell.services; track svc.id) {
+                                            <button
+                                              type="button"
+                                              [class]="serviceButtonClass(svc.id)"
+                                              (click)="selectService(md, pole, cell, svc)"
+                                            >
+                                              <span class="w-3 shrink-0 block" aria-hidden="true"></span>
+                                              <span class="min-w-0 flex items-center gap-2 truncate">
+                                                <span
+                                                  class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-violet-500/20 text-violet-100 ring-1 ring-violet-500/35"
+                                                  >Svc.</span
+                                                >
+                                                <span class="truncate">{{ svc.name }}</span>
+                                              </span>
+                                              <span
+                                                class="min-w-0 text-xs text-slate-400 text-right truncate"
+                                                [attr.title]="structureBadgeTitle(coachBadge(svc.id), 'Référent technique')"
+                                                >{{ coachBadge(svc.id) || '—' }}</span
+                                              >
+                                            </button>
+                                          }
+                                        </div>
+                                      }
+                                    </div>
                                   }
                                 </div>
                               }
                             </div>
                           }
                         </div>
+                      }
+                    </div>
+                  }
+                  @if ((data()?.unassignedPoles?.length ?? 0) > 0) {
+                    <div class="rounded-xl border border-amber-800/40 bg-amber-950/20 p-3 space-y-2">
+                      <p class="text-xs font-medium text-amber-200">Pôles sans département</p>
+                      @for (pole of data()?.unassignedPoles ?? []; track pole.id) {
+                        <div class="text-sm text-slate-300 pl-2">{{ pole.name }}</div>
                       }
                     </div>
                   }
@@ -692,13 +929,16 @@ function httpErrMessage(err: unknown): string {
                       <header class="space-y-1 border-b border-navy-800/80 pb-4">
                         <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
                           @switch (sel.kind) {
-                            @case ('department') {
-                              Pôle
+                            @case ('metierDepartment') {
+                              Département
                             }
                             @case ('pole') {
-                              Cellule
+                              Pôle
                             }
                             @case ('cellule') {
+                              Cellule
+                            }
+                            @case ('service') {
                               Service
                             }
                           }
@@ -706,7 +946,85 @@ function httpErrMessage(err: unknown): string {
                         <h2 class="text-2xl font-semibold tracking-tight text-slate-50">{{ sel.name }}</h2>
                       </header>
 
-                      @if (sel.kind === 'department') {
+                      @if (sel.kind === 'metierDepartment') {
+                        <div class="space-y-3">
+                          <label class="text-sm font-medium text-slate-300 block">Manager opérationnel</label>
+                          @if (draftEmployeeId()) {
+                            <div
+                              class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-navy-700 bg-navy-950/50 px-3 py-2.5"
+                            >
+                              <span class="text-sm text-slate-200">
+                                <span class="text-slate-500">Sélection :</span>
+                                <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
+                              </span>
+                              <button
+                                type="button"
+                                (click)="beginRepickDetailEmployee()"
+                                class="text-xs font-medium text-indigo-400 hover:text-indigo-300"
+                              >
+                                Changer
+                              </button>
+                            </div>
+                          }
+                          <input
+                            type="search"
+                            class="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-500"
+                            placeholder="Rechercher un employé (nom, rôle, e-mail)…"
+                            [value]="structureDetailEmpSearch()"
+                            (input)="setDetailEmpSearch($event)"
+                          />
+                          <ul
+                            class="max-h-56 overflow-y-auto rounded-lg border border-navy-800 bg-navy-950/40 divide-y divide-navy-800"
+                          >
+                            @for (e of filteredDetailAssignables(); track e.id) {
+                              <li>
+                                <button
+                                  type="button"
+                                  (click)="pickDetailEmployee(e.id)"
+                                  class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-navy-800/60 transition-colors"
+                                >
+                                  <span
+                                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-xs font-semibold text-sky-100"
+                                    >{{ employeeInitials(e) }}</span
+                                  >
+                                  <span class="min-w-0">
+                                    <span class="block font-medium text-slate-100 truncate"
+                                      >{{ e.firstName }} {{ e.lastName }}</span
+                                    >
+                                    <span class="block text-xs text-slate-500 truncate"
+                                      >{{ e.role }} · {{ e.email }}</span
+                                    >
+                                  </span>
+                                </button>
+                              </li>
+                            } @empty {
+                              <li class="px-3 py-4 text-sm text-slate-500">Aucun résultat</li>
+                            }
+                          </ul>
+                          <div class="flex flex-wrap gap-3 pt-2">
+                            <button
+                              type="button"
+                              (click)="saveMetierManagerStructure(sel.id)"
+                              [disabled]="saving() || !draftEmployeeId()"
+                              class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                            >
+                              <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
+                              Enregistrer
+                            </button>
+                            <button
+                              type="button"
+                              (click)="clearMetierManagerStructure(sel.id)"
+                              [disabled]="saving() || metierManagerLabel(sel.id) === '—'"
+                              class="inline-flex items-center justify-center gap-2 rounded-lg border border-navy-600 px-4 py-2.5 text-sm text-slate-300 hover:bg-navy-800 disabled:opacity-50"
+                            >
+                              <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+                              Retirer le manager
+                            </button>
+                          </div>
+                        </div>
+                      }
+
+                      @if (sel.kind === 'pole') {
                         <div class="space-y-3">
                           <label class="text-sm font-medium text-slate-300 block">Chef de projet</label>
                           @if (draftEmployeeId()) {
@@ -784,85 +1102,85 @@ function httpErrMessage(err: unknown): string {
                         </div>
                       }
 
-                      @if (sel.kind === 'pole') {
+                      @if (sel.kind === 'cellule') {
                         <div class="space-y-3">
-                          <label class="text-sm font-medium text-slate-300 block">Responsable (Superviseur)</label>
-                          @if (draftEmployeeId()) {
-                            <div
-                              class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-navy-700 bg-navy-950/50 px-3 py-2.5"
-                            >
-                              <span class="text-sm text-slate-200">
-                                <span class="text-slate-500">Sélection :</span>
-                                <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
-                              </span>
-                              <button
-                                type="button"
-                                (click)="beginRepickDetailEmployee()"
-                                class="text-xs font-medium text-indigo-400 hover:text-indigo-300"
+                          <label class="text-sm font-medium text-slate-300 block">Superviseur</label>
+                            @if (draftEmployeeId()) {
+                              <div
+                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-navy-700 bg-navy-950/50 px-3 py-2.5"
                               >
-                                Changer
-                              </button>
-                            </div>
-                          }
-                          <input
-                            type="search"
-                            class="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-500"
-                            placeholder="Rechercher un employé (nom, rôle, e-mail)…"
-                            [value]="structureDetailEmpSearch()"
-                            (input)="setDetailEmpSearch($event)"
-                          />
-                          <ul
-                            class="max-h-56 overflow-y-auto rounded-lg border border-navy-800 bg-navy-950/40 divide-y divide-navy-800"
-                          >
-                            @for (e of filteredDetailAssignables(); track e.id) {
-                              <li>
+                                <span class="text-sm text-slate-200">
+                                  <span class="text-slate-500">Sélection :</span>
+                                  <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
+                                </span>
                                 <button
                                   type="button"
-                                  (click)="pickDetailEmployee(e.id)"
-                                  class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-navy-800/60 transition-colors"
+                                  (click)="beginRepickDetailEmployee()"
+                                  class="text-xs font-medium text-indigo-400 hover:text-indigo-300"
                                 >
-                                  <span
-                                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-xs font-semibold text-emerald-100"
-                                    >{{ employeeInitials(e) }}</span
-                                  >
-                                  <span class="min-w-0">
-                                    <span class="block font-medium text-slate-100 truncate"
-                                      >{{ e.firstName }} {{ e.lastName }}</span
-                                    >
-                                    <span class="block text-xs text-slate-500 truncate"
-                                      >{{ e.role }} · {{ e.email }}</span
-                                    >
-                                  </span>
+                                  Changer
                                 </button>
-                              </li>
-                            } @empty {
-                              <li class="px-3 py-4 text-sm text-slate-500">Aucun résultat</li>
+                              </div>
                             }
-                          </ul>
-                          <div class="flex flex-wrap gap-3 pt-2">
-                            <button
-                              type="button"
-                              (click)="savePoleSupervisor(sel.id)"
-                              [disabled]="saving() || !draftEmployeeId()"
-                              class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                            <input
+                              type="search"
+                              class="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-500"
+                              placeholder="Rechercher un employé (nom, rôle, e-mail)…"
+                              [value]="structureDetailEmpSearch()"
+                              (input)="setDetailEmpSearch($event)"
+                            />
+                            <ul
+                              class="max-h-48 overflow-y-auto rounded-lg border border-navy-800 bg-navy-950/40 divide-y divide-navy-800"
                             >
-                              <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
-                              Enregistrer
-                            </button>
-                            <button
-                              type="button"
-                              (click)="clearPoleSupervisor(sel.id)"
-                              [disabled]="saving() || !supervisorUserId(sel.id)"
-                              class="inline-flex items-center justify-center gap-2 rounded-lg border border-navy-600 px-4 py-2.5 text-sm text-slate-300 hover:bg-navy-800 disabled:opacity-50"
-                            >
-                              <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
-                              Retirer le superviseur
-                            </button>
-                          </div>
+                              @for (e of filteredDetailAssignables(); track e.id) {
+                                <li>
+                                  <button
+                                    type="button"
+                                    (click)="pickDetailEmployee(e.id)"
+                                    class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-navy-800/60 transition-colors"
+                                  >
+                                    <span
+                                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-xs font-semibold text-emerald-100"
+                                      >{{ employeeInitials(e) }}</span
+                                    >
+                                    <span class="min-w-0">
+                                      <span class="block font-medium text-slate-100 truncate"
+                                        >{{ e.firstName }} {{ e.lastName }}</span
+                                      >
+                                      <span class="block text-xs text-slate-500 truncate"
+                                        >{{ e.role }} · {{ e.email }}</span
+                                      >
+                                    </span>
+                                  </button>
+                                </li>
+                              } @empty {
+                                <li class="px-3 py-4 text-sm text-slate-500">Aucun résultat</li>
+                              }
+                            </ul>
+                            <div class="flex flex-wrap gap-3">
+                              <button
+                                type="button"
+                                (click)="savePoleSupervisor(sel.id)"
+                                [disabled]="saving() || !draftEmployeeId()"
+                                class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                              >
+                                <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
+                                Enregistrer
+                              </button>
+                              <button
+                                type="button"
+                                (click)="clearPoleSupervisor(sel.id)"
+                                [disabled]="saving() || !supervisorUserId(sel.id)"
+                                class="inline-flex items-center justify-center gap-2 rounded-lg border border-navy-600 px-4 py-2.5 text-sm text-slate-300 hover:bg-navy-800 disabled:opacity-50"
+                              >
+                                <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+                                Retirer le superviseur
+                              </button>
+                            </div>
                         </div>
                       }
 
-                      @if (sel.kind === 'cellule') {
+                      @if (sel.kind === 'service') {
                         <div class="space-y-5 border-t border-navy-800 pt-5">
                           <div class="space-y-3">
                             <label class="text-sm font-medium text-slate-300 block">Référent technique</label>
@@ -1190,13 +1508,14 @@ export class OrganisationManagementComponent implements OnInit {
   };
 
   readonly mainTabs: { id: OrgMainTab; label: string }[] = [
-    { id: 'departments', label: 'Gestion des pôles' },
-    { id: 'poles', label: 'Gestion des cellules' },
-    { id: 'cellules', label: 'Gestion des services' },
+    { id: 'metier-departments', label: 'Départements' },
+    { id: 'departments', label: 'Pôles' },
+    { id: 'poles', label: 'Cellules' },
+    { id: 'cellules', label: 'Services' },
     { id: 'structure', label: 'Vue structure' },
   ];
 
-  readonly mainTab = signal<OrgMainTab>('departments');
+  readonly mainTab = signal<OrgMainTab>('metier-departments');
 
   readonly loading = signal(true);
   readonly saving = signal(false);
@@ -1208,12 +1527,19 @@ export class OrganisationManagementComponent implements OnInit {
   readonly selection = signal<OrgTreeSelection | null>(null);
   readonly search = signal('');
 
+  readonly newMetierDeptName = signal('');
+  readonly newPoleBusinessDeptId = signal('');
   readonly newDepartmentName = signal('');
+  readonly newPoleMetierDeptId = signal('');
   readonly newPoleDeptId = signal('');
   readonly newPoleName = signal('');
+  readonly newCellMetierDeptId = signal('');
   readonly newCellDeptId = signal('');
   readonly newCellPoleId = signal('');
   readonly newCellName = signal('');
+
+  readonly draftMetierManagerByDept = signal<Record<string, string>>({});
+  readonly draftAttachPoleDept = signal<Record<string, string>>({});
 
   readonly draftManagerByDept = signal<Record<string, string>>({});
   readonly draftSupervisorByPole = signal<Record<string, string>>({});
@@ -1229,6 +1555,8 @@ export class OrganisationManagementComponent implements OnInit {
     pilot: new Set<string>(),
   });
 
+  readonly expandedCelluleIds = signal<Set<string>>(new Set());
+
   readonly expandedCellPilotIds = signal<Set<string>>(new Set());
 
   readonly draftEmployeeId = signal('');
@@ -1240,29 +1568,35 @@ export class OrganisationManagementComponent implements OnInit {
   readonly structurePilotEmpSearch = signal('');
   readonly structureActivityLog = signal<StructureLogEntry[]>([]);
 
+  readonly newMetierDeptNameConflict = computed((): string | null => {
+    const name = this.newMetierDeptName().trim();
+    if (!name) return null;
+    const dupe = (this.data()?.operationalDepartments ?? []).some((d) => orgNamesEqual(d.name, name));
+    return dupe ? 'Un département porte déjà ce nom.' : null;
+  });
+
   readonly newDepartmentNameConflict = computed((): string | null => {
     const name = this.newDepartmentName().trim();
     if (!name) return null;
-    const dupe = (this.data()?.departments ?? []).some((d) => orgNamesEqual(d.name, name));
+    const dupe = this.allPolesFlat().some((p) => orgNamesEqual(p.poleName, name));
     return dupe ? ORG_DUPLICATE_POLE_MSG : null;
   });
 
   readonly newPoleNameConflict = computed((): string | null => {
     const name = this.newPoleName().trim();
-    const deptId = this.newPoleDeptId().trim();
-    if (!name || !deptId) return null;
-    const dept = this.data()?.departments.find((d) => d.id === deptId);
-    const dupe = (dept?.poles ?? []).some((p) => orgNamesEqual(p.name, name));
+    const poleId = this.newPoleDeptId().trim();
+    if (!name || !poleId) return null;
+    const pole = this.findPoleNode(poleId);
+    const dupe = (pole?.cellules ?? []).some((c) => orgNamesEqual(c.name, name));
     return dupe ? ORG_DUPLICATE_CELLULE_MSG : null;
   });
 
   readonly newCellNameConflict = computed((): string | null => {
     const name = this.newCellName().trim();
-    const poleId = this.newCellPoleId().trim();
-    if (!name || !poleId) return null;
-    const dept = this.data()?.departments.find((d) => d.poles.some((p) => p.id === poleId));
-    const pole = dept?.poles.find((p) => p.id === poleId);
-    const dupe = (pole?.cells ?? []).some((c) => orgNamesEqual(c.name, name));
+    const celluleId = this.newCellPoleId().trim();
+    if (!name || !celluleId) return null;
+    const cellule = this.findCelluleNode(celluleId);
+    const dupe = (cellule?.services ?? []).some((s) => orgNamesEqual(s.name, name));
     return dupe ? ORG_DUPLICATE_SERVICE_MSG : null;
   });
 
@@ -1278,7 +1612,9 @@ export class OrganisationManagementComponent implements OnInit {
     this.mainTab.set(id);
     const hadTabQuery = this.route.snapshot.queryParamMap.has('tab');
     const tabQuery =
-      id === 'departments' ? (hadTabQuery ? 'departments' : null) : id;
+      id === 'departments' || id === 'metier-departments'
+        ? (hadTabQuery ? id : null)
+        : id;
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { tab: tabQuery },
@@ -1296,7 +1632,7 @@ export class OrganisationManagementComponent implements OnInit {
       .subscribe({
         next: (d) => {
           this.data.set(d);
-          if (!silent) this.expandAllForDiscovery(d.departments);
+          if (!silent) this.expandAllForDiscovery(d.operationalDepartments);
           this.rebuildRowDraftsFromData(d);
           this.syncDraftFromSelection();
           this.ensureStructureCreateFormDefaults(d);
@@ -1339,7 +1675,13 @@ export class OrganisationManagementComponent implements OnInit {
       }
     }
 
+    const metierMgr: Record<string, string> = {};
+    for (const md of d.operationalDepartments) {
+      metierMgr[md.id] = prevMgr[md.id] ?? '';
+    }
+
     this.draftManagerByDept.set(mgr);
+    this.draftMetierManagerByDept.set(metierMgr);
     this.draftSupervisorByPole.set(sup);
     this.draftCoachByCell.set(coach);
     this.draftPilotByCell.set(pilotPick);
@@ -1347,65 +1689,204 @@ export class OrganisationManagementComponent implements OnInit {
   }
 
   private ensureStructureCreateFormDefaults(d: OrgAssignmentsOverview): void {
-    const depts = d.departments;
-    if (depts.length === 0) {
+    const metierDepts = d.operationalDepartments;
+    if (metierDepts.length === 0) {
+      this.newPoleBusinessDeptId.set('');
+      this.newPoleMetierDeptId.set('');
+      this.newCellMetierDeptId.set('');
       this.newPoleDeptId.set('');
       this.newCellDeptId.set('');
       this.newCellPoleId.set('');
       return;
     }
-    if (!depts.some((x) => x.id === this.newPoleDeptId())) {
-      this.newPoleDeptId.set(depts[0].id);
+    if (!metierDepts.some((x) => x.id === this.newPoleBusinessDeptId())) {
+      this.newPoleBusinessDeptId.set(metierDepts[0].id);
     }
-    if (!depts.some((x) => x.id === this.newCellDeptId())) {
-      this.newCellDeptId.set(depts[0].id);
+    if (!metierDepts.some((x) => x.id === this.newPoleMetierDeptId())) {
+      this.newPoleMetierDeptId.set(metierDepts[0].id);
     }
-    const poles = depts.find((x) => x.id === this.newCellDeptId())?.poles ?? [];
-    if (!poles.some((p) => p.id === this.newCellPoleId())) {
-      this.newCellPoleId.set(poles[0]?.id ?? '');
+    if (!metierDepts.some((x) => x.id === this.newCellMetierDeptId())) {
+      this.newCellMetierDeptId.set(metierDepts[0].id);
+    }
+    const poles = this.polesForMetierDept(this.newPoleMetierDeptId());
+    if (!poles.some((p) => p.id === this.newPoleDeptId())) {
+      this.newPoleDeptId.set(poles[0]?.id ?? '');
+    }
+    const cellPoles = this.polesForMetierDept(this.newCellMetierDeptId());
+    if (!cellPoles.some((p) => p.id === this.newCellDeptId())) {
+      this.newCellDeptId.set(cellPoles[0]?.id ?? '');
+    }
+    const cellules = this.cellulesForPole(this.newCellDeptId());
+    if (!cellules.some((c) => c.id === this.newCellPoleId())) {
+      this.newCellPoleId.set(cellules[0]?.id ?? '');
     }
   }
 
-  patchNewCellDept(deptId: string): void {
-    this.newCellDeptId.set(deptId);
-    const poles = this.data()?.departments?.find((d) => d.id === deptId)?.poles ?? [];
-    const curPole = this.newCellPoleId();
-    if (curPole && poles.some((p) => p.id === curPole)) return;
-    this.newCellPoleId.set(poles[0]?.id ?? '');
+  polesForMetierDept(metierDeptId: string): OrgPoleNode[] {
+    return this.data()?.operationalDepartments.find((d) => d.id === metierDeptId)?.poles ?? [];
+  }
+
+  cellulesForPole(poleId: string): OrgCelluleNode[] {
+    return this.findPoleNode(poleId)?.cellules ?? [];
+  }
+
+  findPoleNode(poleId: string): OrgPoleNode | undefined {
+    const d = this.data();
+    if (!d) return undefined;
+    for (const md of d.operationalDepartments) {
+      const pole = md.poles.find((p) => p.id === poleId);
+      if (pole) return pole;
+    }
+    return d.unassignedPoles.find((p) => p.id === poleId);
+  }
+
+  findCelluleNode(celluleId: string): OrgCelluleNode | undefined {
+    const d = this.data();
+    if (!d) return undefined;
+    for (const md of d.operationalDepartments) {
+      for (const pole of md.poles) {
+        const cellule = pole.cellules.find((c) => c.id === celluleId);
+        if (cellule) return cellule;
+      }
+    }
+    for (const pole of d.unassignedPoles) {
+      const cellule = pole.cellules.find((c) => c.id === celluleId);
+      if (cellule) return cellule;
+    }
+    return undefined;
+  }
+
+  patchNewPoleMetierDept(metierDeptId: string): void {
+    this.newPoleMetierDeptId.set(metierDeptId);
+    const poles = this.polesForMetierDept(metierDeptId);
+    const cur = this.newPoleDeptId();
+    if (!cur || !poles.some((p) => p.id === cur)) {
+      this.newPoleDeptId.set(poles[0]?.id ?? '');
+    }
+  }
+
+  patchNewCellMetierDept(metierDeptId: string): void {
+    this.newCellMetierDeptId.set(metierDeptId);
+    const poles = this.polesForMetierDept(metierDeptId);
+    const curPole = this.newCellDeptId();
+    if (!curPole || !poles.some((p) => p.id === curPole)) {
+      this.newCellDeptId.set(poles[0]?.id ?? '');
+    }
+    this.patchNewCellDept(this.newCellDeptId());
+  }
+
+  patchNewCellDept(poleId: string): void {
+    this.newCellDeptId.set(poleId);
+    const cellules = this.cellulesForPole(poleId);
+    const curCell = this.newCellPoleId();
+    if (curCell && cellules.some((c) => c.id === curCell)) return;
+    this.newCellPoleId.set(cellules[0]?.id ?? '');
+  }
+
+  submitNewMetierDepartment(): void {
+    const name = this.newMetierDeptName().trim();
+    if (!name || this.newMetierDeptNameConflict()) return;
+    this.runMutation(
+      this.orgApi.createOperationalDepartment(name),
+      () => this.newMetierDeptName.set(''),
+      'Département opérationnel créé',
+    );
   }
 
   submitNewDepartment(): void {
+    const businessDeptId = this.newPoleBusinessDeptId().trim();
     const name = this.newDepartmentName().trim();
-    if (!name || this.newDepartmentNameConflict()) return;
+    if (!businessDeptId || !name || this.newDepartmentNameConflict()) return;
     this.runMutation(
-      this.orgApi.createStructureDepartment(name),
+      this.orgApi.createStructurePole(businessDeptId, name),
       () => this.newDepartmentName.set(''),
       'Pôle ajouté',
     );
   }
 
   submitNewPole(): void {
-    const deptId = this.newPoleDeptId().trim();
+    const poleId = this.newPoleDeptId().trim();
     const name = this.newPoleName().trim();
-    if (!deptId || !name || this.newPoleNameConflict()) return;
-    this.runMutation(this.orgApi.createStructurePole(deptId, name), () => this.newPoleName.set(''), 'Cellule ajoutée');
+    if (!poleId || !name || this.newPoleNameConflict()) return;
+    this.runMutation(this.orgApi.createStructureCellule(poleId, name), () => this.newPoleName.set(''), 'Cellule ajoutée');
   }
 
   submitNewCellule(): void {
-    const poleId = this.newCellPoleId().trim();
+    const celluleId = this.newCellPoleId().trim();
     const name = this.newCellName().trim();
-    if (!poleId || !name || this.newCellNameConflict()) return;
+    if (!celluleId || !name || this.newCellNameConflict()) return;
     this.runMutation(
-      this.orgApi.createStructureCellule(poleId, name),
+      this.orgApi.createStructureService(celluleId, name),
       () => this.newCellName.set(''),
       'Service ajouté',
+    );
+  }
+
+  attachOrphanPole(poleId: string): void {
+    const deptId = (this.draftAttachPoleDept()[poleId] ?? '').trim();
+    if (!deptId) return;
+    this.runMutation(
+      this.orgApi.attachPoleToOperationalDepartment(poleId, deptId),
+      () => this.draftAttachPoleDept.update((m) => ({ ...m, [poleId]: '' })),
+      'Pôle rattaché au département',
+    );
+  }
+
+  patchDraftAttachPole(poleId: string, value: string): void {
+    this.draftAttachPoleDept.update((m) => ({ ...m, [poleId]: value }));
+  }
+
+  draftAttachPole(poleId: string): string {
+    return this.draftAttachPoleDept()[poleId] ?? '';
+  }
+
+  draftMetierManager(deptId: string): string {
+    return this.draftMetierManagerByDept()[deptId] ?? '';
+  }
+
+  patchDraftMetierManager(deptId: string, value: string): void {
+    this.draftMetierManagerByDept.update((m) => ({ ...m, [deptId]: value }));
+  }
+
+  metierManagerLabel(deptId: string): string {
+    const md = this.data()?.operationalDepartments.find((d) => d.id === deptId);
+    const uid = md?.managerEmployeeId;
+    return uid ? this.employeeLabel(uid) : '—';
+  }
+
+  async saveMetierManagerRow(deptId: string): Promise<void> {
+    const id = this.draftMetierManager(deptId);
+    if (!id) return;
+    if (!(await this.confirmCrossRoleAssignment(id))) return;
+    const md = this.data()?.operationalDepartments.find((d) => d.id === deptId);
+    if (md?.managerEmployeeId && md.managerEmployeeId !== id) {
+      const ok = await this.confirmService.confirm({
+        title: 'Remplacer le manager ?',
+        message: 'Le manager opérationnel accède à l’interface Prime classique.',
+        confirmLabel: 'Remplacer',
+      });
+      if (!ok) return;
+    }
+    this.runMutation(
+      this.orgApi.setOperationalDepartmentManager(deptId, id),
+      () => this.patchDraftMetierManager(deptId, ''),
+      'Manager opérationnel enregistré',
+    );
+  }
+
+  clearMetierManagerRow(deptId: string): void {
+    this.runMutation(
+      this.orgApi.clearOperationalDepartmentManager(deptId),
+      undefined,
+      'Manager opérationnel retiré',
     );
   }
 
   private syncDraftFromSelection(): void {
     const sel = this.selection();
     if (!sel) return;
-    const teams = sel.kind === 'cellule' ? this.teamsForCell(sel.id) : [];
+    const serviceId = sel.kind === 'service' ? sel.id : '';
+    const teams = serviceId ? this.teamsForCell(serviceId) : [];
     if (teams.length > 0) {
       const curTeam = this.draftPilotTeamId();
       if (!curTeam || !teams.some((t) => t.id === curTeam)) {
@@ -1414,49 +1895,119 @@ export class OrganisationManagementComponent implements OnInit {
     }
   }
 
-  private expandAllForDiscovery(departments: Department[]): void {
+  private expandAllForDiscovery(departments: OperationalDepartmentNode[]): void {
     const ds = new Set<string>();
     const ps = new Set<string>();
+    const cs = new Set<string>();
     for (const d of departments) {
       ds.add(d.id);
       for (const p of d.poles) {
         ps.add(p.id);
+        for (const c of p.cellules) {
+          cs.add(c.id);
+        }
       }
     }
     this.expandedDeptIds.set(ds);
     this.expandedPoleIds.set(ps);
+    this.expandedCelluleIds.set(cs);
+  }
+
+  celluleExpanded(id: string): boolean {
+    return this.expandedCelluleIds().has(id);
+  }
+
+  toggleCelluleExpand(id: string): void {
+    const s = new Set(this.expandedCelluleIds());
+    if (s.has(id)) s.delete(id);
+    else s.add(id);
+    this.expandedCelluleIds.set(s);
   }
 
   allPolesFlat = computed((): FlatPoleRow[] => {
     const out: FlatPoleRow[] = [];
-    for (const d of this.data()?.departments ?? []) {
-      for (const p of d.poles) {
+    for (const md of this.data()?.operationalDepartments ?? []) {
+      for (const p of md.poles) {
         out.push({
-          departmentId: d.id,
-          departmentName: d.name,
+          metierDepartmentId: md.id,
+          metierDepartmentName: md.name,
           poleId: p.id,
           poleName: p.name,
+          unassigned: false,
         });
       }
+    }
+    for (const p of this.data()?.unassignedPoles ?? []) {
+      out.push({
+        metierDepartmentId: '',
+        metierDepartmentName: 'Sans département',
+        poleId: p.id,
+        poleName: p.name,
+        unassigned: true,
+      });
     }
     return out;
   });
 
   allCellulesFlat = computed((): FlatCelluleRow[] => {
     const out: FlatCelluleRow[] = [];
-    for (const d of this.data()?.departments ?? []) {
-      for (const p of d.poles) {
-        for (const c of p.cells) {
+    const pushCellules = (
+      md: OperationalDepartmentNode,
+      pole: OrgPoleNode,
+      unassigned: boolean,
+    ) => {
+      for (const c of pole.cellules) {
+        out.push({
+          metierDepartmentId: md.id,
+          metierDepartmentName: unassigned ? 'Sans département' : md.name,
+          poleId: pole.id,
+          poleName: pole.name,
+          unassigned,
+          celluleId: c.id,
+          celluleName: c.name,
+        });
+      }
+    };
+    for (const md of this.data()?.operationalDepartments ?? []) {
+      for (const p of md.poles) {
+        pushCellules(md, p, false);
+      }
+    }
+    for (const p of this.data()?.unassignedPoles ?? []) {
+      pushCellules({ id: '', code: '', name: 'Sans département', poles: [] }, p, true);
+    }
+    return out;
+  });
+
+  allServicesFlat = computed((): FlatCelluleRow[] => {
+    const out: FlatCelluleRow[] = [];
+    const pushServices = (
+      md: OperationalDepartmentNode,
+      pole: OrgPoleNode,
+      unassigned: boolean,
+    ) => {
+      for (const c of pole.cellules) {
+        for (const s of c.services) {
           out.push({
-            departmentId: d.id,
-            departmentName: d.name,
-            poleId: p.id,
-            poleName: p.name,
-            celluleId: c.id,
-            celluleName: c.name,
+            metierDepartmentId: md.id,
+            metierDepartmentName: unassigned ? 'Sans département' : md.name,
+            poleId: pole.id,
+            poleName: pole.name,
+            unassigned,
+            parentCelluleName: c.name,
+            celluleId: s.id,
+            celluleName: s.name,
           });
         }
       }
+    };
+    for (const md of this.data()?.operationalDepartments ?? []) {
+      for (const p of md.poles) {
+        pushServices(md, p, false);
+      }
+    }
+    for (const p of this.data()?.unassignedPoles ?? []) {
+      pushServices({ id: '', code: '', name: 'Sans département', poles: [] }, p, true);
     }
     return out;
   });
@@ -1468,38 +2019,52 @@ export class OrganisationManagementComponent implements OnInit {
 
   filteredDepartmentsForTable = computed(() => {
     const q = this.search().trim().toLowerCase();
-    const depts = this.data()?.departments ?? [];
-    return depts.filter((d) => this.matchesSearch(q, d.name));
+    return this.allPolesFlat().filter((r) =>
+      this.matchesSearch(q, r.metierDepartmentName, r.poleName),
+    );
+  });
+
+  filteredMetierDepartmentsForTable = computed(() => {
+    const q = this.search().trim().toLowerCase();
+    return (this.data()?.operationalDepartments ?? []).filter((d) =>
+      this.matchesSearch(q, d.code, d.name),
+    );
   });
 
   filteredPolesForTable = computed(() => {
     const q = this.search().trim().toLowerCase();
-    return this.allPolesFlat().filter((r) => this.matchesSearch(q, r.departmentName, r.poleName));
+    return this.allCellulesFlat().filter((r) =>
+      this.matchesSearch(q, r.metierDepartmentName, r.poleName, r.celluleName),
+    );
   });
 
   filteredCellulesForTable = computed(() => {
     const q = this.search().trim().toLowerCase();
-    return this
-      .allCellulesFlat()
-      .filter((r) => this.matchesSearch(q, r.departmentName, r.poleName, r.celluleName));
+    return this.allServicesFlat().filter((r) =>
+      this.matchesSearch(q, r.metierDepartmentName, r.poleName, r.celluleName),
+    );
   });
 
-  filteredDepartments = computed(() => {
+  filteredOperationalTree = computed(() => {
     const q = this.search().trim().toLowerCase();
-    const depts = this.data()?.departments ?? [];
+    const depts = this.data()?.operationalDepartments ?? [];
     if (!q) return depts;
     return depts.filter((d) => {
-      if (d.name.toLowerCase().includes(q)) return true;
+      if (d.name.toLowerCase().includes(q) || d.code.toLowerCase().includes(q)) return true;
       return d.poles.some(
         (p) =>
-          p.name.toLowerCase().includes(q) || p.cells.some((c) => c.name.toLowerCase().includes(q)),
+          p.name.toLowerCase().includes(q) ||
+          p.cellules.some(
+            (c) =>
+              c.name.toLowerCase().includes(q) ||
+              c.services.some((s) => s.name.toLowerCase().includes(q)),
+          ),
       );
     });
   });
 
-  readonly polesForNewCellForm = computed((): Pole[] => {
-    const deptId = this.newCellDeptId();
-    return this.data()?.departments?.find((d) => d.id === deptId)?.poles ?? [];
+  readonly polesForNewCellForm = computed((): OrgPoleNode[] => {
+    return this.polesForMetierDept(this.newCellMetierDeptId());
   });
 
   assignableEmployees = computed((): Employee[] => {
@@ -1531,15 +2096,21 @@ export class OrganisationManagementComponent implements OnInit {
     );
   });
 
-  /** Employés rattachés au nœud (legacy : department=pôle, pole=cellule, cellule=service feuille). */
+  /** Employés rattachés au nœud sélectionné dans la vue structure. */
   private employeesForStructureSelection(
     sel: OrgTreeSelection,
     employees: readonly Employee[],
   ): Employee[] {
-    if (sel.kind === 'department') {
-      return employees.filter((e) => e.poleId === sel.id || e.departementId === sel.id);
+    if (sel.kind === 'metierDepartment') {
+      const poleIds = new Set(
+        (this.data()?.operationalDepartments.find((d) => d.id === sel.id)?.poles ?? []).map((p) => p.id),
+      );
+      return employees.filter((e) => poleIds.has(e.poleId));
     }
     if (sel.kind === 'pole') {
+      return employees.filter((e) => e.poleId === sel.id);
+    }
+    if (sel.kind === 'cellule') {
       return employees.filter((e) => e.celluleId === sel.id);
     }
     return employees.filter(
@@ -1561,20 +2132,31 @@ export class OrganisationManagementComponent implements OnInit {
     const sel = this.selection();
     const data = this.data();
     const employees = data?.employees ?? [];
-    const depts = data?.departments ?? [];
 
     if (!sel) {
-      const sansMgr = depts.filter((d) => !this.managerUserId(d.id)).length;
+      const sansMgr = this.allPolesFlat().filter((p) => !this.managerUserId(p.poleId)).length;
+      const sansMetier = (data?.operationalDepartments ?? []).filter((d) => !d.managerEmployeeId).length;
       return {
         scopeTitle: 'Organisation',
         effectif: employees.length,
         parite: 'Non disponible',
-        vacants: `${sansMgr} pôle(s) sans chef de projet`,
+        vacants: `${sansMetier} dépt(s) sans manager · ${sansMgr} pôle(s) sans chef de projet`,
       };
     }
-    if (sel.kind === 'department') {
-      const d = depts.find((x) => x.id === sel.id);
-      const sansSup = (d?.poles ?? []).filter((p) => !this.supervisorUserId(p.id)).length;
+    if (sel.kind === 'metierDepartment') {
+      const md = data?.operationalDepartments.find((x) => x.id === sel.id);
+      const sansChef = (md?.poles ?? []).filter((p) => !this.managerUserId(p.id)).length;
+      const effectif = this.employeesForStructureSelection(sel, employees).length;
+      return {
+        scopeTitle: sel.name,
+        effectif,
+        parite: 'Non disponible',
+        vacants: `${sansChef} pôle(s) sans chef de projet`,
+      };
+    }
+    if (sel.kind === 'pole') {
+      const pole = this.findPoleNode(sel.id);
+      const sansSup = (pole?.cellules ?? []).filter((c) => !this.supervisorUserId(c.id)).length;
       const effectif = this.employeesForStructureSelection(sel, employees).length;
       return {
         scopeTitle: sel.name,
@@ -1583,16 +2165,9 @@ export class OrganisationManagementComponent implements OnInit {
         vacants: `${sansSup} cellule(s) sans superviseur`,
       };
     }
-    if (sel.kind === 'pole') {
-      let cells: Cellule[] = [];
-      for (const d of depts) {
-        const p = d.poles.find((x) => x.id === sel.id);
-        if (p) {
-          cells = p.cells;
-          break;
-        }
-      }
-      const sansCoach = cells.filter((c) => !this.coachUserId(c.id)).length;
+    if (sel.kind === 'cellule') {
+      const cellule = this.findCelluleNode(sel.id);
+      const sansCoach = (cellule?.services ?? []).filter((s) => !this.coachUserId(s.id)).length;
       const effectif = this.employeesForStructureSelection(sel, employees).length;
       return {
         scopeTitle: sel.name,
@@ -1759,7 +2334,7 @@ export class OrganisationManagementComponent implements OnInit {
     const base =
       'w-full grid grid-cols-[1.25rem_minmax(0,1fr)_minmax(0,9rem)] gap-x-3 gap-y-0.5 items-center px-3 py-3 text-left text-slate-100 hover:bg-navy-800/50 rounded-t-lg transition-colors';
     const sel = this.selection();
-    if (sel?.kind === 'department' && sel.id === deptId) {
+    if (sel?.kind === 'metierDepartment' && sel.id === deptId) {
       return `${base} ring-2 ring-inset ring-indigo-500/45 bg-indigo-950/30`;
     }
     return base;
@@ -1775,11 +2350,21 @@ export class OrganisationManagementComponent implements OnInit {
     return base;
   }
 
-  cellButtonClass(cellId: string): string {
+  celluleTreeRowClass(celluleId: string): string {
+    const base =
+      'w-full grid grid-cols-[1.25rem_minmax(0,1fr)_minmax(0,8rem)] gap-x-2 gap-y-0.5 items-center px-2 py-2 text-left text-slate-300 hover:bg-navy-800/40 transition-colors';
+    const sel = this.selection();
+    if (sel?.kind === 'cellule' && sel.id === celluleId) {
+      return `${base} ring-2 ring-inset ring-indigo-500/45 bg-indigo-950/25`;
+    }
+    return base;
+  }
+
+  serviceButtonClass(serviceId: string): string {
     const base =
       'grid grid-cols-[0.75rem_minmax(0,1fr)_minmax(0,6.5rem)] gap-x-2 items-center w-full px-2 py-2.5 rounded-md text-left text-sm text-slate-300 hover:bg-navy-800/40 transition-colors';
     const sel = this.selection();
-    if (sel?.kind === 'cellule' && sel.id === cellId) {
+    if (sel?.kind === 'service' && sel.id === serviceId) {
       return `${base} ring-2 ring-inset ring-indigo-500/50 bg-indigo-950/35 text-slate-100`;
     }
     return base;
@@ -1799,8 +2384,8 @@ export class OrganisationManagementComponent implements OnInit {
     this.expandedPoleIds.set(s);
   }
 
-  selectDepartment(d: Department): void {
-    this.selection.set({ kind: 'department', id: d.id, name: d.name });
+  selectMetierDepartment(d: OperationalDepartmentNode): void {
+    this.selection.set({ kind: 'metierDepartment', id: d.id, name: d.name, code: d.code });
     this.draftEmployeeId.set('');
     this.draftPilotId.set('');
     this.draftPilotTeamId.set('');
@@ -1808,12 +2393,12 @@ export class OrganisationManagementComponent implements OnInit {
     this.structurePilotEmpSearch.set('');
   }
 
-  selectPole(d: Department, p: Pole): void {
+  selectPole(md: OperationalDepartmentNode, p: OrgPoleNode): void {
     this.selection.set({
       kind: 'pole',
       id: p.id,
       name: p.name,
-      departmentId: d.id,
+      metierDepartmentId: md.id,
     });
     this.draftEmployeeId.set('');
     this.draftPilotId.set('');
@@ -1822,17 +2407,38 @@ export class OrganisationManagementComponent implements OnInit {
     this.structurePilotEmpSearch.set('');
   }
 
-  selectCellule(d: Department, p: Pole, c: Cellule): void {
+  selectCellule(md: OperationalDepartmentNode, p: OrgPoleNode, c: OrgCelluleNode): void {
     this.selection.set({
       kind: 'cellule',
       id: c.id,
       name: c.name,
       poleId: p.id,
-      departmentId: d.id,
+      metierDepartmentId: md.id,
     });
     this.draftEmployeeId.set('');
-    const teams = c.teams ?? [];
     this.draftPilotId.set('');
+    this.draftPilotTeamId.set('');
+    this.structureDetailEmpSearch.set('');
+    this.structurePilotEmpSearch.set('');
+  }
+
+  selectService(
+    md: OperationalDepartmentNode,
+    p: OrgPoleNode,
+    c: OrgCelluleNode,
+    s: { id: string; name: string },
+  ): void {
+    this.selection.set({
+      kind: 'service',
+      id: s.id,
+      name: s.name,
+      celluleId: c.id,
+      poleId: p.id,
+      metierDepartmentId: md.id,
+    });
+    this.draftEmployeeId.set('');
+    this.draftPilotId.set('');
+    const teams = this.teamsForCell(s.id);
     this.draftPilotTeamId.set(teams[0]?.id ?? '');
     this.structureDetailEmpSearch.set('');
     this.structurePilotEmpSearch.set('');
@@ -1874,12 +2480,10 @@ export class OrganisationManagementComponent implements OnInit {
     this.structureActivityLog.update((list) => [{ at, message }, ...list].slice(0, 30));
   }
 
-  managerUserId(deptId: string): string | undefined {
+  managerUserId(poleId: string): string | undefined {
     const d = this.data();
     if (!d) return undefined;
-    const dept = d.departments.find((x) => x.id === deptId);
-    if (!dept) return undefined;
-    return matchAssignmentUserId(d.managerEtage, [dept.id, ...dept.poles.map((p) => p.id)]);
+    return findStructureIncumbent(d, 'Chef de projet', { orgPoleId: poleId })?.userId;
   }
 
   supervisorUserId(poleId: string): string | undefined {
@@ -1971,6 +2575,31 @@ export class OrganisationManagementComponent implements OnInit {
     return t?.value ?? '';
   }
 
+  private async confirmCrossRoleAssignment(employeeId: string): Promise<boolean> {
+    const overview = this.data();
+    if (!overview) return true;
+    const existing = findEmployeeStructuralRole(overview, employeeId);
+    if (!existing) return true;
+    const name = employeeDisplayName(overview.employees, employeeId);
+    return this.confirmService.confirm({
+      title: 'Remplacer le rôle actuel',
+      message: buildCrossRoleOverwriteMessage(name, existing),
+      confirmLabel: 'Remplacer et continuer',
+      cancelLabel: 'Annuler',
+      variant: 'warning',
+    });
+  }
+
+  private formatRevokedLog(result: unknown): string[] {
+    if (!result || typeof result !== 'object') return [];
+    const revoked = (result as StructuralRoleAssignmentResult).revoked;
+    if (!Array.isArray(revoked) || revoked.length === 0) return [];
+    return revoked.map((v) => {
+      const where = v.nodeLabel ?? v.departmentCode ?? v.nodeId;
+      return `Ancien rôle retiré : ${v.role}${where ? ` (${where})` : ''}`;
+    });
+  }
+
   private async confirmStructureReplace(
     roleName: 'Chef de projet' | 'Superviseur' | 'Référent technique',
     incumbentUserId: string | undefined,
@@ -1996,6 +2625,9 @@ export class OrganisationManagementComponent implements OnInit {
   async saveDepartmentManagerRow(departmentId: string): Promise<void> {
     const id = this.draftManagerByDept()[departmentId];
     if (!id) return;
+    if (!(await this.confirmCrossRoleAssignment(id))) {
+      return;
+    }
     if (!(await this.confirmStructureReplace('Chef de projet', this.managerUserId(departmentId), id))) {
       return;
     }
@@ -2020,6 +2652,7 @@ export class OrganisationManagementComponent implements OnInit {
   async savePoleSupervisorRow(poleId: string): Promise<void> {
     const id = this.draftSupervisorByPole()[poleId];
     if (!id) return;
+    if (!(await this.confirmCrossRoleAssignment(id))) return;
     if (!(await this.confirmStructureReplace('Superviseur', this.supervisorUserId(poleId), id))) {
       return;
     }
@@ -2044,6 +2677,7 @@ export class OrganisationManagementComponent implements OnInit {
   async saveCellCoachRow(celluleId: string): Promise<void> {
     const id = this.draftCoachByCell()[celluleId];
     if (!id) return;
+    if (!(await this.confirmCrossRoleAssignment(id))) return;
     if (!(await this.confirmStructureReplace('Référent technique', this.coachUserId(celluleId), id))) {
       return;
     }
@@ -2065,9 +2699,10 @@ export class OrganisationManagementComponent implements OnInit {
     );
   }
 
-  addPilotRow(celluleId: string): void {
+  async addPilotRow(celluleId: string): Promise<void> {
     const emp = this.draftPilotByCell()[celluleId];
     if (!emp) return;
+    if (!(await this.confirmCrossRoleAssignment(emp))) return;
     const teams = this.teamsForCell(celluleId);
     const teamId =
       teams.length > 1
@@ -2083,9 +2718,40 @@ export class OrganisationManagementComponent implements OnInit {
     );
   }
 
+  async saveMetierManagerStructure(deptId: string): Promise<void> {
+    const id = this.draftEmployeeId();
+    if (!id) return;
+    if (!(await this.confirmCrossRoleAssignment(id))) return;
+    const md = this.data()?.operationalDepartments.find((d) => d.id === deptId);
+    if (md?.managerEmployeeId && md.managerEmployeeId !== id) {
+      const ok = await this.confirmService.confirm({
+        title: 'Remplacer le manager ?',
+        message: 'Le manager opérationnel accède à l’interface Prime classique.',
+        confirmLabel: 'Remplacer',
+      });
+      if (!ok) return;
+    }
+    this.runMutation(
+      this.orgApi.setOperationalDepartmentManager(deptId, id),
+      undefined,
+      'Manager opérationnel mis à jour (vue structure)',
+    );
+  }
+
+  clearMetierManagerStructure(deptId: string): void {
+    this.runMutation(
+      this.orgApi.clearOperationalDepartmentManager(deptId),
+      undefined,
+      'Manager opérationnel retiré (vue structure)',
+    );
+  }
+
   async saveDepartmentManager(departmentId: string): Promise<void> {
     const id = this.draftEmployeeId();
     if (!id) return;
+    if (!(await this.confirmCrossRoleAssignment(id))) {
+      return;
+    }
     if (!(await this.confirmStructureReplace('Chef de projet', this.managerUserId(departmentId), id))) {
       return;
     }
@@ -2107,6 +2773,7 @@ export class OrganisationManagementComponent implements OnInit {
   async savePoleSupervisor(poleId: string): Promise<void> {
     const id = this.draftEmployeeId();
     if (!id) return;
+    if (!(await this.confirmCrossRoleAssignment(id))) return;
     if (!(await this.confirmStructureReplace('Superviseur', this.supervisorUserId(poleId), id))) {
       return;
     }
@@ -2128,6 +2795,7 @@ export class OrganisationManagementComponent implements OnInit {
   async saveCellCoach(celluleId: string): Promise<void> {
     const id = this.draftEmployeeId();
     if (!id) return;
+    if (!(await this.confirmCrossRoleAssignment(id))) return;
     if (!(await this.confirmStructureReplace('Référent technique', this.coachUserId(celluleId), id))) {
       return;
     }
@@ -2146,9 +2814,10 @@ export class OrganisationManagementComponent implements OnInit {
     );
   }
 
-  addPilot(celluleId: string): void {
+  async addPilot(celluleId: string): Promise<void> {
     const emp = this.draftPilotId();
     if (!emp) return;
+    if (!(await this.confirmCrossRoleAssignment(emp))) return;
     const teams = this.teamsForCell(celluleId);
     const teamId =
       teams.length > 1 ? this.draftPilotTeamId() || teams[0]?.id || undefined : undefined;
@@ -2171,9 +2840,12 @@ export class OrganisationManagementComponent implements OnInit {
     this.error.set(null);
     this.saving.set(true);
     obs.pipe(finalize(() => this.saving.set(false))).subscribe({
-      next: () => {
+      next: (result: unknown) => {
         onOk?.();
         if (logMessage) this.pushStructureLog(logMessage);
+        for (const msg of this.formatRevokedLog(result)) {
+          this.pushStructureLog(msg);
+        }
         this.draftEmployeeId.set('');
         this.draftPilotId.set('');
         this.load(true);

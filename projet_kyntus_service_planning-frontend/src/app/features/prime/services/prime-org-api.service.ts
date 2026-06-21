@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { Observable, throwError, timer } from 'rxjs';
 import { catchError, filter, map, switchMap, take, timeout } from 'rxjs/operators';
 import type { Cellule, Department, Employee, Pole } from '../models';
+import type { OperationalDepartmentNode, OrgPoleNode } from '../models/org-tree.types';
 
 const orgBase = '/api/directory/org';
 const directoryBase = '/api/directory';
@@ -51,6 +52,17 @@ export interface CoachPilotLinkDto {
   pilotUserId: string;
 }
 
+export interface RevokedStructuralRoleDto {
+  role: string;
+  nodeId: string;
+  nodeLabel?: string | null;
+  departmentCode?: string | null;
+}
+
+export interface StructuralRoleAssignmentResult {
+  revoked: RevokedStructuralRoleDto[];
+}
+
 export interface SupervisorOrgScopeService {
   id: string;
   name: string;
@@ -74,7 +86,10 @@ export interface OrgAssignmentsOverview {
   services: ServiceNodeDto[];
   sousServices: SousServiceNodeDto[];
   employees: Employee[];
+  /** Legacy : pôle → cellule → service (compat formulaires employé). */
   departments: Department[];
+  operationalDepartments: OperationalDepartmentNode[];
+  unassignedPoles: OrgPoleNode[];
   managerEtage: ManagerEtageAssignmentDto[];
   supervisorService: SupervisorServiceAssignmentDto[];
   coachSousService: CoachSousServiceAssignmentDto[];
@@ -96,6 +111,8 @@ interface DirectoryOverviewResponse {
   sousServices: SousServiceNodeDto[];
   employees: Employee[];
   departments: Department[];
+  operationalDepartments?: OperationalDepartmentNode[];
+  unassignedPoles?: OrgPoleNode[];
   managerEtage: ManagerEtageAssignmentDto[];
   supervisorService: SupervisorServiceAssignmentDto[];
   coachSousService: CoachSousServiceAssignmentDto[];
@@ -133,6 +150,8 @@ export class PrimeOrgApiService {
           serviceId: (e as { serviceId?: string }).serviceId ?? '',
         })),
         departments: d.departments ?? [],
+        operationalDepartments: d.operationalDepartments ?? [],
+        unassignedPoles: d.unassignedPoles ?? [],
         managerEtage: d.managerEtage ?? [],
         supervisorService: (d.supervisorService ?? []).map((a) => ({
           id: a.id,
@@ -189,48 +208,25 @@ export class PrimeOrgApiService {
     );
   }
 
-  assignManagerEtage(userId: string, etageId: string): Observable<ManagerEtageAssignmentDto> {
-    return this.http
-      .post<void>(`${orgBase}/assignments/ChefDeProjet/${encodeURIComponent(etageId)}`, {
-        employeeId: userId,
-      })
-      .pipe(
-        map(() => ({
-          id: `m|${userId}|${etageId}`,
-          userId,
-          etageId,
-        })),
-      );
+  assignManagerEtage(userId: string, etageId: string): Observable<StructuralRoleAssignmentResult> {
+    return this.http.post<StructuralRoleAssignmentResult>(
+      `${orgBase}/assignments/ChefDeProjet/${encodeURIComponent(etageId)}`,
+      { employeeId: userId },
+    );
   }
 
-  assignSupervisorService(userId: string, serviceId: string): Observable<SupervisorServiceAssignmentDto> {
-    return this.http
-      .post<void>(`${orgBase}/assignments/Superviseur/${encodeURIComponent(serviceId)}`, {
-        employeeId: userId,
-      })
-      .pipe(
-        map(() => ({
-          id: `s|${userId}|${serviceId}`,
-          userId,
-          celluleId: serviceId,
-          serviceId,
-        })),
-      );
+  assignSupervisorService(userId: string, serviceId: string): Observable<StructuralRoleAssignmentResult> {
+    return this.http.post<StructuralRoleAssignmentResult>(
+      `${orgBase}/assignments/Superviseur/${encodeURIComponent(serviceId)}`,
+      { employeeId: userId },
+    );
   }
 
-  assignCoachSousService(userId: string, sousServiceId: string): Observable<CoachSousServiceAssignmentDto> {
-    return this.http
-      .post<void>(`${orgBase}/assignments/ReferentTechnique/${encodeURIComponent(sousServiceId)}`, {
-        employeeId: userId,
-      })
-      .pipe(
-        map(() => ({
-          id: `c|${userId}|${sousServiceId}`,
-          userId,
-          serviceId: sousServiceId,
-          sousServiceId,
-        })),
-      );
+  assignCoachSousService(userId: string, sousServiceId: string): Observable<StructuralRoleAssignmentResult> {
+    return this.http.post<StructuralRoleAssignmentResult>(
+      `${orgBase}/assignments/ReferentTechnique/${encodeURIComponent(sousServiceId)}`,
+      { employeeId: userId },
+    );
   }
 
   assignCoachPilot(coachUserId: string, pilotUserId: string): Observable<CoachPilotLinkDto> {
@@ -259,7 +255,7 @@ export class PrimeOrgApiService {
     return this.http.delete(`${primeBase}/org/assignments/coach-pilot/${encodeURIComponent(id)}`);
   }
 
-  setStructureManager(departmentId: string, employeeId: string): Observable<unknown> {
+  setStructureManager(departmentId: string, employeeId: string): Observable<StructuralRoleAssignmentResult> {
     return this.assignManagerEtage(employeeId, departmentId);
   }
 
@@ -267,7 +263,7 @@ export class PrimeOrgApiService {
     return this.removeManagerEtage(`m|*|${departmentId}`);
   }
 
-  setStructureSupervisor(poleId: string, employeeId: string): Observable<unknown> {
+  setStructureSupervisor(poleId: string, employeeId: string): Observable<StructuralRoleAssignmentResult> {
     return this.assignSupervisorService(employeeId, poleId);
   }
 
@@ -275,7 +271,7 @@ export class PrimeOrgApiService {
     return this.removeSupervisorService(`s|*|${poleId}`);
   }
 
-  setStructureCoach(celluleId: string, employeeId: string): Observable<unknown> {
+  setStructureCoach(celluleId: string, employeeId: string): Observable<StructuralRoleAssignmentResult> {
     return this.assignCoachSousService(employeeId, celluleId);
   }
 
@@ -283,38 +279,81 @@ export class PrimeOrgApiService {
     return this.removeCoachSousService(`c|*|${celluleId}`);
   }
 
-  addStructurePilot(celluleId: string, employeeId: string, teamId?: string | null): Observable<unknown> {
-    return this.http.post(`${primeBase}/org/structure/cellules/${encodeURIComponent(celluleId)}/pilots`, {
-      employeeId,
-      teamId: teamId || null,
+  addStructurePilot(serviceId: string, employeeId: string, _teamId?: string | null): Observable<StructuralRoleAssignmentResult> {
+    return this.http.post<StructuralRoleAssignmentResult>(
+      `${orgBase}/assignments/Pilote/${encodeURIComponent(serviceId)}`,
+      { employeeId },
+    );
+  }
+
+  removeStructurePilot(serviceId: string, employeeId: string): Observable<unknown> {
+    return this.http.delete(
+      `${orgBase}/assignments/Pilote/${encodeURIComponent(serviceId)}/employees/${encodeURIComponent(employeeId)}`,
+    );
+  }
+
+  createOperationalDepartment(name: string): Observable<OperationalDepartmentNode> {
+    return this.http
+      .post<{ id: string; code: string; name: string }>(`${directoryBase}/business-departments`, {
+        name: name.trim(),
+        kind: 'Operational',
+      })
+      .pipe(
+        map((r) => ({
+          id: r.id,
+          code: r.code,
+          name: r.name,
+          poles: [],
+        })),
+      );
+  }
+
+  setOperationalDepartmentManager(departmentId: string, employeeId: string): Observable<StructuralRoleAssignmentResult> {
+    return this.http.post<StructuralRoleAssignmentResult>(
+      `${directoryBase}/business-departments/${departmentId}/manager`,
+      { employeeId },
+    );
+  }
+
+  clearOperationalDepartmentManager(departmentId: string): Observable<unknown> {
+    return this.http.delete(`${directoryBase}/business-departments/${departmentId}/manager`);
+  }
+
+  attachPoleToOperationalDepartment(poleId: string, businessDepartmentId: string): Observable<unknown> {
+    return this.http.patch(`${orgBase}/structure/poles/${encodeURIComponent(poleId)}/business-department`, {
+      businessDepartmentId,
     });
   }
 
-  removeStructurePilot(celluleId: string, employeeId: string): Observable<unknown> {
-    return this.http.delete(
-      `${primeBase}/org/structure/cellules/${encodeURIComponent(celluleId)}/pilots/${encodeURIComponent(employeeId)}`,
-    );
-  }
-
+  /** @deprecated Utiliser createOperationalDepartment pour les départements métier. */
   createStructureDepartment(name: string): Observable<Department> {
-    return this.http.post<{ id: string }>(`${orgBase}/structure/poles`, { name: name.trim() }).pipe(
-      map((r) => ({ id: r.id, name: name.trim(), poles: [] } as Department)),
+    return this.createOperationalDepartment(name).pipe(
+      map((d) => ({ id: d.id, name: d.name, poles: [] } as Department)),
     );
   }
 
-  createStructurePole(departmentId: string, name: string): Observable<Pole> {
+  createStructurePole(businessDepartmentId: string, name: string): Observable<Pole> {
     return this.http
-      .post<{ id: string }>(`${orgBase}/structure/poles/${encodeURIComponent(departmentId)}/cellules`, {
+      .post<{ id: string }>(`${orgBase}/structure/poles`, {
         name: name.trim(),
+        businessDepartmentId,
       })
       .pipe(map((r) => ({ id: r.id, name: name.trim(), cellules: [] } as Pole)));
   }
 
   createStructureCellule(poleId: string, name: string): Observable<Cellule> {
     return this.http
-      .post<{ id: string }>(`${orgBase}/structure/cellules/${encodeURIComponent(poleId)}/services`, {
+      .post<{ id: string }>(`${orgBase}/structure/poles/${encodeURIComponent(poleId)}/cellules`, {
         name: name.trim(),
       })
       .pipe(map((r) => ({ id: r.id, name: name.trim(), poleId, services: [] } as Cellule)));
+  }
+
+  createStructureService(celluleId: string, name: string): Observable<{ id: string; name: string }> {
+    return this.http
+      .post<{ id: string }>(`${orgBase}/structure/cellules/${encodeURIComponent(celluleId)}/services`, {
+        name: name.trim(),
+      })
+      .pipe(map((r) => ({ id: r.id, name: name.trim() })));
   }
 }

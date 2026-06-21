@@ -262,6 +262,16 @@ namespace PlanningService.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DataType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("text");
+
                     b.Property<string>("FieldKey")
                         .IsRequired()
                         .HasColumnType("text");
@@ -270,6 +280,9 @@ namespace PlanningService.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsRequiredOnCreate")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSystemField")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Label")
@@ -1050,6 +1063,36 @@ namespace PlanningService.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("PlanningService.Models.UserCustomFieldValue", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("FieldKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "FieldKey")
+                        .IsUnique();
+
+                    b.ToTable("UserCustomFieldValues");
+                });
+
             modelBuilder.Entity("PlanningService.Models.UserManagedService", b =>
                 {
                     b.Property<int>("UserId")
@@ -1452,6 +1495,17 @@ namespace PlanningService.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("SubService");
+                });
+
+            modelBuilder.Entity("PlanningService.Models.UserCustomFieldValue", b =>
+                {
+                    b.HasOne("PlanningService.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("PlanningService.Models.UserManagedService", b =>

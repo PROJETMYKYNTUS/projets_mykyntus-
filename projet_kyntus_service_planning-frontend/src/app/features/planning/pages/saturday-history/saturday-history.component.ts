@@ -6,6 +6,7 @@ import { forkJoin } from 'rxjs';
 import { Calendar, CheckCircle, Circle, Inbox, Loader2, Save, Search, Users } from 'lucide';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-select-sync.directive';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import {
   PlanningService,
   SaturdayHistoryResponse,
@@ -40,7 +41,7 @@ type SaturdayEntryView = SaturdayHistoryResponse & {
 @Component({
   selector: 'app-saturday-history',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective, KyntusPageHeaderComponent],
   templateUrl: './saturday-history.component.html',
   styleUrls: ['./saturday-history.component.css'],
 })
@@ -183,7 +184,7 @@ export class SaturdayHistoryComponent implements OnInit {
         }
 
         this.allEntries = (history ?? []).map((entry) => {
-          const perimeter = perimeterById.get(entry.userId) ?? { pole: null, cellule: null, service: null };
+          const perimeter = perimeterById.get(entry.userId) ?? { operationalDepartment: null, pole: null, cellule: null, service: null };
           const searchText = [
             entry.fullName,
             perimeter.pole,

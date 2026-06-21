@@ -1,16 +1,15 @@
-<div class="page-wrapper ky-page-shell">
+<div class="ky-page-shell">
 
-  <div class="page-header">
-    <div class="header-info">
-      <span class="eyebrow">Planning</span>
-      <h1 class="page-title">Configuration des Shifts</h1>
-      <p class="page-sub">Définissez les shifts et pauses avant la génération</p>
+  <app-kyntus-page-header
+    title="Configuration Shifts"
+    subtitle="Définissez les shifts et pauses avant la génération">
+    <div actions>
+      <div class="week-badge">
+        <span class="week-label">Semaine en cours</span>
+        <span class="week-value">{{ currentWeekCode }}</span>
+      </div>
     </div>
-    <div class="week-badge">
-      <span class="week-label">Semaine en cours</span>
-      <span class="week-value">{{ currentWeekCode }}</span>
-    </div>
-  </div>
+  </app-kyntus-page-header>
 
   <div class="filters-panel ky-card selector-bar">
     <div class="form-group">

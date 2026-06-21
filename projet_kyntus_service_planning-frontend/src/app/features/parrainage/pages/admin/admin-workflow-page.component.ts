@@ -29,8 +29,8 @@ const ROLE_DETAILS: Record<string, string> = {
             <app-lucide-icon [icon]="gitIcon" className="w-6 h-6" />
           </div>
           <div>
-            <h3 class="text-xl font-bold text-white">Configuration du workflow</h3>
-            <p class="text-sm text-muted">Pilote → Coach → Manager → RP → RH</p>
+            <h1 class="prime-page-title">Configuration du flux</h1>
+            <p class="ky-page-subtitle">Pilote → Coach → Manager → RP → RH</p>
           </div>
         </div>
 

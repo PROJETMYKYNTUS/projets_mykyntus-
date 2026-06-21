@@ -3,6 +3,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 import { Subscription } from 'rxjs';
 import { ReclamationService } from '../../../core/services/reclamation.service';
 import { PropositionService } from '../../../core/services/proposition.service';
@@ -19,7 +20,7 @@ type AdminView = 'list' | 'detail' | 'reporting' | 'historique';
 @Component({
   selector: 'app-reclamation-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe],
+  imports: [CommonModule, FormsModule, DatePipe, KyntusPageHeaderComponent],
   templateUrl: './reclamation-admin.component.html',
   styleUrls: ['./reclamation-admin.component.css']
 })

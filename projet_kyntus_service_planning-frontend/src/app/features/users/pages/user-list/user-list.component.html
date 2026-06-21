@@ -1,36 +1,17 @@
-<div class="page ky-page-shell">
+<div class="ky-page-shell">
 
-  <div class="page-header">
-
-    <div class="header-left">
-
-      <div class="title-section">
-
-        <span class="eyebrow">Ressources Humaines</span>
-
-        <h1>Gestion des Employés</h1>
-
-        <p class="subtitle"><strong>{{ filteredUsers.length }}</strong> employé(s) trouvé(s)</p>
-
-        <button class="btn-import-export ky-btn-secondary" (click)="goimport()">
-
-          Import / Export
-
-        </button>
-
-      </div>
-
+  <app-kyntus-page-header
+    title="Employés"
+    [subtitle]="filteredUsers.length + ' employé(s) trouvé(s)'">
+    <div actions>
+      <button type="button" class="ky-btn-secondary btn-import-export" (click)="goimport()">
+        Import / Export
+      </button>
+      <button type="button" class="ky-btn-primary" (click)="createUser()">
+        <span class="plus-icon">+</span> Nouvel employé
+      </button>
     </div>
-
-    <button class="btn btn-primary ky-btn-primary" (click)="createUser()">
-
-      <span class="plus-icon">+</span> Nouvel Employé
-
-    </button>
-
-  </div>
-
-
+  </app-kyntus-page-header>
 
   <div class="search-container">
 
@@ -118,6 +99,10 @@
 
               <th>Statut</th>
 
+              @for (field of customFieldColumns; track field.fieldKey) {
+                <th>{{ field.label }}</th>
+              }
+
               <th class="col-actions">Actions</th>
 
             </tr>
@@ -156,11 +141,16 @@
 
                 <td><span class="badge badge-role">{{ user.roleName }}</span></td>
 
-                <td><span class="org-cell">{{ orgCellLabel(userPerimeter(user).pole) }}</span></td>
-
-                <td><span class="org-cell">{{ orgCellLabel(userPerimeter(user).cellule) }}</span></td>
-
-                <td><span class="org-cell org-cell--service">{{ orgCellLabel(userPerimeter(user).service) }}</span></td>
+                @if (userPerimeter(user).isSupport) {
+                  <td colspan="3">
+                    <span class="badge badge-support">Support</span>
+                    <span class="org-cell org-cell--support">{{ orgCellLabel(userPerimeter(user).supportDepartmentName) }}</span>
+                  </td>
+                } @else {
+                  <td><span class="org-cell">{{ orgCellLabel(userPerimeter(user).pole) }}</span></td>
+                  <td><span class="org-cell">{{ orgCellLabel(userPerimeter(user).cellule) }}</span></td>
+                  <td><span class="org-cell org-cell--service">{{ orgCellLabel(userPerimeter(user).service) }}</span></td>
+                }
 
                 <td>{{ user.hireDate | date:'dd/MM/yyyy' }}</td>
 
@@ -175,6 +165,10 @@
                   </span>
 
                 </td>
+
+                @for (field of customFieldColumns; track field.fieldKey) {
+                  <td>{{ customFieldValue(user, field.fieldKey) }}</td>
+                }
 
                 <td class="col-actions">
 

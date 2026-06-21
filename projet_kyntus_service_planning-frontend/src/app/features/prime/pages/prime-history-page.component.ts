@@ -14,6 +14,7 @@ import { PrimeService } from '../services/prime.service';
 import type { Employee, PrimeResult, PrimeType } from '../models';
 import { RoleService } from '../state/role.service';
 import { HierarchyDrillService } from '../state/hierarchy-drill.service';
+import { DepartmentContextService } from '../services/allowance-api.service';
 
 @Component({
   selector: 'app-prime-history-page',
@@ -28,7 +29,7 @@ import { HierarchyDrillService } from '../state/hierarchy-drill.service';
       <div class="prime-page-shell">
         <div class="flex justify-between items-center">
           <div>
-            <h1 class="text-3xl font-bold text-primary tracking-tight">Prime History</h1>
+            <h1 class="prime-page-title">Prime History</h1>
             <p class="text-muted mt-1">Historical log of all processed bonuses.</p>
           </div>
           <button
@@ -107,6 +108,7 @@ import { HierarchyDrillService } from '../state/hierarchy-drill.service';
 export class PrimeHistoryPageComponent {
   private readonly roleService = inject(RoleService);
   private readonly drillService = inject(HierarchyDrillService);
+  private readonly deptContext = inject(DepartmentContextService);
 
   readonly icons = { download: Download, file: FileText };
 
@@ -146,7 +148,7 @@ export class PrimeHistoryPageComponent {
     const resultsPromise =
       role === 'Admin' || role === 'RH' || role === 'Audit'
         ? PrimeService.getPrimeResults()
-        : PrimeService.getPrimeResultsScoped(role, user.id, drill);
+        : PrimeService.getPrimeResultsScoped(role, user.id, drill, this.deptContext.isSupportManager());
     void Promise.all([
       resultsPromise,
       PrimeService.getPrimeTypes(),

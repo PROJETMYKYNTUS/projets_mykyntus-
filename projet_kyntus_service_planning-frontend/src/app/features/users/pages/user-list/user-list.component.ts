@@ -1,10 +1,14 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { UserService } from '../../services/user.service';
 import { User } from '../../users-module';
+import { EmployeeFieldService } from '../../services/employee-field.service';
+import type { EmployeeImportFieldConfig } from '../../services/employee-import.service';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { AlertTriangle, Eye, Pencil, Search, Trash2 } from 'lucide';
 import type { Department } from '../../../prime/models';
@@ -15,13 +19,15 @@ import { SubServiceService } from '../../../sub-services/services/sub-service.se
 import {
   enrichUserOrgPerimeter,
   orgCellLabel,
+  type BusinessDepartmentRef,
+  type DirectoryEmployeeOrgRef,
   type UserOrgPerimeterView,
 } from '../../../../core/org/user-org-perimeter';
 
 @Component({
   selector: 'app-user-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent],
   templateUrl: './user-list.component.html',
   styleUrls: ['./user-list.component.css']
 })
@@ -30,7 +36,10 @@ export class UserListComponent implements OnInit {
   readonly orgCellLabel = orgCellLabel;
   users: User[] = [];
   filteredUsers: User[] = [];
+  customFieldColumns: EmployeeImportFieldConfig[] = [];
   private perimeterByUserId = new Map<number, UserOrgPerimeterView>();
+  private directoryEmployees: DirectoryEmployeeOrgRef[] = [];
+  private businessDepartments: BusinessDepartmentRef[] = [];
   searchTerm = '';
   loading = false;
   error: string | null = null;
@@ -39,11 +48,25 @@ export class UserListComponent implements OnInit {
     private userService: UserService,
     private subServiceService: SubServiceService,
     private orgApi: PrimeOrgApiService,
+    private fieldService: EmployeeFieldService,
+    private http: HttpClient,
     private router: Router,
     private cdr: ChangeDetectorRef
   ) {}
 
-  ngOnInit(): void { this.loadUsers(); }
+  ngOnInit(): void {
+    this.fieldService.getFields(true).subscribe({
+      next: (fields) => {
+        this.customFieldColumns = fields.filter((f) => f.isSystemField === false);
+        this.cdr.detectChanges();
+      },
+    });
+    this.loadUsers();
+  }
+
+  customFieldValue(user: User, fieldKey: string): string {
+    return user.customFields?.[fieldKey] ?? '—';
+  }
 
   userPerimeter(user: User): UserOrgPerimeterView {
     return this.perimeterByUserId.get(user.id) ?? enrichUserOrgPerimeter(user, [], null, []);
@@ -56,10 +79,14 @@ export class UserListComponent implements OnInit {
       users: this.userService.getAllUsers(),
       overview: this.orgApi.loadOverview(),
       subServices: this.subServiceService.getAllSubServices(),
+      directoryEmployees: this.http.get<DirectoryEmployeeOrgRef[]>('/api/directory/employees'),
+      businessDepartments: this.http.get<BusinessDepartmentRef[]>('/api/directory/business-departments'),
     }).subscribe({
-      next: ({ users, overview, subServices }) => {
+      next: ({ users, overview, subServices, directoryEmployees, businessDepartments }) => {
         this.users = users;
         this.filteredUsers = users;
+        this.directoryEmployees = directoryEmployees ?? [];
+        this.businessDepartments = businessDepartments ?? [];
         const departments = overview?.departments?.length
           ? overview.departments
           : [];
@@ -96,7 +123,14 @@ export class UserListComponent implements OnInit {
     for (const user of users) {
       this.perimeterByUserId.set(
         user.id,
-        enrichUserOrgPerimeter(user, departments, overview, subServices),
+        enrichUserOrgPerimeter(
+          user,
+          departments,
+          overview,
+          subServices,
+          this.directoryEmployees,
+          this.businessDepartments,
+        ),
       );
     }
   }

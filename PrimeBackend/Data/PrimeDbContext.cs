@@ -28,6 +28,14 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
     public DbSet<GlobalPoolSynthesisLineEntity> GlobalPoolSynthesisLines => Set<GlobalPoolSynthesisLineEntity>();
     public DbSet<GlobalPoolSynthesisLineHistoryEntity> GlobalPoolSynthesisLineHistories =>
         Set<GlobalPoolSynthesisLineHistoryEntity>();
+    public DbSet<BusinessDepartmentEntity> BusinessDepartments => Set<BusinessDepartmentEntity>();
+    public DbSet<BusinessDepartmentPoleEntity> BusinessDepartmentPoles => Set<BusinessDepartmentPoleEntity>();
+    public DbSet<AllowanceTypeEntity> AllowanceTypes => Set<AllowanceTypeEntity>();
+    public DbSet<AllowanceTypeDepartmentEntity> AllowanceTypeDepartments => Set<AllowanceTypeDepartmentEntity>();
+    public DbSet<AllowanceRequestEntity> AllowanceRequests => Set<AllowanceRequestEntity>();
+    public DbSet<AllowanceRequestHistoryEntity> AllowanceRequestHistories => Set<AllowanceRequestHistoryEntity>();
+    public DbSet<AllowanceWorkflowStepEntity> AllowanceWorkflowSteps => Set<AllowanceWorkflowStepEntity>();
+    public DbSet<AllowanceRuleEntity> AllowanceRules => Set<AllowanceRuleEntity>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -87,6 +95,8 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.HasIndex(x => x.CelluleId);
             e.Property(x => x.CelluleId).IsRequired(false);
             e.Property(x => x.ServiceId).IsRequired(false);
+            e.Property(x => x.BusinessDepartmentId).HasMaxLength(64).IsRequired(false);
+            e.Property(x => x.BusinessDepartmentKind).HasMaxLength(32).IsRequired(false);
             e.HasOne<ServiceEntity>()
                 .WithMany()
                 .HasForeignKey(x => x.ServiceId)
@@ -369,6 +379,91 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.HasIndex(x => x.Type);
             e.HasIndex(x => new { x.TargetEntityType, x.TargetEntityId });
             e.HasIndex(x => new { x.Period, x.ServiceId });
+        });
+
+        modelBuilder.Entity<BusinessDepartmentEntity>(e =>
+        {
+            e.ToTable("prime_business_department");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasMaxLength(64);
+            e.Property(x => x.Code).HasMaxLength(64);
+            e.Property(x => x.Name).HasMaxLength(256);
+            e.Property(x => x.Kind).HasMaxLength(32);
+            e.Property(x => x.ManagerEmployeeId).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<BusinessDepartmentPoleEntity>(e =>
+        {
+            e.ToTable("prime_business_department_pole");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.BusinessDepartmentId).HasMaxLength(64);
+            e.Property(x => x.PoleId).HasMaxLength(64);
+            e.HasOne(x => x.BusinessDepartment).WithMany(x => x.PoleAssignments).HasForeignKey(x => x.BusinessDepartmentId);
+        });
+
+        modelBuilder.Entity<AllowanceTypeEntity>(e =>
+        {
+            e.ToTable("prime_allowance_type");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Code).HasMaxLength(64);
+            e.Property(x => x.Label).HasMaxLength(256);
+            e.Property(x => x.Category).HasMaxLength(64);
+            e.Property(x => x.CalculationMode).HasMaxLength(32);
+            e.Property(x => x.ApplicableDepartmentKinds).HasMaxLength(64);
+            e.HasIndex(x => x.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<AllowanceTypeDepartmentEntity>(e =>
+        {
+            e.ToTable("prime_allowance_type_department");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.BusinessDepartmentId).HasMaxLength(64);
+            e.HasOne(x => x.AllowanceType).WithMany(x => x.DepartmentLinks).HasForeignKey(x => x.AllowanceTypeId);
+        });
+
+        modelBuilder.Entity<AllowanceRequestEntity>(e =>
+        {
+            e.ToTable("prime_allowance_request");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.EmployeeId).HasMaxLength(128);
+            e.Property(x => x.BusinessDepartmentId).HasMaxLength(64);
+            e.Property(x => x.Period).HasMaxLength(16);
+            e.Property(x => x.Currency).HasMaxLength(8);
+            e.Property(x => x.Reason).HasMaxLength(2048);
+            e.Property(x => x.Source).HasMaxLength(32);
+            e.Property(x => x.Status).HasMaxLength(32);
+            e.Property(x => x.Amount).HasPrecision(18, 2);
+            e.HasIndex(x => new { x.Period, x.BusinessDepartmentId });
+            e.HasIndex(x => new { x.EmployeeId, x.Period });
+            e.HasOne(x => x.AllowanceType).WithMany().HasForeignKey(x => x.AllowanceTypeId);
+        });
+
+        modelBuilder.Entity<AllowanceRequestHistoryEntity>(e =>
+        {
+            e.ToTable("prime_allowance_request_history");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Action).HasMaxLength(32);
+            e.Property(x => x.FromStatus).HasMaxLength(32);
+            e.Property(x => x.ToStatus).HasMaxLength(32);
+            e.Property(x => x.ActorUserId).HasMaxLength(128);
+            e.Property(x => x.ActorRole).HasMaxLength(64);
+            e.HasOne(x => x.AllowanceRequest).WithMany(x => x.History).HasForeignKey(x => x.AllowanceRequestId);
+        });
+
+        modelBuilder.Entity<AllowanceWorkflowStepEntity>(e =>
+        {
+            e.ToTable("prime_allowance_workflow_step");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ApproverRole).HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<AllowanceRuleEntity>(e =>
+        {
+            e.ToTable("prime_allowance_rule");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.BusinessDepartmentId).HasMaxLength(64);
+            e.Property(x => x.DataSource).HasMaxLength(64);
+            e.HasOne(x => x.AllowanceType).WithMany().HasForeignKey(x => x.AllowanceTypeId);
         });
 
         modelBuilder.Entity<OutboxMessage>(e =>

@@ -1,51 +1,13 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { Search } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
-import { ParrainageNavService, type ParrainageView } from '../state/parrainage-nav.service';
-import { AuditSectionService } from '../state/audit-section.service';
-
-const VIEW_TITLES: Record<ParrainageView, string> = {
-  'pilote-dashboard': 'Tableau de bord',
-  'pilote-submit': 'Soumettre un parrainage',
-  'pilote-referrals': 'Suivi des parrainages',
-  'pilote-bonus': 'Suivi des primes',
-  'rh-dashboard': 'Pilotage parrainage (RH)',
-  'rh-management': 'Gestion des parrainages',
-  'rh-details': 'Détail du parrainage',
-  'rh-rules': 'Règles de parrainage',
-  'rh-history': 'Historique',
-  settings: 'Paramètres',
-  notifications: 'Notifications',
-  'admin-dashboard': 'Centre opérationnel',
-  'admin-tools': 'Outils administrateur',
-  'admin-workflow': 'Configuration du flux',
-  'admin-config': 'Configuration système',
-  'admin-payments': 'Paiements',
-  'admin-audit': "Journal d'audit",
-  'compta-payments': 'Primes à verser',
-  'pm-dashboard': 'Tableau de bord équipe',
-  'pm-team': "Membres de l'équipe",
-  'pm-referrals': 'Suivi des parrainages',
-  'pm-performance': "Performance de l'équipe",
-};
-
-const AUDIT_TITLES: Record<string, string> = {
-  dashboard: 'Dashboard audit',
-  journal: "Journal d'audit",
-  'access-history': "Historique d'accès",
-  anomalies: 'Anomalies',
-  reporting: 'Reporting',
-};
 
 @Component({
   selector: 'app-parrainage-header',
   standalone: true,
   imports: [LucideIconComponent],
   template: `
-    <header class="h-20 px-8 flex items-center justify-between bg-app/80 backdrop-blur-md border-b border-default sticky top-0 z-40 transition-colors duration-300">
-      <div>
-        <h2 class="text-2xl font-bold text-primary tracking-tight">{{ title }}</h2>
-      </div>
+    <header class="h-16 px-8 flex items-center justify-end bg-app/80 backdrop-blur-md border-b border-default sticky top-0 z-40 transition-colors duration-300">
       <div class="flex items-center gap-6">
         <div class="relative group hidden md:block">
           <app-lucide-icon [icon]="searchIcon" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted group-focus-within:text-blue-500 transition-colors" />
@@ -68,14 +30,5 @@ const AUDIT_TITLES: Record<string, string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ParrainageHeaderComponent {
-  readonly nav = inject(ParrainageNavService);
-  private readonly audit = inject(AuditSectionService);
-
   readonly searchIcon = Search;
-
-  get title(): string {
-    const v = this.nav.currentView();
-    if (v === 'admin-audit') return AUDIT_TITLES[this.audit.section()] ?? "Journal d'audit";
-    return VIEW_TITLES[v] ?? 'Parrainage';
-  }
 }

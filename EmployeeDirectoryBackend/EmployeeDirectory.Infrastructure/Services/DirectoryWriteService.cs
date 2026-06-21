@@ -11,7 +11,8 @@ namespace EmployeeDirectory.Infrastructure.Services;
 public sealed class DirectoryWriteService(
     DirectoryDbContext db,
     IOutboxWriter outbox,
-    DirectoryHierarchyService hierarchy) : IDirectoryWriteService
+    DirectoryHierarchyService hierarchy,
+    IOrgStructuralRoleExclusivityService exclusivity) : IDirectoryWriteService
 {
     public async Task<EmployeeDto> CreateEmployeeAsync(CreateEmployeeRequest request, Guid? changedBy, CancellationToken ct = default)
     {
@@ -21,11 +22,18 @@ public sealed class DirectoryWriteService(
         if (existingById is not null)
             return Map(existingById);
 
-        if (await db.Employees.AnyAsync(e => e.Email.ToLower() == request.Email.Trim().ToLower(), ct))
+        if (await db.Employees.AnyAsync(e => e.Email.ToLower() == request.Email.Trim().ToLower() && e.IsActive, ct))
             throw new InvalidOperationException($"Email déjà utilisé : {request.Email}");
+
+        var inactiveByEmail = await db.Employees.FirstOrDefaultAsync(
+            e => e.Email.ToLower() == request.Email.Trim().ToLower() && !e.IsActive,
+            ct);
+        if (inactiveByEmail is not null)
+            return await ReactivateEmployeeAsync(inactiveByEmail, request, ct);
 
         var (poleId, celluleId, serviceId) = await ResolveOrgIdsAsync(request.ServiceId, ct);
         var role = KyntusRoleNames.NormalizePlanningRole(request.Role);
+        var dept = await ResolveBusinessDepartmentAsync(request.BusinessDepartmentId, ct);
 
         var employee = new Employee
         {
@@ -34,9 +42,10 @@ public sealed class DirectoryWriteService(
             FirstName = request.FirstName.Trim(),
             LastName = request.LastName.Trim(),
             Role = role,
-            ServiceId = serviceId,
-            CelluleId = celluleId,
-            PoleId = poleId,
+            BusinessDepartmentId = request.BusinessDepartmentId,
+            ServiceId = dept?.Kind == BusinessDepartmentKind.Support ? null : serviceId,
+            CelluleId = dept?.Kind == BusinessDepartmentKind.Support ? null : celluleId,
+            PoleId = dept?.Kind == BusinessDepartmentKind.Support ? null : poleId,
             ParentId = request.ParentId,
             HireDate = request.HireDate ?? DateTime.UtcNow,
             IsActive = true,
@@ -52,19 +61,60 @@ public sealed class DirectoryWriteService(
         return Map(employee);
     }
 
+    private async Task<EmployeeDto> ReactivateEmployeeAsync(
+        Employee employee,
+        CreateEmployeeRequest request,
+        CancellationToken ct)
+    {
+        var (poleId, celluleId, serviceId) = await ResolveOrgIdsAsync(request.ServiceId, ct);
+        var role = KyntusRoleNames.NormalizePlanningRole(request.Role);
+        var dept = await ResolveBusinessDepartmentAsync(request.BusinessDepartmentId, ct);
+
+        employee.FirstName = request.FirstName.Trim();
+        employee.LastName = request.LastName.Trim();
+        employee.Email = request.Email.Trim();
+        employee.Role = role;
+        employee.BusinessDepartmentId = request.BusinessDepartmentId;
+        employee.ServiceId = dept?.Kind == BusinessDepartmentKind.Support ? null : serviceId;
+        employee.CelluleId = dept?.Kind == BusinessDepartmentKind.Support ? null : celluleId;
+        employee.PoleId = dept?.Kind == BusinessDepartmentKind.Support ? null : poleId;
+        employee.ParentId = request.ParentId;
+        employee.HireDate = request.HireDate ?? employee.HireDate;
+        employee.IsActive = true;
+        employee.UpdatedAt = DateTime.UtcNow;
+
+        if (employee.ParentId is null)
+            employee.ParentId = await hierarchy.ResolveDefaultParentIdAsync(employee, ct);
+
+        await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
+        await db.SaveChangesAsync(ct);
+        return Map(employee);
+    }
+
     public async Task<EmployeeDto?> UpdateEmployeeAsync(Guid id, UpdateEmployeeRequest request, Guid? changedBy, CancellationToken ct = default)
     {
         var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == id, ct);
         if (employee is null) return null;
 
         var (poleId, celluleId, serviceId) = await ResolveOrgIdsAsync(request.ServiceId, ct);
+        var dept = await ResolveBusinessDepartmentAsync(request.BusinessDepartmentId ?? employee.BusinessDepartmentId, ct);
         employee.FirstName = request.FirstName.Trim();
         employee.LastName = request.LastName.Trim();
         employee.Email = request.Email.Trim();
         employee.Role = KyntusRoleNames.NormalizePlanningRole(request.Role);
-        employee.ServiceId = serviceId ?? employee.ServiceId;
-        employee.CelluleId = celluleId ?? employee.CelluleId;
-        employee.PoleId = poleId ?? employee.PoleId;
+        employee.BusinessDepartmentId = request.BusinessDepartmentId ?? employee.BusinessDepartmentId;
+        if (dept?.Kind == BusinessDepartmentKind.Support)
+        {
+            employee.ServiceId = null;
+            employee.CelluleId = null;
+            employee.PoleId = null;
+        }
+        else
+        {
+            employee.ServiceId = serviceId ?? employee.ServiceId;
+            employee.CelluleId = celluleId ?? employee.CelluleId;
+            employee.PoleId = poleId ?? employee.PoleId;
+        }
         employee.IsActive = request.IsActive;
         employee.ParentId = request.ParentId ?? employee.ParentId;
         employee.HireDate = request.HireDate ?? employee.HireDate;
@@ -89,46 +139,66 @@ public sealed class DirectoryWriteService(
         return true;
     }
 
-    public async Task AssignStructureRoleAsync(string kind, string nodeId, Guid employeeId, Guid? changedBy, string? reason, CancellationToken ct = default)
+    public async Task<StructuralRoleAssignmentResult> AssignStructureRoleAsync(string kind, string nodeId, Guid employeeId, Guid? changedBy, string? reason, CancellationToken ct = default)
     {
         if (!Enum.TryParse<OrgAssignmentKind>(kind, true, out var assignmentKind))
             throw new ArgumentException($"Kind invalide : {kind}");
 
+        var trimmedNodeId = nodeId.Trim();
         var nodeLevel = assignmentKind switch
         {
             OrgAssignmentKind.ChefDeProjet => OrgNodeLevel.Pole,
             OrgAssignmentKind.Superviseur => OrgNodeLevel.Cellule,
             OrgAssignmentKind.ReferentTechnique => OrgNodeLevel.Service,
+            OrgAssignmentKind.Pilote => OrgNodeLevel.Service,
             _ => OrgNodeLevel.Service,
         };
 
-        var existing = await db.OrgAssignments
-            .Where(a => a.Kind == assignmentKind && a.NodeId == nodeId.Trim() && a.EffectiveTo == null)
-            .ToListAsync(ct);
+        var revoked = (await exclusivity.RevokeAllStructuralRolesForEmployeeAsync(
+            employeeId, changedBy, reason ?? "Nouvelle affectation structurelle", ct)).ToList();
 
-        foreach (var row in existing)
+        if (assignmentKind != OrgAssignmentKind.Pilote)
         {
-            row.EffectiveTo = DateTime.UtcNow;
-            row.SupersededBy = Guid.NewGuid();
-            db.OrgAssignmentHistories.Add(new OrgAssignmentHistory
+            var displaced = await db.OrgAssignments
+                .Where(a => a.Kind == assignmentKind && a.NodeId == trimmedNodeId && a.EffectiveTo == null)
+                .ToListAsync(ct);
+
+            foreach (var row in displaced)
             {
-                Id = Guid.NewGuid(),
-                Kind = assignmentKind,
-                NodeId = nodeId.Trim(),
-                NodeLevel = nodeLevel,
-                PreviousEmployeeId = row.EmployeeId,
-                NewEmployeeId = employeeId,
-                ChangedBy = changedBy,
-                ChangeReason = reason,
-                ChangedAt = DateTime.UtcNow,
-            });
+                row.EffectiveTo = DateTime.UtcNow;
+                row.SupersededBy = Guid.NewGuid();
+                db.OrgAssignmentHistories.Add(new OrgAssignmentHistory
+                {
+                    Id = Guid.NewGuid(),
+                    Kind = assignmentKind,
+                    NodeId = trimmedNodeId,
+                    NodeLevel = nodeLevel,
+                    PreviousEmployeeId = row.EmployeeId,
+                    NewEmployeeId = employeeId,
+                    ChangedBy = changedBy,
+                    ChangeReason = reason,
+                    ChangedAt = DateTime.UtcNow,
+                });
+
+                if (row.EmployeeId != employeeId)
+                    await ResetDisplacedEmployeeAsync(row.EmployeeId, changedBy, reason, ct);
+
+                await outbox.EnqueueAsync(new DirectoryAssignmentChangedMessage
+                {
+                    Kind = assignmentKind,
+                    NodeId = trimmedNodeId,
+                    NodeLevel = nodeLevel,
+                    EmployeeId = row.EmployeeId,
+                    Removed = true,
+                }, aggregateId: row.EmployeeId.ToString(), ct: ct);
+            }
         }
 
         var assignment = new OrgAssignment
         {
             Id = Guid.NewGuid(),
             Kind = assignmentKind,
-            NodeId = nodeId.Trim(),
+            NodeId = trimmedNodeId,
             NodeLevel = nodeLevel,
             EmployeeId = employeeId,
             EffectiveFrom = DateTime.UtcNow,
@@ -139,13 +209,13 @@ public sealed class DirectoryWriteService(
 
         var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId, ct)
             ?? throw new KeyNotFoundException("Employé introuvable.");
-        await hierarchy.ApplyAssignmentToEmployeeAsync(employee, assignmentKind, nodeId.Trim(), ct);
+        await hierarchy.ApplyAssignmentToEmployeeAsync(employee, assignmentKind, trimmedNodeId, ct);
         employee.UpdatedAt = DateTime.UtcNow;
 
         await outbox.EnqueueAsync(new DirectoryAssignmentChangedMessage
         {
             Kind = assignmentKind,
-            NodeId = nodeId.Trim(),
+            NodeId = trimmedNodeId,
             NodeLevel = nodeLevel,
             EmployeeId = employeeId,
             EmployeeEmail = employee.Email,
@@ -155,6 +225,83 @@ public sealed class DirectoryWriteService(
 
         await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
         await db.SaveChangesAsync(ct);
+        return new StructuralRoleAssignmentResult(revoked);
+    }
+
+    public async Task<bool> RemoveStructurePilotAsync(string serviceId, Guid employeeId, Guid? changedBy, string? reason, CancellationToken ct = default)
+    {
+        var trimmedServiceId = serviceId.Trim();
+        var rows = await db.OrgAssignments
+            .Where(a => a.Kind == OrgAssignmentKind.Pilote
+                && a.NodeId == trimmedServiceId
+                && a.EmployeeId == employeeId
+                && a.EffectiveTo == null)
+            .ToListAsync(ct);
+        if (rows.Count == 0) return false;
+
+        var now = DateTime.UtcNow;
+        foreach (var row in rows)
+        {
+            row.EffectiveTo = now;
+            db.OrgAssignmentHistories.Add(new OrgAssignmentHistory
+            {
+                Id = Guid.NewGuid(),
+                Kind = OrgAssignmentKind.Pilote,
+                NodeId = trimmedServiceId,
+                NodeLevel = OrgNodeLevel.Service,
+                PreviousEmployeeId = employeeId,
+                NewEmployeeId = null,
+                ChangedBy = changedBy,
+                ChangeReason = reason,
+                ChangedAt = now,
+            });
+            await outbox.EnqueueAsync(new DirectoryAssignmentChangedMessage
+            {
+                Kind = OrgAssignmentKind.Pilote,
+                NodeId = trimmedServiceId,
+                NodeLevel = OrgNodeLevel.Service,
+                EmployeeId = employeeId,
+                Removed = true,
+            }, aggregateId: employeeId.ToString(), ct: ct);
+        }
+
+        var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId, ct);
+        if (employee is not null)
+        {
+            employee.Role = KyntusRoleNames.Employee;
+            employee.ServiceId = null;
+            employee.CelluleId = null;
+            employee.PoleId = null;
+            employee.ParentId = null;
+            employee.UpdatedAt = now;
+            await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    private async Task ResetDisplacedEmployeeAsync(Guid employeeId, Guid? changedBy, string? reason, CancellationToken ct)
+    {
+        var hasOtherActive = await db.OrgAssignments
+            .AnyAsync(a => a.EmployeeId == employeeId && a.EffectiveTo == null, ct);
+        if (hasOtherActive) return;
+
+        var isManager = await db.BusinessDepartments
+            .AnyAsync(d => d.ManagerEmployeeId == employeeId, ct);
+        if (isManager) return;
+
+        var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId, ct);
+        if (employee is null) return;
+
+        employee.Role = KyntusRoleNames.Employee;
+        employee.PoleId = null;
+        employee.CelluleId = null;
+        employee.ServiceId = null;
+        employee.BusinessDepartmentId = null;
+        employee.ParentId = null;
+        employee.UpdatedAt = DateTime.UtcNow;
+        await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
     }
 
     public async Task ClearStructureRoleAsync(string kind, string nodeId, Guid? changedBy, string? reason, CancellationToken ct = default)
@@ -195,18 +342,80 @@ public sealed class DirectoryWriteService(
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task<string> CreatePoleAsync(string name, CancellationToken ct = default)
+    public async Task<string> CreatePoleAsync(string name, Guid businessDepartmentId, CancellationToken ct = default)
     {
+        var trimmedName = name?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(trimmedName))
+            throw new InvalidOperationException("Le nom du pôle est requis.");
+        if (businessDepartmentId == Guid.Empty)
+            throw new InvalidOperationException("businessDepartmentId requis.");
+
+        var dept = await db.BusinessDepartments
+            .Include(d => d.PoleAssignments)
+            .FirstOrDefaultAsync(d => d.Id == businessDepartmentId, ct)
+            ?? throw new KeyNotFoundException("Département introuvable.");
+        if (dept.Kind != BusinessDepartmentKind.Operational)
+            throw new InvalidOperationException("Seuls les départements opérationnels peuvent recevoir des pôles.");
+        if (!dept.IsActive)
+            throw new InvalidOperationException("Département inactif.");
+
         var id = NewOrgId("pole");
-        db.OrgPoles.Add(new OrgPole { Id = id, Name = name.Trim() });
+        db.OrgPoles.Add(new OrgPole
+        {
+            Id = id,
+            Name = trimmedName,
+            BusinessDepartmentId = businessDepartmentId,
+        });
+        await SyncJunctionForPoleAsync(dept, id, ct);
+        dept.UpdatedAt = DateTime.UtcNow;
+
         await outbox.EnqueueAsync(new DirectoryOrgNodeChangedMessage
         {
             NodeId = id,
-            Name = name.Trim(),
+            Name = trimmedName,
             Level = OrgNodeLevel.Pole,
         }, aggregateId: id, ct: ct);
+        await EnqueueBusinessDepartmentChangedAsync(dept, ct);
         await db.SaveChangesAsync(ct);
         return id;
+    }
+
+    public async Task<bool> AttachPoleToBusinessDepartmentAsync(string poleId, Guid businessDepartmentId, CancellationToken ct = default)
+    {
+        var trimmedPoleId = poleId.Trim();
+        var pole = await db.OrgPoles.FirstOrDefaultAsync(p => p.Id == trimmedPoleId, ct)
+            ?? throw new KeyNotFoundException("Pôle introuvable.");
+
+        var dept = await db.BusinessDepartments
+            .Include(d => d.PoleAssignments)
+            .FirstOrDefaultAsync(d => d.Id == businessDepartmentId, ct)
+            ?? throw new KeyNotFoundException("Département introuvable.");
+        if (dept.Kind != BusinessDepartmentKind.Operational)
+            throw new InvalidOperationException("Seuls les départements opérationnels peuvent recevoir des pôles.");
+        if (!dept.IsActive)
+            throw new InvalidOperationException("Département inactif.");
+
+        if (pole.BusinessDepartmentId.HasValue && pole.BusinessDepartmentId != businessDepartmentId)
+        {
+            var oldDept = await db.BusinessDepartments
+                .Include(d => d.PoleAssignments)
+                .FirstOrDefaultAsync(d => d.Id == pole.BusinessDepartmentId.Value, ct);
+            if (oldDept is not null)
+            {
+                var oldRow = oldDept.PoleAssignments.FirstOrDefault(p => p.PoleId == trimmedPoleId);
+                if (oldRow is not null)
+                    db.DepartmentPoleAssignments.Remove(oldRow);
+                oldDept.UpdatedAt = DateTime.UtcNow;
+                await EnqueueBusinessDepartmentChangedAsync(oldDept, ct);
+            }
+        }
+
+        pole.BusinessDepartmentId = businessDepartmentId;
+        await SyncJunctionForPoleAsync(dept, trimmedPoleId, ct);
+        dept.UpdatedAt = DateTime.UtcNow;
+        await EnqueueBusinessDepartmentChangedAsync(dept, ct);
+        await db.SaveChangesAsync(ct);
+        return true;
     }
 
     public async Task<string> CreateCelluleAsync(string poleId, string name, CancellationToken ct = default)
@@ -340,8 +549,257 @@ public sealed class DirectoryWriteService(
         return true;
     }
 
+    public async Task<BusinessDepartmentDto> CreateBusinessDepartmentAsync(CreateBusinessDepartmentRequest request, CancellationToken ct = default)
+    {
+        var kind = ParseKind(request.Kind);
+        var code = string.IsNullOrWhiteSpace(request.Code)
+            ? await GenerateBusinessDepartmentCodeAsync(kind, ct)
+            : request.Code.Trim().ToUpperInvariant();
+        if (await db.BusinessDepartments.AnyAsync(d => d.Code == code, ct))
+            throw new InvalidOperationException($"Code département déjà utilisé : {code}");
+
+        var dept = new BusinessDepartment
+        {
+            Id = Guid.NewGuid(),
+            Code = code,
+            Name = request.Name.Trim(),
+            Kind = kind,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.BusinessDepartments.Add(dept);
+        await EnqueueBusinessDepartmentChangedAsync(dept, ct);
+        await db.SaveChangesAsync(ct);
+        return await MapBusinessDepartmentAsync(dept, ct);
+    }
+
+    public async Task<BusinessDepartmentDto?> UpdateBusinessDepartmentAsync(Guid id, UpdateBusinessDepartmentRequest request, CancellationToken ct = default)
+    {
+        var dept = await db.BusinessDepartments.Include(d => d.PoleAssignments).FirstOrDefaultAsync(d => d.Id == id, ct);
+        if (dept is null) return null;
+        dept.Name = request.Name.Trim();
+        dept.Kind = ParseKind(request.Kind);
+        dept.IsActive = request.IsActive;
+        dept.UpdatedAt = DateTime.UtcNow;
+        if (dept.Kind == BusinessDepartmentKind.Support)
+        {
+            db.DepartmentPoleAssignments.RemoveRange(dept.PoleAssignments);
+            dept.PoleAssignments.Clear();
+        }
+        await EnqueueBusinessDepartmentChangedAsync(dept, ct);
+        await db.SaveChangesAsync(ct);
+        return await MapBusinessDepartmentAsync(dept, ct);
+    }
+
+    public async Task<bool> DeleteBusinessDepartmentAsync(Guid id, CancellationToken ct = default)
+    {
+        var dept = await db.BusinessDepartments.Include(d => d.PoleAssignments).FirstOrDefaultAsync(d => d.Id == id, ct);
+        if (dept is null) return false;
+        dept.IsActive = false;
+        dept.UpdatedAt = DateTime.UtcNow;
+        await EnqueueBusinessDepartmentChangedAsync(dept, ct, isDeleted: true);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    public async Task<bool> AssignPoleToBusinessDepartmentAsync(Guid departmentId, string poleId, CancellationToken ct = default)
+    {
+        return await AttachPoleToBusinessDepartmentAsync(poleId, departmentId, ct);
+    }
+
+    public async Task<bool> RemovePoleFromBusinessDepartmentAsync(Guid departmentId, string poleId, CancellationToken ct = default)
+    {
+        var dept = await db.BusinessDepartments.Include(d => d.PoleAssignments).FirstOrDefaultAsync(d => d.Id == departmentId, ct);
+        if (dept is null) return false;
+        var trimmedPoleId = poleId.Trim();
+        var row = dept.PoleAssignments.FirstOrDefault(p => p.PoleId == trimmedPoleId);
+        var pole = await db.OrgPoles.FirstOrDefaultAsync(p => p.Id == trimmedPoleId, ct);
+        if (row is null && pole?.BusinessDepartmentId != departmentId) return false;
+
+        if (row is not null)
+            db.DepartmentPoleAssignments.Remove(row);
+        if (pole is not null && pole.BusinessDepartmentId == departmentId)
+            pole.BusinessDepartmentId = null;
+
+        dept.UpdatedAt = DateTime.UtcNow;
+        await EnqueueBusinessDepartmentChangedAsync(dept, ct);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    public async Task<StructuralRoleAssignmentResult> SetBusinessDepartmentManagerAsync(
+        Guid departmentId,
+        Guid employeeId,
+        Guid? changedBy = null,
+        string? reason = null,
+        CancellationToken ct = default)
+    {
+        var dept = await db.BusinessDepartments.Include(d => d.PoleAssignments).FirstOrDefaultAsync(d => d.Id == departmentId, ct)
+            ?? throw new KeyNotFoundException("Département introuvable.");
+        var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId && e.IsActive, ct)
+            ?? throw new KeyNotFoundException("Employé introuvable.");
+
+        var revoked = (await exclusivity.RevokeAllStructuralRolesForEmployeeAsync(
+            employeeId, changedBy, reason ?? "Nomination manager département", ct)).ToList();
+
+        if (dept.ManagerEmployeeId.HasValue && dept.ManagerEmployeeId != employeeId)
+            await exclusivity.DemotePreviousDepartmentManagerAsync(departmentId, employeeId, changedBy, reason, ct);
+
+        dept.ManagerEmployeeId = employeeId;
+        dept.UpdatedAt = DateTime.UtcNow;
+
+        employee.Role = KyntusRoleNames.Manager;
+        employee.BusinessDepartmentId = dept.Id;
+        employee.ParentId = null;
+        employee.UpdatedAt = DateTime.UtcNow;
+
+        if (dept.Kind == BusinessDepartmentKind.Support)
+        {
+            employee.ServiceId = null;
+            employee.CelluleId = null;
+            employee.PoleId = null;
+
+            var teamMembers = await db.Employees
+                .Where(e => e.BusinessDepartmentId == dept.Id && e.Id != employeeId && e.IsActive)
+                .ToListAsync(ct);
+            foreach (var member in teamMembers)
+            {
+                member.ParentId = employeeId;
+                member.UpdatedAt = DateTime.UtcNow;
+                await EnqueueEmployeeChangedAsync(member, isDeleted: false, emitLegacyCreate: false, ct);
+            }
+        }
+        else if (dept.Kind == BusinessDepartmentKind.Operational)
+        {
+            var primaryPole = await db.OrgPoles.AsNoTracking()
+                .Where(p => p.BusinessDepartmentId == dept.Id)
+                .Select(p => p.Id)
+                .FirstOrDefaultAsync(ct);
+            if (string.IsNullOrWhiteSpace(primaryPole))
+                primaryPole = dept.PoleAssignments.Select(p => p.PoleId).FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(primaryPole))
+                employee.PoleId = primaryPole;
+        }
+
+        await EnqueueBusinessDepartmentChangedAsync(dept, ct);
+        await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
+        await db.SaveChangesAsync(ct);
+        return new StructuralRoleAssignmentResult(revoked);
+    }
+
+    public async Task<bool> ClearBusinessDepartmentManagerAsync(Guid departmentId, CancellationToken ct = default)
+    {
+        var dept = await db.BusinessDepartments.Include(d => d.PoleAssignments).FirstOrDefaultAsync(d => d.Id == departmentId, ct);
+        if (dept is null) return false;
+        dept.ManagerEmployeeId = null;
+        dept.UpdatedAt = DateTime.UtcNow;
+        await EnqueueBusinessDepartmentChangedAsync(dept, ct);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    private async Task EnqueueBusinessDepartmentChangedAsync(BusinessDepartment dept, CancellationToken ct, bool isDeleted = false)
+    {
+        var poleIds = await db.OrgPoles.AsNoTracking()
+            .Where(p => p.BusinessDepartmentId == dept.Id)
+            .Select(p => p.Id)
+            .ToListAsync(ct);
+        if (poleIds.Count == 0)
+            poleIds = dept.PoleAssignments.Select(p => p.PoleId).ToList();
+
+        await outbox.EnqueueAsync(new DirectoryBusinessDepartmentChangedMessage
+        {
+            BusinessDepartmentId = dept.Id,
+            Code = dept.Code,
+            Name = dept.Name,
+            Kind = dept.Kind.ToString(),
+            ManagerEmployeeId = dept.ManagerEmployeeId,
+            PoleIds = poleIds,
+            IsDeleted = isDeleted,
+        }, aggregateId: dept.Id.ToString(), ct: ct);
+    }
+
+    private Task SyncJunctionForPoleAsync(BusinessDepartment dept, string poleId, CancellationToken ct)
+    {
+        if (dept.PoleAssignments.Any(p => p.PoleId == poleId)) return Task.CompletedTask;
+        var row = new DepartmentPoleAssignment
+        {
+            BusinessDepartmentId = dept.Id,
+            PoleId = poleId,
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.DepartmentPoleAssignments.Add(row);
+        dept.PoleAssignments.Add(row);
+        return Task.CompletedTask;
+    }
+
+    private async Task<BusinessDepartment?> ResolveBusinessDepartmentAsync(Guid? id, CancellationToken ct)
+    {
+        if (!id.HasValue) return null;
+        return await db.BusinessDepartments.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id.Value, ct);
+    }
+
+    private static BusinessDepartmentKind ParseKind(string kind) =>
+        Enum.TryParse<BusinessDepartmentKind>(kind, true, out var k) ? k : BusinessDepartmentKind.Operational;
+
+    private async Task<string> GenerateBusinessDepartmentCodeAsync(BusinessDepartmentKind kind, CancellationToken ct)
+    {
+        var prefix = kind == BusinessDepartmentKind.Support ? "SUP" : "OP";
+        var existingCodes = await db.BusinessDepartments.AsNoTracking()
+            .Where(d => d.Kind == kind && d.Code.StartsWith(prefix))
+            .Select(d => d.Code)
+            .ToListAsync(ct);
+
+        var maxNum = 0;
+        foreach (var existing in existingCodes)
+        {
+            var suffix = existing.Length > prefix.Length + 1 && existing[prefix.Length] == '-'
+                ? existing[(prefix.Length + 1)..]
+                : existing[prefix.Length..];
+            if (int.TryParse(suffix, out var n) && n > maxNum)
+                maxNum = n;
+        }
+
+        var next = maxNum + 1;
+        string code;
+        do
+        {
+            code = $"{prefix}-{next:D3}";
+            next++;
+        } while (await db.BusinessDepartments.AnyAsync(d => d.Code == code, ct));
+
+        return code;
+    }
+
+    private async Task<BusinessDepartmentDto> MapBusinessDepartmentAsync(BusinessDepartment d, CancellationToken ct)
+    {
+        var poleIds = await db.OrgPoles.AsNoTracking()
+            .Where(p => p.BusinessDepartmentId == d.Id)
+            .Select(p => p.Id)
+            .ToListAsync(ct);
+        if (poleIds.Count == 0)
+            poleIds = d.PoleAssignments.Select(p => p.PoleId).ToList();
+        return MapBusinessDepartment(d, poleIds);
+    }
+
+    private static BusinessDepartmentDto MapBusinessDepartment(BusinessDepartment d, IReadOnlyList<string> poleIds) => new(
+        d.Id.ToString(),
+        d.Code,
+        d.Name,
+        d.Kind.ToString(),
+        d.ManagerEmployeeId?.ToString(),
+        d.IsActive,
+        poleIds);
+
     private async Task EnqueueEmployeeChangedAsync(Employee employee, bool isDeleted, bool emitLegacyCreate, CancellationToken ct)
     {
+        var deptKind = employee.BusinessDepartmentId.HasValue
+            ? (await db.BusinessDepartments.AsNoTracking()
+                .Where(d => d.Id == employee.BusinessDepartmentId.Value)
+                .Select(d => d.Kind)
+                .FirstOrDefaultAsync(ct)).ToString()
+            : null;
+
         await outbox.EnqueueAsync(new DirectoryEmployeeChangedMessage
         {
             EmployeeId = employee.Id,
@@ -353,6 +811,8 @@ public sealed class DirectoryWriteService(
             ServiceId = employee.ServiceId,
             CelluleId = employee.CelluleId,
             PoleId = employee.PoleId,
+            BusinessDepartmentId = employee.BusinessDepartmentId,
+            BusinessDepartmentKind = deptKind,
             IsActive = employee.IsActive,
             IsDeleted = isDeleted,
         }, aggregateId: employee.Id.ToString(), ct: ct);
@@ -400,5 +860,7 @@ public sealed class DirectoryWriteService(
         e.PoleId ?? "",
         e.CelluleId,
         e.Email,
+        null,
+        e.BusinessDepartmentId?.ToString(),
         null);
 }

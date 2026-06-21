@@ -10,6 +10,7 @@ import { UserService } from '../../../users/services/user.service';
 import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-select-sync.directive';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { Inbox, Plus, Search } from 'lucide';
 import type { Department } from '../../../prime/models';
 import type { SubService } from '../../../sub-services/sub-services-module';
@@ -41,7 +42,7 @@ type SubServiceOrgView = {
 @Component({
   selector: 'app-conge-manager',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective, KyntusPageHeaderComponent],
   templateUrl: './conge-manager.component.html',
   styleUrls: ['./conge-manager.component.css'],
 })
@@ -183,7 +184,7 @@ export class CongeManagerComponent implements OnInit {
   }
 
   userPerimeter(userId: number): UserOrgPerimeterView {
-    return this.perimeterByUserId.get(userId) ?? { pole: null, cellule: null, service: null };
+    return this.perimeterByUserId.get(userId) ?? { operationalDepartment: null, pole: null, cellule: null, service: null };
   }
 
   refreshOrgFilterOptions(): void {

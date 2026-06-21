@@ -1,5 +1,8 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import type { Role } from '../models';
+import { isSupportManagerPrimePath, isOperationalManagerPrimePath } from '../lib/prime-nav-access';
+import { isAllowancesPath, resolveManagerPrimeTrack } from '../lib/prime-manager-track';
+import type { PrimeDepartmentManagerNav } from '../lib/prime-manager-nav';
 import { KyntusPermissionsService } from '../../../core/services/kyntus-permissions.service';
 import {
   PrimeAdminService,
@@ -45,6 +48,12 @@ const PATH_REQUIREMENTS: Record<string, { action: UiPermissionAction; scope?: Rb
   '/template-manager': { action: 'Configure' },
   '/employee/primes': { action: 'Read', scope: 'Self' },
   '/employee/performance': { action: 'Read', scope: 'Self' },
+  '/allowances': { action: 'Read' },
+  '/allowances/requests': { action: 'Edit' },
+  '/allowances/inbox': { action: 'Validate' },
+  '/allowances/my': { action: 'Read', scope: 'Self' },
+  '/allowances/catalog': { action: 'Configure', scope: 'Global' },
+  '/allowances/supervision': { action: 'Read', scope: 'Global' },
 };
 
 const FALLBACK_ALLOW: Record<string, Partial<Record<UiPermissionAction, RbacScope[]>>> = {
@@ -139,7 +148,20 @@ export class PrimeUiPermissionsService {
       || FALLBACK_ALLOW[role]?.[rbacAction as UiPermissionAction]?.includes(scope as RbacScope) === true;
   }
 
-  canViewPath(role: Role, path: string): boolean {
+  canViewPath(
+    role: Role,
+    path: string,
+    opts?: PrimeDepartmentManagerNav,
+  ): boolean {
+    const nav = opts ?? { isSupportManager: false, isOperationalManager: false };
+    const track = resolveManagerPrimeTrack(role, nav);
+    if (track === 'support' && !isSupportManagerPrimePath(path)) {
+      return false;
+    }
+    if (track === 'operational') {
+      if (isAllowancesPath(path)) return false;
+      if (!isOperationalManagerPrimePath(path)) return false;
+    }
     const req = PATH_REQUIREMENTS[path];
     if (!req) return this.can(role, 'Read');
     return this.can(role, req.action, req.scope ?? this.primaryScopeForRole(role));

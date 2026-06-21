@@ -186,11 +186,11 @@ public sealed class ReferralsController(
 
         {
 
-            var allowed = new[] { "SUBMITTED", "PROCESSED", "APPROVED", "REJECTED", "REWARDED" };
+            var allowed = new[] { "SUBMITTED", "PROCESSED", "IN_TRAINING", "APPROVED", "REJECTED", "REWARDED" };
 
             if (!allowed.Contains(body.Status))
 
-                return BadRequest(new { error = "status invalide (SUBMITTED|PROCESSED|APPROVED|REJECTED|REWARDED)." });
+                return BadRequest(new { error = "status invalide (SUBMITTED|PROCESSED|IN_TRAINING|APPROVED|REJECTED|REWARDED)." });
 
             if (body.Status == "APPROVED")
 
@@ -307,6 +307,132 @@ public sealed class ReferralsController(
         {
 
             var updated = await workflow.ApproveReferralAsync(id, body, ct);
+
+            if (updated == null) return NotFound(new { error = $"Parrainage introuvable : {id}" });
+
+            return Ok(updated.ToDto());
+
+        }
+
+        catch (InvalidOperationException ex)
+
+        {
+
+            return BadRequest(new { error = ex.Message });
+
+        }
+
+    }
+
+
+
+    [HttpPost("{id}/confirm-production")]
+
+    public async Task<ActionResult<ReferralDto>> ConfirmProduction(string id, [FromBody] ConfirmProductionStartRequest body, CancellationToken ct)
+
+    {
+
+        var user = userResolver.Resolve(Request);
+
+        if (!ParrainageRoleGuard.IsRh(user.Role))
+
+            return Forbid();
+
+
+
+        body.Actor ??= new ActorDto { Id = user.UserId, Label = user.Role, Role = user.Role };
+
+
+
+        try
+
+        {
+
+            var updated = await workflow.ConfirmProductionStartAsync(id, body, ct);
+
+            if (updated == null) return NotFound(new { error = $"Parrainage introuvable : {id}" });
+
+            return Ok(updated.ToDto());
+
+        }
+
+        catch (InvalidOperationException ex)
+
+        {
+
+            return BadRequest(new { error = ex.Message });
+
+        }
+
+    }
+
+
+
+    [HttpPost("{id}/reject-early-departure")]
+
+    public async Task<ActionResult<ReferralDto>> RejectEarlyDeparture(string id, [FromBody] RejectEarlyDepartureRequest body, CancellationToken ct)
+
+    {
+
+        var user = userResolver.Resolve(Request);
+
+        if (!ParrainageRoleGuard.IsRh(user.Role))
+
+            return Forbid();
+
+
+
+        body.Actor ??= new ActorDto { Id = user.UserId, Label = user.Role, Role = user.Role };
+
+
+
+        try
+
+        {
+
+            var updated = await workflow.RejectEarlyDepartureAsync(id, body, ct);
+
+            if (updated == null) return NotFound(new { error = $"Parrainage introuvable : {id}" });
+
+            return Ok(updated.ToDto());
+
+        }
+
+        catch (InvalidOperationException ex)
+
+        {
+
+            return BadRequest(new { error = ex.Message });
+
+        }
+
+    }
+
+
+
+    [HttpPost("{id}/extend-training")]
+
+    public async Task<ActionResult<ReferralDto>> ExtendTraining(string id, [FromBody] ExtendTrainingRequest body, CancellationToken ct)
+
+    {
+
+        var user = userResolver.Resolve(Request);
+
+        if (!ParrainageRoleGuard.IsRh(user.Role))
+
+            return Forbid();
+
+
+
+        body.Actor ??= new ActorDto { Id = user.UserId, Label = user.Role, Role = user.Role };
+
+
+
+        try
+
+        {
+
+            var updated = await workflow.ExtendTrainingAsync(id, body, ct);
 
             if (updated == null) return NotFound(new { error = $"Parrainage introuvable : {id}" });
 

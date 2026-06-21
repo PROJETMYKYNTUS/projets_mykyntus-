@@ -96,9 +96,10 @@ public class EmployeeImportRowMapperTests
 public class EmployeeImportFieldRegistryTests
 {
     [Fact]
-    public void TemplateFields_has_eleven_columns()
+    public void TemplateFields_has_twelve_columns_including_operational_department()
     {
-        Assert.Equal(11, EmployeeImportFieldRegistry.TemplateFields.Count);
+        Assert.Equal(12, EmployeeImportFieldRegistry.TemplateFields.Count);
+        Assert.Contains(EmployeeImportFieldRegistry.TemplateFields, f => f.FieldKey == "operationalDepartment");
     }
 
     [Theory]
@@ -310,6 +311,40 @@ public class EmployeeImportOrgGapAnalyzerTests
         Assert.Single(result.PendingOrgCreations);
         Assert.Equal("pole", result.PendingOrgCreations[0].Type);
         Assert.Equal("Nord", result.PendingOrgCreations[0].Pole);
+        Assert.Contains(result.OrgLineIssues, i =>
+            i.Message.Contains("Département opérationnel", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GapAnalyzer_pole_creation_with_operational_department_has_no_dept_error()
+    {
+        var analyzer = new EmployeeImportOrgGapAnalyzer(new EmployeeImportOrgResolver(null!));
+        var parsed = new ParsedImportFile(
+            ["Email", "Prénom", "Nom", "Rôle", "Département", "Pôle"],
+            [["rp@test.ma", "Ali", "Ben", "rp", "Commercial", "Nord"]]);
+
+        var columnMap = new Dictionary<int, string>
+        {
+            [0] = "email",
+            [1] = "firstName",
+            [2] = "lastName",
+            [3] = "role",
+            [4] = "operationalDepartment",
+            [5] = "pole",
+        };
+
+        var roles = new List<PlanningService.Models.Role>
+        {
+            new() { Id = 1, Name = "Chef de projet" },
+        };
+
+        var snapshot = new EmployeeImportOrgSnapshot { Rows = [], Roles = roles };
+        var result = analyzer.AnalyzeFile(parsed, columnMap, snapshot, roles);
+
+        Assert.Single(result.PendingOrgCreations);
+        Assert.Equal("Commercial", result.PendingOrgCreations[0].OperationalDepartment);
+        Assert.DoesNotContain(result.OrgLineIssues, i =>
+            i.Message.Contains("Département opérationnel", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

@@ -19,6 +19,7 @@ import {
   poleCells,
 } from '../../../../core/org/planning-org-picker';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { Coffee, Info, Plus, Save, Settings, Trash2, Users } from 'lucide';
 
 type SubServiceOption = {
@@ -31,7 +32,7 @@ type SubServiceOption = {
 @Component({
   selector: 'app-shift-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent],
   templateUrl: './shift-config.component.html',
   styleUrls: ['./shift-config.component.css']
 })

@@ -14,7 +14,7 @@ export function buildEmployeePickerRows(
 ): EmployeePickerRow[] {
   return users
     .map((u) => {
-      const perimeter = perimeterById.get(u.id) ?? { pole: null, cellule: null, service: null };
+      const perimeter = perimeterById.get(u.id) ?? { operationalDepartment: null, pole: null, cellule: null, service: null };
       const displayName = `${u.lastName} ${u.firstName}`.trim();
       const searchText = [
         displayName,
@@ -23,6 +23,7 @@ export function buildEmployeePickerRows(
         perimeter.pole,
         perimeter.cellule,
         perimeter.service,
+        perimeter.supportDepartmentName,
       ]
         .filter(Boolean)
         .join(' ')
@@ -53,7 +54,10 @@ export function filterEmployeePickerRows(
   return { visible: matched.slice(0, limit), totalMatches: matched.length };
 }
 
-export function uniqueOrgValues(rows: EmployeePickerRow[], key: keyof UserOrgPerimeterView): string[] {
+export function uniqueOrgValues(
+  rows: EmployeePickerRow[],
+  key: 'pole' | 'cellule' | 'service' | 'supportDepartmentName',
+): string[] {
   const set = new Set<string>();
   for (const row of rows) {
     const v = row.perimeter[key]?.trim();

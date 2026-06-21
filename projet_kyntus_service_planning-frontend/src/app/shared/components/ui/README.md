@@ -7,13 +7,13 @@ Bibliothèque de composants standalone pour unifier l’interface de la platefor
 - **Standalone** : chaque composant est importable individuellement via `@/shared/components/ui` ou `./index.ts`.
 - **Tokens CSS** : `--text-primary`, `--text-muted`, `--border-default`, `--bg-card`, `--electric-blue`.
 - **États** : privilégier `KyntusLoadingState`, `KyntusEmptyState`, `KyntusErrorState` plutôt que des spinners ad hoc.
-- **En-têtes** : `KyntusPageHeader` (pages) ou `KyntusRoleDashboard` (tableaux de bord par rôle).
+- **En-têtes** : `KyntusPageHeader` (pages) — titre h1 style Prime (`ky-page-title`), sous-titre optionnel, slot `[actions]`. Ne pas utiliser d'eyebrow (le groupe sidebar suffit).
 
 ## Composants
 
 | Composant | Usage |
 |-----------|--------|
-| `KyntusPageHeaderComponent` | Titre, sous-titre, eyebrow, slot `[actions]` |
+| `KyntusPageHeaderComponent` | Titre (h1 Prime), sous-titre, slot `[actions]` — sans eyebrow |
 | `KyntusKpiGridComponent` | Grille KPI (`KyntusKpiItem[]`) |
 | `KyntusRoleDashboardComponent` | Dashboard rôle : header + KPI + alertes + liste récente + slots `[charts]` `[contextPanel]` |
 | `KyntusDashboardRecentListComponent` | Liste récente standardisée (slot `[rows]`) |

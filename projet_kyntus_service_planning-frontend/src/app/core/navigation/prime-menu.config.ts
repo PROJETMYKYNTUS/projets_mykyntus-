@@ -4,6 +4,12 @@ import type {
   AuditSection,
   RpSection,
 } from '../../features/prime/state/prime-section.service';
+import { SUPPORT_MANAGER_ALLOWED_PATHS } from '../../features/prime/lib/prime-nav-access';
+import {
+  OPERATIONAL_MANAGER_ALLOWED_PATHS,
+  resolveManagerPrimeTrack,
+} from '../../features/prime/lib/prime-manager-track';
+import type { PrimeDepartmentManagerNav } from '../../features/prime/lib/prime-manager-nav';
 import type { MenuItem } from './microservices.config';
 
 const PRIME_ROUTE = '/prime';
@@ -108,6 +114,51 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
   { label: 'Ma performance', route: PRIME_ROUTE, primePath: '/employee/performance', primeRoles: ['Pilote'] },
 ];
 
+/** Track Allowances — départements Support (module Parrainage exclu). */
+export const PRIME_ALLOWANCE_MENU_ITEMS: Array<
+  MenuItem & { primeRoles: Role[]; departmentKinds?: ('Support' | 'Operational')[] }
+> = [
+  {
+    label: 'Primes Support — Tableau de bord',
+    route: PRIME_ROUTE,
+    primePath: '/allowances',
+    primeRoles: ['Manager', 'RH', 'Admin'],
+    departmentKinds: ['Support'],
+  },
+  {
+    label: 'Demandes de prime',
+    route: PRIME_ROUTE,
+    primePath: '/allowances/requests',
+    primeRoles: ['Manager'],
+    departmentKinds: ['Support'],
+  },
+  {
+    label: 'Validation primes Support',
+    route: PRIME_ROUTE,
+    primePath: '/allowances/inbox',
+    primeRoles: ['Manager', 'RH', 'Comptabilité'],
+  },
+  {
+    label: 'Supervision primes Support',
+    route: PRIME_ROUTE,
+    primePath: '/allowances/supervision',
+    primeRoles: ['RH', 'Admin'],
+  },
+  {
+    label: 'Mes primes Support',
+    route: PRIME_ROUTE,
+    primePath: '/allowances/my',
+    primeRoles: ['Pilote', 'Manager'],
+    departmentKinds: ['Support'],
+  },
+  {
+    label: 'Catalogue primes Support',
+    route: PRIME_ROUTE,
+    primePath: '/allowances/catalog',
+    primeRoles: ['RH', 'Admin'],
+  },
+];
+
 export const PRIME_RP_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
   { label: 'Tableau de bord', route: PRIME_ROUTE, primeRpSection: 'dashboard', primeRoles: ['RP'] },
   { label: 'Performance équipe', route: PRIME_ROUTE, primeRpSection: 'performance', primeRoles: ['RP'] },
@@ -130,15 +181,74 @@ export const PRIME_AUDIT_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = 
   { label: 'Reporting', route: PRIME_ROUTE, primeAuditSection: 'reporting', primeRoles: ['Audit'] },
 ];
 
-export function buildPrimeMenuItemsForRole(role: Role): MenuItem[] {
+export function buildPrimeMenuItemsForRole(
+  role: Role,
+  departmentKind: 'Support' | 'Operational' | null = null,
+  managerNav: PrimeDepartmentManagerNav = { isSupportManager: false, isOperationalManager: false },
+): MenuItem[] {
+  const { isSupportManager, isOperationalManager } = managerNav;
+  const managerTrack = resolveManagerPrimeTrack(role, managerNav);
+
+  if (role === 'Manager' && managerTrack === 'support') {
+    return withAllowanceSection(
+      PRIME_ALLOWANCE_MENU_ITEMS.filter((i) => {
+        if (!i.primeRoles.includes(role)) return false;
+        const p = i.primePath;
+        return !!p && (SUPPORT_MANAGER_ALLOWED_PATHS as readonly string[]).includes(p);
+      }),
+    );
+  }
+
+  if (role === 'Manager' && managerTrack === 'operational') {
+    return PRIME_PATH_MENU_ITEMS.filter((i) => {
+      if (!i.primeRoles.includes(role)) return false;
+      const p = i.primePath;
+      return !!p && (OPERATIONAL_MANAGER_ALLOWED_PATHS as readonly string[]).includes(p);
+    });
+  }
+
   if (role === 'RP') {
     return PRIME_RP_MENU_ITEMS.filter((i) => i.primeRoles.includes(role));
   }
   if (role === 'Admin') {
-    return PRIME_ADMIN_MENU_ITEMS.filter((i) => i.primeRoles.includes(role));
+    return withAllowanceSection([
+      ...PRIME_ADMIN_MENU_ITEMS.filter((i) => i.primeRoles.includes(role)),
+      ...PRIME_ALLOWANCE_MENU_ITEMS.filter((i) => i.primeRoles.includes(role)),
+    ]);
   }
   if (role === 'Audit') {
     return PRIME_AUDIT_MENU_ITEMS.filter((i) => i.primeRoles.includes(role));
   }
-  return PRIME_PATH_MENU_ITEMS.filter((i) => i.primeRoles.includes(role));
+
+  const base = PRIME_PATH_MENU_ITEMS.filter((i) => i.primeRoles.includes(role));
+  const allowances = PRIME_ALLOWANCE_MENU_ITEMS.filter((i) => {
+    if (!i.primeRoles.includes(role)) return false;
+    if (!i.departmentKinds?.length) return true;
+    if (!departmentKind) return role === 'RH' || role === 'Comptabilité';
+    return i.departmentKinds.includes(departmentKind);
+  });
+
+  let merged = [...base, ...allowances];
+
+  if (role === 'Manager' && isOperationalManager) {
+    merged = merged.filter((i) => !i.primePath?.startsWith('/allowances'));
+  }
+
+  if (departmentKind === 'Operational') {
+    merged = merged.filter((i) => !i.primePath?.startsWith('/allowances'));
+  }
+
+  return withAllowanceSection(merged);
+}
+
+function withAllowanceSection(items: MenuItem[]): MenuItem[] {
+  const idx = items.findIndex((i) => i.primePath?.startsWith('/allowances'));
+  if (idx < 0) return items;
+  if (items[idx - 1]?.isSectionHeader) return items;
+  const header: MenuItem = {
+    label: 'Primes Support',
+    route: PRIME_ROUTE,
+    isSectionHeader: true,
+  };
+  return [...items.slice(0, idx), header, ...items.slice(idx)];
 }

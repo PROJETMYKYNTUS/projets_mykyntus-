@@ -4,6 +4,7 @@ import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/co
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 
+import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 import { DocumentationDataApiService } from '../../../core/services/documentation-data-api.service';
 import { DocumentationIdentityService } from '../../../core/services/documentation-identity.service';
 import { DocumentationNotificationService } from '../../../core/services/documentation-notification.service';
@@ -34,6 +35,7 @@ import { StatusBadgeComponent } from '../components/status-badge/status-badge.co
     StatusBadgeComponent,
     GeneratedDocumentFormatMenuComponent,
     GeneratedDocumentPreviewModalComponent,
+    KyntusPageHeaderComponent,
   ],
   templateUrl: './my-documents-page.component.html',
 })

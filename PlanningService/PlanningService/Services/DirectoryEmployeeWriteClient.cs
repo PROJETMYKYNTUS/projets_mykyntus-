@@ -8,7 +8,11 @@ using PlanningService.Models;
 
 namespace PlanningService.Services;
 
-public sealed record DirectoryEmployeeCreateResult(Guid EmployeeId, bool Success);
+public sealed record DirectoryEmployeeCreateResult(
+    Guid EmployeeId,
+    bool Success,
+    string? ErrorMessage = null,
+    bool Retryable = true);
 
 public interface IDirectoryEmployeeWriteClient
 {
@@ -20,6 +24,8 @@ public interface IDirectoryEmployeeWriteClient
         string? primeServiceId,
         DateTime hireDate,
         CancellationToken ct = default);
+
+    Task<bool> IsEmailUsedInDirectoryAsync(string email, Guid? excludeEmployeeId = null, CancellationToken ct = default);
 
     Task<bool> TryUpdateEmployeeAsync(User user, CancellationToken ct = default);
     Task<bool> TryLinkAuthSubjectAsync(Guid employeeId, Guid authSubjectId, CancellationToken ct = default);
@@ -69,19 +75,50 @@ public sealed class DirectoryEmployeeWriteClient(
                 if (!response.IsSuccessStatusCode)
                 {
                     var body = await response.Content.ReadAsStringAsync(ct);
-                    logger.LogWarning("Directory create échec {Status} pour {Email}: {Body}", response.StatusCode, email, body);
-                    return new DirectoryEmployeeCreateResult(Guid.Empty, false);
+                    var errorMessage = TryParseDirectoryError(body);
+                    var retryable = IsRetryableStatus(response.StatusCode);
+                    logger.LogWarning(
+                        "Directory create échec {Status} pour {Email}: {Body}",
+                        response.StatusCode,
+                        email,
+                        string.IsNullOrWhiteSpace(errorMessage) ? body : errorMessage);
+                    return new DirectoryEmployeeCreateResult(Guid.Empty, false, errorMessage, retryable);
                 }
 
                 var created = await response.Content.ReadFromJsonAsync<DirectoryEmployeeJson>(cancellationToken: ct);
                 if (created is null || !Guid.TryParse(created.Id, out var employeeId))
-                    return new DirectoryEmployeeCreateResult(Guid.Empty, false);
+                    return new DirectoryEmployeeCreateResult(Guid.Empty, false, "Réponse Directory invalide.", Retryable: false);
 
                 logger.LogInformation("Directory create OK pour {Email} guid={Guid}", email, employeeId);
                 return new DirectoryEmployeeCreateResult(employeeId, true);
             },
             $"create {email}",
             new DirectoryEmployeeCreateResult(Guid.Empty, false),
+            ct);
+
+    public Task<bool> IsEmailUsedInDirectoryAsync(string email, Guid? excludeEmployeeId = null, CancellationToken ct = default) =>
+        ExecuteWithRetriesAsync(
+            async () =>
+            {
+                if (string.IsNullOrWhiteSpace(email)) return false;
+
+                var client = CreateClient();
+                var query = $"api/directory/employees/check-email?email={Uri.EscapeDataString(email.Trim())}";
+                if (excludeEmployeeId.HasValue && excludeEmployeeId.Value != Guid.Empty)
+                    query += $"&excludeId={excludeEmployeeId.Value:D}";
+
+                using var request = new HttpRequestMessage(HttpMethod.Get, query);
+                AttachAuth(request);
+
+                var response = await client.SendAsync(request, ct);
+                if (!response.IsSuccessStatusCode)
+                    return false;
+
+                var payload = await response.Content.ReadFromJsonAsync<DirectoryEmailCheckJson>(cancellationToken: ct);
+                return payload is not null && !payload.IsUnique;
+            },
+            $"check-email {email}",
+            false,
             ct);
 
     public Task<bool> TryUpdateEmployeeAsync(User user, CancellationToken ct = default) =>
@@ -185,7 +222,8 @@ public sealed class DirectoryEmployeeWriteClient(
                 }
                 else if (result is DirectoryEmployeeCreateResult r && !r.Success)
                 {
-                    // continue retry
+                    if (!r.Retryable)
+                        return result;
                 }
                 else
                 {
@@ -228,4 +266,36 @@ public sealed class DirectoryEmployeeWriteClient(
     {
         public string Id { get; set; } = "";
     }
+
+    private sealed class DirectoryEmailCheckJson
+    {
+        public bool IsUnique { get; set; }
+    }
+
+    private sealed class DirectoryErrorJson
+    {
+        public string? Error { get; set; }
+        public string? Message { get; set; }
+    }
+
+    private static string? TryParseDirectoryError(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return null;
+        try
+        {
+            var parsed = System.Text.Json.JsonSerializer.Deserialize<DirectoryErrorJson>(body);
+            return parsed?.Error ?? parsed?.Message;
+        }
+        catch
+        {
+            return body.Length <= 500 ? body : body[..500];
+        }
+    }
+
+    private static bool IsRetryableStatus(System.Net.HttpStatusCode statusCode) =>
+        statusCode is not (
+            System.Net.HttpStatusCode.BadRequest
+            or System.Net.HttpStatusCode.Conflict
+            or System.Net.HttpStatusCode.NotFound
+            or System.Net.HttpStatusCode.UnprocessableEntity);
 }

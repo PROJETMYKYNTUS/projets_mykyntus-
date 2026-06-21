@@ -1,16 +1,14 @@
-<div class="page-wrapper ky-page-shell">
-  <div class="page-header">
-    <div class="header-left">
-      <span class="eyebrow">Congés</span>
-      <h1 class="page-title">Historique des congés</h1>
-      <p class="page-sub">Consultation des demandes par année et périmètre Organisation RH</p>
-      <p class="results-count"><strong>{{ filteredDemandes.length }}</strong> demande(s) affichée(s)</p>
+<div class="ky-page-shell">
+  <app-kyntus-page-header
+    title="Historique des congés"
+    [subtitle]="filteredDemandes.length + ' demande(s) affichée(s) — Consultation par année et périmètre Organisation RH'">
+    <div actions>
+      <button type="button" class="ky-btn-secondary btn-refresh" (click)="loadData()" [disabled]="loading">
+        <app-lucide-icon [icon]="icons.refresh" className="w-4 h-4" />
+        Actualiser
+      </button>
     </div>
-    <button type="button" class="ky-btn-secondary btn-refresh" (click)="loadData()" [disabled]="loading">
-      <app-lucide-icon [icon]="icons.refresh" className="w-4 h-4" />
-      Actualiser
-    </button>
-  </div>
+  </app-kyntus-page-header>
 
   <div class="kpi-row">
     <div class="kpi-card ky-card kc-blue">

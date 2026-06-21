@@ -56,13 +56,10 @@
 .kpi-row {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 1rem;
 }
 
 .kpi-card {
-  padding: 14px 16px;
-  border-radius: 16px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -82,16 +79,8 @@
   line-height: 1;
 }
 
-.kc-blue { border-left: 4px solid #3b82f6; }
-.kc-green { border-left: 4px solid #22c55e; }
-.kc-amber { border-left: 4px solid #f59e0b; }
-.kc-rose { border-left: 4px solid #f43f5e; }
-.kc-gray { border-left: 4px solid #94a3b8; }
-
 /* ── Barre de filtres horizontale compacte ── */
 .filters-panel {
-  padding: 12px 14px;
-  margin-bottom: 16px;
   overflow-x: auto;
 }
 
@@ -184,10 +173,6 @@
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
-}
-
-.table-card {
-  padding: 16px 18px;
 }
 
 .table-wrapper {

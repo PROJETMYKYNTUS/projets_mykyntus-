@@ -22,6 +22,7 @@ const EDIT_FIELDS: ReadonlyArray<[keyof Referral, string]> = [
 const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = [
   ['SUBMITTED', 'En attente'],
   ['PROCESSED', 'Dossier traité'],
+  ['IN_TRAINING', 'En cours de formation'],
   ['APPROVED', 'Validé'],
   ['REJECTED', 'Rejeté'],
   ['REWARDED', 'Prime versée'],
@@ -40,7 +41,7 @@ const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = [
     } @else {
       <section class="space-y-6">
         <div>
-          <h1 class="text-2xl font-semibold text-primary flex items-center gap-2">
+          <h1 class="prime-page-title flex items-center gap-2">
             <app-lucide-icon [icon]="wrenchIcon" className="w-7 h-7 text-blue-500 shrink-0" />
             Outils administrateur
           </h1>

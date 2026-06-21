@@ -7,7 +7,7 @@ import { KyntusPageHeaderComponent } from './kyntus-page-header.component';
   imports: [KyntusPageHeaderComponent],
   template: `
     <section class="kyntus-rules-admin ky-page-shell">
-      <app-kyntus-page-header [title]="title" [subtitle]="subtitle" [eyebrow]="eyebrow">
+      <app-kyntus-page-header [title]="title" [subtitle]="subtitle">
         <ng-content select="[headerActions]" actions />
       </app-kyntus-page-header>
 
@@ -51,5 +51,4 @@ import { KyntusPageHeaderComponent } from './kyntus-page-header.component';
 export class KyntusRulesAdminPageComponent {
   @Input({ required: true }) title!: string;
   @Input() subtitle = '';
-  @Input() eyebrow = '';
 }

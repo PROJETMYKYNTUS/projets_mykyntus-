@@ -19,7 +19,7 @@ import { ParrainageNavService, ParrainageView } from '../../state/parrainage-nav
       <section class="flex-1 space-y-6">
         <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div>
-            <h1 class="text-2xl font-semibold text-primary flex items-center gap-2">
+            <h1 class="prime-page-title flex items-center gap-2">
               <app-lucide-icon [icon]="activityIcon" className="w-7 h-7 text-blue-500" />
               Centre opérationnel
             </h1>

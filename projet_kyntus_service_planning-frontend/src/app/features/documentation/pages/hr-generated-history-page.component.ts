@@ -3,6 +3,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 
+import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 import { DocumentationIdentityService } from '../../../core/services/documentation-identity.service';
 import type { DocumentRequestDto } from '../../../core/models/documentation.models';
 import { switchMapOnDocumentationContext } from '../lib/documentation-context-refresh';
@@ -27,6 +28,7 @@ import { StatusBadgeComponent } from '../components/status-badge/status-badge.co
     DocIconComponent,
     GeneratedDocumentFormatMenuComponent,
     GeneratedDocumentPreviewModalComponent,
+    KyntusPageHeaderComponent,
   ],
   templateUrl: './hr-generated-history-page.component.html',
 })

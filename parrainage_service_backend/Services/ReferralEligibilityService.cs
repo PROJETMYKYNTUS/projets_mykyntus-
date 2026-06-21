@@ -6,6 +6,7 @@ namespace ParrainageBackend.Services;
 
 /// <summary>
 /// Passe les dossiers approuvés en attente de confirmation RH quand la période minimum est écoulée.
+/// Notifie la RH quand la date de fin de formation est atteinte.
 /// </summary>
 public sealed class ReferralEligibilityService(
     IServiceScopeFactory scopeFactory,
@@ -18,6 +19,8 @@ public sealed class ReferralEligibilityService(
         var workflow = scope.ServiceProvider.GetRequiredService<ReferralWorkflowService>();
 
         var now = DateTimeOffset.UtcNow;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
         var candidates = await db.Referrals
             .Where(r => r.Status == "APPROVED" && r.PaymentStatus == ReferralPaymentStatus.NotEligible)
             .ToListAsync(ct);
@@ -26,15 +29,34 @@ public sealed class ReferralEligibilityService(
             .Where(r => r.EligibleForPaymentAt != null && r.EligibleForPaymentAt <= now)
             .ToList();
 
-        if (pending.Count == 0) return 0;
-
         foreach (var referral in pending)
             workflow.MarkAwaitingRhConfirmation(referral, now);
 
-        await db.SaveChangesAsync(ct);
-        logger.LogInformation("PARRAINAGE : {Count} dossier(s) en attente de confirmation RH.", pending.Count);
-        return pending.Count;
+        var trainingDue = await db.Referrals
+            .Where(r => r.Status == "IN_TRAINING"
+                        && r.TrainingEndDate != null
+                        && r.TrainingEndDate <= today
+                        && r.TrainingEndNotifiedAt == null)
+            .ToListAsync(ct);
+
+        foreach (var referral in trainingDue)
+            workflow.MarkTrainingEndDue(referral, now);
+
+        var total = pending.Count + trainingDue.Count;
+        if (total > 0)
+        {
+            await db.SaveChangesAsync(ct);
+            if (pending.Count > 0)
+                logger.LogInformation("PARRAINAGE : {Count} dossier(s) en attente de confirmation RH.", pending.Count);
+            if (trainingDue.Count > 0)
+                logger.LogInformation("PARRAINAGE : {Count} dossier(s) fin de formation à traiter.", trainingDue.Count);
+        }
+
+        return total;
     }
+
+    public Task<int> ProcessTrainingEndDueAsync(CancellationToken ct = default) =>
+        ProcessEligibleReferralsAsync(ct);
 }
 
 public sealed class ReferralEligibilityHostedService(

@@ -18,11 +18,12 @@ import {
   StatutFormationLabels,
 } from '../../../core/models/formation.models';
 import { LucideIconComponent } from '../../../shared/lucide-icon.component';
+import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 
 @Component({
   selector: 'app-formation-employee',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent],
   templateUrl: './formation-employee.component.html',
   styleUrls: ['./formation-employee.component.css'],
 })

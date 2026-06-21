@@ -7,6 +7,7 @@ import { ActivatedRoute } from '@angular/router';
 import { catchError, concatMap, forkJoin, Observable, of, Subscription, tap, throwError } from 'rxjs';
 import mammoth from 'mammoth';
 
+import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 import {
   DocumentationDataApiService,
   type AiDirectDocumentFillPayload,
@@ -49,6 +50,7 @@ import { SafeUrlPipe } from '../lib/safe-url.pipe';
     GeneratedDocumentFormatMenuComponent,
     GeneratedDocumentPreviewModalComponent,
     SafeUrlPipe,
+    KyntusPageHeaderComponent,
   ],
   templateUrl: './doc-gen-page.component.html',
 })

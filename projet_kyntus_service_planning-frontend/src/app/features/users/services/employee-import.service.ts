@@ -21,6 +21,9 @@ export interface EmployeeImportFieldConfig {
   isRequiredOnCreate: boolean;
   aliases: string[];
   sortOrder: number;
+  isSystemField?: boolean;
+  dataType?: string;
+  createdAt?: string;
 }
 
 export interface EmployeeImportColumnMapping {
@@ -54,6 +57,7 @@ export interface PendingOrgCreation {
   pole?: string | null;
   cellule?: string | null;
   service?: string | null;
+  operationalDepartment?: string | null;
   confirmationLabel: string;
   affectedLineNumbers: number[];
   approved: boolean;
@@ -98,6 +102,23 @@ export interface EmployeeImportAnalyzeResponse {
 export interface EmployeeImportMappingItem {
   columnIndex: number;
   fieldKey: string | null;
+  disposition?: 'map' | 'ignore' | 'keepAsNewField';
+  newFieldDefinition?: {
+    label: string;
+    dataType: string;
+    isRequiredOnCreate: boolean;
+  };
+}
+
+export interface EmployeeImportPreviewRequest {
+  importSessionId: string;
+  mappings: EmployeeImportMappingItem[];
+}
+
+export interface EmployeeImportPreviewResponse {
+  previewRows: Record<string, string | null>[];
+  extraFieldKeys: string[];
+  activeFields?: EmployeeImportFieldConfig[];
 }
 
 export interface EmployeeImportExecuteRequest {
@@ -183,6 +204,10 @@ export class EmployeeImportService {
 
   revalidateOrg(request: EmployeeImportRevalidateOrgRequest): Observable<EmployeeImportRevalidateOrgResponse> {
     return this.http.post<EmployeeImportRevalidateOrgResponse>(`${this.base}/revalidate-org`, request);
+  }
+
+  preview(request: EmployeeImportPreviewRequest): Observable<EmployeeImportPreviewResponse> {
+    return this.http.post<EmployeeImportPreviewResponse>(`${this.base}/preview`, request);
   }
 
   execute(request: EmployeeImportExecuteRequest): Observable<EmployeeImportReport> {

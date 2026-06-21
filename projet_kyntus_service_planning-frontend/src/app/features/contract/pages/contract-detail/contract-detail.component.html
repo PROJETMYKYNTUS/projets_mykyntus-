@@ -1,6 +1,6 @@
 <!-- features/contract/pages/contract-detail/contract-detail.component.html -->
 
-<div class="page-wrapper ky-page-shell">
+<div class="ky-page-shell">
 
   <!-- Loading -->
   <div class="page-loading" *ngIf="loading">
@@ -10,14 +10,13 @@
 
   <ng-container *ngIf="!loading && contract">
 
-    <!-- ── HEADER ── -->
-    <div class="page-header">
-      <div class="header-center">
-        <h1 class="page-title">Détails du contrat</h1>
-        <p class="page-sub">Informations complètes du contrat</p>
+    <app-kyntus-page-header
+      title="Détail du contrat"
+      subtitle="Informations complètes du contrat">
+      <div actions>
+        <button type="button" class="ky-btn-primary" (click)="goToEdit()">Modifier</button>
       </div>
-      <button class="btn-primary ky-btn-primary" (click)="goToEdit()">Modifier</button>
-    </div>
+    </app-kyntus-page-header>
 
     <!-- ── ALERTE ACTIVE ── -->
     <div class="alert-banner" *ngIf="contract.isAlertActive">

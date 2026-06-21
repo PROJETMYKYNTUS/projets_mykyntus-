@@ -1,8 +1,9 @@
 ﻿import { CommonModule } from '@angular/common';
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
 import { Subscription } from 'rxjs';
 
 import { DocumentationIdentityService } from '../../../../core/services/documentation-identity.service';
+import { DepartmentContextService } from '../../../prime/services/allowance-api.service';
 import type { DocumentationRole } from '../../interfaces/documentation-role';
 import { drillSelectOptions } from '../../lib/documentation-org-hierarchy';
 import { DocumentationHierarchyDrillService } from '../../services/documentation-hierarchy-drill.service';
@@ -15,6 +16,13 @@ import { DocumentationHierarchyDrillService } from '../../services/documentation
 })
 export class DocDrillBarComponent implements OnInit, OnDestroy {
   @Input({ required: true }) role!: DocumentationRole;
+
+  private readonly deptContext = inject(DepartmentContextService);
+
+  /** Manager Support : équipe plate via ParentId, pas de drill coach. */
+  get hideForSupportManager(): boolean {
+    return this.role === 'Manager' && this.deptContext.isSupportManager();
+  }
 
   drill = this.hierarchy.drill;
   managers: { value: string; label: string }[] = [];

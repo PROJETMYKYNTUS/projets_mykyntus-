@@ -1,31 +1,18 @@
-<div class="page ky-page-shell">
+<div class="ky-page-shell">
 
   <div class="page-shell">
 
-    <div class="page-header">
-      <div class="header-left">
+    <app-kyntus-page-header
+      [title]="isEditMode ? 'Modifier l\'employé' : 'Nouvel employé'"
+      [subtitle]="isEditMode ? 'Mettre à jour les informations du collaborateur' : 'Créer un nouveau compte employé et définir ses accès'">
+      <div actions>
         @if (isEditMode) {
-          <button type="button" class="btn-back ky-btn-secondary" (click)="goBack()">
+          <button type="button" class="ky-btn-secondary" (click)="goBack()">
             Retour au détail
           </button>
         }
-        <div class="header-copy">
-          <span class="eyebrow">Ressources Humaines</span>
-          <h1>{{ isEditMode ? "Modifier l'Employé" : "Nouvel Employé" }}</h1>
-
-          <p class="subtitle">
-
-            {{ isEditMode ? "Mettre à jour les informations du collaborateur" : "Créer un nouveau compte employé et définir ses accès" }}
-
-          </p>
-
-        </div>
-
       </div>
-
-    </div>
-
-
+    </app-kyntus-page-header>
 
     <div class="card ky-card">
 
@@ -155,6 +142,42 @@
 
 
 
+          @if (customEmployeeFields.length) {
+            <section class="form-section">
+              <div class="section-heading">
+                <h2>Informations complémentaires</h2>
+                <p>Champs définis par le service RH.</p>
+              </div>
+              <div class="form-grid">
+                @for (field of customEmployeeFields; track field.fieldKey) {
+                  <div class="form-group">
+                    <label [for]="'custom-' + field.fieldKey">
+                      {{ field.label }}
+                      @if (field.isRequiredOnCreate && !isEditMode) {
+                        <span class="required">*</span>
+                      }
+                    </label>
+                    @if (field.dataType === 'boolean') {
+                      <select class="ky-input" [id]="'custom-' + field.fieldKey" [(ngModel)]="customFieldValues[field.fieldKey]" [name]="'custom-' + field.fieldKey">
+                        <option value="">—</option>
+                        <option value="Oui">Oui</option>
+                        <option value="Non">Non</option>
+                      </select>
+                    } @else if (field.dataType === 'date') {
+                      <input class="ky-input" type="date" [id]="'custom-' + field.fieldKey" [(ngModel)]="customFieldValues[field.fieldKey]" [name]="'custom-' + field.fieldKey" />
+                    } @else if (field.dataType === 'number') {
+                      <input class="ky-input" type="number" [id]="'custom-' + field.fieldKey" [(ngModel)]="customFieldValues[field.fieldKey]" [name]="'custom-' + field.fieldKey" />
+                    } @else {
+                      <input class="ky-input" type="text" [id]="'custom-' + field.fieldKey" [(ngModel)]="customFieldValues[field.fieldKey]" [name]="'custom-' + field.fieldKey" />
+                    }
+                  </div>
+                }
+              </div>
+            </section>
+          }
+
+
+
           <section class="form-section">
 
             <div class="section-heading">
@@ -255,6 +278,34 @@
 
 
 
+            @if (!isEditMode) {
+              <div class="form-group">
+                <label>Mode d'organisation <span class="required">*</span></label>
+                <div class="org-mode-selector">
+                  <button
+                    type="button"
+                    class="org-mode-btn"
+                    [class.active]="orgMode === 'operational'"
+                    (click)="setOrgMode('operational')"
+                  >
+                    <span class="org-mode-title">Organisation opérationnel</span>
+                    <span class="org-mode-text">Département, pôle, cellule et service</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="org-mode-btn org-mode-btn--support"
+                    [class.active]="orgMode === 'support'"
+                    (click)="setOrgMode('support')"
+                  >
+                    <span class="org-mode-title">Organisation support</span>
+                    <span class="org-mode-text">Département Support — équipe plate</span>
+                  </button>
+                </div>
+              </div>
+            }
+
+
+
             <div class="form-grid">
 
               <div class="form-group">
@@ -265,7 +316,7 @@
 
                   <option [ngValue]="0" disabled>-- Sélectionner un rôle --</option>
 
-                  @for (role of roles; track role.id) {
+                  @for (role of filteredRoles; track role.id) {
 
                     <option [ngValue]="role.id">{{ role.name }}</option>
 
@@ -276,6 +327,71 @@
               </div>
 
             </div>
+
+
+
+            @if (showSupportAssignmentBlock) {
+              <div class="org-picker-block support-picker-block">
+                <p class="org-picker-hint">
+                  Affectation directe au département Support — équipe plate, module Allowances.
+                </p>
+                @if (supportDeptLoading) {
+                  <p class="hint">Chargement des départements Support…</p>
+                } @else {
+                  <div class="form-group">
+                    <label for="supportDept">Département Support <span class="required">*</span></label>
+                    <select
+                      class="ky-input"
+                      id="supportDept"
+                      [kyntusSelectSync]="supportDepartmentId"
+                      (kyntusSelectSyncChange)="patchSupportDepartment($event)"
+                      [disabled]="supportDepartments.length === 0"
+                    >
+                      <option value="">— Sélectionner un département —</option>
+                      @for (d of supportDepartments; track d.id) {
+                        <option [value]="d.id">{{ d.code }} — {{ d.name }}</option>
+                      }
+                    </select>
+                    @if (supportDepartments.length === 0) {
+                      <span class="input-error">Aucun département Support actif. Créez-en un dans Organisation support.</span>
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+
+
+            @if (showOperationalManagerBlock) {
+              <div class="org-picker-block support-picker-block">
+                <p class="org-picker-hint">
+                  Affectation manager de département opérationnel — synchronisée avec
+                  <button type="button" class="link-inline" (click)="goToOrganisationRh()">Organisation RH</button>.
+                </p>
+                @if (supportDeptLoading) {
+                  <p class="hint">Chargement des départements opérationnels…</p>
+                } @else {
+                  <div class="form-group">
+                    <label for="operationalBusinessDept">Département opérationnel <span class="required">*</span></label>
+                    <select
+                      class="ky-input"
+                      id="operationalBusinessDept"
+                      [kyntusSelectSync]="operationalBusinessDepartmentId"
+                      (kyntusSelectSyncChange)="patchOperationalBusinessDepartment($event)"
+                      [disabled]="operationalBusinessDepartments.length === 0"
+                    >
+                      <option value="">— Sélectionner un département —</option>
+                      @for (d of operationalBusinessDepartments; track d.id) {
+                        <option [value]="d.id">{{ d.code }} — {{ d.name }}</option>
+                      }
+                    </select>
+                    @if (operationalBusinessDepartments.length === 0) {
+                      <span class="input-error">Aucun département opérationnel actif. Créez-en un dans Organisation RH.</span>
+                    }
+                  </div>
+                }
+              </div>
+            }
 
 
 
@@ -389,6 +505,26 @@
                     </div>
                   } @else if (showOrgCascade) {
                     <div class="form-grid org-grid">
+                      @if (showOrgOperationalDeptSelect) {
+                        <div class="form-group">
+                          <label for="orgOperationalDept">Département opérationnel @if (orgAssignmentRequired) { <span class="required">*</span> }</label>
+                          <select
+                            class="ky-input"
+                            id="orgOperationalDept"
+                            [kyntusSelectSync]="orgOperationalDeptId"
+                            (kyntusSelectSyncChange)="patchOrgOperationalDept($event)"
+                            [disabled]="filteredOperationalDepartments.length === 0 && !hasUnassignedPoles"
+                          >
+                            <option value="">— Sélectionner un département —</option>
+                            @for (d of filteredOperationalDepartments; track d.id) {
+                              <option [value]="d.id">{{ d.code }} — {{ d.name }}</option>
+                            }
+                          </select>
+                          @if (hasUnassignedPoles) {
+                            <span class="hint">Des pôles non rattachés sont disponibles dans la liste Pôle ci-dessous.</span>
+                          }
+                        </div>
+                      }
                       @if (showOrgPoleSelect) {
                         <div class="form-group">
                           <label for="orgPole">Pôle @if (orgAssignmentRequired) { <span class="required">*</span> }</label>
@@ -397,14 +533,23 @@
                             id="orgPole"
                             [kyntusSelectSync]="orgPoleId"
                             (kyntusSelectSyncChange)="patchOrgPole($event)"
-                            [disabled]="filteredOrgDepartments.length === 0"
+                            [disabled]="!orgOperationalDeptId && !hasUnassignedPoles"
                           >
                             <option value="">— Sélectionner un pôle —</option>
-                            @for (d of filteredOrgDepartments; track d.id) {
-                              <option [value]="d.id">{{ d.name }}</option>
+                            @if (orgOperationalDeptId) {
+                              @for (p of filteredOrgPoleOptions; track p.id) {
+                                <option [value]="p.id">{{ p.name }}</option>
+                              }
+                            }
+                            @if (hasUnassignedPoles) {
+                              <optgroup label="Pôles non rattachés">
+                                @for (p of unassignedPoles; track p.id) {
+                                  <option [value]="p.id">{{ p.name }}</option>
+                                }
+                              </optgroup>
                             }
                           </select>
-                          @if (orgStructureSearch && filteredOrgDepartments.length === 0) {
+                          @if (orgStructureSearch && filteredOrgPoleOptions.length === 0 && !hasUnassignedPoles) {
                             <span class="input-error">Aucun pôle ne correspond au filtre.</span>
                           }
                         </div>
@@ -420,8 +565,8 @@
                             [disabled]="!orgPoleId || filteredOrgCelluleOptions.length === 0"
                           >
                             <option value="">— Sélectionner une cellule —</option>
-                            @for (p of filteredOrgCelluleOptions; track p.id) {
-                              <option [value]="p.id">{{ p.name }}</option>
+                            @for (c of filteredOrgCelluleOptions; track c.id) {
+                              <option [value]="c.id">{{ c.name }}</option>
                             }
                           </select>
                         </div>
@@ -444,7 +589,7 @@
                         </div>
                       }
                     </div>
-                    @if (orgServiceId || orgCelluleId || orgPoleId) {
+                    @if (orgServiceId || orgCelluleId || orgPoleId || orgOperationalDeptId) {
                       <div class="selected-org">
                         <strong>Périmètre :</strong> {{ selectedOrgSummary }}
                       </div>

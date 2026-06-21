@@ -1,17 +1,15 @@
 <!-- new-employee-manager.component.html -->
-<div class="page-wrapper ky-page-shell">
-  <div class="page-header">
-    <div class="header-info">
-      <h1 class="page-title"><app-lucide-icon [icon]="icons.userPlus" className="w-6 h-6" /> Nouveaux Employés</h1>
-      <p class="page-sub">Configuration slots samedi · Statut automatique &lt; 3 mois</p>
-    </div>
-    <div class="header-actions">
+<div class="ky-page-shell">
+  <app-kyntus-page-header
+    title="Nouveaux Employés"
+    subtitle="Configuration slots samedi · Statut automatique &lt; 3 mois">
+    <div actions>
       <select class="ky-input select-subservice" [(ngModel)]="subServiceId" (change)="onSubServiceChange()">
         <option [value]="0" disabled>-- Service --</option>
         <option *ngFor="let s of subServices" [value]="s.id">{{ s.name }}</option>
       </select>
     </div>
-  </div>
+  </app-kyntus-page-header>
 
   <div class="alert-success" *ngIf="successMsg">{{ successMsg }}</div>
   <div class="alert-error"   *ngIf="error">{{ error }}</div>

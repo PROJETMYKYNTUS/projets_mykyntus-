@@ -13,6 +13,8 @@ public class DirectoryDbContext(DbContextOptions<DirectoryDbContext> options) : 
     public DbSet<OrgAssignment> OrgAssignments => Set<OrgAssignment>();
     public DbSet<OrgAssignmentHistory> OrgAssignmentHistories => Set<OrgAssignmentHistory>();
     public DbSet<IamPermission> IamPermissions => Set<IamPermission>();
+    public DbSet<BusinessDepartment> BusinessDepartments => Set<BusinessDepartment>();
+    public DbSet<DepartmentPoleAssignment> DepartmentPoleAssignments => Set<DepartmentPoleAssignment>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -33,6 +35,27 @@ public class DirectoryDbContext(DbContextOptions<DirectoryDbContext> options) : 
                 .IsConcurrencyToken()
                 .ValueGeneratedNever();
             e.HasIndex(x => x.Email).IsUnique();
+            e.HasIndex(x => x.BusinessDepartmentId);
+            e.HasOne(x => x.BusinessDepartment).WithMany().HasForeignKey(x => x.BusinessDepartmentId);
+        });
+
+        modelBuilder.Entity<BusinessDepartment>(e =>
+        {
+            e.ToTable("business_departments");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Code).HasMaxLength(64);
+            e.Property(x => x.Name).HasMaxLength(256);
+            e.HasIndex(x => x.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<DepartmentPoleAssignment>(e =>
+        {
+            e.ToTable("department_pole_assignments");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedOnAdd();
+            e.Property(x => x.PoleId).HasMaxLength(64);
+            e.HasIndex(x => new { x.BusinessDepartmentId, x.PoleId }).IsUnique();
+            e.HasOne(x => x.BusinessDepartment).WithMany(x => x.PoleAssignments).HasForeignKey(x => x.BusinessDepartmentId);
         });
 
         modelBuilder.Entity<OrgPole>(e =>
@@ -41,6 +64,8 @@ public class DirectoryDbContext(DbContextOptions<DirectoryDbContext> options) : 
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).HasMaxLength(64);
             e.Property(x => x.Name).HasMaxLength(256);
+            e.HasIndex(x => x.BusinessDepartmentId);
+            e.HasOne(x => x.BusinessDepartment).WithMany().HasForeignKey(x => x.BusinessDepartmentId);
         });
 
         modelBuilder.Entity<OrgCellule>(e =>

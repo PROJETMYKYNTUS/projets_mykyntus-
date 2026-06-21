@@ -30,6 +30,7 @@ export interface User {
   isActive: boolean;
   createdAt: string;
   level: number;
+  customFields?: Record<string, string | null>;
 }
 
 export interface CreateUserDto {
@@ -42,6 +43,7 @@ export interface CreateUserDto {
   hireDate: string;
   email: string;
   level: number;
+  customFields?: Record<string, string | null>;
 }
 
 export interface UpdateUserDto {
@@ -55,4 +57,5 @@ export interface UpdateUserDto {
   email: string;
   isActive: boolean;
   level: number;
+  customFields?: Record<string, string | null>;
 }

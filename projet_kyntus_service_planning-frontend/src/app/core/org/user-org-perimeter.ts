@@ -1,6 +1,14 @@
 import type { Department } from '../../features/prime/models';
+import type { OperationalDepartmentNode, OrgPoleNode } from '../../features/prime/models/org-tree.types';
 import type { OrgAssignmentsOverview } from '../../features/prime/services/prime-org-api.service';
 import type { User } from '../../features/users/users-module';
+import {
+  findOperationalSelectionByCelluleId,
+  findOperationalSelectionByPoleId,
+  findOperationalSelectionByServiceId,
+  operationalSelectionSummary,
+  resolvePoleNode,
+} from './operational-org-picker';
 import { findOrgSelectionByPrimeServiceId, poleCells } from './planning-org-picker';
 import {
   isChefDeProjetRole,
@@ -9,33 +17,128 @@ import {
 } from './org-role-assignment';
 
 export type UserOrgPerimeterView = {
+  operationalDepartment: string | null;
   pole: string | null;
   cellule: string | null;
   service: string | null;
+  isSupport?: boolean;
+  supportDepartmentName?: string | null;
 };
+
+export type DirectoryEmployeeOrgRef = {
+  id: string;
+  businessDepartmentId?: string | null;
+  businessDepartmentKind?: string | null;
+};
+
+export type BusinessDepartmentRef = {
+  id: string;
+  name: string;
+  code: string;
+  kind: string;
+};
+
+export function resolveSupportDepartmentLabel(
+  businessDepartmentId: string | null | undefined,
+  businessDepartments: readonly BusinessDepartmentRef[],
+): string | null {
+  if (!businessDepartmentId?.trim()) return null;
+  const dept = businessDepartments.find((d) => d.id === businessDepartmentId);
+  if (!dept) return null;
+  const name = dept.name?.trim();
+  const code = dept.code?.trim();
+  if (name && code && name.toLowerCase() !== code.toLowerCase()) {
+    return `${code} — ${name}`;
+  }
+  return name || code || null;
+}
+
+export function applySupportDepartmentToPerimeter(
+  view: UserOrgPerimeterView,
+  employee: DirectoryEmployeeOrgRef | undefined,
+  businessDepartments: readonly BusinessDepartmentRef[],
+): UserOrgPerimeterView {
+  if (!employee?.businessDepartmentId) return view;
+  const dept = businessDepartments.find((d) => d.id === employee.businessDepartmentId);
+  const kind = (employee.businessDepartmentKind ?? dept?.kind ?? '').toLowerCase();
+  if (kind !== 'support') return view;
+  const label = resolveSupportDepartmentLabel(employee.businessDepartmentId, businessDepartments);
+  if (!label) return view;
+  return {
+    isSupport: true,
+    supportDepartmentName: label,
+    operationalDepartment: null,
+    pole: null,
+    cellule: null,
+    service: null,
+  };
+}
+
+export function employeeSupportDepartmentLabel(
+  employee: DirectoryEmployeeOrgRef | undefined,
+  businessDepartments: readonly BusinessDepartmentRef[],
+): string | null {
+  if (!employee?.businessDepartmentId) return null;
+  const kind = (employee.businessDepartmentKind ?? '').toLowerCase();
+  const dept = businessDepartments.find((d) => d.id === employee.businessDepartmentId);
+  if (kind !== 'support' && String(dept?.kind ?? '').toLowerCase() !== 'support') return null;
+  return resolveSupportDepartmentLabel(employee.businessDepartmentId, businessDepartments);
+}
 
 export function orgCellLabel(value: string | null | undefined): string {
   return value?.trim() || '—';
 }
 
 export function orgPerimeterSummary(view: UserOrgPerimeterView): string {
-  const parts = [view.pole, view.cellule, view.service].filter((p) => !!p?.trim());
+  if (view.isSupport && view.supportDepartmentName?.trim()) {
+    return `Support — ${view.supportDepartmentName.trim()}`;
+  }
+  const parts = [view.operationalDepartment, view.pole, view.cellule, view.service].filter(
+    (p) => !!p?.trim(),
+  );
   return parts.length ? parts.join(' / ') : '—';
 }
 
 export function orgPerimeterFromUser(user: User): UserOrgPerimeterView {
   return {
+    operationalDepartment: null,
     pole: user.orgPoleName?.trim() || null,
     cellule: user.orgCelluleName?.trim() || null,
     service: user.orgServiceName?.trim() || user.subServiceName?.trim() || null,
   };
 }
 
-function namesFromSelection(departments: readonly Department[], sel: { poleId: string; celluleId: string; serviceId: string }): UserOrgPerimeterView {
+function namesFromOperationalSelection(
+  operationalDepartments: readonly OperationalDepartmentNode[],
+  unassignedPoles: readonly OrgPoleNode[],
+  sel: { operationalDeptId: string; poleId: string; celluleId: string; serviceId: string },
+): UserOrgPerimeterView {
+  const summary = operationalSelectionSummary(
+    operationalDepartments,
+    unassignedPoles,
+    sel.operationalDeptId,
+    sel.poleId,
+    sel.celluleId,
+    sel.serviceId,
+  );
+  const parts = summary === '—' ? [] : summary.split(' / ');
+  return {
+    operationalDepartment: parts[0] ?? null,
+    pole: parts[1] ?? null,
+    cellule: parts[2] ?? null,
+    service: parts[3] ?? null,
+  };
+}
+
+function namesFromLegacySelection(
+  departments: readonly Department[],
+  sel: { poleId: string; celluleId: string; serviceId: string },
+): UserOrgPerimeterView {
   const dept = departments.find((d) => d.id === sel.poleId);
   const pole = dept?.poles?.find((p) => p.id === sel.celluleId);
   const cell = pole ? poleCells(pole).find((c) => c.id === sel.serviceId) : undefined;
   return {
+    operationalDepartment: null,
     pole: dept?.name ?? null,
     cellule: pole?.name ?? null,
     service: cell?.name ?? null,
@@ -47,21 +150,36 @@ export function enrichUserOrgPerimeter(
   departments: readonly Department[],
   overview: OrgAssignmentsOverview | null,
   subServices: readonly { id: number; primeServiceId?: string | null }[],
+  directoryEmployees: readonly DirectoryEmployeeOrgRef[] = [],
+  businessDepartments: readonly BusinessDepartmentRef[] = [],
 ): UserOrgPerimeterView {
   const guid = (user.guid ?? '').trim();
+  let view: UserOrgPerimeterView;
+
   if (overview && guid) {
     const fromOverview = enrichFromOrgOverview(user, departments, overview, subServices);
-    if (fromOverview.pole?.trim() || fromOverview.cellule?.trim() || fromOverview.service?.trim()) {
-      return fromOverview;
+    if (
+      fromOverview.operationalDepartment?.trim() ||
+      fromOverview.pole?.trim() ||
+      fromOverview.cellule?.trim() ||
+      fromOverview.service?.trim()
+    ) {
+      view = fromOverview;
+    } else {
+      const base = orgPerimeterFromUser(user);
+      view = base.pole?.trim() ? base : enrichFromOrgOverview(user, departments, overview, subServices);
+    }
+  } else {
+    view = orgPerimeterFromUser(user);
+    if (!view.pole?.trim() && overview && guid) {
+      view = enrichFromOrgOverview(user, departments, overview, subServices);
     }
   }
 
-  const base = orgPerimeterFromUser(user);
-  if (base.pole?.trim()) return base;
-
-  if (!overview || !guid) return base;
-
-  return enrichFromOrgOverview(user, departments, overview, subServices);
+  const directoryEmployee = directoryEmployees.find(
+    (e) => e.id.trim().toLowerCase() === guid.toLowerCase(),
+  );
+  return applySupportDepartmentToPerimeter(view, directoryEmployee, businessDepartments);
 }
 
 function enrichFromOrgOverview(
@@ -71,7 +189,16 @@ function enrichFromOrgOverview(
   subServices: readonly { id: number; primeServiceId?: string | null }[],
 ): UserOrgPerimeterView {
   const guid = (user.guid ?? '').trim();
-  const base: UserOrgPerimeterView = { pole: null, cellule: null, service: null };
+  const base: UserOrgPerimeterView = {
+    operationalDepartment: null,
+    pole: null,
+    cellule: null,
+    service: null,
+  };
+
+  const operationalDepartments = overview.operationalDepartments ?? [];
+  const unassignedPoles = overview.unassignedPoles ?? [];
+  const useOperational = operationalDepartments.length > 0 || unassignedPoles.length > 0;
 
   const primeEmployee = overview.employees?.find(
     (employee) => employee.id.trim().toLowerCase() === guid.toLowerCase(),
@@ -80,14 +207,44 @@ function enrichFromOrgOverview(
   const mgr = overview.managerEtage?.find(
     (a) => a.userId.trim().toLowerCase() === guid.toLowerCase(),
   );
-  if (mgr) {
+  if (mgr?.etageId) {
+    if (useOperational) {
+      const sel = findOperationalSelectionByPoleId(operationalDepartments, unassignedPoles, mgr.etageId);
+      if (sel) {
+        const pole = resolvePoleNode(operationalDepartments, unassignedPoles, sel.poleId);
+        const md = operationalDepartments.find((d) => d.id === sel.operationalDeptId);
+        return {
+          operationalDepartment: md?.name ?? (sel.operationalDeptId ? null : 'Sans département'),
+          pole: pole?.name ?? null,
+          cellule: null,
+          service: null,
+        };
+      }
+    }
     const dept = departments.find((d) => d.id === mgr.etageId);
-    if (dept) return { pole: dept.name, cellule: null, service: null };
+    if (dept) return { operationalDepartment: null, pole: dept.name, cellule: null, service: null };
   }
 
   if (primeEmployee && isChefDeProjetRole(primeEmployee.role) && primeEmployee.poleId?.trim()) {
+    if (useOperational) {
+      const sel = findOperationalSelectionByPoleId(
+        operationalDepartments,
+        unassignedPoles,
+        primeEmployee.poleId,
+      );
+      if (sel) {
+        const pole = resolvePoleNode(operationalDepartments, unassignedPoles, sel.poleId);
+        const md = operationalDepartments.find((d) => d.id === sel.operationalDeptId);
+        return {
+          operationalDepartment: md?.name ?? (sel.operationalDeptId ? null : 'Sans département'),
+          pole: pole?.name ?? null,
+          cellule: null,
+          service: null,
+        };
+      }
+    }
     const dept = departments.find((d) => d.id === primeEmployee.poleId);
-    if (dept) return { pole: dept.name, cellule: null, service: null };
+    if (dept) return { operationalDepartment: null, pole: dept.name, cellule: null, service: null };
   }
 
   const sup = overview.supervisorService?.find(
@@ -95,24 +252,65 @@ function enrichFromOrgOverview(
   );
   if (sup) {
     const celluleId = (sup.celluleId ?? sup.serviceId ?? '').trim();
+    if (celluleId && useOperational) {
+      const sel = findOperationalSelectionByCelluleId(operationalDepartments, unassignedPoles, celluleId);
+      if (sel) {
+        const pole = resolvePoleNode(operationalDepartments, unassignedPoles, sel.poleId);
+        const cellule = pole?.cellules.find((c) => c.id === sel.celluleId);
+        const md = operationalDepartments.find((d) => d.id === sel.operationalDeptId);
+        return {
+          operationalDepartment: md?.name ?? (sel.operationalDeptId ? null : 'Sans département'),
+          pole: pole?.name ?? null,
+          cellule: cellule?.name ?? null,
+          service: null,
+        };
+      }
+    }
     for (const dept of departments) {
       for (const pole of dept.poles ?? []) {
         if (pole.id === celluleId) {
-          return { pole: dept.name, cellule: pole.name, service: null };
+          return { operationalDepartment: null, pole: dept.name, cellule: pole.name, service: null };
         }
       }
     }
   }
 
   if (primeEmployee && isSuperviseurRole(primeEmployee.role) && primeEmployee.celluleId?.trim()) {
+    if (useOperational) {
+      const sel = findOperationalSelectionByCelluleId(
+        operationalDepartments,
+        unassignedPoles,
+        primeEmployee.celluleId,
+      );
+      if (sel) {
+        const pole = resolvePoleNode(operationalDepartments, unassignedPoles, sel.poleId);
+        const cellule = pole?.cellules.find((c) => c.id === sel.celluleId);
+        const md = operationalDepartments.find((d) => d.id === sel.operationalDeptId);
+        return {
+          operationalDepartment: md?.name ?? (sel.operationalDeptId ? null : 'Sans département'),
+          pole: pole?.name ?? null,
+          cellule: cellule?.name ?? null,
+          service: null,
+        };
+      }
+    }
     for (const dept of departments) {
       for (const pole of dept.poles ?? []) {
         if (pole.id === primeEmployee.celluleId) {
-          return { pole: dept.name, cellule: pole.name, service: null };
+          return { operationalDepartment: null, pole: dept.name, cellule: pole.name, service: null };
         }
       }
     }
   }
+
+  const resolveServiceId = (svcId: string): UserOrgPerimeterView | null => {
+    if (useOperational) {
+      const sel = findOperationalSelectionByServiceId(operationalDepartments, unassignedPoles, svcId);
+      if (sel) return namesFromOperationalSelection(operationalDepartments, unassignedPoles, sel);
+    }
+    const legacySel = findOrgSelectionByPrimeServiceId(departments, svcId);
+    return legacySel ? namesFromLegacySelection(departments, legacySel) : null;
+  };
 
   const coach = overview.coachSousService?.find(
     (a) => a.userId.trim().toLowerCase() === guid.toLowerCase(),
@@ -120,27 +318,27 @@ function enrichFromOrgOverview(
   if (coach) {
     const svcId = (coach.serviceId ?? coach.sousServiceId ?? '').trim();
     if (svcId) {
-      const sel = findOrgSelectionByPrimeServiceId(departments, svcId);
-      if (sel) return namesFromSelection(departments, sel);
+      const resolved = resolveServiceId(svcId);
+      if (resolved) return resolved;
     }
   }
 
   if (primeEmployee && isReferentTechniqueRole(primeEmployee.role) && primeEmployee.serviceId?.trim()) {
-    const sel = findOrgSelectionByPrimeServiceId(departments, primeEmployee.serviceId);
-    if (sel) return namesFromSelection(departments, sel);
+    const resolved = resolveServiceId(primeEmployee.serviceId);
+    if (resolved) return resolved;
   }
 
   if (primeEmployee?.serviceId?.trim()) {
-    const sel = findOrgSelectionByPrimeServiceId(departments, primeEmployee.serviceId);
-    if (sel) return namesFromSelection(departments, sel);
+    const resolved = resolveServiceId(primeEmployee.serviceId);
+    if (resolved) return resolved;
   }
 
   if (user.subServiceId) {
     const sub = subServices.find((s) => s.id === user.subServiceId);
     const primeId = sub?.primeServiceId?.trim();
     if (primeId) {
-      const sel = findOrgSelectionByPrimeServiceId(departments, primeId);
-      if (sel) return namesFromSelection(departments, sel);
+      const resolved = resolveServiceId(primeId);
+      if (resolved) return resolved;
     }
   }
 

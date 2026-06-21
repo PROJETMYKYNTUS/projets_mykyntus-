@@ -27,12 +27,8 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
     <div class="space-y-4">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h2 class="text-lg font-semibold text-primary">
-            Soumettre un parrainage
-          </h2>
-          <p class="text-sm text-muted">
-            Recommandez un talent pour rejoindre l'équipe.
-          </p>
+          <h1 class="prime-page-title">Soumettre un parrainage</h1>
+          <p class="ky-page-subtitle">Recommandez un talent pour rejoindre l'équipe.</p>
         </div>
       </div>
 

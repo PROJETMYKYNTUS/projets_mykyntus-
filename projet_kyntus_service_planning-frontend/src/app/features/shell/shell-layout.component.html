@@ -33,16 +33,20 @@
         </button>
 
         <div class="ks-sub" *ngIf="isOpen(g.id) && !sidebarCollapsed">
-          <a *ngFor="let item of g.children"
-             class="ks-sub-item"
-             [class.active]="isItemActive(item)"
-             (click)="onItemClick(item)">
-            <span class="ks-dot"></span>
-            {{ item.label }}
-            <span class="ks-ext" *ngIf="item.externalUrl" title="Ouvre dans un nouvel onglet">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </span>
-          </a>
+          <ng-container *ngFor="let item of g.children">
+            <div *ngIf="item.isSectionHeader" class="ks-sub-section">{{ item.label }}</div>
+            <a *ngIf="!item.isSectionHeader"
+               class="ks-sub-item"
+               [class.active]="isItemActive(item)"
+               (click)="onItemClick(item)">
+              <span class="ks-dot"></span>
+              {{ item.label }}
+              <span class="ks-menu-badge" *ngIf="item.menuBadge">{{ item.menuBadge }}</span>
+              <span class="ks-ext" *ngIf="item.externalUrl" title="Ouvre dans un nouvel onglet">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </span>
+            </a>
+          </ng-container>
         </div>
       </div>
     </nav>

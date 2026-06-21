@@ -72,6 +72,16 @@ public sealed class ReferralCvStorageService(IConfiguration configuration, IWebH
     public bool Exists(string referralId) =>
         AllowedExtensions.Any(ext => File.Exists(GetFilePath(referralId, ext)));
 
+    /// <summary>Crée un PDF minimal pour les dossiers démo sans CV uploadé.</summary>
+    public void EnsurePlaceholderCv(string referralId)
+    {
+        if (Exists(referralId))
+            return;
+
+        Directory.CreateDirectory(UploadRoot);
+        File.WriteAllBytes(GetFilePath(referralId, ".pdf"), MinimalPdfBytes);
+    }
+
     public void Delete(string referralId)
     {
         foreach (var ext in AllowedExtensions)
@@ -87,4 +97,7 @@ public sealed class ReferralCvStorageService(IConfiguration configuration, IWebH
         if (string.IsNullOrEmpty(safeId)) safeId = "unknown";
         return Path.Combine(UploadRoot, $"{safeId}{extension}");
     }
+
+    private static readonly byte[] MinimalPdfBytes =
+        "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 3 3]>>endobj\nxref\n0 4\n0000000000 65535 f \ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n9\n%%EOF\n"u8.ToArray();
 }

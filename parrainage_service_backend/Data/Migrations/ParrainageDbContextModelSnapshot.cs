@@ -166,6 +166,9 @@ namespace ParrainageBackend.Data.Migrations
                         .HasColumnType("character varying(16)")
                         .HasDefaultValue("CUSTOM");
 
+                    b.Property<DateOnly?>("ProductionStartDate")
+                        .HasColumnType("date");
+
                     b.Property<string>("ProjectId")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -199,6 +202,12 @@ namespace ParrainageBackend.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
+
+                    b.Property<DateOnly?>("TrainingEndDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset?>("TrainingEndNotifiedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 

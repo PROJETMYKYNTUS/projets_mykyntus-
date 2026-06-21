@@ -1,16 +1,16 @@
-<div class="ce-root ky-page-shell">
+<div class="ky-page-shell">
   <div class="ce-toast" [class.visible]="toast.show" [class.error]="toast.type === 'error'">{{ toast.message }}</div>
 
-  <div class="ce-header">
-    <div>
-      <h2 class="ce-title">Mes Congés</h2>
-      <p class="ce-sub">Consultez vos congés et soumettez de nouvelles demandes</p>
+  <app-kyntus-page-header
+    title="Mes congés"
+    subtitle="Consultez vos congés et soumettez de nouvelles demandes">
+    <div actions>
+      <button type="button" class="ky-btn-primary" (click)="openNouvelleDemande()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nouvelle demande
+      </button>
     </div>
-    <button class="ky-btn-primary" (click)="openNouvelleDemande()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Nouvelle demande
-    </button>
-  </div>
+  </app-kyntus-page-header>
 
   <div class="ce-solde-grid" *ngIf="solde">
     <div class="ce-solde-card">

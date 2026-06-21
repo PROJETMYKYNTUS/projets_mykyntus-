@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-
 import { RouterLink } from '@angular/router';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 
 import { EMPLOYEE_IMPORT_HOST } from './employee-import-host.context';
 
@@ -62,7 +62,7 @@ import {
 
   standalone: true,
 
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, KyntusPageHeaderComponent],
 
   templateUrl: './employee-import-guided.component.html',
 
@@ -119,6 +119,12 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
 
   analyzeResult: EmployeeImportAnalyzeResponse | null = null;
+
+  previewRows: Record<string, string | null>[] = [];
+
+  previewExtraFieldKeys: string[] = [];
+
+  previewLoading = false;
 
   mappings: EmployeeImportMappingItem[] = [];
 
@@ -374,7 +380,15 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
           fieldKey: isIgnorableHeader(result.headers[m.columnIndex])
             ? null
             : m.suggestedFieldKey,
+          disposition: isIgnorableHeader(result.headers[m.columnIndex])
+            ? 'ignore'
+            : m.suggestedFieldKey
+              ? 'map'
+              : 'ignore',
         }));
+
+        this.previewRows = result.previewRows ?? [];
+        this.previewExtraFieldKeys = [];
 
         this.initOrgStepState();
 
@@ -404,6 +418,86 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
     return (this.analyzeResult?.activeFields ?? this.configFields).filter((f) => f.isEnabled);
 
+  }
+
+  previewFieldColumns(): EmployeeImportFieldConfig[] {
+    const enabledByKey = new Map(
+      this.fieldOptions().map((f) => [f.fieldKey, f] as const),
+    );
+
+    const orderedKeys: string[] = [];
+    const seen = new Set<string>();
+    for (const row of this.previewRows) {
+      for (const key of Object.keys(row)) {
+        if (!seen.has(key)) {
+          seen.add(key);
+          orderedKeys.push(key);
+        }
+      }
+    }
+
+    return orderedKeys.map((key) => {
+      const known = enabledByKey.get(key);
+      if (known) return known;
+
+      const mapping = this.mappings.find((m) => m.fieldKey === key);
+      const label =
+        mapping?.newFieldDefinition?.label?.trim() ||
+        (mapping ? this.columnHeaderLabel(mapping.columnIndex) : null) ||
+        key;
+
+      return {
+        fieldKey: key,
+        label,
+        isEnabled: true,
+        isRequiredOnCreate: mapping?.newFieldDefinition?.isRequiredOnCreate ?? false,
+        sortOrder: 9999,
+        aliases: [],
+        isSystemField: false,
+        dataType: mapping?.newFieldDefinition?.dataType ?? 'text',
+      };
+    });
+  }
+
+  systemFieldOptions(): EmployeeImportFieldConfig[] {
+    return this.fieldOptions().filter((f) => f.isSystemField !== false);
+  }
+
+  customFieldOptions(): EmployeeImportFieldConfig[] {
+    return this.fieldOptions().filter((f) => f.isSystemField === false);
+  }
+
+  unmappedColumnCount(): number {
+    return this.mappings.filter((m) => this.mappingDisposition(m) === 'ignore' && !isIgnorableHeader(this.columnHeaderRaw(m.columnIndex))).length;
+  }
+
+  mappingDisposition(m: EmployeeImportMappingItem): 'map' | 'ignore' | 'keepAsNewField' {
+    if (m.disposition === 'keepAsNewField') return 'keepAsNewField';
+    if (m.disposition === 'map' || (m.fieldKey && m.disposition !== 'ignore')) return 'map';
+    return 'ignore';
+  }
+
+  onDispositionChange(index: number, disposition: 'map' | 'ignore' | 'keepAsNewField'): void {
+    const mapping = this.mappings[index];
+    mapping.disposition = disposition;
+    if (disposition === 'ignore') {
+      mapping.fieldKey = null;
+      mapping.newFieldDefinition = undefined;
+    } else if (disposition === 'keepAsNewField') {
+      mapping.fieldKey = null;
+      mapping.newFieldDefinition = {
+        label: this.columnHeaderLabel(mapping.columnIndex),
+        dataType: 'text',
+        isRequiredOnCreate: false,
+      };
+    } else {
+      mapping.newFieldDefinition = undefined;
+    }
+    this.onMappingChange();
+  }
+
+  columnHeaderRaw(columnIndex: number): string {
+    return this.analyzeResult?.headers[columnIndex] ?? '';
   }
 
 
@@ -463,7 +557,33 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
   goToPreview(): void {
     this.refreshMappingValidation();
     if (!this.confirmMappingWarnings()) return;
-    this.goToStep('preview');
+    if (!this.analyzeResult) return;
+
+    this.previewLoading = true;
+    this.importSvc.preview({
+      importSessionId: this.analyzeResult.importSessionId,
+      mappings: this.mappings,
+    }).subscribe({
+      next: (result) => {
+        this.previewRows = result.previewRows;
+        this.previewExtraFieldKeys = result.extraFieldKeys ?? [];
+        if (result.activeFields?.length && this.analyzeResult) {
+          this.analyzeResult = {
+            ...this.analyzeResult,
+            activeFields: result.activeFields,
+          };
+          this.syncResolvedMappingsFromPreview(result.activeFields);
+        }
+        this.previewLoading = false;
+        this.goToStep('preview');
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.previewLoading = false;
+        alert(err?.error ?? 'Prévisualisation impossible.');
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   private confirmMappingWarnings(): boolean {
@@ -932,6 +1052,26 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
   onOrgApprovalChange(): void {
     this.persistDraft();
+  }
+
+  private syncResolvedMappingsFromPreview(activeFields: EmployeeImportFieldConfig[]): void {
+    for (const mapping of this.mappings) {
+      if (this.mappingDisposition(mapping) !== 'keepAsNewField') continue;
+
+      const header = this.columnHeaderRaw(mapping.columnIndex).trim();
+      const label = mapping.newFieldDefinition?.label?.trim();
+      const match = activeFields.find(
+        (f) =>
+          (label && f.label === label) ||
+          (header && f.aliases?.some((a) => a.toLowerCase() === header.toLowerCase())),
+      );
+
+      if (match) {
+        mapping.fieldKey = match.fieldKey;
+        mapping.disposition = 'map';
+        mapping.newFieldDefinition = undefined;
+      }
+    }
   }
 
   private persistDraft(): void {

@@ -89,25 +89,32 @@ public sealed class PrimeGlobalPoolStakeholderController(
     }
 
     [HttpGet("inbox")]
-    public async Task<ActionResult<List<GlobalPoolInboxItemDto>>> Inbox([FromQuery] string userId, CancellationToken ct)
+    public async Task<ActionResult<List<GlobalPoolInboxItemDto>>> Inbox(
+        [FromQuery] string userId,
+        [FromQuery] string? role,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(userId)) return BadRequest(new { error = "userId est requis." });
-        if (db == null) return StatusCode(503, new { error = "Base de données non configurée." });
+        if (db == null || userResolver is null) return StatusCode(503, new { error = "Base de données non configurée." });
 
-        var role = await RoleOfUserAsync(userId, ct);
-        if (string.IsNullOrWhiteSpace(role)) return BadRequest(new { error = "Utilisateur inconnu." });
+        var resolved = await userResolver.TryResolveForValidationAsync(Request, userId, role, ct);
+        if (resolved is null) return Unauthorized(new { error = "Utilisateur invalide." });
+        var realRole = resolved.Employee.Role?.Trim() ?? "";
+        var declared = resolved.Role?.Trim() ?? "";
+        var managesOperational = await db.BusinessDepartments.AsNoTracking()
+            .AnyAsync(d => d.ManagerEmployeeId == resolved.UserId && d.IsActive && d.Kind == "Operational", ct);
+        var poolRole = PrimeGlobalPoolActorResolver.ResolveActingRole(
+            resolved.Employee, realRole, declared, managesOperational);
+        if (poolRole is null) return StatusCode(403, new { error = "Rôle non autorisé sur la file synthèse globale." });
 
         var list = await db.SupervisorCellulePrimeDrafts.AsNoTracking()
             .Where(d => d.GlobalPoolExcelContent != null && d.GlobalPoolExcelContent.Length > 0)
             .OrderByDescending(d => d.UpdatedAt)
             .ToListAsync(ct);
 
-        var allowed = role is "Manager" or "RH" or "Comptable" or "Comptabilité" or "Admin";
-        if (!allowed) return StatusCode(403, new { error = "Rôle non autorisé sur la file synthèse globale." });
-
         var result = new List<GlobalPoolInboxItemDto>();
         foreach (var d in list)
-            result.Add(await MapInboxAsync(d, role, ct));
+            result.Add(await MapInboxAsync(d, poolRole, ct));
         return Ok(result);
     }
 

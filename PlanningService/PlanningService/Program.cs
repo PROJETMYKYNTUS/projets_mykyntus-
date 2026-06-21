@@ -100,6 +100,7 @@ builder.Services.AddScoped<IPlanningOrgMirrorService, PlanningOrgMirrorService>(
 builder.Services.AddScoped<IDirectoryOrgWriteClient, DirectoryOrgWriteClient>();
 
 // Import guidé employés v2
+builder.Services.AddScoped<IEmployeeFieldService, EmployeeFieldService>();
 builder.Services.AddScoped<IEmployeeImportConfigService, EmployeeImportConfigService>();
 builder.Services.AddScoped<IEmployeeImportSessionStore, EmployeeImportSessionStore>();
 builder.Services.AddScoped<IEmployeeImportOrgResolver, EmployeeImportOrgResolver>();
@@ -206,6 +207,13 @@ using (var scope = app.Services.CreateScope())
 {
     var importConfig = scope.ServiceProvider.GetRequiredService<IEmployeeImportConfigService>();
     await importConfig.EnsureSeedAsync();
+}
+
+// ── Rôle Manager (départements Support) ───────────────────────────────────────
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await PlanningRoleSeed.EnsureManagerRoleAsync(context);
 }
 
 // ── Seed Shifts ───────────────────────────────────────────────────────────────

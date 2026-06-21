@@ -183,6 +183,27 @@ public class EmployeeEntity
     public string PoleId { get; set; } = "";
     public string Email { get; set; } = "";
     public string? Avatar { get; set; }
+    public string? BusinessDepartmentId { get; set; }
+    public string? BusinessDepartmentKind { get; set; }
+}
+
+public class BusinessDepartmentEntity
+{
+    public string Id { get; set; } = "";
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Kind { get; set; } = "Operational";
+    public string? ManagerEmployeeId { get; set; }
+    public bool IsActive { get; set; } = true;
+    public ICollection<BusinessDepartmentPoleEntity> PoleAssignments { get; set; } = new List<BusinessDepartmentPoleEntity>();
+}
+
+public class BusinessDepartmentPoleEntity
+{
+    public Guid Id { get; set; }
+    public string BusinessDepartmentId { get; set; } = "";
+    public string PoleId { get; set; } = "";
+    public BusinessDepartmentEntity BusinessDepartment { get; set; } = null!;
 }
 
 /// <summary>Instance de fiche PRIME saisie par un superviseur (période + template + JSON saisie / calcul).</summary>

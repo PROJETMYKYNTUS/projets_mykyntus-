@@ -60,7 +60,7 @@ dotnet ef migrations add NomMigration --output-dir Data/Migrations
 dotnet ef database update
 ```
 
-Design-time : `Data/ParrainageDbContextFactory.cs` (PostgreSQL localhost:5433).
+Design-time : `Data/ParrainageDbContextFactory.cs` (PostgreSQL localhost:**8433**, aligné sur le port hôte du `docker-compose`).
 
 ## Frontend mock (secours)
 

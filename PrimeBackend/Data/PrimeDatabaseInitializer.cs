@@ -57,6 +57,18 @@ public sealed class PrimeDatabaseInitializer(
             throw;
         }
 
+        try
+        {
+            await PrimeSchemaPatches.EnsureAllowanceTrackSchemaAsync(db, cancellationToken);
+            await AllowanceDbSeeder.SeedAsync(db, cancellationToken);
+            logger.LogInformation("PRIME : schéma Allowances appliqué.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "PRIME : correctif schéma Allowances non appliqué.");
+            throw;
+        }
+
         await EnsurePrimeMetierTablesExistAsync(db, cancellationToken);
 
         var submission = scope.ServiceProvider.GetService<PrimeFicheValidationSubmissionService>();

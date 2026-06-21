@@ -1,4 +1,4 @@
-@if (role === 'Manager') {
+@if (role === 'Manager' && !hideForSupportManager) {
   <div class="flex flex-wrap items-center gap-2 mb-4">
     <span class="text-xs text-muted uppercase tracking-wide">Périmètre</span>
     <select

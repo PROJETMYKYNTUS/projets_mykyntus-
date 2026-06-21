@@ -1,4 +1,4 @@
-export type ReferralStatus = 'SUBMITTED' | 'PROCESSED' | 'APPROVED' | 'REJECTED' | 'REWARDED';
+export type ReferralStatus = 'SUBMITTED' | 'PROCESSED' | 'IN_TRAINING' | 'APPROVED' | 'REJECTED' | 'REWARDED';
 
 export type ReferralPaymentStatus = 'NOT_ELIGIBLE' | 'AWAITING_RH' | 'READY' | 'PAID';
 
@@ -22,6 +22,9 @@ export interface Referral {
   cvUrl?: string;
   notes?: string;
   candidateStartDate?: string;
+  trainingEndDate?: string;
+  productionStartDate?: string;
+  trainingEndNotifiedAt?: Date;
   approvedAt?: Date;
   eligibleForPaymentAt?: Date;
   paymentStatus: ReferralPaymentStatus;
@@ -35,13 +38,18 @@ export interface Referral {
 export type ReferralHistoryAction =
   | 'SUBMITTED'
   | 'PROCESSED'
+  | 'IN_TRAINING'
   | 'APPROVED'
   | 'REJECTED'
   | 'REWARDED'
+  | 'TRAINING_EXTENDED'
+  | 'PRODUCTION_CONFIRMED'
+  | 'TRAINING_END_DUE'
   | 'ELIGIBILITY_DUE'
   | 'ELIGIBILITY_CONFIRMED'
   | 'PAYMENT_READY'
-  | 'PAYMENT_UNDONE';
+  | 'PAYMENT_UNDONE'
+  | 'EARLY_DEPARTURE';
 
 export interface ReferralHistoryEntry {
   id: string;
@@ -68,7 +76,7 @@ export type NotificationAudienceRole =
 
 export interface ReferralNotification {
   id: string;
-  type: 'NEW_REFERRAL' | 'STATUS_CHANGED' | 'REFERRAL_REWARDED' | 'REFERRAL_ELIGIBILITY_DUE' | 'REFERRAL_PAYMENT_READY';
+  type: 'NEW_REFERRAL' | 'STATUS_CHANGED' | 'REFERRAL_REWARDED' | 'REFERRAL_ELIGIBILITY_DUE' | 'REFERRAL_PAYMENT_READY' | 'REFERRAL_TRAINING_END_DUE';
   message: string;
   createdAt: Date;
   read: boolean;

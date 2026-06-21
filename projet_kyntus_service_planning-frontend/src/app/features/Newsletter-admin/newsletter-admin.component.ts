@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { KyntusPageHeaderComponent } from '../../shared/components/ui/kyntus-page-header.component';
 import { Subject, takeUntil } from 'rxjs';
 import {
   AudienceTarget,
@@ -15,7 +16,7 @@ type AdminView = 'list' | 'create' | 'campaigns' | 'analytics';
 @Component({
   selector: 'app-newsletter-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, KyntusPageHeaderComponent],
   templateUrl: './newsletter-admin.component.html',
   styleUrls: ['./newsletter-admin.component.css']
 })

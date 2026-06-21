@@ -16,7 +16,7 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
         </div>
       }
       <div>
-        <h1 class="text-2xl font-semibold text-primary">Règles de parrainage</h1>
+        <h1 class="prime-page-title">Règles de parrainage</h1>
         <p class="text-sm text-muted mt-1">Gérez les règles métier (hors configuration système).</p>
       </div>
 

@@ -1,5 +1,6 @@
 using EmployeeDirectory.Application.Abstractions;
 using EmployeeDirectory.Application.Dtos;
+using EmployeeDirectory.Domain.Entities;
 using EmployeeDirectory.Infrastructure.Data;
 using Kyntus.Messaging.Contracts;
 using Microsoft.EntityFrameworkCore;
@@ -25,13 +26,29 @@ public sealed class DirectoryReadService(DirectoryDbContext db) : IDirectoryRead
         return e is null ? null : MapEmployee(e);
     }
 
+    public async Task<bool> IsEmailUsedAsync(string email, Guid? excludeEmployeeId = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return false;
+        var normalized = email.Trim().ToLower();
+        var query = db.Employees.AsNoTracking().Where(e => e.IsActive && e.Email.ToLower() == normalized);
+        if (excludeEmployeeId.HasValue)
+            query = query.Where(e => e.Id != excludeEmployeeId.Value);
+        return await query.AnyAsync(ct);
+    }
+
     public async Task<OrgOverviewDto> GetOrgOverviewAsync(CancellationToken ct = default)
     {
         var poles = await db.OrgPoles.AsNoTracking()
             .Include(p => p.Cellules).ThenInclude(c => c.Services)
             .OrderBy(p => p.Name)
             .ToListAsync(ct);
-        var employees = await db.Employees.AsNoTracking().Where(e => e.IsActive).ToListAsync(ct);
+        var operationalDepts = await db.BusinessDepartments.AsNoTracking()
+            .Where(d => d.IsActive && d.Kind == BusinessDepartmentKind.Operational)
+            .OrderBy(d => d.Name)
+            .ToListAsync(ct);
+        var employees = await db.Employees.AsNoTracking()
+            .Include(e => e.BusinessDepartment)
+            .Where(e => e.IsActive).ToListAsync(ct);
         var activeAssignments = await db.OrgAssignments.AsNoTracking()
             .Where(a => a.EffectiveTo == null)
             .ToListAsync(ct);
@@ -40,6 +57,7 @@ public sealed class DirectoryReadService(DirectoryDbContext db) : IDirectoryRead
         var services = poles.SelectMany(p => p.Cellules.Select(c => new ServiceNodeDto(c.Id, c.Name, p.Id))).ToList();
         var sousServices = poles.SelectMany(p => p.Cellules.SelectMany(c => c.Services.Select(s => new SousServiceNodeDto(s.Id, s.Name, c.Id)))).ToList();
 
+        // Legacy : DepartmentDto = pôle (compat écrans Planning / formulaires employé)
         var departments = poles.Select(p => new DepartmentDto(
             p.Id,
             p.Name,
@@ -52,6 +70,32 @@ public sealed class DirectoryReadService(DirectoryDbContext db) : IDirectoryRead
                     s.Name,
                     c.Id,
                     [new TeamDto(s.Id + "-team", s.Name, s.Id)])).ToList())).ToList())).ToList();
+
+        static OrgPoleOverviewDto MapPole(OrgPole p) => new(
+            p.Id,
+            p.Name,
+            p.Cellules.OrderBy(c => c.Name).Select(c => new OrgCelluleOverviewDto(
+                c.Id,
+                c.Name,
+                c.Services.OrderBy(s => s.Name).Select(s => new OrgServiceOverviewDto(s.Id, s.Name)).ToList())).ToList());
+
+        var polesByDept = poles
+            .Where(p => p.BusinessDepartmentId.HasValue)
+            .GroupBy(p => p.BusinessDepartmentId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderBy(p => p.Name).Select(MapPole).ToList());
+
+        var operationalDepartments = operationalDepts.Select(d => new OperationalDepartmentOverviewDto(
+            d.Id.ToString(),
+            d.Code,
+            d.Name,
+            d.ManagerEmployeeId?.ToString(),
+            polesByDept.GetValueOrDefault(d.Id) ?? [])).ToList();
+
+        var unassignedPoles = poles
+            .Where(p => !p.BusinessDepartmentId.HasValue)
+            .OrderBy(p => p.Name)
+            .Select(MapPole)
+            .ToList();
 
         var managerEtage = activeAssignments
             .Where(a => a.Kind == OrgAssignmentKind.ChefDeProjet)
@@ -85,10 +129,47 @@ public sealed class DirectoryReadService(DirectoryDbContext db) : IDirectoryRead
             sousServices,
             employees.Select(MapEmployee).ToList(),
             departments,
+            await GetBusinessDepartmentsAsync(ct),
+            operationalDepartments,
+            unassignedPoles,
             managerEtage,
             supervisorService,
             coachSousService,
             coachPilot);
+    }
+
+    public async Task<IReadOnlyList<BusinessDepartmentDto>> GetBusinessDepartmentsAsync(CancellationToken ct = default)
+    {
+        var rows = await db.BusinessDepartments.AsNoTracking()
+            .Include(d => d.PoleAssignments)
+            .OrderBy(d => d.Name)
+            .ToListAsync(ct);
+        var poleIdsByDept = await db.OrgPoles.AsNoTracking()
+            .Where(p => p.BusinessDepartmentId != null)
+            .GroupBy(p => p.BusinessDepartmentId!.Value)
+            .ToDictionaryAsync(g => g.Key, g => g.Select(p => p.Id).ToList(), ct);
+        return rows.Select(d =>
+        {
+            var poleIds = poleIdsByDept.GetValueOrDefault(d.Id) ?? [];
+            if (poleIds.Count == 0)
+                poleIds = d.PoleAssignments.Select(p => p.PoleId).ToList();
+            return MapBusinessDepartment(d, poleIds);
+        }).ToList();
+    }
+
+    public async Task<BusinessDepartmentDto?> GetBusinessDepartmentByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        var row = await db.BusinessDepartments.AsNoTracking()
+            .Include(d => d.PoleAssignments)
+            .FirstOrDefaultAsync(d => d.Id == id, ct);
+        if (row is null) return null;
+        var poleIds = await db.OrgPoles.AsNoTracking()
+            .Where(p => p.BusinessDepartmentId == id)
+            .Select(p => p.Id)
+            .ToListAsync(ct);
+        if (poleIds.Count == 0)
+            poleIds = row.PoleAssignments.Select(p => p.PoleId).ToList();
+        return MapBusinessDepartment(row, poleIds);
     }
 
     public async Task<OrgAssignmentAsOfDto> GetAssignmentsAsOfAsync(DateTime asOf, CancellationToken ct = default)
@@ -171,7 +252,7 @@ public sealed class DirectoryReadService(DirectoryDbContext db) : IDirectoryRead
         return new RebacManagedNodesDto(employeeId.ToString(), k.ToString(), nodes);
     }
 
-    private static EmployeeDto MapEmployee(Domain.Entities.Employee e) => new(
+    private static EmployeeDto MapEmployee(Employee e) => new(
         e.Id.ToString(),
         e.FirstName,
         e.LastName,
@@ -181,5 +262,16 @@ public sealed class DirectoryReadService(DirectoryDbContext db) : IDirectoryRead
         e.PoleId ?? "",
         e.CelluleId,
         e.Email,
-        null);
+        null,
+        e.BusinessDepartmentId?.ToString(),
+        e.BusinessDepartment?.Kind.ToString());
+
+    private static BusinessDepartmentDto MapBusinessDepartment(BusinessDepartment d, IReadOnlyList<string> poleIds) => new(
+        d.Id.ToString(),
+        d.Code,
+        d.Name,
+        d.Kind.ToString(),
+        d.ManagerEmployeeId?.ToString(),
+        d.IsActive,
+        poleIds);
 }

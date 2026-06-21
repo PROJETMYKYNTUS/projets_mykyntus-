@@ -1,5 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
 import { isProjectLeadRole } from '../lib/projectLeadRole';
+import { redirectSupportManagerToAllowancesIfNeeded } from '../lib/allowance-manager-guard';
+import { DepartmentContextService } from '../services/allowance-api.service';
+import { PrimeNavRequestService } from '../services/prime-nav-request.service';
 import { RoleService } from '../state/role.service';
 import { PrimeSectionService } from '../state/prime-section.service';
 import { RpDashboardComponent } from './rp/rp-dashboard.component';
@@ -48,6 +51,21 @@ import { PrimeDashboardStandardComponent } from './prime-dashboard-standard.comp
 export class DashboardPageComponent {
   readonly role = inject(RoleService);
   readonly primeSection = inject(PrimeSectionService);
+  private readonly dept = inject(DepartmentContextService);
+  private readonly nav = inject(PrimeNavRequestService);
+
+  constructor() {
+    effect(() => {
+      if (!this.dept.loaded()) return;
+      redirectSupportManagerToAllowancesIfNeeded(
+        this.role.currentRole(),
+        this.dept,
+        this.nav,
+        '/',
+      );
+    });
+  }
+
   /** Pour le template (shell legacy RP uniquement). */
   protected readonly isProjectLeadRole = isProjectLeadRole;
 }

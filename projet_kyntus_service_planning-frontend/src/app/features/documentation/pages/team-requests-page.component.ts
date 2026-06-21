@@ -12,6 +12,7 @@ import type { HierarchyDrillSelection } from '../lib/documentation-org-hierarchy
 import { DocumentationApiService } from '../services/documentation-api.service';
 import { DocumentationHierarchyDrillService } from '../services/documentation-hierarchy-drill.service';
 import { DocumentationNavigationService } from '../services/documentation-navigation.service';
+import { DepartmentContextService } from '../../prime/services/allowance-api.service';
 import { DocDrillBarComponent } from '../components/doc-drill-bar/doc-drill-bar.component';
 import { DocIconComponent } from '../components/doc-icon/doc-icon.component';
 import { StatusBadgeComponent } from '../components/status-badge/status-badge.component';
@@ -36,6 +37,7 @@ export class TeamRequestsPageComponent implements OnInit, OnDestroy {
     private readonly hierarchy: DocumentationHierarchyDrillService,
     private readonly api: DocumentationApiService,
     private readonly identity: DocumentationIdentityService,
+    private readonly deptContext: DepartmentContextService,
   ) {}
 
   ngOnInit(): void {
@@ -67,6 +69,7 @@ export class TeamRequestsPageComponent implements OnInit, OnDestroy {
       this.identity.profile$.value,
       this.identity.directoryUsers$.value,
       role === 'Manager' || role === 'RP' ? this.drill : undefined,
+      this.deptContext.isSupportManager(),
     );
   }
 

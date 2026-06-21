@@ -25,12 +25,13 @@ function buildReferrals(): Referral[] {
     { id: 'ref-1003', referrerId: 'emp-2', referrerName: 'Sophie Leroy', projectId: 'proj-2', projectName: 'Beta Ops', teamId: 'team-b', candidateName: 'Luc Petit', candidateEmail: 'luc.petit@email.com', candidatePhone: '+33 6 11 22 33 44', position: 'Analyste data', positionMode: 'CUSTOM', status: 'REJECTED', paymentStatus: 'NOT_ELIGIBLE' },
     { id: 'ref-1004', referrerId: 'emp-2', referrerName: 'Sophie Leroy', projectId: 'proj-2', projectName: 'Beta Ops', teamId: 'team-b', candidateName: 'Nadia Kaci', candidateEmail: 'nadia.kaci@email.com', candidatePhone: '+33 6 55 66 77 88', position: 'Développeur', positionMode: 'CATALOG', appliedRuleId: 'rule-1', status: 'REWARDED', paymentStatus: 'PAID' },
     { id: 'ref-1005', referrerId: 'emp-3', referrerName: 'Thomas Bernard', projectId: 'proj-3', projectName: 'Gamma Cloud', teamId: 'team-c', candidateName: 'Amélie Rousseau', candidateEmail: 'amelie.rousseau@email.com', candidatePhone: '+33 6 44 55 66 77', position: 'DevOps', positionMode: 'CUSTOM', status: 'SUBMITTED', paymentStatus: 'NOT_ELIGIBLE' },
+    { id: 'ref-1014', referrerId: 'emp-3', referrerName: 'Thomas Bernard', projectId: 'proj-3', projectName: 'Gamma Cloud', teamId: 'team-c', candidateName: 'Léa Marchand', candidateEmail: 'lea.marchand@email.com', candidatePhone: '+33 6 15 25 35 45', position: 'Ingénieure données', positionMode: 'CUSTOM', status: 'IN_TRAINING', paymentStatus: 'NOT_ELIGIBLE', candidateStartDate: '2026-05-01', trainingEndDate: '2026-07-31' },
   ];
   return base.map((r, idx) => ({
     ...r,
     appliedRuleId: r.appliedRuleId ?? resolveAppliedRuleId(r.position),
     positionMode: r.positionMode ?? resolvePositionMode(r.position),
-    rewardAmount: r.status === 'APPROVED' ? 750 : r.status === 'REWARDED' ? 600 + (idx % 3) * 50 : 0,
+    rewardAmount: r.status === 'APPROVED' || r.status === 'IN_TRAINING' ? 750 : r.status === 'REWARDED' ? 600 + (idx % 3) * 50 : 0,
     createdAt: new Date(now - idx * 1000 * 60 * 60 * 12),
   }));
 }

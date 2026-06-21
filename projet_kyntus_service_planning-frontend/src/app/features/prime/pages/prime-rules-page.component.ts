@@ -30,7 +30,7 @@ import type { Department, PrimeRule, PrimeType } from '../models';
       <div class="prime-page-shell">
         <div class="flex justify-between items-center">
           <div>
-            <h1 class="text-3xl font-bold text-primary tracking-tight">Prime Rules</h1>
+            <h1 class="prime-page-title">Prime Rules</h1>
             <p class="text-muted mt-1">Configure logic and conditions for bonuses.</p>
           </div>
           <button

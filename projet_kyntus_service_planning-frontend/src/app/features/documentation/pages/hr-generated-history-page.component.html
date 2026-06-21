@@ -1,20 +1,13 @@
 <div class="space-y-6">
-  <div class="doc-page-header">
-    <div>
-      <h3 class="doc-page-title">Historique des documents générés</h3>
-      <p class="doc-page-desc">
-        Demandes au statut « document généré » — recherche, filtre par date, téléchargement du PDF.
-      </p>
+  <app-kyntus-page-header
+    title="Historique des documents générés"
+    subtitle="Demandes au statut « document généré » — recherche, filtre par date, téléchargement du PDF.">
+    <div actions>
+      <button type="button" class="ky-btn-secondary shrink-0" [disabled]="loading" (click)="reload()">
+        Actualiser
+      </button>
     </div>
-    <button
-      type="button"
-      class="btn-secondary shrink-0"
-      [disabled]="loading"
-      (click)="reload()"
-    >
-      Actualiser
-    </button>
-  </div>
+  </app-kyntus-page-header>
 
   <div class="card-navy p-4 space-y-4">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -23,11 +23,12 @@ import {
   StatutFormationLabels,
 } from '../../../core/models/formation.models';
 import { LucideIconComponent } from '../../../shared/lucide-icon.component';
+import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 
 @Component({
   selector: 'app-formation-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent],
   templateUrl: './formation-admin.component.html',
   styleUrls: ['./formation-admin.component.css'],
 })

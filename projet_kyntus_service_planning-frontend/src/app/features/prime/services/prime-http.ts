@@ -67,3 +67,17 @@ export async function primeApiPost<T>(path: string, body: unknown): Promise<T> {
   }
   return res.json() as Promise<T>;
 }
+
+export async function primeApiPatch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${PRIME_API_BASE}${path}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}

@@ -54,6 +54,8 @@ public sealed class ParrainageDatabaseInitializer(
             try
             {
                 await ParrainageSeeder.SeedAsync(db, logger, cancellationToken);
+                var cvStorage = scope.ServiceProvider.GetRequiredService<ReferralCvStorageService>();
+                await ParrainageDemoCvSeeder.EnsureAsync(db, cvStorage, logger, cancellationToken);
             }
             catch (Exception ex)
             {

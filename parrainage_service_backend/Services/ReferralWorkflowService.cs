@@ -14,6 +14,7 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRule
     {
         ["SUBMITTED"] = "En attente",
         ["PROCESSED"] = "Dossier traité",
+        ["IN_TRAINING"] = "En cours de formation",
         ["APPROVED"] = "Validé",
         ["REJECTED"] = "Rejeté",
         ["REWARDED"] = "Prime versée",
@@ -133,13 +134,105 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRule
         var minMonths = await ruleResolver.ResolveMinDurationMonthsAsync(current, ct);
 
         var now = DateTimeOffset.UtcNow;
+        var actor = ResolveActor(request.Actor, "rh-1", "RH");
+
+        current.RewardAmount = request.RewardAmount;
+        current.CandidateStartDate = request.CandidateStartDate;
+        current.EligibilityNotifiedAt = null;
+
+        if (request.RequiresTraining)
+        {
+            if (!request.TrainingEndDate.HasValue)
+                throw new InvalidOperationException("La date de fin de formation est obligatoire.");
+            if (request.TrainingEndDate.Value < request.CandidateStartDate)
+                throw new InvalidOperationException(
+                    "La date de fin de formation doit être postérieure ou égale à la date de début.");
+
+            current.Status = "IN_TRAINING";
+            current.TrainingEndDate = request.TrainingEndDate;
+            current.ProductionStartDate = null;
+            current.TrainingEndNotifiedAt = null;
+            current.ApprovedAt = null;
+            current.EligibleForPaymentAt = null;
+            current.PaymentStatus = ReferralPaymentStatus.NotEligible;
+
+            db.ReferralHistory.Add(new ReferralHistoryEntryEntity
+            {
+                Id = $"hist-{id}-{NowMs()}",
+                ReferralId = id,
+                CandidateName = current.CandidateName,
+                Action = "IN_TRAINING",
+                PerformedById = actor.Id,
+                PerformedByLabel = actor.Label,
+                CreatedAt = now,
+                Comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim(),
+                RewardAmount = request.RewardAmount,
+            });
+
+            AddStatusNotification(current, "IN_TRAINING", now);
+        }
+        else
+        {
+            var eligibleAt = ReferralEligibilityCalculator.ComputeEligibleForPayment(
+                request.CandidateStartDate,
+                minMonths);
+
+            current.Status = "APPROVED";
+            current.TrainingEndDate = null;
+            current.ProductionStartDate = null;
+            current.TrainingEndNotifiedAt = null;
+            current.ApprovedAt = now;
+            current.EligibleForPaymentAt = eligibleAt;
+            current.PaymentStatus = ReferralPaymentStatus.NotEligible;
+
+            db.ReferralHistory.Add(new ReferralHistoryEntryEntity
+            {
+                Id = $"hist-{id}-{NowMs()}",
+                ReferralId = id,
+                CandidateName = current.CandidateName,
+                Action = "APPROVED",
+                PerformedById = actor.Id,
+                PerformedByLabel = actor.Label,
+                CreatedAt = now,
+                Comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim(),
+                RewardAmount = request.RewardAmount,
+            });
+
+            AddStatusNotification(current, "APPROVED", now);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return current;
+    }
+
+    public async Task<ReferralEntity?> ConfirmProductionStartAsync(
+        string id,
+        ConfirmProductionStartRequest request,
+        CancellationToken ct)
+    {
+        var current = await db.Referrals.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (current == null) return null;
+        if (current.Status != "IN_TRAINING")
+            throw new InvalidOperationException("Seuls les dossiers en formation peuvent être confirmés en production.");
+
+        if (current.CandidateStartDate.HasValue &&
+            request.ProductionStartDate < current.CandidateStartDate.Value)
+            throw new InvalidOperationException(
+                "La date de début production doit être postérieure ou égale à la date de début de formation.");
+
+        if (current.TrainingEndDate.HasValue &&
+            request.ProductionStartDate < current.TrainingEndDate.Value)
+            throw new InvalidOperationException(
+                "La date de début production doit être postérieure ou égale à la date de fin de formation.");
+
+        var minMonths = await ruleResolver.ResolveMinDurationMonthsAsync(current, ct);
+        var now = DateTimeOffset.UtcNow;
         var eligibleAt = ReferralEligibilityCalculator.ComputeEligibleForPayment(
-            request.CandidateStartDate,
+            request.ProductionStartDate,
             minMonths);
 
         current.Status = "APPROVED";
-        current.RewardAmount = request.RewardAmount;
-        current.CandidateStartDate = request.CandidateStartDate;
+        current.ProductionStartDate = request.ProductionStartDate;
         current.ApprovedAt = now;
         current.EligibleForPaymentAt = eligibleAt;
         current.PaymentStatus = ReferralPaymentStatus.NotEligible;
@@ -151,15 +244,58 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRule
             Id = $"hist-{id}-{NowMs()}",
             ReferralId = id,
             CandidateName = current.CandidateName,
-            Action = "APPROVED",
+            Action = "PRODUCTION_CONFIRMED",
             PerformedById = actor.Id,
             PerformedByLabel = actor.Label,
             CreatedAt = now,
             Comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim(),
-            RewardAmount = request.RewardAmount,
+            RewardAmount = current.RewardAmount,
         });
 
         AddStatusNotification(current, "APPROVED", now);
+        await db.SaveChangesAsync(ct);
+        return current;
+    }
+
+    public async Task<ReferralEntity?> ExtendTrainingAsync(
+        string id,
+        ExtendTrainingRequest request,
+        CancellationToken ct)
+    {
+        var current = await db.Referrals.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (current == null) return null;
+        if (current.Status != "IN_TRAINING")
+            throw new InvalidOperationException("Seuls les dossiers en formation peuvent être prolongés.");
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (request.TrainingEndDate < today)
+            throw new InvalidOperationException("La nouvelle date de fin doit être aujourd'hui ou ultérieure.");
+
+        if (current.TrainingEndDate.HasValue && request.TrainingEndDate <= current.TrainingEndDate.Value)
+            throw new InvalidOperationException(
+                "La nouvelle date de fin doit être postérieure à la date de fin actuelle.");
+
+        if (current.CandidateStartDate.HasValue && request.TrainingEndDate < current.CandidateStartDate.Value)
+            throw new InvalidOperationException(
+                "La date de fin de formation doit être postérieure ou égale à la date de début.");
+
+        var now = DateTimeOffset.UtcNow;
+        current.TrainingEndDate = request.TrainingEndDate;
+        current.TrainingEndNotifiedAt = null;
+
+        var actor = ResolveActor(request.Actor, "rh-1", "RH");
+        db.ReferralHistory.Add(new ReferralHistoryEntryEntity
+        {
+            Id = $"hist-{id}-{NowMs()}",
+            ReferralId = id,
+            CandidateName = current.CandidateName,
+            Action = "TRAINING_EXTENDED",
+            PerformedById = actor.Id,
+            PerformedByLabel = actor.Label,
+            CreatedAt = now,
+            Comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim(),
+            RewardAmount = current.RewardAmount,
+        });
 
         await db.SaveChangesAsync(ct);
         return current;
@@ -217,16 +353,13 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRule
         if (status == "APPROVED")
             throw new InvalidOperationException("Utilisez l'endpoint approve avec date d'entrée et montant engagé.");
 
+        if (status == "REJECTED" && current.Status is not ("SUBMITTED" or "PROCESSED"))
+            throw new InvalidOperationException(
+                "Pour un candidat déjà entré, utilisez « Départ avant période minimale ».");
+
         current.Status = status;
         if (status != "REWARDED")
-        {
-            current.RewardAmount = 0;
-            current.PaymentStatus = ReferralPaymentStatus.NotEligible;
-            current.CandidateStartDate = null;
-            current.ApprovedAt = null;
-            current.EligibleForPaymentAt = null;
-            current.EligibilityNotifiedAt = null;
-        }
+            ClearReferralPeriodAndPayment(current);
 
         var now = DateTimeOffset.UtcNow;
         var resolved = ResolveActor(actor, "rh-1", "RH");
@@ -245,6 +378,78 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRule
         AddStatusNotification(current, status, now);
         await db.SaveChangesAsync(ct);
         return current;
+    }
+
+    /// <summary>RH : la recrue a quitté avant la fin de la période minimale — rejet et annulation de la prime.</summary>
+    public async Task<ReferralEntity?> RejectEarlyDepartureAsync(
+        string id,
+        RejectEarlyDepartureRequest request,
+        CancellationToken ct)
+    {
+        var current = await db.Referrals.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (current == null) return null;
+        if (current.Status is not ("APPROVED" or "IN_TRAINING"))
+            throw new InvalidOperationException(
+                "Seuls les dossiers validés ou en formation peuvent être clos pour départ anticipé.");
+        if (current.Status == "REWARDED" || current.PaymentStatus == ReferralPaymentStatus.Paid)
+            throw new InvalidOperationException("Impossible après versement de la prime.");
+
+        var rewardSnapshot = current.RewardAmount;
+        var now = DateTimeOffset.UtcNow;
+        var actor = ResolveActor(request.Actor, "rh-1", "RH");
+
+        current.Status = "REJECTED";
+        ClearReferralPeriodAndPayment(current);
+
+        var commentParts = new List<string> { "Recrue partie avant la période minimale — prime annulée." };
+        if (request.DepartureDate.HasValue)
+            commentParts.Add($"Date de départ : {request.DepartureDate.Value:yyyy-MM-dd}.");
+        if (!string.IsNullOrWhiteSpace(request.Comment))
+            commentParts.Add(request.Comment.Trim());
+        var comment = string.Join(" ", commentParts);
+
+        db.ReferralHistory.Add(new ReferralHistoryEntryEntity
+        {
+            Id = $"hist-{id}-{NowMs()}",
+            ReferralId = id,
+            CandidateName = current.CandidateName,
+            Action = "EARLY_DEPARTURE",
+            PerformedById = actor.Id,
+            PerformedByLabel = actor.Label,
+            CreatedAt = now,
+            Comment = comment,
+            RewardAmount = rewardSnapshot > 0 ? rewardSnapshot : null,
+        });
+
+        db.ReferralNotifications.Add(new ReferralNotificationEntity
+        {
+            Id = $"nt-{id}-early-{NowMs()}",
+            Type = "REFERRAL_EARLY_DEPARTURE",
+            Message =
+                $"Départ anticipé : {current.CandidateName} — prime de parrainage annulée ({rewardSnapshot} DH).",
+            CreatedAt = now,
+            Read = false,
+            ReferralId = id,
+            ReferrerId = current.ReferrerId,
+            TargetRoles = new() { "PILOTE", "RH", "ADMIN", "MANAGER", "COACH", "RP" },
+        });
+
+        AddStatusNotification(current, "REJECTED", now);
+        await db.SaveChangesAsync(ct);
+        return current;
+    }
+
+    private static void ClearReferralPeriodAndPayment(ReferralEntity current)
+    {
+        current.RewardAmount = 0;
+        current.PaymentStatus = ReferralPaymentStatus.NotEligible;
+        current.CandidateStartDate = null;
+        current.TrainingEndDate = null;
+        current.ProductionStartDate = null;
+        current.TrainingEndNotifiedAt = null;
+        current.ApprovedAt = null;
+        current.EligibleForPaymentAt = null;
+        current.EligibilityNotifiedAt = null;
     }
 
     /// <summary>Legacy endpoint — délègue au marquage compta si éligible.</summary>
@@ -337,6 +542,38 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRule
 
         await db.SaveChangesAsync(ct);
         return current;
+    }
+
+    internal void MarkTrainingEndDue(ReferralEntity current, DateTimeOffset now)
+    {
+        if (current.TrainingEndNotifiedAt.HasValue) return;
+
+        current.TrainingEndNotifiedAt = now;
+
+        db.ReferralHistory.Add(new ReferralHistoryEntryEntity
+        {
+            Id = $"hist-{current.Id}-train-due-{NowMs()}",
+            ReferralId = current.Id,
+            CandidateName = current.CandidateName,
+            Action = "TRAINING_END_DUE",
+            PerformedById = "system",
+            PerformedByLabel = "Système",
+            CreatedAt = now,
+            RewardAmount = current.RewardAmount,
+        });
+
+        db.ReferralNotifications.Add(new ReferralNotificationEntity
+        {
+            Id = $"nt-{current.Id}-train-due-{NowMs()}",
+            Type = "REFERRAL_TRAINING_END_DUE",
+            Message =
+                $"Fin de formation atteinte : {current.CandidateName} — confirmez le passage en production ou prolongez la formation.",
+            CreatedAt = now,
+            Read = false,
+            ReferralId = current.Id,
+            ReferrerId = current.ReferrerId,
+            TargetRoles = new() { "RH", "ADMIN" },
+        });
     }
 
     internal void MarkAwaitingRhConfirmation(ReferralEntity current, DateTimeOffset now)

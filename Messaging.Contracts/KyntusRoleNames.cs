@@ -14,9 +14,11 @@ public static class KyntusRoleNames
     public const string Superviseur = "Superviseur";
     public const string Manager = "Manager";
 
+    public static bool IsSupportManager(string? role) =>
+        string.Equals(role, Manager, StringComparison.OrdinalIgnoreCase);
+
     public static bool IsSuperviseur(string? role) =>
-        string.Equals(role, Manager, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(role, Superviseur, StringComparison.OrdinalIgnoreCase);
+        string.Equals(role, Superviseur, StringComparison.OrdinalIgnoreCase);
 
     public static bool IsPilote(string? role) =>
         string.Equals(role, Employee, StringComparison.OrdinalIgnoreCase)
@@ -36,6 +38,7 @@ public static class KyntusRoleNames
         if (IsPilote(role)) return Pilote;
         if (IsReferentTechnique(role)) return ReferentTechnique;
         if (IsChefDeProjet(role)) return ChefDeProjet;
+        if (IsSupportManager(role)) return Manager;
         if (IsSuperviseur(role)) return Superviseur;
         return role;
     }

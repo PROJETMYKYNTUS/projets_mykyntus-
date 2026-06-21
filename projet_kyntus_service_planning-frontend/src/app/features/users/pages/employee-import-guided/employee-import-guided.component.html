@@ -1,22 +1,19 @@
-<div class="page-wrapper ky-page-shell">
+<div class="ky-page-shell">
 
-  <div class="page-header">
-    <div>
-      <h1 class="page-title">Import guidé des employés</h1>
-      <p class="page-sub">
-        Analyse, mapping des colonnes, prévisualisation et import des employés avec validation organisationnelle.
-      </p>
-      <p class="hint template-hint">
-        Utilisez le modèle Excel standard : identité, rôle, pôle, cellule, service et niveau (Débutant / Intermédiaire / Expert)
-        (feuilles Employés, Référentiels et Notice). Les rôles Admin et Manager ne peuvent pas être importés.
-      </p>
-    </div>
-    <div class="header-actions">
+  <app-kyntus-page-header
+    title="Import employés"
+    subtitle="Analyse, mapping des colonnes, prévisualisation et import des employés avec validation organisationnelle.">
+    <div actions>
       <button type="button" class="ky-btn-secondary" (click)="goToHistory()">Historique</button>
       <button type="button" class="ky-btn-secondary" *ngIf="isAdmin" (click)="goToConfig()">Configuration</button>
       <button type="button" class="ky-btn-secondary" (click)="downloadTemplate()">Télécharger le modèle Excel</button>
     </div>
-  </div>
+  </app-kyntus-page-header>
+
+  <p class="ky-page-note">
+    Utilisez le modèle Excel standard : identité, rôle, département opérationnel (optionnel), pôle, cellule, service et niveau (Débutant / Intermédiaire / Expert)
+    (feuilles Employés, Référentiels et Notice). Les rôles Admin et Manager ne peuvent pas être importés.
+  </p>
 
   <div class="stepper" *ngIf="currentStep !== 'config' && !showHistory">
     <button
@@ -34,7 +31,7 @@
 
   <!-- Configuration admin -->
   <div class="ky-card config-panel" *ngIf="currentStep === 'config'">
-    <h2>Champs importables</h2>
+    <h2 class="ky-card-title">Champs importables</h2>
     <p class="hint">Les champs désactivés sont ignorés même s'ils sont présents dans le fichier.</p>
     <table class="mapping-table">
       <thead>
@@ -61,7 +58,7 @@
   <!-- Historique -->
   <div class="ky-card" *ngIf="showHistory">
     <div class="panel-head">
-      <h2>Historique des imports</h2>
+      <h2 class="ky-card-title mb-0">Historique des imports</h2>
       <button type="button" class="ky-btn-secondary" (click)="closeHistory()">Fermer</button>
     </div>
     <table class="mapping-table" *ngIf="history.length; else noHistory">
@@ -93,7 +90,7 @@
 
   <!-- Étape fichier -->
   <div class="content-grid" *ngIf="currentStep === 'file' && !showHistory">
-    <div class="ky-card resume-banner" *ngIf="draftResumeHint">
+    <div class="ky-card ky-card--compact resume-banner" *ngIf="draftResumeHint">
       <p>{{ draftResumeHint }}</p>
       <div class="actions-row">
         <button type="button" class="ky-btn-primary" (click)="resumeDraft()">Reprendre</button>
@@ -101,7 +98,7 @@
       </div>
     </div>
 
-    <div class="ky-card resume-banner saved-progress" *ngIf="hasSavedProgress() && !draftResumeHint">
+    <div class="ky-card ky-card--compact resume-banner saved-progress" *ngIf="hasSavedProgress() && !draftResumeHint">
       <p>Import en cours : {{ savedProgressLabel() }}</p>
       <div class="actions-row">
         <button type="button" class="ky-btn-primary" (click)="goToStep(resumeProgressStep())">Continuer</button>
@@ -110,7 +107,7 @@
     </div>
 
     <div class="ky-card">
-      <h2>1. Déposer le fichier</h2>
+      <h2 class="ky-card-title">1. Déposer le fichier</h2>
       <p class="hint">
         Téléchargez d'abord le
         <button type="button" class="link-btn" (click)="downloadTemplate()">modèle Excel complet</button>
@@ -149,13 +146,19 @@
   </div>
 
   <!-- Mapping -->
-  <div class="ky-card" *ngIf="currentStep === 'mapping' && analyzeResult">
-    <h2>2. Correspondance des colonnes</h2>
-    <p class="hint">
-      Fichier : {{ analyzeResult.fileName }} — {{ analyzeResult.totalRows }} lignes.
-      L'ordre des colonnes n'a pas d'importance : seul le mapping compte.
-      Laissez « — Ignorer — » sur les colonnes inutiles ou vides au milieu du fichier.
-    </p>
+  <div class="ky-card mapping-panel" *ngIf="currentStep === 'mapping' && analyzeResult">
+    <div class="section-heading">
+      <h2 class="ky-card-title mb-0">2. Correspondance des colonnes</h2>
+      <p class="hint">
+        Fichier : {{ analyzeResult.fileName }} — {{ analyzeResult.totalRows }} lignes.
+        Choisissez pour chaque colonne : mapper vers un champ existant, ignorer, ou créer un nouveau champ RH.
+      </p>
+    </div>
+    <div class="alerts" *ngIf="unmappedColumnCount() > 0">
+      <p class="alert-item">
+        {{ unmappedColumnCount() }} colonne(s) non mappée(s) — choisissez une action pour chacune (mapper, ignorer ou conserver comme nouveau champ).
+      </p>
+    </div>
     <div class="alerts" *ngIf="analyzeResult.alerts.length">
       <p *ngFor="let alert of analyzeResult.alerts" class="alert-item">{{ alert }}</p>
     </div>
@@ -169,50 +172,83 @@
         <tr>
           <th>Colonne fichier</th>
           <th>Confiance</th>
-          <th>Champ cible</th>
+          <th>Action</th>
+          <th>Champ cible / définition</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let m of mappings; let i = index" [class.row-ignored]="!m.fieldKey || isColumnIgnorable(m.columnIndex)">
+        <tr *ngFor="let m of mappings; let i = index" [class.row-ignored]="mappingDisposition(m) === 'ignore' || isColumnIgnorable(m.columnIndex)">
           <td>{{ columnHeaderLabel(m.columnIndex) }}</td>
           <td>
             <span
               class="badge"
               [class.high]="columnSuggestedConfidence(m.columnIndex) === 'high'"
-              *ngIf="m.fieldKey">
+              *ngIf="m.fieldKey && mappingDisposition(m) === 'map'">
               {{ columnSuggestedConfidence(m.columnIndex) }}
             </span>
-            <span class="hint" *ngIf="!m.fieldKey">—</span>
+            <span class="hint" *ngIf="mappingDisposition(m) !== 'map'">—</span>
           </td>
           <td>
-            <select [(ngModel)]="mappings[i].fieldKey" (ngModelChange)="onMappingChange()">
-              <option [ngValue]="null">— Ignorer —</option>
-              <option *ngFor="let f of fieldOptions()" [ngValue]="f.fieldKey">{{ f.label }}</option>
+            <select class="ky-input disposition-select" [ngModel]="mappingDisposition(m)" (ngModelChange)="onDispositionChange(i, $event)">
+              <option value="map">Mapper</option>
+              <option value="ignore">Ignorer</option>
+              <option value="keepAsNewField">Nouveau champ</option>
             </select>
+          </td>
+          <td>
+            <ng-container *ngIf="mappingDisposition(m) === 'map'">
+              <select class="ky-input target-select" [(ngModel)]="mappings[i].fieldKey" (ngModelChange)="mappings[i].disposition = 'map'; onMappingChange()">
+                <option [ngValue]="null">— Choisir —</option>
+                <optgroup label="Champs système">
+                  <option *ngFor="let f of systemFieldOptions()" [ngValue]="f.fieldKey">{{ f.label }}</option>
+                </optgroup>
+                <optgroup label="Champs personnalisés" *ngIf="customFieldOptions().length">
+                  <option *ngFor="let f of customFieldOptions()" [ngValue]="f.fieldKey">{{ f.label }}</option>
+                </optgroup>
+              </select>
+            </ng-container>
+            <ng-container *ngIf="mappingDisposition(m) === 'keepAsNewField'">
+              <div class="inline-new-field new-field-panel">
+                <input class="ky-input compact" [(ngModel)]="mappings[i].newFieldDefinition!.label" (ngModelChange)="onMappingChange()" placeholder="Libellé du champ" />
+                <select class="ky-input compact" [(ngModel)]="mappings[i].newFieldDefinition!.dataType" (ngModelChange)="onMappingChange()">
+                  <option value="text">Texte</option>
+                  <option value="date">Date</option>
+                  <option value="number">Nombre</option>
+                  <option value="boolean">Oui/Non</option>
+                </select>
+                <label class="toggle-chip compact">
+                  <input type="checkbox" [(ngModel)]="mappings[i].newFieldDefinition!.isRequiredOnCreate" (ngModelChange)="onMappingChange()" />
+                  Obligatoire
+                </label>
+              </div>
+            </ng-container>
+            <span class="ignored-label" *ngIf="mappingDisposition(m) === 'ignore'">Colonne ignorée</span>
           </td>
         </tr>
       </tbody>
     </table>
     <div class="actions-row">
       <button type="button" class="ky-btn-secondary" (click)="goToStep('file')">Retour</button>
-      <button type="button" class="ky-btn-primary" (click)="goToPreview()">Prévisualiser</button>
+      <button type="button" class="ky-btn-primary" [disabled]="previewLoading" (click)="goToPreview()">
+        {{ previewLoading ? 'Prévisualisation…' : 'Prévisualiser' }}
+      </button>
     </div>
   </div>
 
   <!-- Preview -->
   <div class="ky-card" *ngIf="currentStep === 'preview' && analyzeResult">
-    <h2>3. Prévisualisation</h2>
+    <h2 class="ky-card-title">3. Prévisualisation</h2>
     <p class="hint">Échantillon des premières lignes après mapping (confiance rôle/org dans l'étape Organisation)</p>
     <div class="preview-scroll">
       <table class="mapping-table compact">
         <thead>
           <tr>
-            <th *ngFor="let f of fieldOptions()">{{ f.label }}</th>
+            <th *ngFor="let f of previewFieldColumns()">{{ f.label }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of analyzeResult.previewRows">
-            <td *ngFor="let f of fieldOptions()">{{ row[f.fieldKey] ?? '—' }}</td>
+          <tr *ngFor="let row of previewRows">
+            <td *ngFor="let f of previewFieldColumns()">{{ row[f.fieldKey] ?? '—' }}</td>
           </tr>
         </tbody>
       </table>
@@ -225,7 +261,7 @@
 
   <!-- Organisation -->
   <div class="ky-card" *ngIf="currentStep === 'org' && analyzeResult">
-    <h2>4. Organisation</h2>
+    <h2 class="ky-card-title">4. Organisation</h2>
     <p class="hint">
       Validez les correspondances approximatives et les créations d'organisation proposées (Annuaire → miroir Planning).
       Cette analyse utilise le mapping de colonnes que vous venez de valider.
@@ -307,7 +343,7 @@
 
   <!-- Confirm -->
   <div class="ky-card" *ngIf="currentStep === 'confirm' && analyzeResult">
-    <h2>5. Confirmation</h2>
+    <h2 class="ky-card-title">5. Confirmation</h2>
     <ul class="confirm-list">
       <li><strong>Fichier :</strong> {{ analyzeResult.fileName }}</li>
       <li><strong>Lignes :</strong> {{ analyzeResult.totalRows }}</li>
@@ -328,30 +364,45 @@
 
   <!-- Report -->
   <div class="ky-card" *ngIf="currentStep === 'report' && report">
-    <h2>6. Rapport d'import</h2>
-    <div class="stats-grid">
-      <div class="stat"><span class="stat-val">{{ report.totalLignes }}</span><span class="stat-lbl">Lignes</span></div>
-      <div class="stat ok"><span class="stat-val">{{ report.crees }}</span><span class="stat-lbl">Créés</span></div>
-      <div class="stat ok"><span class="stat-val">{{ report.misAJour }}</span><span class="stat-lbl">Mis à jour</span></div>
-      <div class="stat"><span class="stat-val">{{ report.ignores }}</span><span class="stat-lbl">Ignorés</span></div>
-      <div class="stat err"><span class="stat-val">{{ report.erreurs }}</span><span class="stat-lbl">Erreurs</span></div>
+    <h2 class="ky-card-title">6. Rapport d'import</h2>
+    <div class="ky-stat-grid">
+      <div class="ky-stat-card">
+        <span class="ky-stat-value">{{ report.totalLignes }}</span>
+        <span class="ky-stat-label">Lignes</span>
+      </div>
+      <div class="ky-stat-card is-success">
+        <span class="ky-stat-value">{{ report.crees }}</span>
+        <span class="ky-stat-label">Créés</span>
+      </div>
+      <div class="ky-stat-card is-success">
+        <span class="ky-stat-value">{{ report.misAJour }}</span>
+        <span class="ky-stat-label">Mis à jour</span>
+      </div>
+      <div class="ky-stat-card">
+        <span class="ky-stat-value">{{ report.ignores }}</span>
+        <span class="ky-stat-label">Ignorés</span>
+      </div>
+      <div class="ky-stat-card is-error">
+        <span class="ky-stat-value">{{ report.erreurs }}</span>
+        <span class="ky-stat-label">Erreurs</span>
+      </div>
     </div>
     <div class="org-created" *ngIf="report.orgNodesCreated?.length">
-      <h3>Organisations créées</h3>
+      <h3 class="ky-card-title mb-2">Organisations créées</h3>
       <ul>
         <li *ngFor="let node of report.orgNodesCreated">
           {{ node.nodeType }} « {{ node.name }} »<span *ngIf="node.pole"> — pôle {{ node.pole }}</span>
         </li>
       </ul>
     </div>
-    <div class="actions-row">
+    <div class="actions-row report-actions">
       <button type="button" class="ky-btn-secondary" (click)="exportErrors()" *ngIf="report.erreurs > 0">
         Exporter erreurs (CSV)
       </button>
       <button type="button" class="ky-btn-primary" (click)="resetWizard()">Nouvel import</button>
     </div>
-    <div class="preview-scroll report-lines">
-      <table class="mapping-table compact">
+    <div class="ky-card-table-section">
+      <table class="ky-table">
         <thead>
           <tr>
             <th>Ligne</th>

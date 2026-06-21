@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import type {
@@ -18,11 +18,12 @@ const PREFIX = '/api/parrainage';
 
 type Actor = { id: string; label: string; role?: string };
 
-interface RawReferral extends Omit<Referral, 'createdAt' | 'approvedAt' | 'eligibleForPaymentAt' | 'paidAt'> {
+interface RawReferral extends Omit<Referral, 'createdAt' | 'approvedAt' | 'eligibleForPaymentAt' | 'paidAt' | 'trainingEndNotifiedAt'> {
   createdAt: string;
   approvedAt?: string;
   eligibleForPaymentAt?: string;
   paidAt?: string;
+  trainingEndNotifiedAt?: string;
 }
 interface RawHistory extends Omit<ReferralHistoryEntry, 'createdAt'> {
   createdAt: string;
@@ -124,10 +125,50 @@ export class ParrainageApiService {
 
   async approveReferral(
     id: string,
-    body: { candidateStartDate: string; rewardAmount: number; comment?: string; actor?: Actor },
+    body: {
+      candidateStartDate: string;
+      rewardAmount: number;
+      requiresTraining?: boolean;
+      trainingEndDate?: string;
+      comment?: string;
+      actor?: Actor;
+    },
   ): Promise<Referral> {
     return reviveReferral(
       await firstValueFrom(this.http.post<RawReferral>(`${PREFIX}/referrals/${id}/approve`, body)),
+    );
+  }
+
+  async confirmProductionStart(
+    id: string,
+    body: { productionStartDate: string; comment?: string; actor?: Actor },
+  ): Promise<Referral> {
+    return reviveReferral(
+      await firstValueFrom(
+        this.http.post<RawReferral>(`${PREFIX}/referrals/${id}/confirm-production`, body),
+      ),
+    );
+  }
+
+  async extendTraining(
+    id: string,
+    body: { trainingEndDate: string; comment?: string; actor?: Actor },
+  ): Promise<Referral> {
+    return reviveReferral(
+      await firstValueFrom(
+        this.http.post<RawReferral>(`${PREFIX}/referrals/${id}/extend-training`, body),
+      ),
+    );
+  }
+
+  async rejectEarlyDeparture(
+    id: string,
+    body: { departureDate?: string; comment?: string; actor?: Actor },
+  ): Promise<Referral> {
+    return reviveReferral(
+      await firstValueFrom(
+        this.http.post<RawReferral>(`${PREFIX}/referrals/${id}/reject-early-departure`, body),
+      ),
     );
   }
 
@@ -308,5 +349,17 @@ function reviveReferral(r: RawReferral): Referral {
     approvedAt: r.approvedAt ? new Date(r.approvedAt) : undefined,
     eligibleForPaymentAt: r.eligibleForPaymentAt ? new Date(r.eligibleForPaymentAt) : undefined,
     paidAt: r.paidAt ? new Date(r.paidAt) : undefined,
+    trainingEndNotifiedAt: r.trainingEndNotifiedAt ? new Date(r.trainingEndNotifiedAt) : undefined,
   };
+}
+
+export function parseParrainageApiError(error: unknown, fallback: string): string {
+  if (error instanceof HttpErrorResponse) {
+    const body = error.error as { error?: string } | string | null;
+    if (body && typeof body === 'object' && typeof body.error === 'string') return body.error;
+    if (typeof body === 'string' && body.trim()) return body;
+    if (error.message) return error.message;
+  }
+  if (error instanceof Error) return error.message || fallback;
+  return fallback;
 }

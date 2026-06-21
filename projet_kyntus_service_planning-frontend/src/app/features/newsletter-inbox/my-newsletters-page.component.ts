@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Inbox, Loader2, Mail, MailOpen, Search } from 'lucide';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
+import { KyntusPageHeaderComponent } from '../../shared/components/ui/kyntus-page-header.component';
 import { NewsletterService, EmployeeNewsletter } from '../../core/services/newsletter.service';
 
 @Component({
   selector: 'app-my-newsletters-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent],
   templateUrl: './my-newsletters-page.component.html',
   styleUrls: ['./my-newsletters-page.component.css'],
   encapsulation: ViewEncapsulation.None,

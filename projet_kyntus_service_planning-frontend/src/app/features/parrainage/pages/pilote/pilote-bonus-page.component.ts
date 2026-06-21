@@ -9,12 +9,16 @@ import type { Referral } from '../../models/referral.model';
   standalone: true,
   imports: [],
   template: `
+    <div class="space-y-4">
+      <div>
+        <h1 class="prime-page-title">Suivi des primes</h1>
+        <p class="ky-page-subtitle">Montants engagés, éligibilité et versements.</p>
+      </div>
     <div class="grid gap-4 lg:grid-cols-3">
       <div class="card-navy p-4 md:p-5 space-y-4 lg:col-span-2">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-sm font-semibold text-primary">Suivi de vos primes</h2>
-            <p class="text-xs text-muted">Montants engagés, éligibilité et versements.</p>
+            <h2 class="text-sm font-semibold text-primary">Détail par statut</h2>
           </div>
           <span class="inline-flex items-center gap-1 rounded-full bg-soft-blue/10 px-3 py-1 text-[11px] text-soft-blue">
             {{ summary().totalEngaged }} DH engagés
@@ -71,6 +75,7 @@ import type { Referral } from '../../models/referral.model';
         </div>
       </div>
     </div>
+    </div>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -107,6 +112,7 @@ export class PiloteBonusPageComponent {
     if (r.status === 'REWARDED') return base + 'bg-emerald-500/15 text-emerald-300';
     if (r.paymentStatus === 'READY') return base + 'bg-amber-500/15 text-amber-300';
     if (r.status === 'APPROVED') return base + 'bg-blue-500/15 text-blue-300';
+    if (r.status === 'IN_TRAINING') return base + 'bg-amber-500/15 text-amber-300';
     if (r.status === 'PROCESSED') return base + 'bg-cyan-500/15 text-cyan-300';
     return base + 'bg-slate-500/15 text-muted';
   }

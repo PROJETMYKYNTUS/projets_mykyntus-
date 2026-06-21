@@ -301,8 +301,9 @@ export class PrimeGlobalPoolApiService {
     });
   }
 
-  scopeInbox(userId: string): Observable<GlobalPoolScopeSynthesisInboxItemDto[]> {
-    const params = new HttpParams().set('userId', userId);
+  scopeInbox(userId: string, role?: string): Observable<GlobalPoolScopeSynthesisInboxItemDto[]> {
+    let params = new HttpParams().set('userId', userId);
+    if (role?.trim()) params = params.set('role', role.trim());
     return this.http.get<GlobalPoolScopeSynthesisInboxItemDto[]>(`${base}/scope-inbox`, { params });
   }
 

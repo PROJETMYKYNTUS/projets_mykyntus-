@@ -113,6 +113,14 @@ export const routes: Routes = [
             .then((m) => m.OrganisationManagementComponent),
       },
       {
+        path: 'departements-metier',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadComponent: () =>
+          import('./features/prime/pages/allowances/business-departments-page.component')
+            .then((m) => m.BusinessDepartmentsPageComponent),
+      },
+      {
         path: 'floors',
         redirectTo: '/organisation?tab=departments',
         pathMatch: 'prefix',

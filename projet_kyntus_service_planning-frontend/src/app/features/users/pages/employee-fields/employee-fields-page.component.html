@@ -1,0 +1,200 @@
+<div class="ky-page-shell">
+
+  <app-kyntus-page-header
+    title="Champs employés"
+    subtitle="Définissez les informations complémentaires (RIB, matricule, etc.) affichées sur les fiches, formulaires et imports.">
+    <div actions>
+      <a routerLink="/users" class="ky-btn-secondary btn-back">
+        <app-lucide-icon [icon]="icons.back" className="w-4 h-4" />
+        Retour aux employés
+      </a>
+      <button type="button" class="ky-btn-primary" (click)="openCreate()">
+        <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
+        Ajouter un champ
+      </button>
+    </div>
+  </app-kyntus-page-header>
+  @if (showCreate) {
+    <div class="card ky-card create-panel">
+      <div class="section-heading">
+        <h2>Nouveau champ personnalisé</h2>
+        <p>Ce champ sera disponible sur les formulaires employés, la liste et l'import guidé.</p>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Libellé <span class="required">*</span></label>
+          <input class="ky-input" [(ngModel)]="newField.label" placeholder="Ex. RIB" />
+        </div>
+        <div class="form-group">
+          <label>Type de donnée</label>
+          <select class="ky-input" [(ngModel)]="newField.dataType">
+            @for (t of dataTypes; track t.value) {
+              <option [ngValue]="t.value">{{ t.label }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group full-width">
+          <label>Alias import <span class="hint-inline">(séparés par des virgules)</span></label>
+          <input class="ky-input" [(ngModel)]="aliasesInput" placeholder="rib, compte bancaire" />
+        </div>
+        <div class="form-group toggles-row full-width">
+          <label class="toggle-chip">
+            <input type="checkbox" [(ngModel)]="newField.isRequiredOnCreate" />
+            Obligatoire à la création
+          </label>
+          <label class="toggle-chip">
+            <input type="checkbox" [(ngModel)]="newField.isEnabled" />
+            Actif
+          </label>
+        </div>
+      </div>
+      <div class="actions-row">
+        <button type="button" class="ky-btn-secondary" (click)="showCreate = false">Annuler</button>
+        <button type="button" class="ky-btn-primary" [disabled]="saving" (click)="createField()">
+          {{ saving ? 'Création…' : 'Créer le champ' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  <div class="card ky-card">
+    <div class="section-heading">
+      <h2>Champs personnalisés</h2>
+      <p>Données ajoutées par le RH, stockées à côté du profil employé.</p>
+    </div>
+
+    @if (loading) {
+      <div class="state-box">
+        <div class="spinner"></div>
+        <p>Chargement des champs…</p>
+      </div>
+    } @else if (error && !fields.length) {
+      <div class="state-box error">
+        <div class="icon-error"><app-lucide-icon [icon]="icons.warn" className="w-5 h-5" /></div>
+        <p>{{ error }}</p>
+        <button type="button" class="btn btn-outline ky-btn-secondary" (click)="loadFields()">Réessayer</button>
+      </div>
+    } @else if (!customFields().length) {
+      <div class="state-box empty">
+        <p>Aucun champ personnalisé pour le moment.</p>
+        <button type="button" class="btn btn-outline ky-btn-secondary" (click)="openCreate()">Ajouter un champ</button>
+      </div>
+    } @else {
+      @if (error) {
+        <div class="alert alert-error">
+          <app-lucide-icon [icon]="icons.warn" className="w-5 h-5" />
+          <span>{{ error }}</span>
+        </div>
+      }
+      <div class="table-wrapper">
+        <table class="prime-table">
+          <thead>
+            <tr>
+              <th>Libellé</th>
+              <th>Clé</th>
+              <th>Type</th>
+              <th>Obligatoire</th>
+              <th>Actif</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (field of customFields(); track field.fieldKey) {
+              <tr>
+                <td>
+                  <input class="ky-input table-input" [(ngModel)]="field.label" />
+                </td>
+                <td><span class="field-key-badge">{{ field.fieldKey }}</span></td>
+                <td>
+                  <select class="ky-input table-input" [(ngModel)]="field.dataType">
+                    @for (t of dataTypes; track t.value) {
+                      <option [ngValue]="t.value">{{ t.label }}</option>
+                    }
+                  </select>
+                </td>
+                <td class="cell-center">
+                  <label class="toggle-chip compact">
+                    <input type="checkbox" [(ngModel)]="field.isRequiredOnCreate" />
+                  </label>
+                </td>
+                <td class="cell-center">
+                  <label class="toggle-chip compact">
+                    <input type="checkbox" [(ngModel)]="field.isEnabled" />
+                  </label>
+                </td>
+                <td class="col-actions">
+                  <div class="action-group">
+                    <button type="button" class="btn-action save" title="Enregistrer" (click)="saveField(field)">
+                      <app-lucide-icon [icon]="icons.save" className="w-4 h-4" />
+                    </button>
+                    <button type="button" class="btn-action delete" title="Supprimer" (click)="deleteField(field)">
+                      <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  <div class="card ky-card">
+    <div class="section-heading">
+      <h2>Champs système</h2>
+      <p>Colonnes standard du modèle employé (email, prénom, rôle…). Ajustez libellé, obligation et activation.</p>
+    </div>
+
+    @if (loading) {
+      <div class="state-box">
+        <div class="spinner"></div>
+        <p>Chargement…</p>
+      </div>
+    } @else if (systemFields().length) {
+      <div class="table-wrapper">
+        <table class="prime-table prime-table--dense">
+          <thead>
+            <tr>
+              <th>Libellé</th>
+              <th>Clé</th>
+              <th>Type</th>
+              <th>Obligatoire</th>
+              <th>Actif</th>
+              <th class="col-actions"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (field of systemFields(); track field.fieldKey) {
+              <tr>
+                <td>
+                  <input class="ky-input table-input" [(ngModel)]="field.label" />
+                </td>
+                <td><span class="field-key-badge system">{{ field.fieldKey }}</span></td>
+                <td><span class="type-label">{{ typeLabel(field.dataType) }}</span></td>
+                <td class="cell-center">
+                  <label class="toggle-chip compact">
+                    <input type="checkbox" [(ngModel)]="field.isRequiredOnCreate" />
+                  </label>
+                </td>
+                <td class="cell-center">
+                  <label class="toggle-chip compact">
+                    <input type="checkbox" [(ngModel)]="field.isEnabled" />
+                  </label>
+                </td>
+                <td class="col-actions">
+                  <button type="button" class="ky-btn-secondary btn-save-row" (click)="saveField(field)">
+                    Enregistrer
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else if (!loading && !error) {
+      <p class="hint-block">Aucun champ système disponible.</p>
+    }
+  </div>
+
+</div>

@@ -26,6 +26,13 @@ import {
   type EmployeePrimeServiceFicheValidationDto,
 } from '../services/prime-fiche-result.service';
 import { PRIME_USER_LOAD_ERROR, primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
+import { DepartmentContextService } from '../services/allowance-api.service';
+import { PrimeNavRequestService } from '../services/prime-nav-request.service';
+import { redirectSupportManagerToAllowancesIfNeeded } from '../lib/allowance-manager-guard';
+import { isPrimeGlobalPoolStakeholderRole } from '../lib/prime-global-pool-stakeholder';
+import { buildPrimeDepartmentManagerNav } from '../lib/prime-manager-nav';
+import { mapPrimeResultToFicheDto } from '../lib/map-prime-result-to-fiche-dto';
+import { PrimeService } from '../services/prime.service';
 
 echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
@@ -217,6 +224,8 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, LegendCompone
 export class TeamPerformancePageComponent {
   private readonly roleService = inject(RoleService);
   private readonly api = inject(PrimeFicheResultService);
+  private readonly deptContext = inject(DepartmentContextService);
+  private readonly nav = inject(PrimeNavRequestService);
 
   readonly icons = { users: Users, award: Award, trending: TrendingUp };
   readonly chartInit = { renderer: 'canvas' as const };
@@ -398,10 +407,22 @@ export class TeamPerformancePageComponent {
   });
 
   constructor() {
+    void this.deptContext.load();
     effect(() => {
+      if (!this.deptContext.loaded()) return;
       void this.roleService.currentRole();
       void this.roleService.currentUser().id;
       void this.periodFilter();
+      if (
+        redirectSupportManagerToAllowancesIfNeeded(
+          this.roleService.currentRole(),
+          this.deptContext,
+          this.nav,
+          '/team-performance',
+        )
+      ) {
+        return;
+      }
       this.fetch();
     });
   }
@@ -409,7 +430,33 @@ export class TeamPerformancePageComponent {
   private fetch(): void {
     this.loading.set(true);
     this.errorMessage.set(null);
-    this.api.list({ period: this.periodFilter() || undefined }).subscribe({
+    const role = this.roleService.currentRole() as Role;
+    const period = this.periodFilter() || undefined;
+
+    if (isPrimeGlobalPoolStakeholderRole(role, buildPrimeDepartmentManagerNav(this.deptContext))) {
+      void PrimeService.getPrimeResults()
+        .then((rows) => {
+          const employees = this.roleService.employees();
+          let mapped = rows.map((r) => mapPrimeResultToFicheDto(r, employees));
+          if (period) mapped = mapped.filter((x) => x.period === period);
+          this.results.set(mapped);
+          this.loading.set(false);
+        })
+        .catch((err: unknown) => {
+          console.error('[TeamPerformancePage] fetch error', err);
+          const detail = primeHttpErrorDetail(err);
+          this.errorMessage.set(
+            detail
+              ? `Impossible de charger les fiches PRIME. ${detail}`
+              : PRIME_USER_LOAD_ERROR,
+          );
+          this.results.set([]);
+          this.loading.set(false);
+        });
+      return;
+    }
+
+    this.api.list({ period }).subscribe({
       next: (rows) => {
         this.results.set(rows);
         this.loading.set(false);

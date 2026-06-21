@@ -8,6 +8,7 @@ import { ContractService, ContractResponse } from '../../services/contract.servi
 import { UserService } from '../../../users/services/user.service';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
 import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-select-sync.directive';
 import { AlertTriangle, Eye, FilePlus2, Pencil, Search, Trash2 } from 'lucide';
@@ -30,7 +31,7 @@ interface Stats {
 @Component({
   selector: 'app-contract-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective, KyntusPageHeaderComponent],
   templateUrl: './contract-list.component.html',
   styleUrls: ['./contract-list.component.css'],
   encapsulation: ViewEncapsulation.None
@@ -134,7 +135,7 @@ export class ContractListComponent implements OnInit {
   }
 
   userPerimeter(userId: number): UserOrgPerimeterView {
-    return this.perimeterByUserId.get(userId) ?? { pole: null, cellule: null, service: null };
+    return this.perimeterByUserId.get(userId) ?? { operationalDepartment: null, pole: null, cellule: null, service: null };
   }
 
   refreshOrgFilterOptions(): void {

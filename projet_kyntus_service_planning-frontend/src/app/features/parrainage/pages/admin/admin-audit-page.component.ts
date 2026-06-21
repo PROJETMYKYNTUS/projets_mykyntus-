@@ -98,7 +98,7 @@ const PAGE_SIZE = 8;
     } @else {
       <section class="flex-1 space-y-6">
         <div>
-          <h1 class="text-2xl font-semibold text-primary">{{ intro.title }}</h1>
+          <h1 class="prime-page-title">{{ intro.title }}</h1>
           <p class="text-sm text-muted mt-1">{{ intro.desc }}</p>
         </div>
 

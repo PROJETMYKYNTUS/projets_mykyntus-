@@ -1,6 +1,7 @@
 import type { Role } from '../models';
 import { isProjectLeadRole } from './projectLeadRole';
-import { isPrimePathAllowedForRole } from './prime-nav-access';
+import { isPrimePathAllowedForRole, resolveManagerHomePath } from './prime-nav-access';
+import type { PrimeDepartmentManagerNav } from './prime-manager-nav';
 import type { AdminSection, AuditSection, RpSection } from '../state/prime-section.service';
 
 /** Cible d’accueil après changement de rôle / utilisateur (mode développeur). */
@@ -14,7 +15,11 @@ export type RoleHomeTarget = {
 /**
  * Page d’accueil « interface personnalisée » par rôle (premier écran métier, pas la dernière page visitée).
  */
-export function getRoleHomeTarget(role: Role): RoleHomeTarget {
+export function getRoleHomeTarget(
+  role: Role,
+  _departmentKind: 'Support' | 'Operational' | null = null,
+  managerNav: PrimeDepartmentManagerNav = { isSupportManager: false, isOperationalManager: false },
+): RoleHomeTarget {
   switch (role) {
     case 'Admin':
       return { path: '/', adminSection: 'dashboard' };
@@ -34,7 +39,7 @@ export function getRoleHomeTarget(role: Role): RoleHomeTarget {
     case 'Chef de projet':
       return { path: '/chef-projet/scope' };
     case 'Manager':
-      return { path: '/global-pool' };
+      return { path: resolveManagerHomePath('Manager', managerNav) };
     case 'Comptabilité':
     case 'Comptable':
       return { path: '/global-pool' };
@@ -44,10 +49,16 @@ export function getRoleHomeTarget(role: Role): RoleHomeTarget {
 }
 
 /** Applique le chemin d’accueil si autorisé pour le rôle, sinon « / ». */
-export function resolveAllowedHomePath(role: Role, target: RoleHomeTarget): string {
+export function resolveAllowedHomePath(
+  role: Role,
+  target: RoleHomeTarget,
+  departmentKind: 'Support' | 'Operational' | null = null,
+  managerNav: PrimeDepartmentManagerNav = { isSupportManager: false, isOperationalManager: false },
+): string {
   const path = target.path.trim() || '/';
-  if (isPrimePathAllowedForRole(path, role)) return path;
+  if (isPrimePathAllowedForRole(path, role, departmentKind, managerNav)) return path;
   if (role === 'Pilote') return '/employee/dashboard';
+  if (role === 'Manager') return resolveManagerHomePath(role, managerNav);
   if (isProjectLeadRole(role)) return '/';
   return '/';
 }

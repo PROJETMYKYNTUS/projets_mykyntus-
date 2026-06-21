@@ -9,6 +9,14 @@ public sealed class DirectoryHierarchyService(DirectoryDbContext db)
 {
     public async Task<Guid?> ResolveDefaultParentIdAsync(Employee employee, CancellationToken ct)
     {
+        if (employee.BusinessDepartmentId.HasValue)
+        {
+            var dept = await db.BusinessDepartments.AsNoTracking()
+                .FirstOrDefaultAsync(d => d.Id == employee.BusinessDepartmentId.Value, ct);
+            if (dept?.Kind == BusinessDepartmentKind.Support && dept.ManagerEmployeeId.HasValue)
+                return dept.ManagerEmployeeId;
+        }
+
         if (!string.IsNullOrWhiteSpace(employee.ServiceId))
         {
             var referent = await FindActiveAssigneeAsync(OrgAssignmentKind.ReferentTechnique, employee.ServiceId!, ct);
@@ -63,6 +71,13 @@ public sealed class DirectoryHierarchyService(DirectoryDbContext db)
                 break;
             case OrgAssignmentKind.Pilote:
                 employee.Role = KyntusRoleNames.Pilote;
+                employee.ServiceId = nodeId;
+                var pilotSvc = await db.OrgServices.AsNoTracking().Include(s => s.Cellule).FirstOrDefaultAsync(s => s.Id == nodeId, ct);
+                if (pilotSvc is not null)
+                {
+                    employee.CelluleId = pilotSvc.CelluleId;
+                    employee.PoleId = pilotSvc.Cellule.PoleId;
+                }
                 employee.ParentId = await FindActiveAssigneeAsync(OrgAssignmentKind.ReferentTechnique, nodeId, ct)
                     ?? await ResolveDefaultParentIdAsync(employee, ct);
                 break;

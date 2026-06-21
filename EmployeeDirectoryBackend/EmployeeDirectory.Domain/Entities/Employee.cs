@@ -11,6 +11,8 @@ public class Employee
     public string? PoleId { get; set; }
     public string? CelluleId { get; set; }
     public string? ServiceId { get; set; }
+    public Guid? BusinessDepartmentId { get; set; }
+    public BusinessDepartment? BusinessDepartment { get; set; }
     public Guid? AuthSubjectId { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime HireDate { get; set; }

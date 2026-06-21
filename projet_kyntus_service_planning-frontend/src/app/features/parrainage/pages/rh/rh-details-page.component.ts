@@ -12,6 +12,7 @@ import type { ReferralStatus } from '../../models/referral.model';
 const STATUS_STYLES: Record<ReferralStatus, string> = {
   SUBMITTED: 'bg-blue-500/15 text-blue-300 border-blue-500/40',
   PROCESSED: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40',
+  IN_TRAINING: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
   APPROVED: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
   REJECTED: 'bg-red-500/15 text-red-300 border-red-500/40',
   REWARDED: 'bg-purple-500/15 text-purple-200 border-purple-500/40',
@@ -19,9 +20,17 @@ const STATUS_STYLES: Record<ReferralStatus, string> = {
 const STATUS_LABELS: Record<ReferralStatus, string> = {
   SUBMITTED: 'En attente',
   PROCESSED: 'Dossier traité',
+  IN_TRAINING: 'En cours de formation',
   APPROVED: 'Validé',
   REJECTED: 'Rejeté',
   REWARDED: 'Prime versée',
+};
+
+const HISTORY_ACTION_LABELS: Record<string, string> = {
+  PRODUCTION_CONFIRMED: 'Passage en production',
+  TRAINING_EXTENDED: 'Formation prolongée',
+  TRAINING_END_DUE: 'Fin de formation atteinte',
+  EARLY_DEPARTURE: 'Départ avant période minimale',
 };
 
 type ToastType = 'success' | 'error' | 'info';
@@ -41,7 +50,7 @@ type ToastType = 'success' | 'error' | 'info';
       <div class="space-y-2">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 class="text-2xl font-semibold text-primary">Décision RH</h1>
+            <h1 class="prime-page-title">Décision RH</h1>
             <p class="text-sm text-muted mt-1">Validation uniquement depuis l'écran de détail.</p>
           </div>
           <div class="flex items-center gap-3">
@@ -149,7 +158,7 @@ type ToastType = 'success' | 'error' | 'info';
                             <div class="flex items-center gap-2">
                               <span [class]="'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ' + statusStyles[historyStatus(h.action)]">{{ statusLabels[historyStatus(h.action)] }}</span>
                               <span class="text-sm font-medium text-primary">
-                                {{ h.action === 'APPROVED' ? 'Validé' : h.action === 'PROCESSED' ? 'Dossier traité' : h.action === 'REJECTED' ? 'Rejeté' : 'Prime versée' }}
+                                {{ historyActionLabel(h.action) }}
                               </span>
                             </div>
                             @if (h.comment) {
@@ -177,11 +186,30 @@ type ToastType = 'success' | 'error' | 'info';
               </div>
             }
 
+            @if (ref.status === 'IN_TRAINING') {
+              <div class="card-navy p-4 border border-amber-500/20 bg-amber-500/5 text-sm text-amber-100">
+                En cours de formation — la période minimum de prime n'est pas encore comptée.
+                @if (ref.candidateStartDate) {
+                  <span class="block mt-1">Début formation : {{ ref.candidateStartDate }}</span>
+                }
+                @if (ref.trainingEndDate) {
+                  <span class="block mt-1">Fin prévue : {{ ref.trainingEndDate }}</span>
+                }
+                @if (ref.trainingEndNotifiedAt) {
+                  <span class="block mt-1 text-amber-200">Fin de formation atteinte — confirmez le passage en production ou prolongez la formation.</span>
+                }
+                Montant engagé : {{ ref.rewardAmount }} DH.
+              </div>
+            }
+
             @if (ref.status === 'APPROVED' || ref.status === 'REWARDED') {
               <div class="card-navy p-4 border border-emerald-500/20 bg-emerald-500/5 text-sm text-emerald-100">
                 @if (ref.status === 'APPROVED') {
                   Période d'ancienneté jusqu'au {{ formatDate(ref.eligibleForPaymentAt) }} —
                   montant engagé {{ ref.rewardAmount }} DH.
+                  @if (ref.productionStartDate) {
+                    <span class="block mt-1 text-primary">Production depuis le {{ ref.productionStartDate }}.</span>
+                  }
                   @if (ref.paymentStatus === 'NOT_ELIGIBLE') {
                     <span class="block mt-1 text-primary">En attente de la fin de la période minimum.</span>
                   }
@@ -211,6 +239,11 @@ type ToastType = 'success' | 'error' | 'info';
               </div>
 
               <div class="flex flex-wrap gap-3">
+                @if (referral()?.status === 'SUBMITTED' && !hasCv()) {
+                  <p class="w-full text-xs text-amber-300">
+                    CV candidat manquant — le pilote doit joindre un CV avant le traitement RH.
+                  </p>
+                }
                 @if (canProcess()) {
                   <button
                     type="button"
@@ -231,6 +264,26 @@ type ToastType = 'success' | 'error' | 'info';
                     Valider l'entrée
                   </button>
                 }
+                @if (canConfirmProduction()) {
+                  <button
+                    type="button"
+                    (click)="handleConfirmProductionClick()"
+                    [disabled]="busy() || unauthorized"
+                    class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    Confirmer passage en production
+                  </button>
+                }
+                @if (canExtendTraining()) {
+                  <button
+                    type="button"
+                    (click)="handleExtendTrainingClick()"
+                    [disabled]="busy() || unauthorized"
+                    class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+                  >
+                    Prolonger la formation
+                  </button>
+                }
                 @if (canConfirmEligibility()) {
                   <button
                     type="button"
@@ -239,6 +292,16 @@ type ToastType = 'success' | 'error' | 'info';
                     class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
                   >
                     Confirmer l'éligibilité
+                  </button>
+                }
+                @if (canRejectEarlyDeparture()) {
+                  <button
+                    type="button"
+                    (click)="handleEarlyDepartureClick()"
+                    [disabled]="busy() || unauthorized"
+                    class="rounded-lg border border-orange-500/50 px-4 py-2 text-sm font-medium text-orange-200 hover:bg-orange-500/10 disabled:opacity-50"
+                  >
+                    Recrue partie (avant période min.)
                   </button>
                 }
                 <button
@@ -279,9 +342,13 @@ type ToastType = 'success' | 'error' | 'info';
 
               @if (mode() === 'approve' && canApprove()) {
                 <div class="space-y-4">
+                  <label class="flex items-center gap-2 text-sm text-primary cursor-pointer">
+                    <input type="checkbox" class="rounded border-default" [(ngModel)]="requiresTraining" />
+                    Passage par formation
+                  </label>
                   <div>
                     <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
-                      Date d'entrée du candidat
+                      {{ approveStartDateLabel }}
                     </label>
                     <input
                       type="date"
@@ -289,19 +356,30 @@ type ToastType = 'success' | 'error' | 'info';
                       [(ngModel)]="candidateStartDate"
                     />
                   </div>
+                  @if (requiresTraining) {
+                    <div>
+                      <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
+                        Date de fin de formation prévue
+                      </label>
+                      <input
+                        type="date"
+                        class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-soft-blue"
+                        [(ngModel)]="trainingEndDate"
+                      />
+                    </div>
+                  }
                   <div>
                     <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
                       Montant engagé (DH)
                     </label>
-                    <input
-                      type="text"
-                      inputmode="decimal"
-                      class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-soft-blue"
-                      [(ngModel)]="rewardAmount"
-                      [placeholder]="String(suggestedReward())"
-                    />
+                    <div
+                      class="w-full rounded-lg border border-default bg-input/20 px-3 py-2 text-sm text-primary"
+                      aria-readonly="true"
+                    >
+                      {{ suggestedReward() }} DH
+                    </div>
                     <p class="text-xs text-muted mt-2">
-                      Montant suggéré : {{ suggestedReward() }} DH — ancienneté minimale {{ suggestedMinDuration() }} mois
+                      Montant fixé selon la règle applicable — ancienneté minimale {{ suggestedMinDuration() }} mois
                     </p>
                   </div>
                   <div>
@@ -322,6 +400,78 @@ type ToastType = 'success' | 'error' | 'info';
                     class="rounded-lg bg-soft-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50"
                   >
                     Valider le dossier
+                  </button>
+                </div>
+              }
+
+              @if (mode() === 'confirm-production' && canConfirmProduction()) {
+                <div class="space-y-4">
+                  <p class="text-xs text-muted">
+                    Confirmez la date d'entrée en production. La période minimum de {{ suggestedMinDuration() }} mois démarrera à cette date.
+                  </p>
+                  <div>
+                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
+                      Date de début production
+                    </label>
+                    <input
+                      type="date"
+                      class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-soft-blue"
+                      [(ngModel)]="productionStartDate"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
+                      Commentaire (facultatif)
+                    </label>
+                    <textarea
+                      class="w-full min-h-[70px] rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary"
+                      [(ngModel)]="productionComment"
+                      placeholder="Notes internes RH…"
+                    ></textarea>
+                  </div>
+                  <button
+                    type="button"
+                    (click)="confirmOpen.set('confirm-production')"
+                    [disabled]="busy() || unauthorized"
+                    class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    Confirmer le passage en production
+                  </button>
+                </div>
+              }
+
+              @if (mode() === 'extend-training' && canExtendTraining()) {
+                <div class="space-y-4">
+                  <p class="text-xs text-muted">
+                    Saisissez une nouvelle date de fin de formation (postérieure à la date actuelle).
+                  </p>
+                  <div>
+                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
+                      Nouvelle date de fin de formation
+                    </label>
+                    <input
+                      type="date"
+                      class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-soft-blue"
+                      [(ngModel)]="extendTrainingEndDate"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
+                      Commentaire (facultatif)
+                    </label>
+                    <textarea
+                      class="w-full min-h-[70px] rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary"
+                      [(ngModel)]="extendTrainingComment"
+                      placeholder="Motif de la prolongation…"
+                    ></textarea>
+                  </div>
+                  <button
+                    type="button"
+                    (click)="confirmOpen.set('extend-training')"
+                    [disabled]="busy() || unauthorized"
+                    class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+                  >
+                    Prolonger la formation
                   </button>
                 </div>
               }
@@ -348,6 +498,43 @@ type ToastType = 'success' | 'error' | 'info';
                     class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
                   >
                     Confirmer et transmettre à la compta
+                  </button>
+                </div>
+              }
+
+              @if (mode() === 'early-departure' && canRejectEarlyDeparture()) {
+                <div class="space-y-4">
+                  <p class="text-xs text-muted">
+                    La recrue a quitté l'entreprise avant la fin de la période minimale ({{ suggestedMinDuration() }} mois).
+                    Le dossier sera rejeté et la prime de parrainage annulée automatiquement.
+                  </p>
+                  <div>
+                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
+                      Date de départ
+                    </label>
+                    <input
+                      type="date"
+                      class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-soft-blue"
+                      [(ngModel)]="earlyDepartureDate"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
+                      Commentaire (facultatif)
+                    </label>
+                    <textarea
+                      class="w-full min-h-[70px] rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary"
+                      [(ngModel)]="earlyDepartureComment"
+                      placeholder="Précisions sur le départ…"
+                    ></textarea>
+                  </div>
+                  <button
+                    type="button"
+                    (click)="confirmOpen.set('early-departure')"
+                    [disabled]="busy() || unauthorized || !earlyDepartureDate"
+                    class="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
+                  >
+                    Confirmer le départ anticipé
                   </button>
                 </div>
               }
@@ -431,8 +618,12 @@ type ToastType = 'success' | 'error' | 'info';
           </div>
           <p class="mt-3 text-sm text-muted leading-relaxed">
             Candidat : {{ referral()?.candidateName ?? '' }}.
-            Montant engagé {{ rewardAmount || '—' }} DH — entrée le {{ candidateStartDate || '—' }}.
-            Le versement interviendra après la période minimum.
+            Montant engagé {{ suggestedReward() }} DH — entrée le {{ candidateStartDate || '—' }}.
+            @if (requiresTraining) {
+              Formation jusqu'au {{ trainingEndDate || '—' }}. La période minimum démarrera à la confirmation production.
+            } @else {
+              Le versement interviendra après la période minimum.
+            }
           </p>
           <div class="mt-6 flex flex-wrap justify-end gap-2">
             <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
@@ -486,6 +677,72 @@ type ToastType = 'success' | 'error' | 'info';
       </div>
     }
 
+    @if (confirmOpen() === 'confirm-production') {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
+        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-default">
+          <div class="flex items-start justify-between gap-4">
+            <h3 class="text-lg font-semibold text-primary">Confirmer le passage en production</h3>
+            <button type="button" class="rounded-lg p-1 text-muted hover:text-primary hover:bg-input" (click)="confirmOpen.set(null)" aria-label="Fermer">
+              <app-lucide-icon [icon]="xIcon" className="h-5 w-5" />
+            </button>
+          </div>
+          <p class="mt-3 text-sm text-muted leading-relaxed">
+            Candidat : {{ referral()?.candidateName ?? '' }}.
+            Production à partir du {{ productionStartDate || '—' }} — décompte de {{ suggestedMinDuration() }} mois.
+          </p>
+          <div class="mt-6 flex flex-wrap justify-end gap-2">
+            <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
+              Annuler
+            </button>
+            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white" [disabled]="busy()">
+              @if (busy()) {
+                <span class="inline-flex items-center gap-2">
+                  <app-lucide-icon [icon]="loaderIcon" className="h-4 w-4 animate-spin" />
+                  Traitement…
+                </span>
+              } @else {
+                Confirmer
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (confirmOpen() === 'extend-training') {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
+        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-default">
+          <div class="flex items-start justify-between gap-4">
+            <h3 class="text-lg font-semibold text-primary">Prolonger la formation</h3>
+            <button type="button" class="rounded-lg p-1 text-muted hover:text-primary hover:bg-input" (click)="confirmOpen.set(null)" aria-label="Fermer">
+              <app-lucide-icon [icon]="xIcon" className="h-5 w-5" />
+            </button>
+          </div>
+          <p class="mt-3 text-sm text-muted leading-relaxed">
+            Candidat : {{ referral()?.candidateName ?? '' }}.
+            Nouvelle fin de formation : {{ extendTrainingEndDate || '—' }}.
+          </p>
+          <div class="mt-6 flex flex-wrap justify-end gap-2">
+            <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
+              Annuler
+            </button>
+            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white" [disabled]="busy()">
+              @if (busy()) {
+                <span class="inline-flex items-center gap-2">
+                  <app-lucide-icon [icon]="loaderIcon" className="h-4 w-4 animate-spin" />
+                  Traitement…
+                </span>
+              } @else {
+                Confirmer
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     @if (confirmOpen() === 'reject') {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
@@ -509,6 +766,39 @@ type ToastType = 'success' | 'error' | 'info';
                 </span>
               } @else {
                 Confirmer
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (confirmOpen() === 'early-departure') {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
+        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-default">
+          <div class="flex items-start justify-between gap-4">
+            <h3 class="text-lg font-semibold text-primary">Départ avant période minimale</h3>
+            <button type="button" class="rounded-lg p-1 text-muted hover:text-primary hover:bg-input" (click)="confirmOpen.set(null)" aria-label="Fermer">
+              <app-lucide-icon [icon]="xIcon" className="h-5 w-5" />
+            </button>
+          </div>
+          <p class="mt-3 text-sm text-muted leading-relaxed">
+            Candidat : {{ referral()?.candidateName ?? '' }}.
+            Départ le {{ earlyDepartureDate || '—' }} — le dossier sera rejeté et la prime annulée.
+          </p>
+          <div class="mt-6 flex flex-wrap justify-end gap-2">
+            <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
+              Annuler
+            </button>
+            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-orange-600 hover:bg-orange-500 text-white" [disabled]="busy()">
+              @if (busy()) {
+                <span class="inline-flex items-center gap-2">
+                  <app-lucide-icon [icon]="loaderIcon" className="h-4 w-4 animate-spin" />
+                  Traitement…
+                </span>
+              } @else {
+                Confirmer le rejet
               }
             </button>
           </div>
@@ -543,15 +833,22 @@ export class RhDetailsPageComponent {
     if (!rid) return [];
     return this.store.history().filter((h) => h.referralId === rid);
   });
-  readonly mode = signal<'none' | 'process' | 'approve' | 'confirm-eligibility' | 'reject'>('none');
+  readonly mode = signal<'none' | 'process' | 'approve' | 'confirm-production' | 'extend-training' | 'confirm-eligibility' | 'early-departure' | 'reject'>('none');
   candidateStartDate = new Date().toISOString().slice(0, 10);
-  rewardAmount = '';
+  trainingEndDate = '';
+  productionStartDate = '';
+  extendTrainingEndDate = '';
+  earlyDepartureDate = '';
+  earlyDepartureComment = '';
+  requiresTraining = false;
   approveComment = '';
   processComment = '';
   rejectComment = '';
   eligibilityComment = '';
+  productionComment = '';
+  extendTrainingComment = '';
   readonly busy = signal(false);
-  readonly confirmOpen = signal<null | 'process' | 'approve' | 'confirm-eligibility' | 'reject'>(null);
+  readonly confirmOpen = signal<null | 'process' | 'approve' | 'confirm-production' | 'extend-training' | 'confirm-eligibility' | 'early-departure' | 'reject'>(null);
   readonly toast = signal<{ show: boolean; type: ToastType; message: string }>({ show: false, type: 'success', message: '' });
 
   get id(): string {
@@ -562,11 +859,19 @@ export class RhDetailsPageComponent {
     return this.role.user().role !== 'RH';
   }
 
-  readonly canProcess = computed(() => this.referral()?.status === 'SUBMITTED');
+  readonly hasCv = computed(() => !!this.referral()?.cvUrl?.trim());
+  readonly canProcess = computed(() => this.referral()?.status === 'SUBMITTED' && this.hasCv());
   readonly canApprove = computed(() => this.referral()?.status === 'PROCESSED');
   readonly canConfirmEligibility = computed(
     () => this.referral()?.status === 'APPROVED' && this.referral()?.paymentStatus === 'AWAITING_RH',
   );
+  readonly canConfirmProduction = computed(() => this.referral()?.status === 'IN_TRAINING');
+  readonly canExtendTraining = computed(() => this.referral()?.status === 'IN_TRAINING');
+  readonly canRejectEarlyDeparture = computed(() => {
+    const r = this.referral();
+    if (!r) return false;
+    return (r.status === 'APPROVED' || r.status === 'IN_TRAINING') && r.paymentStatus !== 'PAID';
+  });
   readonly canReject = computed(() => {
     const r = this.referral();
     return r ? r.status === 'SUBMITTED' || r.status === 'PROCESSED' : false;
@@ -583,6 +888,12 @@ export class RhDetailsPageComponent {
     if (!this.id) return 500;
     return this.referralService.getSuggestedReward(this.id);
   });
+
+  get approveStartDateLabel(): string {
+    return this.requiresTraining
+      ? 'Date de début de formation'
+      : "Date d'entrée en production";
+  }
 
   readonly suggestedMinDuration = computed(() => {
     if (!this.id) return 6;
@@ -601,7 +912,20 @@ export class RhDetailsPageComponent {
 
   historyStatus(action: string): ReferralStatus {
     if (action === 'PROCESSED') return 'PROCESSED';
+    if (action === 'IN_TRAINING') return 'IN_TRAINING';
+    if (action === 'PRODUCTION_CONFIRMED') return 'APPROVED';
+    if (action === 'EARLY_DEPARTURE') return 'REJECTED';
     return action === 'APPROVED' ? 'APPROVED' : action === 'REJECTED' ? 'REJECTED' : 'REWARDED';
+  }
+
+  historyActionLabel(action: string): string {
+    if (HISTORY_ACTION_LABELS[action]) return HISTORY_ACTION_LABELS[action];
+    if (action === 'APPROVED') return 'Validé';
+    if (action === 'PROCESSED') return 'Dossier traité';
+    if (action === 'IN_TRAINING') return 'En cours de formation';
+    if (action === 'REJECTED') return 'Rejeté';
+    if (action === 'REWARDED') return 'Prime versée';
+    return action;
   }
 
   private actor() {
@@ -621,14 +945,33 @@ export class RhDetailsPageComponent {
 
   handleApproveClick(): void {
     if (!this.referral()) return;
-    this.rewardAmount = String(this.suggestedReward());
+    this.requiresTraining = false;
+    this.trainingEndDate = '';
     this.rejectComment = '';
     this.mode.set('approve');
   }
 
+  handleConfirmProductionClick(): void {
+    const ref = this.referral();
+    this.productionStartDate = ref?.trainingEndDate ?? new Date().toISOString().slice(0, 10);
+    this.productionComment = '';
+    this.mode.set('confirm-production');
+  }
+
+  handleExtendTrainingClick(): void {
+    this.extendTrainingEndDate = '';
+    this.extendTrainingComment = '';
+    this.mode.set('extend-training');
+  }
+
+  handleEarlyDepartureClick(): void {
+    this.earlyDepartureDate = new Date().toISOString().slice(0, 10);
+    this.earlyDepartureComment = '';
+    this.mode.set('early-departure');
+  }
+
   handleRejectClick(): void {
     this.rejectComment = '';
-    this.rewardAmount = '';
     this.mode.set('reject');
   }
 
@@ -655,9 +998,9 @@ export class RhDetailsPageComponent {
         return;
       }
       if (this.confirmOpen() === 'approve') {
-        const amount = Number(this.rewardAmount.replace(',', '.'));
+        const amount = this.suggestedReward();
         if (!Number.isFinite(amount) || amount <= 0) {
-          this.showToast('error', 'Montant engagé invalide.');
+          this.showToast('error', 'Montant engagé indisponible pour ce dossier.');
           this.busy.set(false);
           this.confirmOpen.set(null);
           return;
@@ -668,17 +1011,72 @@ export class RhDetailsPageComponent {
           this.confirmOpen.set(null);
           return;
         }
+        if (this.requiresTraining && !this.trainingEndDate) {
+          this.showToast('error', 'Date de fin de formation requise.');
+          this.busy.set(false);
+          this.confirmOpen.set(null);
+          return;
+        }
         const updated = await this.referralService.approveReferral(
           id,
           {
             candidateStartDate: this.candidateStartDate,
             rewardAmount: amount,
+            requiresTraining: this.requiresTraining,
+            trainingEndDate: this.requiresTraining ? this.trainingEndDate : undefined,
             comment: this.approveComment || undefined,
           },
           this.actor(),
         );
         if (!updated) throw new Error('Échec de la validation.');
-        this.showToast('success', 'Dossier validé — période d\'ancienneté en cours.');
+        this.showToast(
+          'success',
+          this.requiresTraining
+            ? 'Dossier en formation — période non comptée.'
+            : 'Dossier validé — période d\'ancienneté en cours.',
+        );
+        this.mode.set('none');
+        this.confirmOpen.set(null);
+        return;
+      }
+      if (this.confirmOpen() === 'confirm-production') {
+        if (!this.productionStartDate) {
+          this.showToast('error', 'Date de début production requise.');
+          this.busy.set(false);
+          this.confirmOpen.set(null);
+          return;
+        }
+        const updated = await this.referralService.confirmProductionStart(
+          id,
+          {
+            productionStartDate: this.productionStartDate,
+            comment: this.productionComment || undefined,
+          },
+          this.actor(),
+        );
+        if (!updated) throw new Error('Échec de la confirmation production.');
+        this.showToast('success', 'Passage en production confirmé — période d\'ancienneté démarrée.');
+        this.mode.set('none');
+        this.confirmOpen.set(null);
+        return;
+      }
+      if (this.confirmOpen() === 'extend-training') {
+        if (!this.extendTrainingEndDate) {
+          this.showToast('error', 'Nouvelle date de fin requise.');
+          this.busy.set(false);
+          this.confirmOpen.set(null);
+          return;
+        }
+        const updated = await this.referralService.extendTraining(
+          id,
+          {
+            trainingEndDate: this.extendTrainingEndDate,
+            comment: this.extendTrainingComment || undefined,
+          },
+          this.actor(),
+        );
+        if (!updated) throw new Error('Échec de la prolongation.');
+        this.showToast('success', 'Formation prolongée.');
         this.mode.set('none');
         this.confirmOpen.set(null);
         return;
@@ -695,14 +1093,36 @@ export class RhDetailsPageComponent {
         this.confirmOpen.set(null);
         return;
       }
+      if (this.confirmOpen() === 'early-departure') {
+        if (!this.earlyDepartureDate) {
+          this.showToast('error', 'Date de départ requise.');
+          this.busy.set(false);
+          this.confirmOpen.set(null);
+          return;
+        }
+        const updated = await this.referralService.rejectEarlyDeparture(
+          id,
+          {
+            departureDate: this.earlyDepartureDate,
+            comment: this.earlyDepartureComment || undefined,
+          },
+          this.actor(),
+        );
+        if (!updated) throw new Error('Échec de l’enregistrement du départ.');
+        this.showToast('success', 'Départ anticipé enregistré — dossier rejeté, prime annulée.');
+        this.mode.set('none');
+        this.confirmOpen.set(null);
+        return;
+      }
       if (this.confirmOpen() === 'reject') {
         await this.referralService.updateStatus(id, 'REJECTED', this.actor(), this.rejectComment || undefined);
         this.showToast('success', 'Décision enregistrée (rejet).');
         this.mode.set('none');
         this.confirmOpen.set(null);
       }
-    } catch {
-      this.showToast('error', 'Action impossible. Réessayez.');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Action impossible. Réessayez.';
+      this.showToast('error', msg);
       this.confirmOpen.set(null);
     } finally {
       this.busy.set(false);

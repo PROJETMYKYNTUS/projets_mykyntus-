@@ -12,6 +12,9 @@ public interface IEmployeeImportService
     Task<EmployeeImportRevalidateOrgResponse> RevalidateOrgAsync(
         EmployeeImportRevalidateOrgRequest request,
         CancellationToken ct = default);
+    Task<EmployeeImportPreviewResponse> PreviewAsync(
+        EmployeeImportPreviewRequest request,
+        CancellationToken ct = default);
     Task<EmployeeImportReportDto> ExecuteAsync(EmployeeImportExecuteRequest request, string? startedByEmail, CancellationToken ct = default);
     Task<List<EmployeeImportJobSummaryDto>> GetHistoryAsync(int take = 50, CancellationToken ct = default);
     Task<EmployeeImportReportDto?> GetJobReportAsync(Guid jobId, CancellationToken ct = default);
@@ -23,6 +26,7 @@ public partial class EmployeeImportService(
     EmployeeImportFileParser parser,
     EmployeeImportColumnMatcher matcher,
     IEmployeeImportConfigService configService,
+    IEmployeeFieldService fieldService,
     IEmployeeImportSessionStore sessionStore,
     IEmployeeImportExecutor executor,
     IEmployeeImportOrgResolver orgResolver,
@@ -90,6 +94,38 @@ public partial class EmployeeImportService(
             PendingOrgCreations = orgAnalysis.PendingOrgCreations,
             ResolvedRows = orgAnalysis.ResolvedRows,
             OrgLineIssues = orgAnalysis.OrgLineIssues
+        };
+    }
+
+    public async Task<EmployeeImportPreviewResponse> PreviewAsync(
+        EmployeeImportPreviewRequest request,
+        CancellationToken ct = default)
+    {
+        var parsed = await sessionStore.GetAsync(request.ImportSessionId, ct)
+            ?? throw new InvalidOperationException("Session d'import expirée ou introuvable. Re-analysez le fichier.");
+
+        var resolvedMappings = await fieldService.ResolveImportMappingsAsync(
+            request.Mappings, parsed.Headers, ct);
+        var activeFields = (await configService.GetConfigAsync(ct)).Where(f => f.IsEnabled).ToList();
+        var columnMap = EmployeeImportMappingHelper.BuildColumnMap(resolvedMappings, activeFields);
+
+        var previewRows = parsed.Rows
+            .Take(10)
+            .Select(row => BuildPreviewRow(row, columnMap))
+            .ToList();
+
+        var extraFieldKeys = activeFields
+            .Where(f => !f.IsSystemField && columnMap.Values.Any(v =>
+                string.Equals(v, f.FieldKey, StringComparison.OrdinalIgnoreCase)))
+            .Select(f => f.FieldKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new EmployeeImportPreviewResponse
+        {
+            PreviewRows = previewRows,
+            ExtraFieldKeys = extraFieldKeys,
+            ActiveFields = activeFields
         };
     }
 

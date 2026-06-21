@@ -8,6 +8,9 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);ParrainageBackend.Tests/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="ParrainageBackend.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Remove="ParrainageBackend.Tests/**" />
     <Content Remove="ParrainageBackend.Tests/**" />
     <None Remove="ParrainageBackend.Tests/**" />

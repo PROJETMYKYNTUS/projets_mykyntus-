@@ -8,6 +8,7 @@ import type { Referral, ReferralStatus } from '../../models/referral.model';
 const STATUS_STYLES: Record<ReferralStatus, string> = {
   SUBMITTED: 'bg-blue-500/15 text-blue-300 border-blue-500/40',
   PROCESSED: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40',
+  IN_TRAINING: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
   APPROVED: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
   REJECTED: 'bg-red-500/15 text-red-300 border-red-500/40',
   REWARDED: 'bg-purple-500/15 text-purple-200 border-purple-500/40',
@@ -15,6 +16,7 @@ const STATUS_STYLES: Record<ReferralStatus, string> = {
 const STATUS_LABELS: Record<ReferralStatus, string> = {
   SUBMITTED: 'En attente',
   PROCESSED: 'Dossier traité',
+  IN_TRAINING: 'En cours de formation',
   APPROVED: 'Validé',
   REJECTED: 'Rejeté',
   REWARDED: 'Prime versée',
@@ -24,6 +26,8 @@ const FILTER_OPTIONS = [
   { id: 'all', label: 'Tous' },
   { id: 'pending-rh', label: 'En attente RH' },
   { id: 'processed-rh', label: 'Traité — attente entrée' },
+  { id: 'in-training', label: 'En formation' },
+  { id: 'training-end-due', label: 'Fin formation à traiter' },
   { id: 'in-period', label: 'En période' },
   { id: 'awaiting-rh', label: 'Éligibilité à confirmer' },
   { id: 'ready-compta', label: 'Prêt compta' },
@@ -46,8 +50,8 @@ type RhFilter = ParrainageRhManagementFilter;
           </div>
         }
         <div>
-          <h1 class="text-2xl font-semibold text-primary">Gestion des parrainages</h1>
-          <p class="text-sm text-muted mt-1">Liste consultative — la validation s'effectue depuis le détail.</p>
+          <h1 class="prime-page-title">Gestion des parrainages</h1>
+          <p class="text-sm text-muted mt-1">Cliquez sur une ligne pour ouvrir et traiter le dossier.</p>
         </div>
 
         <div class="flex flex-wrap gap-2">
@@ -85,7 +89,14 @@ type RhFilter = ParrainageRhManagementFilter;
                 </thead>
                 <tbody class="divide-y divide-default">
                   @for (r of rows(); track r.id) {
-                    <tr class="hover:bg-card/30">
+                    <tr
+                      class="hover:bg-card/30 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-soft-blue/60"
+                      tabindex="0"
+                      role="button"
+                      [attr.aria-label]="'Ouvrir le dossier de ' + r.candidateName"
+                      (click)="openDetail(r.id)"
+                      (keydown)="onRowKeydown($event, r.id)"
+                    >
                       <td class="px-4 py-3 text-primary whitespace-nowrap">{{ r.candidateName }}</td>
                       <td class="px-4 py-3 text-primary whitespace-nowrap">{{ r.position }}</td>
                       <td class="px-4 py-3 text-primary whitespace-nowrap">{{ r.referrerName }}</td>
@@ -99,13 +110,9 @@ type RhFilter = ParrainageRhManagementFilter;
                         {{ fr(r.createdAt) }}
                       </td>
                       <td class="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          (click)="nav.openReferralDetails(r.id)"
-                          class="text-xs text-soft-blue hover:underline font-medium"
-                        >
-                          Voir le détail
-                        </button>
+                        <span class="text-xs text-soft-blue font-medium">
+                          Ouvrir →
+                        </span>
                       </td>
                     </tr>
                   }
@@ -146,6 +153,13 @@ export class RhManagementPageComponent {
     if (filter === 'all') return all;
     if (filter === 'pending-rh') return all.filter((r) => r.status === 'SUBMITTED');
     if (filter === 'processed-rh') return all.filter((r) => r.status === 'PROCESSED');
+    if (filter === 'in-training') return all.filter((r) => r.status === 'IN_TRAINING');
+    if (filter === 'training-end-due') {
+      const today = new Date().toISOString().slice(0, 10);
+      return all.filter(
+        (r) => r.status === 'IN_TRAINING' && r.trainingEndDate && r.trainingEndDate <= today,
+      );
+    }
     if (filter === 'rejected') return all.filter((r) => r.status === 'REJECTED');
     if (filter === 'paid') return all.filter((r) => r.paymentStatus === 'PAID' || r.status === 'REWARDED');
     if (filter === 'ready-compta') return all.filter((r) => r.paymentStatus === 'READY');
@@ -164,5 +178,17 @@ export class RhManagementPageComponent {
 
   paymentLabel(r: Referral): string {
     return this.referrals.paymentStatusLabel(r);
+  }
+
+  openDetail(id: string): void {
+    if (this.unauthorized) return;
+    this.nav.openReferralDetails(id);
+  }
+
+  onRowKeydown(event: KeyboardEvent, id: string): void {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.openDetail(id);
+    }
   }
 }

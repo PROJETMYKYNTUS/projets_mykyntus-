@@ -31,14 +31,18 @@ public sealed class PrimeGlobalPoolScopeController(
         return e?.Role;
     }
 
-    private static bool IsPoolStakeholderRole(string? role) =>
-        role is "Manager" or "RH" or "Comptable" or "Comptabilité" or "Admin";
+    private async Task<bool> ManagesOperationalDepartmentAsync(string userId, CancellationToken ct)
+    {
+        if (db is null) return false;
+        return await db.BusinessDepartments.AsNoTracking()
+            .AnyAsync(d => d.ManagerEmployeeId == userId && d.IsActive && d.Kind == "Operational", ct);
+    }
 
     /// <summary>
     /// Résout l'acteur d'une action de synthèse (valider / rejeter / payer).
     /// L'utilisateur doit exister et son rôle réel doit autoriser la synthèse.
     /// Un Admin peut endosser le rôle sélectionné (Manager / RH / Comptabilité) ;
-    /// les autres acteurs agissent uniquement sous leur propre rôle.
+    /// les managers opérationnels (BusinessDepartmentKind) agissent en Manager malgré le rôle stocké Superviseur.
     /// </summary>
     private async Task<(PrimeResolvedUser? user, ActionResult? error)> ResolvePoolActorAsync(
         string? userId, string? declaredRole, CancellationToken ct)
@@ -51,14 +55,12 @@ public sealed class PrimeGlobalPoolScopeController(
             return (null, Unauthorized(new { error = "Utilisateur invalide." }));
 
         var realRole = resolved.Employee.Role?.Trim() ?? "";
-        if (!IsPoolStakeholderRole(realRole))
-            return (null, StatusCode(403, new { error = "Rôle non autorisé pour la validation de synthèse." }));
-
-        // resolved.Role = rôle revendiqué (déjà normalisé). Un Admin peut l'endosser ; sinon on force le rôle réel.
         var declared = resolved.Role?.Trim() ?? "";
-        var actingRole = string.Equals(realRole, "Admin", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(declared)
-            ? declared
-            : realRole;
+        var managesOperational = await ManagesOperationalDepartmentAsync(resolved.UserId, ct);
+        var actingRole = PrimeGlobalPoolActorResolver.ResolveActingRole(
+            resolved.Employee, realRole, declared, managesOperational);
+        if (actingRole is null)
+            return (null, StatusCode(403, new { error = "Rôle non autorisé pour la validation de synthèse." }));
 
         return (new PrimeResolvedUser(resolved.UserId, actingRole, resolved.Employee), null);
     }
@@ -87,7 +89,7 @@ public sealed class PrimeGlobalPoolScopeController(
         if (!sid.HasValue && !string.IsNullOrWhiteSpace(userId))
         {
             var role = await RoleOfUserAsync(userId, ct);
-            if (IsPoolStakeholderRole(role) && await readiness.IsScopeReadyAsync(period, scopeType, scopeId, ct))
+            if (PrimeGlobalPoolActorResolver.IsPoolStakeholderRole(role) && await readiness.IsScopeReadyAsync(period, scopeType, scopeId, ct))
             {
                 var entity = await synthesis.EnsureAsync(period, scopeType, scopeId, userId.Trim(), ct);
                 sid = entity?.Id;
@@ -145,7 +147,7 @@ public sealed class PrimeGlobalPoolScopeController(
         if (string.IsNullOrWhiteSpace(body.UserId)) return BadRequest(new { error = "userId est requis." });
         if (!GlobalPoolScopeTypes.IsValid(body.ScopeType)) return BadRequest(new { error = "scopeType invalide." });
         var role = await RoleOfUserAsync(body.UserId, ct);
-        if (!IsPoolStakeholderRole(role))
+        if (!PrimeGlobalPoolActorResolver.IsPoolStakeholderRole(role))
             return StatusCode(403, new { error = "Rôle non autorisé." });
 
         try
@@ -164,12 +166,14 @@ public sealed class PrimeGlobalPoolScopeController(
     [HttpGet("scope-inbox")]
     public async Task<ActionResult<List<GlobalPoolScopeSynthesisInboxItemDto>>> ScopeInbox(
         [FromQuery] string userId,
+        [FromQuery] string? role,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(userId)) return BadRequest(new { error = "userId est requis." });
         if (db is null || poolWf is null) return StatusCode(503, new { error = "Base de données non configurée." });
-        var role = await RoleOfUserAsync(userId, ct);
-        if (!IsPoolStakeholderRole(role)) return StatusCode(403, new { error = "Rôle non autorisé." });
+        var (actor, authErr) = await ResolvePoolActorAsync(userId, role, ct);
+        if (authErr is not null) return authErr;
+        var poolRole = actor!.Role;
 
         var list = await db.GlobalPoolScopeSyntheses.AsNoTracking()
             .Where(s => s.ExcelContent != null && s.ExcelContent.Length > 0)
@@ -178,7 +182,7 @@ public sealed class PrimeGlobalPoolScopeController(
 
         var result = new List<GlobalPoolScopeSynthesisInboxItemDto>();
         foreach (var s in list)
-            result.Add(await MapScopeInboxAsync(s, role!, ct));
+            result.Add(await MapScopeInboxAsync(s, poolRole, ct));
         return Ok(result);
     }
 

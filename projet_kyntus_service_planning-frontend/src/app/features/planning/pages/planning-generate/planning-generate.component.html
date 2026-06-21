@@ -1,18 +1,17 @@
 <!-- features/planning/pages/planning-generator/planning-generator.component.html -->
 
-<div class="page-wrapper ky-page-shell">
+<div class="ky-page-shell">
 
-  <!-- ── HEADER ── -->
-  <div class="page-header">
-    <div class="header-info">
-      <h1 class="page-title">Génération Planning</h1>
-      <p class="page-sub">Algorithme intelligent de distribution des shifts</p>
+  <app-kyntus-page-header
+    title="Plannings"
+    subtitle="Algorithme intelligent de distribution des shifts">
+    <div actions>
+      <div class="week-badge">
+        <span class="week-label">Semaine en cours</span>
+        <span class="week-value">{{ currentWeekCode }}</span>
+      </div>
     </div>
-    <div class="week-badge">
-      <span class="week-label">Semaine en cours</span>
-      <span class="week-value">{{ currentWeekCode }}</span>
-    </div>
-  </div>
+  </app-kyntus-page-header>
 
   <!-- ── GRILLE PRINCIPALE ── -->
   <div class="main-grid">

@@ -11,7 +11,8 @@ import {
 } from '@angular/core';
 import { PRIME_AUTHORIZED_ROLES, type Role } from '../models';
 import { isProjectLeadRole } from '../lib/projectLeadRole';
-import { isPrimePathAllowedForRole } from '../lib/prime-nav-access';
+import { isPrimePathAllowedForRole, resolveManagerHomePath } from '../lib/prime-nav-access';
+import { buildPrimeDepartmentManagerNav } from '../lib/prime-manager-nav';
 import { getRoleHomeTarget, identityKey, resolveAllowedHomePath } from '../lib/prime-role-home';
 import { PRIME_VIEW_LOADERS, resolvePrimeLazyViewKey } from '../lib/prime-view-loaders';
 import { RoleService } from '../state/role.service';
@@ -22,6 +23,7 @@ import { PrimeFicheSessionService } from '../services/prime-fiche-session.servic
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
 import { PrimeAdminService } from '../services/prime-admin.service';
 import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.service';
+import { DepartmentContextService } from '../services/allowance-api.service';
 
 @Component({
   selector: 'app-prime-layout',
@@ -108,6 +110,7 @@ export class PrimeLayoutComponent implements OnInit {
   private readonly navRequest = inject(PrimeNavRequestService);
   private readonly primeAdmin = inject(PrimeAdminService);
   private readonly permissions = inject(PrimeUiPermissionsService);
+  private readonly deptContext = inject(DepartmentContextService);
 
   readonly currentView = signal('/');
 
@@ -170,6 +173,7 @@ export class PrimeLayoutComponent implements OnInit {
 
   ngOnInit(): void {
     this.role.ensureEmployeesLoaded();
+    void this.deptContext.load();
   }
 
   constructor() {
@@ -216,11 +220,33 @@ export class PrimeLayoutComponent implements OnInit {
       const path = this.navRequest.pendingPath();
       if (path) {
         const role = this.role.currentRole();
-        if (isPrimePathAllowedForRole(path, role) && this.permissions.canViewPath(role, path)) {
+        const deptKind = this.deptContext.departmentKind();
+        const managerNav = buildPrimeDepartmentManagerNav(this.deptContext);
+        if (
+          isPrimePathAllowedForRole(path, role, deptKind, managerNav)
+          && this.permissions.canViewPath(role, path, managerNav)
+        ) {
           this.currentView.set(path);
           this.navRequest.setActivePath(path);
         }
         this.navRequest.clearPending();
+      }
+    });
+
+    effect(() => {
+      if (!this.deptContext.loaded()) return;
+      const role = this.role.currentRole();
+      if (role !== 'Manager' || !this.deptContext.isDepartmentManager()) return;
+      const view = this.currentView();
+      const deptKind = this.deptContext.departmentKind();
+      const managerNav = buildPrimeDepartmentManagerNav(this.deptContext);
+      const home = resolveManagerHomePath(role, managerNav);
+      if (
+        !isPrimePathAllowedForRole(view, role, deptKind, managerNav)
+        || !this.permissions.canViewPath(role, view, managerNav)
+      ) {
+        this.currentView.set(home);
+        this.navRequest.setActivePath(home);
       }
     });
 
@@ -262,7 +288,14 @@ export class PrimeLayoutComponent implements OnInit {
 
   setView(v: string): void {
     const role = this.role.currentRole();
-    if (!isPrimePathAllowedForRole(v, role) || !this.permissions.canViewPath(role, v)) return;
+    const deptKind = this.deptContext.departmentKind();
+    const managerNav = buildPrimeDepartmentManagerNav(this.deptContext);
+    if (
+      !isPrimePathAllowedForRole(v, role, deptKind, managerNav)
+      || !this.permissions.canViewPath(role, v, managerNav)
+    ) {
+      return;
+    }
     this.currentView.set(v);
     this.navRequest.setActivePath(v);
   }
@@ -273,8 +306,10 @@ export class PrimeLayoutComponent implements OnInit {
     this.navRequest.clearAll();
     this.primeSection.resetShellForRole(role);
 
-    const home = getRoleHomeTarget(role);
-    const path = resolveAllowedHomePath(role, home);
+    const managerNav = buildPrimeDepartmentManagerNav(this.deptContext);
+    const deptKind = this.deptContext.departmentKind();
+    const home = getRoleHomeTarget(role, deptKind, managerNav);
+    const path = resolveAllowedHomePath(role, home, deptKind, managerNav);
     this.currentView.set(path);
     this.navRequest.setActivePath(path);
   }

@@ -12,7 +12,7 @@ public static class KyntusPortalRoleMapping
         var r = planningRole?.Trim().ToUpperInvariant() ?? "PILOTE";
         return r switch
         {
-            "RH" => "RH",
+            "RH" or "EQUIPE FORMATION" or "EQUIPE_FORMATION" => "RH",
             "ADMIN" => "ADMIN",
             "AUDIT" => "AUDIT",
             "COMPTABILITE" or "COMPTA" => "COMPTA",

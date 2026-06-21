@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 const STATUS_STYLES: Record<ReferralStatus, string> = {
   SUBMITTED: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
   PROCESSED: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+  IN_TRAINING: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
   APPROVED: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
   REJECTED: 'bg-red-500/10 text-red-500 border-red-500/20',
   REWARDED: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
@@ -13,6 +14,7 @@ const STATUS_STYLES: Record<ReferralStatus, string> = {
 const STATUS_LABELS: Record<ReferralStatus, string> = {
   SUBMITTED: 'En attente',
   PROCESSED: 'Dossier traité',
+  IN_TRAINING: 'En cours de formation',
   APPROVED: 'Validé',
   REJECTED: 'Rejeté',
   REWARDED: 'Prime versée',

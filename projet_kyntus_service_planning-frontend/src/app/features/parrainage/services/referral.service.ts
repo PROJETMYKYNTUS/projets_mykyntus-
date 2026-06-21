@@ -10,7 +10,7 @@ import type {
   RoleFilter,
 } from '../models/referral.model';
 import { AdminService } from './admin.service';
-import { ParrainageApiService } from './parrainage-api.service';
+import { parseParrainageApiError, ParrainageApiService } from './parrainage-api.service';
 import { ParrainageStoreService } from './parrainage-store.service';
 import { isReferrerUnderManager } from '../lib/org-hierarchy';
 import { accruedBonusDH, totalPotentialBonusDH } from '../lib/referral-program';
@@ -78,7 +78,13 @@ export class ReferralService {
 
   async approveReferral(
     id: string,
-    data: { candidateStartDate: string; rewardAmount: number; comment?: string },
+    data: {
+      candidateStartDate: string;
+      rewardAmount: number;
+      requiresTraining?: boolean;
+      trainingEndDate?: string;
+      comment?: string;
+    },
     actor?: Actor,
   ): Promise<Referral | undefined> {
     try {
@@ -91,14 +97,59 @@ export class ReferralService {
     }
   }
 
+  async confirmProductionStart(
+    id: string,
+    data: { productionStartDate: string; comment?: string },
+    actor?: Actor,
+  ): Promise<Referral | undefined> {
+    try {
+      const updated = await this.api.confirmProductionStart(id, { ...data, actor });
+      this.store.patchReferral(updated);
+      await this.refreshAfterMutation();
+      return updated;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async extendTraining(
+    id: string,
+    data: { trainingEndDate: string; comment?: string },
+    actor?: Actor,
+  ): Promise<Referral | undefined> {
+    try {
+      const updated = await this.api.extendTraining(id, { ...data, actor });
+      this.store.patchReferral(updated);
+      await this.refreshAfterMutation();
+      return updated;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async rejectEarlyDeparture(
+    id: string,
+    data: { departureDate?: string; comment?: string },
+    actor?: Actor,
+  ): Promise<Referral | undefined> {
+    try {
+      const updated = await this.api.rejectEarlyDeparture(id, { ...data, actor });
+      this.store.patchReferral(updated);
+      await this.refreshAfterMutation();
+      return updated;
+    } catch (error) {
+      throw new Error(parseParrainageApiError(error, 'Échec de l’enregistrement du départ anticipé.'));
+    }
+  }
+
   async processReferral(id: string, comment?: string, actor?: Actor): Promise<Referral | undefined> {
     try {
       const updated = await this.api.processReferral(id, { comment, actor });
       this.store.patchReferral(updated);
       await this.refreshAfterMutation();
       return updated;
-    } catch {
-      return undefined;
+    } catch (error) {
+      throw new Error(parseParrainageApiError(error, 'Échec du marquage RH.'));
     }
   }
 
@@ -145,6 +196,7 @@ export class ReferralService {
     if (referral.status === 'REJECTED') return 'Rejeté';
     if (referral.status === 'SUBMITTED') return 'En attente RH';
     if (referral.status === 'PROCESSED') return 'Traité — attente entrée';
+    if (referral.status === 'IN_TRAINING') return 'En formation — période non comptée';
     if (referral.status === 'REWARDED') return 'Versé';
     if (referral.paymentStatus === 'READY') return 'Prêt compta';
     if (referral.paymentStatus === 'AWAITING_RH') return 'À confirmer RH';

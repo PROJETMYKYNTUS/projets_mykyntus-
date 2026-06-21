@@ -1,17 +1,12 @@
-<div class="page-wrapper ky-page-shell">
+<div class="ky-page-shell">
   <div class="page-shell">
-    <div class="page-header">
-      <div class="header-left">
-        <button type="button" class="btn-back ky-btn-secondary" (click)="goBack()">Retour</button>
-        <div class="header-copy">
-          <span class="eyebrow">Ressources Humaines</span>
-          <h1 class="page-title">{{ isEditMode ? 'Modifier le contrat' : 'Nouveau contrat' }}</h1>
-          <p class="page-sub">
-            {{ isEditMode ? 'Mettre à jour les informations du contrat' : 'Créer un contrat pour un employé' }}
-          </p>
-        </div>
+    <app-kyntus-page-header
+      [title]="isEditMode ? 'Modifier le contrat' : 'Nouveau contrat'"
+      [subtitle]="isEditMode ? 'Mettre à jour les informations du contrat' : 'Créer un contrat pour un employé'">
+      <div actions>
+        <button type="button" class="ky-btn-secondary" (click)="goBack()">Retour</button>
       </div>
-    </div>
+    </app-kyntus-page-header>
 
     <div class="form-card ky-card">
       <form [formGroup]="contractForm" (ngSubmit)="onSubmit()">

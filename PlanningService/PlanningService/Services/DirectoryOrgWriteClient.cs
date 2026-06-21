@@ -6,7 +6,8 @@ namespace PlanningService.Services;
 
 public interface IDirectoryOrgWriteClient
 {
-    Task<string> CreatePoleAsync(string name, CancellationToken ct = default);
+    Task<string> CreatePoleAsync(string name, Guid businessDepartmentId, CancellationToken ct = default);
+    Task<IReadOnlyList<DirectoryOperationalDepartmentJson>> GetOperationalDepartmentsAsync(CancellationToken ct = default);
     Task<string> CreateCelluleAsync(string poleDirectoryId, string name, CancellationToken ct = default);
     Task<string> CreateServiceAsync(string celluleDirectoryId, string name, CancellationToken ct = default);
 
@@ -21,8 +22,33 @@ public sealed class DirectoryOrgWriteClient(
     IConfiguration configuration,
     ILogger<DirectoryOrgWriteClient> logger) : IDirectoryOrgWriteClient
 {
-    public Task<string> CreatePoleAsync(string name, CancellationToken ct = default) =>
-        PostNodeAsync("api/directory/org/structure/poles", new { name = name.Trim() }, ct);
+    public Task<string> CreatePoleAsync(string name, Guid businessDepartmentId, CancellationToken ct = default) =>
+        PostNodeAsync("api/directory/org/structure/poles", new
+        {
+            name = name.Trim(),
+            businessDepartmentId,
+        }, ct);
+
+    public async Task<IReadOnlyList<DirectoryOperationalDepartmentJson>> GetOperationalDepartmentsAsync(
+        CancellationToken ct = default)
+    {
+        var client = CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "api/directory/business-departments");
+        AttachAuth(request);
+
+        var response = await client.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(ct);
+            logger.LogWarning("Directory operational departments fetch failed {Status}: {Body}", response.StatusCode, err);
+            return Array.Empty<DirectoryOperationalDepartmentJson>();
+        }
+
+        var depts = await response.Content.ReadFromJsonAsync<List<DirectoryOperationalDepartmentJson>>(cancellationToken: ct);
+        return (depts ?? [])
+            .Where(d => string.Equals(d.Kind, "Operational", StringComparison.OrdinalIgnoreCase) && d.IsActive != false)
+            .ToList();
+    }
 
     public Task<string> CreateCelluleAsync(string poleDirectoryId, string name, CancellationToken ct = default) =>
         PostNodeAsync(
@@ -119,4 +145,13 @@ public sealed class DirectoryOrgWriteClient(
     {
         public string Id { get; set; } = "";
     }
+}
+
+public sealed class DirectoryOperationalDepartmentJson
+{
+    public string Id { get; set; } = "";
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Kind { get; set; } = "";
+    public bool? IsActive { get; set; }
 }

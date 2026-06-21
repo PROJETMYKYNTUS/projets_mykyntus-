@@ -18,6 +18,7 @@ public class EmployeeImportExecutor(
     IEmployeeImportUserPersistence userPersistence,
     IEmployeeImportSessionStore sessionStore,
     IEmployeeImportConfigService configService,
+    IEmployeeFieldService fieldService,
     IEmployeeImportOrgResolver orgResolver,
     IEmployeeImportOrgProvisioner orgProvisioner,
     IEmployeeImportStructureAssignmentService structureAssignment) : IEmployeeImportExecutor
@@ -30,9 +31,12 @@ public class EmployeeImportExecutor(
         var parsed = await sessionStore.GetAsync(request.ImportSessionId, ct)
             ?? throw new InvalidOperationException("Session d'import expirée ou introuvable. Re-analysez le fichier.");
 
+        var resolvedMappings = await fieldService.ResolveImportMappingsAsync(
+            request.Mappings, parsed.Headers, ct);
+
         var fileName = await sessionStore.GetFileNameAsync(request.ImportSessionId, ct) ?? "import";
         var activeFields = (await configService.GetConfigAsync(ct)).Where(f => f.IsEnabled).ToList();
-        var columnToField = EmployeeImportMappingHelper.BuildColumnMap(request.Mappings, activeFields);
+        var columnToField = EmployeeImportMappingHelper.BuildColumnMap(resolvedMappings, activeFields);
         var orgSnapshot = await orgResolver.LoadSnapshotAsync(ct);
 
         var orgNodesCreated = new List<OrgNodeCreatedReportDto>();
@@ -105,6 +109,8 @@ public class EmployeeImportExecutor(
                 if (existing is null)
                 {
                     var created = await CreateAsync(effectiveMapped, email, orgSnapshot, roleResult, activeFields, ct);
+                    await UpsertCustomFieldsForUserAsync(
+                        created.Id, effectiveMapped, activeFields, isCreate: true, ct);
                     await structureAssignment.ApplyIfNeededAsync(
                         created.Guid,
                         roleResult.CanonicalRoleName,
@@ -117,14 +123,19 @@ public class EmployeeImportExecutor(
                 {
                     var updated = await UpdateAsync(
                         existing.Id, effectiveMapped, email, orgSnapshot, roleResult, activeFields, ct);
-                    if (updated is not null)
+                    var customChanged = await UpsertCustomFieldsForUserAsync(
+                        existing.Id, effectiveMapped, activeFields, isCreate: false, ct);
+                    if (updated is not null || customChanged)
                     {
-                        await structureAssignment.ApplyIfNeededAsync(
-                            updated.Guid,
-                            roleResult.CanonicalRoleName,
-                            effectiveMapped,
-                            orgSnapshot,
-                            ct);
+                        if (updated is not null)
+                        {
+                            await structureAssignment.ApplyIfNeededAsync(
+                                updated.Guid,
+                                roleResult.CanonicalRoleName,
+                                effectiveMapped,
+                                orgSnapshot,
+                                ct);
+                        }
                         AddLine(job, report, lineNumber, email, "update", "Employé mis à jour.");
                     }
                     else
@@ -361,15 +372,55 @@ public class EmployeeImportExecutor(
         }
     }
 
+    private async Task<bool> UpsertCustomFieldsForUserAsync(
+        int userId,
+        Dictionary<string, string?> mapped,
+        List<EmployeeImportFieldConfigDto> activeFields,
+        bool isCreate,
+        CancellationToken ct)
+    {
+        var customValues = EmployeeFieldValidator.ExtractCustomFieldValues(mapped, activeFields);
+        if (customValues.Count == 0)
+            return false;
+
+        if (isCreate)
+            EmployeeFieldValidator.ValidateRequiredCustomFieldsOnCreate(customValues, activeFields, onlyMappedKeys: true);
+
+        var before = await fieldService.LoadCustomFieldsForUsersAsync([userId], ct);
+        await fieldService.UpsertCustomFieldsAsync(userId, customValues, isCreate, ct);
+        var after = await fieldService.LoadCustomFieldsForUsersAsync([userId], ct);
+
+        if (!before.TryGetValue(userId, out var beforeValues))
+            return after.ContainsKey(userId);
+
+        if (!after.TryGetValue(userId, out var afterValues))
+            return beforeValues.Count > 0;
+
+        foreach (var key in customValues.Keys)
+        {
+            beforeValues.TryGetValue(key, out var oldVal);
+            afterValues.TryGetValue(key, out var newVal);
+            if (!string.Equals(oldVal ?? string.Empty, newVal ?? string.Empty, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
+
     private static void ValidateRequiredOnCreate(
         Dictionary<string, string?> mapped,
         List<EmployeeImportFieldConfigDto> activeFields)
     {
-        foreach (var field in activeFields.Where(f => f.IsRequiredOnCreate))
+        foreach (var field in activeFields.Where(f => f.IsRequiredOnCreate && f.IsSystemField))
         {
             if (!mapped.TryGetValue(field.FieldKey, out var value) || string.IsNullOrWhiteSpace(value))
                 throw new InvalidOperationException($"Champ obligatoire manquant : {field.Label}.");
         }
+
+        EmployeeFieldValidator.ValidateRequiredCustomFieldsOnCreate(
+            EmployeeFieldValidator.ExtractCustomFieldValues(mapped, activeFields),
+            activeFields,
+            onlyMappedKeys: true);
     }
 
     private static string GetRequired(Dictionary<string, string?> mapped, string key) =>

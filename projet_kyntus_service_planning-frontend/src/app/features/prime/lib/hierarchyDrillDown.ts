@@ -77,6 +77,7 @@ export function applyDrillDownToEmployeeRows<T extends { employeeId: string }>(
   employees: Employee[],
   drill: HierarchyDrillSelection,
   departments: Department[],
+  supportDepartmentManager = false,
 ): T[] {
   const orgIds = orgAllowedEmployeeIds(viewerRole, viewerId, employees, departments);
 
@@ -96,6 +97,12 @@ export function applyDrillDownToEmployeeRows<T extends { employeeId: string }>(
   }
 
   if (viewerRole === 'Manager' || viewerRole === 'Superviseur') {
+    if (supportDepartmentManager) {
+      const directIds = new Set(
+        employees.filter((e) => e.parentId === viewerId).map((e) => e.id),
+      );
+      return applyOrg(rows.filter((r) => directIds.has(r.employeeId)));
+    }
     const piloteIds = piloteIdsForManagerDrill(employees, viewerId, drill.coachId);
     if (piloteIds === null) return [];
     return applyOrg(rows.filter((r) => piloteIds.has(r.employeeId)));
@@ -115,7 +122,11 @@ export function drillSelectOptions(
   viewerRole: Role,
   viewerId: string,
   drill: HierarchyDrillSelection,
+  supportDepartmentManager = false,
 ): { managers: { value: string; label: string }[]; coaches: { value: string; label: string }[] } {
+  if (supportDepartmentManager && viewerRole === 'Manager') {
+    return { managers: [], coaches: [] };
+  }
   const labelOf = (e: Employee) => `${e.firstName} ${e.lastName}`;
   const managers =
     viewerRole === 'RP' ? listManagersUnderRp(employees, viewerId).map((e) => ({ value: e.id, label: labelOf(e) })) : [];

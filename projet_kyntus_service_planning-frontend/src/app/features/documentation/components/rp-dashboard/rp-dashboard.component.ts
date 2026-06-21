@@ -12,6 +12,7 @@ import type { HierarchyDrillSelection } from '../../lib/documentation-org-hierar
 import { DocumentationApiService } from '../../services/documentation-api.service';
 import { DocumentationHierarchyDrillService } from '../../services/documentation-hierarchy-drill.service';
 import { DocDrillBarComponent } from '../doc-drill-bar/doc-drill-bar.component';
+import { DepartmentContextService } from '../../../prime/services/allowance-api.service';
 import { DocIconComponent } from '../doc-icon/doc-icon.component';
 
 const MONTHS_FR = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
@@ -41,6 +42,7 @@ export class RpDashboardComponent implements OnInit, OnDestroy {
     private readonly hierarchy: DocumentationHierarchyDrillService,
     private readonly api: DocumentationApiService,
     private readonly identity: DocumentationIdentityService,
+    private readonly deptContext: DepartmentContextService,
   ) {}
 
   ngOnInit(): void {
@@ -110,6 +112,7 @@ export class RpDashboardComponent implements OnInit, OnDestroy {
       this.identity.profile$.value,
       this.identity.directoryUsers$.value,
       this.drill,
+      this.deptContext.isSupportManager(),
     );
   }
 

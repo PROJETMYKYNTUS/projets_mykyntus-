@@ -331,6 +331,219 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
         await _db.SaveChangesAsync();
     }
 
+    [Fact]
+    public async Task ApproveReferral_WithTraining_SetsInTraining_WithoutEligibleDate()
+    {
+        var created = await _workflow.SubmitReferralAsync(new CreateReferralRequest
+        {
+            ReferrerId = "emp-train",
+            ReferrerName = "Jean",
+            CandidateName = "Trainee",
+            CandidateEmail = "trainee@test.com",
+            CandidatePhone = "+33",
+            Position = "Dev",
+        }, CancellationToken.None);
+
+        await SetCvUrlAsync(created.Id);
+        await _workflow.ProcessReferralAsync(created.Id, new ProcessReferralRequest(), CancellationToken.None);
+
+        var start = new DateOnly(2026, 1, 1);
+        var end = new DateOnly(2026, 2, 28);
+        var updated = await _workflow.ApproveReferralAsync(created.Id, new ApproveReferralRequest
+        {
+            CandidateStartDate = start,
+            TrainingEndDate = end,
+            RequiresTraining = true,
+            RewardAmount = 1500m,
+        }, CancellationToken.None);
+
+        Assert.NotNull(updated);
+        Assert.Equal("IN_TRAINING", updated!.Status);
+        Assert.Equal(start, updated.CandidateStartDate);
+        Assert.Equal(end, updated.TrainingEndDate);
+        Assert.Null(updated.EligibleForPaymentAt);
+        Assert.Null(updated.ApprovedAt);
+        Assert.Equal(1500m, updated.RewardAmount);
+    }
+
+    [Fact]
+    public async Task ConfirmProductionStart_SetsApproved_WithEligibleFromProductionDate()
+    {
+        var entity = await SeedInTrainingAsync("ref-train-prod", "emp-tp", new DateOnly(2026, 1, 1), new DateOnly(2026, 2, 28), 750m);
+
+        var prodStart = new DateOnly(2026, 3, 1);
+        var updated = await _workflow.ConfirmProductionStartAsync(
+            entity.Id,
+            new ConfirmProductionStartRequest { ProductionStartDate = prodStart },
+            CancellationToken.None);
+
+        Assert.NotNull(updated);
+        Assert.Equal("APPROVED", updated!.Status);
+        Assert.Equal(prodStart, updated.ProductionStartDate);
+        Assert.Equal(
+            ReferralEligibilityCalculator.ComputeEligibleForPayment(prodStart, 6),
+            updated.EligibleForPaymentAt);
+    }
+
+    [Fact]
+    public async Task ExtendTraining_UpdatesDate_AndResetsNotification()
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var entity = await SeedInTrainingAsync(
+            "ref-train-ext",
+            "emp-te",
+            today.AddDays(-60),
+            today.AddDays(-10),
+            750m);
+        entity.TrainingEndNotifiedAt = DateTimeOffset.UtcNow.AddDays(-1);
+        await _db.SaveChangesAsync();
+
+        var newEnd = today.AddDays(30);
+        var updated = await _workflow.ExtendTrainingAsync(
+            entity.Id,
+            new ExtendTrainingRequest { TrainingEndDate = newEnd },
+            CancellationToken.None);
+
+        Assert.NotNull(updated);
+        Assert.Equal(newEnd, updated!.TrainingEndDate);
+        Assert.Null(updated.TrainingEndNotifiedAt);
+    }
+
+    [Fact]
+    public async Task RejectEarlyDeparture_FromInTraining_ClearsTrainingFields()
+    {
+        var entity = await SeedInTrainingAsync("ref-train-rej", "emp-tr", new DateOnly(2026, 1, 1), new DateOnly(2026, 2, 28), 750m);
+
+        var updated = await _workflow.RejectEarlyDepartureAsync(
+            entity.Id,
+            new RejectEarlyDepartureRequest
+            {
+                DepartureDate = new DateOnly(2026, 3, 1),
+                Comment = "Abandon formation",
+            },
+            CancellationToken.None);
+
+        Assert.NotNull(updated);
+        Assert.Equal("REJECTED", updated!.Status);
+        Assert.Equal(0m, updated.RewardAmount);
+        Assert.Null(updated.TrainingEndDate);
+        Assert.Null(updated.ProductionStartDate);
+        Assert.Null(updated.TrainingEndNotifiedAt);
+        Assert.Null(updated.CandidateStartDate);
+        Assert.Contains(await _db.ReferralHistory.ToListAsync(), h => h.Action == "EARLY_DEPARTURE");
+    }
+
+    [Fact]
+    public async Task RejectEarlyDeparture_FromApproved_CancelsBonus()
+    {
+        var entity = await SeedApprovedAsync("ref-app-rej", "emp-ar", 600m);
+
+        var updated = await _workflow.RejectEarlyDepartureAsync(
+            entity.Id,
+            new RejectEarlyDepartureRequest { DepartureDate = new DateOnly(2026, 4, 1) },
+            CancellationToken.None);
+
+        Assert.NotNull(updated);
+        Assert.Equal("REJECTED", updated!.Status);
+        Assert.Equal(0m, updated.RewardAmount);
+        Assert.Equal(ReferralPaymentStatus.NotEligible, updated.PaymentStatus);
+    }
+
+    [Fact]
+    public async Task RejectEarlyDeparture_Throws_WhenSubmitted()
+    {
+        var created = await _workflow.SubmitReferralAsync(new CreateReferralRequest
+        {
+            ReferrerId = "emp-ed",
+            ReferrerName = "Jean",
+            CandidateName = "Bob",
+            CandidateEmail = "bob-ed@test.com",
+            CandidatePhone = "+33",
+            Position = "Dev",
+        }, CancellationToken.None);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _workflow.RejectEarlyDepartureAsync(
+                created.Id,
+                new RejectEarlyDepartureRequest(),
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EligibilityService_NotifiesTrainingEndDue()
+    {
+        var entity = await SeedInTrainingAsync("ref-train-due", "emp-td", new DateOnly(2026, 1, 1), DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2)), 750m);
+
+        var scopeFactory = new TestScopeFactory(_db, _workflow);
+        var service = new ReferralEligibilityService(scopeFactory, Microsoft.Extensions.Logging.Abstractions.NullLogger<ReferralEligibilityService>.Instance);
+        var count = await service.ProcessEligibleReferralsAsync();
+        Assert.True(count >= 1);
+
+        var refreshed = await _db.Referrals.FirstAsync(r => r.Id == entity.Id);
+        Assert.NotNull(refreshed.TrainingEndNotifiedAt);
+        Assert.Contains(await _db.ReferralNotifications.ToListAsync(), n => n.Type == "REFERRAL_TRAINING_END_DUE");
+    }
+
+    private async Task<ReferralEntity> SeedApprovedAsync(string id, string referrerId, decimal rewardAmount)
+    {
+        var start = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-2));
+        var e = new ReferralEntity
+        {
+            Id = id,
+            ReferrerId = referrerId,
+            ReferrerName = "Test",
+            ProjectId = "proj-1",
+            ProjectName = "P",
+            TeamId = "t",
+            CandidateName = "C",
+            CandidateEmail = $"{id}@test.com",
+            CandidatePhone = "+33",
+            Position = "Dev",
+            Status = "APPROVED",
+            PaymentStatus = ReferralPaymentStatus.NotEligible,
+            RewardAmount = rewardAmount,
+            CandidateStartDate = start,
+            ProductionStartDate = start,
+            ApprovedAt = DateTimeOffset.UtcNow.AddMonths(-2),
+            EligibleForPaymentAt = DateTimeOffset.UtcNow.AddMonths(4),
+            CreatedAt = DateTimeOffset.UtcNow.AddMonths(-3),
+        };
+        _db.Referrals.Add(e);
+        await _db.SaveChangesAsync();
+        return e;
+    }
+
+    private async Task<ReferralEntity> SeedInTrainingAsync(
+        string id,
+        string referrerId,
+        DateOnly start,
+        DateOnly trainingEnd,
+        decimal rewardAmount)
+    {
+        var e = new ReferralEntity
+        {
+            Id = id,
+            ReferrerId = referrerId,
+            ReferrerName = "Test",
+            ProjectId = "proj-1",
+            ProjectName = "P",
+            TeamId = "t",
+            CandidateName = "C",
+            CandidateEmail = $"{id}@test.com",
+            CandidatePhone = "+33",
+            Position = "Dev",
+            Status = "IN_TRAINING",
+            PaymentStatus = ReferralPaymentStatus.NotEligible,
+            RewardAmount = rewardAmount,
+            CandidateStartDate = start,
+            TrainingEndDate = trainingEnd,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        _db.Referrals.Add(e);
+        await _db.SaveChangesAsync();
+        return e;
+    }
+
     private async Task<ReferralEntity> SeedReferralAsync(
         string id,
         string referrerId,

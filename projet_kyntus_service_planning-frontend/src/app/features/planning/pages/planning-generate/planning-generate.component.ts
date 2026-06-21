@@ -20,6 +20,7 @@ import {
   poleCells,
 } from '../../../../core/org/planning-org-picker';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import {
   AlertTriangle,
   BarChart3,
@@ -44,7 +45,7 @@ type SubServiceOption = {
 @Component({
   selector: 'app-planning-generate',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent],
   templateUrl: './planning-generate.component.html',
   styleUrls: ['./planning-generate.component.css'],
   encapsulation: ViewEncapsulation.None

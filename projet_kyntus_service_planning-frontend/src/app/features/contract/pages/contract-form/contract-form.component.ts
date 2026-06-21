@@ -9,6 +9,7 @@ import { ContractService, CreateContractDto, UpdateContractDto } from '../../ser
 import { UserService } from '../../../users/services/user.service';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
 import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-select-sync.directive';
 import type { IconNode } from 'lucide';
@@ -30,7 +31,7 @@ import {
 @Component({
   selector: 'app-contract-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective, KyntusPageHeaderComponent],
   templateUrl: './contract-form.component.html',
   styleUrls: ['./contract-form.component.css'],
   encapsulation: ViewEncapsulation.None

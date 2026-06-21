@@ -1,20 +1,16 @@
 <!-- src/app/features/reclamation/admin/reclamation-admin.component.html -->
 
-<div class="page-wrapper ky-page-shell rp-root">
+<div class="ky-page-shell rp-root">
 
   <!-- ══ TOAST ══ -->
   <div class="rp-toast" [class.visible]="toastMsg" [class.rp-toast-error]="toastType==='error'">
     {{ toastMsg }}
   </div>
 
-  <!-- ══ HEADER ══ -->
-  <div class="page-header">
-    <div class="header-left">
-      <span class="eyebrow">Qualité &amp; amélioration</span>
-      <h1 class="page-title">Gestion Réclamations &amp; Propositions</h1>
-      <p class="page-sub">Traitement, assignation et reporting</p>
-    </div>
-  </div>
+  <app-kyntus-page-header
+    title="Réclamations (gestion)"
+    subtitle="Traitement, assignation et reporting">
+  </app-kyntus-page-header>
 
   <!-- ══ MAIN TABS ══ -->
   <div class="rp-tabs">

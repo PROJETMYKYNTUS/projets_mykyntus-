@@ -17,20 +17,8 @@ internal static class DockerComposePlanningDemoSeed
         if (await context.Users.AnyAsync())
             return;
 
-        if (!await context.Roles.AnyAsync())
-        {
-            var utc = DateTime.UtcNow;
-            context.Roles.AddRange(
-                new Role { Name = "Pilote", Description = "Pilote", IsActive = true, CreatedAt = utc },
-                new Role { Name = "RH", Description = "Ressources humaines", IsActive = true, CreatedAt = utc },
-                new Role { Name = "Superviseur", Description = "Superviseur de cellule", IsActive = true, CreatedAt = utc },
-                new Role { Name = "Référent technique", Description = "Référent technique", IsActive = true, CreatedAt = utc },
-                new Role { Name = "Chef de projet", Description = "Chef de projet", IsActive = true, CreatedAt = utc },
-                new Role { Name = "Admin", Description = "Administrateur", IsActive = true, CreatedAt = utc },
-                new Role { Name = "Audit", Description = "Audit", IsActive = true, CreatedAt = utc },
-                new Role { Name = "EquipeFormation", Description = "Équipe formation", IsActive = true, CreatedAt = utc });
-            await context.SaveChangesAsync();
-        }
+        // EnsureManagerRoleAsync peut déjà avoir créé « Manager » : on complète les rôles démo manquants.
+        await EnsureDemoRolesAsync(context);
 
         if (!await context.Floors.AnyAsync())
         {
@@ -104,6 +92,38 @@ internal static class DockerComposePlanningDemoSeed
         AddUser("Formation", "Démo", "formation@kyntus.ma", roleFormation.Id, sub.Id);
         AddUser("Yasmine", "El Amrani", "yasmine.elamrani@atlas-tech-demo.dev", roleEmployee.Id, sub.Id);
         AddUser("Fatima", "Alaoui", "fatima.alaoui@atlas-tech-demo.dev", roleRh.Id, null);
+
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task EnsureDemoRolesAsync(AppDbContext context)
+    {
+        var utc = DateTime.UtcNow;
+        var specs = new (string Name, string Description)[]
+        {
+            ("Pilote", "Pilote"),
+            ("RH", "Ressources humaines"),
+            ("Superviseur", "Superviseur de cellule"),
+            ("Référent technique", "Référent technique"),
+            ("Chef de projet", "Chef de projet"),
+            ("Admin", "Administrateur"),
+            ("Audit", "Audit"),
+            ("EquipeFormation", "Équipe formation"),
+        };
+
+        foreach (var (name, description) in specs)
+        {
+            if (await context.Roles.AnyAsync(r => r.Name == name))
+                continue;
+
+            context.Roles.Add(new Role
+            {
+                Name = name,
+                Description = description,
+                IsActive = true,
+                CreatedAt = utc,
+            });
+        }
 
         await context.SaveChangesAsync();
     }

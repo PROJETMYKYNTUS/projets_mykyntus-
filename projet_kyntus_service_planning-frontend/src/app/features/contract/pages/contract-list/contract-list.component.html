@@ -1,16 +1,14 @@
-<div class="page-wrapper ky-page-shell">
-  <div class="page-header">
-    <div class="header-left">
-      <span class="eyebrow">Ressources Humaines</span>
-      <h1 class="page-title">Gestion des Contrats</h1>
-      <p class="page-sub">Suivi des contrats, périodes d'essai et alertes d'échéance</p>
-      <p class="results-count"><strong>{{ filteredContracts.length }}</strong> contrat(s) affiché(s)</p>
+<div class="ky-page-shell">
+  <app-kyntus-page-header
+    title="Contrats"
+    subtitle="Suivi des contrats, périodes d'essai et alertes d'échéance — {{ filteredContracts.length }} contrat(s) affiché(s)">
+    <div actions>
+      <button type="button" class="ky-btn-primary" (click)="goToCreate()">
+        <app-lucide-icon [icon]="icons.add" className="w-4 h-4" />
+        Nouveau contrat
+      </button>
     </div>
-    <button class="btn-primary ky-btn-primary" (click)="goToCreate()">
-      <app-lucide-icon [icon]="icons.add" className="w-4 h-4" />
-      Nouveau contrat
-    </button>
-  </div>
+  </app-kyntus-page-header>
 
   <div class="kpi-row">
     <div class="kpi-card kc-blue ky-card">

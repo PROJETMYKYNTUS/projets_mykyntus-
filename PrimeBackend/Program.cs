@@ -4,10 +4,10 @@ using Kyntus.Messaging.Outbox;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using PrimeBackend.Data;
+using PrimeBackend.Infrastructure;
 using PrimeBackend.Messaging;
 using PrimeBackend.Services;
 using Kyntus.Identity.Jwt;
-using PrimeBackend.Infrastructure;
 
 var isEnrichCli = args.Length > 0 && args[0] == "enrich-demo";
 var builder = isEnrichCli
@@ -125,12 +125,17 @@ if (!string.IsNullOrWhiteSpace(conn))
     builder.Services.AddScoped<PrimeGlobalSynthesisPaymentService>();
     builder.Services.AddScoped<PrimeFicheMergedPreviewAccessService>();
     builder.Services.AddScoped<PrimeFicheImportService>();
+    builder.Services.AddScoped<AllowanceScopeService>();
+    builder.Services.AddScoped<AllowanceCatalogService>();
+    builder.Services.AddScoped<AllowanceRequestService>();
+    builder.Services.AddScoped<AllowanceRuleEngineService>();
 }
 
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<PrimeDirectoryProjectionConsumer>();
     x.AddConsumer<PrimeDirectoryOrgProjectionConsumer>();
+    x.AddConsumer<PrimeBusinessDepartmentProjectionConsumer>();
 
     x.UsingRabbitMq((ctx, cfg) =>
     {
@@ -148,6 +153,11 @@ builder.Services.AddMassTransit(x =>
         cfg.ReceiveEndpoint("prime-directory-org", e =>
         {
             e.ConfigureConsumer<PrimeDirectoryOrgProjectionConsumer>(ctx);
+        });
+
+        cfg.ReceiveEndpoint("prime-business-department", e =>
+        {
+            e.ConfigureConsumer<PrimeBusinessDepartmentProjectionConsumer>(ctx);
         });
 
         cfg.ConfigureEndpoints(ctx);

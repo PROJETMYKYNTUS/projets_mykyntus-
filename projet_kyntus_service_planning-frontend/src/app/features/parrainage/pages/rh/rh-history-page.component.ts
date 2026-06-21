@@ -10,7 +10,7 @@ import type { ReferralHistoryEntry } from '../../models/referral.model';
   template: `
     <section class="flex-1 min-w-0 space-y-6">
       <div>
-        <h1 class="text-2xl font-semibold text-primary">Historique des parrainages</h1>
+        <h1 class="prime-page-title">Historique des parrainages</h1>
         <p class="text-sm text-muted mt-1">Historique des actions enregistrées par le processus RH.</p>
       </div>
 

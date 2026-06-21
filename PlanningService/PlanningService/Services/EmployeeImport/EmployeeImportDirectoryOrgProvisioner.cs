@@ -19,6 +19,7 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
 {
     private readonly Dictionary<string, string> _poleDirectoryIds = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _celluleDirectoryIds = new(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyList<DirectoryOperationalDepartmentJson>? _operationalDepartments;
 
     public async Task<IReadOnlyList<OrgNodeCreatedReportDto>> ProvisionAsync(
         IReadOnlyList<PendingOrgCreationDto> approved,
@@ -31,20 +32,21 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
         var created = new List<OrgNodeCreatedReportDto>();
         _poleDirectoryIds.Clear();
         _celluleDirectoryIds.Clear();
+        _operationalDepartments = await directoryOrg.GetOperationalDepartmentsAsync(ct);
 
         foreach (var item in approved.OrderBy(a => OrgOrder(a.Type)))
         {
             switch (item.Type)
             {
                 case "pole":
-                    await EnsureDirectoryPoleAsync(item.Pole!, created, snapshot, ct);
+                    await EnsureDirectoryPoleAsync(item, created, snapshot, ct);
                     break;
                 case "cellule":
-                    await EnsureDirectoryPoleAsync(item.Pole!, created, snapshot, ct);
+                    await EnsureDirectoryPoleAsync(item, created, snapshot, ct);
                     await EnsureDirectoryCelluleAsync(item.Pole!, item.Cellule!, created, snapshot, ct);
                     break;
                 case "service":
-                    await EnsureDirectoryPoleAsync(item.Pole!, created, snapshot, ct);
+                    await EnsureDirectoryPoleAsync(item, created, snapshot, ct);
                     await EnsureDirectoryCelluleAsync(item.Pole!, item.Cellule!, created, snapshot, ct);
                     await EnsureDirectoryServiceAsync(item, created, snapshot, ct);
                     break;
@@ -64,11 +66,15 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
     }
 
     private async Task EnsureDirectoryPoleAsync(
-        string poleName,
+        PendingOrgCreationDto item,
         List<OrgNodeCreatedReportDto> created,
         EmployeeImportOrgSnapshot snapshot,
         CancellationToken ct)
     {
+        var poleName = item.Pole?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(poleName))
+            return;
+
         if (_poleDirectoryIds.ContainsKey(poleName))
             return;
 
@@ -85,7 +91,14 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
             return;
         }
 
-        var directoryId = await directoryOrg.CreatePoleAsync(poleName, ct);
+        var businessDepartmentId = await ResolveBusinessDepartmentIdForPoleAsync(item, poleName, ct);
+        if (businessDepartmentId == Guid.Empty)
+        {
+            throw new InvalidOperationException(
+                $"Département opérationnel requis pour créer le pôle « {poleName} ». Ajoutez la colonne « Département opérationnel » au fichier.");
+        }
+
+        var directoryId = await directoryOrg.CreatePoleAsync(poleName, businessDepartmentId, ct);
         _poleDirectoryIds[poleName] = directoryId;
         created.Add(new OrgNodeCreatedReportDto
         {
@@ -93,6 +106,26 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
             Name = poleName,
             DirectoryNodeId = directoryId
         });
+    }
+
+    private async Task<Guid> ResolveBusinessDepartmentIdForPoleAsync(
+        PendingOrgCreationDto item,
+        string poleName,
+        CancellationToken ct)
+    {
+        var departments = _operationalDepartments ?? await directoryOrg.GetOperationalDepartmentsAsync(ct);
+        _operationalDepartments ??= departments;
+
+        var fromColumn = EmployeeImportOperationalDeptResolver.ResolveBusinessDepartmentId(
+            item.OperationalDepartment,
+            departments);
+        if (fromColumn.HasValue)
+            return fromColumn.Value;
+
+        if (departments.Count == 1 && Guid.TryParse(departments[0].Id, out var onlyDept))
+            return onlyDept;
+
+        return Guid.Empty;
     }
 
     private async Task EnsureDirectoryCelluleAsync(

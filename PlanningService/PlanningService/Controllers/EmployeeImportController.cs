@@ -92,6 +92,24 @@ public class EmployeeImportController(IEmployeeImportService importService, IEmp
         }
     }
 
+    [HttpPost("preview")]
+    public async Task<ActionResult<EmployeeImportPreviewResponse>> Preview(
+        [FromBody] EmployeeImportPreviewRequest request,
+        CancellationToken ct)
+    {
+        var denied = DenyUnlessHrOrAdmin();
+        if (denied is not null) return denied;
+
+        try
+        {
+            return Ok(await importService.PreviewAsync(request, ct));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpPost("execute")]
     public async Task<ActionResult<EmployeeImportReportDto>> Execute(
         [FromBody] EmployeeImportExecuteRequest request,

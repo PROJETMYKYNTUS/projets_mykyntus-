@@ -60,7 +60,7 @@ import { GlobalSettingsPageComponent } from '../pages/shared/global-settings-pag
   template: `
     <div class="min-h-full flex flex-col bg-app text-primary w-full">
       <app-parrainage-header />
-      <div [class]="'flex-1 flex flex-col ' + (compact() ? 'p-4' : 'p-8')">
+      <div class="flex-1 flex flex-col prime-page-shell space-y-6" [class.!p-4]="compact()">
         @if (store.loading()) {
           <div class="card-navy p-6 text-center text-sm text-muted">Chargement des données…</div>
         }

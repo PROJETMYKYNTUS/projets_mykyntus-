@@ -1,38 +1,17 @@
-<div class="page ky-page-shell">
+<div class="ky-page-shell">
 
   <div class="page-shell">
 
-    <div class="page-header">
-
-      <div class="header-left">
-
-        <button type="button" class="btn-back ky-btn-secondary" (click)="goBack()">
-
+    <app-kyntus-page-header
+      title="Détail employé"
+      subtitle="Informations du compte et périmètre organisationnel">
+      <div actions>
+        <button type="button" class="ky-btn-secondary" (click)="goBack()">
           <app-lucide-icon [icon]="icons.back" className="w-4 h-4" />
-
           Retour à la liste
-
         </button>
-
-        <div class="header-copy">
-
-          <span class="eyebrow">Ressources Humaines</span>
-
-          <h1>Détail de l'employé</h1>
-
-          <p class="subtitle">Informations du compte et périmètre organisationnel</p>
-
-        </div>
-
-      </div>
-
-
-
-      @if (user) {
-
-        <div class="header-actions">
-
-          <button type="button" class="btn btn-outline ky-btn-secondary" (click)="editUser()">
+        @if (user) {
+          <button type="button" class="ky-btn-secondary" (click)="editUser()">
 
             <app-lucide-icon [icon]="icons.edit" className="w-4 h-4" />
 
@@ -40,7 +19,7 @@
 
           </button>
 
-          <button type="button" class="btn btn-danger" (click)="deleteUser()">
+          <button type="button" class="ky-btn-danger" (click)="deleteUser()">
 
             <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
 
@@ -48,11 +27,9 @@
 
           </button>
 
-        </div>
-
-      }
-
-    </div>
+        }
+      </div>
+    </app-kyntus-page-header>
 
 
 
@@ -116,39 +93,52 @@
 
             <h2>Périmètre organisationnel</h2>
 
-            <p>Affectation synchronisée avec Organisation RH (pôle → cellule → service).</p>
+            @if (perimeter.isSupport) {
+              <p>Département Support — équipe plate (Allowances).</p>
+            } @else {
+              <p>Affectation synchronisée avec Organisation RH (pôle → cellule → service).</p>
+            }
 
           </div>
 
           <div class="org-breadcrumb">{{ perimeterSummary }}</div>
 
-          <div class="info-grid org-grid">
+          @if (perimeter.isSupport) {
+            <div class="info-grid org-grid">
+              <div class="info-item">
+                <span class="info-label">Département Support</span>
+                <span class="info-value info-value--accent">{{ orgCellLabel(perimeter.supportDepartmentName) }}</span>
+              </div>
+            </div>
+          } @else {
+            <div class="info-grid org-grid">
 
-            <div class="info-item">
+              <div class="info-item">
 
-              <span class="info-label">Pôle</span>
+                <span class="info-label">Pôle</span>
 
-              <span class="info-value">{{ orgCellLabel(perimeter.pole) }}</span>
+                <span class="info-value">{{ orgCellLabel(perimeter.pole) }}</span>
+
+              </div>
+
+              <div class="info-item">
+
+                <span class="info-label">Cellule</span>
+
+                <span class="info-value">{{ orgCellLabel(perimeter.cellule) }}</span>
+
+              </div>
+
+              <div class="info-item">
+
+                <span class="info-label">Service</span>
+
+                <span class="info-value info-value--accent">{{ orgCellLabel(perimeter.service) }}</span>
+
+              </div>
 
             </div>
-
-            <div class="info-item">
-
-              <span class="info-label">Cellule</span>
-
-              <span class="info-value">{{ orgCellLabel(perimeter.cellule) }}</span>
-
-            </div>
-
-            <div class="info-item">
-
-              <span class="info-label">Service</span>
-
-              <span class="info-value info-value--accent">{{ orgCellLabel(perimeter.service) }}</span>
-
-            </div>
-
-          </div>
+          }
 
         </section>
 
@@ -193,6 +183,22 @@
         </section>
 
 
+
+        @if (customFields.length) {
+          <section class="form-section">
+            <div class="section-heading">
+              <h2>Informations complémentaires</h2>
+            </div>
+            <div class="info-grid">
+              @for (field of customFields; track field.fieldKey) {
+                <div class="info-item">
+                  <span class="info-label">{{ field.label }}</span>
+                  <span class="info-value">{{ customFieldValue(field.fieldKey) }}</span>
+                </div>
+              }
+            </div>
+          </section>
+        }
 
         @if (user.managedServices.length || user.managedSubServices.length) {
 

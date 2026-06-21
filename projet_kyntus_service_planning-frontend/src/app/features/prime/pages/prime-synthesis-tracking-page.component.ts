@@ -24,6 +24,8 @@ import {
   type PrimeFilterBarFilter,
 } from '../components/prime-filter-bar.component';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
+import { DepartmentContextService } from '../services/allowance-api.service';
+import { redirectSupportManagerToAllowancesIfNeeded } from '../lib/allowance-manager-guard';
 import {
   PrimeGlobalPoolApiService,
   type GlobalPoolScopeSynthesisInboxItemDto,
@@ -388,6 +390,7 @@ export class PrimeSynthesisTrackingPageComponent {
   private readonly api = inject(PrimeGlobalPoolApiService);
   private readonly nav = inject(PrimeNavRequestService);
   readonly roleService = inject(RoleService);
+  private readonly deptContext = inject(DepartmentContextService);
 
   readonly icons = {
     history: History,
@@ -461,6 +464,16 @@ export class PrimeSynthesisTrackingPageComponent {
   });
 
   constructor() {
+    void this.deptContext.load();
+    effect(() => {
+      if (!this.deptContext.loaded()) return;
+      redirectSupportManagerToAllowancesIfNeeded(
+        this.roleService.currentRole(),
+        this.deptContext,
+        this.nav,
+        '/synthesis-tracking',
+      );
+    });
     effect(() => {
       void this.roleService.currentRole();
       void this.roleService.currentUser().id;
@@ -640,7 +653,7 @@ export class PrimeSynthesisTrackingPageComponent {
 
     forkJoin({
       periods: this.api.listPeriods(),
-      inbox: this.api.scopeInbox(u.id),
+      inbox: this.api.scopeInbox(u.id, role),
       feed: this.api.synthesisTrackingFeed({
         userId: u.id,
         role,

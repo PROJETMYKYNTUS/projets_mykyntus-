@@ -52,7 +52,7 @@ type DashboardPayload = Awaited<ReturnType<typeof AdminPrimeService.getDashboard
         @let d = data()!;
         <div class="prime-page-shell space-y-8">
           <div>
-            <h1 class="text-3xl font-bold text-primary tracking-tight">Dashboard Admin Systeme</h1>
+            <h1 class="prime-page-title">Dashboard Admin Systeme</h1>
             <p class="text-slate-400 mt-1">Supervision technique, gouvernance et controle du moteur PRIME.</p>
           </div>
 

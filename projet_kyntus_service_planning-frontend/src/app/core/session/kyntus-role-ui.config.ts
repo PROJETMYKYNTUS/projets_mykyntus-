@@ -72,6 +72,8 @@ export function mapJwtRoleToParrainageRole(jwtRole: string): ParrainageRole {
     pilote: 'PILOTE',
     employee: 'PILOTE',
     audit: 'AUDIT',
+    equipe_formation: 'RH',
+    'equipe formation': 'RH',
   };
   return map[r] ?? 'PILOTE';
 }

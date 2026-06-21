@@ -88,7 +88,7 @@ export class TierEditorBlockComponent {
     } @else {
       <section class="flex-1 space-y-6 max-w-4xl">
         <div>
-          <h1 class="text-2xl font-semibold text-primary">Configuration système</h1>
+          <h1 class="prime-page-title">Configuration système</h1>
           <p class="text-sm text-muted mt-1">
             {{ role === 'RH'
               ? 'Règles de primes (modes dynamiques), plafonds et workflow de validation.'

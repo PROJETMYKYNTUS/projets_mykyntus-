@@ -7,6 +7,7 @@ import type { Referral, ReferralStatus } from '../../models/referral.model';
 const STATUS_STYLES: Record<ReferralStatus, string> = {
   SUBMITTED: 'bg-blue-500/15 text-blue-300 border-blue-500/40',
   PROCESSED: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40',
+  IN_TRAINING: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
   APPROVED: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
   REJECTED: 'bg-red-500/15 text-red-300 border-red-500/40',
   REWARDED: 'bg-purple-500/15 text-purple-200 border-purple-500/40',
@@ -14,6 +15,7 @@ const STATUS_STYLES: Record<ReferralStatus, string> = {
 const STATUS_LABELS: Record<ReferralStatus, string> = {
   SUBMITTED: 'En attente',
   PROCESSED: 'Dossier traité',
+  IN_TRAINING: 'En cours de formation',
   APPROVED: 'Validé',
   REJECTED: 'Rejeté',
   REWARDED: 'Prime versée',
@@ -35,11 +37,11 @@ const STATUS_LABELS: Record<ReferralStatus, string> = {
       } @else {
         <div class="space-y-6">
           <div>
-            <h1 class="text-2xl font-semibold text-primary">Pilotage parrainage (RH)</h1>
+            <h1 class="prime-page-title">Pilotage parrainage (RH)</h1>
             <p class="text-sm text-muted mt-1">Vue d'ensemble pour le pilotage et la décision.</p>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
             <div class="card-navy p-5 border-blue-500/20">
               <p class="text-xs uppercase tracking-wide text-muted">À traiter</p>
               <p class="text-2xl font-semibold text-blue-300 mt-2">{{ kpis().pendingRh }}</p>
@@ -48,6 +50,10 @@ const STATUS_LABELS: Record<ReferralStatus, string> = {
               <p class="text-xs uppercase tracking-wide text-muted">Traités — attente entrée</p>
               <p class="text-2xl font-semibold text-cyan-300 mt-2">{{ kpis().processedWaiting }}</p>
             </div>
+            <button type="button" class="card-navy p-5 border-amber-500/20 text-left hover:bg-amber-500/5 transition-colors" (click)="openInTrainingList()">
+              <p class="text-xs uppercase tracking-wide text-muted">En formation</p>
+              <p class="text-2xl font-semibold text-amber-300 mt-2">{{ kpis().inTraining }}</p>
+            </button>
             <div class="card-navy p-5 border-emerald-500/20">
               <p class="text-xs uppercase tracking-wide text-muted">Prêts compta</p>
               <p class="text-2xl font-semibold text-emerald-300 mt-2">{{ kpis().readyCompta }}</p>
@@ -106,14 +112,20 @@ export class RhDashboardPageComponent {
     const referrals = this.list();
     const pendingRh = referrals.filter((r) => r.status === 'SUBMITTED').length;
     const processedWaiting = referrals.filter((r) => r.status === 'PROCESSED').length;
+    const inTraining = referrals.filter((r) => r.status === 'IN_TRAINING').length;
     const readyCompta = referrals.filter((r) => r.paymentStatus === 'READY').length;
     const paidTotal = referrals
       .filter((r) => r.paymentStatus === 'PAID')
       .reduce((s, r) => s + (r.rewardAmount || 0), 0);
-    return { pendingRh, processedWaiting, readyCompta, paidTotal };
+    return { pendingRh, processedWaiting, inTraining, readyCompta, paidTotal };
   });
 
   readonly recent = computed(() =>
     [...this.list()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 5),
   );
+
+  openInTrainingList(): void {
+    this.nav.requestRhManagementFilter('in-training');
+    this.nav.setView('rh-management');
+  }
 }

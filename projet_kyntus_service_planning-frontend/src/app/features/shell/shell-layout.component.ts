@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewEncapsulation, inject, ElementRef, ViewChild, HostListener } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewEncapsulation, inject, ElementRef, ViewChild, HostListener, effect } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
 
@@ -12,6 +12,8 @@ import { Bell, Moon, Settings, Sun } from 'lucide';
 import { Microservice, MenuItem } from '../../core/navigation/microservices.config';
 
 import { NavigationMenuService } from '../../core/navigation/navigation-menu.service';
+import { DepartmentContextService } from '../../features/prime/services/allowance-api.service';
+import { AllowanceInboxBadgeService } from '../../features/prime/services/allowance-inbox-badge.service';
 
 import { NavigationActionsService } from '../../core/navigation/navigation-actions.service';
 
@@ -80,6 +82,10 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
   private readonly menuService = inject(NavigationMenuService);
 
+  private readonly deptContext = inject(DepartmentContextService);
+
+  private readonly inboxBadge = inject(AllowanceInboxBadgeService);
+
   private readonly navActions = inject(NavigationActionsService);
 
   private readonly primeNav = inject(PrimeNavRequestService);
@@ -140,6 +146,14 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     }
   }
 
+  constructor() {
+    effect(() => {
+      if (!this.deptContext.loaded()) return;
+      void this.deptContext.context();
+      this.refreshGroups();
+    });
+  }
+
 
 
   ngOnInit(): void {
@@ -172,7 +186,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
     this.notifInit.connectIfAuthenticated();
 
-    this.refreshGroups();
+    void this.deptContext.load().finally(() => this.refreshGroups());
 
     this.updateModuleClass(this.router.url);
 
@@ -198,9 +212,13 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
   private refreshGroups(): void {
 
-    this.groups = this.menuService.buildVisibleGroups(this.role);
+    void this.inboxBadge.refreshForRole(this.role).finally(() => {
 
-    this.openGroupForUrl(this.router.url);
+      this.groups = this.menuService.buildVisibleGroups(this.role);
+
+      this.openGroupForUrl(this.router.url);
+
+    });
 
   }
 
@@ -284,6 +302,8 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
 
   isItemActive(item: MenuItem): boolean {
+
+    if (item.isSectionHeader) return false;
 
     const path = this.router.url.split('?')[0];
 
@@ -371,13 +391,15 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
       return path === '/organisation';
     }
 
-    return !!item.route && path.startsWith(item.route);
+    return !!item.route && (path === item.route || path.startsWith(item.route + '/'));
 
   }
 
 
 
   async onItemClick(item: MenuItem): Promise<void> {
+
+    if (item.isSectionHeader) return;
 
     this.sidebarOpen = false;
 

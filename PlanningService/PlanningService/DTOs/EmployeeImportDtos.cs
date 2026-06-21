@@ -18,6 +18,68 @@ public class EmployeeImportFieldConfigDto
 
     public int SortOrder { get; set; }
 
+    public bool IsSystemField { get; set; }
+
+    public string DataType { get; set; } = "text";
+
+    public DateTime? CreatedAt { get; set; }
+
+}
+
+
+
+public class CreateEmployeeFieldRequest
+
+{
+
+    public string Label { get; set; } = string.Empty;
+
+    public string? FieldKey { get; set; }
+
+    public string DataType { get; set; } = "text";
+
+    public bool IsRequiredOnCreate { get; set; }
+
+    public bool IsEnabled { get; set; } = true;
+
+    public List<string> Aliases { get; set; } = new();
+
+    public int SortOrder { get; set; } = 100;
+
+}
+
+
+
+public class UpdateEmployeeFieldRequest
+
+{
+
+    public string Label { get; set; } = string.Empty;
+
+    public string DataType { get; set; } = "text";
+
+    public bool IsRequiredOnCreate { get; set; }
+
+    public bool IsEnabled { get; set; }
+
+    public List<string> Aliases { get; set; } = new();
+
+    public int SortOrder { get; set; }
+
+}
+
+
+
+public class EmployeeImportNewFieldDefinitionDto
+
+{
+
+    public string Label { get; set; } = string.Empty;
+
+    public string DataType { get; set; } = "text";
+
+    public bool IsRequiredOnCreate { get; set; }
+
 }
 
 
@@ -101,6 +163,8 @@ public class PendingOrgCreationDto
     public string? Cellule { get; set; }
 
     public string? Service { get; set; }
+
+    public string? OperationalDepartment { get; set; }
 
     public string ConfirmationLabel { get; set; } = string.Empty;
 
@@ -201,6 +265,36 @@ public class EmployeeImportMappingItemDto
     public int ColumnIndex { get; set; }
 
     public string? FieldKey { get; set; }
+
+    public string Disposition { get; set; } = "map";
+
+    public EmployeeImportNewFieldDefinitionDto? NewFieldDefinition { get; set; }
+
+}
+
+
+
+public class EmployeeImportPreviewRequest
+
+{
+
+    public Guid ImportSessionId { get; set; }
+
+    public List<EmployeeImportMappingItemDto> Mappings { get; set; } = new();
+
+}
+
+
+
+public class EmployeeImportPreviewResponse
+
+{
+
+    public List<Dictionary<string, string?>> PreviewRows { get; set; } = new();
+
+    public List<string> ExtraFieldKeys { get; set; } = new();
+
+    public List<EmployeeImportFieldConfigDto> ActiveFields { get; set; } = new();
 
 }
 

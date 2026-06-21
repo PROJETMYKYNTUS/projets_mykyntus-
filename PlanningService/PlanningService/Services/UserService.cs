@@ -6,6 +6,8 @@ using PlanningService.DTOs;
 using PlanningService.Interfaces;
 using PlanningService.Models;
 
+using PlanningService.Services.EmployeeImport;
+
 namespace PlanningService.Services;
 
 file record AuthRegisterResult(int Id, string Email, Guid SubjectId);
@@ -19,6 +21,7 @@ public class UserService : IUserService
     private readonly IDirectoryHierarchyClient _directoryHierarchy;
     private readonly IConfiguration _configuration;
     private readonly ILogger<UserService> _logger;
+    private readonly IEmployeeFieldService _fieldService;
 
     public UserService(
            AppDbContext context,
@@ -28,7 +31,8 @@ public class UserService : IUserService
            IDirectoryEmployeeWriteClient directoryEmployeeWrite,
            IDirectoryHierarchyClient directoryHierarchy,
            IConfiguration configuration,
-           ILogger<UserService> logger)
+           ILogger<UserService> logger,
+           IEmployeeFieldService fieldService)
     {
         _context = context;
         _employePublisher = employePublisher;
@@ -38,6 +42,7 @@ public class UserService : IUserService
         _directoryHierarchy = directoryHierarchy;
         _configuration = configuration;
         _logger = logger;
+        _fieldService = fieldService;
     }
 
     public async Task<List<UserDto>> GetAllUsersAsync()
@@ -56,7 +61,8 @@ public class UserService : IUserService
                     .ThenInclude(s => s.Floor)
             .ToListAsync();
 
-        return users.Select(ToDto).ToList();
+        var customByUser = await _fieldService.LoadCustomFieldsForUsersAsync(users.Select(u => u.Id).ToList());
+        return users.Select(u => ToDto(u, customByUser.GetValueOrDefault(u.Id))).ToList();
     }
     public async Task<List<UserDto>> GetUsersBySubServiceAsync(int subServiceId)
     {
@@ -69,7 +75,8 @@ public class UserService : IUserService
             .Where(u => u.SubServiceId == subServiceId)
             .ToListAsync();
 
-        return users.Select(ToDto).ToList();
+        var customByUser = await _fieldService.LoadCustomFieldsForUsersAsync(users.Select(u => u.Id).ToList());
+        return users.Select(u => ToDto(u, customByUser.GetValueOrDefault(u.Id))).ToList();
     }
 
     public async Task<UserDto?> GetUserByIdAsync(int id)
@@ -88,7 +95,11 @@ public class UserService : IUserService
                     .ThenInclude(s => s.Floor)
             .FirstOrDefaultAsync(u => u.Id == id);
 
-        return user == null ? null : ToDto(user);
+        if (user is null)
+            return null;
+
+        var customByUser = await _fieldService.LoadCustomFieldsForUsersAsync([user.Id]);
+        return ToDto(user, customByUser.GetValueOrDefault(user.Id));
     }
     public async Task SyncMissingAuthUsersAsync()
     {
@@ -105,6 +116,8 @@ public class UserService : IUserService
     {
         if (!await IsEmailUniqueAsync(dto.Email))
             throw new InvalidOperationException($"L'adresse email « {dto.Email.Trim()} » est déjà utilisée.");
+
+        await _fieldService.ValidateCustomFieldsForCreateAsync(dto.CustomFields);
 
         if (IsDirectoryWriteMaster())
             return await CreateUserDirectoryFirstAsync(dto, null);
@@ -139,6 +152,8 @@ public class UserService : IUserService
             throw new InvalidOperationException(
                 "L'employé a été créé localement mais la synchronisation avec l'annuaire (Directory) a échoué. Réessayez ou contactez l'administrateur.");
         }
+
+        await _fieldService.UpsertCustomFieldsAsync(user.Id, dto.CustomFields, isCreate: true);
 
         return await GetUserByIdAsync(user.Id)
             ?? throw new Exception("Erreur création utilisateur.");
@@ -225,7 +240,9 @@ public class UserService : IUserService
 
         if (!directoryResult.Success)
             throw new InvalidOperationException(
-                "La création dans l'annuaire (Directory) a échoué. Réessayez ou contactez l'administrateur.");
+                string.IsNullOrWhiteSpace(directoryResult.ErrorMessage)
+                    ? "La création dans l'annuaire (Directory) a échoué. Réessayez ou contactez l'administrateur."
+                    : directoryResult.ErrorMessage);
 
         var password = ResolveImportPassword(importPassword);
         var user = new User
@@ -255,6 +272,8 @@ public class UserService : IUserService
             throw new InvalidOperationException(
                 "La synchronisation Auth a échoué. L'employé n'a pas été conservé.");
         }
+
+        await _fieldService.UpsertCustomFieldsAsync(user.Id, dto.CustomFields, isCreate: true);
 
         return await GetUserByIdAsync(user.Id)
             ?? throw new Exception("Erreur création utilisateur.");
@@ -358,6 +377,8 @@ public class UserService : IUserService
             await _directoryEmployeeEnsure.TryEnsureFromPlanningAsync(user);
         }
 
+        await _fieldService.UpsertCustomFieldsAsync(id, dto.CustomFields, isCreate: false);
+
         return await GetUserByIdAsync(id);
     }
 
@@ -407,8 +428,28 @@ public class UserService : IUserService
 
     public async Task<bool> IsEmailUniqueAsync(string email, int? excludeId = null)
     {
-        return !await _context.Users
-            .AnyAsync(u => u.Email == email && u.Id != excludeId);
+        var trimmed = email.Trim();
+        var usedInPlanning = await _context.Users
+            .AnyAsync(u => u.Email == trimmed && u.Id != excludeId);
+        if (usedInPlanning)
+            return false;
+
+        if (!IsDirectoryWriteMaster())
+            return true;
+
+        Guid? excludeGuid = null;
+        if (excludeId.HasValue)
+        {
+            excludeGuid = await _context.Users.AsNoTracking()
+                .Where(u => u.Id == excludeId.Value)
+                .Select(u => u.Guid)
+                .FirstOrDefaultAsync();
+            if (excludeGuid == Guid.Empty)
+                excludeGuid = null;
+        }
+
+        var usedInDirectory = await _directoryEmployeeWrite.IsEmailUsedInDirectoryAsync(trimmed, excludeGuid);
+        return !usedInDirectory;
     }
     public async Task<UserDto?> GetUserByAuthIdAsync(int authUserId)
     {
@@ -424,7 +465,11 @@ public class UserService : IUserService
                     .ThenInclude(s => s.Floor)
             .FirstOrDefaultAsync(u => u.AuthUserId == authUserId);
 
-        return user == null ? null : ToDto(user);
+        if (user is null)
+            return null;
+
+        var customByUser = await _fieldService.LoadCustomFieldsForUsersAsync([user.Id]);
+        return ToDto(user, customByUser.GetValueOrDefault(user.Id));
     }
 
     private async Task PublishEmployeCreatedForUserAsync(User user, int? subServiceId)
@@ -509,7 +554,7 @@ public class UserService : IUserService
         int? SubServiceId,
         string? PrimeServiceId);
 
-    private static UserDto ToDto(User u)
+    private static UserDto ToDto(User u, Dictionary<string, string?>? customFields = null)
     {
         var (pole, cellule, service) = ResolveOrgNames(u);
         return new UserDto
@@ -541,7 +586,8 @@ public class UserService : IUserService
             HireDate = u.HireDate,
             IsActive = u.IsActive,
             CreatedAt = u.CreatedAt,
-            Level = u.Level
+            Level = u.Level,
+            CustomFields = customFields ?? new Dictionary<string, string?>()
         };
     }
 

@@ -17,6 +17,7 @@ const FIELD_HEADER_HINTS: Record<string, string[]> = {
   firstName: ['prenom', 'prénom', 'firstname', 'first name'],
   lastName: ['nom de famille', 'nomdefamille', 'nom famille', 'lastname', 'last name', 'famille', 'nom'],
   role: ['role', 'rôle', 'fonction'],
+  operationalDepartment: ['departementmetier', 'departementoperationnel', 'departement operationnel', 'deptmetier', 'deptoperationnel'],
   pole: ['pole', 'pôle', 'etage', 'étage'],
   cellule: ['cellule'],
   service: ['service', 'equipe', 'équipe', 'sous-service'],
@@ -57,6 +58,7 @@ const FIELD_MATCH_PRIORITY = [
   'firstName',
   'lastName',
   'role',
+  'operationalDepartment',
   'pole',
   'cellule',
   'service',
@@ -91,8 +93,12 @@ export function validateEmployeeImportMappings(
   const issues: MappingValidationIssue[] = [];
   const enabled = activeFields.filter((f) => f.isEnabled);
 
-  for (const field of enabled.filter((f) => f.isRequiredOnCreate)) {
-    if (!mappings.some((m) => m.fieldKey === field.fieldKey)) {
+  for (const field of enabled.filter((f) => f.isRequiredOnCreate && f.isSystemField !== false)) {
+    const mapped = mappings.some((m) => m.fieldKey === field.fieldKey && m.disposition !== 'ignore');
+    const createdViaImport = mappings.some(
+      (m) => m.disposition === 'keepAsNewField' && m.newFieldDefinition?.label?.trim(),
+    );
+    if (!mapped && !createdViaImport) {
       issues.push({
         severity: 'error',
         message: `Champ obligatoire non mappé : ${field.label}.`,
@@ -100,9 +106,24 @@ export function validateEmployeeImportMappings(
     }
   }
 
+  for (const mapping of mappings) {
+    if (mapping.disposition === 'keepAsNewField' && !mapping.newFieldDefinition?.label?.trim()) {
+      issues.push({
+        severity: 'error',
+        message: `Colonne ${mapping.columnIndex + 1} : libellé requis pour le nouveau champ.`,
+      });
+    }
+    if (mapping.disposition === 'map' && !mapping.fieldKey) {
+      issues.push({
+        severity: 'error',
+        message: `Colonne ${mapping.columnIndex + 1} : choisissez un champ cible ou changez l'action.`,
+      });
+    }
+  }
+
   const fieldUsage = new Map<string, string[]>();
   for (const mapping of mappings) {
-    if (!mapping.fieldKey) continue;
+    if (!mapping.fieldKey || mapping.disposition === 'ignore') continue;
     const header = headers[mapping.columnIndex] ?? `Colonne ${mapping.columnIndex + 1}`;
     const used = fieldUsage.get(mapping.fieldKey) ?? [];
     used.push(header);

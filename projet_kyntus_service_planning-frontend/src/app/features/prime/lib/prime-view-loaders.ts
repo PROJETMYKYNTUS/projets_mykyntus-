@@ -60,6 +60,24 @@ export const PRIME_VIEW_LOADERS: Record<string, PrimeLazyViewLoader> = {
     import('../pages/employee/my-primes-page.component').then((m) => m.MyPrimesPageComponent),
   '/employee/performance': () =>
     import('../pages/employee/my-performance-page.component').then((m) => m.MyPerformancePageComponent),
+  '/allowances': () =>
+    import('../pages/allowances/allowances-dashboard-page.component').then(
+      (m) => m.AllowancesDashboardPageComponent,
+    ),
+  '/allowances/requests': () =>
+    import('../pages/allowances/allowances-requests-page.component').then(
+      (m) => m.AllowancesRequestsPageComponent,
+    ),
+  '/allowances/inbox': () =>
+    import('../pages/allowances/allowances-inbox-page.component').then((m) => m.AllowancesInboxPageComponent),
+  '/allowances/my': () =>
+    import('../pages/allowances/allowances-my-page.component').then((m) => m.AllowancesMyPageComponent),
+  '/allowances/catalog': () =>
+    import('../pages/allowances/allowances-catalog-page.component').then((m) => m.AllowancesCatalogPageComponent),
+  '/allowances/supervision': () =>
+    import('../pages/allowances/allowances-supervision-page.component').then(
+      (m) => m.AllowancesSupervisionPageComponent,
+    ),
 };
 
 export function resolvePrimeLazyViewKey(effectiveView: string): string {

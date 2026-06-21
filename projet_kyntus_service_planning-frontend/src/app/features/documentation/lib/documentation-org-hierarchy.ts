@@ -72,6 +72,7 @@ export function visibleEmployeeIdsForRole(
   viewer: DirectoryUserDto | null,
   users: DirectoryUserDto[],
   drill: HierarchyDrillSelection = {},
+  supportDepartmentManager = false,
 ): Set<string> | null {
   if (role === 'RH' || role === 'Admin' || role === 'Audit') {
     return null;
@@ -88,6 +89,9 @@ export function visibleEmployeeIdsForRole(
   }
 
   if (role === 'Manager') {
+    if (supportDepartmentManager) {
+      return new Set(users.filter((u) => sameId(u.managerId, viewer.id)).map((u) => u.id));
+    }
     if (!drill.coachId) {
       return new Set();
     }

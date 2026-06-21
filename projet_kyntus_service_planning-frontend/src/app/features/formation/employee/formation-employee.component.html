@@ -1,23 +1,14 @@
-<div class="page-wrapper ky-page-shell">
+<div class="ky-page-shell">
 
   <div class="fe-toast ky-card" [class.visible]="toast.show" [class.error]="toast.type === 'error'">
     <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
     {{ toast.message }}
   </div>
 
-  <div class="page-header">
-    <div class="header-left">
-      <span class="eyebrow">Formation</span>
-      <h1 class="page-title">
-        <app-lucide-icon [icon]="icons.graduation" className="w-7 h-7" />
-        Mes formations
-      </h1>
-      <p class="page-sub">Consultez et inscrivez-vous aux formations ouvertes</p>
-      <p class="results-count" *ngIf="!loading">
-        <strong>{{ filteredFormations.length }}</strong> formation(s) disponible(s)
-      </p>
-    </div>
-  </div>
+  <app-kyntus-page-header
+    title="Mes formations"
+    [subtitle]="!loading ? filteredFormations.length + ' formation(s) disponible(s) — Consultez et inscrivez-vous aux formations ouvertes' : 'Consultez et inscrivez-vous aux formations ouvertes'">
+  </app-kyntus-page-header>
 
   <div class="kpi-row">
     <div class="kpi-card ky-card kc-blue">

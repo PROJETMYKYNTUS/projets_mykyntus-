@@ -13,6 +13,10 @@ import type { Referral } from '../../models/referral.model';
   imports: [StatusBadgeComponent, FiltersBarComponent, TimelineComponent],
   template: `
     <div class="space-y-4">
+      <div>
+        <h1 class="prime-page-title">Suivi des parrainages</h1>
+        <p class="ky-page-subtitle">Historique et statut de vos recommandations.</p>
+      </div>
       <app-filters-bar
         [status]="status()"
         (statusChange)="status.set($event)"

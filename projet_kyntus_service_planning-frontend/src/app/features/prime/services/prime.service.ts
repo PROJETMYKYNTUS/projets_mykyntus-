@@ -51,9 +51,18 @@ export const PrimeService = {
     viewerRole: Role,
     viewerId: string,
     drill: HierarchyDrillSelection = {},
+    supportDepartmentManager = false,
   ): Promise<PrimeResult[]> => {
     const [employees, base] = await Promise.all([PrimeService.getEmployees(), PrimeService.getPrimeResults()]);
-    const hierarchyScoped = applyDrillDownToEmployeeRows(base, viewerRole, viewerId, employees, drill, await PrimeService.getDepartments());
+    const hierarchyScoped = applyDrillDownToEmployeeRows(
+      base,
+      viewerRole,
+      viewerId,
+      employees,
+      drill,
+      await PrimeService.getDepartments(),
+      supportDepartmentManager,
+    );
     const orgAssignmentScoped = await OrgAssignmentService.getAllowedEmployeeIds(viewerRole, viewerId, employees);
     if (orgAssignmentScoped === null) return hierarchyScoped;
     return hierarchyScoped.filter((row) => orgAssignmentScoped.has(row.employeeId));

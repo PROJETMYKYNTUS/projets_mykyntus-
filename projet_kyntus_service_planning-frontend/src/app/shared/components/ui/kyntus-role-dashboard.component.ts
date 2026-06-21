@@ -58,7 +58,7 @@ export interface KyntusQuickAction {
           </header>
         } @else {
           <div class="kyntus-role-header-row">
-            <app-kyntus-page-header [title]="title" [subtitle]="subtitle" [eyebrow]="eyebrow">
+            <app-kyntus-page-header [title]="title" [subtitle]="subtitle">
               @if (quickActions.length > 0) {
                 <div actions class="kyntus-quick-actions">
                   @for (qa of quickActions; track qa.label) {
@@ -257,7 +257,6 @@ export interface KyntusQuickAction {
 export class KyntusRoleDashboardComponent {
   @Input({ required: true }) title!: string;
   @Input() subtitle = '';
-  @Input() eyebrow = '';
   /** Salutation compacte (ex. « Bonjour, Marie ») — active l'en-tête unifié accueil. */
   @Input() greeting = '';
   /** Badge rôle affiché à côté du greeting. */

@@ -59,6 +59,10 @@ public sealed class DirectoryEmployeeProjectionConsumer(AppDbContext db) :
                 if (sub is not null)
                     user.SubServiceId = sub.Id;
             }
+            else if (string.Equals(msg.BusinessDepartmentKind, "Support", StringComparison.OrdinalIgnoreCase))
+            {
+                user.SubServiceId = null;
+            }
             db.Users.Add(user);
         }
         else
@@ -76,6 +80,10 @@ public sealed class DirectoryEmployeeProjectionConsumer(AppDbContext db) :
                     s => s.PrimeServiceId == msg.ServiceId,
                     context.CancellationToken);
                 if (sub is not null) user.SubServiceId = sub.Id;
+            }
+            else if (string.Equals(msg.BusinessDepartmentKind, "Support", StringComparison.OrdinalIgnoreCase))
+            {
+                user.SubServiceId = null;
             }
         }
 

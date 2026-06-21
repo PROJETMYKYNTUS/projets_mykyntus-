@@ -48,3 +48,8 @@ export function requiredOrgColumnsMessage(depth: EmployeeImportOrgDepth): string
       return '';
   }
 }
+
+/** Message si création de pôle sans département opérationnel mappable. */
+export function operationalDeptRequiredForPoleCreationMessage(poleName: string): string {
+  return `Département opérationnel requis pour créer le pôle « ${poleName} » — mappez la colonne ou utilisez un pôle existant.`;
+}

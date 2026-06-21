@@ -46,6 +46,7 @@ public class AppDbContext : DbContext
     public DbSet<OutboxMessage> OutboxMessages { get; set; } = null!;
 
     public DbSet<EmployeeImportFieldConfig> EmployeeImportFieldConfigs { get; set; } = null!;
+    public DbSet<UserCustomFieldValue> UserCustomFieldValues { get; set; } = null!;
     public DbSet<EmployeeImportJob> EmployeeImportJobs { get; set; } = null!;
     public DbSet<EmployeeImportJobLine> EmployeeImportJobLines { get; set; } = null!;
     public DbSet<EmployeeImportSession> EmployeeImportSessions { get; set; } = null!;
@@ -249,6 +250,17 @@ public class AppDbContext : DbContext
         {
             e.HasIndex(x => x.FieldKey).IsUnique();
             e.Property(x => x.AliasesJson).HasColumnType("jsonb");
+            e.Property(x => x.DataType).HasMaxLength(32).HasDefaultValue("text");
+        });
+
+        modelBuilder.Entity<UserCustomFieldValue>(e =>
+        {
+            e.HasIndex(x => new { x.UserId, x.FieldKey }).IsUnique();
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.Property(x => x.FieldKey).HasMaxLength(128);
         });
 
         modelBuilder.Entity<EmployeeImportJob>(e =>

@@ -23,6 +23,9 @@ public sealed class ReferralDto
     public string? CvUrl { get; set; }
     public string? Notes { get; set; }
     public DateOnly? CandidateStartDate { get; set; }
+    public DateOnly? TrainingEndDate { get; set; }
+    public DateOnly? ProductionStartDate { get; set; }
+    public DateTimeOffset? TrainingEndNotifiedAt { get; set; }
     public DateTimeOffset? ApprovedAt { get; set; }
     public DateTimeOffset? EligibleForPaymentAt { get; set; }
     public string PaymentStatus { get; set; } = "NOT_ELIGIBLE";
@@ -201,6 +204,29 @@ public sealed class ApproveReferralRequest
 {
     public DateOnly CandidateStartDate { get; set; }
     public decimal RewardAmount { get; set; }
+    public bool RequiresTraining { get; set; }
+    public DateOnly? TrainingEndDate { get; set; }
+    public string? Comment { get; set; }
+    public ActorDto? Actor { get; set; }
+}
+
+public sealed class ConfirmProductionStartRequest
+{
+    public DateOnly ProductionStartDate { get; set; }
+    public string? Comment { get; set; }
+    public ActorDto? Actor { get; set; }
+}
+
+public sealed class ExtendTrainingRequest
+{
+    public DateOnly TrainingEndDate { get; set; }
+    public string? Comment { get; set; }
+    public ActorDto? Actor { get; set; }
+}
+
+public sealed class RejectEarlyDepartureRequest
+{
+    public DateOnly? DepartureDate { get; set; }
     public string? Comment { get; set; }
     public ActorDto? Actor { get; set; }
 }

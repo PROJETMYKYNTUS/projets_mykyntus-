@@ -27,6 +27,9 @@ public static class EmployeeImportFieldRegistry
             ["isactive", "is active", "actif", "active", "statut"]),
         new("level", "Niveau", true, false, 11,
             ["level", "niveau", "debutant", "débutant", "intermediaire", "intermédiaire", "expert"]),
+        new("operationalDepartment", "Département opérationnel", true, false, 12,
+            ["departementmetier", "departement operationnel", "departementoperationnel", "deptmetier",
+             "deptoperationnel", "operationaldepartment", "businessdepartment"]),
     ];
 
     /// <summary>Champs retirés du modèle (désactivés à l'import, rétrocompatibilité fichiers anciens).</summary>
@@ -54,6 +57,9 @@ public static class EmployeeImportFieldRegistry
 
     public static bool IsImportForbiddenRoleName(string? roleName) =>
         EmployeeImportRoleSynonymRegistry.IsImportForbiddenRoleName(roleName);
+
+    public static bool IsSystemFieldKey(string fieldKey) =>
+        DefaultFields.Any(f => string.Equals(f.FieldKey, fieldKey, StringComparison.OrdinalIgnoreCase));
 }
 
 public sealed record EmployeeImportFieldDefinition(

@@ -12,7 +12,9 @@ public sealed record EmployeeDirectoryUpsertRequest(
     string Role,
     string? PrimeServiceId = null,
     Guid SupervisorId = default,
-    bool SkipOrgStructureFields = false);
+    bool SkipOrgStructureFields = false,
+    Guid? BusinessDepartmentId = null,
+    string? BusinessDepartmentKind = null);
 
 public interface IEmployeeDirectorySyncService
 {
@@ -112,7 +114,9 @@ public sealed class EmployeeDirectorySyncService(
                 ServiceId = serviceId,
                 CelluleId = celluleId,
                 PoleId = poleId ?? "",
-                ParentId = request.SupervisorId != Guid.Empty ? request.SupervisorId.ToString() : null
+                ParentId = request.SupervisorId != Guid.Empty ? request.SupervisorId.ToString() : null,
+                BusinessDepartmentId = request.BusinessDepartmentId?.ToString(),
+                BusinessDepartmentKind = request.BusinessDepartmentKind,
             });
             await db.SaveChangesAsync(ct);
             logger.LogInformation("prime_employee créé {Email} id={Id} rôle={Role}", email, id, role);
@@ -153,6 +157,17 @@ public sealed class EmployeeDirectorySyncService(
         }
         if (request.SupervisorId != Guid.Empty)
             existing.ParentId = request.SupervisorId.ToString();
+        if (request.BusinessDepartmentId.HasValue)
+        {
+            existing.BusinessDepartmentId = request.BusinessDepartmentId.Value.ToString();
+            existing.BusinessDepartmentKind = request.BusinessDepartmentKind;
+            if (string.Equals(request.BusinessDepartmentKind, "Support", StringComparison.OrdinalIgnoreCase))
+            {
+                existing.ServiceId = null;
+                existing.CelluleId = null;
+                existing.PoleId = "";
+            }
+        }
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation("prime_employee synchronisé {Email} id={Id} rôle={Role}", email, existing.Id, existing.Role);

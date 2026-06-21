@@ -1,6 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { CongeService } from '../../../../core/services/conge.service';
 import { UserService } from '../../../users/services/user.service';
 import { AuthService }  from '../../../../core/services/auth.service';
@@ -14,7 +15,7 @@ import {
 @Component({
   selector: 'app-conge-manager',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, KyntusPageHeaderComponent],
   templateUrl: './conge-manager.component.html',
   styleUrls: ['./conge-manager.component.css']
 })

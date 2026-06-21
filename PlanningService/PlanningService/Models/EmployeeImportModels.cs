@@ -9,6 +9,19 @@ public class EmployeeImportFieldConfig
     public bool IsRequiredOnCreate { get; set; }
     public string AliasesJson { get; set; } = "[]";
     public int SortOrder { get; set; }
+    public bool IsSystemField { get; set; }
+    public string DataType { get; set; } = "text";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class UserCustomFieldValue
+{
+    public long Id { get; set; }
+    public int UserId { get; set; }
+    public User User { get; set; } = null!;
+    public string FieldKey { get; set; } = string.Empty;
+    public string? Value { get; set; }
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public class EmployeeImportJob

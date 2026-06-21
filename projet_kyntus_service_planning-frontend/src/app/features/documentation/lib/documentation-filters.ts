@@ -11,8 +11,9 @@ export function filterByEmployeeScope<T extends { employeeId?: string }>(
   viewer: DirectoryUserDto | null,
   users: DirectoryUserDto[],
   drill?: HierarchyDrillSelection,
+  supportDepartmentManager = false,
 ): T[] {
-  const allowed = visibleEmployeeIdsForRole(role, viewer, users, drill ?? {});
+  const allowed = visibleEmployeeIdsForRole(role, viewer, users, drill ?? {}, supportDepartmentManager);
   if (allowed === null) return items;
   return items.filter((i) => i.employeeId && allowed.has(i.employeeId));
 }

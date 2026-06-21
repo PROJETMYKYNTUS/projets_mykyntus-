@@ -1,18 +1,8 @@
-<div class="page-wrapper ky-page-shell">
-  <div class="page-header">
-    <div class="header-info">
-      <span class="eyebrow">Planning</span>
-      <h1 class="page-title">
-        <app-lucide-icon [icon]="icons.calendar" className="w-7 h-7" />
-        Historique Samedis
-      </h1>
-      <p class="page-sub">Saisir manuellement qui a travaillé le samedi de la semaine sélectionnée</p>
-      <p class="results-count" *ngIf="allEntries.length > 0">
-        <strong>{{ filteredEntries.length }}</strong> employé(s) affiché(s) sur {{ allEntries.length }}
-        · <strong>{{ workedCount }}</strong> travaillé(s)
-      </p>
-    </div>
-  </div>
+<div class="ky-page-shell">
+  <app-kyntus-page-header
+    title="Historique Samedis"
+    [subtitle]="allEntries.length > 0 ? filteredEntries.length + ' employé(s) affiché(s) sur ' + allEntries.length + ' · ' + workedCount + ' travaillé(s)' : 'Saisir manuellement qui a travaillé le samedi de la semaine sélectionnée'">
+  </app-kyntus-page-header>
 
   <div class="filters-panel ky-card">
     <div class="filters-row filters-row--context">

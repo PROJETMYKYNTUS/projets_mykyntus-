@@ -20,7 +20,9 @@ public sealed class PrimeDirectoryProjectionConsumer(IEmployeeDirectorySyncServi
                 Email: msg.Email,
                 Role: msg.Role,
                 PrimeServiceId: msg.ServiceId,
-                SupervisorId: msg.ParentId ?? Guid.Empty),
+                SupervisorId: msg.ParentId ?? Guid.Empty,
+                BusinessDepartmentId: msg.BusinessDepartmentId,
+                BusinessDepartmentKind: msg.BusinessDepartmentKind),
             context.CancellationToken);
     }
 }

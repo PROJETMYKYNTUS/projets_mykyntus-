@@ -1,7 +1,7 @@
 <!-- src/app/features/reclamation/employee/reclamation-employee.component.html -->
 <!-- Intégrable dans le dashboard-employee comme vue additionnelle -->
 
-<div class="page-wrapper ky-page-shell rp-root">
+<div class="ky-page-shell rp-root">
 
   <!-- ══ TOAST ══ -->
   <div class="rp-toast" [class.visible]="toastMsg" [class.rp-toast-error]="toastType==='error'">
@@ -32,17 +32,15 @@
     </div>
   </div>
 
-  <!-- ══ HEADER ══ -->
-  <div class="page-header">
-    <div class="header-left">
-      <span class="eyebrow">Qualité &amp; amélioration</span>
-      <h1 class="page-title">Réclamations &amp; Propositions</h1>
-      <p class="page-sub">Soumettez et suivez vos demandes</p>
+  <app-kyntus-page-header
+    title="Mes réclamations"
+    subtitle="Soumettez et suivez vos demandes">
+    <div actions>
+      <button type="button" class="ky-btn-primary btn-add" (click)="subView='new'" *ngIf="subView==='list'">
+        Nouvelle demande
+      </button>
     </div>
-    <button type="button" class="ky-btn-primary btn-add" (click)="subView='new'" *ngIf="subView==='list'">
-      Nouvelle demande
-    </button>
-  </div>
+  </app-kyntus-page-header>
 
   <!-- ══ MAIN TABS ══ -->
   <div class="rp-tabs" *ngIf="subView==='list' || subView==='new'">

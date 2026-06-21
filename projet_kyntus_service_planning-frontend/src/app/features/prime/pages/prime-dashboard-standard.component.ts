@@ -35,7 +35,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
       <div class="prime-page-shell space-y-8">
         <div class="flex justify-between items-end">
           <div>
-            <h1 class="text-3xl font-bold text-primary tracking-tight">
+            <h1 class="prime-page-title">
               {{ dashboardTitle() }}
             </h1>
             <p class="text-slate-400 mt-1">

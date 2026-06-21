@@ -136,6 +136,18 @@ public class EmployeeImportOrgGapAnalyzer(IEmployeeImportOrgResolver orgResolver
                 if (TryBlockDuplicateOrgCreation(orgSnapshot, orgResolution, creation, lineNumber, email, lineIssues))
                     continue;
 
+                if (creation.Type == "pole" && string.IsNullOrWhiteSpace(creation.OperationalDepartment))
+                {
+                    lineIssues.Add(new EmployeeImportOrgLineIssueDto
+                    {
+                        LineNumber = lineNumber,
+                        Email = email,
+                        Severity = "error",
+                        Message =
+                            $"Département opérationnel requis pour créer le pôle « {creation.Pole} » — mappez la colonne ou utilisez un pôle existant."
+                    });
+                }
+
                 var key = PendingKey(creation);
                 if (pending.TryGetValue(key, out var existing))
                 {
@@ -313,6 +325,10 @@ public class EmployeeImportOrgGapAnalyzer(IEmployeeImportOrgResolver orgResolver
         var poleSource = SourceOrgName(orgResolution, "pole", effectiveMapped);
         var celluleSource = SourceOrgName(orgResolution, "cellule", effectiveMapped);
         var serviceSource = SourceOrgName(orgResolution, "service", effectiveMapped);
+        effectiveMapped.TryGetValue("operationalDepartment", out var operationalDepartment);
+        var operationalDepartmentSource = string.IsNullOrWhiteSpace(operationalDepartment)
+            ? null
+            : operationalDepartment.Trim();
 
         var poleCheck = orgResolution.Pole ?? poleSource;
         var celluleCheck = orgResolution.Cellule ?? celluleSource;
@@ -324,6 +340,7 @@ public class EmployeeImportOrgGapAnalyzer(IEmployeeImportOrgResolver orgResolver
             {
                 Type = "pole",
                 Pole = poleSource,
+                OperationalDepartment = operationalDepartmentSource,
                 ConfirmationLabel = $"Créer le pôle « {poleSource} »"
             };
             yield break;
@@ -339,6 +356,7 @@ public class EmployeeImportOrgGapAnalyzer(IEmployeeImportOrgResolver orgResolver
                 {
                     Type = "pole",
                     Pole = poleSource,
+                    OperationalDepartment = operationalDepartmentSource,
                     ConfirmationLabel = $"Créer le pôle « {poleSource} »"
                 };
             }
@@ -368,6 +386,7 @@ public class EmployeeImportOrgGapAnalyzer(IEmployeeImportOrgResolver orgResolver
                 {
                     Type = "pole",
                     Pole = poleSource,
+                    OperationalDepartment = operationalDepartmentSource,
                     ConfirmationLabel = $"Créer le pôle « {poleSource} »"
                 };
             }

@@ -6,6 +6,6 @@ import { RouterOutlet } from '@angular/router';
   selector: 'app-documentation-shell',
   standalone: true,
   imports: [CommonModule, RouterOutlet],
-  template: `<router-outlet></router-outlet>`,
+  template: `<div class="ky-page-shell"><router-outlet></router-outlet></div>`,
 })
 export class DocumentationShellComponent {}

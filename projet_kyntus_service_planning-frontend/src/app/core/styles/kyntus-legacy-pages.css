@@ -3,13 +3,13 @@
  * Remplace progressivement les couleurs figées par les tokens Prime.
  */
 
-.ks-content .page,
-.ks-content .page-wrapper,
-.ks-content .page-container,
-.ks-content .service-page,
-.ks-content .pv-wrapper,
-.ks-content .form-page,
-.ks-content .detail-page {
+.ks-content .page:not(.ky-page-shell):not(.prime-page-shell),
+.ks-content .page-wrapper:not(.ky-page-shell):not(.prime-page-shell),
+.ks-content .page-container:not(.ky-page-shell):not(.prime-page-shell),
+.ks-content .service-page:not(.ky-page-shell):not(.prime-page-shell),
+.ks-content .pv-wrapper:not(.ky-page-shell):not(.prime-page-shell),
+.ks-content .form-page:not(.ky-page-shell):not(.prime-page-shell),
+.ks-content .detail-page:not(.ky-page-shell):not(.prime-page-shell) {
   min-height: 100%;
   padding: 32px 24px 48px;
   background: var(--bg-primary);
@@ -153,18 +153,18 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--soft-blue) 40%, transparent);
 }
 
-.ks-content .card,
-.ks-content .panel,
-.ks-content .form-card,
-.ks-content .detail-card,
-.ks-content .table-card,
-.ks-content .stat-card,
-.ks-content .main-card,
-.ks-content .section-card,
-.ks-content .step-card,
-.ks-content .info-card,
-.ks-content .panel-card,
-.ks-content .config-card {
+.ks-content .card:not(.ky-card),
+.ks-content .panel:not(.ky-card),
+.ks-content .form-card:not(.ky-card),
+.ks-content .detail-card:not(.ky-card),
+.ks-content .table-card:not(.ky-card),
+.ks-content .stat-card:not(.ky-card),
+.ks-content .main-card:not(.ky-card),
+.ks-content .section-card:not(.ky-card),
+.ks-content .step-card:not(.ky-card),
+.ks-content .info-card:not(.ky-card),
+.ks-content .panel-card:not(.ky-card),
+.ks-content .config-card:not(.ky-card) {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
@@ -377,26 +377,7 @@ body.theme-dark .nl-admin-shell {
   color: var(--text-primary) !important;
 }
 
-.ks-content .alert-error,
-.ks-content .alert-success,
-.ks-content .alert-warning,
-.ks-content .alert-info {
-  border-radius: 10px;
-  padding: 12px 16px;
-  font-size: 0.9rem;
-}
-
-.ks-content .alert-error {
-  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
-  border: 1px solid color-mix(in srgb, #ef4444 35%, var(--border-color));
-  color: var(--text-primary);
-}
-
-.ks-content .alert-success {
-  background: color-mix(in srgb, #22c55e 12%, var(--bg-card));
-  border: 1px solid color-mix(in srgb, #22c55e 35%, var(--border-color));
-  color: var(--text-primary);
-}
+/* Alert styles: canonical rules in styles-documentation.css (.ky-alert-*) */
 
 .ks-content .emp-root,
 .ks-content .emp-layout,

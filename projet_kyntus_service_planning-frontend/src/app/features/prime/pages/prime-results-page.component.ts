@@ -20,6 +20,9 @@ import { RoleService } from '../state/role.service';
 import { PrimeService } from '../services/prime.service';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
 import { PrimeUiPermissionsService } from '../services/prime-ui-permissions.service';
+import { DepartmentContextService } from '../services/allowance-api.service';
+import { redirectSupportManagerToAllowancesIfNeeded } from '../lib/allowance-manager-guard';
+import { buildPrimeDepartmentManagerNav } from '../lib/prime-manager-nav';
 import {
   PrimeFicheResultService,
   type EmployeePrimeServiceFicheValidationDto,
@@ -276,6 +279,7 @@ export class PrimeResultsPageComponent implements OnInit {
   private readonly api = inject(PrimeFicheResultService);
   private readonly nav = inject(PrimeNavRequestService);
   readonly permissions = inject(PrimeUiPermissionsService);
+  private readonly deptContext = inject(DepartmentContextService);
 
   readonly icons = {
     download: Download,
@@ -414,12 +418,21 @@ export class PrimeResultsPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // initial fetch via effect
+    void this.deptContext.load();
   }
 
   private fetch(): void {
     this.loading.set(true);
     this.errorMessage.set(null);
+
+    const role = this.roleService.currentRole() as Role;
+    if (
+      role === 'Manager'
+      && redirectSupportManagerToAllowancesIfNeeded(role, this.deptContext, this.nav, '/results')
+    ) {
+      this.loading.set(false);
+      return;
+    }
 
     const filters: FicheValidationListFilters = {
       period: this.periodFilter() || undefined,
@@ -427,7 +440,6 @@ export class PrimeResultsPageComponent implements OnInit {
       celluleId: this.celluleFilter() || undefined,
     };
 
-    const role = this.roleService.currentRole() as Role;
     const user = this.roleService.currentUser();
     if (role === 'Pilote') {
       this.api.list({ ...filters }).subscribe({
@@ -440,7 +452,7 @@ export class PrimeResultsPageComponent implements OnInit {
       return;
     }
 
-    if (isPrimeGlobalPoolStakeholderRole(role)) {
+    if (isPrimeGlobalPoolStakeholderRole(role, buildPrimeDepartmentManagerNav(this.deptContext))) {
       void PrimeService.getPrimeResults()
         .then((rows) => {
           const employees = this.roleService.employees();

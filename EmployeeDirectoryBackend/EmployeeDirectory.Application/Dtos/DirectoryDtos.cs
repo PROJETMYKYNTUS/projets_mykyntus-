@@ -10,7 +10,22 @@ public record EmployeeDto(
     string PoleId,
     string? CelluleId,
     string Email,
-    string? Avatar);
+    string? Avatar,
+    string? BusinessDepartmentId = null,
+    string? BusinessDepartmentKind = null);
+
+public record BusinessDepartmentDto(
+    string Id,
+    string Code,
+    string Name,
+    string Kind,
+    string? ManagerEmployeeId,
+    bool IsActive,
+    IReadOnlyList<string> PoleIds);
+
+public record CreateBusinessDepartmentRequest(string? Code, string Name, string Kind);
+public record UpdateBusinessDepartmentRequest(string Name, string Kind, bool IsActive);
+public record SetBusinessDepartmentManagerRequest(string EmployeeId);
 
 public record OrgOverviewDto(
     IReadOnlyList<EtageNodeDto> Etages,
@@ -18,10 +33,35 @@ public record OrgOverviewDto(
     IReadOnlyList<SousServiceNodeDto> SousServices,
     IReadOnlyList<EmployeeDto> Employees,
     IReadOnlyList<DepartmentDto> Departments,
+    IReadOnlyList<BusinessDepartmentDto> BusinessDepartments,
+    IReadOnlyList<OperationalDepartmentOverviewDto> OperationalDepartments,
+    IReadOnlyList<OrgPoleOverviewDto> UnassignedPoles,
     IReadOnlyList<ManagerEtageAssignmentDto> ManagerEtage,
     IReadOnlyList<SupervisorServiceAssignmentDto> SupervisorService,
     IReadOnlyList<CoachSousServiceAssignmentDto> CoachSousService,
     IReadOnlyList<CoachPilotLinkDto> CoachPilot);
+
+public record OperationalDepartmentOverviewDto(
+    string Id,
+    string Code,
+    string Name,
+    string? ManagerEmployeeId,
+    IReadOnlyList<OrgPoleOverviewDto> Poles);
+
+public record OrgPoleOverviewDto(
+    string Id,
+    string Name,
+    IReadOnlyList<OrgCelluleOverviewDto> Cellules);
+
+public record OrgCelluleOverviewDto(
+    string Id,
+    string Name,
+    IReadOnlyList<OrgServiceOverviewDto> Services);
+
+public record OrgServiceOverviewDto(string Id, string Name);
+
+public record CreatePoleRequest(string Name, Guid BusinessDepartmentId);
+public record AttachPoleToDepartmentRequest(Guid BusinessDepartmentId);
 
 public record EtageNodeDto(string Id, string Name);
 public record ServiceNodeDto(string Id, string Name, string EtageId);
@@ -36,6 +76,10 @@ public record SupervisorServiceAssignmentDto(string Id, string UserId, string Ce
 public record CoachSousServiceAssignmentDto(string Id, string UserId, string ServiceId, string SousServiceId);
 public record CoachPilotLinkDto(string Id, string CoachUserId, string PilotUserId);
 
+public record RevokedStructuralRoleDto(string Role, string NodeId, string? NodeLabel, string? DepartmentCode);
+
+public record StructuralRoleAssignmentResult(IReadOnlyList<RevokedStructuralRoleDto> Revoked);
+
 public record CreateEmployeeRequest(
     Guid? EmployeeId,
     string FirstName,
@@ -44,7 +88,8 @@ public record CreateEmployeeRequest(
     string Role,
     string? ServiceId,
     Guid? ParentId,
-    DateTime? HireDate);
+    DateTime? HireDate,
+    Guid? BusinessDepartmentId = null);
 
 public record UpdateEmployeeRequest(
     string FirstName,
@@ -54,7 +99,8 @@ public record UpdateEmployeeRequest(
     string? ServiceId,
     Guid? ParentId,
     bool IsActive,
-    DateTime? HireDate);
+    DateTime? HireDate,
+    Guid? BusinessDepartmentId = null);
 
 public record OrgAssignmentAsOfDto(
     DateTime AsOf,

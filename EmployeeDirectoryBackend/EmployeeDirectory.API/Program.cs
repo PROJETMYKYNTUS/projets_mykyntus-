@@ -30,6 +30,7 @@ builder.Services.AddKyntusOutbox<DirectoryDbContext>();
 builder.Services.AddKyntusIam();
 
 builder.Services.AddScoped<IDirectoryReadService, DirectoryReadService>();
+builder.Services.AddScoped<IOrgStructuralRoleExclusivityService, OrgStructuralRoleExclusivityService>();
 builder.Services.AddScoped<IDirectoryWriteService, DirectoryWriteService>();
 builder.Services.AddScoped<IDirectoryReconciliationService, DirectoryReconciliationService>();
 builder.Services.AddHttpClient("DirectoryReconcile");

@@ -12,7 +12,21 @@ public record DirectoryEmployeeChangedMessage
     public string? ServiceId { get; init; }
     public string? CelluleId { get; init; }
     public string? PoleId { get; init; }
+    public Guid? BusinessDepartmentId { get; init; }
+    public string? BusinessDepartmentKind { get; init; }
     public bool IsActive { get; init; } = true;
+    public bool IsDeleted { get; init; }
+}
+
+/// <summary>Publié après mutation d'un département métier (Support / Operational).</summary>
+public record DirectoryBusinessDepartmentChangedMessage
+{
+    public Guid BusinessDepartmentId { get; init; }
+    public string Code { get; init; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
+    public string Kind { get; init; } = "Operational";
+    public Guid? ManagerEmployeeId { get; init; }
+    public IReadOnlyList<string> PoleIds { get; init; } = Array.Empty<string>();
     public bool IsDeleted { get; init; }
 }
 

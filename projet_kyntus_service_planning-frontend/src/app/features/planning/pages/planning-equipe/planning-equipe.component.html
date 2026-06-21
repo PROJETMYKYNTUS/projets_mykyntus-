@@ -1,12 +1,12 @@
-<div class="page-wrapper ky-page-shell">
+<div class="ky-page-shell">
 
-  <div class="page-header">
-    <div class="header-info">
-      <h1 class="page-title">Planning Équipe</h1>
-      <p class="page-sub">Plannings publiés des services que vous gérez</p>
+  <app-kyntus-page-header
+    title="Planning Équipe"
+    subtitle="Plannings publiés des services que vous gérez">
+    <div actions>
+      <button type="button" class="ky-btn-secondary" (click)="goBack()">Retour aux plannings</button>
     </div>
-    <button type="button" class="btn-back" (click)="goBack()">Retour aux plannings</button>
-  </div>
+  </app-kyntus-page-header>
 
   <div class="equipe-loading" *ngIf="equipeLoading">
     <p>Chargement des plannings équipe…</p>

@@ -15,9 +15,12 @@ export function isChefDeProjetRole(roleName: string): boolean {
   return r === 'rp' || r === 'chefdeprojet';
 }
 
+export function isSupportManagerRole(roleName: string): boolean {
+  return normalizeRoleToken(roleName) === 'manager';
+}
+
 export function isSuperviseurRole(roleName: string): boolean {
-  const r = normalizeRoleToken(roleName);
-  return r === 'manager' || r === 'superviseur';
+  return normalizeRoleToken(roleName) === 'superviseur';
 }
 
 export function isReferentTechniqueRole(roleName: string): boolean {
@@ -49,6 +52,10 @@ export function orgRoleAssignmentDepth(roleName: string): OrgRoleAssignmentDepth
   return 'none';
 }
 
+export function orgAssignmentRequiresOperationalDept(depth: OrgRoleAssignmentDepth): boolean {
+  return depth !== 'none';
+}
+
 export function orgAssignmentRequiresPole(depth: OrgRoleAssignmentDepth): boolean {
   return depth !== 'none';
 }
@@ -67,16 +74,16 @@ export function orgAssignmentIsRequired(depth: OrgRoleAssignmentDepth): boolean 
 
 export function orgAssignmentHint(roleName: string, depth: OrgRoleAssignmentDepth): string {
   if (depth === 'pole') {
-    return 'Chef de projet : sélectionnez le pôle supervisé.';
+    return 'Chef de projet : département opérationnel puis pôle supervisé.';
   }
   if (depth === 'cellule') {
-    return 'Superviseur : sélectionnez le pôle puis la cellule supervisée.';
+    return 'Superviseur : département, pôle puis cellule supervisée.';
   }
   if (depth === 'service') {
     if (isReferentTechniqueRole(roleName)) {
-      return 'Référent technique : choisissez le service encadré.';
+      return 'Référent technique : département, pôle, cellule puis service encadré.';
     }
-    return 'Pilote : sélectionnez le pôle, la cellule et le service d’affectation.';
+    return 'Pilote : département, pôle, cellule et service d’affectation.';
   }
   return '';
 }

@@ -7,7 +7,7 @@ import { KyntusPageHeaderComponent } from './kyntus-page-header.component';
   imports: [KyntusPageHeaderComponent],
   template: `
     <div class="kyntus-employee-inbox ky-page-shell">
-      <app-kyntus-page-header [title]="title" [subtitle]="subtitle" [eyebrow]="eyebrow">
+      <app-kyntus-page-header [title]="title" [subtitle]="subtitle">
         @if (createLabel) {
           <div actions>
             <button type="button" class="kyntus-inbox-create ky-btn-primary" (click)="createClick.emit()">
@@ -49,7 +49,6 @@ import { KyntusPageHeaderComponent } from './kyntus-page-header.component';
 export class KyntusEmployeeInboxComponent {
   @Input({ required: true }) title!: string;
   @Input() subtitle = '';
-  @Input() eyebrow = '';
   @Input() createLabel = '';
   @Output() createClick = new EventEmitter<void>();
 }

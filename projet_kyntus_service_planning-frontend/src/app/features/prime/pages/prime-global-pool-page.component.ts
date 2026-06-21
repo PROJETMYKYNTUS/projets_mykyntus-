@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   OnInit,
   signal,
@@ -34,6 +35,8 @@ import {
 } from '../services/prime-global-pool-api.service';
 import { primeHttpErrorDetail } from '../lib/primeHttpErrorMessage';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
+import { DepartmentContextService } from '../services/allowance-api.service';
+import { redirectSupportManagerToAllowancesIfNeeded } from '../lib/allowance-manager-guard';
 import { PrimeEmployeeFichePreviewActionsComponent } from '../components/prime-employee-fiche-preview-actions.component';
 
 type ScopeLevel = 'Service' | 'Cellule' | 'Pole';
@@ -573,6 +576,19 @@ export class PrimeGlobalPoolPageComponent implements OnInit {
   readonly role = inject(RoleService);
   private readonly api = inject(PrimeGlobalPoolApiService);
   private readonly nav = inject(PrimeNavRequestService);
+  private readonly deptContext = inject(DepartmentContextService);
+
+  constructor() {
+    effect(() => {
+      if (!this.deptContext.loaded()) return;
+      redirectSupportManagerToAllowancesIfNeeded(
+        this.role.currentRole(),
+        this.deptContext,
+        this.nav,
+        '/global-pool',
+      );
+    });
+  }
 
   readonly icons = {
     loader: LoaderCircle,
@@ -752,6 +768,7 @@ export class PrimeGlobalPoolPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    void this.deptContext.load();
     this.api.listPeriods().subscribe({
       next: (p) => {
         this.periods.set(p);
@@ -805,7 +822,7 @@ export class PrimeGlobalPoolPageComponent implements OnInit {
         this.loading.set(false);
       },
     });
-    this.api.scopeInbox(uid).subscribe({
+    this.api.scopeInbox(uid, this.role.currentRole()).subscribe({
       next: (list) => this.inbox.set(list),
       error: () => this.inbox.set([]),
     });
@@ -862,7 +879,7 @@ export class PrimeGlobalPoolPageComponent implements OnInit {
           this.preparing.set(false);
           if (res.ready && res.scopeSynthesisId) {
             this.scopeSynthesisId.set(res.scopeSynthesisId);
-            this.api.scopeInbox(this.role.currentUser().id).subscribe({
+            this.api.scopeInbox(this.role.currentUser().id, this.role.currentRole()).subscribe({
               next: (list) => this.inbox.set(list),
               error: () => {},
             });
@@ -1256,7 +1273,7 @@ export class PrimeGlobalPoolPageComponent implements OnInit {
   private afterPaymentChange(): void {
     const sel = this.selected();
     if (sel) this.loadLines(sel);
-    this.api.scopeInbox(this.role.currentUser().id).subscribe({
+    this.api.scopeInbox(this.role.currentUser().id, this.role.currentRole()).subscribe({
       next: (list) => this.inbox.set(list),
       error: () => {},
     });

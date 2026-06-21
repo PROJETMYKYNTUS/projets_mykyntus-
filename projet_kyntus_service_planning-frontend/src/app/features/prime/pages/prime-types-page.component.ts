@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
       <div class="prime-page-shell">
         <div class="flex justify-between items-center">
           <div>
-            <h1 class="text-3xl font-bold text-primary tracking-tight">Prime Types</h1>
+            <h1 class="prime-page-title">Prime Types</h1>
             <p class="text-muted mt-1">Manage bonus categories and definitions.</p>
           </div>
           <button

@@ -7,9 +7,12 @@ public sealed class ParrainageDbContextFactory : IDesignTimeDbContextFactory<Par
 {
     public ParrainageDbContext CreateDbContext(string[] args)
     {
+        var connectionString =
+            Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+            ?? "Host=localhost;Port=8433;Database=parrainage_db;Username=parrainage_user;Password=Parrainage@2026";
+
         var options = new DbContextOptionsBuilder<ParrainageDbContext>()
-            .UseNpgsql(
-                "Host=localhost;Port=5433;Database=parrainage_db;Username=parrainage_user;Password=Parrainage@2026")
+            .UseNpgsql(connectionString)
             .Options;
         return new ParrainageDbContext(options);
     }

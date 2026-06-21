@@ -9,6 +9,7 @@ import { SubServiceService } from '../../../sub-services/services/sub-service.se
 import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-select-sync.directive';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { Calendar, RefreshCw, Search } from 'lucide';
 import type { User } from '../../../users/users-module';
 import type { Department } from '../../../prime/models';
@@ -29,7 +30,7 @@ import {
 @Component({
   selector: 'app-conge-historique',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective, KyntusPageHeaderComponent],
   templateUrl: './conge-historique.component.html',
   styleUrls: ['./conge-historique.component.css'],
 })
@@ -120,7 +121,7 @@ export class CongeHistoriqueComponent implements OnInit {
 
   employePerimeter(employeId: string): UserOrgPerimeterView {
     return this.perimeterByEmployeGuid.get(employeId.trim().toLowerCase())
-      ?? { pole: null, cellule: null, service: null };
+      ?? { operationalDepartment: null, pole: null, cellule: null, service: null };
   }
 
   refreshOrgFilterOptions(): void {

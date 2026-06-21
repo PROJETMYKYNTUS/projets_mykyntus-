@@ -1,20 +1,9 @@
-<div class="page-wrapper ky-page-shell">
+<div class="ky-page-shell">
 
-  <div class="page-header">
-    <div class="header-left">
-      <span class="eyebrow">Communication</span>
-      <h1 class="page-title">
-        <app-lucide-icon [icon]="icons.mail" className="w-7 h-7" />
-        Mes newsletters
-      </h1>
-      <p class="page-sub">Communications internes reçues selon votre rôle</p>
-      <p class="results-count" *ngIf="!loading && !error">
-        <strong>{{ filteredNewsletters.length }}</strong> message(s)
-        · <strong>{{ getReadCount() }}</strong> lu(s)
-        <span *ngIf="getUnreadCount() > 0"> · <strong class="unread-count">{{ getUnreadCount() }}</strong> non lu(s)</span>
-      </p>
-    </div>
-  </div>
+  <app-kyntus-page-header
+    title="Mes newsletters"
+    [subtitle]="!loading && !error ? filteredNewsletters.length + ' message(s) · ' + getReadCount() + ' lu(s)' + (getUnreadCount() > 0 ? ' · ' + getUnreadCount() + ' non lu(s)' : '') : 'Communications internes reçues selon votre rôle'">
+  </app-kyntus-page-header>
 
   <div class="kpi-row" *ngIf="!loading && !error && myNewsletters.length > 0">
     <div class="kpi-card ky-card kc-blue">

@@ -38,6 +38,10 @@ export interface MenuItem {
   documentationAuditSection?: AuditInterfaceSectionId;
   /** Onglet Organisation RH (route /organisation, query ?tab=). */
   organisationTab?: OrganisationMenuEntry;
+  /** En-tête de section non cliquable dans le menu latéral. */
+  isSectionHeader?: boolean;
+  /** Badge numérique (ex. compteur inbox). */
+  menuBadge?: number;
 }
 
 export interface Microservice {
@@ -72,15 +76,13 @@ const ICONS = {
 
 export const MICROSERVICES: Microservice[] = [
   {
-    id: 'organisation',
-    label: 'Organisation',
+    id: 'organisation-rh',
+    label: 'Organisation RH',
     icon: ICONS.building,
     roles: ADMIN_RH,
     children: [
-      { label: 'Organisation RH', route: '/organisation', organisationTab: 'home', roles: ADMIN_RH },
-      { label: 'Pôles', route: '/organisation', organisationTab: 'departments', roles: ADMIN_RH },
-      { label: 'Cellules', route: '/organisation', organisationTab: 'poles', roles: ADMIN_RH },
-      { label: 'Services', route: '/organisation', organisationTab: 'cellules', roles: ADMIN_RH },
+      { label: 'Organisation opérationnel', route: '/organisation', roles: ADMIN_RH },
+      { label: 'Organisation support', route: '/departements-metier', roles: ADMIN_RH },
     ],
   },
   {
@@ -89,6 +91,7 @@ export const MICROSERVICES: Microservice[] = [
     icon: ICONS.users,
     children: [
       { label: 'Employés', route: '/users', roles: ADMIN_RH },
+      { label: 'Champs employés', route: '/users/fields', roles: ADMIN_RH },
       { label: 'Nouvel employé', route: '/users/create', roles: ADMIN_RH },
       { label: 'Import employés', route: '/import', roles: ADMIN_RH },
       { label: 'Contrats', route: '/contracts', roles: MANAGER_ROLES },

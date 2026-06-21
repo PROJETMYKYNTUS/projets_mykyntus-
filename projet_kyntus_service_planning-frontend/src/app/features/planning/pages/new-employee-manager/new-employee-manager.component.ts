@@ -6,12 +6,13 @@ import { Router } from "@angular/router";
 import { CongeService, EmployeeSimple } from "../../services/conge.service";
 import { PlanningService, SubServiceSimple } from "../../services/planning.service";
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { Calendar, UserPlus, X } from 'lucide';
 
 @Component({
   selector: "app-new-employee-manager",
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent],
   templateUrl: "./new-employee-manager.component.html",
   styleUrls: ["./new-employee-manager.component.css"]
 })

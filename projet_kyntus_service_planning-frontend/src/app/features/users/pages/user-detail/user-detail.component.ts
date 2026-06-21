@@ -5,6 +5,9 @@ import { HttpClient } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
 import { UserService } from '../../services/user.service';
 import { User } from '../../users-module';
+import { EmployeeFieldService } from '../../services/employee-field.service';
+import type { EmployeeImportFieldConfig } from '../../services/employee-import.service';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { ArrowLeft, Pencil, Trash2 } from 'lucide';
 import type { Department } from '../../../prime/models';
@@ -14,13 +17,15 @@ import {
   enrichUserOrgPerimeter,
   orgCellLabel,
   orgPerimeterSummary,
+  type BusinessDepartmentRef,
+  type DirectoryEmployeeOrgRef,
   type UserOrgPerimeterView,
 } from '../../../../core/org/user-org-perimeter';
 
 @Component({
   selector: 'app-user-detail',
   standalone: true,
-  imports: [CommonModule, LucideIconComponent],
+  imports: [CommonModule, LucideIconComponent, KyntusPageHeaderComponent],
   templateUrl: './user-detail.component.html',
   styleUrls: ['./user-detail.component.css']
 })
@@ -28,7 +33,8 @@ export class UserDetailComponent implements OnInit {
   readonly icons = { back: ArrowLeft, edit: Pencil, trash: Trash2 };
   readonly orgCellLabel = orgCellLabel;
   user: User | null = null;
-  perimeter: UserOrgPerimeterView = { pole: null, cellule: null, service: null };
+  customFields: EmployeeImportFieldConfig[] = [];
+  perimeter: UserOrgPerimeterView = { operationalDepartment: null, pole: null, cellule: null, service: null };
   loading = false;
   error: string | null = null;
 
@@ -38,13 +44,24 @@ export class UserDetailComponent implements OnInit {
     private userService: UserService,
     private orgApi: PrimeOrgApiService,
     private subServiceService: SubServiceService,
+    private fieldService: EmployeeFieldService,
     private http: HttpClient,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
+    this.fieldService.getFields(true).subscribe({
+      next: (fields) => {
+        this.customFields = fields.filter((f) => f.isSystemField === false);
+        this.cdr.detectChanges();
+      },
+    });
     this.loadUser(id);
+  }
+
+  customFieldValue(fieldKey: string): string {
+    return this.user?.customFields?.[fieldKey] ?? '—';
   }
 
   get perimeterSummary(): string {
@@ -59,10 +76,19 @@ export class UserDetailComponent implements OnInit {
       departments: this.http.get<Department[]>('/api/prime/departments'),
       overview: this.orgApi.loadOverview(),
       subServices: this.subServiceService.getAllSubServices(),
+      directoryEmployees: this.http.get<DirectoryEmployeeOrgRef[]>('/api/directory/employees'),
+      businessDepartments: this.http.get<BusinessDepartmentRef[]>('/api/directory/business-departments'),
     }).subscribe({
-      next: ({ user, departments, overview, subServices }) => {
+      next: ({ user, departments, overview, subServices, directoryEmployees, businessDepartments }) => {
         this.user = user;
-        this.perimeter = enrichUserOrgPerimeter(user, departments ?? [], overview, subServices ?? []);
+        this.perimeter = enrichUserOrgPerimeter(
+          user,
+          departments ?? [],
+          overview,
+          subServices ?? [],
+          directoryEmployees ?? [],
+          businessDepartments ?? [],
+        );
         this.loading = false;
         this.cdr.detectChanges();
       },

@@ -88,17 +88,23 @@ public static class ParrainageSeeder
             ("ref-1011", "emp-5", "Karim Benali", "proj-3", "Gamma Cloud", "team-c", "Inès Hadj", "ines.hadj@email.com", "+33 6 93 83 73 63", "Scrum master", "SUBMITTED"),
             ("ref-1012", "emp-2", "Sophie Leroy", "proj-1", "Alpha Digital", "team-a", "Claire Martin", "claire.martin@email.com", "+33 6 12 34 56 79", "Développeur", "SUBMITTED"),
             ("ref-1013", "emp-1", "Jean Dupont", "proj-2", "Beta Ops", "team-b", "Antoine Dupuis", "antoine.dupuis@email.com", "+33 6 14 24 34 44", "Lead développement", "APPROVED"),
-            ("ref-1014", "emp-3", "Thomas Bernard", "proj-3", "Gamma Cloud", "team-c", "Léa Marchand", "lea.marchand@email.com", "+33 6 15 25 35 45", "Ingénieure données", "APPROVED"),
-            ("ref-1015", "emp-4", "Julie Moreau", "proj-1", "Alpha Digital", "team-a", "Youssef Alami", "youssef.alami@email.com", "+33 6 16 26 36 46", "Développeur", "APPROVED"),
+            ("ref-1014", "emp-3", "Thomas Bernard", "proj-3", "Gamma Cloud", "team-c", "Léa Marchand", "lea.marchand@email.com", "+33 6 15 25 35 45", "Ingénieure données", "IN_TRAINING"),
+            ("ref-1015", "emp-4", "Julie Moreau", "proj-1", "Alpha Digital", "team-a", "Youssef Alami", "youssef.alami@email.com", "+33 6 16 26 36 46", "Développeur", "IN_TRAINING"),
         };
 
         var list = new List<ReferralEntity>();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
         for (var idx = 0; idx < seed.Length; idx++)
         {
             var r = seed[idx];
-            var rewardAmount = r.Status == "REWARDED" ? 600m + (idx % 3) * 50m : 0m;
+            var rewardAmount = r.Status switch
+            {
+                "REWARDED" => 600m + (idx % 3) * 50m,
+                "IN_TRAINING" => 750m,
+                _ => 0m,
+            };
             var createdAt = now.AddMilliseconds(-(idx * (double)HalfDayMs + idx * (double)DayMs));
-            list.Add(new ReferralEntity
+            var entity = new ReferralEntity
             {
                 Id = r.Id,
                 ReferrerId = r.ReferrerId,
@@ -113,9 +119,19 @@ public static class ParrainageSeeder
                 AppliedRuleId = ResolveAppliedRuleId(r.Position),
                 PositionMode = ResolvePositionMode(r.Position),
                 Status = r.Status,
+                CvUrl = ReferralCvStorageService.CvApiPath(r.Id),
                 RewardAmount = rewardAmount,
+                PaymentStatus = ReferralPaymentStatus.NotEligible,
                 CreatedAt = createdAt,
-            });
+            };
+
+            if (r.Status == "IN_TRAINING")
+            {
+                entity.CandidateStartDate = today.AddMonths(-1);
+                entity.TrainingEndDate = r.Id == "ref-1015" ? today.AddDays(-3) : today.AddMonths(1);
+            }
+
+            list.Add(entity);
         }
 
         return list;
@@ -186,6 +202,22 @@ public static class ParrainageSeeder
                     PerformedByLabel = "RH",
                     CreatedAt = submittedAt.AddMilliseconds(DayMs * 2),
                     Comment = "Candidature examinée — attente entrée.",
+                });
+            }
+
+            if (r.Status == "IN_TRAINING")
+            {
+                history.Add(new ReferralHistoryEntryEntity
+                {
+                    Id = $"hist-{r.Id}-train",
+                    ReferralId = r.Id,
+                    CandidateName = r.CandidateName,
+                    Action = "IN_TRAINING",
+                    PerformedById = "rh-1",
+                    PerformedByLabel = "RH",
+                    CreatedAt = submittedAt.AddMilliseconds(DayMs * 3),
+                    RewardAmount = r.RewardAmount,
+                    Comment = "Passage par formation.",
                 });
             }
 

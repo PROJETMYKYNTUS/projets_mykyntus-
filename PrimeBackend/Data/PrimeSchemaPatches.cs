@@ -561,4 +561,109 @@ public static class PrimeSchemaPatches
             """,
             ct);
     }
+
+    public static async Task EnsureAllowanceTrackSchemaAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE prime_employee ADD COLUMN IF NOT EXISTS "BusinessDepartmentId" character varying(64) NULL;
+            ALTER TABLE prime_employee ADD COLUMN IF NOT EXISTS "BusinessDepartmentKind" character varying(32) NULL;
+
+            CREATE TABLE IF NOT EXISTS prime_business_department (
+                "Id" character varying(64) NOT NULL PRIMARY KEY,
+                "Code" character varying(64) NOT NULL,
+                "Name" character varying(256) NOT NULL,
+                "Kind" character varying(32) NOT NULL DEFAULT 'Operational',
+                "ManagerEmployeeId" character varying(128) NULL,
+                "IsActive" boolean NOT NULL DEFAULT TRUE
+            );
+
+            CREATE TABLE IF NOT EXISTS prime_business_department_pole (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "BusinessDepartmentId" character varying(64) NOT NULL REFERENCES prime_business_department("Id") ON DELETE CASCADE,
+                "PoleId" character varying(64) NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS prime_allowance_type (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "Code" character varying(64) NOT NULL,
+                "Label" character varying(256) NOT NULL,
+                "Category" character varying(64) NOT NULL,
+                "CalculationMode" character varying(32) NOT NULL DEFAULT 'Manual',
+                "DefaultAmount" numeric(18,2) NULL,
+                "MinAmount" numeric(18,2) NULL,
+                "MaxAmount" numeric(18,2) NULL,
+                "RequiresJustification" boolean NOT NULL DEFAULT FALSE,
+                "ApplicableDepartmentKinds" character varying(64) NOT NULL DEFAULT 'Support',
+                "IsActive" boolean NOT NULL DEFAULT TRUE,
+                "CreatedAt" timestamp with time zone NOT NULL,
+                "UpdatedAt" timestamp with time zone NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_prime_allowance_type_Code" ON prime_allowance_type ("Code");
+
+            CREATE TABLE IF NOT EXISTS prime_allowance_type_department (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "AllowanceTypeId" uuid NOT NULL REFERENCES prime_allowance_type("Id") ON DELETE CASCADE,
+                "BusinessDepartmentId" character varying(64) NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS prime_allowance_request (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "EmployeeId" character varying(128) NOT NULL,
+                "BusinessDepartmentId" character varying(64) NOT NULL,
+                "AllowanceTypeId" uuid NOT NULL REFERENCES prime_allowance_type("Id"),
+                "Period" character varying(16) NOT NULL,
+                "Amount" numeric(18,2) NOT NULL,
+                "Currency" character varying(8) NOT NULL DEFAULT 'MAD',
+                "Reason" character varying(2048) NOT NULL DEFAULT '',
+                "Source" character varying(32) NOT NULL DEFAULT 'Manual',
+                "Status" character varying(32) NOT NULL DEFAULT 'Draft',
+                "CreatedByUserId" character varying(128) NOT NULL,
+                "RejectionReason" text NULL,
+                "ManagerApprovedByUserId" character varying(128) NULL,
+                "ManagerApprovedAt" timestamp with time zone NULL,
+                "RhApprovedByUserId" character varying(128) NULL,
+                "RhApprovedAt" timestamp with time zone NULL,
+                "ComptaApprovedByUserId" character varying(128) NULL,
+                "ComptaApprovedAt" timestamp with time zone NULL,
+                "PaidAt" timestamp with time zone NULL,
+                "CreatedAt" timestamp with time zone NOT NULL,
+                "UpdatedAt" timestamp with time zone NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS prime_allowance_request_history (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "AllowanceRequestId" uuid NOT NULL REFERENCES prime_allowance_request("Id") ON DELETE CASCADE,
+                "Action" character varying(32) NOT NULL,
+                "FromStatus" character varying(32) NOT NULL,
+                "ToStatus" character varying(32) NOT NULL,
+                "ActorUserId" character varying(128) NOT NULL,
+                "ActorRole" character varying(64) NOT NULL,
+                "Comment" text NULL,
+                "At" timestamp with time zone NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS prime_allowance_workflow_step (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "SortOrder" integer NOT NULL,
+                "ApproverRole" character varying(64) NOT NULL,
+                "IsRequired" boolean NOT NULL DEFAULT TRUE,
+                "IsActive" boolean NOT NULL DEFAULT TRUE,
+                "CreatedAt" timestamp with time zone NOT NULL,
+                "UpdatedAt" timestamp with time zone NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS prime_allowance_rule (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "AllowanceTypeId" uuid NOT NULL REFERENCES prime_allowance_type("Id"),
+                "BusinessDepartmentId" character varying(64) NOT NULL,
+                "ConditionJson" text NOT NULL DEFAULT '{{}}',
+                "FormulaJson" text NOT NULL DEFAULT '{{}}',
+                "DataSource" character varying(64) NOT NULL DEFAULT 'Manual',
+                "IsActive" boolean NOT NULL DEFAULT TRUE,
+                "CreatedAt" timestamp with time zone NOT NULL
+            );
+            """,
+            ct);
+    }
 }

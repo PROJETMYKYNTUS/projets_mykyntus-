@@ -1,12 +1,13 @@
 import { Component, OnInit, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { Router } from '@angular/router';
 import { DayAssignment, PlanningService, WeeklyPlanningResponse } from '../../services/planning.service';
 
 @Component({
   selector: 'app-planning-equipe',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, KyntusPageHeaderComponent],
   templateUrl: './planning-equipe.component.html',
   styleUrls: ['./planning-equipe.component.css'],
   encapsulation: ViewEncapsulation.None,

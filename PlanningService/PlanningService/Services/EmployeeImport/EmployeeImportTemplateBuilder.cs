@@ -1,10 +1,11 @@
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using PlanningService.Data;
+using PlanningService.DTOs;
 
 namespace PlanningService.Services.EmployeeImport;
 
-public class EmployeeImportTemplateBuilder(AppDbContext db)
+public class EmployeeImportTemplateBuilder(AppDbContext db, IEmployeeFieldService fieldService)
 {
     private static readonly XLColor HeaderBg = XLColor.FromHtml("#1E3A5F");
 
@@ -17,26 +18,43 @@ public class EmployeeImportTemplateBuilder(AppDbContext db)
             .ToListAsync(ct);
         roles = roles.Where(r => !EmployeeImportFieldRegistry.IsImportForbiddenRoleName(r)).ToList();
 
+        var customFields = (await fieldService.GetAllAsync(enabledOnly: true, ct))
+            .Where(f => !f.IsSystemField)
+            .OrderBy(f => f.SortOrder)
+            .ToList();
+
         using var wb = new XLWorkbook();
-        BuildEmployeesSheet(wb, orgSnapshot, roles);
+        BuildEmployeesSheet(wb, orgSnapshot, roles, customFields);
         BuildReferentialsSheet(wb, roles, orgSnapshot);
-        BuildNoticeSheet(wb);
+        BuildNoticeSheet(wb, customFields.Count);
 
         using var stream = new MemoryStream();
         wb.SaveAs(stream);
         return stream.ToArray();
     }
 
-    private void BuildEmployeesSheet(XLWorkbook wb, OrgTemplateSample sample, List<string> roles)
+    private void BuildEmployeesSheet(
+        XLWorkbook wb,
+        OrgTemplateSample sample,
+        List<string> roles,
+        IReadOnlyList<EmployeeImportFieldConfigDto> customFields)
     {
         var ws = wb.Worksheets.Add("Employés");
         var fields = EmployeeImportFieldRegistry.TemplateFields;
+        var col = 1;
 
-        for (var i = 0; i < fields.Count; i++)
+        for (var i = 0; i < fields.Count; i++, col++)
         {
             var field = fields[i];
             var header = field.IsRequiredOnCreate ? $"{field.Label} *" : field.Label;
-            StyleHeader(ws.Cell(1, i + 1), header);
+            StyleHeader(ws.Cell(1, col), header);
+        }
+
+        foreach (var custom in customFields)
+        {
+            var header = custom.IsRequiredOnCreate ? $"{custom.Label} *" : custom.Label;
+            StyleHeader(ws.Cell(1, col), header);
+            col++;
         }
 
         var example = new Dictionary<string, string>
@@ -53,12 +71,26 @@ public class EmployeeImportTemplateBuilder(AppDbContext db)
             ["hireDate"] = "15/01/2024",
             ["isActive"] = "Oui",
             ["level"] = "Débutant",
+            ["operationalDepartment"] = "",
         };
 
-        for (var i = 0; i < fields.Count; i++)
+        col = 1;
+        for (var i = 0; i < fields.Count; i++, col++)
         {
             if (example.TryGetValue(fields[i].FieldKey, out var val))
-                ws.Cell(2, i + 1).Value = val;
+                ws.Cell(2, col).Value = val;
+        }
+
+        foreach (var custom in customFields)
+        {
+            ws.Cell(2, col).Value = custom.DataType switch
+            {
+                "date" => "01/01/2024",
+                "number" => "1",
+                "boolean" => "Oui",
+                _ => $"Exemple {custom.Label}"
+            };
+            col++;
         }
 
         ws.Row(1).Height = 22;
@@ -96,10 +128,10 @@ public class EmployeeImportTemplateBuilder(AppDbContext db)
         ws.Columns().AdjustToContents();
     }
 
-    private static void BuildNoticeSheet(XLWorkbook wb)
+    private static void BuildNoticeSheet(XLWorkbook wb, int customFieldCount)
     {
         var ws = wb.Worksheets.Add("Notice");
-        var lines = new[]
+        var lines = new List<string>
         {
             "Règles d'import employés",
             "",
@@ -108,14 +140,19 @@ public class EmployeeImportTemplateBuilder(AppDbContext db)
             "• Cellule vide = la valeur en base n'est pas effacée.",
             "• Mot de passe vide = mot de passe système par défaut (Azerty@123).",
             "• Pôle / Cellule / Service : utilisez les noms exacts de la feuille Référentiels.",
+            "• Département opérationnel (optionnel) : requis uniquement si l'import doit créer un nouveau pôle.",
             "• Niveau : Débutant, Intermédiaire ou Expert (voir feuille Référentiels).",
             "• Les rôles Admin et Manager ne peuvent pas être attribués via l'import employés.",
             "• Une erreur sur une ligne n'arrête pas le reste du fichier.",
-            "",
-            "Après dépôt du fichier : vérifiez le mapping des colonnes puis la prévisualisation avant de lancer l'import.",
         };
 
-        for (var i = 0; i < lines.Length; i++)
+        if (customFieldCount > 0)
+            lines.Add($"• {customFieldCount} champ(s) personnalisé(s) inclus après les colonnes standard.");
+
+        lines.Add("");
+        lines.Add("Après dépôt du fichier : vérifiez le mapping des colonnes puis la prévisualisation avant de lancer l'import.");
+
+        for (var i = 0; i < lines.Count; i++)
             ws.Cell(i + 1, 1).Value = lines[i];
 
         ws.Column(1).Width = 90;

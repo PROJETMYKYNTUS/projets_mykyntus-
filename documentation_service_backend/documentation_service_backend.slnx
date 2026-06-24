@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="Documentation.API/Documentation.API.csproj" />
+  <Project Path="Documentation.Application/Documentation.Application.csproj" />
+  <Project Path="Documentation.ArchitectureTests/Documentation.ArchitectureTests.csproj" />
+  <Project Path="Documentation.CharacterizationTests/DocumentationBackend.CharacterizationTests.csproj" />
+  <Project Path="Documentation.Contracts/Documentation.Contracts.csproj" />
+  <Project Path="Documentation.Domain/Documentation.Domain.csproj" />
+  <Project Path="Documentation.Infrastructure/Documentation.Infrastructure.csproj" />
+</Solution>

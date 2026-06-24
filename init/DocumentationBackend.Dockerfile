@@ -1,29 +1,56 @@
-# Build du microservice documentation : contexte = racine du dépôt (voir docker-compose.yml).
-# Le fichier Api/AppRoleHeaderParser.cs du dépôt peut être vide ; on superpose l'implémentation depuis init/patches.
+# Redirige vers le Dockerfile du service documentation (conservé pour compatibilité scripts legacy).
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# docker-compose utilise documentation_service_backend/Dockerfile.
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+
 WORKDIR /src
 
+
+
 COPY Messaging.Contracts/Messaging.Contracts.csproj Messaging.Contracts/
+
 COPY Kyntus.Identity.Jwt/Kyntus.Identity.Jwt.csproj Kyntus.Identity.Jwt/
+
 COPY Kyntus.Iam/Kyntus.Iam.csproj Kyntus.Iam/
-COPY documentation_service_backend/DocumentationBackend/DocumentationBackend.csproj documentation_service_backend/DocumentationBackend/
+
 COPY documentation_service_backend/Documentation.Contracts/Documentation.Contracts.csproj documentation_service_backend/Documentation.Contracts/
-RUN dotnet restore "./documentation_service_backend/DocumentationBackend/DocumentationBackend.csproj"
+
+COPY documentation_service_backend/Documentation.Domain/Documentation.Domain.csproj documentation_service_backend/Documentation.Domain/
+
+COPY documentation_service_backend/Documentation.Application/Documentation.Application.csproj documentation_service_backend/Documentation.Application/
+
+COPY documentation_service_backend/Documentation.Infrastructure/Documentation.Infrastructure.csproj documentation_service_backend/Documentation.Infrastructure/
+
+COPY documentation_service_backend/Documentation.API/Documentation.API.csproj documentation_service_backend/Documentation.API/
+
+RUN dotnet restore documentation_service_backend/Documentation.API/Documentation.API.csproj
+
+
 
 COPY Messaging.Contracts/ Messaging.Contracts/
+
 COPY Kyntus.Identity.Jwt/ Kyntus.Identity.Jwt/
+
 COPY Kyntus.Iam/ Kyntus.Iam/
+
 COPY documentation_service_backend/ documentation_service_backend/
-COPY init/patches/documentation-service/AppRoleHeaderParser.cs documentation_service_backend/DocumentationBackend/Api/AppRoleHeaderParser.cs
 
-RUN dotnet publish "./documentation_service_backend/DocumentationBackend/DocumentationBackend.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish documentation_service_backend/Documentation.API/Documentation.API.csproj -c Release -o /out
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+
 WORKDIR /app
-COPY --from=build /app/publish .
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /out .
 
 ENV ASPNETCORE_URLS=http://+:8080
+
 EXPOSE 8080
 
-ENTRYPOINT ["dotnet", "DocumentationBackend.dll"]
+ENTRYPOINT ["dotnet", "Documentation.API.dll"]
+

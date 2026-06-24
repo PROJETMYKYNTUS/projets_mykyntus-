@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="Prime.API/Prime.API.csproj" />
+  <Project Path="Prime.Application/Prime.Application.csproj" />
+  <Project Path="Prime.ArchitectureTests/Prime.ArchitectureTests.csproj" />
+  <Project Path="Prime.Domain/Prime.Domain.csproj" />
+  <Project Path="Prime.Infrastructure/Prime.Infrastructure.csproj" />
+  <Project Path="Prime.Tests/PrimeBackend.Tests.csproj" />
+</Solution>

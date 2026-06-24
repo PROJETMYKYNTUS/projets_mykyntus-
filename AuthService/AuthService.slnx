@@ -1,6 +1,8 @@
 <Solution>
-  <Folder Name="/Éléments de solution/">
-    <File Path=".gitignore" />
-  </Folder>
-  <Project Path="AuthService/AuthService.csproj" />
+  <Project Path="Auth.API/Auth.API.csproj" />
+  <Project Path="Auth.Application/Auth.Application.csproj" />
+  <Project Path="Auth.ArchitectureTests/Auth.ArchitectureTests.csproj" />
+  <Project Path="Auth.CharacterizationTests/AuthService.CharacterizationTests.csproj" />
+  <Project Path="Auth.Domain/Auth.Domain.csproj" />
+  <Project Path="Auth.Infrastructure/Auth.Infrastructure.csproj" />
 </Solution>

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" Version="12.2.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Kyntus.Identity.Jwt\Kyntus.Identity.Jwt.csproj" />
+    <ProjectReference Include="..\EmployeeDirectory.Infrastructure\EmployeeDirectory.Infrastructure.csproj" />
+    <ProjectReference Include="..\EmployeeDirectory.Application\EmployeeDirectory.Application.csproj" />
+  </ItemGroup>
+
+</Project>

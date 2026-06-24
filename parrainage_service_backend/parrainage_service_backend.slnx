@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="Parrainage.API/Parrainage.API.csproj" />
+  <Project Path="Parrainage.Application/Parrainage.Application.csproj" />
+  <Project Path="Parrainage.ArchitectureTests/Parrainage.ArchitectureTests.csproj" />
+  <Project Path="Parrainage.Domain/Parrainage.Domain.csproj" />
+  <Project Path="Parrainage.Infrastructure/Parrainage.Infrastructure.csproj" />
+  <Project Path="Parrainage.Tests/ParrainageBackend.Tests.csproj" />
+</Solution>

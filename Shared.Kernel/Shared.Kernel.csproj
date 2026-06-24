@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Shared.Kernel</RootNamespace>
+    <AssemblyName>Shared.Kernel</AssemblyName>
+    <Description>Kernel partagé Kyntus — Result, BaseEntity, AggregateRoot</Description>
+  </PropertyGroup>
+
+</Project>

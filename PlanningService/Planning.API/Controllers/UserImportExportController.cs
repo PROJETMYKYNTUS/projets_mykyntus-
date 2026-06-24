@@ -1,0 +1,44 @@
+using MediatR;
+using Microsoft.AspNetCore.Mvc;
+using Planning.Application.DTOs;
+using Planning.Application.Users;
+
+namespace Planning.API.Controllers;
+
+[ApiController]
+[Route("api/Users")]
+public class UserImportExportController(IMediator mediator) : ControllerBase
+{
+    [HttpGet("template")]
+    public async Task<IActionResult> DownloadTemplate(CancellationToken ct)
+    {
+        var bytes = await mediator.Send(new DownloadUserImportTemplateQuery(), ct);
+        return File(bytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "template_employes.xlsx");
+    }
+
+    [HttpPost("import")]
+    public async Task<ActionResult<ImportResultDto>> ImportUsers(IFormFile file, CancellationToken ct)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("Fichier manquant.");
+
+        await using var stream = new MemoryStream();
+        await file.CopyToAsync(stream, ct);
+        stream.Position = 0;
+
+        var result = await mediator.Send(new ImportUsersFromExcelCommand(stream), ct);
+        return Ok(result);
+    }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> ExportUsers(CancellationToken ct)
+    {
+        var bytes = await mediator.Send(new ExportUsersToExcelQuery(), ct);
+        var fileName = $"employes_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
+        return File(bytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            fileName);
+    }
+}

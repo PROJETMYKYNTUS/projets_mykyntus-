@@ -1,0 +1,160 @@
+<Solution>
+
+  <Folder Name="/ApiGateway.API/">
+
+    <Project Path="ApiGateway.API/ApiGateway.API/ApiGateway.API.csproj" />
+
+  </Folder>
+
+  <Folder Name="/AuthService/">
+
+    <Project Path="AuthService/Auth.API/Auth.API.csproj" />
+
+    <Project Path="AuthService/Auth.Application/Auth.Application.csproj" />
+
+    <Project Path="AuthService/Auth.ArchitectureTests/Auth.ArchitectureTests.csproj" />
+
+    <Project Path="AuthService/Auth.CharacterizationTests/AuthService.CharacterizationTests.csproj" />
+
+    <Project Path="AuthService/Auth.Domain/Auth.Domain.csproj" />
+
+    <Project Path="AuthService/Auth.Infrastructure/Auth.Infrastructure.csproj" />
+
+  </Folder>
+
+  <Folder Name="/documentation_service_backend/">
+
+    <Project Path="documentation_service_backend/Documentation.API/Documentation.API.csproj" />
+
+    <Project Path="documentation_service_backend/Documentation.Application/Documentation.Application.csproj" />
+
+    <Project Path="documentation_service_backend/Documentation.ArchitectureTests/Documentation.ArchitectureTests.csproj" />
+
+    <Project Path="documentation_service_backend/Documentation.CharacterizationTests/DocumentationBackend.CharacterizationTests.csproj" />
+
+    <Project Path="documentation_service_backend/Documentation.Contracts/Documentation.Contracts.csproj" />
+
+    <Project Path="documentation_service_backend/Documentation.Domain/Documentation.Domain.csproj" />
+
+    <Project Path="documentation_service_backend/Documentation.Infrastructure/Documentation.Infrastructure.csproj" />
+
+  </Folder>
+
+  <Folder Name="/EmployeeDirectory/">
+
+    <Project Path="EmployeeDirectory/EmployeeDirectory.API/EmployeeDirectory.API.csproj" />
+
+    <Project Path="EmployeeDirectory/EmployeeDirectory.Application/EmployeeDirectory.Application.csproj" />
+
+    <Project Path="EmployeeDirectory/EmployeeDirectory.ArchitectureTests/EmployeeDirectory.ArchitectureTests.csproj" />
+
+    <Project Path="EmployeeDirectory/EmployeeDirectory.Domain/EmployeeDirectory.Domain.csproj" />
+
+    <Project Path="EmployeeDirectory/EmployeeDirectory.Infrastructure/EmployeeDirectory.Infrastructure.csproj" />
+
+    <Project Path="EmployeeDirectory/EmployeeDirectory.IntegrationTests/EmployeeDirectory.IntegrationTests.csproj" />
+
+    <Project Path="EmployeeDirectory/EmployeeDirectory.UnitTests/EmployeeDirectory.UnitTests.csproj" />
+
+  </Folder>
+
+  <Folder Name="/FormationService/">
+
+    <Project Path="FormationService/Conge.API/Conge.API.csproj" />
+
+    <Project Path="FormationService/Conge.Application/Conge.Application.csproj" />
+
+    <Project Path="FormationService/Conge.CharacterizationTests/Conge.CharacterizationTests.csproj" />
+
+    <Project Path="FormationService/Conge.Domain/Conge.Domain.csproj" />
+
+    <Project Path="FormationService/Conge.Infrastructure/Conge.Infrastructure.csproj" />
+
+    <Project Path="FormationService/Formation.CharacterizationTests/Formation.CharacterizationTests.csproj" />
+
+  </Folder>
+
+  <Folder Name="/FormationService/projetformationconges/">
+
+    <Project Path="FormationService/projetformationconges/Formation.API.csproj" />
+
+  </Folder>
+
+  <Folder Name="/FormationService/src/Services/Formation/">
+
+    <Project Path="FormationService/src/Services/Formation/Formation.Application/Formation.Application.csproj" />
+
+    <Project Path="FormationService/src/Services/Formation/Formation.Domain/Formation.Domain.csproj" />
+
+    <Project Path="FormationService/src/Services/Formation/Formation.Infrastructure/Formation.Infrastructure.csproj" />
+
+  </Folder>
+
+  <Folder Name="/parrainage_service_backend/">
+
+    <Project Path="parrainage_service_backend/Parrainage.API/Parrainage.API.csproj" />
+
+    <Project Path="parrainage_service_backend/Parrainage.Application/Parrainage.Application.csproj" />
+
+    <Project Path="parrainage_service_backend/Parrainage.ArchitectureTests/Parrainage.ArchitectureTests.csproj" />
+
+    <Project Path="parrainage_service_backend/Parrainage.Domain/Parrainage.Domain.csproj" />
+
+    <Project Path="parrainage_service_backend/Parrainage.Infrastructure/Parrainage.Infrastructure.csproj" />
+
+    <Project Path="parrainage_service_backend/Parrainage.Tests/ParrainageBackend.Tests.csproj" />
+
+  </Folder>
+
+  <Folder Name="/PlanningService/">
+
+    <Project Path="PlanningService/Planning.API/Planning.API.csproj" />
+
+    <Project Path="PlanningService/Planning.Application/Planning.Application.csproj" />
+
+    <Project Path="PlanningService/Planning.ArchitectureTests/Planning.ArchitectureTests.csproj" />
+
+    <Project Path="PlanningService/Planning.CharacterizationTests/PlanningService.CharacterizationTests.csproj" />
+
+    <Project Path="PlanningService/Planning.Domain/Planning.Domain.csproj" />
+
+    <Project Path="PlanningService/Planning.Infrastructure/Planning.Infrastructure.csproj" />
+
+    <Project Path="PlanningService/Planning.UnitTests/Planning.UnitTests.csproj" />
+
+  </Folder>
+
+  <Folder Name="/PrimeBackend/">
+
+    <Project Path="PrimeBackend/Prime.API/Prime.API.csproj" />
+
+    <Project Path="PrimeBackend/Prime.Application/Prime.Application.csproj" />
+
+    <Project Path="PrimeBackend/Prime.ArchitectureTests/Prime.ArchitectureTests.csproj" />
+
+    <Project Path="PrimeBackend/Prime.Domain/Prime.Domain.csproj" />
+
+    <Project Path="PrimeBackend/Prime.Infrastructure/Prime.Infrastructure.csproj" />
+
+    <Project Path="PrimeBackend/Prime.Tests/PrimeBackend.Tests.csproj" />
+
+  </Folder>
+
+  <Folder Name="/tests/">
+
+    <Project Path="tests/Kyntus.Characterization.Common/Kyntus.Characterization.Common.csproj" />
+
+  </Folder>
+
+  <Project Path="Kyntus.Iam/Kyntus.Iam.csproj" />
+
+  <Project Path="Kyntus.Identity.Jwt/Kyntus.Identity.Jwt.csproj" />
+
+  <Project Path="Kyntus.Messaging.Outbox/Kyntus.Messaging.Outbox.csproj" />
+
+  <Project Path="Messaging.Contracts/Messaging.Contracts.csproj" />
+
+  <Project Path="Shared.Kernel/Shared.Kernel.csproj" />
+
+</Solution>
+

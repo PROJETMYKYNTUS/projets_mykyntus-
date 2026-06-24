@@ -16,7 +16,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Formation.Domain\Formation.Domain.csproj" />
 		<ProjectReference Include="..\Formation.Application\Formation.Application.csproj" />
-		<ProjectReference Include="..\Shared.Kernel\Shared.Kernel.csproj" />
+		<ProjectReference Include="..\..\..\..\..\Shared.Kernel\Shared.Kernel.csproj" />
 		<ProjectReference Include="..\..\..\..\..\Messaging.Contracts\Messaging.Contracts.csproj" />
 	</ItemGroup>
 </Project>

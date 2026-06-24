@@ -9,10 +9,17 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+var isTesting = builder.Environment.IsEnvironment("Testing");
 
 // DbContext
 builder.Services.AddDbContext<FormationDbContext>(opt =>
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (isTesting)
+        opt.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")
+            ?? "DataSource=formation_characterization_test.db");
+    else
+        opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+});
 
 // MediatR
 builder.Services.AddMediatR(cfg =>
@@ -21,6 +28,12 @@ builder.Services.AddMediatR(cfg =>
 // Repositories
 builder.Services.AddScoped<IFormationRepository, FormationRepository>();
 
+if (isTesting)
+{
+    builder.Services.AddMassTransit(x => x.UsingInMemory((ctx, cfg) => cfg.ConfigureEndpoints(ctx)));
+}
+else
+{
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<FormationOrgAssignmentSyncConsumer>();
@@ -48,6 +61,7 @@ builder.Services.AddMassTransit(x =>
         cfg.ConfigureEndpoints(ctx);
     });
 });
+}
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -64,9 +78,13 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<FormationDbContext>();
-    db.Database.Migrate();
+    if (isTesting)
+        await db.Database.EnsureCreatedAsync();
+    else
+        db.Database.Migrate();
 
-    if (string.Equals(app.Configuration["KYNTUS_FORMATION_DEMO_SEED"], "true", StringComparison.OrdinalIgnoreCase)
+    if (!isTesting
+        && string.Equals(app.Configuration["KYNTUS_FORMATION_DEMO_SEED"], "true", StringComparison.OrdinalIgnoreCase)
         && !await db.Formations.AnyAsync())
     {
         var demo = FormationEntity.Create(
@@ -83,3 +101,5 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+public partial class Program;

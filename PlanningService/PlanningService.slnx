@@ -1,3 +1,9 @@
 <Solution>
-  <Project Path="PlanningService/PlanningService.csproj" />
+  <Project Path="Planning.API/Planning.API.csproj" />
+  <Project Path="Planning.Application/Planning.Application.csproj" />
+  <Project Path="Planning.ArchitectureTests/Planning.ArchitectureTests.csproj" />
+  <Project Path="Planning.CharacterizationTests/PlanningService.CharacterizationTests.csproj" />
+  <Project Path="Planning.Domain/Planning.Domain.csproj" />
+  <Project Path="Planning.Infrastructure/Planning.Infrastructure.csproj" />
+  <Project Path="Planning.UnitTests/Planning.UnitTests.csproj" />
 </Solution>

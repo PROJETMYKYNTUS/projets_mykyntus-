@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- Catalogue central dans Directory.Packages.props — activer après retrait des Version dans les .csproj -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <Company>Kyntus</Company>
+    <Product>Kyntus Platform</Product>
+  </PropertyGroup>
+</Project>

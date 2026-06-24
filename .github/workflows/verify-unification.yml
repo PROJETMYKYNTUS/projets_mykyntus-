@@ -5,39 +5,54 @@ on:
   push:
     branches: [main, master]
     paths:
-      - 'EmployeeDirectoryBackend/**'
+      - 'Shared.Kernel/**'
+      - 'tests/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'EmployeeDirectory/**'
+      - 'AuthService/**'
       - 'PlanningService/**'
       - 'PrimeBackend/**'
+      - 'parrainage_service_backend/**'
+      - 'documentation_service_backend/**'
       - 'FormationService/**'
+      - 'Kyntus.slnx'
       - 'scripts/verify-unification.ps1'
       - 'docker-compose.yml'
 
 jobs:
-  build-and-verify:
+  characterization-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET
+      - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
-      - name: Build Employee Directory
-        run: dotnet build EmployeeDirectoryBackend/EmployeeDirectory.API/EmployeeDirectory.API.csproj -c Release
-
-      - name: Build Planning
-        run: dotnet build PlanningService/PlanningService/PlanningService.csproj -c Release
-
-      - name: Build Congé
-        run: dotnet build FormationService/Conge.API/Conge.API.csproj -c Release
-
-      - name: Build Auth
-        run: dotnet build AuthService/AuthService/AuthService.csproj -c Release
-
-      - name: Verify script syntax
-        shell: pwsh
+      - name: Run characterization tests
         run: |
-          $null = [System.Management.Automation.Language.Parser]::ParseFile(
-            'scripts/verify-unification.ps1', [ref]$null, [ref]$null)
-          Write-Host "verify-unification.ps1 OK"
+          dotnet test AuthService/Auth.CharacterizationTests/AuthService.CharacterizationTests.csproj -c Release
+          dotnet test AuthService/Auth.ArchitectureTests/Auth.ArchitectureTests.csproj -c Release
+          dotnet test PlanningService/Planning.CharacterizationTests/PlanningService.CharacterizationTests.csproj -c Release
+          dotnet test PlanningService/Planning.ArchitectureTests/Planning.ArchitectureTests.csproj -c Release
+          dotnet test PrimeBackend/Prime.Tests/PrimeBackend.Tests.csproj -c Release --filter "FullyQualifiedName~Golden"
+          dotnet test PrimeBackend/Prime.ArchitectureTests/Prime.ArchitectureTests.csproj -c Release
+          dotnet test parrainage_service_backend/Parrainage.Tests/ParrainageBackend.Tests.csproj -c Release --filter "FullyQualifiedName~Golden"
+          dotnet test parrainage_service_backend/Parrainage.ArchitectureTests/Parrainage.ArchitectureTests.csproj -c Release
+          dotnet test documentation_service_backend/Documentation.CharacterizationTests/DocumentationBackend.CharacterizationTests.csproj -c Release
+          dotnet test documentation_service_backend/Documentation.ArchitectureTests/Documentation.ArchitectureTests.csproj -c Release
+          dotnet test FormationService/Formation.CharacterizationTests/Formation.CharacterizationTests.csproj -c Release
+          dotnet test FormationService/Conge.CharacterizationTests/Conge.CharacterizationTests.csproj -c Release
+          dotnet test EmployeeDirectory/EmployeeDirectory.IntegrationTests/EmployeeDirectory.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~Golden|HealthEndpoint"
+          dotnet test PlanningService/Planning.UnitTests/Planning.UnitTests.csproj -c Release
+
+      - name: Build Clean Architecture backends
+        run: |
+          dotnet build EmployeeDirectory/EmployeeDirectory.slnx -c Release
+          dotnet build AuthService/AuthService.slnx -c Release
+          dotnet build PlanningService/PlanningService.slnx -c Release
+          dotnet build PrimeBackend/PrimeBackend.slnx -c Release
+          dotnet build parrainage_service_backend/parrainage_service_backend.slnx -c Release
+          dotnet build documentation_service_backend/documentation_service_backend.slnx -c Release

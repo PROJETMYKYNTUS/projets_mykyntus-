@@ -30,9 +30,17 @@ services:
     environment:
       POSTGRES_USER: ${KYNTUS_POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${KYNTUS_POSTGRES_PASSWORD:?Définir KYNTUS_POSTGRES_PASSWORD dans .env}
+      KYNTUS_DB_PASSWORD_KYNTUS: ${KYNTUS_DB_PASSWORD_KYNTUS:?Définir KYNTUS_DB_PASSWORD_KYNTUS dans .env}
+      KYNTUS_DB_PASSWORD_AUTH: ${KYNTUS_DB_PASSWORD_AUTH:?Définir KYNTUS_DB_PASSWORD_AUTH dans .env}
+      KYNTUS_DB_PASSWORD_FORMATION: ${KYNTUS_DB_PASSWORD_FORMATION:?Définir KYNTUS_DB_PASSWORD_FORMATION dans .env}
+      KYNTUS_DB_PASSWORD_DOCUMENTATION: ${KYNTUS_DB_PASSWORD_DOCUMENTATION:?Définir KYNTUS_DB_PASSWORD_DOCUMENTATION dans .env}
+      KYNTUS_DB_PASSWORD_CONGE: ${KYNTUS_DB_PASSWORD_CONGE:?Définir KYNTUS_DB_PASSWORD_CONGE dans .env}
+      KYNTUS_DB_PASSWORD_PRIME: ${KYNTUS_DB_PASSWORD_PRIME:?Définir KYNTUS_DB_PASSWORD_PRIME dans .env}
+      KYNTUS_DB_PASSWORD_PARRAINAGE: ${KYNTUS_DB_PASSWORD_PARRAINAGE:?Définir KYNTUS_DB_PASSWORD_PARRAINAGE dans .env}
+      KYNTUS_DB_PASSWORD_DIRECTORY: ${KYNTUS_DB_PASSWORD_DIRECTORY:?Définir KYNTUS_DB_PASSWORD_DIRECTORY dans .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
     ports:
       - "8433:5432"
     healthcheck:
@@ -53,14 +61,24 @@ services:
   # ─── BACKENDS ─────────────────────────────────────────
   auth-backend:
     build:
-      context: ./AuthService/AuthService
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: AuthService/Dockerfile
     container_name: kyntus_auth_backend
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_AUTH:?Définir KYNTUS_CONN_AUTH dans .env}
+      DemoSeed__Enabled: ${KYNTUS_DEMO_SEED_ENABLED:-false}
+      DemoSeed__Passwords__Employee: ${KYNTUS_DEMO_SEED_PASSWORD_EMPLOYEE:-}
+      DemoSeed__Passwords__RH: ${KYNTUS_DEMO_SEED_PASSWORD_RH:-}
+      DemoSeed__Passwords__Manager: ${KYNTUS_DEMO_SEED_PASSWORD_MANAGER:-}
+      DemoSeed__Passwords__Coach: ${KYNTUS_DEMO_SEED_PASSWORD_COACH:-}
+      DemoSeed__Passwords__RP: ${KYNTUS_DEMO_SEED_PASSWORD_RP:-}
+      DemoSeed__Passwords__Admin: ${KYNTUS_DEMO_SEED_PASSWORD_ADMIN:-}
+      DemoSeed__Passwords__Audit: ${KYNTUS_DEMO_SEED_PASSWORD_AUDIT:-}
+      DemoSeed__Passwords__Formation: ${KYNTUS_DEMO_SEED_PASSWORD_FORMATION:-}
+      DemoSeed__Passwords__Superviseur: ${KYNTUS_DEMO_SEED_PASSWORD_SUPERVISEUR:-}
       <<: *kyntus-jwt
     ports:
       - "8520:8080"
@@ -145,7 +163,7 @@ services:
   planning-backend:
     build:
       context: .
-      dockerfile: PlanningService/PlanningService/Dockerfile
+      dockerfile: PlanningService/Dockerfile
     container_name: kyntus_planning_backend
     restart: unless-stopped
     environment:
@@ -196,7 +214,7 @@ services:
   documentation-backend:
     build:
       context: .
-      dockerfile: init/DocumentationBackend.Dockerfile
+      dockerfile: documentation_service_backend/Dockerfile
     container_name: kyntus_documentation_backend
     restart: unless-stopped
     environment:
@@ -304,7 +322,7 @@ services:
   employee-directory-backend:
     build:
       context: .
-      dockerfile: EmployeeDirectoryBackend/Dockerfile
+      dockerfile: EmployeeDirectory/Dockerfile
     container_name: kyntus_employee_directory_backend
     restart: unless-stopped
     environment:

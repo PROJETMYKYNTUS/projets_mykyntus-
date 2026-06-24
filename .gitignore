@@ -13,6 +13,15 @@
 .env.*
 !.env.example
 
+# Racine — logs / backups locaux (ne pas pousser)
+/build_log.txt
+/dir
+/docker-compose.yml.backup
+/docker-compose.override.yml
+
+# Profil URL actif (régénéré par scripts/switch-kyntus-urls.ps1)
+/config/kyntus-public-urls.active.json
+
 # Cursor IDE (plans, règles locales — ne pas versionner)
 .cursor/
 

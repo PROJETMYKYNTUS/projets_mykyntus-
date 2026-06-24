@@ -1,0 +1,3 @@
+-- DEPRECATED: utiliser init/docker-entrypoint-initdb.d/01-init-databases.sh (mots de passe via .env).
+-- Ce fichier est conservé comme référence de schéma uniquement — ne pas exécuter tel quel.
+-- Voir .env.example (KYNTUS_DB_PASSWORD_*) et docker-compose.yml.

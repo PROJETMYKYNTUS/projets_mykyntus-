@@ -2,7 +2,7 @@
 param(
     [string]$BaseUrl = "http://localhost:8200",
     [string]$Email = "rh@kyntus.ma",
-    [string]$Password = "RH@2026"
+    [string]$Password = $(if ($env:KYNTUS_DEMO_SEED_PASSWORD_RH) { $env:KYNTUS_DEMO_SEED_PASSWORD_RH } else { "CHANGE_ME" })
 )
 
 $ErrorActionPreference = "Stop"

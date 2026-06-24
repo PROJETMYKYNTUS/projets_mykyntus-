@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="EmployeeDirectory.API/EmployeeDirectory.API.csproj" />
+  <Project Path="EmployeeDirectory.Application/EmployeeDirectory.Application.csproj" />
+  <Project Path="EmployeeDirectory.ArchitectureTests/EmployeeDirectory.ArchitectureTests.csproj" />
+  <Project Path="EmployeeDirectory.Domain/EmployeeDirectory.Domain.csproj" />
+  <Project Path="EmployeeDirectory.Infrastructure/EmployeeDirectory.Infrastructure.csproj" />
+  <Project Path="EmployeeDirectory.IntegrationTests/EmployeeDirectory.IntegrationTests.csproj" />
+  <Project Path="EmployeeDirectory.UnitTests/EmployeeDirectory.UnitTests.csproj" />
+</Solution>

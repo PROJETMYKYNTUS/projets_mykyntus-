@@ -88,6 +88,32 @@ public sealed class DirectoryEmployeeProjectionConsumer(AppDbContext db) :
         }
 
         await db.SaveChangesAsync(context.CancellationToken);
+
+        await SyncManagerIdsAsync(user, msg.ChefDeProjetId, msg.SuperviseurId, msg.ReferentTechniqueId, context.CancellationToken);
+        await db.SaveChangesAsync(context.CancellationToken);
+    }
+
+    private async Task SyncManagerIdsAsync(
+        User user,
+        Guid? chefDeProjetId,
+        Guid? superviseurId,
+        Guid? referentTechniqueId,
+        CancellationToken ct)
+    {
+        if (!chefDeProjetId.HasValue && !superviseurId.HasValue && !referentTechniqueId.HasValue)
+            return;
+
+        var profile = await db.UserHrProfiles.FirstOrDefaultAsync(p => p.UserId == user.Id, ct);
+        if (profile is null)
+        {
+            profile = new UserHrProfile { UserId = user.Id };
+            db.UserHrProfiles.Add(profile);
+        }
+
+        if (chefDeProjetId.HasValue) profile.ChefDeProjetId = chefDeProjetId;
+        if (superviseurId.HasValue) profile.SuperviseurId = superviseurId;
+        if (referentTechniqueId.HasValue) profile.ReferentTechniqueId = referentTechniqueId;
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     private static bool IsStructureRole(string? role) =>

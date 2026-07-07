@@ -206,6 +206,14 @@ export const routes: Routes = [
 
       // ─── PLANNING ────────────────────────────────
       {
+        path: 'mes-plannings',
+        canActivate: [AuthGuard],
+        data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation', 'Superviseur'] },
+        loadComponent: () =>
+          import('./features/planning/pages/mes-plannings/mes-plannings.component')
+            .then(m => m.MesPlanningsComponent),
+      },
+      {
         path: 'planning',
         canActivate: [AuthGuard],
         data: { roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'] },

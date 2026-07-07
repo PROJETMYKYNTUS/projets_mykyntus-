@@ -98,6 +98,19 @@ using (var scope = app.Services.CreateScope())
         db.Formations.Add(demo);
         await db.SaveChangesAsync();
     }
+
+    if (!isTesting)
+    {
+        var enrichLog = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Formation.EnrichmentSeed");
+        try
+        {
+            await DockerComposeFormationEnrichmentSeed.ApplyIfEnabledAsync(app.Configuration, db, enrichLog);
+        }
+        catch (Exception ex)
+        {
+            enrichLog.LogError(ex, "Formation enrichment échoué (non bloquant).");
+        }
+    }
 }
 
 app.Run();

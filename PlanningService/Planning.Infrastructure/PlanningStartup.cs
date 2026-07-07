@@ -23,6 +23,9 @@ public static class PlanningStartup
                 {
                     await db.Database.MigrateAsync();
                     await PlanningSchemaPatches.EnsureOutboxTableAsync(db);
+                    await PlanningSchemaPatches.EnsurePlanningNotificationsTableAsync(db);
+                    await PlanningSchemaPatches.EnsureUserHrProfilesTableAsync(db);
+                    await PlanningSchemaPatches.EnsureDateDebutFormationColumnAsync(db);
                     Console.WriteLine("✅ Migrations appliquées avec succès.");
                     break;
                 }
@@ -83,6 +86,26 @@ public static class PlanningStartup
         {
             var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
             await userService.SyncMissingAuthUsersAsync();
+            if (string.Equals(configuration["KYNTUS_PLANNING_DEMO_SEED"], "true", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    await userService.SyncAllEmployesToCongeAsync();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Sync congés ignorée: {ex.Message}");
+                }
+            }
+        }
+
+        try
+        {
+            await DockerComposePlanningEnrichmentSeed.ApplyIfEnabledAsync(services, configuration);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Planning enrichment ignoré: {ex.Message}");
         }
 
         using (var scope = services.CreateScope())

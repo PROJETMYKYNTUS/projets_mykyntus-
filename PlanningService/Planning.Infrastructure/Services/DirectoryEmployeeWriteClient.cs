@@ -134,6 +134,9 @@ public sealed class DirectoryEmployeeWriteClient(
                         .FirstOrDefaultAsync(ct);
                 }
 
+                var hr = await context.UserHrProfiles.AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.UserId == user.Id, ct);
+
                 var payload = new
                 {
                     firstName = user.FirstName,
@@ -141,9 +144,42 @@ public sealed class DirectoryEmployeeWriteClient(
                     email = user.Email,
                     role = user.Role?.Name ?? KyntusRoleNames.Employee,
                     serviceId = primeServiceId,
-                    parentId = (Guid?)null,
+                    parentId = hr?.SuperviseurId,
                     isActive = user.IsActive,
                     hireDate = user.HireDate,
+                    chefDeProjetId = hr?.ChefDeProjetId,
+                    superviseurId = hr?.SuperviseurId,
+                    referentTechniqueId = hr?.ReferentTechniqueId,
+                    hrProfile = hr is null ? null : new
+                    {
+                        hr.DateNaissance,
+                        hr.VilleNaissance,
+                        hr.Nationalite,
+                        hr.Sexe,
+                        hr.SituationFamiliale,
+                        hr.NombreEnfants,
+                        hr.Cin,
+                        hr.Adresse,
+                        hr.Telephone1,
+                        hr.TelephoneUrgence,
+                        hr.RelationUrgence,
+                        hr.Rib,
+                        hr.ImmatriculationInterne,
+                        hr.ImmatriculationCnss,
+                        hr.DateEntree,
+                        hr.DateEmbauche,
+                        hr.DateAnciennete,
+                        hr.DateSortie,
+                        hr.DateEvolutionPoste,
+                        hr.AncienPoste,
+                        hr.AncienService,
+                        hr.NiveauScolaire,
+                        hr.IntitulesEtudes,
+                        hr.EnFormation,
+                        hr.DateDebutFormation,
+                        hr.DateFinFormationPrevue,
+                        niveauExpertiseMetier = hr.NiveauExpertiseMetier,
+                    },
                 };
 
                 var client = CreateClient();
@@ -251,7 +287,7 @@ public sealed class DirectoryEmployeeWriteClient(
 
         var client = httpClientFactory.CreateClient("DirectorySync");
         client.BaseAddress = new Uri(baseUrl);
-        client.Timeout = TimeSpan.FromSeconds(10);
+        client.Timeout = TimeSpan.FromSeconds(30);
         return client;
     }
 

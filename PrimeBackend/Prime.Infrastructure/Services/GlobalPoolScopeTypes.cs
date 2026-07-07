@@ -47,6 +47,7 @@ public static class GlobalPoolSynthesisLineHistoryActions
     public const string LineRejected = "LineRejected";
     public const string Paid = "Paid";
     public const string Unpaid = "Unpaid";
+    public const string RegularizationUpdated = "RegularizationUpdated";
 }
 
 public static class GlobalPoolPaymentStatuses

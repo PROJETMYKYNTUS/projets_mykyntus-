@@ -49,7 +49,7 @@ public class DemandeConge
         if (dateDebut >= dateFin)
             throw new ArgumentException("La date de début doit être antérieure à la date de fin.");
 
-        if (dateDebut < DateTime.Today)
+        if (dateDebut.Date < DateTime.UtcNow.Date)
             throw new ArgumentException("La date de début ne peut pas être dans le passé.");
 
         var nombreJours = PolitiqueConge.CompterJoursOuvrables(dateDebut, dateFin);

@@ -81,6 +81,9 @@ public class EmployeeEntity
     public string? Avatar { get; set; }
     public string? BusinessDepartmentId { get; set; }
     public string? BusinessDepartmentKind { get; set; }
+    public string? ReferentTechniqueId { get; set; }
+    public string? ChefDeProjetId { get; set; }
+    public string? SuperviseurId { get; set; }
 }
 
 public class BusinessDepartmentEntity

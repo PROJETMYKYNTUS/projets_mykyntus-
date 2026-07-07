@@ -65,8 +65,9 @@ public class UserService : IUserService
             .ToListAsync();
 
         var customByUser = await _fieldService.LoadCustomFieldsForUsersAsync(users.Select(u => u.Id).ToList());
+        var hrByUser = await LoadHrProfilesAsync(users.Select(u => u.Id).ToList());
         var orgCtx = await LoadOrgNameContextAsync();
-        return users.Select(u => ToDto(u, customByUser.GetValueOrDefault(u.Id), orgCtx)).ToList();
+        return users.Select(u => ToDto(u, customByUser.GetValueOrDefault(u.Id), orgCtx, hrByUser.GetValueOrDefault(u.Id))).ToList();
     }
     public async Task<List<UserDto>> GetUsersBySubServiceAsync(int subServiceId)
     {
@@ -80,8 +81,9 @@ public class UserService : IUserService
             .ToListAsync();
 
         var customByUser = await _fieldService.LoadCustomFieldsForUsersAsync(users.Select(u => u.Id).ToList());
+        var hrByUser = await LoadHrProfilesAsync(users.Select(u => u.Id).ToList());
         var orgCtx = await LoadOrgNameContextAsync();
-        return users.Select(u => ToDto(u, customByUser.GetValueOrDefault(u.Id), orgCtx)).ToList();
+        return users.Select(u => ToDto(u, customByUser.GetValueOrDefault(u.Id), orgCtx, hrByUser.GetValueOrDefault(u.Id))).ToList();
     }
 
     public async Task<UserDto?> GetUserByIdAsync(int id)
@@ -104,8 +106,9 @@ public class UserService : IUserService
             return null;
 
         var customByUser = await _fieldService.LoadCustomFieldsForUsersAsync([user.Id]);
+        var hrProfile = await _context.UserHrProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == user.Id);
         var orgCtx = await LoadOrgNameContextAsync();
-        return ToDto(user, customByUser.GetValueOrDefault(user.Id), orgCtx);
+        return ToDto(user, customByUser.GetValueOrDefault(user.Id), orgCtx, hrProfile);
     }
     public async Task SyncMissingAuthUsersAsync()
     {
@@ -280,6 +283,11 @@ public class UserService : IUserService
         }
 
         await _fieldService.UpsertCustomFieldsAsync(user.Id, dto.CustomFields, isCreate: true);
+        await UpsertLocalHrProfileAsync(user.Id, dto.ChefDeProjetId, dto.SuperviseurId, dto.ReferentTechniqueId, dto.HrProfile, dto.NiveauExpertiseMetier);
+        await _directoryEmployeeWrite.TryUpdateEmployeeAsync(user);
+
+        await PublishEmployeCreatedForUserAsync(user, dto.SubServiceId);
+        await _context.SaveChangesAsync();
 
         return await GetUserByIdAsync(user.Id)
             ?? throw new Exception("Erreur création utilisateur.");
@@ -300,8 +308,8 @@ public class UserService : IUserService
                     {
                         Email = user.Email,
                         DefaultPassword = password,
-                        RoleId = user.RoleId,
-                        RoleName = user.Role?.Name
+                        RoleName = user.Role?.Name,
+                        EmployeeId = user.Guid,
                     });
 
                 if (response.IsSuccessStatusCode)
@@ -372,11 +380,10 @@ public class UserService : IUserService
         await _context.SaveChangesAsync();
         await _context.Entry(user).Reference(u => u.Role).LoadAsync();
 
-        if (IsDirectoryWriteMaster())
-        {
-            await _directoryEmployeeWrite.TryUpdateEmployeeAsync(user);
-        }
-        else
+        if (user.AuthUserId.HasValue)
+            await SyncToAuthServiceAsync(user);
+
+        if (!IsDirectoryWriteMaster())
         {
             await PublishEmployeUpdatedForUserAsync(user, dto.SubServiceId);
             await _context.SaveChangesAsync();
@@ -384,6 +391,9 @@ public class UserService : IUserService
         }
 
         await _fieldService.UpsertCustomFieldsAsync(id, dto.CustomFields, isCreate: false);
+        await UpsertLocalHrProfileAsync(id, dto.ChefDeProjetId, dto.SuperviseurId, dto.ReferentTechniqueId, dto.HrProfile, dto.NiveauExpertiseMetier);
+        if (IsDirectoryWriteMaster())
+            await _directoryEmployeeWrite.TryUpdateEmployeeAsync(user);
 
         return await GetUserByIdAsync(id);
     }
@@ -475,8 +485,63 @@ public class UserService : IUserService
             return null;
 
         var customByUser = await _fieldService.LoadCustomFieldsForUsersAsync([user.Id]);
+        var hrProfile = await _context.UserHrProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == user.Id);
         var orgCtx = await LoadOrgNameContextAsync();
-        return ToDto(user, customByUser.GetValueOrDefault(user.Id), orgCtx);
+        return ToDto(user, customByUser.GetValueOrDefault(user.Id), orgCtx, hrProfile);
+    }
+
+    public async Task<UserDto?> GetUserByEmailAsync(string email)
+    {
+        var needle = email.Trim().ToLowerInvariant();
+        if (needle.Length == 0)
+            return null;
+
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .Include(u => u.SubService)
+                .ThenInclude(ss => ss != null ? ss.Service : null)
+            .Include(u => u.ManagedSubServices)
+                .ThenInclude(us => us.SubService)
+                    .ThenInclude(s => s.Service)
+            .Include(u => u.ManagedServices)
+                .ThenInclude(us => us.Service)
+                    .ThenInclude(s => s.Floor)
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == needle);
+
+        if (user is null)
+            return null;
+
+        var customByUser = await _fieldService.LoadCustomFieldsForUsersAsync([user.Id]);
+        var hrProfile = await _context.UserHrProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == user.Id);
+        var orgCtx = await LoadOrgNameContextAsync();
+        return ToDto(user, customByUser.GetValueOrDefault(user.Id), orgCtx, hrProfile);
+    }
+
+    public async Task<UserDto?> GetOrLinkUserForAuthAsync(int authUserId, string? email)
+    {
+        var user = await GetUserByAuthIdAsync(authUserId);
+        if (user is not null)
+            return user;
+
+        if (string.IsNullOrWhiteSpace(email))
+            return null;
+
+        var row = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email.Trim().ToLowerInvariant());
+        if (row is null)
+            return null;
+
+        if (row.AuthUserId != authUserId)
+        {
+            row.AuthUserId = authUserId;
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("AuthUserId={AuthId} lié à {Email} (planning id={PlanningId})",
+                authUserId, row.Email, row.Id);
+        }
+
+        return await GetUserByAuthIdAsync(authUserId)
+            ?? await GetUserByEmailAsync(email);
     }
 
     private async Task PublishEmployeCreatedForUserAsync(User user, int? subServiceId)
@@ -586,13 +651,18 @@ public class UserService : IUserService
         return new OrgNameContext(poleToDept, deptIdToName, employeeDeptIds.ToDictionary(k => k.Key, v => v.Value));
     }
 
-    private static UserDto ToDto(User u, Dictionary<string, string?>? customFields, OrgNameContext orgCtx)
+    private static UserDto ToDto(
+        User u,
+        Dictionary<string, string?>? customFields,
+        OrgNameContext orgCtx,
+        UserHrProfile? hr = null)
     {
         var (pole, cellule, service) = ResolveOrgNames(u);
         return new UserDto
         {
             Id = u.Id,
             Guid = u.Guid,
+            AuthUserId = u.AuthUserId,
             RoleId = u.RoleId,
             RoleName = u.Role?.Name ?? string.Empty,
             SubServiceId = u.SubServiceId,
@@ -620,8 +690,198 @@ public class UserService : IUserService
             IsActive = u.IsActive,
             CreatedAt = u.CreatedAt,
             Level = u.Level,
+            NiveauExpertiseMetier = hr?.NiveauExpertiseMetier,
+            ChefDeProjetId = hr?.ChefDeProjetId,
+            SuperviseurId = hr?.SuperviseurId,
+            ReferentTechniqueId = hr?.ReferentTechniqueId,
+            HrProfile = hr is null ? null : MapHrProfileDto(hr),
             CustomFields = customFields ?? new Dictionary<string, string?>()
         };
+    }
+
+    private static UserHrProfileDto MapHrProfileDto(UserHrProfile p) => new()
+    {
+        DateNaissance = p.DateNaissance,
+        VilleNaissance = p.VilleNaissance,
+        Nationalite = p.Nationalite,
+        Sexe = p.Sexe,
+        SituationFamiliale = p.SituationFamiliale,
+        NombreEnfants = p.NombreEnfants,
+        Cin = p.Cin,
+        Adresse = p.Adresse,
+        Telephone1 = p.Telephone1,
+        TelephoneUrgence = p.TelephoneUrgence,
+        RelationUrgence = p.RelationUrgence,
+        Rib = p.Rib,
+        ImmatriculationInterne = p.ImmatriculationInterne,
+        ImmatriculationCnss = p.ImmatriculationCnss,
+        DateEntree = p.DateEntree,
+        DateEmbauche = p.DateEmbauche,
+        DateAnciennete = p.DateAnciennete,
+        DateSortie = p.DateSortie,
+        DateEvolutionPoste = p.DateEvolutionPoste,
+        AncienPoste = p.AncienPoste,
+        AncienService = p.AncienService,
+        NiveauScolaire = p.NiveauScolaire,
+        IntitulesEtudes = p.IntitulesEtudes,
+        EnFormation = p.EnFormation,
+        DateDebutFormation = p.DateDebutFormation,
+        DateFinFormationPrevue = p.DateFinFormationPrevue,
+    };
+
+    private async Task<Dictionary<int, UserHrProfile>> LoadHrProfilesAsync(IReadOnlyList<int> userIds)
+    {
+        if (userIds.Count == 0) return new Dictionary<int, UserHrProfile>();
+        var profiles = await _context.UserHrProfiles.AsNoTracking()
+            .Where(p => userIds.Contains(p.UserId))
+            .ToListAsync();
+        return profiles.ToDictionary(p => p.UserId);
+    }
+
+    private async Task UpsertLocalHrProfileAsync(
+        int userId,
+        Guid? chefDeProjetId,
+        Guid? superviseurId,
+        Guid? referentTechniqueId,
+        UserHrProfileDto? dto,
+        int? niveauExpertiseMetier)
+    {
+        if (dto is null
+            && !chefDeProjetId.HasValue
+            && !superviseurId.HasValue
+            && !referentTechniqueId.HasValue
+            && !niveauExpertiseMetier.HasValue)
+            return;
+
+        var profile = await _context.UserHrProfiles.FirstOrDefaultAsync(p => p.UserId == userId);
+        if (profile is null)
+        {
+            profile = new UserHrProfile { UserId = userId };
+            _context.UserHrProfiles.Add(profile);
+        }
+
+        if (chefDeProjetId.HasValue) profile.ChefDeProjetId = chefDeProjetId;
+        if (superviseurId.HasValue) profile.SuperviseurId = superviseurId;
+        if (referentTechniqueId.HasValue) profile.ReferentTechniqueId = referentTechniqueId;
+        if (niveauExpertiseMetier.HasValue) profile.NiveauExpertiseMetier = niveauExpertiseMetier;
+
+        if (dto is not null)
+        {
+            profile.DateNaissance = dto.DateNaissance;
+            profile.VilleNaissance = dto.VilleNaissance;
+            profile.Nationalite = dto.Nationalite;
+            profile.Sexe = dto.Sexe;
+            profile.SituationFamiliale = dto.SituationFamiliale;
+            profile.NombreEnfants = dto.NombreEnfants;
+            profile.Cin = dto.Cin;
+            profile.Adresse = dto.Adresse;
+            profile.Telephone1 = dto.Telephone1;
+            profile.TelephoneUrgence = dto.TelephoneUrgence;
+            profile.RelationUrgence = dto.RelationUrgence;
+            profile.Rib = dto.Rib;
+            profile.ImmatriculationInterne = dto.ImmatriculationInterne;
+            profile.ImmatriculationCnss = dto.ImmatriculationCnss;
+            profile.DateEntree = dto.DateEntree;
+            profile.DateEmbauche = dto.DateEmbauche;
+            profile.DateAnciennete = dto.DateAnciennete;
+            profile.DateSortie = dto.DateSortie;
+            profile.DateEvolutionPoste = dto.DateEvolutionPoste;
+            profile.AncienPoste = dto.AncienPoste;
+            profile.AncienService = dto.AncienService;
+            profile.NiveauScolaire = dto.NiveauScolaire;
+            profile.IntitulesEtudes = dto.IntitulesEtudes;
+            profile.EnFormation = dto.EnFormation;
+            profile.DateDebutFormation = dto.DateDebutFormation;
+            profile.DateFinFormationPrevue = dto.DateFinFormationPrevue;
+        }
+
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<UserDto?> UpdateContractualLevelAsync(
+        int targetUserId,
+        int level,
+        Guid actorSubjectId,
+        string actorRole,
+        CancellationToken ct = default)
+    {
+        if (level is < 1 or > 3)
+            throw new InvalidOperationException("Niveau contractuel invalide.");
+
+        var target = await _context.Users
+            .Include(u => u.SubService)
+                .ThenInclude(ss => ss != null ? ss.Service : null!)
+            .FirstOrDefaultAsync(u => u.Id == targetUserId, ct);
+        if (target is null) return null;
+
+        var role = actorRole.Trim();
+        if (!IsHrOrAdminRole(role))
+        {
+            var actor = await _context.Users.AsNoTracking()
+                .Include(u => u.ManagedSubServices)
+                    .ThenInclude(us => us.SubService)
+                        .ThenInclude(s => s.Service)
+                .FirstOrDefaultAsync(u => u.Guid == actorSubjectId, ct);
+            if (actor is null)
+                throw new UnauthorizedAccessException();
+
+            if (KyntusRoleNames.IsSuperviseur(role))
+            {
+                if (!await IsUserInSupervisorCelluleAsync(actor, target, ct))
+                    throw new UnauthorizedAccessException();
+            }
+            else if (KyntusRoleNames.IsReferentTechnique(role))
+            {
+                if (!await IsUserInReferentServiceResponsibilityAsync(actor, target, ct))
+                    throw new UnauthorizedAccessException();
+            }
+            else
+            {
+                throw new UnauthorizedAccessException();
+            }
+        }
+
+        target.Level = level;
+        await _context.SaveChangesAsync(ct);
+        return await GetUserByIdAsync(targetUserId);
+    }
+
+    private static bool IsHrOrAdminRole(string role) =>
+        string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(role, "RH", StringComparison.OrdinalIgnoreCase);
+
+    private async Task<bool> IsUserInSupervisorCelluleAsync(User supervisor, User target, CancellationToken ct)
+    {
+        var targetCellule = target.SubService?.Service?.PrimeCelluleId;
+        if (string.IsNullOrWhiteSpace(targetCellule)) return false;
+
+        var supervisorCellules = await _context.UserSubServices.AsNoTracking()
+            .Where(us => us.UserId == supervisor.Id)
+            .Select(us => us.SubService.Service.PrimeCelluleId)
+            .ToListAsync(ct);
+
+        if (supervisor.SubService?.Service?.PrimeCelluleId is { } ownCellule)
+            supervisorCellules.Add(ownCellule);
+
+        return supervisorCellules.Any(c => string.Equals(c, targetCellule, StringComparison.Ordinal));
+    }
+
+    private async Task<bool> IsUserInReferentServiceResponsibilityAsync(User referent, User target, CancellationToken ct)
+    {
+        var targetService = target.SubService?.PrimeServiceId;
+        var referentService = referent.SubService?.PrimeServiceId;
+        if (string.IsNullOrWhiteSpace(targetService) || string.IsNullOrWhiteSpace(referentService))
+            return false;
+        if (!string.Equals(targetService, referentService, StringComparison.Ordinal))
+            return false;
+
+        var targetHr = await _context.UserHrProfiles.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.UserId == target.Id, ct);
+        if (targetHr?.ReferentTechniqueId is { } refId && refId != Guid.Empty)
+            return refId == referent.Guid;
+
+        return true;
     }
 
     private static string? ResolveOperationalDepartmentName(User u, OrgNameContext orgCtx)
@@ -678,12 +938,53 @@ public class UserService : IUserService
     private bool IsDirectoryWriteMaster() =>
         _configuration.GetValue("Directory:WriteMaster", true);
 
-    private async Task RollbackImportUserAsync(User user)
+    public async Task RollbackImportCreatedUserAsync(int planningUserId, CancellationToken ct = default)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == planningUserId, ct);
+        if (user is null)
+            return;
+
+        await RollbackImportCreatedUserCoreAsync(user, ct);
+    }
+
+    public async Task RollbackImportUpdatedUserAsync(
+        int planningUserId,
+        UpdateUserDto previousState,
+        Dictionary<string, string?> previousCustomFields,
+        CancellationToken ct = default)
+    {
+        await UpdateUserAsync(planningUserId, previousState);
+        await _fieldService.UpsertCustomFieldsAsync(planningUserId, previousCustomFields, isCreate: false);
+    }
+
+    private async Task RollbackImportUserAsync(User user) =>
+        await RollbackImportCreatedUserCoreAsync(user);
+
+    private async Task RollbackImportCreatedUserCoreAsync(User user, CancellationToken ct = default)
     {
         var employeeGuid = user.Guid;
+        var authUserId = user.AuthUserId;
+
+        var managedLinks = _context.UserSubServices.Where(us => us.UserId == user.Id);
+        _context.UserSubServices.RemoveRange(managedLinks);
+        var managedServiceLinks = _context.UserManagedServices.Where(us => us.UserId == user.Id);
+        _context.UserManagedServices.RemoveRange(managedServiceLinks);
         _context.Users.Remove(user);
-        await _context.SaveChangesAsync();
-        await _directoryEmployeeWrite.TryDeleteEmployeeAsync(employeeGuid);
+        await _context.SaveChangesAsync(ct);
+
+        await _directoryEmployeeWrite.TryDeleteEmployeeAsync(employeeGuid, ct);
+
+        if (authUserId.HasValue)
+        {
+            try
+            {
+                await _httpClient.DeleteAsync($"api/auth/users/from-planning/{authUserId.Value}", ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Rollback Auth échoué pour {Email}", user.Email);
+            }
+        }
     }
 
     private async Task RollbackCreatedUserAsync(User user)

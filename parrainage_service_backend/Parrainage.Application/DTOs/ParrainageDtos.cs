@@ -33,7 +33,18 @@ public sealed class ReferralDto
     public string? PaidByUserId { get; set; }
     public string? PaidByLabel { get; set; }
     public string? PaymentReference { get; set; }
+    public string? CandidateEmployeeId { get; set; }
+    public EmploymentCheckSummaryDto? EmploymentCheckSummary { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed class EmploymentCheckSummaryDto
+{
+    public bool? IsActive { get; set; }
+    public string? ContractStatus { get; set; }
+    public DateTime? ProbationEndDate { get; set; }
+    public bool IsEligibleForPaymentConfirmation { get; set; }
+    public string? BlockReason { get; set; }
 }
 
 public sealed class ReferralHistoryDto
@@ -239,6 +250,23 @@ public sealed class ProcessReferralRequest
 
 public sealed class ConfirmPaymentEligibilityRequest
 {
+    public string? Comment { get; set; }
+    public ActorDto? Actor { get; set; }
+}
+
+public sealed class LinkEmployeeRequest
+{
+    public string EmployeeId { get; set; } = string.Empty;
+    public ActorDto? Actor { get; set; }
+}
+
+public sealed class CompleteOnboardingRequest
+{
+    public string EmployeeId { get; set; } = string.Empty;
+    public DateOnly CandidateStartDate { get; set; }
+    public decimal RewardAmount { get; set; }
+    public bool RequiresTraining { get; set; }
+    public DateOnly? TrainingEndDate { get; set; }
     public string? Comment { get; set; }
     public ActorDto? Actor { get; set; }
 }

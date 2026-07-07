@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<SaturdayGroup> SaturdayGroups { get; set; } = null!;
     public DbSet<Contract> Contracts { get; set; } = null!;
     public DbSet<ContractNotification> ContractNotifications { get; set; } = null!;
+    public DbSet<PlanningNotification> PlanningNotifications { get; set; } = null!;
     public DbSet<Conge> Conges { get; set; } = null!;
     public DbSet<PlanningComment> PlanningComments { get; set; } = null!;
     public DbSet<SaturdayHistory> SaturdayHistories => Set<SaturdayHistory>();
@@ -50,6 +51,7 @@ public class AppDbContext : DbContext
     public DbSet<EmployeeImportJob> EmployeeImportJobs { get; set; } = null!;
     public DbSet<EmployeeImportJobLine> EmployeeImportJobLines { get; set; } = null!;
     public DbSet<EmployeeImportSession> EmployeeImportSessions { get; set; } = null!;
+    public DbSet<UserHrProfile> UserHrProfiles { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -246,6 +248,16 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.ProcessedAt);
         });
 
+        // Table créée via PlanningSchemaPatches (DDL idempotent), pas via migration.
+        modelBuilder.Entity<PlanningNotification>(e =>
+        {
+            e.ToTable("PlanningNotifications");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.WeekCode).HasMaxLength(32);
+            e.Property(x => x.SubServiceName).HasMaxLength(200);
+            e.HasIndex(x => x.AuthUserId);
+        });
+
         modelBuilder.Entity<EmployeeImportFieldConfig>(e =>
         {
             e.HasIndex(x => x.FieldKey).IsUnique();
@@ -279,6 +291,16 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EmployeeImportSession>(e =>
         {
             e.HasIndex(s => s.ExpiresAt);
+        });
+
+        modelBuilder.Entity<UserHrProfile>(e =>
+        {
+            e.ToTable("user_hr_profiles");
+            e.HasKey(x => x.UserId);
+            e.HasOne(x => x.User)
+                .WithOne()
+                .HasForeignKey<UserHrProfile>(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

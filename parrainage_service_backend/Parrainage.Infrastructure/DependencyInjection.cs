@@ -34,6 +34,7 @@ public static class DependencyInjection
                 services.AddDbContext<ParrainageDbContext>(o => o.UseNpgsql(conn!));
 
             services.AddScoped<ReferralRuleResolver>();
+            services.AddHttpClient<IPlanningEmploymentCheckClient, PlanningEmploymentCheckClient>();
             services.AddScoped<ReferralWorkflowService>();
             services.AddScoped<ReferralEligibilityService>();
             services.AddSingleton<ReferralCvStorageService>();

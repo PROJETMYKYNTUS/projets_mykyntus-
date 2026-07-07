@@ -7,7 +7,8 @@ namespace Prime.Infrastructure.Services;
 public sealed class PrimeGlobalSynthesisService(
     PrimeDbContext db,
     PrimeGlobalSynthesisReadinessService readiness,
-    PrimeValidationWorkflowRuntime wfRuntime)
+    PrimeValidationWorkflowRuntime wfRuntime,
+    PrimeAbsenceSanctionService absenceSanction)
 {
     public async Task<List<GlobalSynthesisLineDto>> ListLinesAsync(
         string period,
@@ -23,10 +24,13 @@ public sealed class PrimeGlobalSynthesisService(
             await EnsureScopeLinesAsync(sid, period, scopeType, scopeId, ct);
 
         var linesByFiche = scopeSynthesisId is { } scopeId2
-            ? await db.GlobalPoolSynthesisLines.AsNoTracking()
+            ? await db.GlobalPoolSynthesisLines
                 .Where(l => l.ScopeSynthesisId == scopeId2)
                 .ToDictionaryAsync(l => l.FicheId, ct)
             : new Dictionary<Guid, GlobalPoolSynthesisLineEntity>();
+
+        if (scopeSynthesisId is { } refreshSid && linesByFiche.Count > 0)
+            await RefreshPendingLineAbsencesAsync(refreshSid, period, linesByFiche.Values, ct);
 
         var raw = await (
             from f in db.EmployeePrimeServiceFiches.AsNoTracking()
@@ -98,6 +102,10 @@ public sealed class PrimeGlobalSynthesisService(
                 PrimeAmount = le.PrimeAmount,
                 ChallengeAmount = le.ChallengeAmount,
                 TotalAmount = le.TotalAmount,
+                AbsenceDayCount = le.AbsenceDayCount,
+                SanctionAmount = le.SanctionAmount,
+                RegularizationAmount = le.RegularizationAmount,
+                NetPayableAmount = le.NetPayableAmount,
                 ValidationStatus = fiche?.ValidationStatus ?? "",
                 FillingStatus = fiche?.FillingStatus ?? "",
                 LineStatus = le.LineStatus,
@@ -131,6 +139,10 @@ public sealed class PrimeGlobalSynthesisService(
         PrimeAmount = line?.PrimeAmount ?? amounts.PrimeAmount,
         ChallengeAmount = line?.ChallengeAmount ?? amounts.ChallengeAmount,
         TotalAmount = line?.TotalAmount ?? amounts.TotalAmount,
+        AbsenceDayCount = line?.AbsenceDayCount ?? 0,
+        SanctionAmount = line?.SanctionAmount ?? 0m,
+        RegularizationAmount = line?.RegularizationAmount ?? 0m,
+        NetPayableAmount = line?.NetPayableAmount ?? line?.TotalAmount ?? amounts.TotalAmount,
         ValidationStatus = f.ValidationStatus,
         FillingStatus = f.FillingStatus,
         LineStatus = line?.LineStatus,
@@ -153,6 +165,9 @@ public sealed class PrimeGlobalSynthesisService(
         TotalPrime = lines.Sum(l => l.PrimeAmount ?? 0m),
         TotalChallenge = lines.Sum(l => l.ChallengeAmount ?? 0m),
         TotalAmount = lines.Sum(l => l.TotalAmount ?? 0m),
+        TotalSanction = lines.Sum(l => l.SanctionAmount),
+        TotalRegularization = lines.Sum(l => l.RegularizationAmount),
+        TotalNetPayable = lines.Sum(l => l.NetPayableAmount ?? l.TotalAmount ?? 0m),
         LinesRejected = lines.Count(l =>
             string.Equals(l.LineStatus, GlobalPoolSynthesisLineStatuses.LineRejected, StringComparison.Ordinal)),
     };
@@ -271,7 +286,7 @@ public sealed class PrimeGlobalSynthesisService(
         foreach (var dto in lineDtos)
         {
             var amounts = new PrimeEmployeeFicheAmounts(dto.PrimeAmount, dto.ChallengeAmount, dto.TotalAmount);
-            db.GlobalPoolSynthesisLines.Add(new GlobalPoolSynthesisLineEntity
+            var line = new GlobalPoolSynthesisLineEntity
             {
                 Id = Guid.NewGuid(),
                 ScopeSynthesisId = existing.Id,
@@ -284,7 +299,9 @@ public sealed class PrimeGlobalSynthesisService(
                 LineStatus = GlobalPoolSynthesisLineStatuses.PendingReview,
                 RhDecision = GlobalPoolLineDecisions.Pending,
                 ManagerDecision = GlobalPoolLineDecisions.Pending,
-            });
+            };
+            await absenceSanction.ApplyAbsenceSanctionAsync(line, per, ct);
+            db.GlobalPoolSynthesisLines.Add(line);
         }
 
         await db.SaveChangesAsync(ct);
@@ -395,10 +412,7 @@ public sealed class PrimeGlobalSynthesisService(
             if (!string.Equals(f.FillingStatus, "Complete", StringComparison.OrdinalIgnoreCase)) continue;
             if (!terminals.Contains(f.ValidationStatus)) continue;
             var amounts = ResolveAmounts(f);
-            // IMPORTANT : ajouter via le DbSet (état Added → INSERT). Passer par scope.Lines.Add
-            // ferait croire à EF, avec une clé Guid non vide, qu'il s'agit d'une ligne existante
-            // (UPDATE → 0 ligne affectée → exception de concurrence).
-            db.GlobalPoolSynthesisLines.Add(new GlobalPoolSynthesisLineEntity
+            var line = new GlobalPoolSynthesisLineEntity
             {
                 Id = Guid.NewGuid(),
                 ScopeSynthesisId = scope.Id,
@@ -411,7 +425,9 @@ public sealed class PrimeGlobalSynthesisService(
                 LineStatus = GlobalPoolSynthesisLineStatuses.PendingReview,
                 RhDecision = GlobalPoolLineDecisions.Pending,
                 ManagerDecision = GlobalPoolLineDecisions.Pending,
-            });
+            };
+            await absenceSanction.ApplyAbsenceSanctionAsync(line, period, ct);
+            db.GlobalPoolSynthesisLines.Add(line);
             added = true;
         }
 
@@ -438,4 +454,41 @@ public sealed class PrimeGlobalSynthesisService(
 
     private static PrimeEmployeeFicheAmounts ResolveAmounts(EmployeePrimeServiceFiche f) =>
         PrimeEmployeeFicheAmountService.ExtractPlafondsFromFiche(f);
+
+    private async Task RefreshPendingLineAbsencesAsync(
+        Guid scopeSynthesisId,
+        string period,
+        IEnumerable<GlobalPoolSynthesisLineEntity> lines,
+        CancellationToken ct)
+    {
+        var pending = lines
+            .Where(l => string.Equals(l.RhDecision, GlobalPoolLineDecisions.Pending, StringComparison.Ordinal)
+                        && string.Equals(l.ManagerDecision, GlobalPoolLineDecisions.Pending, StringComparison.Ordinal))
+            .ToList();
+        if (pending.Count == 0) return;
+
+        var counts = await absenceSanction.FetchAbsenceCountsAsync(
+            period,
+            pending.Select(l => l.EmployeeId),
+            ct);
+        var divisor = await absenceSanction.GetDivisorDaysAsync(ct);
+
+        var changed = false;
+        foreach (var line in pending)
+        {
+            counts.TryGetValue(line.EmployeeId, out var absenceDays);
+            if (line.AbsenceDayCount == absenceDays && line.AbsenceComputedAt.HasValue)
+                continue;
+
+            line.AbsenceDayCount = absenceDays;
+            absenceSanction.RecalculateFromStoredAbsences(line, divisor);
+            line.AbsenceComputedAt = DateTimeOffset.UtcNow;
+            changed = true;
+        }
+
+        if (!changed) return;
+        var scope = await db.GlobalPoolScopeSyntheses.FirstOrDefaultAsync(s => s.Id == scopeSynthesisId, ct);
+        if (scope is not null) scope.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
 }

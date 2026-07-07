@@ -35,12 +35,11 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
     this.sub.add(
       switchMapOnDocumentationContext(this.identity, () =>
         forkJoin({
-          reqs: this.api.getDocumentRequestsPage(80, { sortBy: 'createdAt', sortOrder: 'desc' }),
+          reqs: this.api.getDocumentRequestsPage(25, { sortBy: 'createdAt', sortOrder: 'desc' }),
           pending: this.api.getDocumentRequestsPage(1, { status: 'pending' }),
-          types: this.api.getDocTypesForCatalog(),
         }),
       ).subscribe({
-        next: ({ reqs, pending, types }) => {
+        next: ({ reqs, pending }) => {
           this.requests = reqs.items.map(mapDocumentRequestDto);
           const pendingCount = pending.totalCount;
           const today = new Date().toISOString().slice(0, 10);
@@ -68,13 +67,6 @@ export class RhDashboardComponent implements OnInit, OnDestroy {
               icon: 'check-circle-2',
               color: 'text-emerald-500',
               bg: 'bg-emerald-500/10',
-            },
-            {
-              label: 'Modèles actifs',
-              value: types.length,
-              icon: 'file-edit',
-              color: 'text-indigo-500',
-              bg: 'bg-indigo-500/10',
             },
           ];
           this.loading = false;

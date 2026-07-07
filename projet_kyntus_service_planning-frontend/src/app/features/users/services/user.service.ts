@@ -64,12 +64,25 @@ export class UserService {
       catchError(err => throwError(() => err))
     );
   }
+
+  /** Met à jour uniquement le niveau contractuel (1–3). */
+  patchContractualLevel(id: number, level: number): Observable<User> {
+    return this.http.patch<User>(`${this.apiUrl}/${id}/contractual-level`, { level }).pipe(
+      catchError(err => throwError(() => err))
+    );
+  }
   // Ajouter cette méthode
 getUserByAuthId(authId: number): Observable<User> {
   return this.http.get<User>(`${this.apiUrl}/by-auth/${authId}`).pipe(
     catchError(err => throwError(() => err))
   );
 }
+
+  getCurrentUser(): Observable<User> {
+    return this.http.get<User>(`${this.apiUrl}/me`).pipe(
+      catchError(err => throwError(() => err))
+    );
+  }
 
   deleteUser(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`).pipe(

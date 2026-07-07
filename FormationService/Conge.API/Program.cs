@@ -57,6 +57,7 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<SoldeAnnuelInitialiseConsumer>();
     x.AddConsumer<OrgAssignmentCongeSyncConsumer>();
     x.AddConsumer<DirectoryEmployeeCongeProjectionConsumer>();
+    x.AddConsumer<DirectoryEmployeeHrProfileCongeProjectionConsumer>();
 
     x.UsingRabbitMq((ctx, cfg) =>
     {
@@ -81,6 +82,11 @@ builder.Services.AddMassTransit(x =>
         cfg.ReceiveEndpoint("conge-directory-projection", e =>
         {
             e.ConfigureConsumer<DirectoryEmployeeCongeProjectionConsumer>(ctx);
+        });
+
+        cfg.ReceiveEndpoint("conge-directory-hr-profile", e =>
+        {
+            e.ConfigureConsumer<DirectoryEmployeeHrProfileCongeProjectionConsumer>(ctx);
         });
 
         cfg.ConfigureEndpoints(ctx);
@@ -133,6 +139,7 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
     var log = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Conge.Startup");
     await DockerComposeCongeDemoSeed.ApplyIfEnabledAsync(app.Configuration, db, log);
+    await DockerComposeCongeEnrichmentSeed.ApplyIfEnabledAsync(app.Configuration, db, log);
 }
 
 // ?? Middleware pipeline ???????????????????????????????????????????????????????

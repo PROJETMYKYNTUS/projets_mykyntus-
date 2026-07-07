@@ -60,21 +60,57 @@
 
 
 
+        @if (!isEditMode && selectedReferral) {
+          <div class="alert alert-info referral-context-banner">
+            <div>
+              <strong>Dossier parrainage lié</strong>
+              <p>
+                Candidat : {{ selectedReferral.candidateName }} — statut <strong>Consulté</strong>.
+                @if (referralPositionHint) {
+                  Poste visé : {{ referralPositionHint }}.
+                }
+                Parrain : {{ selectedReferral.referrerName }}.
+                @if (referralRewardAmount > 0) {
+                  Montant prime suggéré : {{ referralRewardAmount | number:'1.0-0' }} MAD.
+                }
+              </p>
+              <p class="section-hint">Complétez le formulaire puis enregistrez pour valider l'entrée du candidat.</p>
+            </div>
+          </div>
+        }
+
         <form class="form">
 
+          @if (!showCreateSuccess) {
+            <nav class="wizard-stepper" aria-label="Étapes du formulaire employé">
+              @for (step of wizardSteps; track step.id; let i = $index) {
+                <button
+                  type="button"
+                  class="wizard-stepper-item"
+                  [class.active]="step.id === currentWizardStep"
+                  [class.done]="isWizardStepDone(step.id)"
+                  [disabled]="!canNavigateToWizardStep(step.id)"
+                  (click)="goToWizardStep(step.id)"
+                >
+                  <span class="wizard-stepper-num">{{ i + 1 }}</span>
+                  <span class="wizard-stepper-label">{{ step.label }}</span>
+                </button>
+              }
+            </nav>
+          }
+
+          @if (currentWizardStep === 'identity') {
           <section class="form-section">
 
             <div class="section-heading">
 
-              <h2>Informations personnelles</h2>
+              <h2>Identité</h2>
 
-              <p>Renseignez l’identité et les coordonnées de l’employé.</p>
+              <p>Informations minimales pour créer le compte employé.</p>
 
             </div>
 
-
-
-            <div class="form-grid">
+            <div class="form-grid form-grid--dense">
 
               <div class="form-group">
 
@@ -84,8 +120,6 @@
 
               </div>
 
-
-
               <div class="form-group">
 
                 <label for="firstName">Prénom <span class="required">*</span></label>
@@ -94,39 +128,24 @@
 
               </div>
 
-
-
               <div class="form-group">
 
                 <label for="email">Email <span class="required">*</span></label>
 
                 <input
-
                   class="ky-input"
-
                   id="email"
-
                   name="email"
-
                   type="email"
-
                   [(ngModel)]="form.email"
-
                   placeholder="email@exemple.com"
-
                   (blur)="checkEmail()"
-
                 />
-
                 @if (emailError) {
-
                   <span class="input-error">{{ emailError }}</span>
-
                 }
 
               </div>
-
-
 
               <div class="form-group">
 
@@ -136,143 +155,127 @@
 
               </div>
 
+              <div class="form-group">
+
+                <label for="telephone1">Téléphone</label>
+
+                <input class="ky-input" id="telephone1" name="telephone1" type="tel" [(ngModel)]="hrProfile.telephone1" />
+
+              </div>
+
+              <div class="form-group">
+
+                <label for="cin">CIN</label>
+
+                <input class="ky-input" id="cin" name="cin" type="text" [(ngModel)]="hrProfile.cin" />
+
+              </div>
+
+            </div>
+
+            <div class="section-heading section-heading--sub">
+              <h3>État civil et coordonnées complètes</h3>
+            </div>
+            <div class="form-grid form-grid--dense">
+                <div class="form-group">
+                  <label for="dateNaissance">Date de naissance</label>
+                  <input class="ky-input" id="dateNaissance" name="dateNaissance" type="date" [(ngModel)]="hrProfile.dateNaissance" />
+                </div>
+                <div class="form-group">
+                  <label for="villeNaissance">Ville de naissance</label>
+                  <input class="ky-input" id="villeNaissance" name="villeNaissance" type="text" [(ngModel)]="hrProfile.villeNaissance" />
+                </div>
+                <div class="form-group">
+                  <label for="sexe">Sexe</label>
+                  <select
+                    class="ky-input"
+                    id="sexe"
+                    name="sexe"
+                    [ngModel]="hrProfile.sexe"
+                    (ngModelChange)="patchSexe($event)"
+                  >
+                    <option value="">—</option>
+                    <option value="M">Masculin</option>
+                    <option value="F">Féminin</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="nationalite">Nationalité</label>
+                  <select
+                    class="ky-input"
+                    id="nationalite"
+                    name="nationalite"
+                    [ngModel]="nationaliteCode"
+                    (ngModelChange)="patchNationaliteCode($event)"
+                  >
+                    <option value="">—</option>
+                    @for (opt of nationalityOptions; track opt.value) {
+                      <option [value]="opt.value">{{ opt.label }}</option>
+                    }
+                  </select>
+                  @if (hrProfile.sexe && nationaliteCode && nationaliteCode !== 'AUTRE') {
+                    <span class="hint">Par défaut selon le sexe — modifiable.</span>
+                  }
+                </div>
+                @if (showNationaliteAutre) {
+                  <div class="form-group">
+                    <label for="nationaliteAutre">Précisez la nationalité</label>
+                    <input
+                      class="ky-input"
+                      id="nationaliteAutre"
+                      name="nationaliteAutre"
+                      type="text"
+                      [ngModel]="nationaliteAutre"
+                      (ngModelChange)="patchNationaliteAutre($event)"
+                    />
+                  </div>
+                }
+                <div class="form-group">
+                  <label for="situationFamiliale">Situation familiale</label>
+                  <select
+                    class="ky-input"
+                    id="situationFamiliale"
+                    name="situationFamiliale"
+                    [ngModel]="hrProfile.situationFamiliale"
+                    (ngModelChange)="patchSituationFamiliale($event)"
+                  >
+                    <option value="">— Sélectionner —</option>
+                    @for (opt of maritalStatusOptions; track opt.value) {
+                      <option [value]="opt.value">{{ opt.label }}</option>
+                    }
+                  </select>
+                </div>
+                @if (showNombreEnfants) {
+                  <div class="form-group">
+                    <label for="nombreEnfants">Nombre d'enfants</label>
+                    <input class="ky-input" id="nombreEnfants" name="nombreEnfants" type="number" min="0" [(ngModel)]="hrProfile.nombreEnfants" />
+                  </div>
+                }
+                <div class="form-group form-group--full">
+                  <label for="adresse">Adresse</label>
+                  <input class="ky-input" id="adresse" name="adresse" type="text" [(ngModel)]="hrProfile.adresse" />
+                </div>
+                <div class="form-group">
+                  <label for="telephoneUrgence">Téléphone urgence</label>
+                  <input class="ky-input" id="telephoneUrgence" name="telephoneUrgence" type="tel" [(ngModel)]="hrProfile.telephoneUrgence" />
+                </div>
+                <div class="form-group">
+                  <label for="relationUrgence">Lien urgence</label>
+                  <input class="ky-input" id="relationUrgence" name="relationUrgence" type="text" [(ngModel)]="hrProfile.relationUrgence" />
+                </div>
             </div>
 
           </section>
-
-
-
-          @if (customEmployeeFields.length) {
-            <section class="form-section">
-              <div class="section-heading">
-                <h2>Informations complémentaires</h2>
-                <p>Champs définis par le service RH.</p>
-              </div>
-              <div class="form-grid">
-                @for (field of customEmployeeFields; track field.fieldKey) {
-                  <div class="form-group">
-                    <label [for]="'custom-' + field.fieldKey">
-                      {{ field.label }}
-                      @if (field.isRequiredOnCreate && !isEditMode) {
-                        <span class="required">*</span>
-                      }
-                    </label>
-                    @if (field.dataType === 'boolean') {
-                      <select class="ky-input" [id]="'custom-' + field.fieldKey" [(ngModel)]="customFieldValues[field.fieldKey]" [name]="'custom-' + field.fieldKey">
-                        <option value="">—</option>
-                        <option value="Oui">Oui</option>
-                        <option value="Non">Non</option>
-                      </select>
-                    } @else if (field.dataType === 'date') {
-                      <input class="ky-input" type="date" [id]="'custom-' + field.fieldKey" [(ngModel)]="customFieldValues[field.fieldKey]" [name]="'custom-' + field.fieldKey" />
-                    } @else if (field.dataType === 'number') {
-                      <input class="ky-input" type="number" [id]="'custom-' + field.fieldKey" [(ngModel)]="customFieldValues[field.fieldKey]" [name]="'custom-' + field.fieldKey" />
-                    } @else {
-                      <input class="ky-input" type="text" [id]="'custom-' + field.fieldKey" [(ngModel)]="customFieldValues[field.fieldKey]" [name]="'custom-' + field.fieldKey" />
-                    }
-                  </div>
-                }
-              </div>
-            </section>
           }
 
-
-
+          @if (currentWizardStep === 'position') {
           <section class="form-section">
 
             <div class="section-heading">
 
-              <h2>Positionnement</h2>
+              <h2>Poste &amp; organisation</h2>
 
-              <p>Définissez le niveau, le rôle et l’affectation de l’employé.</p>
-
-            </div>
-
-
-
-            <div class="form-group">
-
-              <label>Niveau <span class="required">*</span></label>
-
-              <div class="level-selector">
-
-                <button
-
-                  type="button"
-
-                  class="level-btn level-btn--1"
-
-                  [class.active]="form.level === 1"
-
-                  (click)="setLevel(1)"
-
-                >
-
-                  <span class="level-badge">1</span>
-
-                  <span class="level-content">
-
-                    <span class="level-title">Débutant</span>
-
-                    <span class="level-text">Prise de poste ou montée en compétence</span>
-
-                  </span>
-
-                </button>
-
-
-
-                <button
-
-                  type="button"
-
-                  class="level-btn level-btn--2"
-
-                  [class.active]="form.level === 2"
-
-                  (click)="setLevel(2)"
-
-                >
-
-                  <span class="level-badge">2</span>
-
-                  <span class="level-content">
-
-                    <span class="level-title">Intermédiaire</span>
-
-                    <span class="level-text">Autonome sur les tâches courantes</span>
-
-                  </span>
-
-                </button>
-
-
-
-                <button
-
-                  type="button"
-
-                  class="level-btn level-btn--3"
-
-                  [class.active]="form.level === 3"
-
-                  (click)="setLevel(3)"
-
-                >
-
-                  <span class="level-badge">3</span>
-
-                  <span class="level-content">
-
-                    <span class="level-title">Expert</span>
-
-                    <span class="level-text">Référent métier ou opérationnel</span>
-
-                  </span>
-
-                </button>
-
-              </div>
+              <p>Rôle, affectation, responsables et niveaux.</p>
 
             </div>
 
@@ -399,81 +402,11 @@
 
               <div class="org-picker-block">
 
-                @if (roleDetectionSummary) {
-                  <div class="org-auto-detect">
-                    <app-lucide-icon [icon]="icons.detect" className="w-4 h-4" />
-                    <span>{{ roleDetectionSummary }}</span>
-                  </div>
-                }
-
-                <p class="org-picker-hint">
-
-                  Affectation synchronisée avec
-
-                  <button type="button" class="link-inline" (click)="goToOrganisationRh()">Organisation RH</button>.
-
-                  @if (orgAssignmentHintText) {
-
-                    <span class="org-role-hint">{{ orgAssignmentHintText }}</span>
-
-                  }
-
-                  @if (!orgAssignmentRequired) {
-
-                    <span class="org-optional"> Optionnel pour ce rôle.</span>
-
-                  }
-
-                </p>
-
                 @if (orgLoading) {
 
                   <p class="hint">Chargement de la structure…</p>
 
                 } @else {
-
-                  @if (showOrgFilterBar) {
-                    <div class="org-filters">
-                      <div class="search-box">
-                        <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
-                        <input
-                          class="ky-input search-input"
-                          type="text"
-                          [placeholder]="showOrgFlatServiceSelect ? 'Rechercher un service, pôle ou cellule…' : 'Filtrer les options affichées…'"
-                          [ngModel]="orgStructureSearch"
-                          (ngModelChange)="onOrgSearchChange($event)"
-                        />
-                      </div>
-                      @if (showOrgFlatServiceSelect) {
-                        <div class="org-filter-grid">
-                          <select
-                            class="ky-input"
-                            [kyntusSelectSync]="orgFilterPoleId"
-                            (kyntusSelectSyncChange)="patchOrgFilterPole($event)"
-                          >
-                            <option value="">Tous les pôles</option>
-                            @for (p of orgPoleFilterOptions; track p.id) {
-                              <option [value]="p.id">{{ p.name }}</option>
-                            }
-                          </select>
-                          <select
-                            class="ky-input"
-                            [kyntusSelectSync]="orgFilterCelluleId"
-                            (kyntusSelectSyncChange)="patchOrgFilterCellule($event)"
-                            [disabled]="!orgFilterPoleId"
-                          >
-                            <option value="">Toutes les cellules</option>
-                            @for (c of orgCelluleFilterOptions; track c.id) {
-                              <option [value]="c.id">{{ c.name }}</option>
-                            }
-                          </select>
-                          <button type="button" class="btn-clear ky-btn-secondary" (click)="clearOrgFilters()">Réinitialiser</button>
-                        </div>
-                      } @else if (showOrgCascade && (showOrgPoleSelect || showOrgCelluleSelect || showOrgServiceSelect)) {
-                        <button type="button" class="btn-clear ky-btn-secondary" (click)="clearOrgFilters()">Effacer le filtre texte</button>
-                      }
-                    </div>
-                  }
 
                   @if (showOrgFlatServiceSelect) {
                     <p class="results-meta">
@@ -608,45 +541,465 @@
 
             }
 
-          </section>
+            @if (isOrgReadyForResponsables) {
+            <div class="section-heading section-heading--sub org-responsables-heading">
+
+              <h3>Responsables</h3>
+
+              <p>Choisissez parmi les titulaires de l'organisation RH sur le périmètre sélectionné.</p>
+
+            </div>
 
 
 
-          @if (isEditMode) {
+            <div class="form-grid">
 
-            <section class="form-section compact">
+              <div class="form-group">
 
-              <div class="form-group checkbox-group">
+                <label for="chefDeProjet">Chef de projet</label>
 
-                <label class="checkbox-label">
-
-                  <input name="isActive" type="checkbox" [(ngModel)]="form.isActive" />
-
-                  <span>Compte actif</span>
-
-                </label>
+                <select
+                  class="ky-input"
+                  id="chefDeProjet"
+                  [kyntusSelectSync]="form.chefDeProjetId"
+                  (kyntusSelectSyncChange)="patchChefDeProjet($event)"
+                  [disabled]="!orgPoleId || chefDeProjetOptions.length === 0"
+                >
+                  <option value="">— Sélectionner —</option>
+                  @for (inc of chefDeProjetOptions; track inc.userId) {
+                    <option [value]="inc.userId">{{ inc.displayName }}</option>
+                  }
+                </select>
+                @if (orgPoleId && chefDeProjetOptions.length === 0) {
+                  <span class="hint">Aucun chef de projet sur ce pôle.</span>
+                }
 
               </div>
 
-            </section>
 
+
+              <div class="form-group">
+
+                <label for="superviseur">Superviseur</label>
+
+                <select
+                  class="ky-input"
+                  id="superviseur"
+                  [kyntusSelectSync]="form.superviseurId"
+                  (kyntusSelectSyncChange)="patchSuperviseur($event)"
+                  [disabled]="!form.chefDeProjetId || superviseurOptions.length === 0"
+                >
+                  <option value="">— Sélectionner —</option>
+                  @for (inc of superviseurOptions; track inc.userId) {
+                    <option [value]="inc.userId">{{ inc.displayName }}</option>
+                  }
+                </select>
+                @if (form.chefDeProjetId && superviseurOptions.length === 0) {
+                  <span class="hint">Aucun superviseur rattaché à ce chef de projet.</span>
+                }
+
+              </div>
+
+
+
+              <div class="form-group">
+
+                <label for="referentTechnique">Référent technique</label>
+
+                <select
+                  class="ky-input"
+                  id="referentTechnique"
+                  [kyntusSelectSync]="form.referentTechniqueId"
+                  (kyntusSelectSyncChange)="patchReferentTechnique($event)"
+                  [disabled]="!form.superviseurId || referentTechniqueOptions.length === 0"
+                >
+                  <option value="">— Sélectionner —</option>
+                  @for (inc of referentTechniqueOptions; track inc.userId) {
+                    <option [value]="inc.userId">{{ inc.displayName }}</option>
+                  }
+                </select>
+                @if (form.superviseurId && referentTechniqueOptions.length === 0) {
+                  <span class="hint">Aucun référent technique rattaché à ce superviseur.</span>
+                }
+
+              </div>
+
+            </div>
+            } @else if (showOrgAssignmentBlock) {
+              <p class="org-responsables-hint">Complétez l'affectation organisationnelle pour choisir les responsables.</p>
+            }
+
+            <div class="section-heading section-heading--sub">
+
+              <h3>Formation &amp; niveaux</h3>
+
+            </div>
+
+            <div class="form-group">
+
+              <label>Niveau contractuel <span class="required">*</span></label>
+
+              <div class="level-selector level-selector--compact">
+
+                <button type="button" class="level-btn level-btn--1" [class.active]="form.level === 1" (click)="setLevel(1)">
+                  <span class="level-badge">1</span>
+                  <span class="level-content">
+                    <span class="level-title">Débutant</span>
+                    <span class="level-text">Prise de poste ou montée en compétence</span>
+                  </span>
+                </button>
+
+                <button type="button" class="level-btn level-btn--2" [class.active]="form.level === 2" (click)="setLevel(2)">
+                  <span class="level-badge">2</span>
+                  <span class="level-content">
+                    <span class="level-title">Intermédiaire</span>
+                    <span class="level-text">Autonome sur les tâches courantes</span>
+                  </span>
+                </button>
+
+                <button type="button" class="level-btn level-btn--3" [class.active]="form.level === 3" (click)="setLevel(3)">
+                  <span class="level-badge">3</span>
+                  <span class="level-content">
+                    <span class="level-title">Confirmé</span>
+                    <span class="level-text">Référent métier ou opérationnel</span>
+                  </span>
+                </button>
+
+              </div>
+
+            </div>
+
+
+
+            <div class="form-group">
+
+              <label>Niveau d'expertise métier</label>
+
+              <div class="level-selector level-selector--compact">
+
+                <button type="button" class="level-btn level-btn--1" [class.active]="form.niveauExpertiseMetier === 1" (click)="setExpertiseLevel(1)">
+                  <span class="level-badge">1</span>
+                  <span class="level-content">
+                    <span class="level-title">Débutant</span>
+                  </span>
+                </button>
+
+                <button type="button" class="level-btn level-btn--2" [class.active]="form.niveauExpertiseMetier === 2" (click)="setExpertiseLevel(2)">
+                  <span class="level-badge">2</span>
+                  <span class="level-content">
+                    <span class="level-title">Intermédiaire</span>
+                  </span>
+                </button>
+
+                <button type="button" class="level-btn level-btn--3" [class.active]="form.niveauExpertiseMetier === 3" (click)="setExpertiseLevel(3)">
+                  <span class="level-badge">3</span>
+                  <span class="level-content">
+                    <span class="level-title">Confirmé</span>
+                  </span>
+                </button>
+
+              </div>
+
+            </div>
+
+          </section>
           }
 
+          @if (currentWizardStep === 'pathway') {
+          <section class="form-section">
 
+            @if (!isEditMode) {
+              <div class="form-section">
+                <div class="section-heading">
+                  <h2>Parrainage</h2>
+                  <p class="section-hint">Liez un dossier parrainage consulté sans compte employé.</p>
+                </div>
+                @if (referralLoading) {
+                  <p class="hint">Chargement des dossiers parrainage…</p>
+                } @else if (referralLockedFromUrl && selectedReferral) {
+                  <div class="wizard-recap">
+                    <p><strong>Dossier :</strong> {{ selectedReferral.candidateName }} — {{ selectedReferral.position }}</p>
+                    <p><strong>Parrain :</strong> {{ selectedReferral.referrerName }} (lecture seule)</p>
+                    <p><strong>Candidat :</strong> {{ selectedReferral.candidateEmail }} · {{ selectedReferral.candidatePhone }}</p>
+                    @if (referralRewardAmount > 0) {
+                      <p><strong>Montant prime suggéré :</strong> {{ referralRewardAmount | number:'1.0-0' }} MAD</p>
+                    }
+                  </div>
+                } @else {
+                  <div class="form-group">
+                    <label for="referralSelect">Dossier parrainage</label>
+                    <select
+                      class="ky-input"
+                      id="referralSelect"
+                      name="referralSelect"
+                      [ngModel]="selectedReferralId"
+                      (ngModelChange)="onReferralSelectionChange($event)"
+                    >
+                      <option value="">— Aucun —</option>
+                      @for (ref of onboardingReferrals; track ref.id) {
+                        <option [value]="ref.id">{{ ref.candidateName }} — {{ ref.position }}</option>
+                      }
+                    </select>
+                  </div>
+                  @if (selectedReferral) {
+                    <div class="wizard-recap">
+                      <p><strong>Parrain :</strong> {{ selectedReferral.referrerName }} (lecture seule)</p>
+                      <p><strong>Candidat :</strong> {{ selectedReferral.candidateName }} — {{ selectedReferral.candidateEmail }}</p>
+                      @if (referralRewardAmount > 0) {
+                        <p><strong>Montant prime suggéré :</strong> {{ referralRewardAmount | number:'1.0-0' }} MAD</p>
+                      }
+                    </div>
+                  }
+                }
+              </div>
+            }
 
-          <div class="form-actions">
+            <div class="section-heading">
+              <h2>{{ hrProfile.enFormation ? 'Formation' : 'Contrat' }}</h2>
+              <p class="section-hint">{{ hrProfile.enFormation ? 'Période de formation avant prise de poste opérationnelle.' : (isEditMode ? 'Modifier le contrat de l\'employé.' : 'Contrat à créer en même temps que l\'employé.') }}</p>
+            </div>
 
-            <button class="btn btn-outline ky-btn-secondary" type="button" (click)="goBack()" [disabled]="submitting">
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input name="enFormationPathway" type="checkbox" [ngModel]="hrProfile.enFormation" (ngModelChange)="patchEnFormation($event)" />
+                <span>En formation</span>
+              </label>
+            </div>
 
-              Annuler
+            @if (hrProfile.enFormation) {
+              <div class="form-grid form-grid--dense">
+                <div class="form-group">
+                  <label for="dateDebutFormation">Date début formation <span class="required">*</span></label>
+                  <input class="ky-input" id="dateDebutFormation" name="dateDebutFormation" type="date" [(ngModel)]="hrProfile.dateDebutFormation" />
+                </div>
+                <div class="form-group">
+                  <label for="dateFinFormationPrevue">Date fin prévue <span class="required">*</span></label>
+                  <input class="ky-input" id="dateFinFormationPrevue" name="dateFinFormationPrevue" type="date" [(ngModel)]="hrProfile.dateFinFormationPrevue" />
+                </div>
+              </div>
+            } @else if (canShowContractFields) {
+              @if (contractLoading) {
+                <p class="hint">Chargement du contrat…</p>
+              } @else {
+                <app-contract-fields
+                  [model]="contractDraft"
+                  (modelChange)="onContractDraftChange($event)"
+                  [mode]="isEditMode ? 'edit' : 'create'"
+                  [showStatus]="true"
+                />
+              }
+            } @else if (isEditMode && hrProfile.enFormation) {
+              <p class="hint">Formation en cours — le contrat pourra être défini après la formation.</p>
+            }
 
-            </button>
+          </section>
+          }
 
-            <button class="btn btn-primary ky-btn-primary" type="button" (click)="submit()" [disabled]="submitting || !!emailError">
+          @if (currentWizardStep === 'finalize') {
+          <section class="form-section">
 
-              {{ submitting ? "Enregistrement..." : (isEditMode ? "Enregistrer les modifications" : "Créer l'employé") }}
+            <div class="wizard-recap">
+              <h3>Récapitulatif</h3>
+              <dl class="wizard-recap-list">
+                <div><dt>Identité</dt><dd>{{ wizardRecapName }}</dd></div>
+                <div><dt>Email</dt><dd>{{ form.email || '—' }}</dd></div>
+                <div><dt>Embauche</dt><dd>{{ form.hireDate || '—' }}</dd></div>
+                <div><dt>Rôle</dt><dd>{{ wizardRecapRole }}</dd></div>
+                <div><dt>Périmètre</dt><dd>{{ selectedOrgSummary || '—' }}</dd></div>
+                <div><dt>Niveau contractuel</dt><dd>{{ form.level === 1 ? 'Débutant' : form.level === 2 ? 'Intermédiaire' : 'Confirmé' }}</dd></div>
+                <div><dt>{{ hrProfile.enFormation ? 'Formation' : 'Contrat' }}</dt><dd>{{ wizardRecapPathway }}</dd></div>
+              </dl>
+              <p class="wizard-recap-hint">Les champs administratifs ci-dessous sont optionnels à la création.</p>
+            </div>
 
-            </button>
+            <div class="section-heading section-heading--sub">
+              <h3>Données administratives</h3>
+            </div>
+            <div class="form-grid form-grid--dense">
+                <div class="form-group">
+                  <label for="dateEntree">Date d'entrée</label>
+                  <input class="ky-input" id="dateEntree" name="dateEntree" type="date" [(ngModel)]="hrProfile.dateEntree" />
+                </div>
+                <div class="form-group">
+                  <label for="dateAnciennete">Date d'ancienneté</label>
+                  <input class="ky-input" id="dateAnciennete" name="dateAnciennete" type="date" [(ngModel)]="hrProfile.dateAnciennete" />
+                </div>
+                <div class="form-group">
+                  <label for="dateSortie">Date de sortie</label>
+                  <input class="ky-input" id="dateSortie" name="dateSortie" type="date" [(ngModel)]="hrProfile.dateSortie" />
+                </div>
+                <div class="form-group">
+                  <label for="rib">RIB</label>
+                  <input class="ky-input" id="rib" name="rib" type="text" [(ngModel)]="hrProfile.rib" />
+                </div>
+                <div class="form-group">
+                  <label for="immatriculationInterne">Immatriculation interne</label>
+                  <input class="ky-input" id="immatriculationInterne" name="immatriculationInterne" type="text" [(ngModel)]="hrProfile.immatriculationInterne" />
+                </div>
+                <div class="form-group">
+                  <label for="immatriculationCnss">Immatriculation CNSS</label>
+                  <input class="ky-input" id="immatriculationCnss" name="immatriculationCnss" type="text" [(ngModel)]="hrProfile.immatriculationCnss" />
+                </div>
+            </div>
+
+            <div class="section-heading section-heading--sub">
+              <h3>Parcours &amp; formation</h3>
+            </div>
+            <div class="form-grid form-grid--dense">
+                <div class="form-group">
+                  <label for="dateEvolutionPoste">Date évolution poste</label>
+                  <input class="ky-input" id="dateEvolutionPoste" name="dateEvolutionPoste" type="date" [(ngModel)]="hrProfile.dateEvolutionPoste" />
+                </div>
+                <div class="form-group">
+                  <label for="ancienPosteRole">Ancien poste</label>
+                  <select
+                    class="ky-input"
+                    id="ancienPosteRole"
+                    [ngModel]="ancienPosteRoleId"
+                    (ngModelChange)="patchAncienPosteRole(+$event)"
+                    name="ancienPosteRole"
+                  >
+                    <option [ngValue]="0">— Sélectionner —</option>
+                    @for (role of roles; track role.id) {
+                      <option [ngValue]="role.id">{{ role.name }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="ancienServiceSelect">Ancien service</label>
+                  <select
+                    class="ky-input"
+                    id="ancienServiceSelect"
+                    [ngModel]="ancienServiceSubServiceId"
+                    (ngModelChange)="patchAncienService($event ? +$event : null)"
+                    name="ancienServiceSelect"
+                  >
+                    <option [ngValue]="null">— Sélectionner —</option>
+                    @for (svc of subServices; track svc.id) {
+                      <option [ngValue]="svc.id">{{ svc.name }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="niveauScolaire">Niveau scolaire</label>
+                  <select
+                    class="ky-input"
+                    id="niveauScolaire"
+                    name="niveauScolaire"
+                    [ngModel]="niveauScolaireCode"
+                    (ngModelChange)="patchNiveauScolaireCode($event)"
+                  >
+                    <option value="">— Sélectionner —</option>
+                    @for (lvl of educationLevelOptions; track lvl.value) {
+                      <option [value]="lvl.value">{{ lvl.label }}</option>
+                    }
+                  </select>
+                </div>
+                @if (showNiveauScolaireAutre) {
+                  <div class="form-group">
+                    <label for="niveauScolaireAutre">Précisez le niveau</label>
+                    <input
+                      class="ky-input"
+                      id="niveauScolaireAutre"
+                      name="niveauScolaireAutre"
+                      type="text"
+                      [ngModel]="niveauScolaireAutre"
+                      (ngModelChange)="patchNiveauScolaireAutre($event)"
+                    />
+                  </div>
+                }
+                <div class="form-group form-group--full">
+                  <label for="intitulesEtudes">Intitulés des études</label>
+                  <input class="ky-input" id="intitulesEtudes" name="intitulesEtudes" type="text" [(ngModel)]="hrProfile.intitulesEtudes" />
+                </div>
+            </div>
+
+            @if (customEmployeeFields.length) {
+              <div class="section-heading section-heading--sub">
+                <h3>Informations complémentaires</h3>
+              </div>
+              <div class="form-grid form-grid--dense">
+                @for (field of customEmployeeFields; track field.fieldKey) {
+                  <div class="form-group">
+                    <label [for]="'custom-' + field.fieldKey">
+                      {{ field.label }}
+                      @if (field.isRequiredOnCreate && !isEditMode) {
+                        <span class="required">*</span>
+                      }
+                    </label>
+                    @if (field.dataType === 'boolean') {
+                      <select class="ky-input" [id]="'custom-' + field.fieldKey" [(ngModel)]="customFieldValues[field.fieldKey]" [name]="'custom-' + field.fieldKey">
+                        <option value="">—</option>
+                        <option value="Oui">Oui</option>
+                        <option value="Non">Non</option>
+                      </select>
+                    } @else if (field.dataType === 'date') {
+                      <input class="ky-input" type="date" [id]="'custom-' + field.fieldKey" [(ngModel)]="customFieldValues[field.fieldKey]" [name]="'custom-' + field.fieldKey" />
+                    } @else if (field.dataType === 'number') {
+                      <input class="ky-input" type="number" [id]="'custom-' + field.fieldKey" [(ngModel)]="customFieldValues[field.fieldKey]" [name]="'custom-' + field.fieldKey" />
+                    } @else {
+                      <input class="ky-input" type="text" [id]="'custom-' + field.fieldKey" [(ngModel)]="customFieldValues[field.fieldKey]" [name]="'custom-' + field.fieldKey" />
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            @if (isEditMode) {
+              <div class="form-group checkbox-group">
+                <label class="checkbox-label">
+                  <input name="isActive" type="checkbox" [(ngModel)]="form.isActive" />
+                  <span>Compte actif</span>
+                </label>
+              </div>
+            }
+
+          </section>
+          }
+
+          <div class="form-actions form-actions--wizard">
+
+            @if (currentWizardStep === 'identity') {
+
+              <button class="btn btn-outline ky-btn-secondary" type="button" (click)="goBack()" [disabled]="submitting">
+                Annuler
+              </button>
+
+              <button class="btn btn-primary ky-btn-primary" type="button" (click)="nextWizardStep()" [disabled]="submitting">
+                Suivant
+              </button>
+
+            } @else if (currentWizardStep === 'position') {
+
+              <button class="btn btn-outline ky-btn-secondary" type="button" (click)="prevWizardStep()" [disabled]="submitting">
+                Retour
+              </button>
+
+              <button class="btn btn-primary ky-btn-primary" type="button" (click)="nextWizardStep()" [disabled]="submitting">
+                Suivant
+              </button>
+
+            } @else if (currentWizardStep === 'pathway') {
+
+              <button class="btn btn-outline ky-btn-secondary" type="button" (click)="prevWizardStep()" [disabled]="submitting">
+                Retour
+              </button>
+
+              <button class="btn btn-primary ky-btn-primary" type="button" (click)="nextWizardStep()" [disabled]="submitting">
+                Suivant
+              </button>
+
+            } @else {
+
+              <button class="btn btn-outline ky-btn-secondary" type="button" (click)="prevWizardStep()" [disabled]="submitting">
+                Retour
+              </button>
+
+              <button class="btn btn-primary ky-btn-primary" type="button" (click)="submit()" [disabled]="submitting || !!emailError">
+                {{ submitButtonLabel }}
+              </button>
+
+            }
 
           </div>
 

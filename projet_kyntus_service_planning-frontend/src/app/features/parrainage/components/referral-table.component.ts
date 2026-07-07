@@ -1,5 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { FileText } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import type { Referral } from '../models/referral.model';
@@ -64,6 +65,15 @@ import { ParrainageNavService } from '../state/parrainage-nav.service';
                   <td class="px-6 py-4 text-right">
                     <div class="flex items-center justify-end gap-2">
                       <button type="button" (click)="onDetails(r)" class="p-2 text-muted hover:text-blue-500 hover:bg-blue-500/10 rounded-lg text-sm font-medium">Détails</button>
+                      @if (enableValidateProcessed && r.status === 'PROCESSED' && !r.candidateEmployeeId) {
+                        <button
+                          type="button"
+                          (click)="navigateToEmployeeForm(r.id)"
+                          class="p-2 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg text-sm font-medium"
+                        >
+                          Valider
+                        </button>
+                      }
                       @if (enableApprove && r.status === 'SUBMITTED') {
                         <button type="button" (click)="approve.emit(r)" class="p-2 text-muted hover:text-emerald-500 text-sm">Valider</button>
                       }
@@ -84,6 +94,7 @@ import { ParrainageNavService } from '../state/parrainage-nav.service';
 })
 export class ReferralTableComponent {
   private readonly nav = inject(ParrainageNavService);
+  private readonly router = inject(Router);
   readonly fileTextIcon = FileText;
 
   @Input({ required: true }) referrals: Referral[] = [];
@@ -92,10 +103,17 @@ export class ReferralTableComponent {
   @Input() scope: 'admin' | 'pm' = 'admin';
   @Input() enableApprove = false;
   @Input() enableReject = false;
+  @Input() enableValidateProcessed = false;
   @Output() approve = new EventEmitter<Referral>();
   @Output() reject = new EventEmitter<Referral>();
 
   onDetails(r: Referral): void {
     this.nav.openReferralDetails(r.id);
+  }
+
+  navigateToEmployeeForm(referralId: string): void {
+    void this.router.navigate(['/users/create'], {
+      queryParams: { referralId, fromParrainage: '1' },
+    });
   }
 }

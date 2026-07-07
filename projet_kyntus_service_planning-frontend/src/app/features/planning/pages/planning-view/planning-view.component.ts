@@ -2,7 +2,10 @@ import { Component, OnInit, ViewEncapsulation, ChangeDetectorRef } from '@angula
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ABSENCE_TYPES } from '../../services/conge.service'; 
+import { switchMap } from 'rxjs/operators';
+import { ABSENCE_TYPES } from '../../services/conge.service';
+import { KyntusSessionService } from '../../../../core/session/kyntus-session.service';
+import { UserService } from '../../../users/services/user.service';
 import {
   PlanningService,
   WeeklyPlanningResponse,
@@ -90,6 +93,8 @@ selectedHolidayShiftId      = 0;
     private route: ActivatedRoute,
     private router: Router,
     private planningService: PlanningService,
+    private userService: UserService,
+    private session: KyntusSessionService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -154,35 +159,35 @@ selectedHolidayShiftId      = 0;
   }
 
   // ── Publication ────────────────────────────────────
- publishPlanning(): void {
-  if (!this.planning) return;
-  this.publishing = true;
+  publishPlanning(): void {
+    if (!this.planning) return;
+    this.publishing = true;
+    this.error = '';
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const validatorId = user?.id;
-
-  // ✅ Juste vérifier que l'id existe
-  if (!validatorId) {
-    this.error = 'Session expirée — veuillez vous reconnecter.';
-    this.publishing = false;
-    this.cdr.detectChanges();
-    return;
-  }
-
-  this.planningService.publish(this.planning.id, validatorId).subscribe({
-    next: data => {
-      this.planning   = data;
-      this.publishing = false;
-      this.successMsg = 'Planning publié !';
-      this.cdr.detectChanges();
-    },
-    error: (err) => {
-      this.error = err.error?.message || 'Erreur publication';
+    const authUserId = this.session.getAuthUserId();
+    if (!authUserId) {
+      this.error = 'Session expirée — veuillez vous reconnecter.';
       this.publishing = false;
       this.cdr.detectChanges();
+      return;
     }
-  });
-}
+
+    this.userService.getCurrentUser().pipe(
+      switchMap((user) => this.planningService.publish(this.planning!.id, user.id)),
+    ).subscribe({
+      next: data => {
+        this.planning   = data;
+        this.publishing = false;
+        this.successMsg = 'Planning publié !';
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.error = err.error?.message || 'Erreur publication';
+        this.publishing = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
   getAssignment(employee: EmployeePlanning, day: string): DayAssignment | null {
     return employee.days.find(d => d.day === day) ?? null;
   }
@@ -467,14 +472,25 @@ confirmHolidayOverride(): void {
     this.savingComment = true;
     this.error         = '';
 
-   const user = JSON.parse(localStorage.getItem('user') || '{}');
-const dto: SavePlanningCommentDto = {
-  weeklyPlanningId: this.planning.id,
-  userId:           this.commentEmployeeId,
-  comment:          this.commentText.trim(),
-  createdBy:        user?.id   // ✅
-};
-    this.planningService.saveComment(dto).subscribe({
+    const authUserId = this.session.getAuthUserId();
+    if (!authUserId) {
+      this.error = 'Session expirée — veuillez vous reconnecter.';
+      this.savingComment = false;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    this.userService.getCurrentUser().pipe(
+      switchMap((user) => {
+        const dto: SavePlanningCommentDto = {
+          weeklyPlanningId: this.planning!.id,
+          userId:           this.commentEmployeeId,
+          comment:          this.commentText.trim(),
+          createdBy:        user.id,
+        };
+        return this.planningService.saveComment(dto);
+      }),
+    ).subscribe({
       next: () => {
         this.savingComment    = false;
         this.showCommentModal = false;

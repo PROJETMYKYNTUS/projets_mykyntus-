@@ -45,4 +45,9 @@ public interface IPlanningService
     Task SetSaturdayOffAsync(int weeklyPlanningId, int userId);
 
     Task<IReadOnlyList<WeeklyPlanningResponseDto>> GetEquipePlanningsByAuthUserIdAsync(int authUserId);
+
+    // -- Notifications de publication (persist�es) --
+    Task<IEnumerable<PlanningNotificationDto>> GetMyNotificationsAsync(int authUserId);
+    Task MarkNotificationReadAsync(int id, int authUserId);
+    Task MarkAllNotificationsReadAsync(int authUserId);
 }

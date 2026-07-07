@@ -33,15 +33,27 @@ export interface CreateContractDto {
   probationDays?: number;
   alertThresholdDays?: number;
   notes?: string;
+  status?: number;
 }
 
 export interface UpdateContractDto {
   type?: ContractType;
-  status?: string;
+  status?: number;
   endDate?: string;
   probationDays?: number;
   alertThresholdDays?: number;
   notes?: string;
+}
+
+export interface EmploymentSummary {
+  userId: number;
+  employeeGuid: string;
+  isActive: boolean;
+  hasContract: boolean;
+  contractStatus?: string;
+  probationEndDate?: string;
+  isEligibleForPaymentConfirmation: boolean;
+  blockReason?: string;
 }
 
 export interface ContractNotification {
@@ -73,6 +85,10 @@ export class ContractService {
 
   getByUser(userId: number): Observable<ContractResponse[]> {
     return this.http.get<ContractResponse[]>(`${this.base}/user/${userId}`);
+  }
+
+  getEmploymentSummary(employeeGuid: string): Observable<EmploymentSummary> {
+    return this.http.get<EmploymentSummary>(`${this.base}/employee/${employeeGuid}/employment-summary`);
   }
 
   create(dto: CreateContractDto): Observable<ContractResponse> {

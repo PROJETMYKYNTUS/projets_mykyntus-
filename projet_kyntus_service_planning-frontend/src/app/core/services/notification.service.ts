@@ -1,8 +1,12 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import * as signalR from '@microsoft/signalr';
 import { BehaviorSubject, Subject } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface PlanningNotification {
+  /** Id de la notification persistée côté backend (présent si chargée depuis l'API). */
+  id?: number;
   weekCode: string;
   subServiceName: string;
   message: string;
@@ -55,6 +59,8 @@ export class NotificationService {
   // ✅ Subject dédié pour les composants qui écoutent les notifs reclamation
   public reclamationNotif$ = new Subject<ReclamationNotif>();
 
+  constructor(private http: HttpClient) {}
+
   private getToken(): string {
     return localStorage.getItem(this.TOKEN_KEY)
         || localStorage.getItem('access_token')
@@ -102,14 +108,64 @@ export class NotificationService {
     const updated = this.notificationsSubject.value.map(n => ({ ...n, read: true }));
     this.notificationsSubject.next(updated);
     this.updateUnreadCount();
+
+    // Synchroniser la persistance backend pour les notifs planning.
+    const authUserId = this.getAuthUserIdFromToken();
+    if (authUserId) {
+      this.http
+        .post(`${environment.apiUrl}/planning/notifications/read-all?userId=${authUserId}`, {})
+        .subscribe({ error: () => {} });
+    }
   }
 
   markOneRead(id: string): void {
+    const target = this.notificationsSubject.value.find(n => planningNotificationId(n) === id);
     const updated = this.notificationsSubject.value.map(n =>
       planningNotificationId(n) === id ? { ...n, read: true } : n,
     );
     this.notificationsSubject.next(updated);
     this.updateUnreadCount();
+
+    // Synchroniser la persistance backend si la notif provient de l'API.
+    const authUserId = this.getAuthUserIdFromToken();
+    if (target?.id && authUserId) {
+      this.http
+        .post(`${environment.apiUrl}/planning/notifications/${target.id}/read?userId=${authUserId}`, {})
+        .subscribe({ error: () => {} });
+    }
+  }
+
+  /** Charge les notifications planning persistées (visibles même après reconnexion). */
+  private loadPersistedPlanningNotifications(authUserId: string): void {
+    if (!authUserId) return;
+    this.http
+      .get<any[]>(`${environment.apiUrl}/planning/notifications?userId=${authUserId}`)
+      .subscribe({
+        next: (rows) => {
+          const persisted: PlanningNotification[] = (rows || []).map((r) => ({
+            id: r.id,
+            weekCode: r.weekCode,
+            subServiceName: r.subServiceName,
+            message: r.message,
+            receivedAt: new Date(r.createdAt),
+            read: r.isRead,
+            type: 'planning',
+            icon: 'calendar',
+            weeklyPlanningId: r.weeklyPlanningId,
+          }));
+          // Fusion avec les notifs déjà présentes (temps réel), en évitant les doublons backend.
+          const existingIds = new Set(
+            this.notificationsSubject.value.filter((n) => n.id != null).map((n) => n.id),
+          );
+          const toAdd = persisted.filter((n) => !existingIds.has(n.id));
+          if (toAdd.length === 0) return;
+          const merged = [...this.notificationsSubject.value, ...toAdd]
+            .sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+          this.notificationsSubject.next(merged);
+          this.updateUnreadCount();
+        },
+        error: () => {},
+      });
   }
 
   markNewsletterRead(index: number): void {
@@ -130,6 +186,9 @@ export class NotificationService {
 
 private connectPlanningHub(): void {
   const authUserId = this.getAuthUserIdFromToken();
+
+  // Charger l'historique persisté (notifs reçues hors-ligne) avant le temps réel.
+  this.loadPersistedPlanningNotifications(authUserId);
 
   this.connection = new signalR.HubConnectionBuilder()
     .withUrl('/hubs/planning', {

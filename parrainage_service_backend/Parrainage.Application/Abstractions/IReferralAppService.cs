@@ -22,6 +22,9 @@ public interface IReferralAppService
     Task<ReferralDto?> MarkPaymentAsync(string id, MarkReferralPaymentRequest body, CancellationToken ct = default);
     Task<ReferralDto?> UploadCvAsync(string id, IFormFile file, CancellationToken ct = default);
     Task<ReferralCvFile?> OpenCvAsync(string id, CancellationToken ct = default);
+    Task<IReadOnlyList<ReferralDto>> ListOnboardingAsync(CancellationToken ct = default);
+    Task<ReferralDto?> LinkEmployeeAsync(string id, LinkEmployeeRequest body, CancellationToken ct = default);
+    Task<ReferralDto?> CompleteOnboardingAsync(string id, CompleteOnboardingRequest body, CancellationToken ct = default);
 }
 
 public sealed record ReferralCvFile(Stream Stream, string ContentType, string FileName);

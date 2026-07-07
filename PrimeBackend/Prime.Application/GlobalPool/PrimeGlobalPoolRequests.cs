@@ -209,6 +209,20 @@ public sealed class ApproveGlobalSynthesisLineCommandHandler(IPrimeGlobalPoolSco
     }
 }
 
+public record UpdateGlobalSynthesisLineAdjustmentsCommand(
+    Guid LineId,
+    UpdateSynthesisLineAdjustmentsRequest Body) : IRequest<Unit>;
+
+public sealed class UpdateGlobalSynthesisLineAdjustmentsCommandHandler(IPrimeGlobalPoolScopeAppService scope)
+    : IRequestHandler<UpdateGlobalSynthesisLineAdjustmentsCommand, Unit>
+{
+    public async Task<Unit> Handle(UpdateGlobalSynthesisLineAdjustmentsCommand request, CancellationToken ct)
+    {
+        await scope.UpdateLineAdjustmentsAsync(request.LineId, request.Body, ct);
+        return Unit.Value;
+    }
+}
+
 public record GetSupervisorSynthesisTrackingQuery(string SupervisorUserId, string? Period)
     : IRequest<IReadOnlyList<SupervisorSynthesisTrackingItemDto>>;
 

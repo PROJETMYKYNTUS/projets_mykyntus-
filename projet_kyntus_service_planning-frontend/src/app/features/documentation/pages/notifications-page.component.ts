@@ -38,6 +38,7 @@ export class NotificationsPageComponent implements OnInit, OnDestroy {
   private readonly tick = signal(0);
 
   ngOnInit(): void {
+    this.data.ensureLoaded();
     this.sub = this.data.updated$.subscribe(() => this.tick.update((v) => v + 1));
   }
 

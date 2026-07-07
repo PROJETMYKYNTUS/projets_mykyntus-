@@ -29,6 +29,20 @@ export type PrimeFicheChallengeField = keyof Pick<
   'resultatChallenge' | 'kpiChallenge' | 'ponderationChallenge' | 'bonusAtteintChallenge' | 'montantChallenge'
 >;
 
+/**
+ * Champs numériques optionnels (vide autorisé à l'enregistrement).
+ * Aligné sur les fiches Excel métier : bloc Challenge et bonus/montants souvent vides ou à 0 %.
+ */
+export const PRIME_FICHE_OPTIONAL_NUMERIC_FIELDS = new Set<keyof PrimeFicheLigneSaisie>([
+  'resultatChallenge',
+  'kpiChallenge',
+  'ponderationChallenge',
+  'bonusAtteintChallenge',
+  'montantChallenge',
+  'bonusAtteintPrime',
+  'montantPrime',
+]);
+
 /** Champs numériques obligatoires pour validation saisie (répartition + chaque secteur). */
 export const PRIME_FICHE_NUMERIC_FIELDS: (keyof PrimeFicheLigneSaisie)[] = [
   'repartitionRdv',

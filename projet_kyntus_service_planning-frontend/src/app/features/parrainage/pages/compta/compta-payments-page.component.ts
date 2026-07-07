@@ -35,6 +35,7 @@ import type { Referral } from '../../models/referral.model';
               <tr class="bg-card/50 border-b border-default">
                 <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase">Parrain</th>
                 <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase">Candidat</th>
+                <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase">Employé</th>
                 <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase">Montant</th>
                 <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase">Éligible le</th>
                 <th class="px-6 py-4 text-[11px] font-bold text-muted uppercase">Statut</th>
@@ -45,7 +46,19 @@ import type { Referral } from '../../models/referral.model';
               @for (item of items(); track item.referral.id) {
                 <tr class="hover:bg-input/30">
                   <td class="px-6 py-4 text-sm text-primary">{{ item.referral.referrerName }}</td>
-                  <td class="px-6 py-4 text-sm text-muted">{{ item.referral.candidateName }}</td>
+                  <td class="px-6 py-4 text-sm text-muted">
+                    {{ item.referral.candidateName }}
+                    @if (item.referral.employmentCheckSummary?.blockReason) {
+                      <span class="block text-xs text-amber-400 mt-1">{{ item.referral.employmentCheckSummary?.blockReason }}</span>
+                    }
+                  </td>
+                  <td class="px-6 py-4 text-sm text-muted">
+                    @if (item.referral.candidateEmployeeId) {
+                      <span class="font-mono text-xs">{{ item.referral.candidateEmployeeId }}</span>
+                    } @else {
+                      —
+                    }
+                  </td>
                   <td class="px-6 py-4 text-sm text-primary">{{ item.amount }} DH</td>
                   <td class="px-6 py-4 text-sm text-muted">{{ formatDate(item.referral.eligibleForPaymentAt) }}</td>
                   <td class="px-6 py-4">
@@ -70,7 +83,7 @@ import type { Referral } from '../../models/referral.model';
                 </tr>
                 @if (expandedId() === item.referral.id && item.canMarkPaid) {
                   <tr>
-                    <td colspan="6" class="px-6 py-4 bg-input/40">
+                    <td colspan="7" class="px-6 py-4 bg-input/40">
                       <div class="flex flex-wrap items-end gap-4 max-w-2xl">
                         <div>
                           <label class="block text-xs text-muted mb-1">Date de paiement</label>
@@ -95,7 +108,7 @@ import type { Referral } from '../../models/referral.model';
                 }
               } @empty {
                 <tr>
-                  <td colspan="6" class="px-6 py-12 text-center text-muted text-sm">Aucune prime à traiter</td>
+                  <td colspan="7" class="px-6 py-12 text-center text-muted text-sm">Aucune prime à traiter</td>
                 </tr>
               }
             </tbody>

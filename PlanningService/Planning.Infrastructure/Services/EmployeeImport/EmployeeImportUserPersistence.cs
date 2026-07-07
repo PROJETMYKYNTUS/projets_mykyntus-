@@ -39,6 +39,7 @@ public sealed class EmployeeImportUserPersistence(IUserService userService) : IE
         Email = user.Email,
         HireDate = user.HireDate,
         IsActive = user.IsActive,
-        Level = user.Level
+        Level = user.Level,
+        AuthUserId = user.AuthUserId
     };
 }

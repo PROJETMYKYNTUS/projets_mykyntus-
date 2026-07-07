@@ -61,12 +61,12 @@ public sealed class PrimeRbacReadService(PrimeDbContext db, PrimeOrgScopeService
         string.Equals(role, PrimeFicheValidationRoles.ReferentTechnique, StringComparison.Ordinal) ||
         string.Equals(role, "Coach", StringComparison.Ordinal);
 
-    /// <summary>Pilote dans le périmètre du référent technique (hiérarchie RH + cellule).</summary>
+    /// <summary>Pilote dans le périmètre du référent technique (responsabilité explicite ou hiérarchie RH).</summary>
     public Task<bool> IsPiloteUnderReferentAsync(
         Employee referent,
         EmployeePrimeServiceFiche fiche,
         CancellationToken ct = default) =>
-        org.IsPilotInReferentValidationScopeAsync(referent.Id, fiche.EmployeeId, referent.Role, ct);
+        org.IsPiloteUnderReferentResponsibilityAsync(referent.Id, fiche.EmployeeId, referent.Role, ct);
 
     /// <summary>Clone employé avec le rôle d’action UI (validation en mode changement de rôle).</summary>
     public static Employee WithActingRole(Employee source, string actingRole) =>
@@ -92,13 +92,21 @@ public sealed class PrimeRbacReadService(PrimeDbContext db, PrimeOrgScopeService
 
         if (IsReferentTechniqueRole(actor.Role))
         {
-            if (!await IsPiloteUnderReferentAsync(actor, fiche, ct))
-                return false;
             if (string.Equals(action, "Read", StringComparison.OrdinalIgnoreCase))
-                return true;
-            if (string.Equals(action, "Validate", StringComparison.OrdinalIgnoreCase) &&
-                await IsWorkflowValidationTurnAsync(actor, fiche, ct))
-                return true;
+            {
+                return !string.IsNullOrEmpty(actor.ServiceId) &&
+                       string.Equals(fiche.ServiceId, actor.ServiceId, StringComparison.Ordinal);
+            }
+
+            if (string.Equals(action, "Validate", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!await IsPiloteUnderReferentAsync(actor, fiche, ct))
+                    return false;
+                if (await IsWorkflowValidationTurnAsync(actor, fiche, ct))
+                    return true;
+                return false;
+            }
+
             return false;
         }
 

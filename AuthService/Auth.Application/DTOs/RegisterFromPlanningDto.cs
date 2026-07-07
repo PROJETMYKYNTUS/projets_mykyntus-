@@ -6,6 +6,9 @@ public class RegisterFromPlanningDto
     public string DefaultPassword { get; set; } = "Azerty@123";
     public int RoleId { get; set; }
     public string? RoleName { get; set; }
+
+    /// <summary>Identifiant employé Planning / Directory (aligne JWT sub et annuaire documentation).</summary>
+    public Guid EmployeeId { get; set; }
 }
 
 public class RegisterFromPlanningResponseDto

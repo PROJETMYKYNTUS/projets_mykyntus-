@@ -10,7 +10,7 @@ import { resolveUserGuid } from '../../../../core/lib/user-guid.util';
 import { UserService } from '../../services/user.service';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
 import { ServiceService } from '../../../services/services/service';
-import { CreateUserDto, UpdateUserDto } from '../../users-module';
+import { CreateUserDto, UpdateUserDto, type UserHrProfile } from '../../users-module';
 import { EmployeeFieldService } from '../../services/employee-field.service';
 import type { EmployeeImportFieldConfig } from '../../services/employee-import.service';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
@@ -74,19 +74,45 @@ import {
   employeeDisplayName,
   findEmployeeStructuralRole,
   findStructureIncumbent,
+  findStructureIncumbents,
+  filterSuperviseursForChefDeProjet,
+  filterReferentsForSuperviseur,
   shouldConfirmOverwrite,
 } from '../../../../core/org/org-structure-incumbent.util';
+import {
+  HR_EDUCATION_LEVEL_OPTIONS,
+  HR_MARITAL_STATUS_OPTIONS,
+  HR_MARITAL_STATUS_WITH_CHILDREN,
+  HR_NATIONALITY_OPTIONS,
+  defaultNationalityCode,
+  nationalityLabelForCode,
+  syncNationalityCodeFromLabel,
+} from '../../../../core/hr/hr-form-options';
 import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
+import { ContractFieldsComponent } from '../../../../shared/components/contract-fields/contract-fields.component';
+import {
+  createEmptyContractFields,
+  statusLabelToValue,
+  type ContractFieldsModel,
+} from '../../../../shared/components/contract-fields/contract-fields.model';
+import { ParrainageApiService } from '../../../parrainage/services/parrainage-api.service';
+import type { Referral } from '../../../parrainage/models/referral.model';
+import {
+  ContractService,
+  type CreateContractDto,
+  type UpdateContractDto,
+} from '../../../contract/services/contract.service';
 
 interface RoleOption { id: number; name: string; }
 interface SupportDepartmentOption { id: string; code: string; name: string; kind: string; isActive?: boolean; }
 type OrgAssignmentMode = 'operational' | 'support';
+type WizardStepId = 'identity' | 'position' | 'pathway' | 'finalize';
 
 @Component({
   selector: 'app-user-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective, KyntusPageHeaderComponent],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective, KyntusPageHeaderComponent, ContractFieldsComponent],
   templateUrl: './user-form.component.html',
   styleUrls: ['./user-form.component.css']
 })
@@ -116,6 +142,14 @@ export class UserFormComponent implements OnInit {
   supportDeptLoading = false;
   loading = false;
   submitting = false;
+  showCreateSuccess = false;
+  createdUserId: number | null = null;
+  createSuccessMessage: string | null = null;
+
+  currentWizardStep: WizardStepId = 'identity';
+  showCivilDetails = true;
+  showAdminDetails = true;
+  showCareerDetails = true;
   error: string | null = null;
   emailError: string | null = null;
   roles: RoleOption[] = [];
@@ -133,6 +167,65 @@ export class UserFormComponent implements OnInit {
     hireDate: this.toDateInputValue(new Date()),
     isActive: true,
     level: 1,
+    chefDeProjetId: '',
+    superviseurId: '',
+    referentTechniqueId: '',
+    niveauExpertiseMetier: null as number | null,
+  };
+
+  hrProfile = {
+    dateNaissance: '',
+    villeNaissance: '',
+    nationalite: '',
+    sexe: '',
+    situationFamiliale: '',
+    nombreEnfants: null as number | null,
+    cin: '',
+    adresse: '',
+    telephone1: '',
+    telephoneUrgence: '',
+    relationUrgence: '',
+    rib: '',
+    immatriculationInterne: '',
+    immatriculationCnss: '',
+    dateEntree: '',
+    dateAnciennete: '',
+    dateSortie: '',
+    dateEvolutionPoste: '',
+    ancienPoste: '',
+    ancienService: '',
+    niveauScolaire: '',
+    intitulesEtudes: '',
+    enFormation: false,
+    dateDebutFormation: '',
+    dateFinFormationPrevue: '',
+  };
+
+  contractDraft: ContractFieldsModel = createEmptyContractFields();
+  contractId: number | null = null;
+  contractLoading = false;
+
+  selectedReferralId = '';
+  onboardingReferrals: Referral[] = [];
+  selectedReferral: Referral | null = null;
+  referralRewardAmount = 0;
+  referralLoading = false;
+  referralLockedFromUrl = false;
+  referralPositionHint = '';
+
+  niveauScolaireCode = '';
+  niveauScolaireAutre = '';
+  nationaliteCode = '';
+  nationaliteAutre = '';
+  ancienPosteRoleId = 0;
+  ancienServiceSubServiceId: number | null = null;
+
+  readonly maritalStatusOptions = HR_MARITAL_STATUS_OPTIONS;
+  readonly educationLevelOptions = HR_EDUCATION_LEVEL_OPTIONS;
+  readonly nationalityOptions = HR_NATIONALITY_OPTIONS;
+
+  private readonly defaultProbation: Record<string, number> = {
+    CDI: 90, CDD: 30, Stage: 15, ANAPEC: 0,
   };
 
   constructor(
@@ -147,6 +240,8 @@ export class UserFormComponent implements OnInit {
     private toastService: KyntusToastService,
     private fieldService: EmployeeFieldService,
     private http: HttpClient,
+    private contractService: ContractService,
+    private parrainageApi: ParrainageApiService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -163,6 +258,12 @@ export class UserFormComponent implements OnInit {
     this.loadOrgAndSubServices();
     this.loadBusinessDepartments();
     this.loadRoles();
+    void this.loadOnboardingReferrals();
+    const referralId = this.route.snapshot.queryParamMap.get('referralId');
+    if (referralId) {
+      this.referralLockedFromUrl = true;
+      void this.prefillFromReferral(referralId);
+    }
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isEditMode = true;
@@ -401,6 +502,430 @@ export class UserFormComponent implements OnInit {
     return this.unassignedPoles.length > 0;
   }
 
+  get chefDeProjetOptions() {
+    if (!this.orgOverview) return [];
+    return findStructureIncumbents(this.orgOverview, 'Chef de projet', { orgPoleId: this.orgPoleId });
+  }
+
+  get superviseurOptions() {
+    if (!this.orgOverview || !this.form.chefDeProjetId.trim()) return [];
+    return filterSuperviseursForChefDeProjet(
+      this.orgOverview,
+      this.form.chefDeProjetId,
+      this.orgCelluleId || undefined,
+    );
+  }
+
+  get referentTechniqueOptions() {
+    if (!this.orgOverview || !this.form.superviseurId.trim()) return [];
+    return filterReferentsForSuperviseur(
+      this.orgOverview,
+      this.form.superviseurId,
+      this.orgServiceId || undefined,
+    );
+  }
+
+  get showNombreEnfants(): boolean {
+    return HR_MARITAL_STATUS_WITH_CHILDREN.has(this.hrProfile.situationFamiliale);
+  }
+
+  get showNiveauScolaireAutre(): boolean {
+    return this.niveauScolaireCode === 'AUTRE';
+  }
+
+  get showNationaliteAutre(): boolean {
+    return this.nationaliteCode === 'AUTRE';
+  }
+
+  get canShowContractFields(): boolean {
+    if (this.hrProfile.enFormation && !this.isEditMode) return false;
+    if (this.isEditMode && this.hrProfile.enFormation && !this.contractId) return false;
+    return true;
+  }
+
+  get wizardSteps(): { id: WizardStepId; label: string }[] {
+    return [
+      { id: 'identity', label: 'Identité' },
+      { id: 'position', label: 'Poste & organisation' },
+      { id: 'pathway', label: this.hrProfile.enFormation ? 'Formation' : 'Contrat' },
+      { id: 'finalize', label: 'Finalisation' },
+    ];
+  }
+
+  get isOrgReadyForResponsables(): boolean {
+    if (this.isSupportMode || this.showSupportAssignmentBlock || this.showOperationalManagerBlock) {
+      return false;
+    }
+    if (!this.showOrgAssignmentBlock) return false;
+    return this.validateOrgAssignment() === null;
+  }
+
+  private toOptionalGuid(value: string): string | null {
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  }
+
+  private toOptionalDateIso(dateStr: string): string | null {
+    if (!dateStr.trim()) return null;
+    return this.toISOString(dateStr);
+  }
+
+  private dateToInputValue(dateStr: string | null | undefined): string {
+    if (!dateStr?.trim()) return '';
+    const d = new Date(dateStr);
+    return Number.isNaN(d.getTime()) ? '' : this.toDateInputValue(d);
+  }
+
+  private applyHrProfileFromUser(profile: UserHrProfile | null | undefined): void {
+    if (!profile) return;
+    this.hrProfile = {
+      dateNaissance: this.dateToInputValue(profile.dateNaissance),
+      villeNaissance: profile.villeNaissance ?? '',
+      nationalite: profile.nationalite ?? '',
+      sexe: profile.sexe ?? '',
+      situationFamiliale: profile.situationFamiliale ?? '',
+      nombreEnfants: profile.nombreEnfants ?? null,
+      cin: profile.cin ?? '',
+      adresse: profile.adresse ?? '',
+      telephone1: profile.telephone1 ?? '',
+      telephoneUrgence: profile.telephoneUrgence ?? '',
+      relationUrgence: profile.relationUrgence ?? '',
+      rib: profile.rib ?? '',
+      immatriculationInterne: profile.immatriculationInterne ?? '',
+      immatriculationCnss: profile.immatriculationCnss ?? '',
+      dateEntree: this.dateToInputValue(profile.dateEntree),
+      dateAnciennete: this.dateToInputValue(profile.dateAnciennete),
+      dateSortie: this.dateToInputValue(profile.dateSortie),
+      dateEvolutionPoste: this.dateToInputValue(profile.dateEvolutionPoste),
+      ancienPoste: profile.ancienPoste ?? '',
+      ancienService: profile.ancienService ?? '',
+      niveauScolaire: profile.niveauScolaire ?? '',
+      intitulesEtudes: profile.intitulesEtudes ?? '',
+      enFormation: profile.enFormation ?? false,
+      dateDebutFormation: this.dateToInputValue(profile.dateDebutFormation),
+      dateFinFormationPrevue: this.dateToInputValue(profile.dateFinFormationPrevue),
+    };
+  }
+
+  private buildHrProfilePayload(): UserHrProfile {
+    return {
+      dateNaissance: this.toOptionalDateIso(this.hrProfile.dateNaissance),
+      villeNaissance: this.hrProfile.villeNaissance.trim() || null,
+      nationalite: this.hrProfile.nationalite.trim() || null,
+      sexe: this.hrProfile.sexe.trim() || null,
+      situationFamiliale: this.hrProfile.situationFamiliale.trim() || null,
+      nombreEnfants: this.hrProfile.nombreEnfants,
+      cin: this.hrProfile.cin.trim() || null,
+      adresse: this.hrProfile.adresse.trim() || null,
+      telephone1: this.hrProfile.telephone1.trim() || null,
+      telephoneUrgence: this.hrProfile.telephoneUrgence.trim() || null,
+      relationUrgence: this.hrProfile.relationUrgence.trim() || null,
+      rib: this.hrProfile.rib.trim() || null,
+      immatriculationInterne: this.hrProfile.immatriculationInterne.trim() || null,
+      immatriculationCnss: this.hrProfile.immatriculationCnss.trim() || null,
+      dateEntree: this.toOptionalDateIso(this.hrProfile.dateEntree),
+      dateEmbauche: this.toOptionalDateIso(this.form.hireDate),
+      dateAnciennete: this.toOptionalDateIso(this.hrProfile.dateAnciennete),
+      dateSortie: this.toOptionalDateIso(this.hrProfile.dateSortie),
+      dateEvolutionPoste: this.toOptionalDateIso(this.hrProfile.dateEvolutionPoste),
+      ancienPoste: this.hrProfile.ancienPoste.trim() || null,
+      ancienService: this.hrProfile.ancienService.trim() || null,
+      niveauScolaire: this.hrProfile.niveauScolaire.trim() || null,
+      intitulesEtudes: this.hrProfile.intitulesEtudes.trim() || null,
+      enFormation: this.hrProfile.enFormation,
+      dateDebutFormation: this.hrProfile.enFormation
+        ? this.toOptionalDateIso(this.hrProfile.dateDebutFormation)
+        : null,
+      dateFinFormationPrevue: this.hrProfile.enFormation
+        ? this.toOptionalDateIso(this.hrProfile.dateFinFormationPrevue)
+        : null,
+    };
+  }
+
+  patchChefDeProjet(userId: string): void {
+    this.form.chefDeProjetId = userId;
+    this.form.superviseurId = '';
+    this.form.referentTechniqueId = '';
+    this.cdr.detectChanges();
+  }
+
+  patchSuperviseur(userId: string): void {
+    this.form.superviseurId = userId;
+    this.form.referentTechniqueId = '';
+    this.cdr.detectChanges();
+  }
+
+  patchReferentTechnique(userId: string): void {
+    this.form.referentTechniqueId = userId;
+    this.cdr.detectChanges();
+  }
+
+  patchEnFormation(value: boolean): void {
+    this.hrProfile.enFormation = value;
+    if (value) {
+      if (!this.hrProfile.dateDebutFormation.trim()) {
+        this.hrProfile.dateDebutFormation = this.form.hireDate;
+      }
+    } else {
+      this.hrProfile.dateDebutFormation = '';
+      this.hrProfile.dateFinFormationPrevue = '';
+      if (!this.contractDraft.startDate.trim()) {
+        this.contractDraft.startDate = this.form.hireDate;
+      }
+    }
+    this.cdr.detectChanges();
+  }
+
+  patchSituationFamiliale(value: string): void {
+    this.hrProfile.situationFamiliale = value;
+    if (!HR_MARITAL_STATUS_WITH_CHILDREN.has(value)) {
+      this.hrProfile.nombreEnfants = null;
+    }
+    this.cdr.detectChanges();
+  }
+
+  patchSexe(value: string): void {
+    this.hrProfile.sexe = value;
+    if (!value || this.nationaliteCode === 'AUTRE') {
+      this.cdr.detectChanges();
+      return;
+    }
+    if (!this.nationaliteCode || this.nationaliteCode === 'MAROCAIN' || this.nationaliteCode === 'MAROCAINE') {
+      const next = defaultNationalityCode(value);
+      this.nationaliteCode = next;
+      this.hrProfile.nationalite = nationalityLabelForCode(next);
+    }
+    this.cdr.detectChanges();
+  }
+
+  patchNationaliteCode(value: string): void {
+    this.nationaliteCode = value;
+    if (value === 'AUTRE') {
+      this.hrProfile.nationalite = this.nationaliteAutre.trim();
+      this.cdr.detectChanges();
+      return;
+    }
+    this.nationaliteAutre = '';
+    this.hrProfile.nationalite = nationalityLabelForCode(value);
+    this.cdr.detectChanges();
+  }
+
+  patchNationaliteAutre(value: string): void {
+    this.nationaliteAutre = value;
+    this.hrProfile.nationalite = value.trim();
+    this.cdr.detectChanges();
+  }
+
+  patchNiveauScolaireCode(value: string): void {
+    this.niveauScolaireCode = value;
+    if (value !== 'AUTRE') {
+      this.niveauScolaireAutre = '';
+      this.hrProfile.niveauScolaire = this.educationLevelOptions.find((o) => o.value === value)?.label ?? value;
+    } else {
+      this.hrProfile.niveauScolaire = this.niveauScolaireAutre.trim();
+    }
+    this.cdr.detectChanges();
+  }
+
+  patchNiveauScolaireAutre(value: string): void {
+    this.niveauScolaireAutre = value;
+    if (this.niveauScolaireCode === 'AUTRE') {
+      this.hrProfile.niveauScolaire = value.trim();
+    }
+    this.cdr.detectChanges();
+  }
+
+  patchAncienPosteRole(roleId: number): void {
+    this.ancienPosteRoleId = roleId;
+    const role = this.roles.find((r) => r.id === roleId);
+    this.hrProfile.ancienPoste = role?.name ?? '';
+    this.cdr.detectChanges();
+  }
+
+  patchAncienService(subServiceId: number | null): void {
+    this.ancienServiceSubServiceId = subServiceId;
+    const svc = this.subServices.find((s) => s.id === subServiceId);
+    this.hrProfile.ancienService = svc?.name ?? '';
+    this.cdr.detectChanges();
+  }
+
+  onContractDraftChange(model: ContractFieldsModel): void {
+    this.contractDraft = model;
+    this.cdr.detectChanges();
+  }
+
+  async loadOnboardingReferrals(): Promise<void> {
+    if (this.isEditMode) return;
+    try {
+      this.onboardingReferrals = await this.parrainageApi.getOnboardingReferrals();
+      this.cdr.detectChanges();
+    } catch {
+      this.onboardingReferrals = [];
+    }
+  }
+
+  async prefillFromReferral(referralId: string): Promise<void> {
+    this.referralLoading = true;
+    try {
+      const referral = await this.parrainageApi.getReferral(referralId);
+      if (referral.status !== 'PROCESSED' || referral.candidateEmployeeId) return;
+      this.selectedReferralId = referral.id;
+      this.selectedReferral = referral;
+      this.referralPositionHint = referral.position?.trim() ?? '';
+      const today = this.toDateInputValue(new Date());
+      this.form.hireDate = today;
+      this.hrProfile.dateEntree = today;
+      const parts = referral.candidateName.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        this.form.lastName = parts[0];
+        this.form.firstName = parts.slice(1).join(' ');
+      } else {
+        this.form.firstName = referral.candidateName;
+      }
+      this.form.email = referral.candidateEmail;
+      this.hrProfile.telephone1 = referral.candidatePhone;
+      const preview = await this.parrainageApi.getRewardPreview(referral.id);
+      this.referralRewardAmount = preview.suggestedAmount;
+      this.cdr.detectChanges();
+    } finally {
+      this.referralLoading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  onReferralSelectionChange(referralId: string): void {
+    this.selectedReferralId = referralId;
+    this.selectedReferral = this.onboardingReferrals.find((r) => r.id === referralId) ?? null;
+    if (this.selectedReferral) {
+      void this.prefillFromReferral(this.selectedReferral.id);
+    }
+  }
+
+  private loadContractForUser(userId: number): void {
+    this.contractLoading = true;
+    this.contractService.getByUser(userId).subscribe({
+      next: (contracts) => {
+        const latest = contracts?.[0];
+        if (!latest) {
+          this.contractId = null;
+          this.contractDraft = createEmptyContractFields();
+          this.contractDraft.startDate = this.form.hireDate;
+          this.contractLoading = false;
+          this.cdr.detectChanges();
+          return;
+        }
+        this.contractId = latest.id;
+        this.contractDraft = {
+          type: latest.type,
+          startDate: latest.startDate?.substring(0, 10) ?? '',
+          endDate: latest.endDate?.substring(0, 10) ?? '',
+          probationDays: null,
+          alertThresholdDays: latest.alertThresholdDays,
+          notes: latest.notes ?? '',
+          status: statusLabelToValue(latest.status),
+        };
+        this.contractLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.contractLoading = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  private saveContract$(userId: number): Observable<void> {
+    if (this.hrProfile.enFormation && !this.contractId) {
+      return of(undefined);
+    }
+    if (this.contractId) {
+      const dto: UpdateContractDto = {
+        type: this.contractDraft.type,
+        status: this.contractDraft.status,
+        endDate: this.contractDraft.type !== 'CDI' ? this.contractDraft.endDate : undefined,
+        probationDays: this.contractDraft.probationDays ?? undefined,
+        alertThresholdDays: this.contractDraft.alertThresholdDays,
+        notes: this.contractDraft.notes,
+      };
+      return this.contractService.update(this.contractId, dto).pipe(map(() => undefined));
+    }
+    const createDto = this.buildCreateContractDto(userId);
+    return this.contractService.create(createDto).pipe(
+      map((created) => {
+        this.contractId = created.id;
+      }),
+    );
+  }
+
+  private completeReferralOnboarding$(employeeGuid: string): Observable<void> {
+    if (!this.selectedReferralId.trim()) return of(undefined);
+    return defer(() =>
+      this.parrainageApi.completeOnboarding(this.selectedReferralId, {
+        employeeId: employeeGuid,
+        candidateStartDate: this.form.hireDate,
+        rewardAmount: this.referralRewardAmount || this.selectedReferral?.rewardAmount || 0,
+        requiresTraining: this.hrProfile.enFormation,
+        trainingEndDate: this.hrProfile.enFormation ? this.hrProfile.dateFinFormationPrevue : undefined,
+      }),
+    ).pipe(map(() => undefined));
+  }
+
+  private resetResponsables(): void {
+    this.form.chefDeProjetId = '';
+    this.form.superviseurId = '';
+    this.form.referentTechniqueId = '';
+  }
+
+  private resetInvalidResponsables(): void {
+    if (
+      this.form.chefDeProjetId &&
+      !this.chefDeProjetOptions.some((o) => o.userId === this.form.chefDeProjetId)
+    ) {
+      this.form.chefDeProjetId = '';
+    }
+    if (
+      this.form.superviseurId &&
+      !this.superviseurOptions.some((o) => o.userId === this.form.superviseurId)
+    ) {
+      this.form.superviseurId = '';
+    }
+    if (
+      this.form.referentTechniqueId &&
+      !this.referentTechniqueOptions.some((o) => o.userId === this.form.referentTechniqueId)
+    ) {
+      this.form.referentTechniqueId = '';
+    }
+  }
+
+  private validateResponsables(): string | null {
+    if (!this.isOrgReadyForResponsables) return null;
+    if (
+      this.form.chefDeProjetId &&
+      !this.chefDeProjetOptions.some((o) => o.userId === this.form.chefDeProjetId)
+    ) {
+      return 'Le chef de projet sélectionné n\'appartient pas au pôle choisi.';
+    }
+    if (!this.form.chefDeProjetId.trim() && this.form.superviseurId.trim()) {
+      return 'Choisissez d\'abord le chef de projet.';
+    }
+    if (
+      this.form.superviseurId &&
+      !this.superviseurOptions.some((o) => o.userId === this.form.superviseurId)
+    ) {
+      return 'Le superviseur sélectionné n\'est pas rattaché au chef de projet choisi.';
+    }
+    if (!this.form.superviseurId.trim() && this.form.referentTechniqueId.trim()) {
+      return 'Choisissez d\'abord le superviseur.';
+    }
+    if (
+      this.form.referentTechniqueId &&
+      !this.referentTechniqueOptions.some((o) => o.userId === this.form.referentTechniqueId)
+    ) {
+      return 'Le référent technique sélectionné n\'est pas rattaché au superviseur choisi.';
+    }
+    return null;
+  }
+
   private toDateInputValue(date: Date): string {
     return date.toLocaleDateString('en-CA');
   }
@@ -452,20 +977,16 @@ export class UserFormComponent implements OnInit {
       return;
     }
 
-    const depts = this.filteredOperationalDepartments;
     if (this.showOrgOperationalDeptSelect) {
       if (this.orgOperationalDeptId && !this.operationalDepartments.some((d) => d.id === this.orgOperationalDeptId)) {
         this.orgOperationalDeptId = '';
-      }
-      if (!this.orgOperationalDeptId && !isUnassignedPole(this.unassignedPoles, this.orgPoleId)) {
-        this.orgOperationalDeptId = depts[0]?.id ?? '';
       }
     }
 
     if (this.showOrgPoleSelect) {
       const poles = this.filteredOrgPoleOptions;
-      if (!this.orgPoleId || !poles.some((p) => p.id === this.orgPoleId)) {
-        this.orgPoleId = poles[0]?.id ?? '';
+      if (this.orgPoleId && !poles.some((p) => p.id === this.orgPoleId)) {
+        this.orgPoleId = '';
       }
       if (this.orgPoleId && isUnassignedPole(this.unassignedPoles, this.orgPoleId)) {
         this.orgOperationalDeptId = '';
@@ -476,8 +997,8 @@ export class UserFormComponent implements OnInit {
 
     if (this.showOrgCelluleSelect) {
       const cellules = this.filteredOrgCelluleOptions;
-      if (!this.orgCelluleId || !cellules.some((c) => c.id === this.orgCelluleId)) {
-        this.orgCelluleId = cellules[0]?.id ?? '';
+      if (this.orgCelluleId && !cellules.some((c) => c.id === this.orgCelluleId)) {
+        this.orgCelluleId = '';
       }
     } else {
       this.orgCelluleId = '';
@@ -485,8 +1006,8 @@ export class UserFormComponent implements OnInit {
 
     if (this.showOrgServiceSelect) {
       const services = this.filteredOrgServiceOptions;
-      if (!this.orgServiceId || !services.some((s) => s.id === this.orgServiceId)) {
-        this.orgServiceId = services[0]?.id ?? '';
+      if (this.orgServiceId && !services.some((s) => s.id === this.orgServiceId)) {
+        this.orgServiceId = '';
       }
       this.syncSubServiceFromOrg();
     } else {
@@ -496,6 +1017,8 @@ export class UserFormComponent implements OnInit {
         this.orgMirrorWarning = null;
       }
     }
+
+    this.resetInvalidResponsables();
   }
 
   onOrgSearchChange(value: string): void {
@@ -536,6 +1059,7 @@ export class UserFormComponent implements OnInit {
     this.orgServiceId = '';
     this.form.subServiceId = null;
     this.orgMirrorWarning = null;
+    this.resetResponsables();
     this.ensureOrgPickerDefaults();
     this.cdr.detectChanges();
   }
@@ -550,49 +1074,32 @@ export class UserFormComponent implements OnInit {
         this.orgOperationalDeptId = sel.operationalDeptId;
       }
     }
-    if (this.showOrgCelluleSelect) {
-      const cellules = this.orgCelluleOptions;
-      const curCell = this.orgCelluleId;
-      if (!curCell || !cellules.some((c) => c.id === curCell)) {
-        this.orgCelluleId = cellules[0]?.id ?? '';
-      }
-    } else {
-      this.orgCelluleId = '';
-    }
-    if (this.showOrgServiceSelect) {
-      const services = this.orgServiceOptions;
-      const curSvc = this.orgServiceId;
-      if (!curSvc || !services.some((s) => s.id === curSvc)) {
-        this.orgServiceId = services[0]?.id ?? '';
-      }
-      this.syncSubServiceFromOrg();
-    } else {
-      this.orgServiceId = '';
-      this.form.subServiceId = null;
-      this.orgMirrorWarning = null;
-    }
+    this.orgCelluleId = '';
+    this.orgServiceId = '';
+    this.form.subServiceId = null;
+    this.orgMirrorWarning = null;
+    this.resetResponsables();
+    this.ensureOrgPickerDefaults();
     this.cdr.detectChanges();
   }
 
   patchOrgCellule(celluleId: string): void {
     this.orgCelluleId = celluleId;
+    this.orgServiceId = '';
+    this.form.subServiceId = null;
+    this.resetResponsables();
     if (this.showOrgServiceSelect) {
-      const services = this.orgServiceOptions;
-      const curSvc = this.orgServiceId;
-      if (!curSvc || !services.some((s) => s.id === curSvc)) {
-        this.orgServiceId = services[0]?.id ?? '';
-      }
       this.syncSubServiceFromOrg();
     } else {
-      this.orgServiceId = '';
-      this.form.subServiceId = null;
       this.orgMirrorWarning = this.superviseurMirrorWarning();
     }
+    this.resetInvalidResponsables();
     this.cdr.detectChanges();
   }
 
   patchOrgService(serviceId: string): void {
     this.orgServiceId = serviceId;
+    this.resetInvalidResponsables();
     this.syncSubServiceFromOrg();
     this.cdr.detectChanges();
   }
@@ -610,6 +1117,7 @@ export class UserFormComponent implements OnInit {
       this.orgCelluleId = hit.celluleId;
       this.orgServiceId = hit.serviceId;
     }
+    this.resetInvalidResponsables();
     this.syncSubServiceFromOrg();
     this.cdr.detectChanges();
   }
@@ -621,6 +1129,7 @@ export class UserFormComponent implements OnInit {
     this.orgServiceId = '';
     this.form.subServiceId = null;
     this.orgMirrorWarning = null;
+    this.resetResponsables();
     this.cdr.detectChanges();
   }
 
@@ -822,6 +1331,26 @@ export class UserFormComponent implements OnInit {
     });
   }
 
+  private syncEducationPickersFromProfile(): void {
+    const known = this.educationLevelOptions.find((o) => o.label === this.hrProfile.niveauScolaire);
+    if (known) {
+      this.niveauScolaireCode = known.value;
+      this.niveauScolaireAutre = '';
+    } else if (this.hrProfile.niveauScolaire.trim()) {
+      this.niveauScolaireCode = 'AUTRE';
+      this.niveauScolaireAutre = this.hrProfile.niveauScolaire;
+    }
+  }
+
+  private syncNationalityPickersFromProfile(): void {
+    const synced = syncNationalityCodeFromLabel(this.hrProfile.nationalite, this.hrProfile.sexe);
+    this.nationaliteCode = synced.code;
+    this.nationaliteAutre = synced.autre;
+    if (synced.code !== 'AUTRE') {
+      this.hrProfile.nationalite = nationalityLabelForCode(synced.code);
+    }
+  }
+
   loadUser(id: number): void {
     this.loading = true;
     this.userService.getUserById(id).subscribe({
@@ -837,7 +1366,13 @@ export class UserFormComponent implements OnInit {
             : this.toDateInputValue(new Date()),
           isActive: user.isActive,
           level: user.level ?? 1,
+          chefDeProjetId: user.chefDeProjetId ?? '',
+          superviseurId: user.superviseurId ?? '',
+          referentTechniqueId: user.referentTechniqueId ?? '',
+          niveauExpertiseMetier: user.niveauExpertiseMetier ?? null,
         };
+        this.applyHrProfileFromUser(user.hrProfile);
+        this.syncNationalityPickersFromProfile();
         this.loadedManagedServiceIds = user.managedServices?.map(s => s.id) ?? [];
         this.loadedManagedSubServiceIds = user.managedSubServices?.map(s => s.id) ?? [];
         this.loadedUserGuid = resolveUserGuid(user);
@@ -847,6 +1382,8 @@ export class UserFormComponent implements OnInit {
           }
         }
         this.loadDirectoryEmployeeContext(this.loadedUserGuid);
+        this.syncEducationPickersFromProfile();
+        this.loadContractForUser(id);
         if (this.operationalDepartments.length > 0 || this.unassignedPoles.length > 0) {
           this.reconcileOrgPickerAfterLoad();
         }
@@ -886,6 +1423,11 @@ export class UserFormComponent implements OnInit {
 
   setLevel(level: 1 | 2 | 3): void {
     this.form.level = level;
+    this.cdr.detectChanges();
+  }
+
+  setExpertiseLevel(level: 1 | 2 | 3): void {
+    this.form.niveauExpertiseMetier = level;
     this.cdr.detectChanges();
   }
 
@@ -960,7 +1502,19 @@ export class UserFormComponent implements OnInit {
 
   private buildUserMutationDto(): Pick<
     CreateUserDto,
-    'roleId' | 'subServiceId' | 'managedSubServiceIds' | 'managedServiceIds' | 'firstName' | 'lastName' | 'email' | 'level'
+    | 'roleId'
+    | 'subServiceId'
+    | 'managedSubServiceIds'
+    | 'managedServiceIds'
+    | 'firstName'
+    | 'lastName'
+    | 'email'
+    | 'level'
+    | 'chefDeProjetId'
+    | 'superviseurId'
+    | 'referentTechniqueId'
+    | 'hrProfile'
+    | 'niveauExpertiseMetier'
   > {
     const roleName = this.selectedRoleName;
     let subServiceId = this.form.subServiceId ?? undefined;
@@ -980,6 +1534,11 @@ export class UserFormComponent implements OnInit {
       lastName: this.form.lastName,
       email: this.form.email,
       level: this.form.level,
+      chefDeProjetId: this.toOptionalGuid(this.form.chefDeProjetId),
+      superviseurId: this.toOptionalGuid(this.form.superviseurId),
+      referentTechniqueId: this.toOptionalGuid(this.form.referentTechniqueId),
+      hrProfile: this.buildHrProfilePayload(),
+      niveauExpertiseMetier: this.form.niveauExpertiseMetier,
     };
   }
 
@@ -1233,6 +1792,24 @@ export class UserFormComponent implements OnInit {
   }
 
   private async submitAsync(): Promise<void> {
+    const identityErr = this.validateWizardStepIdentity();
+    if (identityErr) {
+      this.error = identityErr;
+      this.currentWizardStep = 'identity';
+      return;
+    }
+    const positionErr = this.validateWizardStepPosition();
+    if (positionErr) {
+      this.error = positionErr;
+      this.currentWizardStep = 'position';
+      return;
+    }
+    const pathwayErr = this.validateWizardStepPathway();
+    if (pathwayErr) {
+      this.error = pathwayErr;
+      this.currentWizardStep = 'pathway';
+      return;
+    }
     if (!this.form.roleId || !this.form.firstName.trim() ||
         !this.form.lastName.trim() || !this.form.email.trim() || !this.form.hireDate) {
       this.error = 'Tous les champs obligatoires doivent être remplis.';
@@ -1279,10 +1856,11 @@ export class UserFormComponent implements OnInit {
           }
           return sync$;
         }),
+        switchMap(() => this.saveContract$(this.userId!)),
       ).subscribe({
         next: () => this.router.navigate(['/users', this.userId]),
         error: (err) => {
-          this.error = formatHttpErrorMessage(err, 'Échec de la synchronisation Organisation RH.');
+          this.error = formatHttpErrorMessage(err, 'Échec de la mise à jour employé ou contrat.');
           this.submitting = false;
           this.cdr.detectChanges();
         }
@@ -1299,9 +1877,34 @@ export class UserFormComponent implements OnInit {
           }
           return this.resolveDirectorySync$(guid, roleName).pipe(map(() => user));
         }),
+        switchMap((user) => {
+          if (this.hrProfile.enFormation && !this.contractId) {
+            return of(user);
+          }
+          return this.saveContract$(user.id).pipe(map(() => user));
+        }),
+        switchMap((user) => {
+          const guid = resolveUserGuid(user);
+          if (!guid || !this.selectedReferralId.trim()) {
+            return of(user);
+          }
+          return this.completeReferralOnboarding$(guid).pipe(
+            map(() => user),
+            catchError((err) =>
+              throwError(() => new Error(formatHttpErrorMessage(err, 'Employé créé mais échec de la finalisation parrainage.'))),
+            ),
+          );
+        }),
       ).subscribe({
         next: (user) => {
-          this.router.navigate(['/users', user.id]);
+          this.createdUserId = user.id;
+          this.createSuccessMessage = this.hrProfile.enFormation
+            ? 'Employé créé — le contrat pourra être défini après la formation.'
+            : 'Employé et contrat créés avec succès.';
+          this.showCreateSuccess = true;
+          this.submitting = false;
+          this.toastService.success(this.createSuccessMessage);
+          void this.router.navigate(['/users', user.id]);
         },
         error: (err) => {
           this.error = formatHttpErrorMessage(err);
@@ -1316,5 +1919,203 @@ export class UserFormComponent implements OnInit {
     this.isEditMode
       ? this.router.navigate(['/users', this.userId])
       : this.router.navigate(['/users']);
+  }
+
+  wizardStepIndex(): number {
+    return this.wizardSteps.findIndex((s) => s.id === this.currentWizardStep);
+  }
+
+  isWizardStepDone(stepId: WizardStepId): boolean {
+    return this.wizardStepIndex() > this.wizardSteps.findIndex((s) => s.id === stepId);
+  }
+
+  canNavigateToWizardStep(stepId: WizardStepId): boolean {
+    const target = this.wizardSteps.findIndex((s) => s.id === stepId);
+    const current = this.wizardStepIndex();
+    if (target <= current) return true;
+    if (target === current + 1) {
+      return this.validateCurrentWizardStep() === null;
+    }
+    return false;
+  }
+
+  goToWizardStep(stepId: WizardStepId): void {
+    if (!this.canNavigateToWizardStep(stepId)) return;
+    this.currentWizardStep = stepId;
+    this.error = null;
+    if (stepId === 'pathway') {
+      this.preparePathwayStep();
+    }
+    this.cdr.detectChanges();
+  }
+
+  nextWizardStep(): void {
+    const err = this.validateCurrentWizardStep();
+    if (err) {
+      this.error = err;
+      this.cdr.detectChanges();
+      return;
+    }
+    this.error = null;
+    const idx = this.wizardStepIndex();
+    if (idx < this.wizardSteps.length - 1) {
+      const nextStep = this.wizardSteps[idx + 1].id;
+      this.currentWizardStep = nextStep;
+      if (nextStep === 'pathway') {
+        this.preparePathwayStep();
+      }
+      this.cdr.detectChanges();
+    }
+  }
+
+  prevWizardStep(): void {
+    const idx = this.wizardStepIndex();
+    if (idx > 0) {
+      this.currentWizardStep = this.wizardSteps[idx - 1].id;
+      this.error = null;
+      this.cdr.detectChanges();
+    }
+  }
+
+  validateCurrentWizardStep(): string | null {
+    switch (this.currentWizardStep) {
+      case 'identity':
+        return this.validateWizardStepIdentity();
+      case 'position':
+        return this.validateWizardStepPosition();
+      case 'pathway':
+        return this.validateWizardStepPathway();
+      default:
+        return null;
+    }
+  }
+
+  private validateWizardStepIdentity(): string | null {
+    if (!this.form.firstName.trim() || !this.form.lastName.trim()) {
+      return 'Le nom et le prénom sont obligatoires.';
+    }
+    if (!this.form.email.trim()) {
+      return 'L\'email est obligatoire.';
+    }
+    if (this.emailError) {
+      return this.emailError;
+    }
+    if (!this.form.hireDate) {
+      return 'La date d\'embauche est obligatoire.';
+    }
+    return null;
+  }
+
+  private validateWizardStepPosition(): string | null {
+    if (!this.form.roleId) {
+      return 'Sélectionnez un rôle.';
+    }
+    const supportError = this.validateSupportAssignment();
+    if (supportError) return supportError;
+    const operationalManagerError = this.validateOperationalManagerAssignment();
+    if (operationalManagerError) return operationalManagerError;
+    const orgError = this.validateOrgAssignment();
+    if (orgError) return orgError;
+    return this.validateResponsables();
+  }
+
+  private validateWizardStepPathway(): string | null {
+    if (this.hrProfile.enFormation) {
+      if (!this.hrProfile.dateDebutFormation.trim()) {
+        return 'La date de début de formation est obligatoire.';
+      }
+      if (!this.hrProfile.dateFinFormationPrevue.trim()) {
+        return 'La date de fin de formation prévue est obligatoire.';
+      }
+      if (this.hrProfile.dateFinFormationPrevue < this.hrProfile.dateDebutFormation) {
+        return 'La date de fin de formation doit être postérieure ou égale à la date de début.';
+      }
+      if (
+        this.hrProfile.dateEntree.trim() &&
+        this.hrProfile.dateDebutFormation < this.hrProfile.dateEntree
+      ) {
+        return 'La date de début de formation doit être postérieure ou égale à la date d\'entrée.';
+      }
+      if (this.isEditMode || !this.canShowContractFields) return null;
+    }
+    if (!this.canShowContractFields) return null;
+    if (!this.contractDraft.startDate.trim()) {
+      return 'La date de début du contrat est obligatoire.';
+    }
+    if (this.contractDraft.type !== 'CDI' && !this.contractDraft.endDate.trim()) {
+      return 'La date de fin du contrat est obligatoire pour ce type.';
+    }
+    if (
+      this.contractDraft.type !== 'CDI' &&
+      this.contractDraft.endDate < this.contractDraft.startDate
+    ) {
+      return 'La date de fin du contrat doit être postérieure à la date de début.';
+    }
+    return null;
+  }
+
+  private preparePathwayStep(): void {
+    if (this.hrProfile.enFormation) {
+      if (!this.hrProfile.dateDebutFormation.trim()) {
+        this.hrProfile.dateDebutFormation = this.form.hireDate;
+      }
+    } else if (!this.contractDraft.startDate.trim()) {
+      this.contractDraft.startDate = this.form.hireDate;
+    }
+  }
+
+  private buildCreateContractDto(userId: number): CreateContractDto {
+    const dto: CreateContractDto = {
+      userId,
+      type: this.contractDraft.type,
+      startDate: this.toISOString(this.contractDraft.startDate),
+      alertThresholdDays: this.contractDraft.alertThresholdDays,
+    };
+    if (this.contractDraft.type !== 'CDI' && this.contractDraft.endDate.trim()) {
+      dto.endDate = this.toISOString(this.contractDraft.endDate);
+    }
+    if (this.contractDraft.probationDays != null && this.contractDraft.probationDays >= 0) {
+      dto.probationDays = this.contractDraft.probationDays;
+    }
+    if (this.contractDraft.notes.trim()) {
+      dto.notes = this.contractDraft.notes.trim();
+    }
+    dto.status = this.contractDraft.status;
+    return dto;
+  }
+
+  get wizardRecapName(): string {
+    return `${this.form.firstName} ${this.form.lastName}`.trim() || '—';
+  }
+
+  get wizardRecapRole(): string {
+    return this.selectedRoleName || '—';
+  }
+
+  get wizardRecapPathway(): string {
+    if (this.hrProfile.enFormation) {
+      return `Formation du ${this.hrProfile.dateDebutFormation || '—'} au ${this.hrProfile.dateFinFormationPrevue || '—'}`;
+    }
+    const end = this.contractDraft.type !== 'CDI' && this.contractDraft.endDate
+      ? ` → ${this.contractDraft.endDate}`
+      : '';
+    return `${this.contractDraft.type} à partir du ${this.contractDraft.startDate || '—'}${end}`;
+  }
+
+  get submitButtonLabel(): string {
+    if (this.submitting) return 'Enregistrement...';
+    if (this.isEditMode) return 'Enregistrer les modifications';
+    if (this.selectedReferralId.trim()) return 'Enregistrer et valider le dossier parrainage';
+    return 'Créer l\'employé';
+  }
+
+  goToNewContract(): void {
+    if (!this.createdUserId) return;
+    void this.router.navigate(['/contracts/new'], { queryParams: { userId: this.createdUserId } });
+  }
+
+  viewCreatedUser(): void {
+    if (!this.createdUserId) return;
+    void this.router.navigate(['/users', this.createdUserId]);
   }
 }

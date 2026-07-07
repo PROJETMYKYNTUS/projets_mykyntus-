@@ -61,4 +61,20 @@ public class CongesController(IMediator mediator) : ControllerBase
             return NotFound(new { message = ex.Message });
         }
     }
+
+    [HttpPost("absence-days/bulk")]
+    public async Task<IActionResult> GetBulkAbsenceDays(
+        [FromBody] BulkAbsenceDaysRequestDto dto,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await mediator.Send(new GetBulkAbsenceDaysCommand(dto), ct);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

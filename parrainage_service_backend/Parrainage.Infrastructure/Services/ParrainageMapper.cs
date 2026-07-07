@@ -35,6 +35,7 @@ public static class ParrainageMapper
         PaidByUserId = e.PaidByUserId,
         PaidByLabel = e.PaidByLabel,
         PaymentReference = e.PaymentReference,
+        CandidateEmployeeId = e.CandidateEmployeeId,
         CreatedAt = e.CreatedAt,
     };
 

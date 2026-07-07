@@ -59,23 +59,91 @@ namespace Planning.Infrastructure.Services
             return contracts.Select(MapToResponseDto);
         }
 
+        public async Task<EmploymentSummaryDto?> GetEmploymentSummaryByEmployeeGuidAsync(Guid employeeGuid)
+        {
+            var user = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Guid == employeeGuid);
+            if (user is null) return null;
+
+            var contract = await _context.Contracts
+                .AsNoTracking()
+                .Where(c => c.UserId == user.Id)
+                .OrderByDescending(c => c.StartDate)
+                .FirstOrDefaultAsync();
+
+            var today = DateTime.UtcNow.Date;
+            var summary = new EmploymentSummaryDto
+            {
+                UserId = user.Id,
+                EmployeeGuid = employeeGuid,
+                IsActive = user.IsActive,
+                HasContract = contract is not null,
+            };
+
+            if (contract is null)
+            {
+                summary.IsEligibleForPaymentConfirmation = false;
+                summary.BlockReason = "Aucun contrat enregistrÃ© pour cet employÃ©.";
+                return summary;
+            }
+
+            summary.ContractStatus = contract.Status switch
+            {
+                ContractStatus.EnPeriodeEssai => "En pÃ©riode d'essai",
+                ContractStatus.Actif => "Actif",
+                ContractStatus.Expire => "ExpirÃ©",
+                ContractStatus.Resilie => "RÃ©siliÃ©",
+                _ => contract.Status.ToString(),
+            };
+            summary.ProbationEndDate = contract.ProbationEndDate;
+
+            if (!user.IsActive)
+            {
+                summary.IsEligibleForPaymentConfirmation = false;
+                summary.BlockReason = "EmployÃ© inactif.";
+                return summary;
+            }
+
+            if (contract.Status == ContractStatus.Resilie || contract.Status == ContractStatus.Expire)
+            {
+                summary.IsEligibleForPaymentConfirmation = false;
+                summary.BlockReason = $"Contrat {summary.ContractStatus?.ToLowerInvariant()}.";
+                return summary;
+            }
+
+            if (contract.Status == ContractStatus.EnPeriodeEssai &&
+                contract.ProbationEndDate.HasValue &&
+                contract.ProbationEndDate.Value.Date >= today)
+            {
+                summary.IsEligibleForPaymentConfirmation = false;
+                summary.BlockReason = "Contrat encore en pÃ©riode d'essai.";
+                return summary;
+            }
+
+            summary.IsEligibleForPaymentConfirmation = true;
+            return summary;
+        }
+
         public async Task<ContractResponseDto> CreateContractAsync(CreateContractDto dto)
         {
             if (dto.Type != ContractType.CDI && dto.EndDate == null)
                 throw new ArgumentException($"EndDate est obligatoire pour le type {dto.Type}.");
 
             int probationDays = dto.ProbationDays ?? DefaultProbationDays[dto.Type];
+            var probationStart = await ResolveProbationStartDateAsync(dto.UserId, dto.StartDate);
             DateTime? probationEndDate = probationDays > 0
-                ? dto.StartDate.AddDays(probationDays)
+                ? probationStart.AddDays(probationDays)
                 : null;
 
+            var defaultStatus = probationDays > 0
+                ? ContractStatus.EnPeriodeEssai
+                : ContractStatus.Actif;
             var contract = new Contract
             {
                 UserId = dto.UserId,
                 Type = dto.Type,
-                Status = probationDays > 0
-                                        ? ContractStatus.EnPeriodeEssai
-                                        : ContractStatus.Actif,
+                Status = dto.Status ?? defaultStatus,
                 StartDate = dto.StartDate,
                 EndDate = dto.EndDate,
                 ProbationDays = probationDays,
@@ -105,7 +173,7 @@ namespace Planning.Infrastructure.Services
                 int probDays = dto.ProbationDays ?? DefaultProbationDays[dto.Type.Value];
                 contract.ProbationDays = probDays;
                 contract.ProbationEndDate = probDays > 0
-                    ? contract.StartDate.AddDays(probDays)
+                    ? (await ResolveProbationStartDateAsync(contract.UserId, contract.StartDate)).AddDays(probDays)
                     : null;
             }
 
@@ -129,11 +197,29 @@ namespace Planning.Infrastructure.Services
             return true;
         }
 
+        public async Task<ContractResponseDto?> ConfirmProbationPeriodAsync(int contractId)
+        {
+            var contract = await _context.Contracts
+                .Include(c => c.User)
+                .FirstOrDefaultAsync(c => c.Id == contractId);
+            if (contract is null) return null;
+            if (contract.Status != ContractStatus.EnPeriodeEssai)
+                throw new InvalidOperationException("Le contrat n'est pas en pï¿½riode d'essai.");
+
+            contract.Status = ContractStatus.Actif;
+            contract.UpdatedAt = DateTime.UtcNow;
+            if (contract.User is not null)
+                contract.User.IsActive = true;
+
+            await _context.SaveChangesAsync();
+            return MapToResponseDto(contract);
+        }
+
         // ------------------------------------------------
-        // NOTIFICATIONS — LOGIQUE LIVE
+        // NOTIFICATIONS ï¿½ LOGIQUE LIVE
         // ------------------------------------------------
         // Au lieu de stocker des notifications en base et attendre minuit,
-        // on calcule EN TEMPS RÉEL quels contrats sont en alerte
+        // on calcule EN TEMPS Rï¿½EL quels contrats sont en alerte
         // et on les retourne comme notifications.
 
         public async Task<IEnumerable<NotificationResponseDto>> GetUnreadNotificationsAsync()
@@ -146,14 +232,20 @@ namespace Planning.Infrastructure.Services
                             c.Status == ContractStatus.EnPeriodeEssai)
                 .ToListAsync();
 
+            var userIds = contracts.Select(c => c.UserId).Distinct().ToList();
+            var hrByUser = await _context.UserHrProfiles.AsNoTracking()
+                .Where(p => userIds.Contains(p.UserId))
+                .ToDictionaryAsync(p => p.UserId);
+
             var notifications = new List<NotificationResponseDto>();
 
             foreach (var c in contracts)
             {
                 var userName = $"{c.User?.FirstName} {c.User?.LastName}";
                 var threshold = c.AlertThresholdDays;
+                hrByUser.TryGetValue(c.UserId, out var hr);
 
-                // -- Alerte : X jours avant fin contrat (CDD / Stage / Intérim) --
+                // -- Alerte : X jours avant fin contrat (CDD / Stage / Intï¿½rim) --
                 if (c.EndDate.HasValue && c.Type != ContractType.CDI)
                 {
                     var joursRestants = (c.EndDate.Value.Date - today).Days;
@@ -162,7 +254,7 @@ namespace Planning.Infrastructure.Services
                     {
                         notifications.Add(BuildNotif(c.Id, c.UserId, userName,
                             "AvantFinCDD",
-                            $"?? {joursRestants}j avant fin {c.Type} — {userName} (fin le {c.EndDate.Value:dd/MM/yyyy})",
+                            $"?? {joursRestants}j avant fin {c.Type} ï¿½ {userName} (fin le {c.EndDate.Value:dd/MM/yyyy})",
                             c.UpdatedAt));
                     }
                     // Mi-parcours : on est entre 45% et 55% du contrat
@@ -176,13 +268,13 @@ namespace Planning.Infrastructure.Services
                         {
                             notifications.Add(BuildNotif(c.Id, c.UserId, userName,
                                 "MiParcoursCDD",
-                                $"? Mi-parcours {c.Type} — {userName} : il reste {joursRestants} jours",
+                                $"? Mi-parcours {c.Type} ï¿½ {userName} : il reste {joursRestants} jours",
                                 c.UpdatedAt));
                         }
                     }
                 }
 
-                // -- Alerte : X jours avant fin période d'essai --
+                // -- Alerte : X jours avant fin pï¿½riode d'essai --
                 if (c.ProbationEndDate.HasValue && c.Status == ContractStatus.EnPeriodeEssai)
                 {
                     var joursEssai = (c.ProbationEndDate.Value.Date - today).Days;
@@ -191,28 +283,29 @@ namespace Planning.Infrastructure.Services
                     {
                         notifications.Add(BuildNotif(c.Id, c.UserId, userName,
                             "AvantFinPeriodeEssai",
-                            $"?? {joursEssai}j avant fin période d'essai — {userName} (fin le {c.ProbationEndDate.Value:dd/MM/yyyy})",
+                            $"?? {joursEssai}j avant fin pï¿½riode d'essai ï¿½ {userName} (fin le {c.ProbationEndDate.Value:dd/MM/yyyy})",
                             c.UpdatedAt));
                     }
-                    // Mi-parcours période d'essai
+                    // Mi-parcours pï¿½riode d'essai
                     else
                     {
-                        var totalProb = (c.ProbationEndDate.Value.Date - c.StartDate.Date).Days;
-                        var elapsedP = (today - c.StartDate.Date).Days;
+                        var probStart = ResolveProbationStartDate(hr, c.StartDate);
+                        var totalProb = (c.ProbationEndDate.Value.Date - probStart.Date).Days;
+                        var elapsedP = (today - probStart.Date).Days;
                         var pctP = totalProb > 0 ? (double)elapsedP / totalProb * 100 : 0;
 
                         if (pctP >= 45 && pctP <= 55)
                         {
                             notifications.Add(BuildNotif(c.Id, c.UserId, userName,
                                 "MiParcoursPeriodeEssai",
-                                $"?? Mi-parcours période d'essai — {userName} : il reste {joursEssai} jours",
+                                $"?? Mi-parcours pï¿½riode d'essai ï¿½ {userName} : il reste {joursEssai} jours",
                                 c.UpdatedAt));
                         }
                     }
                 }
             }
 
-            // Trier par date décroissante
+            // Trier par date dï¿½croissante
             return notifications.OrderByDescending(n => n.CreatedAt);
         }
 
@@ -222,15 +315,32 @@ namespace Planning.Infrastructure.Services
             return notifs.Count();
         }
 
-        // Ces méthodes ne font plus rien (logique live = pas de stockage)
-        // Gardées pour respecter l'interface
+        // Ces mï¿½thodes ne font plus rien (logique live = pas de stockage)
+        // Gardï¿½es pour respecter l'interface
         public Task MarkNotificationAsReadAsync(int notificationId) => Task.CompletedTask;
         public Task MarkAllNotificationsAsReadAsync() => Task.CompletedTask;
         public Task CheckAndGenerateAlertsAsync() => Task.CompletedTask;
 
         // ------------------------------------------------
-        // HELPERS PRIVÉS
+        // HELPERS PRIVï¿½S
         // ------------------------------------------------
+
+        private async Task<DateTime> ResolveProbationStartDateAsync(int userId, DateTime contractStart)
+        {
+            var hr = await _context.UserHrProfiles.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserId == userId);
+            return ResolveProbationStartDate(hr, contractStart);
+        }
+
+        private static DateTime ResolveProbationStartDate(UserHrProfile? hr, DateTime contractStart)
+        {
+            if (hr?.EnFormation == true && hr.DateFinFormationPrevue.HasValue)
+            {
+                var formationEnd = hr.DateFinFormationPrevue.Value.ToDateTime(TimeOnly.MinValue);
+                return formationEnd > contractStart ? formationEnd : contractStart;
+            }
+            return contractStart;
+        }
 
         private static NotificationResponseDto BuildNotif(
             int contractId, int userId, string userName,
@@ -273,10 +383,10 @@ namespace Planning.Infrastructure.Services
                 Type = c.Type.ToString(),
                 Status = c.Status switch
                 {
-                    ContractStatus.EnPeriodeEssai => "En période d'essai",
+                    ContractStatus.EnPeriodeEssai => "En pï¿½riode d'essai",
                     ContractStatus.Actif => "Actif",
-                    ContractStatus.Expire => "Expiré",
-                    ContractStatus.Resilie => "Résilié",
+                    ContractStatus.Expire => "Expirï¿½",
+                    ContractStatus.Resilie => "Rï¿½siliï¿½",
                     _ => c.Status.ToString()
                 },
                 StartDate = c.StartDate,

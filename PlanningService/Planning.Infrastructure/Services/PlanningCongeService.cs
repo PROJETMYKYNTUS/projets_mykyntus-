@@ -140,4 +140,72 @@ public sealed class PlanningCongeService(AppDbContext context) : IPlanningCongeS
             dto.Slot,
             dto.Slot == 1 ? "8h00-12h00" : "12h00-16h00");
     }
+
+    public async Task<BulkAbsenceDaysResponseDto> GetBulkAbsenceDaysAsync(
+        BulkAbsenceDaysRequestDto request,
+        CancellationToken ct = default)
+    {
+        if (!PlanningAbsenceDayCounter.TryParsePrimePeriod(request.Period, out var monthStart, out var monthEnd))
+            throw new InvalidOperationException("Période invalide (format attendu : YYYY-MM).");
+
+        var guidStrings = request.EmployeeGuids
+            .Where(g => !string.IsNullOrWhiteSpace(g))
+            .Select(g => g.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (guidStrings.Count == 0)
+            return new BulkAbsenceDaysResponseDto();
+
+        var guidSet = new HashSet<Guid>();
+        foreach (var g in guidStrings)
+        {
+            if (Guid.TryParse(g, out var parsed))
+                guidSet.Add(parsed);
+        }
+
+        if (guidSet.Count == 0)
+            return new BulkAbsenceDaysResponseDto
+            {
+                Items = guidStrings.Select(g => new BulkAbsenceDaysItemDto(g, 0)).ToList(),
+            };
+
+        var users = await context.Users.AsNoTracking()
+            .Where(u => guidSet.Contains(u.Guid))
+            .Select(u => new { u.Guid, u.Id })
+            .ToListAsync(ct);
+
+        var userIdByGuid = users.ToDictionary(u => u.Guid, u => u.Id);
+        var userIds = users.Select(u => u.Id).ToList();
+
+        var conges = await context.Conges.AsNoTracking()
+            .Where(c => userIds.Contains(c.UserId)
+                        && c.Status == CongeStatus.Approved
+                        && c.StartDate <= monthEnd
+                        && c.EndDate >= monthStart)
+            .Select(c => new { c.UserId, c.StartDate, c.EndDate })
+            .ToListAsync(ct);
+
+        var rangesByUserId = conges
+            .GroupBy(c => c.UserId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(c => (c.StartDate, c.EndDate)).AsEnumerable());
+
+        var items = new List<BulkAbsenceDaysItemDto>();
+        foreach (var guidStr in guidStrings)
+        {
+            if (!Guid.TryParse(guidStr, out var guid) || !userIdByGuid.TryGetValue(guid, out var userId))
+            {
+                items.Add(new BulkAbsenceDaysItemDto(guidStr, 0));
+                continue;
+            }
+
+            var ranges = rangesByUserId.GetValueOrDefault(userId) ?? [];
+            var count = PlanningAbsenceDayCounter.CountUnionMonToSatDays(ranges, monthStart, monthEnd);
+            items.Add(new BulkAbsenceDaysItemDto(guidStr, count));
+        }
+
+        return new BulkAbsenceDaysResponseDto { Items = items };
+    }
 }

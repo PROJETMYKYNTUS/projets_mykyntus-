@@ -32,7 +32,17 @@ export interface Referral {
   paidByUserId?: string;
   paidByLabel?: string;
   paymentReference?: string;
+  candidateEmployeeId?: string;
+  employmentCheckSummary?: EmploymentCheckSummary;
   createdAt: Date;
+}
+
+export interface EmploymentCheckSummary {
+  isActive?: boolean;
+  contractStatus?: string;
+  probationEndDate?: string;
+  isEligibleForPaymentConfirmation: boolean;
+  blockReason?: string;
 }
 
 export type ReferralHistoryAction =

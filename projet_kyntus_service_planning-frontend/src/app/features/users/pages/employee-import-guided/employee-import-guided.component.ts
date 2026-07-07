@@ -7,6 +7,7 @@ import { RouterLink } from '@angular/router';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 
 import { EMPLOYEE_IMPORT_HOST } from './employee-import-host.context';
+import { KYNTUS_PUBLIC_URLS } from '../../../../config/kyntus-public-urls';
 
 import {
 
@@ -402,7 +403,16 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
         this.analyzing = false;
 
-        this.analyzeError = err?.error ?? err?.message ?? 'Analyse impossible.';
+        if (err?.status === 401) {
+          this.analyzeError =
+            'Session expirée ou non authentifié. Reconnectez-vous avec un compte RH ou Admin, puis relancez l\'import.';
+          window.location.href = `${KYNTUS_PUBLIC_URLS.authLogin}?returnUrl=${encodeURIComponent(KYNTUS_PUBLIC_URLS.planningSpa)}`;
+          return;
+        }
+
+        this.analyzeError = typeof err?.error === 'string'
+          ? err.error
+          : err?.error?.message ?? err?.message ?? 'Analyse impossible.';
 
         this.cdr.detectChanges();
 
@@ -781,7 +791,20 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
         this.executing = false;
 
-        alert(err?.error ?? err?.message ?? 'Import échoué.');
+        if (err?.status === 504) {
+          alert(
+            'Le serveur a mis trop de temps à répondre (504). L\'import peut encore être en cours côté serveur.\n\n' +
+            'Attendez 1 à 2 minutes puis consultez Historique import avant de relancer.'
+          );
+          this.cdr.detectChanges();
+          return;
+        }
+
+        const detail = typeof err?.error === 'string'
+          ? err.error
+          : err?.error?.message ?? err?.message ?? 'Import échoué.';
+        const alreadyWrapped = detail.includes("L'import a échoué");
+        alert(alreadyWrapped ? detail : `Aucune modification n'a été appliquée.\n\n${detail}`);
 
         this.cdr.detectChanges();
 

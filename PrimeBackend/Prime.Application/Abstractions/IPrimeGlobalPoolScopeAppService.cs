@@ -100,5 +100,10 @@ public interface IPrimeGlobalPoolScopeAppService
 
     Task PayAllAsync(Guid scopeSynthesisId, PaySynthesisAllRequest body, CancellationToken ct = default);
 
+    Task UpdateLineAdjustmentsAsync(
+        Guid lineId,
+        UpdateSynthesisLineAdjustmentsRequest body,
+        CancellationToken ct = default);
+
     Task<IReadOnlyList<string>> ListPeriodsAsync(CancellationToken ct = default);
 }

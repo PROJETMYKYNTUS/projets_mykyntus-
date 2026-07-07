@@ -9,7 +9,8 @@ namespace Parrainage.Infrastructure.Services;
 public sealed class PaymentAppService(
     ParrainageDbContext db,
     ReferralWorkflowService workflow,
-    ReferralEligibilityService eligibility) : IPaymentAppService
+    ReferralEligibilityService eligibility,
+    IPlanningEmploymentCheckClient employmentCheck) : IPaymentAppService
 {
     public async Task<PaymentInboxDto> GetInboxAsync(CancellationToken ct = default)
     {
@@ -24,18 +25,39 @@ public sealed class PaymentAppService(
             r.Status == "APPROVED" && r.PaymentStatus == ReferralPaymentStatus.Ready).ToList();
         var paid = approved.Where(r => r.Status == "REWARDED").ToList();
 
-        var items = approved
-            .Where(r =>
-                (r.Status == "APPROVED" && r.PaymentStatus == ReferralPaymentStatus.Ready) ||
-                r.Status == "REWARDED")
-            .Select(r => new PaymentInboxItemDto
+        var items = new List<PaymentInboxItemDto>();
+        foreach (var r in approved.Where(r =>
+                     (r.Status == "APPROVED" && r.PaymentStatus == ReferralPaymentStatus.Ready) ||
+                     r.Status == "REWARDED"))
+        {
+            var dto = r.ToDto();
+            var canMarkPaid = r.Status == "APPROVED" && r.PaymentStatus == ReferralPaymentStatus.Ready;
+            if (!string.IsNullOrWhiteSpace(r.CandidateEmployeeId))
             {
-                Referral = r.ToDto(),
+                var summary = await employmentCheck.GetEmploymentSummaryAsync(r.CandidateEmployeeId, ct);
+                if (summary is not null)
+                {
+                    dto.EmploymentCheckSummary = new EmploymentCheckSummaryDto
+                    {
+                        IsActive = summary.IsActive,
+                        ContractStatus = summary.ContractStatus,
+                        ProbationEndDate = summary.ProbationEndDate,
+                        IsEligibleForPaymentConfirmation = summary.IsEligibleForPaymentConfirmation,
+                        BlockReason = summary.BlockReason,
+                    };
+                    if (!summary.IsEligibleForPaymentConfirmation)
+                        canMarkPaid = false;
+                }
+            }
+
+            items.Add(new PaymentInboxItemDto
+            {
+                Referral = dto,
                 Amount = r.RewardAmount,
-                CanMarkPaid = r.Status == "APPROVED" && r.PaymentStatus == ReferralPaymentStatus.Ready,
+                CanMarkPaid = canMarkPaid,
                 CanUndoPayment = r.Status == "REWARDED" && r.PaymentStatus == ReferralPaymentStatus.Paid,
-            })
-            .ToList();
+            });
+        }
 
         return new PaymentInboxDto
         {

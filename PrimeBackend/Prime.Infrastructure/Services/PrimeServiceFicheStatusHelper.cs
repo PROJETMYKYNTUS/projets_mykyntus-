@@ -24,6 +24,18 @@ public static class PrimeServiceFicheStatusHelper
         "montantChallenge",
     ];
 
+    /// <summary>Champs optionnels (vide autorisé) — aligné sur fiches Excel et validation frontend.</summary>
+    private static readonly HashSet<string> OptionalSectorCoreSuffixes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "resultatChallenge",
+        "kpiChallenge",
+        "ponderationChallenge",
+        "bonusAtteintChallenge",
+        "montantChallenge",
+        "bonusAtteintPrime",
+        "montantPrime",
+    };
+
     private static readonly Regex SectorIndexRegex = new(@"^secteur_(\d+)_", RegexOptions.Compiled);
 
     public static string ComputeFillingStatus(string serviceSaisieJson, IReadOnlyList<ServicePrimeIndicatorEntity> activeOrderedIndicators)
@@ -213,6 +225,8 @@ public static class PrimeServiceFicheStatusHelper
         {
             foreach (var sfx in SectorCoreSuffixes)
             {
+                if (OptionalSectorCoreSuffixes.Contains(sfx))
+                    continue;
                 var key = $"secteur_{i}_{sfx}";
                 if (!row.TryGetProperty(key, out var el) || !JsonValueFilled(el))
                     return false;

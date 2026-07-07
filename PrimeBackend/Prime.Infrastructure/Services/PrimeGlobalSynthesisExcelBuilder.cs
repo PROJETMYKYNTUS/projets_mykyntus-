@@ -27,14 +27,24 @@ public static class PrimeGlobalSynthesisExcelBuilder
         cover.Cell(8, 1).Value = "Total plafond challenge";
         cover.Cell(8, 2).Value = lines.Sum(l => l.ChallengeAmount ?? 0m);
         cover.Cell(8, 2).Style.NumberFormat.Format = "# ##0.00";
-        cover.Cell(9, 1).Value = "Total général";
+        cover.Cell(9, 1).Value = "Total plafond";
         cover.Cell(9, 2).Value = lines.Sum(l => l.TotalAmount ?? 0m);
         cover.Cell(9, 2).Style.NumberFormat.Format = "# ##0.00";
+        cover.Cell(10, 1).Value = "Total sanctions";
+        cover.Cell(10, 2).Value = lines.Sum(l => l.SanctionAmount);
+        cover.Cell(10, 2).Style.NumberFormat.Format = "# ##0.00";
+        cover.Cell(11, 1).Value = "Total régularisations";
+        cover.Cell(11, 2).Value = lines.Sum(l => l.RegularizationAmount);
+        cover.Cell(11, 2).Style.NumberFormat.Format = "# ##0.00";
+        cover.Cell(12, 1).Value = "Total net à payer";
+        cover.Cell(12, 2).Value = lines.Sum(l => l.NetPayableAmount ?? l.TotalAmount ?? 0m);
+        cover.Cell(12, 2).Style.NumberFormat.Format = "# ##0.00";
 
         var ws = wb.Worksheets.Add("Détail employés");
         var headers = new[]
         {
-            "Employé", "Plafond Prime", "Plafond Challenge", "Total",
+            "Employé", "Plafond Prime", "Plafond Challenge", "Total plafond",
+            "Absences (j.)", "Sanction", "Régularisation", "Total net",
         };
         for (var c = 0; c < headers.Length; c++)
             ws.Cell(1, c + 1).Value = headers[c];
@@ -47,9 +57,12 @@ public static class PrimeGlobalSynthesisExcelBuilder
             ws.Cell(r, 2).Value = l.PrimeAmount ?? 0m;
             ws.Cell(r, 3).Value = l.ChallengeAmount ?? 0m;
             ws.Cell(r, 4).Value = l.TotalAmount ?? 0m;
-            ws.Cell(r, 2).Style.NumberFormat.Format = "# ##0.00";
-            ws.Cell(r, 3).Style.NumberFormat.Format = "# ##0.00";
-            ws.Cell(r, 4).Style.NumberFormat.Format = "# ##0.00";
+            ws.Cell(r, 5).Value = l.AbsenceDayCount;
+            ws.Cell(r, 6).Value = l.SanctionAmount;
+            ws.Cell(r, 7).Value = l.RegularizationAmount;
+            ws.Cell(r, 8).Value = l.NetPayableAmount ?? l.TotalAmount ?? 0m;
+            for (var c = 2; c <= 8; c++)
+                ws.Cell(r, c).Style.NumberFormat.Format = c == 5 ? "0" : "# ##0.00";
         }
 
         using var ms = new MemoryStream();

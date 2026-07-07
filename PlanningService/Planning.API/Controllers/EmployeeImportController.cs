@@ -126,7 +126,10 @@ public class EmployeeImportController(IEmployeeImportService importService, IEmp
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            var message = ex.InnerException?.Message is { Length: > 0 } inner && !ex.Message.Contains(inner, StringComparison.Ordinal)
+                ? $"{ex.Message}\n\n{inner}"
+                : ex.Message;
+            return BadRequest(message);
         }
     }
 

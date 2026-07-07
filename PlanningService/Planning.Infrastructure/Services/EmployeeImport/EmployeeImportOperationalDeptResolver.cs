@@ -16,12 +16,70 @@ public static class EmployeeImportOperationalDeptResolver
             EmployeeImportColumnMatcher.Normalize(d.Name) == normalized
             || EmployeeImportColumnMatcher.Normalize(d.Code) == normalized
             || EmployeeImportColumnMatcher.Normalize($"{d.Code} {d.Name}") == normalized
-            || EmployeeImportColumnMatcher.Normalize($"{d.Name} {d.Code}") == normalized).ToList();
+            || EmployeeImportColumnMatcher.Normalize($"{d.Name} {d.Code}") == normalized
+            || EmployeeImportColumnMatcher.Normalize($"{d.Code} - {d.Name}") == normalized).ToList();
 
         if (matches.Count == 1 && Guid.TryParse(matches[0].Id, out var single))
             return single;
 
+        var codePrefix = TryExtractLeadingCode(normalized);
+        if (codePrefix is not null)
+        {
+            matches = departments.Where(d =>
+                EmployeeImportColumnMatcher.Normalize(d.Code) == codePrefix).ToList();
+            if (matches.Count == 1 && Guid.TryParse(matches[0].Id, out var byCode))
+                return byCode;
+        }
+
+        // Repli tolérant : la cellule contient (ou approche) le nom du département, même si le code
+        // est absent ou erroné (ex. « OP-003 - departement operationnel » alors que seul OP-001 existe).
+        // On réutilise le même score inclusion + Levenshtein que la détection des en-têtes, et on
+        // n'accepte que si le meilleur candidat est sans ambiguïté.
+        var fuzzy = ResolveByTolerance(normalized, departments);
+        if (fuzzy is not null && Guid.TryParse(fuzzy.Id, out var byName))
+            return byName;
+
         return null;
+    }
+
+    /// <summary>Seuil d'acceptation de la correspondance tolérante (aligné sur la détection d'en-têtes).</summary>
+    private const double ToleranceThreshold = 0.75;
+
+    private static DirectoryOperationalDepartmentJson? ResolveByTolerance(
+        string normalizedInput,
+        IReadOnlyList<DirectoryOperationalDepartmentJson> departments)
+    {
+        var scored = departments
+            .Select(d => new
+            {
+                Dept = d,
+                Score = Math.Max(
+                    EmployeeImportColumnMatcher.SimilarityScore(
+                        normalizedInput, EmployeeImportColumnMatcher.Normalize(d.Name)),
+                    EmployeeImportColumnMatcher.SimilarityScore(
+                        normalizedInput, EmployeeImportColumnMatcher.Normalize($"{d.Code} {d.Name}")))
+            })
+            .Where(x => x.Score >= ToleranceThreshold)
+            .OrderByDescending(x => x.Score)
+            .ToList();
+
+        if (scored.Count == 0)
+            return null;
+
+        // Un seul candidat, ou un meilleur nettement détaché du suivant → non ambigu.
+        if (scored.Count == 1 || scored[0].Score - scored[1].Score >= 0.05)
+            return scored[0].Dept;
+
+        return null;
+    }
+
+    private static string? TryExtractLeadingCode(string normalizedInput)
+    {
+        // « op 001 departement operationnel » → « op 001 »
+        var parts = normalizedInput.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2 && parts[0].Length <= 4 && parts[1].All(char.IsDigit))
+            return $"{parts[0]} {parts[1]}";
+        return parts.Length >= 1 ? parts[0] : null;
     }
 
     public static Guid? ResolveUniqueByPoleName(

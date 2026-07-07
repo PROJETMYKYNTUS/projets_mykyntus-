@@ -85,6 +85,10 @@ public static class DependencyInjection
             services.AddScoped<PrimeGlobalSynthesisService>();
             services.AddScoped<PrimeGlobalSynthesisLineService>();
             services.AddScoped<PrimeGlobalSynthesisPaymentService>();
+            services.AddHttpClient<IPlanningAbsenceClient, PlanningAbsenceClient>();
+            services.AddScoped<IPrimeAbsenceSanctionConfigService, PrimeAbsenceSanctionConfigService>();
+            services.AddScoped<PrimeAbsenceSanctionService>();
+            services.AddScoped<IPrimeAbsenceSanctionConfigAppService, PrimeAbsenceSanctionConfigAppService>();
             services.AddScoped<PrimeFicheMergedPreviewAccessService>();
             services.AddScoped<PrimeFicheImportService>();
             services.AddScoped<AllowanceScopeService>();

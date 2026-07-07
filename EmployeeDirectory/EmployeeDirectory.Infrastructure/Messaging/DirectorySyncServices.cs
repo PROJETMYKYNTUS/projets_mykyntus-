@@ -185,11 +185,14 @@ public sealed class DirectoryAssignmentSyncService(
         if (employee is null) return;
 
         var msgKindAssign = MessagingEnumMapper.FromMessage(msg.Kind);
-        var existing = await db.OrgAssignments
-            .Where(a => a.Kind == msgKindAssign && a.NodeId == msg.NodeId && a.EffectiveTo == null)
-            .ToListAsync(ct);
-        foreach (var row in existing)
-            row.EffectiveTo = DateTime.UtcNow;
+        var duplicate = await db.OrgAssignments.AnyAsync(
+            a => a.Kind == msgKindAssign
+                 && a.NodeId == msg.NodeId
+                 && a.EmployeeId == employeeId
+                 && a.EffectiveTo == null,
+            ct);
+        if (duplicate)
+            return;
 
         db.OrgAssignments.Add(new OrgAssignment
         {

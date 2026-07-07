@@ -26,4 +26,5 @@ public sealed class EmployeeImportUserResult
     public DateTime HireDate { get; init; }
     public bool IsActive { get; init; }
     public int Level { get; init; }
+    public int? AuthUserId { get; init; }
 }

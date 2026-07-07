@@ -1,11 +1,13 @@
 ﻿import { Routes } from '@angular/router';
 
 import { DocumentationShellComponent } from './components/documentation-shell/documentation-shell.component';
+import { documentationEntryGuard } from './guards/documentation-entry.guard';
 
 export const DOCUMENTATION_ROUTES: Routes = [
   {
     path: '',
     component: DocumentationShellComponent,
+    canActivate: [documentationEntryGuard],
     children: [
       {
         path: '',

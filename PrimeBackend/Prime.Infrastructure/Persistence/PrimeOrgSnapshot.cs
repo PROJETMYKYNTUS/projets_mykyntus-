@@ -64,8 +64,17 @@ public sealed class PrimeOrgSnapshot
     }
 
     public string? SupervisorForCellule(string celluleId) =>
-        Employees.FirstOrDefault(e => e.Role == "Superviseur" && e.CelluleId == celluleId)?.Id
-        ?? Employees.FirstOrDefault(e => e.Role == "Superviseur" && e.PoleId == CellulePoleId(celluleId))?.Id;
+        SupervisorsForCellule(celluleId).FirstOrDefault();
+
+    public IReadOnlyList<string> SupervisorsForCellule(string celluleId) =>
+        Employees
+            .Where(e => e.Role == "Superviseur" && e.CelluleId == celluleId)
+            .Select(e => e.Id)
+            .Concat(Employees
+                .Where(e => e.Role == "Superviseur" && e.PoleId == CellulePoleId(celluleId))
+                .Select(e => e.Id))
+            .Distinct()
+            .ToList();
 
     public string? ReferentForCellule(string celluleId, string? serviceId = null)
     {
@@ -81,8 +90,14 @@ public sealed class PrimeOrgSnapshot
     }
 
     public string? ChefDeProjetForPole(string poleId) =>
-        Employees.FirstOrDefault(e => (e.Role == "Chef de projet" || e.Role == "RP") && e.PoleId == poleId)?.Id
-        ?? Employees.FirstOrDefault(e => e.Role == "Chef de projet" || e.Role == "RP")?.Id;
+        ChefsDeProjetForPole(poleId).FirstOrDefault();
+
+    public IReadOnlyList<string> ChefsDeProjetForPole(string poleId) =>
+        Employees
+            .Where(e => (e.Role == "Chef de projet" || e.Role == "RP") && e.PoleId == poleId)
+            .Select(e => e.Id)
+            .Distinct()
+            .ToList();
 
     public int PilotCountForService(string serviceId) =>
         Employees.Count(e => e.Role == "Pilote" && e.ServiceId == serviceId);

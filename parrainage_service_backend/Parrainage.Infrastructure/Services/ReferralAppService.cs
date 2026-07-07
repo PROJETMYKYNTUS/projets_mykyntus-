@@ -12,7 +12,8 @@ public sealed class ReferralAppService(
     ReferralWorkflowService workflow,
     ReferralEligibilityService eligibility,
     ReferralRuleResolver ruleResolver,
-    ReferralCvStorageService cvStorage) : IReferralAppService
+    ReferralCvStorageService cvStorage,
+    IPlanningEmploymentCheckClient employmentCheck) : IReferralAppService
 {
     public async Task<IReadOnlyList<ReferralDto>> ListAsync(CancellationToken ct = default)
     {
@@ -35,7 +36,8 @@ public sealed class ReferralAppService(
     {
         await eligibility.ProcessEligibleReferralsAsync(ct);
         var entity = await db.Referrals.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, ct);
-        return entity?.ToDto();
+        if (entity is null) return null;
+        return await EnrichDtoAsync(entity.ToDto(), ct);
     }
 
     public async Task<ReferralRewardPreviewDto?> GetRewardPreviewAsync(string id, CancellationToken ct = default)
@@ -196,5 +198,46 @@ public sealed class ReferralAppService(
 
         var (stream, contentType, fileName) = opened.Value;
         return new ReferralCvFile(stream, contentType, fileName);
+    }
+
+    public async Task<IReadOnlyList<ReferralDto>> ListOnboardingAsync(CancellationToken ct = default)
+    {
+        var rows = await workflow.ListOnboardingReferralsAsync(ct);
+        var list = new List<ReferralDto>(rows.Count);
+        foreach (var row in rows)
+            list.Add(await EnrichDtoAsync(row.ToDto(), ct));
+        return list;
+    }
+
+    public async Task<ReferralDto?> LinkEmployeeAsync(string id, LinkEmployeeRequest body, CancellationToken ct = default)
+    {
+        var updated = await workflow.LinkEmployeeAsync(id, body, ct);
+        return updated is null ? null : await EnrichDtoAsync(updated.ToDto(), ct);
+    }
+
+    public async Task<ReferralDto?> CompleteOnboardingAsync(string id, CompleteOnboardingRequest body, CancellationToken ct = default)
+    {
+        var updated = await workflow.CompleteOnboardingAsync(id, body, ct);
+        return updated is null ? null : await EnrichDtoAsync(updated.ToDto(), ct);
+    }
+
+    private async Task<ReferralDto> EnrichDtoAsync(ReferralDto dto, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(dto.CandidateEmployeeId))
+            return dto;
+
+        var summary = await employmentCheck.GetEmploymentSummaryAsync(dto.CandidateEmployeeId, ct);
+        if (summary is null)
+            return dto;
+
+        dto.EmploymentCheckSummary = new EmploymentCheckSummaryDto
+        {
+            IsActive = summary.IsActive,
+            ContractStatus = summary.ContractStatus,
+            ProbationEndDate = summary.ProbationEndDate,
+            IsEligibleForPaymentConfirmation = summary.IsEligibleForPaymentConfirmation,
+            BlockReason = summary.BlockReason,
+        };
+        return dto;
     }
 }

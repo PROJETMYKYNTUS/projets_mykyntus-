@@ -51,7 +51,7 @@ public static class DependencyInjection
         services.AddHttpClient<IUserService, UserService>(client =>
         {
             client.BaseAddress = new Uri("http://kyntus_auth_backend:8080/");
-            client.Timeout = TimeSpan.FromSeconds(10);
+            client.Timeout = TimeSpan.FromSeconds(30);
         });
         services.AddScoped<IContractService, ContractService>();
         services.AddScoped<IPlanningOrgMirrorService, PlanningOrgMirrorService>();
@@ -68,6 +68,7 @@ public static class DependencyInjection
         services.AddScoped<IEmployeeImportOrgProvisioner, EmployeeImportDirectoryOrgProvisioner>();
         services.AddScoped<IEmployeeImportStructureAssignmentService, EmployeeImportStructureAssignmentService>();
         services.AddScoped<IEmployeeImportExecutor, EmployeeImportExecutor>();
+        services.AddScoped<IImportExecutionJournal, ImportExecutionJournal>();
         services.AddScoped<IEmployeeImportService, EmployeeImportService>();
         services.AddScoped<IEmployeeImportUserPersistence, EmployeeImportUserPersistence>();
         services.AddSingleton<EmployeeImportFileParser>();
@@ -91,6 +92,7 @@ public static class DependencyInjection
                 x.AddConsumer<CongeValideConsumer>();
                 x.AddConsumer<OrgStructureConsumer>();
                 x.AddConsumer<DirectoryEmployeeProjectionConsumer>();
+                x.AddConsumer<DirectoryEmployeeHrProfileProjectionConsumer>();
                 x.AddConsumer<PlanningDirectoryOrgProjectionConsumer>();
 
                 x.UsingRabbitMq((ctx, cfg) =>
@@ -107,6 +109,8 @@ public static class DependencyInjection
                         e.ConfigureConsumer<OrgStructureConsumer>(ctx));
                     cfg.ReceiveEndpoint("planning-directory-employee", e =>
                         e.ConfigureConsumer<DirectoryEmployeeProjectionConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-directory-hr-profile", e =>
+                        e.ConfigureConsumer<DirectoryEmployeeHrProfileProjectionConsumer>(ctx));
                     cfg.ReceiveEndpoint("planning-directory-org", e =>
                         e.ConfigureConsumer<PlanningDirectoryOrgProjectionConsumer>(ctx));
 

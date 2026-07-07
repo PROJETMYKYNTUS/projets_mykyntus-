@@ -84,14 +84,14 @@
         <div class="ce-field">
           <label>Type de congé</label>
           <select class="ky-input" [(ngModel)]="form.typeConge" (change)="onTypeCongeChange()">
-            <option *ngFor="let t of typesConge" [value]="t.value">{{ t.label }}</option>
+            <option *ngFor="let t of typesConge" [ngValue]="t.value">{{ t.label }}</option>
           </select>
         </div>
         <div class="ce-field" *ngIf="isExceptionnel()">
           <label>Événement</label>
           <select class="ky-input" [(ngModel)]="form.typeExceptionnel">
-            <option [value]="null">-- Sélectionner --</option>
-            <option *ngFor="let e of typesExceptionnels" [value]="e.value">{{ e.label }}</option>
+            <option [ngValue]="null">-- Sélectionner --</option>
+            <option *ngFor="let e of typesExceptionnels" [ngValue]="e.value">{{ e.label }}</option>
           </select>
           <small class="ce-hint">La durée est fixée automatiquement par la loi marocaine.</small>
         </div>

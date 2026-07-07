@@ -94,11 +94,30 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
         var businessDepartmentId = await ResolveBusinessDepartmentIdForPoleAsync(item, poleName, ct);
         if (businessDepartmentId == Guid.Empty)
         {
+            var departments = _operationalDepartments ?? await directoryOrg.GetOperationalDepartmentsAsync(ct);
+            var cause = string.IsNullOrWhiteSpace(item.OperationalDepartment)
+                ? "la colonne « Département opérationnel » est vide pour ce pôle"
+                : $"la valeur « {item.OperationalDepartment} » ne correspond à aucun département opérationnel existant";
+            var hint = departments.Count == 0
+                ? "Aucun département opérationnel n'existe : créez-en un dans « Organisation » (ex. OP-001) avant l'import."
+                : "Départements disponibles : " + string.Join(", ", departments.Select(d => $"{d.Code} - {d.Name}"))
+                  + ". Reprenez l'une de ces valeurs dans le fichier, ou créez le département dans « Organisation » (l'import ne crée pas de département opérationnel).";
             throw new InvalidOperationException(
-                $"Département opérationnel requis pour créer le pôle « {poleName} ». Ajoutez la colonne « Département opérationnel » au fichier.");
+                $"Impossible de créer le pôle « {poleName} » : {cause}. {hint}");
         }
 
-        var directoryId = await directoryOrg.CreatePoleAsync(poleName, businessDepartmentId, ct);
+        string directoryId;
+        try
+        {
+            directoryId = await directoryOrg.CreatePoleAsync(poleName, businessDepartmentId, ct);
+        }
+        catch (InvalidOperationException)
+        {
+            if (await TryAdoptExistingOrgNodeAsync("pole", poleName, null, null, snapshot, ct))
+                return;
+            throw;
+        }
+
         _poleDirectoryIds[poleName] = directoryId;
         created.Add(new OrgNodeCreatedReportDto
         {
@@ -162,7 +181,18 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
         if (string.IsNullOrWhiteSpace(poleDirectoryId))
             throw new InvalidOperationException($"Pôle « {poleName} » introuvable pour créer la cellule « {celluleName} ».");
 
-        var directoryId = await directoryOrg.CreateCelluleAsync(poleDirectoryId, celluleName, ct);
+        string directoryId;
+        try
+        {
+            directoryId = await directoryOrg.CreateCelluleAsync(poleDirectoryId, celluleName, ct);
+        }
+        catch (InvalidOperationException)
+        {
+            if (await TryAdoptExistingOrgNodeAsync("cellule", poleName, celluleName, null, snapshot, ct))
+                return;
+            throw;
+        }
+
         _celluleDirectoryIds[cellKey] = directoryId;
         created.Add(new OrgNodeCreatedReportDto
         {
@@ -212,7 +242,18 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
             throw new InvalidOperationException(
                 $"Identifiant Directory de la cellule « {item.Cellule} » introuvable.");
 
-        var directoryId = await directoryOrg.CreateServiceAsync(celluleDirectoryId, item.Service!, ct);
+        string directoryId;
+        try
+        {
+            directoryId = await directoryOrg.CreateServiceAsync(celluleDirectoryId, item.Service!, ct);
+        }
+        catch (InvalidOperationException)
+        {
+            if (await TryAdoptExistingOrgNodeAsync("service", item.Pole!, item.Cellule!, item.Service!, snapshot, ct))
+                return;
+            throw;
+        }
+
         created.Add(new OrgNodeCreatedReportDto
         {
             NodeType = "service",
@@ -221,6 +262,70 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
             Cellule = item.Cellule,
             DirectoryNodeId = directoryId
         });
+    }
+
+    private async Task<bool> TryAdoptExistingOrgNodeAsync(
+        string nodeType,
+        string poleName,
+        string? celluleName,
+        string? serviceName,
+        EmployeeImportOrgSnapshot snapshot,
+        CancellationToken ct)
+    {
+        var auth = httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
+        await orgMirror.SyncFromDirectoryOverviewAsync(
+            string.IsNullOrWhiteSpace(auth) ? null : auth, ct);
+
+        var refreshed = await orgResolver.LoadSnapshotAsync(ct);
+        var exists = nodeType switch
+        {
+            "pole" => EmployeeImportOrgExistence.PoleExists(refreshed, poleName),
+            "cellule" => !string.IsNullOrWhiteSpace(celluleName)
+                && EmployeeImportOrgExistence.CelluleExists(refreshed, poleName, celluleName),
+            "service" => !string.IsNullOrWhiteSpace(celluleName) && !string.IsNullOrWhiteSpace(serviceName)
+                && EmployeeImportOrgExistence.ServiceExists(refreshed, poleName, celluleName, serviceName),
+            _ => false
+        };
+
+        if (!exists)
+            return false;
+
+        switch (nodeType)
+        {
+            case "pole":
+            {
+                var row = refreshed.Rows.First(r =>
+                    EmployeeImportColumnMatcher.Normalize(r.FloorName) ==
+                    EmployeeImportColumnMatcher.Normalize(poleName));
+                var primeId = await db.Floors.AsNoTracking()
+                    .Where(f => f.Id == row.FloorId)
+                    .Select(f => f.PrimePoleId)
+                    .FirstOrDefaultAsync(ct);
+                if (string.IsNullOrWhiteSpace(primeId))
+                    return false;
+                _poleDirectoryIds[poleName] = primeId!;
+                break;
+            }
+            case "cellule":
+            {
+                var row = FilterRows(refreshed.Rows, poleName, celluleName, null).First();
+                var primeId = await db.Services.AsNoTracking()
+                    .Where(s => s.Id == row.ServiceId)
+                    .Select(s => s.PrimeCelluleId)
+                    .FirstOrDefaultAsync(ct);
+                if (string.IsNullOrWhiteSpace(primeId))
+                    return false;
+                _celluleDirectoryIds[$"{poleName}|{celluleName}"] = primeId!;
+                break;
+            }
+            case "service":
+                break;
+        }
+
+        logger.LogInformation(
+            "Nœud org « {Type} » déjà présent dans Directory — création ignorée ({Pole}/{Cellule}/{Service}).",
+            nodeType, poleName, celluleName, serviceName);
+        return true;
     }
 
     private void VerifyProvisioned(PendingOrgCreationDto item, EmployeeImportOrgSnapshot snapshot)

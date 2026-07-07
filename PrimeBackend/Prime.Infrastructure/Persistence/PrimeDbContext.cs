@@ -27,6 +27,7 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
     public DbSet<GlobalPoolApprovalEntity> GlobalPoolApprovals => Set<GlobalPoolApprovalEntity>();
     public DbSet<GlobalPoolScopeSynthesisEntity> GlobalPoolScopeSyntheses => Set<GlobalPoolScopeSynthesisEntity>();
     public DbSet<GlobalPoolSynthesisLineEntity> GlobalPoolSynthesisLines => Set<GlobalPoolSynthesisLineEntity>();
+    public DbSet<PrimeAbsenceSanctionConfigEntity> PrimeAbsenceSanctionConfigs => Set<PrimeAbsenceSanctionConfigEntity>();
     public DbSet<GlobalPoolSynthesisLineHistoryEntity> GlobalPoolSynthesisLineHistories =>
         Set<GlobalPoolSynthesisLineHistoryEntity>();
     public DbSet<BusinessDepartmentEntity> BusinessDepartments => Set<BusinessDepartmentEntity>();
@@ -99,6 +100,9 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.Property(x => x.ServiceId).IsRequired(false);
             e.Property(x => x.BusinessDepartmentId).HasMaxLength(64).IsRequired(false);
             e.Property(x => x.BusinessDepartmentKind).HasMaxLength(32).IsRequired(false);
+            e.Property(x => x.ReferentTechniqueId).HasMaxLength(128).IsRequired(false);
+            e.Property(x => x.ChefDeProjetId).HasMaxLength(128).IsRequired(false);
+            e.Property(x => x.SuperviseurId).HasMaxLength(128).IsRequired(false);
             e.HasOne<ServiceEntity>()
                 .WithMany()
                 .HasForeignKey(x => x.ServiceId)
@@ -297,7 +301,19 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.Property(x => x.PrimeAmount).HasPrecision(12, 2);
             e.Property(x => x.ChallengeAmount).HasPrecision(12, 2);
             e.Property(x => x.TotalAmount).HasPrecision(12, 2);
+            e.Property(x => x.SanctionAmount).HasPrecision(12, 2);
+            e.Property(x => x.RegularizationAmount).HasPrecision(12, 2);
+            e.Property(x => x.NetPayableAmount).HasPrecision(12, 2);
+            e.Property(x => x.RegularizationUpdatedByUserId).HasMaxLength(128);
             e.HasIndex(x => new { x.ScopeSynthesisId, x.FicheId }).IsUnique();
+        });
+
+        modelBuilder.Entity<PrimeAbsenceSanctionConfigEntity>(e =>
+        {
+            e.ToTable("prime_absence_sanction_config");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasMaxLength(32);
+            e.Property(x => x.UpdatedByUserId).HasMaxLength(128);
         });
 
         modelBuilder.Entity<GlobalPoolSynthesisLineHistoryEntity>(e =>

@@ -5,19 +5,20 @@ using Planning.Domain.Entities;
 
 namespace Planning.Application.DTOs
 {
-    // -- Création d'un contrat --
+    // -- Crï¿½ation d'un contrat --
     public class CreateContractDto
     {
         public int UserId { get; set; }
         public ContractType Type { get; set; }
         public DateTime StartDate { get; set; }
-        public DateTime? EndDate { get; set; }      // Obligatoire si CDD/Stage/Intérim
-        public int? ProbationDays { get; set; }     // Si null ? valeur par défaut selon type
+        public DateTime? EndDate { get; set; }      // Obligatoire si CDD/Stage/Intï¿½rim
+        public int? ProbationDays { get; set; }     // Si null ? valeur par dï¿½faut selon type
         public int AlertThresholdDays { get; set; } = 15;
         public string? Notes { get; set; }
+        public ContractStatus? Status { get; set; }
     }
 
-    // -- Mise à jour d'un contrat --
+    // -- Mise ï¿½ jour d'un contrat --
     public class UpdateContractDto
     {
         public ContractType? Type { get; set; }
@@ -28,28 +29,40 @@ namespace Planning.Application.DTOs
         public string? Notes { get; set; }
     }
 
-    // -- Réponse contrat (lecture) --
+    // -- Rï¿½ponse contrat (lecture) --
     public class ContractResponseDto
     {
         public int Id { get; set; }
         public int UserId { get; set; }
-        public string UserFullName { get; set; }    // Prénom + Nom de l'employé
+        public string UserFullName { get; set; }    // Prï¿½nom + Nom de l'employï¿½
 
-        public string Type { get; set; }            // "CDI", "CDD", "Stage", "Intérim"
-        public string Status { get; set; }          // "En période d'essai", "Actif", etc.
+        public string Type { get; set; }            // "CDI", "CDD", "Stage", "Intï¿½rim"
+        public string Status { get; set; }          // "En pï¿½riode d'essai", "Actif", etc.
 
         public DateTime StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public DateTime? ProbationEndDate { get; set; }
 
         public int? JoursRestants { get; set; }           // Jours avant fin contrat
-        public int? JoursRestantsPeriodeEssai { get; set; } // Jours avant fin période d'essai
+        public int? JoursRestantsPeriodeEssai { get; set; } // Jours avant fin pï¿½riode d'essai
 
         public bool IsAlertActive { get; set; }    // True si dans la zone d'alerte
         public int AlertThresholdDays { get; set; }
 
         public string? Notes { get; set; }
         public DateTime CreatedAt { get; set; }
+    }
+
+    public class EmploymentSummaryDto
+    {
+        public int UserId { get; set; }
+        public Guid EmployeeGuid { get; set; }
+        public bool IsActive { get; set; }
+        public bool HasContract { get; set; }
+        public string? ContractStatus { get; set; }
+        public DateTime? ProbationEndDate { get; set; }
+        public bool IsEligibleForPaymentConfirmation { get; set; }
+        public string? BlockReason { get; set; }
     }
 
     // -- Notification --

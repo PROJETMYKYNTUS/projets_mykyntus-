@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Planning.Application.DTOs;
@@ -44,6 +45,14 @@ namespace Planning.API.Controllers
             return Ok(result);
         }
 
+        // GET api/contract/employee/{employeeGuid}/employment-summary
+        [HttpGet("employee/{employeeGuid:guid}/employment-summary")]
+        public async Task<IActionResult> GetEmploymentSummary(Guid employeeGuid)
+        {
+            var result = await _contractService.GetEmploymentSummaryByEmployeeGuidAsync(employeeGuid);
+            return result is null ? NotFound() : Ok(result);
+        }
+
         // POST api/contract
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateContractDto dto)
@@ -68,6 +77,21 @@ namespace Planning.API.Controllers
         {
             var success = await _contractService.DeleteContractAsync(id);
             return success ? NoContent() : NotFound();
+        }
+
+        // POST api/contract/{id}/confirm-probation — confirmation RH fin période d'essai
+        [HttpPost("{id}/confirm-probation")]
+        public async Task<IActionResult> ConfirmProbation(int id)
+        {
+            try
+            {
+                var result = await _contractService.ConfirmProbationPeriodAsync(id);
+                return result is null ? NotFound() : Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         // ------------------------------------------------

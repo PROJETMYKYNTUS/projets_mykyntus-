@@ -350,6 +350,10 @@ public class DirectoryUser
     public Guid CelluleId { get; set; }
     public Guid DepartementId { get; set; }
 
+    public string? Cin { get; set; }
+    public string? Rib { get; set; }
+    public string? ImmatriculationCnss { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

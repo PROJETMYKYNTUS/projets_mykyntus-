@@ -8,6 +8,7 @@ namespace EmployeeDirectory.Infrastructure.Persistence;
 public class DirectoryDbContext(DbContextOptions<DirectoryDbContext> options) : DbContext(options), IUnitOfWork
 {
     public DbSet<Employee> Employees => Set<Employee>();
+    public DbSet<EmployeeHrProfile> EmployeeHrProfiles => Set<EmployeeHrProfile>();
     public DbSet<OrgPole> OrgPoles => Set<OrgPole>();
     public DbSet<OrgCellule> OrgCellules => Set<OrgCellule>();
     public DbSet<OrgService> OrgServices => Set<OrgService>();
@@ -38,6 +39,29 @@ public class DirectoryDbContext(DbContextOptions<DirectoryDbContext> options) : 
             e.HasIndex(x => x.Email).IsUnique();
             e.HasIndex(x => x.BusinessDepartmentId);
             e.HasOne(x => x.BusinessDepartment).WithMany().HasForeignKey(x => x.BusinessDepartmentId);
+        });
+
+        modelBuilder.Entity<EmployeeHrProfile>(e =>
+        {
+            e.ToTable("employee_hr_profiles");
+            e.HasKey(x => x.EmployeeId);
+            e.Property(x => x.VilleNaissance).HasMaxLength(128);
+            e.Property(x => x.Nationalite).HasMaxLength(128);
+            e.Property(x => x.Sexe).HasMaxLength(16);
+            e.Property(x => x.SituationFamiliale).HasMaxLength(64);
+            e.Property(x => x.Cin).HasMaxLength(32);
+            e.Property(x => x.Adresse).HasMaxLength(512);
+            e.Property(x => x.Telephone1).HasMaxLength(32);
+            e.Property(x => x.TelephoneUrgence).HasMaxLength(32);
+            e.Property(x => x.RelationUrgence).HasMaxLength(128);
+            e.Property(x => x.Rib).HasMaxLength(64);
+            e.Property(x => x.ImmatriculationInterne).HasMaxLength(64);
+            e.Property(x => x.ImmatriculationCnss).HasMaxLength(64);
+            e.Property(x => x.AncienPoste).HasMaxLength(256);
+            e.Property(x => x.AncienService).HasMaxLength(256);
+            e.Property(x => x.NiveauScolaire).HasMaxLength(128);
+            e.Property(x => x.IntitulesEtudes).HasMaxLength(512);
+            e.HasOne(x => x.Employee).WithOne().HasForeignKey<EmployeeHrProfile>(x => x.EmployeeId);
         });
 
         modelBuilder.Entity<BusinessDepartment>(e =>

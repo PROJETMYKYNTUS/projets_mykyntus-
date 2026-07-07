@@ -3,7 +3,9 @@ using Prime.Infrastructure.Persistence;
 
 namespace Prime.Infrastructure.Services;
 
-public sealed class PrimeGlobalSynthesisLineService(PrimeDbContext db)
+public sealed class PrimeGlobalSynthesisLineService(
+    PrimeDbContext db,
+    PrimeAbsenceSanctionService absenceSanction)
 {
     private const string StaleLineMessage =
         "Cette ligne n'existe plus ou la synthèse a été régénérée. Rechargez la page puis réessayez.";
@@ -43,6 +45,51 @@ public sealed class PrimeGlobalSynthesisLineService(PrimeDbContext db)
                 });
 
                 RecomputeLineStatus(line);
+                return null;
+            });
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            return (false, DbExceptionMessages.FromSaveChanges(ex));
+        }
+    }
+
+    public async Task<(bool ok, string? error)> UpdateRegularizationAsync(
+        Guid lineId,
+        string userId,
+        string role,
+        decimal regularizationAmount,
+        CancellationToken ct = default)
+    {
+        if (!ActsAsRh(role))
+            return (false, "Seuls RH et Admin peuvent modifier la régularisation.");
+
+        var divisor = await absenceSanction.GetDivisorDaysAsync(ct);
+
+        try
+        {
+            return await MutateLineAsync(lineId, userId, role, ct, mutate: (line, uid, now) =>
+            {
+                if (!string.Equals(line.RhDecision, GlobalPoolLineDecisions.Pending, StringComparison.Ordinal) ||
+                    !string.Equals(line.ManagerDecision, GlobalPoolLineDecisions.Pending, StringComparison.Ordinal))
+                    return "La régularisation n'est plus modifiable après validation RH ou Manager.";
+
+                line.RegularizationAmount = regularizationAmount;
+                line.RegularizationUpdatedByUserId = uid;
+                line.RegularizationUpdatedAt = now;
+                absenceSanction.RecalculateFromStoredAbsences(line, divisor);
+
+                db.GlobalPoolSynthesisLineHistories.Add(new GlobalPoolSynthesisLineHistoryEntity
+                {
+                    Id = Guid.NewGuid(),
+                    LineId = line.Id,
+                    At = now,
+                    Action = GlobalPoolSynthesisLineHistoryActions.RegularizationUpdated,
+                    ActorUserId = uid,
+                    ActorRole = NormalizeActingRole(role),
+                    Comment = regularizationAmount.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture),
+                });
+
                 return null;
             });
         }

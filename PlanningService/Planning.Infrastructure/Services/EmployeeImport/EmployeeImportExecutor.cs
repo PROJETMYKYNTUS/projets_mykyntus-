@@ -22,7 +22,8 @@ public class EmployeeImportExecutor(
     IEmployeeFieldService fieldService,
     IEmployeeImportOrgResolver orgResolver,
     IEmployeeImportOrgProvisioner orgProvisioner,
-    IEmployeeImportStructureAssignmentService structureAssignment) : IEmployeeImportExecutor
+    IEmployeeImportStructureAssignmentService structureAssignment,
+    IImportExecutionJournal journal) : IEmployeeImportExecutor
 {
     public async Task<EmployeeImportReportDto> ExecuteAsync(
         EmployeeImportExecuteRequest request,
@@ -40,173 +41,269 @@ public class EmployeeImportExecutor(
         var columnToField = EmployeeImportMappingHelper.BuildColumnMap(resolvedMappings, activeFields);
         var orgSnapshot = await orgResolver.LoadSnapshotAsync(ct);
 
-        var orgNodesCreated = new List<OrgNodeCreatedReportDto>();
+        ValidateStructuralPreconditions(parsed, columnToField, request, orgSnapshot);
+
         if (request.ApprovedOrgCreations.Count > 0)
+            EmployeeImportOrgExistence.ValidateNoDuplicateCreations(request.ApprovedOrgCreations, orgSnapshot);
+
+        var committed = false;
+        try
         {
-            if (!request.ConfirmOrgProvision)
-            {
-                throw new InvalidOperationException(
-                    "Confirmation RH requise pour créer des organisations manquantes.");
-            }
-
-            ValidateNoDuplicateOrgCreations(request.ApprovedOrgCreations, orgSnapshot);
-
-            orgNodesCreated = (await orgProvisioner.ProvisionAsync(
-                request.ApprovedOrgCreations, orgSnapshot, ct)).ToList();
             orgSnapshot = await orgResolver.LoadSnapshotAsync(ct);
-        }
 
-        var job = new EmployeeImportJob
-        {
-            Id = Guid.NewGuid(),
-            FileName = fileName,
-            TotalLignes = parsed.Rows.Count,
-            StartedByEmail = startedByEmail,
-            StartedAt = DateTime.UtcNow
-        };
-        db.EmployeeImportJobs.Add(job);
+            var (orgToProvision, orgNodesSkipped) = request.ApprovedOrgCreations.Count > 0
+                ? EmployeeImportOrgExistence.FilterStillNeeded(request.ApprovedOrgCreations, orgSnapshot)
+                : ([], []);
 
-        var report = new EmployeeImportReportDto
-        {
-            ImportJobId = job.Id,
-            TotalLignes = parsed.Rows.Count,
-            CompletedAt = DateTime.UtcNow,
-            OrgNodesCreated = orgNodesCreated
-        };
-
-        for (var i = 0; i < parsed.Rows.Count; i++)
-        {
-            var lineNumber = i + 2;
-            var row = parsed.Rows[i];
-            if (IsEmptyRow(row))
+            var orgNodesCreated = new List<OrgNodeCreatedReportDto>();
+            if (orgToProvision.Count > 0)
             {
-                AddLine(job, report, lineNumber, null, "ignore", "Ligne vide.");
-                continue;
+                orgNodesCreated = (await orgProvisioner.ProvisionAsync(
+                    orgToProvision, orgSnapshot, ct)).ToList();
+                orgSnapshot = await orgResolver.LoadSnapshotAsync(ct);
+
+                foreach (var node in orgNodesCreated)
+                    journal.RecordOrgCreated(node);
             }
 
-            var mapped = EmployeeImportRowMapper.MapRow(row, columnToField);
-            if (!mapped.TryGetValue("email", out var emailRaw) || string.IsNullOrWhiteSpace(emailRaw))
+            var job = new EmployeeImportJob
             {
-                AddLine(job, report, lineNumber, null, "ignore", "Identifiant email manquant.");
-                continue;
-            }
+                Id = Guid.NewGuid(),
+                FileName = fileName,
+                TotalLignes = parsed.Rows.Count,
+                StartedByEmail = startedByEmail,
+                StartedAt = DateTime.UtcNow
+            };
+            db.EmployeeImportJobs.Add(job);
 
-            var email = emailRaw.Trim().ToLowerInvariant();
-
-            try
+            var report = new EmployeeImportReportDto
             {
-                var effectiveMapped = ApplyOrgResolution(
-                    mapped, orgSnapshot, lineNumber, request.AcceptedFuzzyMatches);
-                var roleResult = EmployeeImportRoleResolver.Resolve(effectiveMapped.GetValueOrDefault("role"), orgSnapshot.Roles);
-                if (roleResult.ErrorMessage is not null)
-                    throw new InvalidOperationException(roleResult.ErrorMessage);
+                ImportJobId = job.Id,
+                TotalLignes = parsed.Rows.Count,
+                CompletedAt = DateTime.UtcNow,
+                OrgNodesCreated = orgNodesCreated,
+                OrgNodesSkipped = orgNodesSkipped
+            };
 
-                ValidateOrgForRole(effectiveMapped, roleResult, orgSnapshot);
-
-                var existing = await db.Users
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
-
-                if (existing is null)
+            for (var i = 0; i < parsed.Rows.Count; i++)
+            {
+                var lineNumber = i + 2;
+                var row = parsed.Rows[i];
+                if (IsEmptyRow(row))
                 {
-                    var created = await CreateAsync(effectiveMapped, email, orgSnapshot, roleResult, activeFields, ct);
-                    await UpsertCustomFieldsForUserAsync(
-                        created.Id, effectiveMapped, activeFields, isCreate: true, ct);
-                    await structureAssignment.ApplyIfNeededAsync(
-                        created.Guid,
-                        roleResult.CanonicalRoleName,
-                        effectiveMapped,
-                        orgSnapshot,
-                        ct);
-                    AddLine(job, report, lineNumber, email, "create", "Employé créé.");
+                    AddLine(job, report, lineNumber, null, "ignore", "Ligne vide.");
+                    continue;
                 }
-                else
+
+                var mapped = EmployeeImportRowMapper.MapRow(row, columnToField);
+                if (!mapped.TryGetValue("email", out var emailRaw) || string.IsNullOrWhiteSpace(emailRaw))
                 {
-                    var updated = await UpdateAsync(
-                        existing.Id, effectiveMapped, email, orgSnapshot, roleResult, activeFields, ct);
-                    var customChanged = await UpsertCustomFieldsForUserAsync(
-                        existing.Id, effectiveMapped, activeFields, isCreate: false, ct);
-                    if (updated is not null || customChanged)
+                    AddLine(job, report, lineNumber, null, "ignore", "Identifiant email manquant.");
+                    continue;
+                }
+
+                var email = emailRaw.Trim().ToLowerInvariant();
+
+                try
+                {
+                    var effectiveMapped = ApplyOrgResolution(
+                        mapped, orgSnapshot, lineNumber, request.AcceptedFuzzyMatches);
+                    var roleResult = EmployeeImportRoleResolver.Resolve(effectiveMapped.GetValueOrDefault("role"), orgSnapshot.Roles);
+                    if (roleResult.ErrorMessage is not null)
+                        throw new InvalidOperationException(roleResult.ErrorMessage);
+
+                    ValidateOrgForRole(effectiveMapped, roleResult, orgSnapshot);
+
+                    var existing = await db.Users
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
+
+                    if (existing is null)
                     {
-                        if (updated is not null)
+                        var created = await CreateAsync(effectiveMapped, email, orgSnapshot, roleResult, activeFields, ct);
+                        journal.RecordUserCreated(created.Id, created.Guid, created.AuthUserId);
+
+                        try
                         {
+                            await UpsertCustomFieldsForUserAsync(
+                                created.Id, effectiveMapped, activeFields, isCreate: true, ct);
                             await structureAssignment.ApplyIfNeededAsync(
-                                updated.Guid,
+                                created.Guid,
                                 roleResult.CanonicalRoleName,
                                 effectiveMapped,
                                 orgSnapshot,
                                 ct);
+                            AddLine(job, report, lineNumber, email, "create", "Employé créé.");
                         }
-                        AddLine(job, report, lineNumber, email, "update", "Employé mis à jour.");
+                        catch (Exception lineEx)
+                        {
+                            await journal.RollbackLastUserChangeAsync(ct);
+                            AddLine(job, report, lineNumber, email, "error", lineEx.Message);
+                        }
                     }
                     else
                     {
-                        AddLine(job, report, lineNumber, email, "ignore", "Aucun changement détecté.");
+                        var customBefore = await fieldService.LoadCustomFieldsForUsersAsync([existing.Id], ct);
+                        var previousCustom = customBefore.GetValueOrDefault(existing.Id)
+                            ?? new Dictionary<string, string?>();
+
+                        var updated = await UpdateAsync(
+                            existing.Id, effectiveMapped, email, orgSnapshot, roleResult, activeFields, ct);
+                        UpdateUserDto? previousState = null;
+                        if (updated is not null)
+                            previousState = BuildUpdateSnapshot(existing);
+
+                        var customChanged = await UpsertCustomFieldsForUserAsync(
+                            existing.Id, effectiveMapped, activeFields, isCreate: false, ct);
+
+                        if (updated is not null || customChanged)
+                        {
+                            if (updated is not null && previousState is not null)
+                            {
+                                journal.RecordUserUpdated(existing.Id, previousState, previousCustomFields: previousCustom);
+
+                                try
+                                {
+                                    await structureAssignment.ApplyIfNeededAsync(
+                                        updated.Guid,
+                                        roleResult.CanonicalRoleName,
+                                        effectiveMapped,
+                                        orgSnapshot,
+                                        ct);
+                                    AddLine(job, report, lineNumber, email, "update", "Employé mis à jour.");
+                                }
+                                catch (Exception lineEx)
+                                {
+                                    await journal.RollbackLastUserChangeAsync(ct);
+                                    AddLine(job, report, lineNumber, email, "error", lineEx.Message);
+                                }
+                            }
+                            else
+                            {
+                                AddLine(job, report, lineNumber, email, "update", "Employé mis à jour.");
+                            }
+                        }
+                        else
+                        {
+                            AddLine(job, report, lineNumber, email, "ignore", "Employé déjà présent — données identiques, aucune modification.");
+                        }
                     }
                 }
+                catch (Exception ex)
+                {
+                    AddLine(job, report, lineNumber, email, "error", ex.Message);
+                }
             }
-            catch (Exception ex)
-            {
-                AddLine(job, report, lineNumber, email, "error", ex.Message);
-            }
+
+            job.Crees = report.Crees;
+            job.MisAJour = report.MisAJour;
+            job.Ignores = report.Ignores;
+            job.Erreurs = report.Erreurs;
+            job.CompletedAt = DateTime.UtcNow;
+            report.CompletedAt = job.CompletedAt.Value;
+
+            await db.SaveChangesAsync(ct);
+            journal.Commit();
+            committed = true;
+            return report;
         }
-
-        job.Crees = report.Crees;
-        job.MisAJour = report.MisAJour;
-        job.Ignores = report.Ignores;
-        job.Erreurs = report.Erreurs;
-        job.CompletedAt = DateTime.UtcNow;
-        report.CompletedAt = job.CompletedAt.Value;
-
-        await db.SaveChangesAsync(ct);
-        return report;
-    }
-
-    private static void ValidateNoDuplicateOrgCreations(
-        IReadOnlyList<PendingOrgCreationDto> approved,
-        EmployeeImportOrgSnapshot snapshot)
-    {
-        foreach (var item in approved)
+        catch (Exception ex) when (!committed)
         {
-            var (fieldKey, raw, candidates) = item.Type switch
-            {
-                "pole" => ("pole", item.Pole, snapshot.Rows.Select(r => r.FloorName).Distinct().ToList()),
-                "cellule" => ("cellule", item.Cellule, FilterRows(snapshot.Rows, item.Pole, null, null)
-                    .Select(r => r.ServiceName).Distinct().ToList()),
-                "service" => ("service", item.Service, FilterRows(snapshot.Rows, item.Pole, item.Cellule, null)
-                    .Select(r => r.SubServiceName).Distinct().ToList()),
-                _ => (string.Empty, null, new List<string>())
-            };
-
-            if (string.IsNullOrWhiteSpace(fieldKey) || string.IsNullOrWhiteSpace(raw))
-                continue;
-
-            var likely = EmployeeImportFuzzyMatcher.FindBestOrgMatch(fieldKey, raw, candidates);
-            if (likely is null)
-                continue;
-
-            var label = fieldKey switch { "pole" => "pôle", "cellule" => "cellule", _ => "service" };
+            await journal.CompensateAsync(ct);
+            var detail = ex.InnerException?.Message ?? ex.Message;
             throw new InvalidOperationException(
-                $"Création refusée : un {label} très proche existe déjà (« {likely.Value} »). " +
-                $"Utilisez le nom existant ou validez la correspondance proposée à l'étape Organisation.");
+                $"L'import a échoué avant la génération du rapport. Aucune modification n'a été appliquée. Détail : {detail}",
+                ex);
         }
     }
 
-    private static List<OrgHierarchyRow> FilterRows(
-        IReadOnlyList<OrgHierarchyRow> rows,
-        string? pole,
-        string? cellule,
-        string? service)
+    private static void ValidateStructuralPreconditions(
+        ParsedImportFile parsed,
+        Dictionary<int, string> columnToField,
+        EmployeeImportExecuteRequest request,
+        EmployeeImportOrgSnapshot orgSnapshot)
     {
-        IEnumerable<OrgHierarchyRow> q = rows;
-        if (!string.IsNullOrWhiteSpace(pole))
-            q = q.Where(r => EmployeeImportColumnMatcher.Normalize(r.FloorName) == EmployeeImportColumnMatcher.Normalize(pole));
-        if (!string.IsNullOrWhiteSpace(cellule))
-            q = q.Where(r => EmployeeImportColumnMatcher.Normalize(r.ServiceName) == EmployeeImportColumnMatcher.Normalize(cellule));
-        if (!string.IsNullOrWhiteSpace(service))
-            q = q.Where(r => EmployeeImportColumnMatcher.Normalize(r.SubServiceName) == EmployeeImportColumnMatcher.Normalize(service));
-        return q.ToList();
+        if (!columnToField.Values.Contains("email"))
+        {
+            throw new InvalidOperationException(
+                "Mapping invalide : la colonne email est obligatoire pour l'import.");
+        }
+
+        if (request.ApprovedOrgCreations.Count > 0 && !request.ConfirmOrgProvision)
+        {
+            throw new InvalidOperationException(
+                "Confirmation RH requise pour créer des organisations manquantes.");
+        }
+
+        if (orgSnapshot.Roles.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "Aucun rôle disponible pour l'import. Vérifiez la configuration Planning.");
+        }
+
+        for (var i = 0; i < parsed.Rows.Count; i++)
+        {
+            if (IsEmptyRow(parsed.Rows[i]))
+                continue;
+
+            var lineNumber = i + 2;
+            var mapped = EmployeeImportRowMapper.MapRow(parsed.Rows[i], columnToField);
+            if (!mapped.TryGetValue("email", out var emailRaw) || string.IsNullOrWhiteSpace(emailRaw))
+                continue;
+
+            var effectiveMapped = ApplyOrgResolution(
+                mapped, orgSnapshot, lineNumber, request.AcceptedFuzzyMatches);
+            var roleResult = EmployeeImportRoleResolver.Resolve(
+                effectiveMapped.GetValueOrDefault("role"), orgSnapshot.Roles);
+
+            if (roleResult.ErrorMessage is not null)
+            {
+                throw new InvalidOperationException(
+                    $"Validation structurelle ligne {lineNumber} : {roleResult.ErrorMessage}");
+            }
+
+            var depth = EmployeeImportRoleSynonymRegistry.GetOrgDepth(roleResult.CanonicalRoleName);
+            if (depth != EmployeeImportOrgDepth.None &&
+                !EmployeeImportRoleSynonymRegistry.HasRequiredOrgColumns(effectiveMapped, depth))
+            {
+                throw new InvalidOperationException(
+                    $"Validation structurelle ligne {lineNumber} : {EmployeeImportRoleSynonymRegistry.RequiredOrgColumnsMessage(depth)}");
+            }
+
+            foreach (var hint in EmployeeImportOrgFuzzyMatcher.ResolveOrgNames(
+                         orgSnapshot,
+                         effectiveMapped.GetValueOrDefault("pole"),
+                         effectiveMapped.GetValueOrDefault("cellule"),
+                         effectiveMapped.GetValueOrDefault("service")).Hints
+                         .Where(h => h.Confidence == "medium"))
+            {
+                var approved = request.AcceptedFuzzyMatches.Any(a =>
+                    a.LineNumber == lineNumber
+                    && string.Equals(a.FieldKey, hint.FieldKey, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(a.SourceValue, hint.SourceValue, StringComparison.OrdinalIgnoreCase));
+
+                if (!approved)
+                {
+                    throw new InvalidOperationException(
+                        $"Validation structurelle ligne {lineNumber} : correspondance organisationnelle « {hint.SourceValue} » " +
+                        $"({hint.FieldKey}) non validée. Acceptez-la à l'étape Organisation ou corrigez le fichier.");
+                }
+            }
+        }
     }
+
+    private static UpdateUserDto BuildUpdateSnapshot(User existing) =>
+        new()
+        {
+            Email = existing.Email,
+            FirstName = existing.FirstName,
+            LastName = existing.LastName,
+            RoleId = existing.RoleId,
+            SubServiceId = existing.SubServiceId,
+            HireDate = existing.HireDate,
+            Level = existing.Level,
+            IsActive = existing.IsActive,
+        };
 
     private async Task<EmployeeImportUserResult> CreateAsync(
         Dictionary<string, string?> mapped,
@@ -318,7 +415,14 @@ public class EmployeeImportExecutor(
     private void ValidateOrgForRole(
         Dictionary<string, string?> mapped,
         RoleResolveResult roleResult,
-        EmployeeImportOrgSnapshot orgSnapshot)
+        EmployeeImportOrgSnapshot orgSnapshot) =>
+        ValidateOrgForRoleStatic(mapped, roleResult, orgSnapshot, orgResolver);
+
+    private static void ValidateOrgForRoleStatic(
+        Dictionary<string, string?> mapped,
+        RoleResolveResult roleResult,
+        EmployeeImportOrgSnapshot orgSnapshot,
+        IEmployeeImportOrgResolver orgResolver)
     {
         var depth = EmployeeImportRoleSynonymRegistry.GetOrgDepth(roleResult.CanonicalRoleName);
         if (depth == EmployeeImportOrgDepth.None)
@@ -444,11 +548,6 @@ public class EmployeeImportExecutor(
 
         return EmployeeImportLevelResolver.Resolve(raw);
     }
-
-    private static Dictionary<int, string> BuildColumnMap(
-        IReadOnlyList<EmployeeImportMappingItemDto> mappings,
-        List<EmployeeImportFieldConfigDto> activeFields) =>
-        EmployeeImportMappingHelper.BuildColumnMap(mappings, activeFields);
 
     private static bool IsEmptyRow(IReadOnlyList<string> row) =>
         row.All(c => string.IsNullOrWhiteSpace(c));

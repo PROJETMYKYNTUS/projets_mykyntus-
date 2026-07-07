@@ -56,10 +56,15 @@ public sealed class DirectoryWriteService(
             CreatedAt = DateTime.UtcNow,
         };
 
+        DirectoryHrProfileHelper.ApplyManagers(
+            employee, request.ChefDeProjetId, request.SuperviseurId, request.ReferentTechniqueId);
+
         if (employee.ParentId is null)
             employee.ParentId = await hierarchy.ResolveDefaultParentIdAsync(employee, ct);
 
         db.Employees.Add(employee);
+        await DirectoryHrProfileHelper.UpsertAsync(
+            db, outbox, employee.Id, request.HrProfile, employee.HireDate, ct);
         await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
         await db.SaveChangesAsync(ct);
         return Map(employee);
@@ -87,9 +92,14 @@ public sealed class DirectoryWriteService(
         employee.IsActive = true;
         employee.UpdatedAt = DateTime.UtcNow;
 
+        DirectoryHrProfileHelper.ApplyManagers(
+            employee, request.ChefDeProjetId, request.SuperviseurId, request.ReferentTechniqueId);
+
         if (employee.ParentId is null)
             employee.ParentId = await hierarchy.ResolveDefaultParentIdAsync(employee, ct);
 
+        await DirectoryHrProfileHelper.UpsertAsync(
+            db, outbox, employee.Id, request.HrProfile, employee.HireDate, ct);
         await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
         await db.SaveChangesAsync(ct);
         return Map(employee);
@@ -124,9 +134,14 @@ public sealed class DirectoryWriteService(
         employee.HireDate = request.HireDate ?? employee.HireDate;
         employee.UpdatedAt = DateTime.UtcNow;
 
+        DirectoryHrProfileHelper.ApplyManagers(
+            employee, request.ChefDeProjetId, request.SuperviseurId, request.ReferentTechniqueId);
+
         if (employee.ParentId is null)
             employee.ParentId = await hierarchy.ResolveDefaultParentIdAsync(employee, ct);
 
+        await DirectoryHrProfileHelper.UpsertAsync(
+            db, outbox, employee.Id, request.HrProfile, employee.HireDate, ct);
         await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
         await db.SaveChangesAsync(ct);
         return Map(employee);
@@ -161,42 +176,15 @@ public sealed class DirectoryWriteService(
         var revoked = (await exclusivity.RevokeAllStructuralRolesForEmployeeAsync(
             employeeId, changedBy, reason ?? "Nouvelle affectation structurelle", ct)).ToList();
 
-        if (assignmentKind != DomainAssignmentKind.Pilote)
-        {
-            var displaced = await db.OrgAssignments
-                .Where(a => a.Kind == assignmentKind && a.NodeId == trimmedNodeId && a.EffectiveTo == null)
-                .ToListAsync(ct);
-
-            foreach (var row in displaced)
-            {
-                row.EffectiveTo = DateTime.UtcNow;
-                row.SupersededBy = Guid.NewGuid();
-                db.OrgAssignmentHistories.Add(new OrgAssignmentHistory
-                {
-                    Id = Guid.NewGuid(),
-                    Kind = assignmentKind,
-                    NodeId = trimmedNodeId,
-                    NodeLevel = nodeLevel,
-                    PreviousEmployeeId = row.EmployeeId,
-                    NewEmployeeId = employeeId,
-                    ChangedBy = changedBy,
-                    ChangeReason = reason,
-                    ChangedAt = DateTime.UtcNow,
-                });
-
-                if (row.EmployeeId != employeeId)
-                    await ResetDisplacedEmployeeAsync(row.EmployeeId, changedBy, reason, ct);
-
-                await outbox.EnqueueAsync(new DirectoryAssignmentChangedMessage
-                {
-                    Kind = MessagingEnumMapper.ToMessage(assignmentKind),
-                    NodeId = trimmedNodeId,
-                    NodeLevel = MessagingEnumMapper.ToMessage(nodeLevel),
-                    EmployeeId = row.EmployeeId,
-                    Removed = true,
-                }, aggregateId: row.EmployeeId.ToString(), ct: ct);
-            }
-        }
+        var alreadyOnNode = await db.OrgAssignments.AnyAsync(
+            a => a.Kind == assignmentKind
+                 && a.NodeId == trimmedNodeId
+                 && a.EmployeeId == employeeId
+                 && a.EffectiveTo == null,
+            ct);
+        if (alreadyOnNode)
+            throw new InvalidOperationException(
+                $"Cet employé occupe déjà la charge {kind} sur ce nœud.");
 
         var assignment = new OrgAssignment
         {
@@ -241,7 +229,19 @@ public sealed class DirectoryWriteService(
                 && a.EmployeeId == employeeId
                 && a.EffectiveTo == null)
             .ToListAsync(ct);
-        if (rows.Count == 0) return false;
+
+        var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId, ct);
+
+        // Pilotes projetés sans ligne OrgAssignment : l'import/bootstrap Prime estampille
+        // Role=Pilote + ServiceId/CelluleId sur l'employé sans tracer d'affectation. On tolère
+        // ce cas pour que « Retirer » fonctionne au lieu de renvoyer 404 (Not Found).
+        var projectedPilote = employee is not null
+            && string.Equals(employee.Role, KyntusRoleNames.Pilote, StringComparison.OrdinalIgnoreCase)
+            && (string.Equals(employee.ServiceId, trimmedServiceId, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(employee.CelluleId, trimmedServiceId, StringComparison.OrdinalIgnoreCase));
+
+        if (rows.Count == 0 && !projectedPilote)
+            return false;
 
         var now = DateTime.UtcNow;
         foreach (var row in rows)
@@ -259,17 +259,8 @@ public sealed class DirectoryWriteService(
                 ChangeReason = reason,
                 ChangedAt = now,
             });
-            await outbox.EnqueueAsync(new DirectoryAssignmentChangedMessage
-            {
-                Kind = MessagingEnumMapper.ToMessage(DomainAssignmentKind.Pilote),
-                NodeId = trimmedServiceId,
-                NodeLevel = MessagingEnumMapper.ToMessage(DomainNodeLevel.Service),
-                EmployeeId = employeeId,
-                Removed = true,
-            }, aggregateId: employeeId.ToString(), ct: ct);
         }
 
-        var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId, ct);
         if (employee is not null)
         {
             employee.Role = KyntusRoleNames.Employee;
@@ -280,6 +271,16 @@ public sealed class DirectoryWriteService(
             employee.UpdatedAt = now;
             await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
         }
+
+        // Notifie le retrait une fois (ligne tracée ou pilote projeté) pour resynchroniser l'aval.
+        await outbox.EnqueueAsync(new DirectoryAssignmentChangedMessage
+        {
+            Kind = MessagingEnumMapper.ToMessage(DomainAssignmentKind.Pilote),
+            NodeId = trimmedServiceId,
+            NodeLevel = MessagingEnumMapper.ToMessage(DomainNodeLevel.Service),
+            EmployeeId = employeeId,
+            Removed = true,
+        }, aggregateId: employeeId.ToString(), ct: ct);
 
         await db.SaveChangesAsync(ct);
         return true;
@@ -655,14 +656,15 @@ public sealed class DirectoryWriteService(
         employee.Role = KyntusRoleNames.Manager;
         employee.BusinessDepartmentId = dept.Id;
         employee.ParentId = null;
+        // Le manager est rattaché uniquement au département : aucune affectation
+        // à un pôle/cellule/service précis (ni Operational ni Support).
+        employee.PoleId = null;
+        employee.CelluleId = null;
+        employee.ServiceId = null;
         employee.UpdatedAt = DateTime.UtcNow;
 
         if (dept.Kind == BusinessDepartmentKind.Support)
         {
-            employee.ServiceId = null;
-            employee.CelluleId = null;
-            employee.PoleId = null;
-
             var teamMembers = await db.Employees
                 .Where(e => e.BusinessDepartmentId == dept.Id && e.Id != employeeId && e.IsActive)
                 .ToListAsync(ct);
@@ -672,17 +674,6 @@ public sealed class DirectoryWriteService(
                 member.UpdatedAt = DateTime.UtcNow;
                 await EnqueueEmployeeChangedAsync(member, isDeleted: false, emitLegacyCreate: false, ct);
             }
-        }
-        else if (dept.Kind == BusinessDepartmentKind.Operational)
-        {
-            var primaryPole = await db.OrgPoles.AsNoTracking()
-                .Where(p => p.BusinessDepartmentId == dept.Id)
-                .Select(p => p.Id)
-                .FirstOrDefaultAsync(ct);
-            if (string.IsNullOrWhiteSpace(primaryPole))
-                primaryPole = dept.PoleAssignments.Select(p => p.PoleId).FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(primaryPole))
-                employee.PoleId = primaryPole;
         }
 
         await EnqueueBusinessDepartmentChangedAsync(dept, ct);
@@ -819,6 +810,10 @@ public sealed class DirectoryWriteService(
             BusinessDepartmentKind = deptKind,
             IsActive = employee.IsActive,
             IsDeleted = isDeleted,
+            HireDate = employee.HireDate,
+            ChefDeProjetId = employee.ChefDeProjetId,
+            SuperviseurId = employee.SuperviseurId,
+            ReferentTechniqueId = employee.ReferentTechniqueId,
         }, aggregateId: employee.Id.ToString(), ct: ct);
 
         if (!emitLegacyCreate || isDeleted)
@@ -866,5 +861,8 @@ public sealed class DirectoryWriteService(
         e.Email,
         null,
         e.BusinessDepartmentId?.ToString(),
-        null);
+        null,
+        e.ChefDeProjetId?.ToString(),
+        e.SuperviseurId?.ToString(),
+        e.ReferentTechniqueId?.ToString());
 }

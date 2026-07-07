@@ -105,6 +105,22 @@ internal static class DockerDocumentationDemoDataSeed
                        now(), now()
                 WHERE NOT EXISTS (SELECT 1 FROM documentation.directory_users WHERE tenant_id = 'atlas-tech-demo' AND lower(email) = lower('formation@kyntus.ma'));
 
+                INSERT INTO documentation.directory_users (id, tenant_id, prenom, nom, email, role, manager_id, coach_id, rp_id, pole_id, cellule_id, departement_id, created_at, updated_at)
+                SELECT '11111111-1111-4111-8111-111111111111'::uuid, 'atlas-tech-demo', 'Superviseur', 'Démo', 'superviseur@kyntus.ma',
+                       'manager'::documentation.app_role, NULL, NULL, NULL,
+                       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01'::uuid, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02'::uuid, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa03'::uuid,
+                       now(), now()
+                WHERE NOT EXISTS (SELECT 1 FROM documentation.directory_users WHERE tenant_id = 'atlas-tech-demo' AND lower(email) = lower('superviseur@kyntus.ma'));
+
+                UPDATE documentation.directory_users
+                SET manager_id = '11111111-1111-4111-8111-111111111105'::uuid,
+                    coach_id = '11111111-1111-4111-8111-111111111106'::uuid,
+                    rp_id = '11111111-1111-4111-8111-111111111107'::uuid,
+                    updated_at = now()
+                WHERE tenant_id = 'atlas-tech-demo'
+                  AND role = 'pilote'::documentation.app_role
+                  AND manager_id IS NULL;
+
                 INSERT INTO documentation.document_request_sequences (tenant_id, year, last_value)
                 SELECT 'atlas-tech-demo', EXTRACT(year FROM now())::int, 0
                 WHERE NOT EXISTS (

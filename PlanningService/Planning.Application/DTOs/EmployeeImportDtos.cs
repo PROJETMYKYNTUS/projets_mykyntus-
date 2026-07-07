@@ -369,6 +369,8 @@ public class EmployeeImportReportDto
 
     public List<OrgNodeCreatedReportDto> OrgNodesCreated { get; set; } = new();
 
+    public List<string> OrgNodesSkipped { get; set; } = new();
+
 }
 
 

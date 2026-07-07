@@ -195,7 +195,7 @@ export class ReferralService {
   paymentStatusLabel(referral: Referral): string {
     if (referral.status === 'REJECTED') return 'Rejeté';
     if (referral.status === 'SUBMITTED') return 'En attente RH';
-    if (referral.status === 'PROCESSED') return 'Traité — attente entrée';
+    if (referral.status === 'PROCESSED') return 'Consulté — attente entrée';
     if (referral.status === 'IN_TRAINING') return 'En formation — période non comptée';
     if (referral.status === 'REWARDED') return 'Versé';
     if (referral.paymentStatus === 'READY') return 'Prêt compta';

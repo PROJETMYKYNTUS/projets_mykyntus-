@@ -183,6 +183,22 @@ public sealed class PrimeGlobalPoolScopeController(IMediator mediator, IPrimeGlo
         catch (PrimeApiException ex) { return StatusCode(ex.StatusCode, new { error = ex.Message }); }
     }
 
+    [HttpPatch("synthesis/lines/{lineId:guid}/adjustments")]
+    public async Task<IActionResult> UpdateLineAdjustments(
+        Guid lineId,
+        [FromBody] UpdateSynthesisLineAdjustmentsRequest body,
+        CancellationToken ct)
+    {
+        if (scope is null) return StatusCode(503, new { error = "Base de données non configurée." });
+        try
+        {
+            await mediator.Send(new UpdateGlobalSynthesisLineAdjustmentsCommand(lineId, body), ct);
+            return Ok(new { ok = true });
+        }
+        catch (ArgumentException ex) { return BadRequest(new { error = ex.Message }); }
+        catch (PrimeApiException ex) { return StatusCode(ex.StatusCode, new { error = ex.Message }); }
+    }
+
     [HttpGet("supervisor-synthesis-tracking")]
     public async Task<ActionResult<List<SupervisorSynthesisTrackingItemDto>>> SupervisorSynthesisTracking(
         [FromQuery] string supervisorUserId, [FromQuery] string period, CancellationToken ct)

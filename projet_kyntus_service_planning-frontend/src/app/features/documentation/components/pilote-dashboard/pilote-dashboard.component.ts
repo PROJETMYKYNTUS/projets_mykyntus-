@@ -47,11 +47,11 @@ export class PiloteDashboardComponent implements OnInit, OnDestroy {
     this.sub.add(
       switchMapOnDocumentationContext(this.identity, () =>
         forkJoin({
-          submitted: this.api.getMyDocumentRequestsPage(80, {
+          submitted: this.api.getMyDocumentRequestsPage(25, {
             sortBy: 'createdAt',
             sortOrder: 'desc',
           }),
-          assigned: this.api.getAssignedDocumentRequestsPage(80, {
+          assigned: this.api.getAssignedDocumentRequestsPage(25, {
             sortBy: 'createdAt',
             sortOrder: 'desc',
           }),

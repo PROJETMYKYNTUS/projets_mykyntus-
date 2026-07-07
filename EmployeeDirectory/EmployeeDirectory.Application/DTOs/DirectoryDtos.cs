@@ -12,7 +12,40 @@ public record EmployeeDto(
     string Email,
     string? Avatar,
     string? BusinessDepartmentId = null,
-    string? BusinessDepartmentKind = null);
+    string? BusinessDepartmentKind = null,
+    string? ChefDeProjetId = null,
+    string? SuperviseurId = null,
+    string? ReferentTechniqueId = null,
+    EmployeeHrProfileDto? HrProfile = null);
+
+public record EmployeeHrProfileDto(
+    DateOnly? DateNaissance,
+    string? VilleNaissance,
+    string? Nationalite,
+    string? Sexe,
+    string? SituationFamiliale,
+    int? NombreEnfants,
+    string? Cin,
+    string? Adresse,
+    string? Telephone1,
+    string? TelephoneUrgence,
+    string? RelationUrgence,
+    string? Rib,
+    string? ImmatriculationInterne,
+    string? ImmatriculationCnss,
+    DateOnly? DateEntree,
+    DateOnly? DateEmbauche,
+    DateOnly? DateAnciennete,
+    DateOnly? DateSortie,
+    DateOnly? DateEvolutionPoste,
+    string? AncienPoste,
+    string? AncienService,
+    string? NiveauScolaire,
+    string? IntitulesEtudes,
+    bool EnFormation,
+    DateOnly? DateDebutFormation,
+    DateOnly? DateFinFormationPrevue,
+    int? NiveauExpertiseMetier);
 
 public record BusinessDepartmentDto(
     string Id,
@@ -89,7 +122,11 @@ public record CreateEmployeeRequest(
     string? ServiceId,
     Guid? ParentId,
     DateTime? HireDate,
-    Guid? BusinessDepartmentId = null);
+    Guid? BusinessDepartmentId = null,
+    Guid? ChefDeProjetId = null,
+    Guid? SuperviseurId = null,
+    Guid? ReferentTechniqueId = null,
+    EmployeeHrProfileDto? HrProfile = null);
 
 public record UpdateEmployeeRequest(
     string FirstName,
@@ -100,7 +137,11 @@ public record UpdateEmployeeRequest(
     Guid? ParentId,
     bool IsActive,
     DateTime? HireDate,
-    Guid? BusinessDepartmentId = null);
+    Guid? BusinessDepartmentId = null,
+    Guid? ChefDeProjetId = null,
+    Guid? SuperviseurId = null,
+    Guid? ReferentTechniqueId = null,
+    EmployeeHrProfileDto? HrProfile = null);
 
 public record OrgAssignmentAsOfDto(
     DateTime AsOf,

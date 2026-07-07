@@ -47,7 +47,9 @@ export class KyntusSessionService {
       const u = JSON.parse(raw) as Partial<KyntusStoredUser>;
       if (!u || typeof u !== 'object') return null;
       return {
-        id: Number(u.id) || 0,
+        id: u.id ?? 0,
+        authUserId: typeof u.authUserId === 'number' ? u.authUserId : undefined,
+        subjectId: typeof u.subjectId === 'string' ? u.subjectId : undefined,
         username: String(u.username ?? ''),
         email: String(u.email ?? '').trim(),
         role: String(u.role ?? '').trim(),
@@ -78,8 +80,13 @@ export class KyntusSessionService {
   }
 
   getAuthUserId(): number {
-    const fromUser = this.getStoredUser()?.id;
-    if (fromUser && fromUser > 0) return fromUser;
+    const stored = this.getStoredUser();
+    if (stored?.authUserId && stored.authUserId > 0) return stored.authUserId;
+    const legacyId = stored?.id;
+    if (typeof legacyId === 'number' && legacyId > 0) return legacyId;
+    if (typeof legacyId === 'string' && /^\d+$/.test(legacyId.trim())) {
+      return parseInt(legacyId.trim(), 10);
+    }
     const raw = this.getJwtPayload()[KYNTUS_JWT_CLAIMS.nameIdentifier];
     const n = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
     return Number.isFinite(n) ? n : 0;

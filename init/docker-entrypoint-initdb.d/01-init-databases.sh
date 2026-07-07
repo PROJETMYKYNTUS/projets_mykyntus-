@@ -20,6 +20,8 @@ require_var KYNTUS_DB_PASSWORD_PRIME
 require_var KYNTUS_DB_PASSWORD_PARRAINAGE
 require_var KYNTUS_DB_PASSWORD_DIRECTORY
 
+POSTGRES_DB="${POSTGRES_DB:-postgres}"
+
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
 -- ─── BASE KYNTUS (planning) ───────────────────────────────────
 CREATE DATABASE kyntus_db;

@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewEncapsulation, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ViewEncapsulation, ChangeDetectorRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
@@ -10,10 +10,16 @@ import { UserService } from '../../../users/services/user.service';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
 import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
+import { ContractFieldsComponent } from '../../../../shared/components/contract-fields/contract-fields.component';
+import {
+  createEmptyContractFields,
+  statusLabelToValue,
+  type ContractFieldsModel,
+} from '../../../../shared/components/contract-fields/contract-fields.model';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-select-sync.directive';
 import type { IconNode } from 'lucide';
-import { ClipboardList, Calendar, GraduationCap, RefreshCw, FileText, Save, Plus, Search } from 'lucide';
+import { Save, Plus, Search } from 'lucide';
 import type { User } from '../../../users/users-module';
 import type { Department } from '../../../prime/models';
 import { buildOrgRhFilterOptions } from '../../../../core/org/org-structure-filter';
@@ -31,7 +37,7 @@ import {
 @Component({
   selector: 'app-contract-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective, KyntusPageHeaderComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective, KyntusPageHeaderComponent, ContractFieldsComponent],
   templateUrl: './contract-form.component.html',
   styleUrls: ['./contract-form.component.css'],
   encapsulation: ViewEncapsulation.None
@@ -41,6 +47,9 @@ export class ContractFormComponent implements OnInit {
   isEditMode = false;
   editingId: number | null = null;
   saving = false;
+  contractFields: ContractFieldsModel = createEmptyContractFields();
+  readonly hideEmployeePicker = signal(false);
+  private presetUserId: number | null = null;
 
   employeeRows: EmployeePickerRow[] = [];
   visibleEmployees: EmployeePickerRow[] = [];
@@ -55,26 +64,8 @@ export class ContractFormComponent implements OnInit {
   celluleOptions: string[] = [];
   serviceOptions: string[] = [];
 
-  readonly icons = { notes: FileText, save: Save, plus: Plus, search: Search };
+  readonly icons = { save: Save, plus: Plus, search: Search };
   readonly orgPerimeterSummary = orgPerimeterSummary;
-
-  contractTypes: { value: string; label: string; icon: IconNode; desc: string; cssClass: string }[] = [
-    { value: 'CDI', label: 'CDI', icon: ClipboardList, desc: 'Durée indéterminée', cssClass: 'type-card--cdi' },
-    { value: 'CDD', label: 'CDD', icon: Calendar, desc: 'Durée déterminée', cssClass: 'type-card--cdd' },
-    { value: 'Stage', label: 'Stage', icon: GraduationCap, desc: 'Stage de formation', cssClass: 'type-card--stage' },
-    { value: 'ANAPEC', label: 'ANAPEC', icon: RefreshCw, desc: 'Mission temporaire', cssClass: 'type-card--anapec' },
-  ];
-
-  contractStatuses = [
-    { label: "En période d'essai", value: 0 },
-    { label: 'Actif', value: 1 },
-    { label: 'Expiré', value: 2 },
-    { label: 'Résilié', value: 3 },
-  ];
-
-  defaultProbation: Record<string, number> = {
-    CDI: 90, CDD: 30, Stage: 15, ANAPEC: 0, Interim: 0
-  };
 
   constructor(
     private fb: FormBuilder,
@@ -90,7 +81,6 @@ export class ContractFormComponent implements OnInit {
 
   ngOnInit(): void {
     this.buildForm();
-    this.loadEmployees();
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id && id !== 'new') {
@@ -98,45 +88,31 @@ export class ContractFormComponent implements OnInit {
       this.editingId = +id;
       this.contractForm.get('userId')?.clearValidators();
       this.contractForm.get('userId')?.updateValueAndValidity();
-      this.contractForm.get('startDate')?.clearValidators();
-      this.contractForm.get('startDate')?.updateValueAndValidity();
-      this.contractForm.get('endDate')?.clearValidators();
-      this.contractForm.get('endDate')?.updateValueAndValidity();
       this.loadContract(+id);
+    } else {
+      const userIdParam = this.route.snapshot.queryParamMap.get('userId');
+      const uid = userIdParam ? Number(userIdParam) : NaN;
+      if (uid > 0) {
+        this.presetUserId = uid;
+        this.hideEmployeePicker.set(true);
+      }
     }
 
-    this.contractForm.get('type')?.valueChanges.subscribe(type => {
-      if (!this.isEditMode) {
-        const endCtrl = this.contractForm.get('endDate');
-        if (type !== 'CDI') {
-          endCtrl?.setValidators(Validators.required);
-        } else {
-          endCtrl?.clearValidators();
-          endCtrl?.setValue('');
-        }
-        endCtrl?.updateValueAndValidity();
-      }
-      this.cdr.detectChanges();
-    });
+    this.loadEmployees();
   }
 
   buildForm(): void {
     this.contractForm = this.fb.group({
       userId: ['', Validators.required],
-      type: ['CDI', Validators.required],
-      startDate: ['', Validators.required],
-      endDate: [''],
-      probationDays: [null],
-      alertThresholdDays: [15],
-      status: [0],
-      notes: ['']
     });
+    this.contractFields = createEmptyContractFields();
   }
 
   get f() { return this.contractForm.controls; }
 
-  selectType(value: string): void {
-    this.contractForm.patchValue({ type: value });
+  onContractFieldsChange(model: ContractFieldsModel): void {
+    this.contractFields = model;
+    this.cdr.detectChanges();
   }
 
   loadEmployees(): void {
@@ -157,6 +133,7 @@ export class ContractFormComponent implements OnInit {
         }
         this.employeeRows = buildEmployeePickerRows(users, perimeterById);
         this.refreshEmployeeFilters();
+        this.applyPresetEmployee();
         this.cdr.detectChanges();
       },
       error: () => {
@@ -169,9 +146,32 @@ export class ContractFormComponent implements OnInit {
             this.employeeRows = buildEmployeePickerRows(users, perimeterById);
             this.orgDepartments = [];
             this.refreshEmployeeFilters();
+            this.applyPresetEmployee();
             this.cdr.detectChanges();
           },
         });
+      },
+    });
+  }
+
+  private applyPresetEmployee(): void {
+    if (!this.presetUserId || this.isEditMode) return;
+    const row = this.employeeRows.find((r) => r.user.id === this.presetUserId);
+    if (row) {
+      this.selectEmployee(row);
+      return;
+    }
+    this.contractForm.patchValue({ userId: this.presetUserId });
+    this.contractForm.get('userId')?.markAsTouched();
+    this.userService.getUserById(this.presetUserId).subscribe({
+      next: (u) => {
+        this.selectedEmployee = {
+          user: u,
+          displayName: `${u.lastName} ${u.firstName}`.trim(),
+          perimeter: enrichUserOrgPerimeter(u, this.orgDepartments, null, []),
+          searchText: `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase(),
+        };
+        this.cdr.detectChanges();
       },
     });
   }
@@ -241,19 +241,29 @@ export class ContractFormComponent implements OnInit {
   loadContract(id: number): void {
     this.contractService.getById(id).subscribe({
       next: c => {
-        const statusValue = this.contractStatuses.find(s => s.label === c.status)?.value ?? 0;
-        this.contractForm.patchValue({
+        this.contractFields = {
           type: c.type,
           startDate: c.startDate?.substring(0, 10) ?? '',
           endDate: c.endDate?.substring(0, 10) ?? '',
+          probationDays: null,
           alertThresholdDays: c.alertThresholdDays,
-          status: statusValue,
-          notes: c.notes ?? ''
-        });
+          status: statusLabelToValue(c.status),
+          notes: c.notes ?? '',
+        };
         this.cdr.detectChanges();
       },
       error: err => console.error('Erreur chargement contrat:', err)
     });
+  }
+
+  private validateContractFields(): string | null {
+    if (!this.isEditMode && !this.contractFields.startDate.trim()) {
+      return 'Date de début requise.';
+    }
+    if (this.contractFields.type !== 'CDI' && !this.contractFields.endDate.trim()) {
+      return 'Date de fin requise pour ce type de contrat.';
+    }
+    return null;
   }
 
   onSubmit(): void {
@@ -262,23 +272,24 @@ export class ContractFormComponent implements OnInit {
       this.cdr.detectChanges();
       return;
     }
+    const fieldError = this.validateContractFields();
+    if (fieldError) {
+      console.error(fieldError);
+      this.cdr.detectChanges();
+      return;
+    }
 
     this.saving = true;
 
     if (this.isEditMode && this.editingId) {
       const dto: UpdateContractDto = {
-        status: this.f['status'].value !== null ? this.f['status'].value : undefined,
+        type: this.contractFields.type,
+        status: this.contractFields.status,
+        endDate: this.contractFields.type !== 'CDI' ? this.contractFields.endDate : undefined,
+        probationDays: this.contractFields.probationDays ?? undefined,
+        alertThresholdDays: this.contractFields.alertThresholdDays,
+        notes: this.contractFields.notes,
       };
-      const type = this.f['type'].value;
-      if (type) dto.type = type;
-      const endDate = this.f['endDate'].value;
-      if (endDate && endDate !== '') dto.endDate = endDate;
-      const probationDays = this.f['probationDays'].value;
-      if (probationDays && probationDays > 0) dto.probationDays = probationDays;
-      const alertDays = this.f['alertThresholdDays'].value;
-      if (alertDays && alertDays > 0) dto.alertThresholdDays = alertDays;
-      const notes = this.f['notes'].value;
-      if (notes !== null && notes !== undefined) dto.notes = notes;
 
       this.contractService.update(this.editingId, dto).subscribe({
         next: () => { this.saving = false; this.router.navigate(['/contracts']); },
@@ -287,12 +298,13 @@ export class ContractFormComponent implements OnInit {
     } else {
       const dto: CreateContractDto = {
         userId: +this.f['userId'].value,
-        type: this.f['type'].value,
-        startDate: this.f['startDate'].value,
-        endDate: this.f['endDate'].value || undefined,
-        probationDays: this.f['probationDays'].value || undefined,
-        alertThresholdDays: this.f['alertThresholdDays'].value,
-        notes: this.f['notes'].value
+        type: this.contractFields.type,
+        startDate: this.contractFields.startDate,
+        endDate: this.contractFields.endDate || undefined,
+        probationDays: this.contractFields.probationDays ?? undefined,
+        alertThresholdDays: this.contractFields.alertThresholdDays,
+        notes: this.contractFields.notes,
+        status: this.contractFields.status,
       };
 
       this.contractService.create(dto).subscribe({
@@ -300,15 +312,6 @@ export class ContractFormComponent implements OnInit {
         error: err => { console.error('Erreur création:', err); this.saving = false; this.cdr.detectChanges(); }
       });
     }
-  }
-
-  getDefaultProbationValue(): number {
-    const type = this.contractForm?.get('type')?.value ?? 'CDI';
-    return this.defaultProbation[type] ?? 0;
-  }
-
-  getDefaultProbationLabel(): string {
-    return `Par défaut : ${this.getDefaultProbationValue()} jours`;
   }
 
   goBack(): void { this.router.navigate(['/contracts']); }

@@ -8,6 +8,9 @@ public class Employee
     public string LastName { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public Guid? ParentId { get; set; }
+    public Guid? ChefDeProjetId { get; set; }
+    public Guid? SuperviseurId { get; set; }
+    public Guid? ReferentTechniqueId { get; set; }
     public string? PoleId { get; set; }
     public string? CelluleId { get; set; }
     public string? ServiceId { get; set; }

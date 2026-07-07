@@ -62,6 +62,14 @@ public class GlobalPoolSynthesisLineEntity
     public string? PaidByUserId { get; set; }
     public string? PaymentReference { get; set; }
 
+    public int AbsenceDayCount { get; set; }
+    public decimal SanctionAmount { get; set; }
+    public decimal RegularizationAmount { get; set; }
+    public decimal? NetPayableAmount { get; set; }
+    public DateTimeOffset? AbsenceComputedAt { get; set; }
+    public string? RegularizationUpdatedByUserId { get; set; }
+    public DateTimeOffset? RegularizationUpdatedAt { get; set; }
+
     public ICollection<GlobalPoolSynthesisLineHistoryEntity> History { get; set; } =
         new List<GlobalPoolSynthesisLineHistoryEntity>();
 }

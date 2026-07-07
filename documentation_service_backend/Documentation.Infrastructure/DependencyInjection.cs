@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddKyntusIamViaDirectoryHttp(
             configuration["Directory:BaseUrl"] ?? "http://employee-directory-backend:8080");
         services.AddHttpContextAccessor();
+        services.AddMemoryCache();
         services.AddScoped<DocumentationCorrelationContext>();
         services.AddScoped<DocumentationUserContext>();
         services.AddScoped<IDocumentationTenantAccessor, DocumentationTenantAccessor>();
@@ -57,6 +58,8 @@ public static class DependencyInjection
         services.AddScoped<IAiApiKeyResolver, AiApiKeyResolver>();
         services.AddHttpClient<IAiTemplateContentGenerator, OpenAiCompatibleTemplateContentGenerator>();
         services.AddScoped<DirectoryUserSyncService>();
+        services.AddScoped<DocumentationJwtDirectoryProvisioner>();
+        services.AddScoped<DocumentationDirectoryUserLookup>();
         services.AddScoped<IDocumentTemplateManagementService, DocumentTemplateManagementService>();
         services.AddScoped<IDocumentTypeQueryService, DocumentTypeQueryService>();
 
@@ -72,6 +75,7 @@ public static class DependencyInjection
                 x.AddConsumer<OrgStructureDirectorySyncConsumer>();
                 x.AddConsumer<OrgAssignmentDirectorySyncConsumer>();
                 x.AddConsumer<DirectoryEmployeeDocumentationProjectionConsumer>();
+                x.AddConsumer<DirectoryEmployeeHrProfileDocumentationProjectionConsumer>();
 
                 x.UsingRabbitMq((ctx, cfg) =>
                 {
@@ -94,6 +98,11 @@ public static class DependencyInjection
                     cfg.ReceiveEndpoint("documentation-directory-projection", e =>
                     {
                         e.ConfigureConsumer<DirectoryEmployeeDocumentationProjectionConsumer>(ctx);
+                    });
+
+                    cfg.ReceiveEndpoint("documentation-directory-hr-profile", e =>
+                    {
+                        e.ConfigureConsumer<DirectoryEmployeeHrProfileDocumentationProjectionConsumer>(ctx);
                     });
 
                     cfg.ConfigureEndpoints(ctx);

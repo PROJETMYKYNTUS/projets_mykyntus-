@@ -11,6 +11,7 @@ public static class ParrainageSchemaPatches
 {
     public const string InitialMigrationId = "20260602124434_InitialParrainage";
     public const string AddReferralNotesMigrationId = "20260602130710_AddReferralNotes";
+    public const string AddReferralCandidateEmployeeIdMigrationId = "20260706120000_AddReferralCandidateEmployeeId";
     private const string EfProductVersion = "8.0.11";
 
     /// <summary>
@@ -44,6 +45,38 @@ public static class ParrainageSchemaPatches
                     AddReferralNotesMigrationId);
             }
         }
+    }
+
+    /// <summary>
+    /// Correctifs idempotents pour colonnes ajoutées sans migration EF découverte (ex. Designer manquant).
+    /// </summary>
+    public static async Task ApplyPendingSchemaAsync(
+        ParrainageDbContext db,
+        ILogger logger,
+        CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "parrainage_referral", ct))
+            return;
+
+        if (!await ColumnExistsAsync(db, "parrainage_referral", "CandidateEmployeeId", ct))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                ALTER TABLE parrainage_referral
+                ADD COLUMN IF NOT EXISTS "CandidateEmployeeId" character varying(128) NULL;
+                """,
+                ct);
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE INDEX IF NOT EXISTS "IX_parrainage_referral_CandidateEmployeeId"
+                ON parrainage_referral ("CandidateEmployeeId");
+                """,
+                ct);
+            logger.LogInformation("PARRAINAGE : colonne CandidateEmployeeId ajoutée (patch runtime).");
+        }
+
+        await EnsureMigrationsHistoryTableAsync(db, ct);
+        await RecordMigrationIfMissingAsync(db, AddReferralCandidateEmployeeIdMigrationId, ct);
     }
 
     private static async Task EnsureMigrationsHistoryTableAsync(ParrainageDbContext db, CancellationToken ct)

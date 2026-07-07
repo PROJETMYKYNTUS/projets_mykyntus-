@@ -10,6 +10,8 @@ public static class DirectorySchemaPatches
         await EnsureEmployeeRowVersionDefaultAsync(db, ct);
         await EnsureBusinessDepartmentSchemaAsync(db, ct);
         await EnsureOrgPoleBusinessDepartmentAsync(db, ct);
+        await EnsureEmployeeManagersAndHrProfileAsync(db, ct);
+        await EnsureDateDebutFormationColumnAsync(db, ct);
     }
 
     public static async Task EnsureOutboxTableAsync(DirectoryDbContext db, CancellationToken ct = default)
@@ -112,6 +114,74 @@ public static class DirectorySchemaPatches
             ) sub
             WHERE p."Id" = sub."PoleId"
               AND p."BusinessDepartmentId" IS NULL;
+            """,
+            ct);
+    }
+
+    public static async Task EnsureEmployeeManagersAndHrProfileAsync(DirectoryDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE employees ADD COLUMN IF NOT EXISTS "ChefDeProjetId" uuid NULL;
+            ALTER TABLE employees ADD COLUMN IF NOT EXISTS "SuperviseurId" uuid NULL;
+            ALTER TABLE employees ADD COLUMN IF NOT EXISTS "ReferentTechniqueId" uuid NULL;
+
+            CREATE TABLE IF NOT EXISTS employee_hr_profiles (
+                "EmployeeId" uuid NOT NULL PRIMARY KEY REFERENCES employees("Id") ON DELETE CASCADE,
+                "DateNaissance" date NULL,
+                "VilleNaissance" character varying(128) NULL,
+                "Nationalite" character varying(128) NULL,
+                "Sexe" character varying(16) NULL,
+                "SituationFamiliale" character varying(64) NULL,
+                "NombreEnfants" integer NULL,
+                "Cin" character varying(32) NULL,
+                "Adresse" character varying(512) NULL,
+                "Telephone1" character varying(32) NULL,
+                "TelephoneUrgence" character varying(32) NULL,
+                "RelationUrgence" character varying(128) NULL,
+                "Rib" character varying(64) NULL,
+                "ImmatriculationInterne" character varying(64) NULL,
+                "ImmatriculationCnss" character varying(64) NULL,
+                "DateEntree" date NULL,
+                "DateEmbauche" date NULL,
+                "DateAnciennete" date NULL,
+                "DateSortie" date NULL,
+                "DateEvolutionPoste" date NULL,
+                "AncienPoste" character varying(256) NULL,
+                "AncienService" character varying(256) NULL,
+                "NiveauScolaire" character varying(128) NULL,
+                "IntitulesEtudes" character varying(512) NULL,
+                "EnFormation" boolean NOT NULL DEFAULT FALSE,
+                "DateDebutFormation" date NULL,
+                "DateFinFormationPrevue" date NULL,
+                "NiveauExpertiseMetier" integer NULL,
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
+                "UpdatedAt" timestamp with time zone NULL
+            );
+
+            UPDATE employee_hr_profiles p
+            SET "DateEmbauche" = e."HireDate"::date
+            FROM employees e
+            WHERE p."EmployeeId" = e."Id"
+              AND p."DateEmbauche" IS NULL
+              AND e."HireDate" IS NOT NULL;
+
+            INSERT INTO employee_hr_profiles ("EmployeeId", "DateEmbauche", "CreatedAt")
+            SELECT e."Id", e."HireDate"::date, NOW()
+            FROM employees e
+            WHERE NOT EXISTS (
+                SELECT 1 FROM employee_hr_profiles p WHERE p."EmployeeId" = e."Id"
+            )
+              AND e."HireDate" IS NOT NULL;
+            """,
+            ct);
+    }
+
+    public static async Task EnsureDateDebutFormationColumnAsync(DirectoryDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE employee_hr_profiles ADD COLUMN IF NOT EXISTS "DateDebutFormation" date NULL;
             """,
             ct);
     }

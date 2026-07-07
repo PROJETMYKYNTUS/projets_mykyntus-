@@ -1,6 +1,7 @@
 using EmployeeDirectory.Domain.Entities;
 using EmployeeDirectory.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -12,6 +13,7 @@ public static class DirectoryDatabaseInitializer
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DirectoryDbContext>();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         var log = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DirectoryInit");
 
         const int maxRetries = 30;
@@ -22,6 +24,7 @@ public static class DirectoryDatabaseInitializer
                 await db.Database.EnsureCreatedAsync(ct);
                 await DirectorySchemaPatches.ApplyAsync(db, ct);
                 await SeedIamPermissionsAsync(db, ct);
+                await DockerComposeDirectoryDemoSeed.ApplyIfEnabledAsync(configuration, db, ct);
                 log.LogInformation("Employee Directory database ready.");
                 return;
             }

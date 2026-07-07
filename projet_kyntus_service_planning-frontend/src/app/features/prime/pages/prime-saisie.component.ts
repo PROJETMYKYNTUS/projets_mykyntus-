@@ -33,6 +33,7 @@ import {
   sanitizeNonNegativeNumberInput,
   type PrimeFicheLigneSaisie,
   PRIME_FICHE_NUMERIC_FIELDS,
+  PRIME_FICHE_OPTIONAL_NUMERIC_FIELDS,
   type PrimeFicheSecteurPairValues,
 } from '../models/prime-fiche-ligne.model';
 import {
@@ -52,6 +53,10 @@ import {
 } from '../models/prime-template.model';
 import { parsePrimeTemplateExcel } from '../lib/excel-fiche-template.parser';
 import { parsePrimeFicheGrid } from '../lib/prime-fiche-grid.parser';
+import {
+  numericFieldValidationMessage,
+  passesPrimeFicheNumericFieldValidation,
+} from '../lib/prime-fiche-sector-validation';
 import { buildTemplatePayloadFromSchemaDefaults } from '../lib/prime-fiche-payload-from-schema';
 import { PrimeFicheTemplateActiveService } from '../services/prime-fiche-template-active.service';
 import { PrimeFicheSessionService } from '../services/prime-fiche-session.service';
@@ -1765,6 +1770,13 @@ export class PrimeSaisieComponent {
     return s.trim() !== '' && isEmptyOrNonNegativeNumberString(s);
   }
 
+  private passesNumericFieldValidation(
+    field: keyof PrimeFicheLigneSaisie,
+    value: string,
+  ): boolean {
+    return passesPrimeFicheNumericFieldValidation(field, value);
+  }
+
   /** Nombre simple ou pourcentage façon Excel (« 92,50 % », « 15.44% »). */
   private isValidRepartitionInputValue(raw: string): boolean {
     const t = raw.replace(/\u00a0/g, ' ').trim();
@@ -1788,21 +1800,26 @@ export class PrimeSaisieComponent {
     if (!savLine) {
       const repRaw = row.repartitionRdv.replace(/\u00a0/g, ' ');
       const rep = repRaw.trim();
-      if (rep === '' || !this.isValidRepartitionInputValue(row.repartitionRdv)) {
-        return 'La répartition RDV est obligatoire et doit être numérique (nombre ou pourcentage) avec une valeur >= 0.';
+      /* Répartition RDV optionnelle : plusieurs indicateurs RACC de la partie commune
+         (« Délai de prise RDV d'installation », Satcli, transformation des GEM…) n'ont pas
+         de répartition. On ne valide que si une valeur est effectivement saisie. */
+      if (rep !== '' && !this.isValidRepartitionInputValue(row.repartitionRdv)) {
+        return 'La répartition RDV doit être numérique (nombre ou pourcentage) avec une valeur >= 0.';
       }
     }
     /* SAV : indicateur répartition RDV absent du formulaire — ne pas valider (résidus Excel ignorés). */
     for (let si = 0; si < row.secteurValues.length; si++) {
       const sv = row.secteurValues[si];
+      /* Case vide = 0 : on n'exige plus de valeur. On vérifie seulement qu'une valeur
+         effectivement saisie est numérique >= 0 (le payload convertit '' en 0). */
       for (const f of SECTOR_PAIR_NUMERIC_KEYS) {
-        if (!this.isValidNonNegativeNumberString(sv.core[f])) {
-          return `Secteur ${si + 1} : le champ « ${String(f)} » est obligatoire et doit être numérique avec une valeur >= 0.`;
+        if (!isEmptyOrNonNegativeNumberString(sv.core[f])) {
+          return numericFieldValidationMessage(String(f), si);
         }
       }
       for (const [cid, val] of Object.entries(sv.custom)) {
-        if (!this.isValidNonNegativeNumberString(val)) {
-          return `Secteur ${si + 1} : KPI additionnel « ${cid} » obligatoire et numérique avec une valeur >= 0.`;
+        if (!isEmptyOrNonNegativeNumberString(val)) {
+          return `Secteur ${si + 1} : KPI additionnel « ${cid} » doit être numérique avec une valeur >= 0.`;
         }
       }
     }
@@ -1821,8 +1838,8 @@ export class PrimeSaisieComponent {
         ? PRIME_FICHE_NUMERIC_FIELDS.filter((f) => f !== 'repartitionRdv')
         : PRIME_FICHE_NUMERIC_FIELDS;
     for (const f of numericFields) {
-      if (!this.isValidNonNegativeNumberString(row[f])) {
-        return `Le champ "${String(f)}" est obligatoire et doit être numérique avec une valeur >= 0.`;
+      if (!this.passesNumericFieldValidation(f, row[f])) {
+        return numericFieldValidationMessage(String(f));
       }
     }
     /* SAV legacy : répartition RDV masquée — pas de contrôle sur ce champ. */
@@ -1865,10 +1882,13 @@ export class PrimeSaisieComponent {
       const row = this.lignes()[key];
       if (!row) return `Ligne manquante : ${key}`;
       for (const f of numericFields) {
-        if (!this.isValidNonNegativeNumberString(row[f])) {
+        if (!this.passesNumericFieldValidation(f, row[f])) {
           const meta = findMeta(ctx, key);
           const title = meta ? navLabel(meta) : key;
-          return `${title} : champ "${String(f)}" manquant, non numérique, ou inférieur à 0.`;
+          const optional = PRIME_FICHE_OPTIONAL_NUMERIC_FIELDS.has(f);
+          return optional
+            ? `${title} : champ "${String(f)}" non numérique ou inférieur à 0.`
+            : `${title} : champ "${String(f)}" manquant, non numérique, ou inférieur à 0.`;
         }
       }
       /* SAV legacy : pas de validation répartition RDV (champ non saisi). */

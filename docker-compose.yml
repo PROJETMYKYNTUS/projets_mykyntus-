@@ -69,16 +69,16 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_AUTH:?Définir KYNTUS_CONN_AUTH dans .env}
-      DemoSeed__Enabled: ${KYNTUS_DEMO_SEED_ENABLED:-false}
-      DemoSeed__Passwords__Employee: ${KYNTUS_DEMO_SEED_PASSWORD_EMPLOYEE:-}
-      DemoSeed__Passwords__RH: ${KYNTUS_DEMO_SEED_PASSWORD_RH:-}
-      DemoSeed__Passwords__Manager: ${KYNTUS_DEMO_SEED_PASSWORD_MANAGER:-}
-      DemoSeed__Passwords__Coach: ${KYNTUS_DEMO_SEED_PASSWORD_COACH:-}
-      DemoSeed__Passwords__RP: ${KYNTUS_DEMO_SEED_PASSWORD_RP:-}
-      DemoSeed__Passwords__Admin: ${KYNTUS_DEMO_SEED_PASSWORD_ADMIN:-}
-      DemoSeed__Passwords__Audit: ${KYNTUS_DEMO_SEED_PASSWORD_AUDIT:-}
-      DemoSeed__Passwords__Formation: ${KYNTUS_DEMO_SEED_PASSWORD_FORMATION:-}
-      DemoSeed__Passwords__Superviseur: ${KYNTUS_DEMO_SEED_PASSWORD_SUPERVISEUR:-}
+      DemoSeed__Enabled: ${KYNTUS_DEMO_SEED_ENABLED:-true}
+      DemoSeed__Passwords__Employee: ${KYNTUS_DEMO_SEED_PASSWORD_EMPLOYEE:-Azerty@123}
+      DemoSeed__Passwords__RH: ${KYNTUS_DEMO_SEED_PASSWORD_RH:-Azerty@123}
+      DemoSeed__Passwords__Manager: ${KYNTUS_DEMO_SEED_PASSWORD_MANAGER:-Azerty@123}
+      DemoSeed__Passwords__Coach: ${KYNTUS_DEMO_SEED_PASSWORD_COACH:-Azerty@123}
+      DemoSeed__Passwords__RP: ${KYNTUS_DEMO_SEED_PASSWORD_RP:-Azerty@123}
+      DemoSeed__Passwords__Admin: ${KYNTUS_DEMO_SEED_PASSWORD_ADMIN:-Azerty@123}
+      DemoSeed__Passwords__Audit: ${KYNTUS_DEMO_SEED_PASSWORD_AUDIT:-Azerty@123}
+      DemoSeed__Passwords__Formation: ${KYNTUS_DEMO_SEED_PASSWORD_FORMATION:-Azerty@123}
+      DemoSeed__Passwords__Superviseur: ${KYNTUS_DEMO_SEED_PASSWORD_SUPERVISEUR:-Azerty@123}
       <<: *kyntus-jwt
     ports:
       - "8520:8080"
@@ -115,7 +115,9 @@ services:
         until pg_isready -h postgres -p 5432 -U postgres -q; do sleep 2; done
         i=0
         while [ "$$i" -lt 90 ]; do
-          if psql -h postgres -U postgres -d auth_db -tAc 'SELECT 1 FROM "Users" LIMIT 1' 2>/dev/null | grep -qx 1; then
+          roles_ready=$$(psql -h postgres -U postgres -d auth_db -tAc "SELECT COUNT(*) FROM \"Roles\" WHERE \"Name\" IN ('Employee','RH')" 2>/dev/null | tr -d '[:space:]')
+          users_table=$$(psql -h postgres -U postgres -d auth_db -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='Users'" 2>/dev/null | tr -d '[:space:]')
+          if [ "$$users_table" = "1" ] && [ "$$roles_ready" = "2" ]; then
             psql -h postgres -U postgres -d auth_db -v ON_ERROR_STOP=1 -f /seed.sql
             echo "init: auth_insert_atlas_doc_users.sql applied"
             exit 0
@@ -123,7 +125,7 @@ services:
           i=$$((i + 1))
           sleep 2
         done
-        echo "init: timeout waiting for auth Users table" >&2
+        echo "init: timeout waiting for auth Roles + Users table" >&2
         exit 1
     networks:
       - microservices-network
@@ -170,6 +172,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       KYNTUS_PLANNING_DEMO_SEED: "true"
+      KYNTUS_DEMO_ENRICHMENT: "true"
+      DemoSeed__PlanningDemoPassword: ${KYNTUS_PLANNING_DEMO_PASSWORD:-Azerty@123}
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_PLANNING:?Définir KYNTUS_CONN_PLANNING dans .env}
       Directory__BaseUrl: http://employee-directory-backend:8080/
       Directory__WriteMaster: "true"
@@ -178,6 +182,12 @@ services:
       <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:
       - "8521:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 180s
     depends_on:
       postgres:
         condition: service_healthy
@@ -196,6 +206,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       KYNTUS_FORMATION_DEMO_SEED: "true"
+      KYNTUS_DEMO_ENRICHMENT: "true"
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_FORMATION:?Définir KYNTUS_CONN_FORMATION dans .env}
       RabbitMQ__Host: rabbitmq
       RabbitMQ__Username: ${RABBITMQ_USER:-guest}
@@ -224,6 +235,7 @@ services:
       Documentation__ApplyBootstrapSchema: "true"
       Documentation__AllowHeaderContextFallback: "true"
       Documentation__DemoDataSeed: "true"
+      KYNTUS_DEMO_ENRICHMENT: "true"
       Documentation__DefaultTenantId: "atlas-tech-demo"
       DocumentationDb__Password: ${KYNTUS_DOCUMENTATION_DB_PASSWORD:?Définir KYNTUS_DOCUMENTATION_DB_PASSWORD dans .env}
       ConnectionStrings__Documentation: ${KYNTUS_CONN_DOCUMENTATION:?Définir KYNTUS_CONN_DOCUMENTATION dans .env}
@@ -249,6 +261,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       KYNTUS_CONGE_DEMO_SEED: "true"
+      KYNTUS_DEMO_ENRICHMENT: "true"
       ConnectionStrings__CongeDb: ${KYNTUS_CONN_CONGE:?Définir KYNTUS_CONN_CONGE dans .env}
       <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:
@@ -300,6 +313,7 @@ services:
       Prime__SeedDemoData: "true"
       Prime__EnrichDemoData: "true"
       Prime__AllowDemoSeedEndpoint: "true"
+      Planning__BaseUrl: http://planning-backend:8080/
       <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:
       - "8550:8080"
@@ -332,6 +346,7 @@ services:
       Prime__BaseUrl: http://prime-backend:8080/
       Planning__BaseUrl: http://planning-backend:8080/
       Directory__EnablePrimeBootstrap: "false"
+      KYNTUS_DIRECTORY_DEMO_SEED: "true"
       <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:
       - "8565:8080"
@@ -390,6 +405,7 @@ services:
       # POST /api/parrainage/dev/seed (outil dev, calqué Prime).
       Parrainage__AllowDemoSeedEndpoint: "true"
       Parrainage__UploadPath: "/app/uploads/cv"
+      Planning__BaseUrl: http://planning-backend:8080/
       <<: [*kyntus-jwt, *kyntus-rabbitmq]
     volumes:
       - parrainage_cv_uploads:/app/uploads
@@ -432,7 +448,7 @@ services:
       auth-backend:
         condition: service_healthy
       planning-backend:
-        condition: service_started
+        condition: service_healthy
       formation-backend:
         condition: service_started
       documentation-backend:
@@ -478,6 +494,8 @@ services:
      depends_on:
        api-gateway:
          condition: service_started
+       planning-backend:
+         condition: service_healthy
      networks:
        - microservices-network
 

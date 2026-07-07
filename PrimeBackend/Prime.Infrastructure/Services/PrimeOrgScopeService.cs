@@ -104,6 +104,23 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
     /// <summary>
     /// Périmètre validation RT : pilote direct (ParentId) ou pilote d’un RT du même superviseur / même cellule.
     /// </summary>
+    public async Task<bool> IsPiloteUnderReferentResponsibilityAsync(
+        string referentUserId,
+        string pilotEmployeeId,
+        string? actingReferentRole = null,
+        CancellationToken ct = default)
+    {
+        var pilote = await GetEmployeeAsync(pilotEmployeeId, ct);
+        if (pilote is null || !IsPilotRole(pilote.Role))
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(pilote.ReferentTechniqueId) &&
+            string.Equals(pilote.ReferentTechniqueId.Trim(), referentUserId, StringComparison.Ordinal))
+            return true;
+
+        return await IsPilotInReferentValidationScopeAsync(referentUserId, pilotEmployeeId, actingReferentRole, ct);
+    }
+
     public async Task<bool> IsPilotInReferentValidationScopeAsync(
         string referentUserId,
         string pilotEmployeeId,

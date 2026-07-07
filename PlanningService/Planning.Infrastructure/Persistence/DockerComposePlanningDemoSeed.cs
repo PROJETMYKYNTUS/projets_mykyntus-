@@ -9,17 +9,62 @@ namespace Planning.Infrastructure.Persistence;
 /// </summary>
 internal static class DockerComposePlanningDemoSeed
 {
+    /// <summary>GUID employé alignés sur Auth SubjectId / documentation (init/demo).</summary>
+    private static readonly IReadOnlyDictionary<string, Guid> StableEmployeeGuids =
+        new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["employee@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111103"),
+            ["rh@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111104"),
+            ["manager@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111105"),
+            ["coach@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111106"),
+            ["rp@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111107"),
+            ["admin@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111108"),
+            ["audit@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111109"),
+            ["formation@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111110"),
+            ["superviseur@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111111"),
+        };
+
     internal static async Task ApplyIfEnabledAsync(IConfiguration configuration, AppDbContext context)
     {
         if (!string.Equals(configuration["KYNTUS_PLANNING_DEMO_SEED"], "true", StringComparison.OrdinalIgnoreCase))
             return;
 
-        if (await context.Users.AnyAsync())
-            return;
-
-        // EnsureManagerRoleAsync peut déjà avoir créé « Manager » : on complète les rôles démo manquants.
         await EnsureDemoRolesAsync(context);
+        await EnsureDemoOrgAsync(context);
 
+        var sub = await context.SubServices.OrderBy(s => s.Id).FirstAsync();
+        var roleEmployee = await context.Roles.FirstAsync(r => r.Name == "Pilote");
+        var roleRh = await context.Roles.FirstAsync(r => r.Name == "RH");
+        var roleManager = await context.Roles.FirstAsync(r => r.Name == "Superviseur");
+        var roleCoach = await context.Roles.FirstAsync(r => r.Name == "Référent technique");
+        var roleRp = await context.Roles.FirstAsync(r => r.Name == "Chef de projet");
+        var roleAdmin = await context.Roles.FirstAsync(r => r.Name == "Admin");
+        var roleAudit = await context.Roles.FirstAsync(r => r.Name == "Audit");
+        var roleFormation = await context.Roles.FirstAsync(r => r.Name == "EquipeFormation");
+
+        var pwd = BCrypt.Net.BCrypt.HashPassword(
+            configuration["DemoSeed:PlanningDemoPassword"]
+            ?? throw new InvalidOperationException(
+                "DemoSeed:PlanningDemoPassword requis lorsque KYNTUS_PLANNING_DEMO_SEED=true."));
+        var hire = DateTime.UtcNow.AddMonths(-6);
+
+        await UpsertDemoUserAsync(context, "Employé", "Démo", "employee@kyntus.ma", roleEmployee.Id, sub.Id, pwd, hire);
+        await UpsertDemoUserAsync(context, "Rh", "Démo", "rh@kyntus.ma", roleRh.Id, null, pwd, hire);
+        await UpsertDemoUserAsync(context, "Manager", "Démo", "manager@kyntus.ma", roleManager.Id, sub.Id, pwd, hire);
+        await UpsertDemoUserAsync(context, "Coach", "Démo", "coach@kyntus.ma", roleCoach.Id, sub.Id, pwd, hire);
+        await UpsertDemoUserAsync(context, "Rp", "Démo", "rp@kyntus.ma", roleRp.Id, sub.Id, pwd, hire);
+        await UpsertDemoUserAsync(context, "Admin", "Démo", "admin@kyntus.ma", roleAdmin.Id, sub.Id, pwd, hire);
+        await UpsertDemoUserAsync(context, "Audit", "Démo", "audit@kyntus.ma", roleAudit.Id, sub.Id, pwd, hire);
+        await UpsertDemoUserAsync(context, "Formation", "Démo", "formation@kyntus.ma", roleFormation.Id, sub.Id, pwd, hire);
+        await UpsertDemoUserAsync(context, "Superviseur", "Démo", "superviseur@kyntus.ma", roleManager.Id, sub.Id, pwd, hire);
+        await UpsertDemoUserAsync(context, "Yasmine", "El Amrani", "yasmine.elamrani@atlas-tech-demo.dev", roleEmployee.Id, sub.Id, pwd, hire);
+        await UpsertDemoUserAsync(context, "Fatima", "Alaoui", "fatima.alaoui@atlas-tech-demo.dev", roleRh.Id, null, pwd, hire);
+
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task EnsureDemoOrgAsync(AppDbContext context)
+    {
         if (!await context.Floors.AnyAsync())
         {
             context.Floors.Add(new Floor
@@ -54,49 +99,62 @@ internal static class DockerComposePlanningDemoSeed
             });
             await context.SaveChangesAsync();
         }
+    }
 
-        var sub = await context.SubServices.OrderBy(s => s.Id).FirstAsync();
-        var roleEmployee = await context.Roles.FirstAsync(r => r.Name == "Pilote");
-        var roleRh = await context.Roles.FirstAsync(r => r.Name == "RH");
-        var roleManager = await context.Roles.FirstAsync(r => r.Name == "Superviseur");
-        var roleCoach = await context.Roles.FirstAsync(r => r.Name == "Référent technique");
-        var roleRp = await context.Roles.FirstAsync(r => r.Name == "Chef de projet");
-        var roleAdmin = await context.Roles.FirstAsync(r => r.Name == "Admin");
-        var roleAudit = await context.Roles.FirstAsync(r => r.Name == "Audit");
-        var roleFormation = await context.Roles.FirstAsync(r => r.Name == "EquipeFormation");
-
-        var pwd = BCrypt.Net.BCrypt.HashPassword(
-            configuration["DemoSeed:PlanningDemoPassword"]
-            ?? throw new InvalidOperationException(
-                "DemoSeed:PlanningDemoPassword requis lorsque KYNTUS_PLANNING_DEMO_SEED=true."));
-        var hire = DateTime.UtcNow.AddMonths(-6);
-
-        void AddUser(string first, string last, string email, int roleId, int? subId) =>
-            context.Users.Add(new User
+    private static async Task UpsertDemoUserAsync(
+        AppDbContext context,
+        string first,
+        string last,
+        string email,
+        int roleId,
+        int? subId,
+        string passwordHash,
+        DateTime hire)
+    {
+        var needle = email.Trim().ToLowerInvariant();
+        var row = await context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == needle);
+        if (StableEmployeeGuids.TryGetValue(email, out var stableGuid))
+        {
+            if (row is null)
             {
-                FirstName = first,
-                LastName = last,
-                Email = email,
-                RoleId = roleId,
-                SubServiceId = subId,
-                PasswordHash = pwd,
-                HireDate = hire,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow,
-            });
+                context.Users.Add(new User
+                {
+                    Guid = stableGuid,
+                    FirstName = first,
+                    LastName = last,
+                    Email = email,
+                    RoleId = roleId,
+                    SubServiceId = subId,
+                    PasswordHash = passwordHash,
+                    HireDate = hire,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                });
+                return;
+            }
 
-        AddUser("Employé", "Démo", "employee@kyntus.ma", roleEmployee.Id, sub.Id);
-        AddUser("Rh", "Démo", "rh@kyntus.ma", roleRh.Id, null);
-        AddUser("Manager", "Démo", "manager@kyntus.ma", roleManager.Id, sub.Id);
-        AddUser("Coach", "Démo", "coach@kyntus.ma", roleCoach.Id, sub.Id);
-        AddUser("Rp", "Démo", "rp@kyntus.ma", roleRp.Id, sub.Id);
-        AddUser("Admin", "Démo", "admin@kyntus.ma", roleAdmin.Id, sub.Id);
-        AddUser("Audit", "Démo", "audit@kyntus.ma", roleAudit.Id, sub.Id);
-        AddUser("Formation", "Démo", "formation@kyntus.ma", roleFormation.Id, sub.Id);
-        AddUser("Yasmine", "El Amrani", "yasmine.elamrani@atlas-tech-demo.dev", roleEmployee.Id, sub.Id);
-        AddUser("Fatima", "Alaoui", "fatima.alaoui@atlas-tech-demo.dev", roleRh.Id, null);
+            if (row.Guid != stableGuid)
+                row.Guid = stableGuid;
+            if (!row.IsActive)
+                row.IsActive = true;
+            return;
+        }
 
-        await context.SaveChangesAsync();
+        if (row is not null)
+            return;
+
+        context.Users.Add(new User
+        {
+            FirstName = first,
+            LastName = last,
+            Email = email,
+            RoleId = roleId,
+            SubServiceId = subId,
+            PasswordHash = passwordHash,
+            HireDate = hire,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+        });
     }
 
     private static async Task EnsureDemoRolesAsync(AppDbContext context)

@@ -426,6 +426,10 @@ public sealed class DocumentTemplateAppService(
         {
             throw MapTemplateUploadException(ex);
         }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+        {
+            throw MapTemplateUploadException(new InvalidOperationException(ex.InnerException?.Message ?? ex.Message, ex));
+        }
         catch (ArgumentException ex)
         {
             throw new DocumentationApiException(400, ex.Message);

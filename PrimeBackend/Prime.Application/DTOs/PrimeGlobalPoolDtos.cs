@@ -162,6 +162,10 @@ public sealed class GlobalSynthesisLineDto
     public decimal? PrimeAmount { get; init; }
     public decimal? ChallengeAmount { get; init; }
     public decimal? TotalAmount { get; init; }
+    public int AbsenceDayCount { get; init; }
+    public decimal SanctionAmount { get; init; }
+    public decimal RegularizationAmount { get; init; }
+    public decimal? NetPayableAmount { get; init; }
     public string ValidationStatus { get; init; } = "";
     public string FillingStatus { get; init; } = "";
     public string? LineStatus { get; init; }
@@ -185,6 +189,9 @@ public sealed class GlobalSynthesisSummaryDto
     public decimal TotalPrime { get; init; }
     public decimal TotalChallenge { get; init; }
     public decimal TotalAmount { get; init; }
+    public decimal TotalSanction { get; init; }
+    public decimal TotalRegularization { get; init; }
+    public decimal TotalNetPayable { get; init; }
     public int LinesRejected { get; init; }
 }
 
@@ -237,6 +244,7 @@ public sealed class EmployeePrimePaymentTrackingDto
     public decimal? PrimeAmount { get; init; }
     public decimal? ChallengeAmount { get; init; }
     public decimal? TotalAmount { get; init; }
+    public decimal? NetPayableAmount { get; init; }
     /// <summary>PendingReview | Approved | LineRejected (null si pas encore dans une synthèse).</summary>
     public string? LineStatus { get; init; }
     public string PaymentStatus { get; init; } = "Unpaid";
@@ -253,6 +261,27 @@ public sealed class SetSynthesisLinePaymentRequest
     public bool Paid { get; set; } = true;
     public DateTimeOffset? PaidAt { get; set; }
     public string? Reference { get; set; }
+}
+
+public sealed class UpdateSynthesisLineAdjustmentsRequest
+{
+    public string UserId { get; set; } = "";
+    public string? Role { get; set; }
+    public decimal RegularizationAmount { get; set; }
+}
+
+public sealed class PrimeAbsenceSanctionConfigDto
+{
+    public int DivisorDays { get; set; } = 26;
+    public DateTimeOffset? UpdatedAt { get; set; }
+    public string? UpdatedByUserId { get; set; }
+}
+
+public sealed class SavePrimeAbsenceSanctionConfigRequest
+{
+    public string UserId { get; set; } = "";
+    public string? Role { get; set; }
+    public int DivisorDays { get; set; } = 26;
 }
 
 public sealed class PaySynthesisAllRequest

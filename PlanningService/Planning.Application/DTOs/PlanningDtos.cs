@@ -1,6 +1,6 @@
 namespace Planning.Application.DTOs.Planning;
 
-// -- Créer un planning --
+// -- Crï¿½er un planning --
 public class CreateWeeklyPlanningDto
 {
     public int SubServiceId { get; set; }
@@ -9,7 +9,7 @@ public class CreateWeeklyPlanningDto
     public int TotalEffectif { get; set; }
 }
 
-// -- Générer le planning automatiquement --
+// -- Gï¿½nï¿½rer le planning automatiquement --
 public class GeneratePlanningDto
 {
     public int WeeklyPlanningId { get; set; }
@@ -20,8 +20,8 @@ public class GeneratePlanningDto
 public class OverrideShiftDto
 {
     public int ShiftAssignmentId { get; set; }
-    public int NewShiftId { get; set; }                    // ancien système (gardé pour compatibilité)
-    public int NewSubServiceShiftConfigId { get; set; }    // ? nouveau système
+    public int NewShiftId { get; set; }                    // ancien systï¿½me (gardï¿½ pour compatibilitï¿½)
+    public int NewSubServiceShiftConfigId { get; set; }    // ? nouveau systï¿½me
 }
 
 // -- Configurer groupe samedi --
@@ -51,7 +51,7 @@ public record SaturdayHistoryResponseDto(
     bool IsManualEntry
 );
 
-// -- Réponse planning complet --
+// -- Rï¿½ponse planning complet --
 public class WeeklyPlanningResponseDto
 {
     public int Id { get; set; }
@@ -66,10 +66,10 @@ public class WeeklyPlanningResponseDto
     public List<EmployeePlanningDto> Assignments { get; set; } = new();
 }
 
-// ? CORRIGÉ — WeeklyPlanningId + UserId ajoutés pour créer une assignation quand l'employé est OFF
+// ? CORRIGï¿½ ï¿½ WeeklyPlanningId + UserId ajoutï¿½s pour crï¿½er une assignation quand l'employï¿½ est OFF
 public class OverrideSaturdayDto
 {
-    public int ShiftAssignmentId { get; set; }          // 0 si l'employé est actuellement OFF
+    public int ShiftAssignmentId { get; set; }          // 0 si l'employï¿½ est actuellement OFF
     public int NewSubServiceShiftConfigId { get; set; }
     public int WeeklyPlanningId { get; set; }           // requis quand ShiftAssignmentId = 0
     public int UserId { get; set; }                     // requis quand ShiftAssignmentId = 0
@@ -106,13 +106,25 @@ public class DayAssignmentDto
     public string SlotLabel { get; set; } = string.Empty;
 }
 
-// -- Vue employé (son propre planning) --
+// -- Vue employï¿½ (son propre planning) --
 public class MyPlanningDto
 {
     public string WeekCode { get; set; } = string.Empty;
     public DateOnly WeekStartDate { get; set; }
     public string SubServiceName { get; set; } = string.Empty;
     public List<DayAssignmentDto> Days { get; set; } = new();
+}
+
+// -- Notification de publication de planning (persistï¿½e) --
+public class PlanningNotificationDto
+{
+    public int Id { get; set; }
+    public int? WeeklyPlanningId { get; set; }
+    public string WeekCode { get; set; } = string.Empty;
+    public string SubServiceName { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public bool IsRead { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 // -- Sauvegarder la config shifts d'une semaine --
@@ -138,7 +150,7 @@ public class ShiftConfigItemDto
     public int DisplayOrder { get; set; }
 }
 
-// -- Réponse après sauvegarde config --
+// -- Rï¿½ponse aprï¿½s sauvegarde config --
 public class ShiftConfigResponseNewDto
 {
     public int Id { get; set; }
@@ -155,7 +167,7 @@ public class ShiftConfigResponseNewDto
     public int DisplayOrder { get; set; }
 }
 
-// -- Réponse config complète d'une semaine --
+// -- Rï¿½ponse config complï¿½te d'une semaine --
 public class WeekShiftConfigResponseDto
 {
     public int SubServiceId { get; set; }
@@ -166,7 +178,7 @@ public class WeekShiftConfigResponseDto
     public List<ShiftConfigResponseNewDto> Shifts { get; set; } = new();
 }
 
-// -- Générer le planning depuis la config --
+// -- Gï¿½nï¿½rer le planning depuis la config --
 public class GeneratePlanningFromConfigDto
 {
     public int SubServiceId { get; set; }
@@ -189,7 +201,7 @@ public class SavePlanningCommentDto
     public int CreatedBy { get; set; }
 }
 
-// -- Réponse commentaire --
+// -- Rï¿½ponse commentaire --
 public class PlanningCommentDto
 {
     public int Id { get; set; }

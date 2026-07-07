@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { OrgAssignmentsOverview } from '../../features/prime/services/prime-org-api.service';
 import {
   buildStructureOverwriteMessage,
+  filterReferentsForSuperviseur,
+  filterSuperviseursForChefDeProjet,
   findStructureIncumbent,
   shouldConfirmOverwrite,
   structureRoleLabel,
@@ -25,8 +27,22 @@ const overview = {
       firstName: 'Bob',
       lastName: 'Dupont',
       role: 'Superviseur',
+      parentId: 'u1',
       poleId: 'pole-a',
       celluleId: 'cell-b',
+      serviceId: 'svc-c',
+      email: 'bob@test.com',
+    },
+    {
+      id: 'u3',
+      firstName: 'Carla',
+      lastName: 'Rossi',
+      role: 'Coach',
+      parentId: 'u2',
+      poleId: 'pole-a',
+      celluleId: 'cell-b',
+      serviceId: 'svc-c',
+      email: 'carla@test.com',
     },
   ],
   managerEtage: [{ id: 'a1', userId: 'u1', etageId: 'pole-a' }],
@@ -50,9 +66,9 @@ describe('org-structure-incumbent.util', () => {
     expect(incumbent).toEqual({ userId: 'u2', displayName: 'Bob Dupont' });
   });
 
-  it('skips overwrite confirmation when assignee is current incumbent', () => {
+  it('does not require overwrite confirmation with multiple incumbents policy', () => {
     expect(shouldConfirmOverwrite('u1', 'u1')).toBe(false);
-    expect(shouldConfirmOverwrite('u1', 'u2')).toBe(true);
+    expect(shouldConfirmOverwrite('u1', 'u2')).toBe(false);
     expect(shouldConfirmOverwrite(undefined, 'u2')).toBe(false);
   });
 
@@ -69,5 +85,15 @@ describe('org-structure-incumbent.util', () => {
         'Chef de projet',
       ),
     ).toBe('Voulez-vous écraser le chef de projet actuel Yasmine El Idrissi ?');
+  });
+
+  it('filters superviseurs for selected chef de projet', () => {
+    const rows = filterSuperviseursForChefDeProjet(overview, 'u1', 'cell-b');
+    expect(rows.map((r) => r.userId)).toContain('u2');
+  });
+
+  it('filters referents for selected superviseur', () => {
+    const rows = filterReferentsForSuperviseur(overview, 'u2', 'svc-c');
+    expect(rows.map((r) => r.userId)).toContain('u3');
   });
 });

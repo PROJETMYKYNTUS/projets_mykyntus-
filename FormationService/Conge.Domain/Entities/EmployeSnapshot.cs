@@ -59,7 +59,8 @@ public class EmployeSnapshot
         Guid managerId,
         Guid serviceId,
         string serviceNom,
-        string role = "Employee")  // ✅ AJOUT
+        string role = "Employee",
+        DateTime? dateEmbauche = null)
     {
         Nom = nom;
         Prenom = prenom;
@@ -67,7 +68,9 @@ public class EmployeSnapshot
         ManagerId = managerId;
         ServiceId = serviceId;
         ServiceNom = serviceNom;
-        Role = role;              // ✅ AJOUT
+        Role = role;
+        if (dateEmbauche.HasValue)
+            DateEmbauche = dateEmbauche.Value;
         DerniereModification = DateTime.UtcNow;
     }
 
@@ -85,6 +88,21 @@ public class EmployeSnapshot
         if (managerId is { } mid && mid != Guid.Empty)
             ManagerId = mid;
         DerniereModification = DateTime.UtcNow;
+    }
+
+    public void MettreAJourEstMineur(bool estMineur)
+    {
+        EstMineur = estMineur;
+        DerniereModification = DateTime.UtcNow;
+    }
+
+    /// <summary>Vrai si l'employé a moins de 18 ans à la date du jour (UTC).</summary>
+    public static bool ComputeEstMineur(DateOnly? dateNaissance)
+    {
+        if (dateNaissance is null)
+            return false;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        return dateNaissance.Value.AddYears(18) > today;
     }
 
     public int GetAncienneteAnnees()

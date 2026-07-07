@@ -140,3 +140,27 @@ public sealed class OpenReferralCvQueryHandler(IReferralAppService referrals)
     public Task<ReferralCvFile?> Handle(OpenReferralCvQuery request, CancellationToken ct) =>
         referrals.OpenCvAsync(request.Id, ct);
 }
+
+public record ListOnboardingReferralsQuery : IRequest<IReadOnlyList<ReferralDto>>;
+public sealed class ListOnboardingReferralsQueryHandler(IReferralAppService referrals)
+    : IRequestHandler<ListOnboardingReferralsQuery, IReadOnlyList<ReferralDto>>
+{
+    public Task<IReadOnlyList<ReferralDto>> Handle(ListOnboardingReferralsQuery request, CancellationToken ct) =>
+        referrals.ListOnboardingAsync(ct);
+}
+
+public record LinkEmployeeCommand(string Id, LinkEmployeeRequest Body) : IRequest<ReferralDto?>;
+public sealed class LinkEmployeeCommandHandler(IReferralAppService referrals)
+    : IRequestHandler<LinkEmployeeCommand, ReferralDto?>
+{
+    public Task<ReferralDto?> Handle(LinkEmployeeCommand request, CancellationToken ct) =>
+        referrals.LinkEmployeeAsync(request.Id, request.Body, ct);
+}
+
+public record CompleteOnboardingCommand(string Id, CompleteOnboardingRequest Body) : IRequest<ReferralDto?>;
+public sealed class CompleteOnboardingCommandHandler(IReferralAppService referrals)
+    : IRequestHandler<CompleteOnboardingCommand, ReferralDto?>
+{
+    public Task<ReferralDto?> Handle(CompleteOnboardingCommand request, CancellationToken ct) =>
+        referrals.CompleteOnboardingAsync(request.Id, request.Body, ct);
+}

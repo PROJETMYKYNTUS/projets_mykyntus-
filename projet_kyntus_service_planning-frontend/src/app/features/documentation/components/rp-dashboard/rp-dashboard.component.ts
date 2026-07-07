@@ -54,7 +54,7 @@ export class RpDashboardComponent implements OnInit, OnDestroy {
     );
     this.sub.add(
       switchMapOnDocumentationContext(this.identity, () =>
-        this.api.getDocumentRequestsPage(200, { sortBy: 'createdAt', sortOrder: 'desc' }),
+        this.api.getDocumentRequestsPage(60, { sortBy: 'createdAt', sortOrder: 'desc' }),
       ).subscribe({
         next: (page) => {
           this.allRequests = page.items.map(mapDocumentRequestDto);

@@ -334,7 +334,7 @@ public class EmployeeImportOrgGapAnalyzer(IEmployeeImportOrgResolver orgResolver
         var celluleCheck = orgResolution.Cellule ?? celluleSource;
         var serviceCheck = orgResolution.Service ?? serviceSource;
 
-        if (depth == EmployeeImportOrgDepth.Pole && !string.IsNullOrWhiteSpace(poleSource) && !PoleExists(snapshot, poleCheck!))
+        if (depth == EmployeeImportOrgDepth.Pole && !string.IsNullOrWhiteSpace(poleSource) && !EmployeeImportOrgExistence.PoleExists(snapshot, poleCheck!))
         {
             yield return new PendingOrgCreationDto
             {
@@ -350,7 +350,7 @@ public class EmployeeImportOrgGapAnalyzer(IEmployeeImportOrgResolver orgResolver
             !string.IsNullOrWhiteSpace(poleSource) &&
             !string.IsNullOrWhiteSpace(celluleSource))
         {
-            if (!PoleExists(snapshot, poleCheck!))
+            if (!EmployeeImportOrgExistence.PoleExists(snapshot, poleCheck!))
             {
                 yield return new PendingOrgCreationDto
                 {
@@ -361,7 +361,7 @@ public class EmployeeImportOrgGapAnalyzer(IEmployeeImportOrgResolver orgResolver
                 };
             }
 
-            if (!CelluleExists(snapshot, poleCheck!, celluleCheck!))
+            if (!EmployeeImportOrgExistence.CelluleExists(snapshot, poleCheck!, celluleCheck!))
             {
                 yield return new PendingOrgCreationDto
                 {
@@ -380,7 +380,7 @@ public class EmployeeImportOrgGapAnalyzer(IEmployeeImportOrgResolver orgResolver
             !string.IsNullOrWhiteSpace(celluleSource) &&
             !string.IsNullOrWhiteSpace(serviceSource))
         {
-            if (!PoleExists(snapshot, poleCheck!))
+            if (!EmployeeImportOrgExistence.PoleExists(snapshot, poleCheck!))
             {
                 yield return new PendingOrgCreationDto
                 {
@@ -391,7 +391,7 @@ public class EmployeeImportOrgGapAnalyzer(IEmployeeImportOrgResolver orgResolver
                 };
             }
 
-            if (!CelluleExists(snapshot, poleCheck!, celluleCheck!))
+            if (!EmployeeImportOrgExistence.CelluleExists(snapshot, poleCheck!, celluleCheck!))
             {
                 yield return new PendingOrgCreationDto
                 {
@@ -402,7 +402,7 @@ public class EmployeeImportOrgGapAnalyzer(IEmployeeImportOrgResolver orgResolver
                 };
             }
 
-            if (!ServiceExists(snapshot, poleCheck!, celluleCheck!, serviceCheck!))
+            if (!EmployeeImportOrgExistence.ServiceExists(snapshot, poleCheck!, celluleCheck!, serviceCheck!))
             {
                 yield return new PendingOrgCreationDto
                 {
@@ -431,31 +431,6 @@ public class EmployeeImportOrgGapAnalyzer(IEmployeeImportOrgResolver orgResolver
             ? value.Trim()
             : null;
     }
-
-    private static bool PoleExists(EmployeeImportOrgSnapshot snapshot, string pole) =>
-        snapshot.Rows.Any(r =>
-            EmployeeImportColumnMatcher.Normalize(r.FloorName) ==
-            EmployeeImportColumnMatcher.Normalize(pole));
-
-    private static bool CelluleExists(EmployeeImportOrgSnapshot snapshot, string pole, string cellule) =>
-        snapshot.Rows.Any(r =>
-            EmployeeImportColumnMatcher.Normalize(r.FloorName) ==
-            EmployeeImportColumnMatcher.Normalize(pole)
-            && EmployeeImportColumnMatcher.Normalize(r.ServiceName) ==
-            EmployeeImportColumnMatcher.Normalize(cellule));
-
-    private static bool ServiceExists(
-        EmployeeImportOrgSnapshot snapshot,
-        string pole,
-        string cellule,
-        string service) =>
-        snapshot.Rows.Any(r =>
-            EmployeeImportColumnMatcher.Normalize(r.FloorName) ==
-            EmployeeImportColumnMatcher.Normalize(pole)
-            && EmployeeImportColumnMatcher.Normalize(r.ServiceName) ==
-            EmployeeImportColumnMatcher.Normalize(cellule)
-            && EmployeeImportColumnMatcher.Normalize(r.SubServiceName) ==
-            EmployeeImportColumnMatcher.Normalize(service));
 
     private static string PendingKey(PendingOrgCreationDto dto) =>
         $"{dto.Type}|{dto.Pole}|{dto.Cellule}|{dto.Service}".ToLowerInvariant();

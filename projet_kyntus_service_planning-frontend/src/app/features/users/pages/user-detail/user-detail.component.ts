@@ -13,6 +13,9 @@ import { ArrowLeft, Pencil, Trash2 } from 'lucide';
 import type { Department } from '../../../prime/models';
 import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
+import { ParrainageApiService } from '../../../parrainage/services/parrainage-api.service';
+import type { Referral } from '../../../parrainage/models/referral.model';
+import { resolveUserGuid } from '../../../../core/lib/user-guid.util';
 import {
   enrichUserOrgPerimeter,
   orgCellLabel,
@@ -33,6 +36,7 @@ export class UserDetailComponent implements OnInit {
   readonly icons = { back: ArrowLeft, edit: Pencil, trash: Trash2 };
   readonly orgCellLabel = orgCellLabel;
   user: User | null = null;
+  linkedReferral: Referral | null = null;
   customFields: EmployeeImportFieldConfig[] = [];
   perimeter: UserOrgPerimeterView = { operationalDepartment: null, pole: null, cellule: null, service: null };
   loading = false;
@@ -46,6 +50,7 @@ export class UserDetailComponent implements OnInit {
     private subServiceService: SubServiceService,
     private fieldService: EmployeeFieldService,
     private http: HttpClient,
+    private parrainageApi: ParrainageApiService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -89,6 +94,7 @@ export class UserDetailComponent implements OnInit {
           directoryEmployees ?? [],
           businessDepartments ?? [],
         );
+        void this.loadLinkedReferral(user);
         this.loading = false;
         this.cdr.detectChanges();
       },
@@ -110,6 +116,18 @@ export class UserDetailComponent implements OnInit {
     });
   }
 
+  private async loadLinkedReferral(user: User): Promise<void> {
+    const guid = resolveUserGuid(user);
+    if (!guid) return;
+    try {
+      const referrals = await this.parrainageApi.getReferrals();
+      this.linkedReferral = referrals.find((r) => r.candidateEmployeeId === guid) ?? null;
+      this.cdr.detectChanges();
+    } catch {
+      this.linkedReferral = null;
+    }
+  }
+
   getAnciennete(hireDate: string): string {
     const debut = new Date(hireDate);
     const now = new Date();
@@ -125,7 +143,7 @@ export class UserDetailComponent implements OnInit {
 
   levelLabel(level: number): string {
     if (level === 2) return 'Intermédiaire';
-    if (level === 3) return 'Expert';
+    if (level === 3) return 'Confirmé';
     return 'Débutant';
   }
 

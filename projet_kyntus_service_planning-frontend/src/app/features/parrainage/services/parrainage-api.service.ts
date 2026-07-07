@@ -189,6 +189,34 @@ export class ParrainageApiService {
     );
   }
 
+  async getOnboardingReferrals(): Promise<Referral[]> {
+    const rows = await firstValueFrom(this.http.get<RawReferral[]>(`${PREFIX}/referrals/onboarding`));
+    return rows.map(reviveReferral);
+  }
+
+  async linkEmployee(id: string, body: { employeeId: string; actor?: Actor }): Promise<Referral> {
+    return reviveReferral(
+      await firstValueFrom(this.http.post<RawReferral>(`${PREFIX}/referrals/${id}/link-employee`, body)),
+    );
+  }
+
+  async completeOnboarding(
+    id: string,
+    body: {
+      employeeId: string;
+      candidateStartDate: string;
+      rewardAmount: number;
+      requiresTraining?: boolean;
+      trainingEndDate?: string;
+      comment?: string;
+      actor?: Actor;
+    },
+  ): Promise<Referral> {
+    return reviveReferral(
+      await firstValueFrom(this.http.post<RawReferral>(`${PREFIX}/referrals/${id}/complete-onboarding`, body)),
+    );
+  }
+
   async markReferralPaid(
     id: string,
     body: { paid: boolean; paidAt?: string; reference?: string; actor?: Actor },

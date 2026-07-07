@@ -18,4 +18,8 @@ public interface IPlanningCongeService
     Task<bool> DeleteAsync(int id, CancellationToken ct = default);
 
     Task<SetSaturdaySlotResultDto> SetSaturdaySlotAsync(SetSaturdaySlotDto dto, CancellationToken ct = default);
+
+    Task<BulkAbsenceDaysResponseDto> GetBulkAbsenceDaysAsync(
+        BulkAbsenceDaysRequestDto request,
+        CancellationToken ct = default);
 }

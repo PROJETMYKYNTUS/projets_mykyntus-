@@ -3,23 +3,11 @@ import { ParrainageStoreService } from '../../services/parrainage-store.service'
 import { ParrainageRoleService } from '../../state/parrainage-role.service';
 import { ParrainageNavService } from '../../state/parrainage-nav.service';
 import type { Referral, ReferralStatus } from '../../models/referral.model';
-
-const STATUS_STYLES: Record<ReferralStatus, string> = {
-  SUBMITTED: 'bg-blue-500/15 text-blue-300 border-blue-500/40',
-  PROCESSED: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40',
-  IN_TRAINING: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
-  APPROVED: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
-  REJECTED: 'bg-red-500/15 text-red-300 border-red-500/40',
-  REWARDED: 'bg-purple-500/15 text-purple-200 border-purple-500/40',
-};
-const STATUS_LABELS: Record<ReferralStatus, string> = {
-  SUBMITTED: 'En attente',
-  PROCESSED: 'Dossier traité',
-  IN_TRAINING: 'En cours de formation',
-  APPROVED: 'Validé',
-  REJECTED: 'Rejeté',
-  REWARDED: 'Prime versée',
-};
+import {
+  REFERRAL_PROCESSED_KPI_LABEL,
+  REFERRAL_STATUS_LABELS,
+  REFERRAL_STATUS_STYLES_RH,
+} from '../../utils/referral-status.util';
 
 @Component({
   selector: 'app-rh-dashboard-page',
@@ -47,7 +35,7 @@ const STATUS_LABELS: Record<ReferralStatus, string> = {
               <p class="text-2xl font-semibold text-blue-300 mt-2">{{ kpis().pendingRh }}</p>
             </div>
             <div class="card-navy p-5 border-cyan-500/20">
-              <p class="text-xs uppercase tracking-wide text-muted">Traités — attente entrée</p>
+              <p class="text-xs uppercase tracking-wide text-muted">{{ processedKpiLabel }}</p>
               <p class="text-2xl font-semibold text-cyan-300 mt-2">{{ kpis().processedWaiting }}</p>
             </div>
             <button type="button" class="card-navy p-5 border-amber-500/20 text-left hover:bg-amber-500/5 transition-colors" (click)="openInTrainingList()">
@@ -98,8 +86,9 @@ export class RhDashboardPageComponent {
   private readonly role = inject(ParrainageRoleService);
   readonly nav = inject(ParrainageNavService);
 
-  readonly statusStyles = STATUS_STYLES;
-  readonly statusLabels = STATUS_LABELS;
+  readonly statusStyles = REFERRAL_STATUS_STYLES_RH;
+  readonly statusLabels = REFERRAL_STATUS_LABELS;
+  readonly processedKpiLabel = REFERRAL_PROCESSED_KPI_LABEL;
 
   readonly loading = computed(() => this.store.loading());
   private readonly list = computed(() => this.store.referrals());

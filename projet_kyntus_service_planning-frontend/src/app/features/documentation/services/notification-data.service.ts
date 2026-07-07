@@ -207,6 +207,7 @@ export class NotificationDataService {
   private readonly readIds = new Set<string>();
   private readonly tick = new BehaviorSubject(0);
   private readonly subscriptions = new Subscription();
+  private pollingStarted = false;
 
   /** Notifie les observateurs après chargement ou changement d’état lu. */
   readonly updated$ = this.tick.asObservable();
@@ -228,11 +229,17 @@ export class NotificationDataService {
     if (this.session.isAuthenticated()) {
       this.identity.syncFromJwtSession();
     }
-    if (this.session.isAuthenticated()) {
-      this.reloadFromApi();
+  }
+
+  /** Démarre le polling documentation à la demande (module documentation ou cloche activée). */
+  ensureLoaded(): void {
+    if (!this.session.isAuthenticated()) return;
+    if (!this.pollingStarted) {
+      this.pollingStarted = true;
+      this.subscriptions.add(this.identity.contextRevision$.subscribe(() => this.reloadFromApi()));
+      this.subscriptions.add(interval(120_000).subscribe(() => this.reloadFromApi()));
     }
-    this.subscriptions.add(this.identity.contextRevision$.subscribe(() => this.reloadFromApi()));
-    this.subscriptions.add(interval(120_000).subscribe(() => this.reloadFromApi()));
+    this.reloadFromApi();
   }
 
   reloadFromApi(): void {

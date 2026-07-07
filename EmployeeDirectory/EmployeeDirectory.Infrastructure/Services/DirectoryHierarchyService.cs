@@ -10,6 +10,9 @@ public sealed class DirectoryHierarchyService(DirectoryDbContext db)
 {
     public async Task<Guid?> ResolveDefaultParentIdAsync(Employee employee, CancellationToken ct)
     {
+        if (employee.SuperviseurId.HasValue)
+            return employee.SuperviseurId;
+
         if (employee.BusinessDepartmentId.HasValue)
         {
             var dept = await db.BusinessDepartments.AsNoTracking()

@@ -9,7 +9,10 @@ export const KYNTUS_JWT_CLAIMS = {
 export const KYNTUS_DEFAULT_TENANT = 'atlas-tech-demo';
 
 export interface KyntusStoredUser {
-  id: number;
+  /** SubjectId Auth (UUID) — legacy champ `id`. */
+  id: number | string;
+  authUserId?: number;
+  subjectId?: string;
   username: string;
   email: string;
   role: string;

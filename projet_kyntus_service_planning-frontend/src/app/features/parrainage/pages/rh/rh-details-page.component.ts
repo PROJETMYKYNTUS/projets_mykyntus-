@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AlertTriangle, Loader2, X as XIcon } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
@@ -8,23 +9,11 @@ import { ParrainageStoreService } from '../../services/parrainage-store.service'
 import { ParrainageNavService } from '../../state/parrainage-nav.service';
 import { ParrainageRoleService } from '../../state/parrainage-role.service';
 import type { ReferralStatus } from '../../models/referral.model';
-
-const STATUS_STYLES: Record<ReferralStatus, string> = {
-  SUBMITTED: 'bg-blue-500/15 text-blue-300 border-blue-500/40',
-  PROCESSED: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40',
-  IN_TRAINING: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
-  APPROVED: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
-  REJECTED: 'bg-red-500/15 text-red-300 border-red-500/40',
-  REWARDED: 'bg-purple-500/15 text-purple-200 border-purple-500/40',
-};
-const STATUS_LABELS: Record<ReferralStatus, string> = {
-  SUBMITTED: 'En attente',
-  PROCESSED: 'Dossier traité',
-  IN_TRAINING: 'En cours de formation',
-  APPROVED: 'Validé',
-  REJECTED: 'Rejeté',
-  REWARDED: 'Prime versée',
-};
+import {
+  REFERRAL_STATUS_LABELS,
+  REFERRAL_STATUS_STYLES_RH,
+  referralHistoryActionLabel,
+} from '../../utils/referral-status.util';
 
 const HISTORY_ACTION_LABELS: Record<string, string> = {
   PRODUCTION_CONFIRMED: 'Passage en production',
@@ -180,9 +169,29 @@ type ToastType = 'success' | 'error' | 'info';
             </div>
 
             @if (ref.status === 'PROCESSED') {
-              <div class="card-navy p-4 border border-cyan-500/20 bg-cyan-500/5 text-sm text-cyan-100">
-                Candidature traitée par la RH — en attente de l'entrée effective du candidat dans la société.
-                Validez le dossier une fois la date d'entrée connue.
+              <div class="card-navy p-4 border border-emerald-500/20 bg-emerald-500/5 text-sm text-emerald-100 space-y-3">
+                <p>
+                  Candidature consultée par la RH — validez l'entrée en créant le compte employé.
+                  L'enregistrement du formulaire validera automatiquement le dossier parrainage.
+                </p>
+                @if (!ref.candidateEmployeeId) {
+                  <button
+                    type="button"
+                    (click)="validateAndCreateEmployee(ref.id)"
+                    class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+                  >
+                    Valider et créer l'employé
+                  </button>
+                } @else {
+                  <p class="text-xs text-emerald-200">Employé lié : {{ ref.candidateEmployeeId }}</p>
+                  <button
+                    type="button"
+                    (click)="validateAndCreateEmployee(ref.id)"
+                    class="rounded-lg border border-emerald-500/50 px-4 py-2 text-sm font-medium text-emerald-100 hover:bg-emerald-500/10"
+                  >
+                    Reprendre / finaliser
+                  </button>
+                }
               </div>
             }
 
@@ -217,6 +226,14 @@ type ToastType = 'success' | 'error' | 'info';
                     <span class="block mt-1 text-amber-200">
                       Période écoulée — confirmez que le candidat est toujours en poste avant transmission à la comptabilité.
                     </span>
+                    @if (ref.employmentCheckSummary) {
+                      <span class="block mt-1 text-primary">
+                        Contrat : {{ ref.employmentCheckSummary.contractStatus || '—' }}
+                        @if (ref.employmentCheckSummary.blockReason) {
+                          — {{ ref.employmentCheckSummary.blockReason }}
+                        }
+                      </span>
+                    }
                   }
                   @if (ref.paymentStatus === 'READY') {
                     <span class="block mt-1 text-amber-200">Éligibilité confirmée — en attente du service comptabilité.</span>
@@ -251,17 +268,7 @@ type ToastType = 'success' | 'error' | 'info';
                     [disabled]="busy() || unauthorized"
                     class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
                   >
-                    Marquer comme traité
-                  </button>
-                }
-                @if (canApprove()) {
-                  <button
-                    type="button"
-                    (click)="handleApproveClick()"
-                    [disabled]="busy() || unauthorized"
-                    class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-                  >
-                    Valider l'entrée
+                    Marquer comme consulté
                   </button>
                 }
                 @if (canConfirmProduction()) {
@@ -317,7 +324,7 @@ type ToastType = 'success' | 'error' | 'info';
               @if (mode() === 'process' && canProcess()) {
                 <div class="space-y-4">
                   <p class="text-xs text-muted">
-                    Confirmez que la candidature a été examinée (CV, entretiens). Le candidat n'a pas encore rejoint la société.
+                    Confirmez que la candidature a été examinée (CV, entretiens). Le dossier passera en statut « Consulté ».
                   </p>
                   <div>
                     <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
@@ -336,70 +343,6 @@ type ToastType = 'success' | 'error' | 'info';
                     class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
                   >
                     Confirmer le traitement
-                  </button>
-                </div>
-              }
-
-              @if (mode() === 'approve' && canApprove()) {
-                <div class="space-y-4">
-                  <label class="flex items-center gap-2 text-sm text-primary cursor-pointer">
-                    <input type="checkbox" class="rounded border-default" [(ngModel)]="requiresTraining" />
-                    Passage par formation
-                  </label>
-                  <div>
-                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
-                      {{ approveStartDateLabel }}
-                    </label>
-                    <input
-                      type="date"
-                      class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-soft-blue"
-                      [(ngModel)]="candidateStartDate"
-                    />
-                  </div>
-                  @if (requiresTraining) {
-                    <div>
-                      <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
-                        Date de fin de formation prévue
-                      </label>
-                      <input
-                        type="date"
-                        class="w-full rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-soft-blue"
-                        [(ngModel)]="trainingEndDate"
-                      />
-                    </div>
-                  }
-                  <div>
-                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
-                      Montant engagé (DH)
-                    </label>
-                    <div
-                      class="w-full rounded-lg border border-default bg-input/20 px-3 py-2 text-sm text-primary"
-                      aria-readonly="true"
-                    >
-                      {{ suggestedReward() }} DH
-                    </div>
-                    <p class="text-xs text-muted mt-2">
-                      Montant fixé selon la règle applicable — ancienneté minimale {{ suggestedMinDuration() }} mois
-                    </p>
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
-                      Commentaire (facultatif)
-                    </label>
-                    <textarea
-                      class="w-full min-h-[70px] rounded-lg border border-default bg-input/40 px-3 py-2 text-sm text-primary"
-                      [(ngModel)]="approveComment"
-                      placeholder="Notes internes RH…"
-                    ></textarea>
-                  </div>
-
-                  <button
-                    type="button"
-                    (click)="confirmOpen.set('approve')"
-                    [disabled]="busy() || unauthorized"
-                    class="rounded-lg bg-soft-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50"
-                  >
-                    Valider le dossier
                   </button>
                 </div>
               }
@@ -578,58 +521,20 @@ type ToastType = 'success' | 'error' | 'info';
         <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
         <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-default">
           <div class="flex items-start justify-between gap-4">
-            <h3 class="text-lg font-semibold text-primary">Marquer comme traité</h3>
+            <h3 class="text-lg font-semibold text-primary">Marquer comme consulté</h3>
             <button type="button" class="rounded-lg p-1 text-muted hover:text-primary hover:bg-input" (click)="confirmOpen.set(null)" aria-label="Fermer">
               <app-lucide-icon [icon]="xIcon" className="h-5 w-5" />
             </button>
           </div>
           <p class="mt-3 text-sm text-muted leading-relaxed">
             Candidat : {{ referral()?.candidateName ?? '' }}.
-            Le dossier passera en « Dossier traité » en attente de l'entrée du candidat.
+            Le dossier passera en « Consulté » en attente de la création du compte employé.
           </p>
           <div class="mt-6 flex flex-wrap justify-end gap-2">
             <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
               Annuler
             </button>
             <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-cyan-600 hover:bg-cyan-500 text-white" [disabled]="busy()">
-              @if (busy()) {
-                <span class="inline-flex items-center gap-2">
-                  <app-lucide-icon [icon]="loaderIcon" className="h-4 w-4 animate-spin" />
-                  Traitement…
-                </span>
-              } @else {
-                Confirmer
-              }
-            </button>
-          </div>
-        </div>
-      </div>
-    }
-
-    @if (confirmOpen() === 'approve') {
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="confirmOpen.set(null)"></button>
-        <div class="relative card-navy max-w-md w-full p-6 shadow-2xl border border-default">
-          <div class="flex items-start justify-between gap-4">
-            <h3 class="text-lg font-semibold text-primary">Confirmer la validation</h3>
-            <button type="button" class="rounded-lg p-1 text-muted hover:text-primary hover:bg-input" (click)="confirmOpen.set(null)" aria-label="Fermer">
-              <app-lucide-icon [icon]="xIcon" className="h-5 w-5" />
-            </button>
-          </div>
-          <p class="mt-3 text-sm text-muted leading-relaxed">
-            Candidat : {{ referral()?.candidateName ?? '' }}.
-            Montant engagé {{ suggestedReward() }} DH — entrée le {{ candidateStartDate || '—' }}.
-            @if (requiresTraining) {
-              Formation jusqu'au {{ trainingEndDate || '—' }}. La période minimum démarrera à la confirmation production.
-            } @else {
-              Le versement interviendra après la période minimum.
-            }
-          </p>
-          <div class="mt-6 flex flex-wrap justify-end gap-2">
-            <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
-              Annuler
-            </button>
-            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-soft-blue hover:bg-blue-600 text-white" [disabled]="busy()">
               @if (busy()) {
                 <span class="inline-flex items-center gap-2">
                   <app-lucide-icon [icon]="loaderIcon" className="h-4 w-4 animate-spin" />
@@ -813,11 +718,12 @@ export class RhDetailsPageComponent {
   private readonly store = inject(ParrainageStoreService);
   readonly nav = inject(ParrainageNavService);
   private readonly role = inject(ParrainageRoleService);
+  private readonly router = inject(Router);
 
   readonly String = String;
 
-  readonly statusStyles = STATUS_STYLES;
-  readonly statusLabels = STATUS_LABELS;
+  readonly statusStyles = REFERRAL_STATUS_STYLES_RH;
+  readonly statusLabels = REFERRAL_STATUS_LABELS;
   readonly alertIcon = AlertTriangle;
   readonly loaderIcon = Loader2;
   readonly xIcon = XIcon;
@@ -833,22 +739,18 @@ export class RhDetailsPageComponent {
     if (!rid) return [];
     return this.store.history().filter((h) => h.referralId === rid);
   });
-  readonly mode = signal<'none' | 'process' | 'approve' | 'confirm-production' | 'extend-training' | 'confirm-eligibility' | 'early-departure' | 'reject'>('none');
-  candidateStartDate = new Date().toISOString().slice(0, 10);
-  trainingEndDate = '';
+  readonly mode = signal<'none' | 'process' | 'confirm-production' | 'extend-training' | 'confirm-eligibility' | 'early-departure' | 'reject'>('none');
   productionStartDate = '';
   extendTrainingEndDate = '';
   earlyDepartureDate = '';
   earlyDepartureComment = '';
-  requiresTraining = false;
-  approveComment = '';
   processComment = '';
   rejectComment = '';
   eligibilityComment = '';
   productionComment = '';
   extendTrainingComment = '';
   readonly busy = signal(false);
-  readonly confirmOpen = signal<null | 'process' | 'approve' | 'confirm-production' | 'extend-training' | 'confirm-eligibility' | 'early-departure' | 'reject'>(null);
+  readonly confirmOpen = signal<null | 'process' | 'confirm-production' | 'extend-training' | 'confirm-eligibility' | 'early-departure' | 'reject'>(null);
   readonly toast = signal<{ show: boolean; type: ToastType; message: string }>({ show: false, type: 'success', message: '' });
 
   get id(): string {
@@ -861,7 +763,6 @@ export class RhDetailsPageComponent {
 
   readonly hasCv = computed(() => !!this.referral()?.cvUrl?.trim());
   readonly canProcess = computed(() => this.referral()?.status === 'SUBMITTED' && this.hasCv());
-  readonly canApprove = computed(() => this.referral()?.status === 'PROCESSED');
   readonly canConfirmEligibility = computed(
     () => this.referral()?.status === 'APPROVED' && this.referral()?.paymentStatus === 'AWAITING_RH',
   );
@@ -889,12 +790,6 @@ export class RhDetailsPageComponent {
     return this.referralService.getSuggestedReward(this.id);
   });
 
-  get approveStartDateLabel(): string {
-    return this.requiresTraining
-      ? 'Date de début de formation'
-      : "Date d'entrée en production";
-  }
-
   readonly suggestedMinDuration = computed(() => {
     if (!this.id) return 6;
     return this.referralService.getSuggestedMinDuration(this.id);
@@ -920,12 +815,7 @@ export class RhDetailsPageComponent {
 
   historyActionLabel(action: string): string {
     if (HISTORY_ACTION_LABELS[action]) return HISTORY_ACTION_LABELS[action];
-    if (action === 'APPROVED') return 'Validé';
-    if (action === 'PROCESSED') return 'Dossier traité';
-    if (action === 'IN_TRAINING') return 'En cours de formation';
-    if (action === 'REJECTED') return 'Rejeté';
-    if (action === 'REWARDED') return 'Prime versée';
-    return action;
+    return referralHistoryActionLabel(action);
   }
 
   private actor() {
@@ -941,14 +831,6 @@ export class RhDetailsPageComponent {
   handleProcessClick(): void {
     this.processComment = '';
     this.mode.set('process');
-  }
-
-  handleApproveClick(): void {
-    if (!this.referral()) return;
-    this.requiresTraining = false;
-    this.trainingEndDate = '';
-    this.rejectComment = '';
-    this.mode.set('approve');
   }
 
   handleConfirmProductionClick(): void {
@@ -992,49 +874,7 @@ export class RhDetailsPageComponent {
           this.actor(),
         );
         if (!updated) throw new Error('Échec du marquage.');
-        this.showToast('success', 'Dossier marqué comme traité.');
-        this.mode.set('none');
-        this.confirmOpen.set(null);
-        return;
-      }
-      if (this.confirmOpen() === 'approve') {
-        const amount = this.suggestedReward();
-        if (!Number.isFinite(amount) || amount <= 0) {
-          this.showToast('error', 'Montant engagé indisponible pour ce dossier.');
-          this.busy.set(false);
-          this.confirmOpen.set(null);
-          return;
-        }
-        if (!this.candidateStartDate) {
-          this.showToast('error', 'Date d\'entrée requise.');
-          this.busy.set(false);
-          this.confirmOpen.set(null);
-          return;
-        }
-        if (this.requiresTraining && !this.trainingEndDate) {
-          this.showToast('error', 'Date de fin de formation requise.');
-          this.busy.set(false);
-          this.confirmOpen.set(null);
-          return;
-        }
-        const updated = await this.referralService.approveReferral(
-          id,
-          {
-            candidateStartDate: this.candidateStartDate,
-            rewardAmount: amount,
-            requiresTraining: this.requiresTraining,
-            trainingEndDate: this.requiresTraining ? this.trainingEndDate : undefined,
-            comment: this.approveComment || undefined,
-          },
-          this.actor(),
-        );
-        if (!updated) throw new Error('Échec de la validation.');
-        this.showToast(
-          'success',
-          this.requiresTraining
-            ? 'Dossier en formation — période non comptée.'
-            : 'Dossier validé — période d\'ancienneté en cours.',
-        );
+        this.showToast('success', 'Dossier marqué comme consulté.');
         this.mode.set('none');
         this.confirmOpen.set(null);
         return;
@@ -1136,5 +976,11 @@ export class RhDetailsPageComponent {
   formatDate(d?: Date): string {
     if (!d) return '—';
     return this.fr(d);
+  }
+
+  validateAndCreateEmployee(referralId: string): void {
+    void this.router.navigate(['/users/create'], {
+      queryParams: { referralId, fromParrainage: '1' },
+    });
   }
 }

@@ -27,7 +27,7 @@ public sealed class DirectoryEmployeeCongeProjectionConsumer(
             return;
         }
 
-        var managerId = msg.ParentId ?? Guid.Empty;
+        var managerId = msg.SuperviseurId ?? msg.ParentId ?? Guid.Empty;
         var serviceId = Guid.TryParse(msg.ServiceId, out var parsedSvc) ? parsedSvc : Guid.Empty;
         var serviceNom = msg.ServiceId ?? string.Empty;
         var isNew = snapshot is null;
@@ -42,14 +42,14 @@ public sealed class DirectoryEmployeeCongeProjectionConsumer(
                 managerId,
                 serviceId,
                 serviceNom,
-                DateTime.UtcNow,
+                msg.HireDate ?? DateTime.UtcNow,
                 false,
                 msg.Role);
             await employeRepo.AddAsync(snapshot, context.CancellationToken);
         }
         else
         {
-            snapshot!.MettreAJour(msg.LastName, msg.FirstName, msg.Email, managerId, serviceId, serviceNom, msg.Role);
+            snapshot!.MettreAJour(msg.LastName, msg.FirstName, msg.Email, managerId, serviceId, serviceNom, msg.Role, msg.HireDate);
             employeRepo.Update(snapshot);
         }
 

@@ -116,6 +116,10 @@ namespace Parrainage.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly?>("CandidateStartDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("CandidateEmployeeId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -212,6 +216,8 @@ namespace Parrainage.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CandidateEmail");
+
+                    b.HasIndex("CandidateEmployeeId");
 
                     b.HasIndex("PaymentStatus");
 

@@ -45,7 +45,7 @@ const PATH_REQUIREMENTS: Record<string, { action: UiPermissionAction; scope?: Rb
   '/prime-fiches-pilotes': { action: 'Edit', scope: 'Cellule' },
   '/prime-fiche-import': { action: 'Edit', scope: 'Cellule' },
   '/prime-saisie-cellule': { action: 'Edit', scope: 'Cellule' },
-  '/template-manager': { action: 'Configure' },
+  '/template-manager': { action: 'Edit', scope: 'Cellule' },
   '/employee/primes': { action: 'Read', scope: 'Self' },
   '/employee/performance': { action: 'Read', scope: 'Self' },
   '/allowances': { action: 'Read' },

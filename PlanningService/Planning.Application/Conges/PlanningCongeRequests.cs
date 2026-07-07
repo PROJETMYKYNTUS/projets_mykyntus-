@@ -54,3 +54,13 @@ public sealed class SetSaturdaySlotCommandHandler(IPlanningCongeService conges)
     public Task<SetSaturdaySlotResultDto> Handle(SetSaturdaySlotCommand request, CancellationToken ct) =>
         conges.SetSaturdaySlotAsync(request.Dto, ct);
 }
+
+public record GetBulkAbsenceDaysCommand(BulkAbsenceDaysRequestDto Request)
+    : IRequest<BulkAbsenceDaysResponseDto>;
+
+public sealed class GetBulkAbsenceDaysCommandHandler(IPlanningCongeService conges)
+    : IRequestHandler<GetBulkAbsenceDaysCommand, BulkAbsenceDaysResponseDto>
+{
+    public Task<BulkAbsenceDaysResponseDto> Handle(GetBulkAbsenceDaysCommand request, CancellationToken ct) =>
+        conges.GetBulkAbsenceDaysAsync(request.Request, ct);
+}

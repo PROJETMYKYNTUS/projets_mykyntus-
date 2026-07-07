@@ -12,6 +12,7 @@
       <form [formGroup]="contractForm" (ngSubmit)="onSubmit()">
 
         @if (!isEditMode) {
+          @if (!hideEmployeePicker()) {
           <div class="form-section">
             <div class="section-heading">
               <h3 class="section-title">Employé</h3>
@@ -103,97 +104,26 @@
               <span class="error">Veuillez sélectionner un employé dans la liste.</span>
             }
           </div>
-        }
-
-        <div class="form-section">
-          <div class="section-heading">
-            <h3 class="section-title">Type de contrat</h3>
-            <p class="section-hint">Type sélectionné : <strong>{{ f['type'].value }}</strong></p>
-          </div>
-          <div class="type-grid">
-            @for (t of contractTypes; track t.value) {
-              <button
-                type="button"
-                class="type-card"
-                [ngClass]="t.cssClass"
-                [class.selected]="f['type'].value === t.value"
-                (click)="selectType(t.value)"
-              >
-                <span class="type-icon"><app-lucide-icon [icon]="t.icon" className="w-5 h-5" /></span>
-                <span class="type-label">{{ t.label }}</span>
-                <span class="type-desc">{{ t.desc }}</span>
-              </button>
-            }
-          </div>
-        </div>
-
-        <div class="form-section">
-          <h3 class="section-title">Dates</h3>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Date de début <span class="req">*</span></label>
-              <input class="ky-input" type="date" formControlName="startDate" />
-              @if (f['startDate'].touched && f['startDate'].invalid) {
-                <span class="error">Date de début requise.</span>
-              }
-            </div>
-            @if (f['type'].value !== 'CDI') {
-              <div class="form-group">
-                <label>Date de fin <span class="req">*</span></label>
-                <input class="ky-input" type="date" formControlName="endDate" />
-                @if (f['endDate'].touched && f['endDate'].invalid) {
-                  <span class="error">Date de fin requise.</span>
-                }
+          } @else if (selectedEmployee) {
+            <div class="form-section">
+              <div class="section-heading">
+                <h3 class="section-title">Employé</h3>
               </div>
-            }
-          </div>
-        </div>
-
-        @if (f['type'].value !== 'Interim' && f['type'].value !== 'ANAPEC') {
-          <div class="form-section">
-            <h3 class="section-title">Période d'essai</h3>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Durée (jours)</label>
-                <input class="ky-input" type="number" formControlName="probationDays" [placeholder]="getDefaultProbationLabel()" />
-                <span class="hint">Laissez vide pour la valeur par défaut ({{ getDefaultProbationValue() }} jours)</span>
+              <div class="selected-employee">
+                <strong>Sélectionné :</strong>
+                {{ selectedEmployee.displayName }}
+                <span class="selected-meta">{{ orgPerimeterSummary(selectedEmployee.perimeter) }}</span>
               </div>
             </div>
-          </div>
+          }
         }
 
-        <div class="form-section">
-          <h3 class="section-title">Alertes</h3>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Déclencher l'alerte X jours avant l'échéance</label>
-              <input class="ky-input" type="number" formControlName="alertThresholdDays" />
-              <span class="hint">Par défaut : 15 jours</span>
-            </div>
-          </div>
-        </div>
-
-        @if (isEditMode) {
-          <div class="form-section">
-            <h3 class="section-title">Statut</h3>
-            <div class="form-group">
-              <label>Statut du contrat</label>
-              <select class="ky-input" formControlName="status">
-                @for (s of contractStatuses; track s.value) {
-                  <option [ngValue]="s.value">{{ s.label }}</option>
-                }
-              </select>
-            </div>
-          </div>
-        }
-
-        <div class="form-section">
-          <h3 class="section-title"><app-lucide-icon [icon]="icons.notes" className="w-4 h-4 inline" /> Notes</h3>
-          <div class="form-group">
-            <label>Remarques (optionnel)</label>
-            <textarea class="ky-input" formControlName="notes" rows="4" placeholder="Ajoutez des notes…"></textarea>
-          </div>
-        </div>
+        <app-contract-fields
+          [model]="contractFields"
+          (modelChange)="onContractFieldsChange($event)"
+          [mode]="isEditMode ? 'edit' : 'create'"
+          [showStatus]="true"
+        />
 
         <div class="form-footer">
           <button type="button" class="btn-secondary ky-btn-secondary" (click)="goBack()">Annuler</button>

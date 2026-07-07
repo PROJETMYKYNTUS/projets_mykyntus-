@@ -128,7 +128,7 @@ public sealed class DirectoryEmployeeEnsureClient(
 
         var client = httpClientFactory.CreateClient("DirectorySync");
         client.BaseAddress = new Uri(baseUrl);
-        client.Timeout = TimeSpan.FromSeconds(10);
+        client.Timeout = TimeSpan.FromSeconds(30);
         return client;
     }
 

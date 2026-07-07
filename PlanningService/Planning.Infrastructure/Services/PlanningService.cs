@@ -853,21 +853,36 @@ public class PlanningService : IPlanningService
             .Select(u => new { u.Id, u.AuthUserId })
             .ToListAsync();
 
+        var message = $"Votre planning {planning.WeekCode} est disponible !";
+
         foreach (var user in users)
         {
-            Console.WriteLine($"?? Envoi notification � user_{user.AuthUserId} (PlanningId={user.Id})");
+            // 1. Persistance : la notification reste visible même hors-ligne.
+            _context.PlanningNotifications.Add(new PlanningNotification
+            {
+                UserId = user.Id,
+                AuthUserId = user.AuthUserId!.Value,
+                WeeklyPlanningId = planning.Id,
+                WeekCode = planning.WeekCode,
+                SubServiceName = planning.SubService.Name,
+                Message = message,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            });
 
+            // 2. Push temps réel SignalR.
             await _hubContext.Clients
                 .Group($"user_{user.AuthUserId}")
                 .SendAsync("PlanningPublished", new
                 {
                     weekCode = planning.WeekCode,
                     subServiceName = planning.SubService.Name,
-                    message = $"Votre planning {planning.WeekCode} est disponible !"
+                    message,
+                    weeklyPlanningId = planning.Id
                 });
-
-            Console.WriteLine($"? Notification envoy�e � user_{user.AuthUserId}");
         }
+
+        await _context.SaveChangesAsync();
 
         return await GetPlanningByIdAsync(planning.Id)
             ?? throw new Exception("Erreur publication planning.");
@@ -976,6 +991,55 @@ public class PlanningService : IPlanningService
                 .Select(a => MapToDayDtoNew(a))
                 .ToList()
         });
+    }
+
+    // ----------------------------------------------------
+    // NOTIFICATIONS DE PUBLICATION (persist�es)
+    // ----------------------------------------------------
+    public async Task<IEnumerable<PlanningNotificationDto>> GetMyNotificationsAsync(int authUserId)
+    {
+        return await _context.PlanningNotifications
+            .Where(n => n.AuthUserId == authUserId)
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(50)
+            .Select(n => new PlanningNotificationDto
+            {
+                Id = n.Id,
+                WeeklyPlanningId = n.WeeklyPlanningId,
+                WeekCode = n.WeekCode,
+                SubServiceName = n.SubServiceName,
+                Message = n.Message,
+                IsRead = n.IsRead,
+                CreatedAt = n.CreatedAt
+            })
+            .ToListAsync();
+    }
+
+    public async Task MarkNotificationReadAsync(int id, int authUserId)
+    {
+        var notif = await _context.PlanningNotifications
+            .FirstOrDefaultAsync(n => n.Id == id && n.AuthUserId == authUserId);
+        if (notif is null || notif.IsRead) return;
+
+        notif.IsRead = true;
+        notif.ReadAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task MarkAllNotificationsReadAsync(int authUserId)
+    {
+        var unread = await _context.PlanningNotifications
+            .Where(n => n.AuthUserId == authUserId && !n.IsRead)
+            .ToListAsync();
+        if (unread.Count == 0) return;
+
+        var now = DateTime.UtcNow;
+        foreach (var n in unread)
+        {
+            n.IsRead = true;
+            n.ReadAt = now;
+        }
+        await _context.SaveChangesAsync();
     }
 
     // ----------------------------------------------------

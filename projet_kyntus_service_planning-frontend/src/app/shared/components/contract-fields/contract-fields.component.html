@@ -1,0 +1,121 @@
+<div class="contract-fields">
+  <div class="form-section contract-embedded">
+    <div class="section-heading section-heading--sub">
+      <h3>Type de contrat</h3>
+      <p class="section-hint">Type sélectionné : <strong>{{ model.type }}</strong></p>
+    </div>
+    <div class="type-grid">
+      @for (t of contractTypes; track t.value) {
+        <button
+          type="button"
+          class="type-card"
+          [ngClass]="t.cssClass"
+          [class.selected]="model.type === t.value"
+          (click)="selectType(t.value)"
+        >
+          <span class="type-icon"><app-lucide-icon [icon]="t.icon" className="w-5 h-5" /></span>
+          <span class="type-label">{{ t.label }}</span>
+          <span class="type-desc">{{ t.desc }}</span>
+        </button>
+      }
+    </div>
+
+    <div class="form-grid form-grid--dense">
+      <div class="form-group">
+        <label for="contractStartDate">Date de début <span class="required">*</span></label>
+        @if (mode === 'edit') {
+          <input class="ky-input" id="contractStartDate" type="date" [value]="model.startDate" readonly disabled />
+        } @else {
+          <input
+            class="ky-input"
+            id="contractStartDate"
+            name="contractStartDate"
+            type="date"
+            [ngModel]="model.startDate"
+            (ngModelChange)="patch({ startDate: $event })"
+          />
+        }
+      </div>
+      @if (model.type !== 'CDI') {
+        <div class="form-group">
+          <label for="contractEndDate">Date de fin <span class="required">*</span></label>
+          <input
+            class="ky-input"
+            id="contractEndDate"
+            name="contractEndDate"
+            type="date"
+            [ngModel]="model.endDate"
+            (ngModelChange)="patch({ endDate: $event })"
+          />
+        </div>
+      }
+      @if (model.type !== 'ANAPEC') {
+        <div class="form-group">
+          <label for="contractProbationDays">Période d'essai (jours)</label>
+          <input
+            class="ky-input"
+            id="contractProbationDays"
+            name="contractProbationDays"
+            type="number"
+            [ngModel]="model.probationDays"
+            (ngModelChange)="onProbationChange($event)"
+            [placeholder]="getDefaultProbationLabel()"
+          />
+          <span class="hint">Par défaut : {{ getDefaultProbationValue() }} jours</span>
+        </div>
+      }
+      <div class="form-group">
+        <label for="contractAlertDays">Alerte (jours avant échéance)</label>
+        <input
+          class="ky-input"
+          id="contractAlertDays"
+          name="contractAlertDays"
+          type="number"
+          [ngModel]="model.alertThresholdDays"
+          (ngModelChange)="patch({ alertThresholdDays: +$event })"
+        />
+      </div>
+    </div>
+  </div>
+
+  @if (showStatus) {
+    <div class="form-section">
+      <div class="section-heading section-heading--sub">
+        <h3>Statut du contrat</h3>
+      </div>
+      <div class="form-group">
+        <label for="contractStatus">État</label>
+        <select
+          class="ky-input"
+          id="contractStatus"
+          name="contractStatus"
+          [ngModel]="model.status"
+          (ngModelChange)="patch({ status: +$event })"
+        >
+          @for (s of contractStatuses; track s.value) {
+            <option [ngValue]="s.value">{{ s.label }}</option>
+          }
+        </select>
+        <span class="hint">Valeur par défaut selon la période d'essai — modifiable avant enregistrement.</span>
+      </div>
+    </div>
+  }
+
+  <div class="form-section">
+    <div class="section-heading section-heading--sub">
+      <h3><app-lucide-icon [icon]="icons.notes" className="w-4 h-4 inline" /> Notes</h3>
+    </div>
+    <div class="form-group">
+      <label for="contractNotes">Remarques (optionnel)</label>
+      <textarea
+        class="ky-input"
+        id="contractNotes"
+        name="contractNotes"
+        rows="3"
+        placeholder="Ajoutez des notes…"
+        [ngModel]="model.notes"
+        (ngModelChange)="patch({ notes: $event })"
+      ></textarea>
+    </div>
+  </div>
+</div>

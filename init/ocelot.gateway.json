@@ -422,6 +422,21 @@
       ]
     },
     {
+      "UpstreamPathTemplate": "/api/users/import/v2/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "DownstreamPathTemplate": "/api/users/import/v2/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "planning-backend",
+          "Port": 8080
+        }
+      ],
+      "QoSOptions": {
+        "TimeoutValue": 600000
+      }
+    },
+    {
       "UpstreamPathTemplate": "/api/users/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
       "DownstreamPathTemplate": "/api/users/{everything}",

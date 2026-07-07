@@ -84,7 +84,7 @@ export class CongeManagerComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-   this.userSvc.getUserByAuthId(this.authSvc.getAuthUserId()).subscribe({
+    this.userSvc.getCurrentUser().subscribe({
       next: (user) => {
         this.managerId = user.guid;
         console.log('✅ managerId GUID :', this.managerId);

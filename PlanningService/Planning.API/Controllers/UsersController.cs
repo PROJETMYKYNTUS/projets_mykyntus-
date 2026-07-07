@@ -73,10 +73,31 @@ public class UsersController(
         return Ok(result);
     }
 
+    [HttpGet("me")]
+    public async Task<ActionResult<UserDto>> GetMe()
+    {
+        var authUserId = User.GetAuthUserId();
+        var email = User.GetEmail()?.Trim();
+        if (authUserId is null or <= 0 && string.IsNullOrWhiteSpace(email))
+            return Unauthorized(new { message = "Authentification requise." });
+
+        var user = authUserId is > 0
+            ? await userService.GetOrLinkUserForAuthAsync(authUserId.Value, email)
+            : null;
+        user ??= !string.IsNullOrWhiteSpace(email)
+            ? await userService.GetUserByEmailAsync(email)
+            : null;
+
+        if (user is null)
+            return NotFound(new { message = "Utilisateur introuvable." });
+        return Ok(user);
+    }
+
     [HttpGet("by-auth/{authUserId:int}")]
     public async Task<ActionResult<UserDto>> GetByAuthId(int authUserId)
     {
-        var user = await userService.GetUserByAuthIdAsync(authUserId);
+        var email = User.GetEmail()?.Trim();
+        var user = await userService.GetOrLinkUserForAuthAsync(authUserId, email);
         if (user == null)
             return NotFound(new { message = "Utilisateur introuvable." });
         return Ok(user);
@@ -145,5 +166,36 @@ public class UsersController(
     {
         var isUnique = await userService.IsEmailUniqueAsync(email, excludeId);
         return Ok(new { isUnique });
+    }
+
+    [HttpPatch("{id}/contractual-level")]
+    public async Task<ActionResult<UserDto>> UpdateContractualLevel(
+        int id,
+        [FromBody] UpdateContractualLevelDto dto,
+        CancellationToken ct)
+    {
+        if (dto.Level is < 1 or > 3)
+            return BadRequest(new { message = "Niveau contractuel invalide (1-3)." });
+
+        var role = User.GetAuthRole() ?? "Employee";
+        var subjectId = User.GetSubjectId() ?? Guid.Empty;
+        if (subjectId == Guid.Empty && !IsHrOrAdmin(role))
+            return Unauthorized();
+
+        try
+        {
+            var user = await userService.UpdateContractualLevelAsync(id, dto.Level, subjectId, role, ct);
+            if (user is null)
+                return NotFound(new { message = $"Utilisateur {id} introuvable." });
+            return Ok(user);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 }

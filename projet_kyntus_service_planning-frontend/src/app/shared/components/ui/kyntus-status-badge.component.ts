@@ -13,7 +13,7 @@ const PARRAINAGE_STYLES: Record<string, string> = {
 
 const PARRAINAGE_LABELS: Record<string, string> = {
   SUBMITTED: 'En attente',
-  PROCESSED: 'Dossier traité',
+  PROCESSED: 'Consulté',
   APPROVED: 'Validé',
   REJECTED: 'Rejeté',
   REWARDED: 'Prime versée',

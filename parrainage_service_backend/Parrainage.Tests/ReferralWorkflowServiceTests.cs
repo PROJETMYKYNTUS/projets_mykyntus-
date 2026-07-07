@@ -7,6 +7,7 @@ using Xunit;
 using Microsoft.EntityFrameworkCore;
 using Parrainage.Infrastructure.Persistence;
 using Parrainage.Application.DTOs;
+using Parrainage.Application.Abstractions;
 using Parrainage.Domain.Entities;
 using Parrainage.Infrastructure.Services;
 
@@ -17,6 +18,7 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly ParrainageDbContext _db;
     private readonly ReferralWorkflowService _workflow;
+    private readonly StubEmploymentCheck _employmentCheck = new();
 
     public ReferralWorkflowServiceTests()
     {
@@ -39,7 +41,68 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
         _db.SaveChanges();
         var resolver = new ReferralRuleResolver(_db);
         var cvStorage = new ReferralCvStorageService(new ConfigurationBuilder().Build(), new TestWebHostEnvironment());
-        _workflow = new ReferralWorkflowService(_db, resolver, cvStorage);
+        _workflow = new ReferralWorkflowService(_db, resolver, cvStorage, _employmentCheck);
+    }
+
+    [Fact]
+    public async Task LinkEmployee_SetsCandidateEmployeeId_Idempotent()
+    {
+        await SeedProcessedAsync("ref-link", "parrain-1");
+        var linked = await _workflow.LinkEmployeeAsync(
+            "ref-link",
+            new LinkEmployeeRequest { EmployeeId = "guid-employee-1" },
+            CancellationToken.None);
+        Assert.NotNull(linked);
+        Assert.Equal("guid-employee-1", linked!.CandidateEmployeeId);
+
+        var again = await _workflow.LinkEmployeeAsync(
+            "ref-link",
+            new LinkEmployeeRequest { EmployeeId = "guid-employee-1" },
+            CancellationToken.None);
+        Assert.Equal("guid-employee-1", again!.CandidateEmployeeId);
+    }
+
+    [Fact]
+    public async Task CompleteOnboarding_LinksAndApproves()
+    {
+        await SeedProcessedAsync("ref-onb", "parrain-1");
+        var result = await _workflow.CompleteOnboardingAsync(
+            "ref-onb",
+            new CompleteOnboardingRequest
+            {
+                EmployeeId = "guid-employee-2",
+                CandidateStartDate = new DateOnly(2026, 1, 15),
+                RewardAmount = 1500m,
+                RequiresTraining = false,
+            },
+            CancellationToken.None);
+        Assert.NotNull(result);
+        Assert.Equal("APPROVED", result!.Status);
+        Assert.Equal("guid-employee-2", result.CandidateEmployeeId);
+    }
+
+    [Fact]
+    public async Task ConfirmPaymentEligibility_Throws_WhenStillOnProbation()
+    {
+        var referral = await SeedApprovedAsync("ref-prob", "parrain-1", 2000m);
+        referral.CandidateEmployeeId = "guid-prob";
+        referral.PaymentStatus = ReferralPaymentStatus.AwaitingRh;
+        await _db.SaveChangesAsync();
+
+        _employmentCheck.Next = new PlanningEmploymentSummary
+        {
+            IsActive = true,
+            HasContract = true,
+            ContractStatus = "En période d'essai",
+            IsEligibleForPaymentConfirmation = false,
+            BlockReason = "Contrat encore en période d'essai.",
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _workflow.ConfirmPaymentEligibilityAsync(
+                "ref-prob",
+                new ConfirmPaymentEligibilityRequest(),
+                CancellationToken.None));
     }
 
     [Fact]
@@ -573,6 +636,9 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
         return e;
     }
 
+    private Task<ReferralEntity> SeedProcessedAsync(string id, string referrerId) =>
+        SeedReferralAsync(id, referrerId, "PROCESSED");
+
     public void Dispose()
     {
         _db.Dispose();
@@ -598,6 +664,23 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
             if (serviceType == typeof(ReferralWorkflowService)) return workflow;
             return null;
         }
+    }
+
+    private sealed class StubEmploymentCheck : IPlanningEmploymentCheckClient
+    {
+        public PlanningEmploymentSummary? Next { get; set; }
+
+        public Task<PlanningEmploymentSummary?> GetEmploymentSummaryAsync(
+            string candidateEmployeeId,
+            CancellationToken ct = default) =>
+            Task.FromResult<PlanningEmploymentSummary?>(
+                Next ?? new PlanningEmploymentSummary
+                {
+                    IsActive = true,
+                    HasContract = true,
+                    ContractStatus = "Actif",
+                    IsEligibleForPaymentConfirmation = true,
+                });
     }
 
     private sealed class TestWebHostEnvironment : IWebHostEnvironment

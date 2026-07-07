@@ -48,7 +48,7 @@ import {
   buildStructureOverwriteMessage,
   employeeDisplayName,
   findEmployeeStructuralRole,
-  findStructureIncumbent,
+  findStructureIncumbents,
   shouldConfirmOverwrite,
 } from '../../../core/org/org-structure-incumbent.util';
 import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
@@ -58,13 +58,23 @@ function matchAssignmentUserId(
   assignments: { userId: string; etageId?: string; serviceId?: string; celluleId?: string; sousServiceId?: string }[],
   keys: string[],
 ): string | undefined {
+  return matchAssignmentUserIds(assignments, keys)[0];
+}
+
+function matchAssignmentUserIds(
+  assignments: { userId: string; etageId?: string; serviceId?: string; celluleId?: string; sousServiceId?: string }[],
+  keys: string[],
+): string[] {
   const keySet = new Set(keys.filter(Boolean));
-  if (keySet.size === 0) return undefined;
+  if (keySet.size === 0) return [];
+  const ids: string[] = [];
   for (const a of assignments) {
     const candidates = [a.etageId, a.serviceId, a.celluleId, a.sousServiceId].filter(Boolean) as string[];
-    if (candidates.some((c) => keySet.has(c))) return a.userId;
+    if (candidates.some((c) => keySet.has(c)) && a.userId?.trim()) {
+      ids.push(a.userId.trim());
+    }
   }
-  return undefined;
+  return [...new Set(ids)];
 }
 
 export type OrgTreeSelection =
@@ -2481,38 +2491,50 @@ export class OrganisationManagementComponent implements OnInit {
   }
 
   managerUserId(poleId: string): string | undefined {
+    return this.managerUserIds(poleId)[0];
+  }
+
+  managerUserIds(poleId: string): string[] {
     const d = this.data();
-    if (!d) return undefined;
-    return findStructureIncumbent(d, 'Chef de projet', { orgPoleId: poleId })?.userId;
+    if (!d) return [];
+    return findStructureIncumbents(d, 'Chef de projet', { orgPoleId: poleId }).map((x) => x.userId);
   }
 
   supervisorUserId(poleId: string): string | undefined {
+    return this.supervisorUserIds(poleId)[0];
+  }
+
+  supervisorUserIds(poleId: string): string[] {
     const d = this.data();
-    if (!d) return undefined;
+    if (!d) return [];
     for (const dept of d.departments) {
       const pole = dept.poles.find((p) => p.id === poleId);
       if (pole) {
         const cellIds = pole.cells.map((c) => c.id);
         const teamIds = pole.cells.flatMap((c) => (c.teams ?? []).map((t) => t.id));
-        return matchAssignmentUserId(d.supervisorService, [pole.id, ...cellIds, ...teamIds]);
+        return matchAssignmentUserIds(d.supervisorService, [pole.id, ...cellIds, ...teamIds]);
       }
     }
-    return matchAssignmentUserId(d.supervisorService, [poleId]);
+    return matchAssignmentUserIds(d.supervisorService, [poleId]);
   }
 
   coachUserId(cellId: string): string | undefined {
+    return this.coachUserIds(cellId)[0];
+  }
+
+  coachUserIds(cellId: string): string[] {
     const d = this.data();
-    if (!d) return undefined;
+    if (!d) return [];
     for (const dept of d.departments) {
       for (const pole of dept.poles) {
         const cell = pole.cells.find((c) => c.id === cellId);
         if (cell) {
           const teamIds = (cell.teams ?? []).map((t) => t.id);
-          return matchAssignmentUserId(d.coachSousService, [cell.id, ...teamIds]);
+          return matchAssignmentUserIds(d.coachSousService, [cell.id, ...teamIds]);
         }
       }
     }
-    return matchAssignmentUserId(d.coachSousService, [cellId]);
+    return matchAssignmentUserIds(d.coachSousService, [cellId]);
   }
 
   employeeLabel(id: string): string {
@@ -2521,18 +2543,20 @@ export class OrganisationManagementComponent implements OnInit {
   }
 
   managerLabel(deptId: string): string {
-    const uid = this.managerUserId(deptId);
-    return uid ? this.employeeLabel(uid) : '—';
+    return this.formatIncumbentLabels(this.managerUserIds(deptId));
   }
 
   supervisorLabel(poleId: string): string {
-    const uid = this.supervisorUserId(poleId);
-    return uid ? this.employeeLabel(uid) : '—';
+    return this.formatIncumbentLabels(this.supervisorUserIds(poleId));
   }
 
   coachLabel(cellId: string): string {
-    const uid = this.coachUserId(cellId);
-    return uid ? this.employeeLabel(uid) : '—';
+    return this.formatIncumbentLabels(this.coachUserIds(cellId));
+  }
+
+  private formatIncumbentLabels(userIds: string[]): string {
+    if (userIds.length === 0) return '—';
+    return userIds.map((uid) => this.employeeLabel(uid)).join(', ');
   }
 
   managerBadge(deptId: string): string {

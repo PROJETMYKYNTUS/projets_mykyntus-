@@ -75,21 +75,21 @@ public static class ParrainageSeeder
         var now = DateTimeOffset.UtcNow;
         var seed = new (string Id, string ReferrerId, string ReferrerName, string ProjectId, string ProjectName, string TeamId, string CandidateName, string CandidateEmail, string CandidatePhone, string Position, string Status)[]
         {
-            ("ref-1001", "emp-1", "Jean Dupont", "proj-1", "Alpha Digital", "team-a", "Claire Martin", "claire.martin@email.com", "+33 6 12 34 56 78", "Développeur Full-Stack", "SUBMITTED"),
-            ("ref-1002", "emp-1", "Jean Dupont", "proj-1", "Alpha Digital", "team-a", "Paul Bernard", "paul.bernard@email.com", "+33 6 98 76 54 32", "Chef de projet", "PROCESSED"),
-            ("ref-1003", "emp-2", "Sophie Leroy", "proj-2", "Beta Ops", "team-b", "Luc Petit", "luc.petit@email.com", "+33 6 11 22 33 44", "Analyste data", "REJECTED"),
-            ("ref-1004", "emp-2", "Sophie Leroy", "proj-2", "Beta Ops", "team-b", "Nadia Kaci", "nadia.kaci@email.com", "+33 6 55 66 77 88", "Développeur", "REWARDED"),
-            ("ref-1005", "emp-3", "Thomas Bernard", "proj-3", "Gamma Cloud", "team-c", "Amélie Rousseau", "amelie.rousseau@email.com", "+33 6 44 55 66 77", "DevOps", "SUBMITTED"),
-            ("ref-1006", "emp-4", "Julie Moreau", "proj-1", "Alpha Digital", "team-a", "Hugo Garnier", "hugo.garnier@email.com", "+33 6 22 33 44 55", "Développeur", "APPROVED"),
-            ("ref-1007", "emp-5", "Karim Benali", "proj-2", "Beta Ops", "team-b", "Sarah Cohen", "sarah.cohen@email.com", "+33 6 77 88 99 00", "Chef de produit", "SUBMITTED"),
-            ("ref-1008", "emp-1", "Jean Dupont", "proj-3", "Gamma Cloud", "team-c", "Marc Lefèvre", "marc.lefevre@email.com", "+33 6 10 20 30 40", "Architecte SI", "APPROVED"),
-            ("ref-1009", "emp-3", "Thomas Bernard", "proj-1", "Alpha Digital", "team-a", "Élodie Vincent", "elodie.vincent@email.com", "+33 6 31 41 51 61", "Designer UX", "REJECTED"),
-            ("ref-1010", "emp-4", "Julie Moreau", "proj-2", "Beta Ops", "team-b", "Nicolas Faure", "nicolas.faure@email.com", "+33 6 52 62 72 82", "Développeur", "REWARDED"),
-            ("ref-1011", "emp-5", "Karim Benali", "proj-3", "Gamma Cloud", "team-c", "Inès Hadj", "ines.hadj@email.com", "+33 6 93 83 73 63", "Scrum master", "SUBMITTED"),
-            ("ref-1012", "emp-2", "Sophie Leroy", "proj-1", "Alpha Digital", "team-a", "Claire Martin", "claire.martin@email.com", "+33 6 12 34 56 79", "Développeur", "SUBMITTED"),
-            ("ref-1013", "emp-1", "Jean Dupont", "proj-2", "Beta Ops", "team-b", "Antoine Dupuis", "antoine.dupuis@email.com", "+33 6 14 24 34 44", "Lead développement", "APPROVED"),
-            ("ref-1014", "emp-3", "Thomas Bernard", "proj-3", "Gamma Cloud", "team-c", "Léa Marchand", "lea.marchand@email.com", "+33 6 15 25 35 45", "Ingénieure données", "IN_TRAINING"),
-            ("ref-1015", "emp-4", "Julie Moreau", "proj-1", "Alpha Digital", "team-a", "Youssef Alami", "youssef.alami@email.com", "+33 6 16 26 36 46", "Développeur", "IN_TRAINING"),
+            ("ref-1001", "kyntus-employee", "Employé Démo", "proj-inbound", "Inbound grands comptes", "team-voice", "Fatima Zahra Bennis", "fatima.bennis@contactcentre.ma", "+212 6 12 34 56 78", "Agent 1er niveau", "SUBMITTED"),
+            ("ref-1002", "kyntus-employee", "Employé Démo", "proj-inbound", "Inbound grands comptes", "team-voice", "Amine El Fassi", "amine.elfassi@contactcentre.ma", "+212 6 98 76 54 32", "Conseiller client", "PROCESSED"),
+            ("ref-1003", "kyntus-coach", "Coach Démo", "proj-retention", "Réclamations & rétention", "team-ret", "Salma Idrissi", "salma.idrissi@contactcentre.ma", "+212 6 11 22 33 44", "Agent rétention", "REJECTED"),
+            ("ref-1004", "kyntus-coach", "Coach Démo", "proj-retention", "Réclamations & rétention", "team-ret", "Youssef Alaoui", "youssef.alaoui@contactcentre.ma", "+212 6 55 66 77 88", "Conseiller client", "REWARDED"),
+            ("ref-1005", "kyntus-rp", "Rp Démo", "proj-acd", "Supervision connectivité & ACD", "team-si", "Khadija Benjelloun", "khadija.benjelloun@contactcentre.ma", "+212 6 44 55 66 77", "Technicien réseau", "SUBMITTED"),
+            ("ref-1006", "kyntus-yasmine", "Yasmine El Idrissi", "proj-inbound", "Inbound grands comptes", "team-chat", "Hassan Tazi", "hassan.tazi@contactcentre.ma", "+212 6 22 33 44 55", "Agent chat", "APPROVED"),
+            ("ref-1007", "kyntus-superviseur", "Superviseur Démo", "proj-retention", "Réclamations & rétention", "team-ret", "Nadia Benchrif", "nadia.benchrif@contactcentre.ma", "+212 6 77 88 99 00", "Superviseur cellule", "SUBMITTED"),
+            ("ref-1008", "kyntus-employee", "Employé Démo", "proj-acd", "Supervision connectivité & ACD", "team-si", "Karim Oufkir", "karim.oufkir@contactcentre.ma", "+212 6 10 20 30 40", "Superviseur ACD", "APPROVED"),
+            ("ref-1009", "kyntus-rp", "Rp Démo", "proj-inbound", "Inbound grands comptes", "team-voice", "Laila Zahidi", "laila.zahidi@contactcentre.ma", "+212 6 31 41 51 61", "Coach qualité", "REJECTED"),
+            ("ref-1010", "kyntus-coach", "Coach Démo", "proj-retention", "Réclamations & rétention", "team-ret", "Mehdi Chraibi", "mehdi.chraibi@contactcentre.ma", "+212 6 52 62 72 82", "Agent 1er niveau", "REWARDED"),
+            ("ref-1011", "kyntus-superviseur", "Superviseur Démo", "proj-acd", "Supervision connectivité & ACD", "team-si", "Ghita Benkirane", "ghita.benkirane@contactcentre.ma", "+212 6 93 83 73 63", "Chef de projet", "SUBMITTED"),
+            ("ref-1012", "kyntus-yasmine", "Yasmine El Idrissi", "proj-inbound", "Inbound grands comptes", "team-voice", "Imane Fassi", "imane.fassi@contactcentre.ma", "+212 6 12 34 56 79", "Agent 1er niveau", "SUBMITTED"),
+            ("ref-1013", "kyntus-employee", "Employé Démo", "proj-retention", "Réclamations & rétention", "team-ret", "Omar Tazi", "omar.tazi@contactcentre.ma", "+212 6 14 24 34 44", "Référent technique", "APPROVED"),
+            ("ref-1014", "kyntus-rp", "Rp Démo", "proj-acd", "Supervision connectivité & ACD", "team-si", "Kenza Alami", "kenza.alami@contactcentre.ma", "+212 6 15 25 35 45", "Analyste données", "IN_TRAINING"),
+            ("ref-1015", "kyntus-coach", "Coach Démo", "proj-inbound", "Inbound grands comptes", "team-chat", "Hicham Benjelloun", "hicham.benjelloun@contactcentre.ma", "+212 6 16 26 36 46", "Agent chat", "IN_TRAINING"),
         };
 
         var list = new List<ReferralEntity>();
@@ -139,7 +139,9 @@ public static class ParrainageSeeder
 
     private static string? ResolveAppliedRuleId(string position) => position switch
     {
-        "Développeur" => "rule-1",
+        "Agent 1er niveau" => "rule-1",
+        "Agent chat" => "rule-1",
+        "Conseiller client" => "rule-2",
         "Chef de projet" => "rule-2",
         _ => null,
     };
@@ -152,9 +154,9 @@ public static class ParrainageSeeder
         var now = DateTimeOffset.UtcNow;
         return new()
         {
-            new ReferralRuleEntity { Id = "rule-1", Name = "Récompense Développeur", Type = "REWARD_PER_POSITION", Target = "Développeur", Value = 600, MinDurationMonths = 6, Status = "ACTIVE", CreatedAt = now.AddMilliseconds(-DayMs * 30) },
-            new ReferralRuleEntity { Id = "rule-2", Name = "Récompense Chef de projet", Type = "REWARD_PER_POSITION", Target = "Chef de projet", Value = 750, MinDurationMonths = 3, Status = "ACTIVE", CreatedAt = now.AddMilliseconds(-DayMs * 30) },
-            new ReferralRuleEntity { Id = "rule-3", Name = "Récompense post-probatoire", Type = "REWARD_AFTER_PROBATION", Value = 200, MinDurationMonths = 6, Status = "PAUSED", CreatedAt = now.AddMilliseconds(-DayMs * 25) },
+            new ReferralRuleEntity { Id = "rule-1", Name = "Récompense agent inbound", Type = "REWARD_PER_POSITION", Target = "Agent 1er niveau", Value = 500, MinDurationMonths = 6, Status = "ACTIVE", CreatedAt = now.AddMilliseconds(-DayMs * 30) },
+            new ReferralRuleEntity { Id = "rule-2", Name = "Récompense conseiller client", Type = "REWARD_PER_POSITION", Target = "Conseiller client", Value = 650, MinDurationMonths = 3, Status = "ACTIVE", CreatedAt = now.AddMilliseconds(-DayMs * 30) },
+            new ReferralRuleEntity { Id = "rule-3", Name = "Récompense post-probatoire CC", Type = "REWARD_AFTER_PROBATION", Value = 250, MinDurationMonths = 6, Status = "PAUSED", CreatedAt = now.AddMilliseconds(-DayMs * 25) },
         };
     }
 

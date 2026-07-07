@@ -183,8 +183,8 @@ export class GlobalDashboardService {
   ): Observable<GlobalDashboardSnapshot> {
     const needsUser = ['manager', 'employee', 'superviseur'].includes(cluster);
     const user$ =
-      needsUser && authId
-        ? this.dashCall(this.userService.getUserByAuthId(authId), null)
+      needsUser
+        ? this.dashCall(this.userService.getCurrentUser(), null)
         : of(null);
 
     return user$.pipe(

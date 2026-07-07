@@ -72,6 +72,65 @@ internal static class DocumentationSchemaBootstrap
                 ex,
                 "Documentation schema bootstrap — création next_document_request_number non appliquée (schéma absent ou droits limités).");
         }
+
+        await ApplyPerformanceIndexesAsync(db, logger, cancellationToken).ConfigureAwait(false);
+        await ApplyDirectoryUsersHrProfileColumnsAsync(db, logger, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static async Task ApplyDirectoryUsersHrProfileColumnsAsync(
+        DocumentationDbContext db,
+        ILogger logger,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql =
+            """
+            ALTER TABLE documentation.directory_users
+              ADD COLUMN IF NOT EXISTS cin character varying(32);
+            ALTER TABLE documentation.directory_users
+              ADD COLUMN IF NOT EXISTS rib character varying(64);
+            ALTER TABLE documentation.directory_users
+              ADD COLUMN IF NOT EXISTS immatriculation_cnss character varying(32);
+            """;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(sql, cancellationToken).ConfigureAwait(false);
+            logger.LogInformation("Documentation schema bootstrap — colonnes HR profile directory_users vérifiées.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Documentation schema bootstrap — colonnes HR profile directory_users non appliquées.");
+        }
+    }
+
+    internal static async Task ApplyPerformanceIndexesAsync(
+        DocumentationDbContext db,
+        ILogger logger,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql =
+            """
+            CREATE INDEX IF NOT EXISTS ix_document_requests_tenant_status_created
+              ON documentation.document_requests (tenant_id, status, created_at DESC);
+            CREATE INDEX IF NOT EXISTS ix_document_requests_requester_user_id
+              ON documentation.document_requests (requester_user_id);
+            CREATE INDEX IF NOT EXISTS ix_document_requests_beneficiary_user_id
+              ON documentation.document_requests (beneficiary_user_id);
+            CREATE INDEX IF NOT EXISTS ix_generated_documents_request_created
+              ON documentation.generated_documents (document_request_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS ix_directory_users_tenant_email
+              ON documentation.directory_users (tenant_id, lower(email));
+            """;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(sql, cancellationToken).ConfigureAwait(false);
+            logger.LogInformation("Documentation schema bootstrap — index performance vérifiés ou créés.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Documentation schema bootstrap — index performance non appliqués.");
+        }
     }
 
     private static async Task<bool> FunctionExistsAsync(

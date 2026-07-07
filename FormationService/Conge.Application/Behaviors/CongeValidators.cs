@@ -14,11 +14,15 @@ public class DemanderCongeValidator : AbstractValidator<DemanderCongeCommand>
             .NotEmpty().WithMessage("L'identifiant de l'employé est obligatoire.");
 
         RuleFor(x => x.DateDebut)
-            .GreaterThanOrEqualTo(DateTime.Today)
+            .GreaterThanOrEqualTo(DateTime.UtcNow.Date)
             .WithMessage("La date de début ne peut pas être dans le passé.");
 
+        // La date de fin n'est saisie que pour un congé annuel ; pour les autres
+        // types (ex. exceptionnel) elle est calculée par le domaine à partir de
+        // la durée légale, donc on ne la valide pas ici.
         RuleFor(x => x.DateFin)
             .GreaterThan(x => x.DateDebut)
+            .When(x => x.TypeConge == TypeConge.Annuel)
             .WithMessage("La date de fin doit être postérieure à la date de début.");
 
         RuleFor(x => x.TypeExceptionnel)

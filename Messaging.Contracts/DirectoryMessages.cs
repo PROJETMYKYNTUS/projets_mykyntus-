@@ -16,6 +16,44 @@ public record DirectoryEmployeeChangedMessage
     public string? BusinessDepartmentKind { get; init; }
     public bool IsActive { get; init; } = true;
     public bool IsDeleted { get; init; }
+    public DateTime? HireDate { get; init; }
+    public Guid? ChefDeProjetId { get; init; }
+    public Guid? SuperviseurId { get; init; }
+    public Guid? ReferentTechniqueId { get; init; }
+}
+
+/// <summary>Profil RH canonique publié après mutation.</summary>
+public record DirectoryEmployeeHrProfileChangedMessage
+{
+    public Guid EmployeeId { get; init; }
+    public DateOnly? DateNaissance { get; init; }
+    public string? VilleNaissance { get; init; }
+    public string? Nationalite { get; init; }
+    public string? Sexe { get; init; }
+    public string? SituationFamiliale { get; init; }
+    public int? NombreEnfants { get; init; }
+    public string? Cin { get; init; }
+    public string? Adresse { get; init; }
+    public string? Telephone1 { get; init; }
+    public string? TelephoneUrgence { get; init; }
+    public string? RelationUrgence { get; init; }
+    public string? Rib { get; init; }
+    public string? ImmatriculationInterne { get; init; }
+    public string? ImmatriculationCnss { get; init; }
+    public DateOnly? DateEntree { get; init; }
+    public DateOnly? DateEmbauche { get; init; }
+    public DateOnly? DateAnciennete { get; init; }
+    public DateOnly? DateSortie { get; init; }
+    public DateOnly? DateEvolutionPoste { get; init; }
+    public string? AncienPoste { get; init; }
+    public string? AncienService { get; init; }
+    public string? NiveauScolaire { get; init; }
+    public string? IntitulesEtudes { get; init; }
+    public bool EnFormation { get; init; }
+    public DateOnly? DateDebutFormation { get; init; }
+    public DateOnly? DateFinFormationPrevue { get; init; }
+    public int? NiveauExpertiseMetier { get; init; }
+    public bool IsDeleted { get; init; }
 }
 
 /// <summary>Publié après mutation d'un département métier (Support / Operational).</summary>

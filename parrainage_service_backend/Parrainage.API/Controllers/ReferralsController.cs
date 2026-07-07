@@ -21,6 +21,10 @@ public sealed class ReferralsController(
     public async Task<ActionResult<List<ReferralHistoryDto>>> History(CancellationToken ct) =>
         Ok(await mediator.Send(new GetReferralHistoryQuery(), ct));
 
+    [HttpGet("onboarding")]
+    public async Task<ActionResult<List<ReferralDto>>> Onboarding(CancellationToken ct) =>
+        Ok(await mediator.Send(new ListOnboardingReferralsQuery(), ct));
+
     [HttpGet("{id}")]
     public async Task<ActionResult<ReferralDto>> GetById(string id, CancellationToken ct)
     {
@@ -92,6 +96,14 @@ public sealed class ReferralsController(
     [HttpPost("{id}/confirm-eligibility")]
     public Task<ActionResult<ReferralDto>> ConfirmEligibility(string id, [FromBody] ConfirmPaymentEligibilityRequest body, CancellationToken ct) =>
         ExecuteRhWorkflow(id, body, (actorBody) => new ConfirmEligibilityCommand(id, actorBody), ct);
+
+    [HttpPost("{id}/link-employee")]
+    public Task<ActionResult<ReferralDto>> LinkEmployee(string id, [FromBody] LinkEmployeeRequest body, CancellationToken ct) =>
+        ExecuteRhWorkflow(id, body, (actorBody) => new LinkEmployeeCommand(id, actorBody), ct);
+
+    [HttpPost("{id}/complete-onboarding")]
+    public Task<ActionResult<ReferralDto>> CompleteOnboarding(string id, [FromBody] CompleteOnboardingRequest body, CancellationToken ct) =>
+        ExecuteRhWorkflow(id, body, (actorBody) => new CompleteOnboardingCommand(id, actorBody), ct);
 
     [HttpPost("{id}/status")]
     public async Task<ActionResult<ReferralDto>> ChangeStatus(string id, [FromBody] UpdateStatusRequest body, CancellationToken ct)
@@ -232,6 +244,12 @@ public sealed class ReferralsController(
                 break;
             case ConfirmPaymentEligibilityRequest eligibility when eligibility.Actor is null:
                 eligibility.Actor = new ActorDto { Id = user.UserId, Label = user.Role, Role = user.Role };
+                break;
+            case LinkEmployeeRequest link when link.Actor is null:
+                link.Actor = new ActorDto { Id = user.UserId, Label = user.Role, Role = user.Role };
+                break;
+            case CompleteOnboardingRequest onboarding when onboarding.Actor is null:
+                onboarding.Actor = new ActorDto { Id = user.UserId, Label = user.Role, Role = user.Role };
                 break;
         }
     }

@@ -8,6 +8,7 @@ import { ParrainageStoreService } from '../../services/parrainage-store.service'
 import { AdminService } from '../../services/admin.service';
 import { ParrainageRoleService } from '../../state/parrainage-role.service';
 import type { Referral, ReferralStatus } from '../../models/referral.model';
+import { REFERRAL_STATUS_LABELS } from '../../utils/referral-status.util';
 
 type DebugTab = 'referral' | 'config' | 'logs';
 
@@ -19,14 +20,9 @@ const EDIT_FIELDS: ReadonlyArray<[keyof Referral, string]> = [
   ['projectName', 'Projet'],
 ];
 
-const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = [
-  ['SUBMITTED', 'En attente'],
-  ['PROCESSED', 'Dossier traité'],
-  ['IN_TRAINING', 'En cours de formation'],
-  ['APPROVED', 'Validé'],
-  ['REJECTED', 'Rejeté'],
-  ['REWARDED', 'Prime versée'],
-];
+const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = (
+  Object.entries(REFERRAL_STATUS_LABELS) as [ReferralStatus, string][]
+);
 
 @Component({
   selector: 'app-admin-tools-page',

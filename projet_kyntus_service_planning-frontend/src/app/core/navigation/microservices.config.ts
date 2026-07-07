@@ -59,6 +59,7 @@ const ALL_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', '
 const MANAGER_ROLES = ['Admin', 'RH', 'Manager'];
 const ADMIN_RH = ['Admin', 'RH'];
 const EMPLOYEE_ROLES = ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation', 'Superviseur'];
+const PLANNING_MANAGER_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'];
 
 const ICONS = {
   grid: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -112,13 +113,16 @@ export const MICROSERVICES: Microservice[] = [
   {
     id: 'planning',
     label: 'Planification',
+    // Le groupe est ouvert à tous les rôles employés ; la restriction réelle
+    // se fait par enfant (les pages de gestion restent réservées aux managers).
     icon: ICONS.calendar,
-    roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'],
+    roles: ALL_ROLES,
     children: [
-      { label: 'Plannings', route: '/planning' },
+      { label: 'Mes plannings', route: '/mes-plannings', roles: EMPLOYEE_ROLES },
+      { label: 'Plannings', route: '/planning', roles: PLANNING_MANAGER_ROLES },
       { label: 'Planning Équipe', route: '/planning/equipe', roles: ['Manager', 'Coach'] },
-      { label: 'Configuration Shifts', route: '/planning/shift-config' },
-      { label: 'Historique Samedis', route: '/planning/saturday-history' },
+      { label: 'Configuration Shifts', route: '/planning/shift-config', roles: PLANNING_MANAGER_ROLES },
+      { label: 'Historique Samedis', route: '/planning/saturday-history', roles: PLANNING_MANAGER_ROLES },
     ],
   },
   {

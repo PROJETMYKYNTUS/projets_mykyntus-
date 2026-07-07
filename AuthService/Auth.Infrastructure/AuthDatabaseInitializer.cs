@@ -74,19 +74,12 @@ public static class AuthDatabaseInitializer
             }
             else
             {
-                db.Users.AddRange(
-                    SeedUser("Employee", "employee@kyntus.ma", DemoPassword(configuration, "Employee"), 1, passwordHasher, subjectIdResolver),
-                    SeedUser("rh", "rh@kyntus.ma", DemoPassword(configuration, "RH"), 2, passwordHasher, subjectIdResolver),
-                    SeedUser("manager", "manager@kyntus.ma", DemoPassword(configuration, "Manager"), 3, passwordHasher, subjectIdResolver),
-                    SeedUser("coach", "coach@kyntus.ma", DemoPassword(configuration, "Coach"), 4, passwordHasher, subjectIdResolver),
-                    SeedUser("rp", "rp@kyntus.ma", DemoPassword(configuration, "RP"), 5, passwordHasher, subjectIdResolver),
-                    SeedUser("admin", "admin@kyntus.ma", DemoPassword(configuration, "Admin"), 6, passwordHasher, subjectIdResolver),
-                    SeedUser("audit", "audit@kyntus.ma", DemoPassword(configuration, "Audit"), 7, passwordHasher, subjectIdResolver),
-                    SeedUser("equipeformation", "formation@kyntus.ma", DemoPassword(configuration, "Formation"), 8, passwordHasher, subjectIdResolver),
-                    SeedUser("superviseur", "superviseur@kyntus.ma", DemoPassword(configuration, "Superviseur"), 9, passwordHasher, subjectIdResolver));
-                db.SaveChanges();
-                Console.WriteLine("Auth users seeded.");
+                SeedDemoUsers(db, passwordHasher, configuration, subjectIdResolver);
             }
+        }
+        else if (configuration.GetValue("DemoSeed:Enabled", false))
+        {
+            EnsureDemoUsers(db, passwordHasher, configuration, subjectIdResolver);
         }
 
         try
@@ -144,6 +137,56 @@ public static class AuthDatabaseInitializer
             """);
         Console.WriteLine("Auth SubjectId schema ensured.");
     }
+
+    static void SeedDemoUsers(
+        AuthDbContext db,
+        IPasswordHasher passwordHasher,
+        IConfiguration configuration,
+        ISubjectIdResolver subjectIdResolver)
+    {
+        db.Users.AddRange(BuildDemoUsers(passwordHasher, configuration, subjectIdResolver));
+        db.SaveChanges();
+        Console.WriteLine("Auth users seeded.");
+    }
+
+    static void EnsureDemoUsers(
+        AuthDbContext db,
+        IPasswordHasher passwordHasher,
+        IConfiguration configuration,
+        ISubjectIdResolver subjectIdResolver)
+    {
+        var added = 0;
+        foreach (var user in BuildDemoUsers(passwordHasher, configuration, subjectIdResolver))
+        {
+            if (db.Users.Any(u => u.Email.ToLower() == user.Email.ToLower()))
+                continue;
+
+            db.Users.Add(user);
+            added++;
+        }
+
+        if (added > 0)
+        {
+            db.SaveChanges();
+            Console.WriteLine($"Auth demo users ensured ({added} added).");
+        }
+    }
+
+    static IEnumerable<User> BuildDemoUsers(
+        IPasswordHasher passwordHasher,
+        IConfiguration configuration,
+        ISubjectIdResolver subjectIdResolver) =>
+    [
+        SeedUser("Employee", "employee@kyntus.ma", DemoPassword(configuration, "Employee"), 1, passwordHasher, subjectIdResolver),
+        SeedUser("rh", "rh@kyntus.ma", DemoPassword(configuration, "RH"), 2, passwordHasher, subjectIdResolver),
+        SeedUser("manager", "manager@kyntus.ma", DemoPassword(configuration, "Manager"), 3, passwordHasher, subjectIdResolver),
+        SeedUser("coach", "coach@kyntus.ma", DemoPassword(configuration, "Coach"), 4, passwordHasher, subjectIdResolver),
+        SeedUser("rp", "rp@kyntus.ma", DemoPassword(configuration, "RP"), 5, passwordHasher, subjectIdResolver),
+        SeedUser("admin", "admin@kyntus.ma", DemoPassword(configuration, "Admin"), 6, passwordHasher, subjectIdResolver),
+        SeedUser("audit", "audit@kyntus.ma", DemoPassword(configuration, "Audit"), 7, passwordHasher, subjectIdResolver),
+        SeedUser("equipeformation", "formation@kyntus.ma", DemoPassword(configuration, "Formation"), 8, passwordHasher, subjectIdResolver),
+        SeedUser("superviseur", "superviseur@kyntus.ma", DemoPassword(configuration, "Superviseur"), 9, passwordHasher, subjectIdResolver),
+    ];
 
     static User SeedUser(
         string username,

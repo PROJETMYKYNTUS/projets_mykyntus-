@@ -1,31 +1,20 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { ReferralService } from '../../services/referral.service';
 import { ParrainageStoreService } from '../../services/parrainage-store.service';
 import { ParrainageRoleService } from '../../state/parrainage-role.service';
 import { ParrainageNavService, type ParrainageRhManagementFilter } from '../../state/parrainage-nav.service';
 import type { Referral, ReferralStatus } from '../../models/referral.model';
-
-const STATUS_STYLES: Record<ReferralStatus, string> = {
-  SUBMITTED: 'bg-blue-500/15 text-blue-300 border-blue-500/40',
-  PROCESSED: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40',
-  IN_TRAINING: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
-  APPROVED: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
-  REJECTED: 'bg-red-500/15 text-red-300 border-red-500/40',
-  REWARDED: 'bg-purple-500/15 text-purple-200 border-purple-500/40',
-};
-const STATUS_LABELS: Record<ReferralStatus, string> = {
-  SUBMITTED: 'En attente',
-  PROCESSED: 'Dossier traité',
-  IN_TRAINING: 'En cours de formation',
-  APPROVED: 'Validé',
-  REJECTED: 'Rejeté',
-  REWARDED: 'Prime versée',
-};
+import {
+  REFERRAL_PROCESSED_FILTER_LABEL,
+  REFERRAL_STATUS_LABELS,
+  REFERRAL_STATUS_STYLES_RH,
+} from '../../utils/referral-status.util';
 
 const FILTER_OPTIONS = [
   { id: 'all', label: 'Tous' },
   { id: 'pending-rh', label: 'En attente RH' },
-  { id: 'processed-rh', label: 'Traité — attente entrée' },
+  { id: 'processed-rh', label: REFERRAL_PROCESSED_FILTER_LABEL },
   { id: 'in-training', label: 'En formation' },
   { id: 'training-end-due', label: 'Fin formation à traiter' },
   { id: 'in-period', label: 'En période' },
@@ -109,10 +98,23 @@ type RhFilter = ParrainageRhManagementFilter;
                       <td class="px-4 py-3 text-muted whitespace-nowrap">
                         {{ fr(r.createdAt) }}
                       </td>
-                      <td class="px-4 py-3 text-right">
-                        <span class="text-xs text-soft-blue font-medium">
+                      <td class="px-4 py-3 text-right" (click)="$event.stopPropagation()">
+                        @if (r.status === 'PROCESSED' && !r.candidateEmployeeId) {
+                          <button
+                            type="button"
+                            class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 mr-2"
+                            (click)="validateAndCreateEmployee(r.id)"
+                          >
+                            Valider
+                          </button>
+                        }
+                        <button
+                          type="button"
+                          class="text-xs text-soft-blue font-medium hover:underline"
+                          (click)="openDetail(r.id)"
+                        >
                           Ouvrir →
-                        </span>
+                        </button>
                       </td>
                     </tr>
                   }
@@ -130,10 +132,11 @@ export class RhManagementPageComponent {
   private readonly store = inject(ParrainageStoreService);
   private readonly role = inject(ParrainageRoleService);
   private readonly referrals = inject(ReferralService);
+  private readonly router = inject(Router);
   readonly nav = inject(ParrainageNavService);
 
-  readonly statusStyles = STATUS_STYLES;
-  readonly statusLabels = STATUS_LABELS;
+  readonly statusStyles = REFERRAL_STATUS_STYLES_RH;
+  readonly statusLabels = REFERRAL_STATUS_LABELS;
 
   readonly filterOptions = FILTER_OPTIONS;
   readonly activeFilter = signal<RhFilter>('all');
@@ -183,6 +186,13 @@ export class RhManagementPageComponent {
   openDetail(id: string): void {
     if (this.unauthorized) return;
     this.nav.openReferralDetails(id);
+  }
+
+  validateAndCreateEmployee(referralId: string): void {
+    if (this.unauthorized) return;
+    void this.router.navigate(['/users/create'], {
+      queryParams: { referralId, fromParrainage: '1' },
+    });
   }
 
   onRowKeydown(event: KeyboardEvent, id: string): void {

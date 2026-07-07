@@ -15,6 +15,7 @@ import { KyntusUserPreferencesService } from '../settings/kyntus-user-preference
 import { KyntusSessionService } from '../session/kyntus-session.service';
 import { NavigationActionsService } from '../navigation/navigation-actions.service';
 import { CongeService } from '../services/conge.service';
+import { UserService } from '../../features/users/services/user.service';
 import { mapJwtRoleToParrainageRole } from '../session/kyntus-role-ui.config';
 import { mapJwtRoleToDocumentationRole } from '../navigation/documentation-menu.config';
 import type { ReferralNotification } from '../../features/parrainage/models/referral.model';
@@ -110,6 +111,7 @@ export class KyntusNotificationHubService {
   private readonly session = inject(KyntusSessionService);
   private readonly nav = inject(NavigationActionsService);
   private readonly congeService = inject(CongeService);
+  private readonly userService = inject(UserService);
   private readonly router = inject(Router);
 
   private readonly contractItems = signal<ContractNotification[]>([]);
@@ -262,7 +264,9 @@ export class KyntusNotificationHubService {
   }
 
   bootstrapAfterLogin(): void {
-    this.docNotif.reloadFromApi();
+    if (this.userPrefs.isSourceEnabled('documentation')) {
+      this.docNotif.ensureLoaded();
+    }
     void this.refreshParrainageNotifications();
     void this.refreshConges();
     this.refreshContracts();
@@ -339,19 +343,24 @@ export class KyntusNotificationHubService {
 
   async refreshConges(): Promise<void> {
     if (!this.userPrefs.isSourceEnabled('conge')) return;
-    const userKey = this.session.getSubjectId() ?? String(this.session.getAuthUserId() || '');
-    if (!userKey) return;
     const role = (this.session.getRole() || '').toLowerCase();
 
     try {
+      const planningUser = await firstValueFrom(this.userService.getCurrentUser());
+      const employeGuid = planningUser?.guid?.trim();
+      if (!employeGuid) {
+        this.congeItems.set([]);
+        return;
+      }
+
       const notifs: KyntusNotification[] = [];
       if (['manager', 'rh', 'admin', 'coach', 'rp', 'superviseur'].includes(role)) {
-        const demandes = await firstValueFrom(this.congeService.getDemandesByManager(userKey));
+        const demandes = await firstValueFrom(this.congeService.getDemandesByManager(employeGuid));
         for (const d of demandes.filter((x) => x.statut === StatutDemande.EnAttente).slice(0, 8)) {
           notifs.push(this.mapCongeDemande(d, 'manager'));
         }
       } else {
-        const demandes = await firstValueFrom(this.congeService.getDemandesByEmploye(userKey));
+        const demandes = await firstValueFrom(this.congeService.getDemandesByEmploye(employeGuid));
         for (const d of demandes
           .filter((x) => x.statut === StatutDemande.Validee || x.statut === StatutDemande.Refusee)
           .slice(0, 8)) {

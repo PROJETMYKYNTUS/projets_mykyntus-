@@ -207,6 +207,55 @@ public static class PrimeSchemaPatches
     {
         await EnsureSynthesisLinePaymentColumnsAsync(db, ct);
         await EnsureSynthesisLineDualDecisionColumnsAsync(db, ct);
+        await EnsureSynthesisLineAbsenceSanctionColumnsAsync(db, ct);
+    }
+
+    public static async Task EnsureAbsenceSanctionConfigTableAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_employee", ct))
+            return;
+        if (await TableExistsAsync(db, "prime_absence_sanction_config", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS prime_absence_sanction_config (
+                "Id" character varying(32) NOT NULL,
+                "DivisorDays" integer NOT NULL DEFAULT 26,
+                "UpdatedAt" timestamp with time zone NOT NULL,
+                "UpdatedByUserId" character varying(128),
+                CONSTRAINT "PK_prime_absence_sanction_config" PRIMARY KEY ("Id")
+            );
+            INSERT INTO prime_absence_sanction_config ("Id", "DivisorDays", "UpdatedAt")
+            VALUES ('default', 26, NOW())
+            ON CONFLICT ("Id") DO NOTHING;
+            """,
+            ct);
+    }
+
+    public static async Task EnsureSynthesisLineAbsenceSanctionColumnsAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_global_pool_synthesis_line", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "AbsenceDayCount" integer NOT NULL DEFAULT 0;
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "SanctionAmount" numeric(12,2) NOT NULL DEFAULT 0;
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "RegularizationAmount" numeric(12,2) NOT NULL DEFAULT 0;
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "NetPayableAmount" numeric(12,2);
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "AbsenceComputedAt" timestamp with time zone;
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "RegularizationUpdatedByUserId" character varying(128);
+            ALTER TABLE prime_global_pool_synthesis_line
+              ADD COLUMN IF NOT EXISTS "RegularizationUpdatedAt" timestamp with time zone;
+            """,
+            ct);
     }
 
     /// <summary>
@@ -516,6 +565,14 @@ public static class PrimeSchemaPatches
                   WHERE table_schema = 'public' AND table_name = 'prime_global_pool_synthesis_line');
                 """,
                 ct),
+            "prime_absence_sanction_config" => ScalarBoolAsync(
+                db,
+                """
+                SELECT EXISTS (
+                  SELECT 1 FROM information_schema.tables
+                  WHERE table_schema = 'public' AND table_name = 'prime_absence_sanction_config');
+                """,
+                ct),
             _ => Task.FromResult(false),
         };
 
@@ -540,6 +597,21 @@ public static class PrimeSchemaPatches
         {
             await db.Database.CloseConnectionAsync();
         }
+    }
+
+    /// <summary>Colonnes responsabilités manager sur prime_employee (DirectoryEmployeeChangedMessage).</summary>
+    public static async Task EnsureEmployeeManagerIdColumnsAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_employee", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE prime_employee ADD COLUMN IF NOT EXISTS "ReferentTechniqueId" character varying(128) NULL;
+            ALTER TABLE prime_employee ADD COLUMN IF NOT EXISTS "ChefDeProjetId" character varying(128) NULL;
+            ALTER TABLE prime_employee ADD COLUMN IF NOT EXISTS "SuperviseurId" character varying(128) NULL;
+            """,
+            ct);
     }
 
     public static async Task EnsureOutboxTableAsync(PrimeDbContext db, CancellationToken ct = default)

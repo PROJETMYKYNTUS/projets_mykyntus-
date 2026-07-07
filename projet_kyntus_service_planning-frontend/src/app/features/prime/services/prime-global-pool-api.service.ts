@@ -127,6 +127,10 @@ export interface GlobalSynthesisLineDto {
   primeAmount?: number | null;
   challengeAmount?: number | null;
   totalAmount?: number | null;
+  absenceDayCount: number;
+  sanctionAmount: number;
+  regularizationAmount: number;
+  netPayableAmount?: number | null;
   validationStatus: string;
   fillingStatus: string;
   lineStatus?: string | null;
@@ -148,7 +152,16 @@ export interface GlobalSynthesisSummaryDto {
   totalPrime: number;
   totalChallenge: number;
   totalAmount: number;
+  totalSanction: number;
+  totalRegularization: number;
+  totalNetPayable: number;
   linesRejected: number;
+}
+
+export interface PrimeAbsenceSanctionConfigDto {
+  divisorDays: number;
+  updatedAt?: string | null;
+  updatedByUserId?: string | null;
 }
 
 export interface SynthesisTrackingFeedItemDto {
@@ -367,6 +380,28 @@ export class PrimeGlobalPoolApiService {
 
   approveLine(lineId: string, body: { userId: string; role?: string }): Observable<void> {
     return this.http.post<void>(`${base}/synthesis/lines/${lineId}/approve`, body);
+  }
+
+  patchLineAdjustments(
+    lineId: string,
+    body: { userId: string; role?: string; regularizationAmount: number },
+  ): Observable<void> {
+    return this.http.patch<void>(`${base}/synthesis/lines/${lineId}/adjustments`, body);
+  }
+
+  getAbsenceSanctionConfig(): Observable<PrimeAbsenceSanctionConfigDto> {
+    return this.http.get<PrimeAbsenceSanctionConfigDto>('/api/prime/admin/absence-sanction-config');
+  }
+
+  saveAbsenceSanctionConfig(body: {
+    userId: string;
+    role?: string;
+    divisorDays: number;
+  }): Observable<PrimeAbsenceSanctionConfigDto> {
+    return this.http.put<PrimeAbsenceSanctionConfigDto>(
+      '/api/prime/admin/absence-sanction-config',
+      body,
+    );
   }
 
   synthesisTrackingFeed(params: {

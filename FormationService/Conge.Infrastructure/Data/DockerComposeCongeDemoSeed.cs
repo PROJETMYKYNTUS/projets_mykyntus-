@@ -22,6 +22,8 @@ public static class DockerComposeCongeDemoSeed
         (Guid.Parse("11111111-1111-4111-8111-111111111109"), "Démo", "Audit", "audit@kyntus.ma", "Audit"),
         (Guid.Parse("11111111-1111-4111-8111-111111111110"), "Démo", "Formation", "formation@kyntus.ma", "RH"),
         (Guid.Parse("11111111-1111-4111-8111-111111111111"), "Démo", "Superviseur", "superviseur@kyntus.ma", "Superviseur"),
+        (Guid.Parse("11111111-1111-4111-8111-111111111101"), "El Amrani", "Yasmine", "yasmine.elamrani@atlas-tech-demo.dev", "Pilote"),
+        (Guid.Parse("11111111-1111-4111-8111-111111111102"), "Alaoui", "Fatima", "fatima.alaoui@atlas-tech-demo.dev", "RH"),
     ];
 
     public static async Task ApplyIfEnabledAsync(

@@ -313,6 +313,25 @@ public sealed class PrimeGlobalPoolScopeAppService(
         }
     }
 
+    public async Task UpdateLineAdjustmentsAsync(
+        Guid lineId,
+        UpdateSynthesisLineAdjustmentsRequest body,
+        CancellationToken ct = default)
+    {
+        var ru = await ResolvePoolActorAsync(body.UserId, body.Role, ct);
+        try
+        {
+            var (ok, msg) = await lineService.UpdateRegularizationAsync(
+                lineId, ru.UserId, ru.Role, body.RegularizationAmount, ct);
+            if (!ok)
+                throw new ArgumentException(msg ?? "Mise à jour impossible.");
+        }
+        catch (DbUpdateException ex)
+        {
+            throw new PrimeApiException(409, DbExceptionMessages.FromSaveChanges(ex));
+        }
+    }
+
     public async Task<IReadOnlyList<SupervisorSynthesisTrackingItemDto>> GetSupervisorSynthesisTrackingAsync(
         string supervisorUserId,
         string? period,
@@ -424,6 +443,7 @@ public sealed class PrimeGlobalPoolScopeAppService(
                 PrimeAmount = line?.PrimeAmount,
                 ChallengeAmount = line?.ChallengeAmount,
                 TotalAmount = line?.TotalAmount,
+                NetPayableAmount = line?.NetPayableAmount ?? line?.TotalAmount,
                 LineStatus = line?.LineStatus,
                 PaymentStatus = line?.PaymentStatus ?? GlobalPoolPaymentStatuses.Unpaid,
                 PaidAt = line?.PaidAt,

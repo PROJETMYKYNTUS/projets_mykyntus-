@@ -32,6 +32,7 @@ public class ReferralEntity
     public string? PaidByLabel { get; set; }
     public string? PaymentReference { get; set; }
     public DateTimeOffset? EligibilityNotifiedAt { get; set; }
+    public string? CandidateEmployeeId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
 

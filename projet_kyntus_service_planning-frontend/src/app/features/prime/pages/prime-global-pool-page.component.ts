@@ -329,6 +329,33 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
               </div>
             }
 
+            @if (canEditAbsenceConfig() && scopeSynthesisId()) {
+              <div class="px-4 py-3 border-b border-navy-800 bg-navy-950/60 flex flex-wrap items-end gap-3 text-xs">
+                <div>
+                  <p class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Diviseur sanction absence</p>
+                  <p class="text-[11px] text-slate-400">Formule : total × (jours absence / diviseur)</p>
+                </div>
+                <label class="flex flex-col gap-1">
+                  <span class="text-slate-500">Jours (défaut 26)</span>
+                  <input
+                    type="number"
+                    min="1"
+                    class="w-24 rounded border border-navy-600 bg-navy-950 px-2 py-1 text-slate-200"
+                    [ngModel]="absenceDivisor()"
+                    (ngModelChange)="absenceDivisor.set($event)"
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="rounded-md bg-indigo-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                  [disabled]="absenceConfigBusy()"
+                  (click)="saveAbsenceConfig()"
+                >
+                  Enregistrer diviseur
+                </button>
+              </div>
+            }
+
             @if (scopeSynthesisId() && (isRhOrManager() || currentRole() === 'Admin')) {
               <div class="px-4 py-3 border-b border-navy-800 bg-indigo-950/20 text-xs text-indigo-200">
                 <p class="font-medium">Validation par ligne — workflow synthèse</p>
@@ -359,7 +386,7 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
 
             <!-- summary strip -->
             @if (summary(); as sum) {
-              <div class="px-4 py-3 border-b border-navy-800 grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm">
+              <div class="px-4 py-3 border-b border-navy-800 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 text-sm">
                 <div>
                   <p class="text-[10px] uppercase tracking-wider text-slate-500">Lignes</p>
                   <p class="text-slate-100 font-semibold">{{ sum.lineCount }}</p>
@@ -373,8 +400,20 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
                   <p class="text-slate-100 font-semibold font-mono">{{ sum.totalChallenge | number: '1.0-2' }}</p>
                 </div>
                 <div>
-                  <p class="text-[10px] uppercase tracking-wider text-slate-500">Total général</p>
-                  <p class="text-emerald-300 font-semibold font-mono">{{ sum.totalAmount | number: '1.0-2' }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-slate-500">Total plafond</p>
+                  <p class="text-slate-100 font-semibold font-mono">{{ sum.totalAmount | number: '1.0-2' }}</p>
+                </div>
+                <div>
+                  <p class="text-[10px] uppercase tracking-wider text-slate-500">Sanctions</p>
+                  <p class="text-rose-300 font-semibold font-mono">{{ sum.totalSanction | number: '1.0-2' }}</p>
+                </div>
+                <div>
+                  <p class="text-[10px] uppercase tracking-wider text-slate-500">Régularisations</p>
+                  <p class="text-slate-100 font-semibold font-mono">{{ sum.totalRegularization | number: '1.0-2' }}</p>
+                </div>
+                <div>
+                  <p class="text-[10px] uppercase tracking-wider text-slate-500">Total net</p>
+                  <p class="text-emerald-300 font-semibold font-mono">{{ sum.totalNetPayable | number: '1.0-2' }}</p>
                 </div>
                 @if (!isComptaOnly()) {
                 <div>
@@ -437,7 +476,11 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
                       <th class="py-2 px-3 font-medium">Employé</th>
                       <th class="py-2 px-3 font-medium text-right">Plafond Prime</th>
                       <th class="py-2 px-3 font-medium text-right">Plafond Challenge</th>
-                      <th class="py-2 px-3 font-medium text-right">Total</th>
+                      <th class="py-2 px-3 font-medium text-right">Total plafond</th>
+                      <th class="py-2 px-3 font-medium text-right">Absences</th>
+                      <th class="py-2 px-3 font-medium text-right">Sanction</th>
+                      <th class="py-2 px-3 font-medium text-right">Régularisation</th>
+                      <th class="py-2 px-3 font-medium text-right">Total net</th>
                       @if (canPay()) {
                         <th class="py-2 px-3 font-medium">Paiement</th>
                       }
@@ -456,7 +499,31 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
                     </td>
                         <td class="py-2 px-3 font-mono text-right text-slate-300">{{ l.primeAmount != null ? (l.primeAmount | number: '1.0-2') : '—' }}</td>
                         <td class="py-2 px-3 font-mono text-right text-slate-300">{{ l.challengeAmount != null ? (l.challengeAmount | number: '1.0-2') : '—' }}</td>
-                        <td class="py-2 px-3 font-mono text-right text-slate-100 font-semibold">{{ l.totalAmount != null ? (l.totalAmount | number: '1.0-2') : '—' }}</td>
+                        <td class="py-2 px-3 font-mono text-right text-slate-300">{{ l.totalAmount != null ? (l.totalAmount | number: '1.0-2') : '—' }}</td>
+                        <td class="py-2 px-3 font-mono text-right">
+                          @if (l.absenceDayCount > 0) {
+                            <span class="inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">{{ l.absenceDayCount }} j.</span>
+                          } @else {
+                            <span class="text-slate-500">0</span>
+                          }
+                        </td>
+                        <td class="py-2 px-3 font-mono text-right text-rose-300">{{ l.sanctionAmount | number: '1.0-2' }}</td>
+                        <td class="py-2 px-3 font-mono text-right">
+                          @if (canEditRegularization(l)) {
+                            <input
+                              type="number"
+                              step="0.01"
+                              class="w-24 rounded border border-navy-600 bg-navy-950 px-2 py-1 text-right text-[11px] text-slate-200"
+                              [ngModel]="l.regularizationAmount"
+                              (ngModelChange)="saveRegularization(l.lineId!, $event)"
+                            />
+                          } @else {
+                            <span class="text-slate-300">{{ l.regularizationAmount | number: '1.0-2' }}</span>
+                          }
+                        </td>
+                        <td class="py-2 px-3 font-mono text-right text-emerald-300 font-semibold">
+                          {{ (l.netPayableAmount ?? l.totalAmount) != null ? ((l.netPayableAmount ?? l.totalAmount) | number: '1.0-2') : '—' }}
+                        </td>
                         @if (canPay()) {
                           <td class="py-2 px-3">
                             @if (l.lineStatus === 'Approved') {
@@ -643,6 +710,8 @@ export class PrimeGlobalPoolPageComponent implements OnInit {
   readonly readyOnly = signal(false);
   readonly lineSearch = signal('');
   readonly lineStatusFilter = signal<LineStatusFilter>('all');
+  readonly absenceDivisor = signal(26);
+  readonly absenceConfigBusy = signal(false);
 
   readonly currentRole = computed(() => this.role.currentRole() as Role);
 
@@ -779,6 +848,11 @@ export class PrimeGlobalPoolPageComponent implements OnInit {
           this.period.set(p[0]);
         }
         this.reloadAll();
+        if (this.canEditAbsenceConfig()) {
+          this.api.getAbsenceSanctionConfig().subscribe({
+            next: (cfg) => this.absenceDivisor.set(cfg.divisorDays || 26),
+          });
+        }
         if (requested) {
           this.pendingRequestedScope = requested;
           this.nav.clearRequestedSynthesisScope();
@@ -1017,6 +1091,68 @@ export class PrimeGlobalPoolPageComponent implements OnInit {
   isRhOrManager(): boolean {
     const r = this.currentRole();
     return r === 'RH' || r === 'Manager';
+  }
+
+  canEditAbsenceConfig(): boolean {
+    const r = this.currentRole();
+    return r === 'RH' || r === 'Admin';
+  }
+
+  canEditRegularization(l: GlobalSynthesisLineDto): boolean {
+    if (!l.lineId || !this.canEditAbsenceConfig()) return false;
+    return l.rhDecision === 'Pending' && l.managerDecision === 'Pending';
+  }
+
+  saveRegularization(lineId: string, value: number | string): void {
+    if (this.busy()) return;
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return;
+    this.busy.set(true);
+    this.api
+      .patchLineAdjustments(lineId, {
+        userId: this.role.currentUser().id,
+        role: this.role.currentRole(),
+        regularizationAmount: amount,
+      })
+      .subscribe({
+        next: () => {
+          this.busy.set(false);
+          const sel = this.selected();
+          if (sel) this.loadLines(sel);
+        },
+        error: (err) => {
+          this.busy.set(false);
+          this.error.set(primeHttpErrorDetail(err) ?? 'Régularisation refusée.');
+        },
+      });
+  }
+
+  saveAbsenceConfig(): void {
+    if (this.absenceConfigBusy()) return;
+    const divisor = Number(this.absenceDivisor());
+    if (!Number.isFinite(divisor) || divisor <= 0) {
+      this.error.set('Le diviseur doit être un entier positif.');
+      return;
+    }
+    this.absenceConfigBusy.set(true);
+    this.api
+      .saveAbsenceSanctionConfig({
+        userId: this.role.currentUser().id,
+        role: this.role.currentRole(),
+        divisorDays: divisor,
+      })
+      .subscribe({
+        next: (cfg) => {
+          this.absenceDivisor.set(cfg.divisorDays);
+          this.absenceConfigBusy.set(false);
+          const sel = this.selected();
+          if (sel) this.loadLines(sel);
+        },
+        error: (err) => {
+          this.absenceConfigBusy.set(false);
+          this.error.set(primeHttpErrorDetail(err) ?? 'Enregistrement du diviseur impossible.');
+        },
+      });
   }
 
   goToTracking(): void {

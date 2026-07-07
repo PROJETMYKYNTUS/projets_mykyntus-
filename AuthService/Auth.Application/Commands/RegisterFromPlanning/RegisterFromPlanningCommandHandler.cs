@@ -32,9 +32,18 @@ public class RegisterFromPlanningCommandHandler
         CancellationToken ct)
     {
         var dto = request.Dto;
+        var role = await ResolveAuthRoleAsync(dto, ct)
+            ?? throw new RegisterFromPlanningRoleNotFoundException();
+
         var existing = await _userRepository.GetByEmailAsync(dto.Email, ct);
         if (existing != null)
         {
+            if (existing.RoleId != role.Id)
+            {
+                existing.RoleId = role.Id;
+                await _userRepository.UpdateAsync(existing, ct);
+            }
+
             return new RegisterFromPlanningResponseDto
             {
                 Id = existing.Id,
@@ -43,20 +52,13 @@ public class RegisterFromPlanningCommandHandler
             };
         }
 
-        Role? role = null;
-        if (!string.IsNullOrWhiteSpace(dto.RoleName))
-            role = await _roleRepository.GetByNameAsync(dto.RoleName.Trim(), ct);
-        if (role is null && dto.RoleId > 0)
-            role = await _roleRepository.GetByIdAsync(dto.RoleId, ct);
-
-        if (role == null)
-            throw new RegisterFromPlanningRoleNotFoundException();
-
         var user = new User
         {
             Username = dto.Email,
             Email = dto.Email,
-            SubjectId = _subjectIdResolver.ResolveForEmail(dto.Email),
+            SubjectId = dto.EmployeeId != Guid.Empty
+                ? dto.EmployeeId
+                : _subjectIdResolver.ResolveForEmail(dto.Email),
             PasswordHash = _passwordHasher.HashPassword(dto.DefaultPassword),
             RoleId = role.Id,
             IsActive = true,
@@ -73,6 +75,26 @@ public class RegisterFromPlanningCommandHandler
             Email = user.Email,
             SubjectId = user.SubjectId,
         };
+    }
+
+    async Task<Role?> ResolveAuthRoleAsync(RegisterFromPlanningDto dto, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(dto.RoleName))
+        {
+            var mappedName = PlanningRoleToAuthRoleMapper.MapToAuthRoleName(dto.RoleName);
+            if (!string.IsNullOrWhiteSpace(mappedName))
+            {
+                var byMappedName = await _roleRepository.GetByNameAsync(mappedName, ct);
+                if (byMappedName is not null)
+                    return byMappedName;
+            }
+
+            var byPlanningName = await _roleRepository.GetByNameAsync(dto.RoleName.Trim(), ct);
+            if (byPlanningName is not null)
+                return byPlanningName;
+        }
+
+        return null;
     }
 }
 

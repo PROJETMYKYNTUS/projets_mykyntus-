@@ -57,6 +57,16 @@
 
       } @else if (user) {
 
+        @if (linkedReferral) {
+          <section class="referral-banner ky-card">
+            <h3>Parrainage lié</h3>
+            <p>Dossier {{ linkedReferral.id }} — {{ linkedReferral.status }} / paiement {{ linkedReferral.paymentStatus }}</p>
+            @if (linkedReferral.eligibleForPaymentAt) {
+              <p>Éligibilité prime prévue le {{ linkedReferral.eligibleForPaymentAt | date:'shortDate' }}</p>
+            }
+          </section>
+        }
+
         <section class="profile-hero">
 
           <div class="avatar">{{ user.firstName[0] }}{{ user.lastName[0] }}</div>

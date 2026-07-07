@@ -106,6 +106,18 @@ public class EmployeeImportColumnMatcher
         return normalized is "unnamed" or "sansnom";
     }
 
+    /// <summary>
+    /// Score de similarité [0..1] entre deux libellés déjà normalisés (cf. <see cref="Normalize"/>),
+    /// basé sur l'inclusion (0.88) puis la distance de Levenshtein. Réutilisé pour résoudre les
+    /// valeurs de cellules avec tolérance (ex. département opérationnel).
+    /// </summary>
+    public static double SimilarityScore(string normalizedA, string normalizedB)
+    {
+        if (string.IsNullOrEmpty(normalizedA) || string.IsNullOrEmpty(normalizedB))
+            return 0;
+        return Score(normalizedA, normalizedB);
+    }
+
     private static double Score(string header, string candidate)
     {
         if (header == candidate)

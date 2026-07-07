@@ -1,8 +1,8 @@
 using System.Net;
 using System.Text.Json;
 using Documentation.Infrastructure.Persistence;
+using Documentation.Infrastructure.Services;
 using Kyntus.Identity.Jwt;
-using Microsoft.EntityFrameworkCore;
 
 namespace Documentation.Infrastructure.Context;
 
@@ -20,7 +20,7 @@ public sealed class DocumentationUserContextMiddleware(
     public async Task InvokeAsync(
         HttpContext httpContext,
         DocumentationUserContext userContext,
-        DocumentationDbContext db,
+        DocumentationDirectoryUserLookup directoryLookup,
         IHostEnvironment hostEnvironment,
         ILogger<DocumentationUserContextMiddleware> logger)
     {
@@ -53,13 +53,10 @@ public sealed class DocumentationUserContextMiddleware(
             }
 
             var tenantId = configuration["Documentation:DefaultTenantId"]?.Trim() ?? "atlas-tech-demo";
-            var needle = email.Trim().ToLowerInvariant();
-            var directoryUser = await db.DirectoryUsers
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .FirstOrDefaultAsync(
-                    u => u.TenantId == tenantId && u.Email.ToLower() == needle,
-                    httpContext.RequestAborted);
+            var directoryUser = await directoryLookup.ResolveAsync(
+                httpContext.User,
+                tenantId,
+                httpContext.RequestAborted);
 
             if (directoryUser is null)
             {

@@ -104,6 +104,14 @@ if (!isTesting && app.Configuration.GetValue("Documentation:DemoDataSeed", false
     var demoLog = demoSeedScope.ServiceProvider.GetRequiredService<ILoggerFactory>()
         .CreateLogger("Documentation.DemoDataSeed");
     await DockerDocumentationDemoDataSeed.ApplyIfEnabledAsync(app.Configuration, demoDb, demoLog);
+    try
+    {
+        await DockerDocumentationEnrichmentSeed.ApplyIfEnabledAsync(app.Configuration, demoDb, demoLog);
+    }
+    catch (Exception ex)
+    {
+        demoLog.LogError(ex, "Documentation enrichment échoué (non bloquant).");
+    }
 }
 
 app.UseMiddleware<UnhandledExceptionMiddleware>();

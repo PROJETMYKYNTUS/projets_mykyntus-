@@ -14,7 +14,10 @@ public sealed record EmployeeDirectoryUpsertRequest(
     Guid SupervisorId = default,
     bool SkipOrgStructureFields = false,
     Guid? BusinessDepartmentId = null,
-    string? BusinessDepartmentKind = null);
+    string? BusinessDepartmentKind = null,
+    Guid? ChefDeProjetId = null,
+    Guid? SuperviseurId = null,
+    Guid? ReferentTechniqueId = null);
 
 public interface IEmployeeDirectorySyncService
 {
@@ -97,6 +100,8 @@ public sealed class EmployeeDirectorySyncService(
         var email = request.Email.Trim();
 
         var (serviceId, celluleId, poleId) = await ResolveOrgIdsAsync(request.PrimeServiceId, ct);
+        var parentId = ResolveParentId(request);
+        var managerIds = ResolveManagerIds(request);
 
         EmployeeEntity? existing = await db.Employees.FirstOrDefaultAsync(e => e.Id == id, ct);
         if (existing is null && matchByEmail && !string.IsNullOrWhiteSpace(email))
@@ -114,7 +119,10 @@ public sealed class EmployeeDirectorySyncService(
                 ServiceId = serviceId,
                 CelluleId = celluleId,
                 PoleId = poleId ?? "",
-                ParentId = request.SupervisorId != Guid.Empty ? request.SupervisorId.ToString() : null,
+                ParentId = parentId,
+                ChefDeProjetId = managerIds.ChefDeProjetId,
+                SuperviseurId = managerIds.SuperviseurId,
+                ReferentTechniqueId = managerIds.ReferentTechniqueId,
                 BusinessDepartmentId = request.BusinessDepartmentId?.ToString(),
                 BusinessDepartmentKind = request.BusinessDepartmentKind,
             });
@@ -135,7 +143,10 @@ public sealed class EmployeeDirectorySyncService(
                 ServiceId = ShouldPreserveStructure(existing, request) ? existing.ServiceId : serviceId ?? existing.ServiceId,
                 CelluleId = ShouldPreserveStructure(existing, request) ? existing.CelluleId : celluleId ?? existing.CelluleId,
                 PoleId = ShouldPreserveStructure(existing, request) ? existing.PoleId : poleId ?? existing.PoleId,
-                ParentId = request.SupervisorId != Guid.Empty ? request.SupervisorId.ToString() : existing.ParentId,
+                ParentId = parentId ?? existing.ParentId,
+                ChefDeProjetId = managerIds.ChefDeProjetId ?? existing.ChefDeProjetId,
+                SuperviseurId = managerIds.SuperviseurId ?? existing.SuperviseurId,
+                ReferentTechniqueId = managerIds.ReferentTechniqueId ?? existing.ReferentTechniqueId,
                 Avatar = existing.Avatar
             };
             db.Employees.Remove(existing);
@@ -155,8 +166,9 @@ public sealed class EmployeeDirectorySyncService(
             existing.CelluleId = celluleId ?? existing.CelluleId;
             existing.PoleId = poleId ?? existing.PoleId;
         }
-        if (request.SupervisorId != Guid.Empty)
-            existing.ParentId = request.SupervisorId.ToString();
+        if (parentId is not null)
+            existing.ParentId = parentId;
+        ApplyManagerIds(existing, managerIds);
         if (request.BusinessDepartmentId.HasValue)
         {
             existing.BusinessDepartmentId = request.BusinessDepartmentId.Value.ToString();
@@ -200,7 +212,34 @@ public sealed class EmployeeDirectorySyncService(
             target.CelluleId = source.CelluleId;
             target.ServiceId = source.ServiceId;
             target.ParentId = source.ParentId;
+            target.ChefDeProjetId = source.ChefDeProjetId;
+            target.SuperviseurId = source.SuperviseurId;
+            target.ReferentTechniqueId = source.ReferentTechniqueId;
         }
+    }
+
+    private static string? ResolveParentId(EmployeeDirectoryUpsertRequest request)
+    {
+        var supervisorId = request.SuperviseurId ?? (request.SupervisorId != Guid.Empty ? request.SupervisorId : (Guid?)null);
+        return supervisorId?.ToString();
+    }
+
+    private sealed record ManagerIds(string? ChefDeProjetId, string? SuperviseurId, string? ReferentTechniqueId);
+
+    private static ManagerIds ResolveManagerIds(EmployeeDirectoryUpsertRequest request) =>
+        new(
+            request.ChefDeProjetId?.ToString(),
+            request.SuperviseurId?.ToString(),
+            request.ReferentTechniqueId?.ToString());
+
+    private static void ApplyManagerIds(EmployeeEntity target, ManagerIds ids)
+    {
+        if (ids.ChefDeProjetId is not null)
+            target.ChefDeProjetId = ids.ChefDeProjetId;
+        if (ids.SuperviseurId is not null)
+            target.SuperviseurId = ids.SuperviseurId;
+        if (ids.ReferentTechniqueId is not null)
+            target.ReferentTechniqueId = ids.ReferentTechniqueId;
     }
 
     private async Task<(string? ServiceId, string? CelluleId, string? PoleId)> ResolveOrgIdsAsync(

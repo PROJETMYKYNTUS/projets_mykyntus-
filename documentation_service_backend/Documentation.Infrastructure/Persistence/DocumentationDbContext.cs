@@ -177,6 +177,9 @@ public class DocumentationDbContext : DbContext
             e.Property(x => x.Status).HasColumnType(TDocumentRequestStatus);
             e.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
             e.HasIndex(x => x.TenantId);
+            e.HasIndex(x => new { x.TenantId, x.Status, x.CreatedAt });
+            e.HasIndex(x => x.RequesterUserId);
+            e.HasIndex(x => x.BeneficiaryUserId);
             e.Property(x => x.RequestNumber).HasMaxLength(32);
             e.HasIndex(x => new { x.TenantId, x.RequestNumber })
                 .IsUnique()
@@ -243,6 +246,7 @@ public class DocumentationDbContext : DbContext
                 .WithMany(v => v.GeneratedDocuments)
                 .HasForeignKey(x => x.TemplateVersionId)
                 .OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.DocumentRequestId, x.CreatedAt });
         });
 
         modelBuilder.Entity<DocumentTemplate>(e =>
@@ -369,6 +373,9 @@ public class DocumentationDbContext : DbContext
             e.Property(x => x.Prenom).HasMaxLength(128);
             e.Property(x => x.Nom).HasMaxLength(128);
             e.Property(x => x.Email).HasMaxLength(255);
+            e.Property(x => x.Cin).HasMaxLength(32);
+            e.Property(x => x.Rib).HasMaxLength(64);
+            e.Property(x => x.ImmatriculationCnss).HasMaxLength(32);
             e.HasIndex(x => x.TenantId);
             e.HasIndex(x => x.ManagerId);
             e.HasIndex(x => x.CoachId);

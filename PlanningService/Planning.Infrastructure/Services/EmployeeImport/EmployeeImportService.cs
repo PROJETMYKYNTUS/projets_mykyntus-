@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Planning.Application.Abstractions;
 using Planning.Application.Abstractions.EmployeeImport;
 using Planning.Infrastructure.Persistence;
+using Planning.Infrastructure.Services;
 using Planning.Application.DTOs;
 
 namespace Planning.Infrastructure.Services.EmployeeImport;
@@ -19,6 +20,7 @@ public partial class EmployeeImportService(
     IEmployeeImportOrgGapAnalyzer orgGapAnalyzer,
     EmployeeImportTemplateBuilder templateBuilder,
     IPlanningOrgMirrorService orgMirror,
+    IDirectoryOrgWriteClient directoryOrg,
     IHttpContextAccessor httpContextAccessor) : IEmployeeImportService
 {
     private readonly AppDbContext _db = db;
@@ -60,6 +62,8 @@ public partial class EmployeeImportService(
 
         foreach (var issue in orgAnalysis.OrgLineIssues.Where(i => i.Severity == "error"))
             alerts.Add($"Ligne {issue.LineNumber} : {issue.Message}");
+
+        await AppendOperationalDepartmentAlertsAsync(orgAnalysis.PendingOrgCreations, alerts, ct);
 
         return new EmployeeImportAnalyzeResponse
         {
@@ -115,11 +119,17 @@ public partial class EmployeeImportService(
         };
     }
 
-    public Task<EmployeeImportReportDto> ExecuteAsync(
+    public async Task<EmployeeImportReportDto> ExecuteAsync(
         EmployeeImportExecuteRequest request,
         string? startedByEmail,
-        CancellationToken ct = default) =>
-        executor.ExecuteAsync(request, startedByEmail, ct);
+        CancellationToken ct = default)
+    {
+        var auth = httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
+        await orgMirror.SyncFromDirectoryOverviewAsync(
+            string.IsNullOrWhiteSpace(auth) ? null : auth, ct);
+
+        return await executor.ExecuteAsync(request, startedByEmail, ct);
+    }
 
     public async Task<EmployeeImportRevalidateOrgResponse> RevalidateOrgAsync(
         EmployeeImportRevalidateOrgRequest request,
@@ -160,6 +170,42 @@ public partial class EmployeeImportService(
 
     public async Task<byte[]> BuildTemplateAsync(CancellationToken ct = default) =>
         await templateBuilder.BuildAsync(ct);
+
+    private async Task AppendOperationalDepartmentAlertsAsync(
+        IReadOnlyList<PendingOrgCreationDto> pendingOrgCreations,
+        List<string> alerts,
+        CancellationToken ct)
+    {
+        var poleCreations = pendingOrgCreations.Where(p => p.Type == "pole").ToList();
+        if (poleCreations.Count == 0)
+            return;
+
+        var departments = await directoryOrg.GetOperationalDepartmentsAsync(ct);
+        if (departments.Count == 0)
+        {
+            alerts.Add(
+                "Aucun département opérationnel dans le référentiel Directory. " +
+                "Créez au moins « OP-001 » (Organisation) ou redémarrez le stack Docker avec le seed démo avant de créer de nouveaux pôles.");
+            return;
+        }
+
+        foreach (var creation in poleCreations)
+        {
+            if (string.IsNullOrWhiteSpace(creation.OperationalDepartment))
+                continue;
+
+            if (EmployeeImportOperationalDeptResolver.ResolveBusinessDepartmentId(
+                    creation.OperationalDepartment, departments) is not null)
+                continue;
+
+            foreach (var line in creation.AffectedLineNumbers.Distinct())
+            {
+                alerts.Add(
+                    $"Ligne {line} : département opérationnel « {creation.OperationalDepartment} » introuvable. " +
+                    "Vérifiez le code (ex. OP-001) ou créez-le dans Organisation.");
+            }
+        }
+    }
 
     private static Dictionary<string, string?> BuildPreviewRow(
         IReadOnlyList<string> row,

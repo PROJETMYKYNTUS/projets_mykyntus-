@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import {
   HttpEvent,
   HttpHandler,
@@ -6,14 +6,14 @@ import {
   HttpRequest
 } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { KyntusSessionService } from '../session/kyntus-session.service';
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
+  private readonly session = inject(KyntusSessionService);
+
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-   const token =
-  localStorage.getItem('token') ||
-  localStorage.getItem('accessToken') ||
-  localStorage.getItem('access_token');
+    const token = this.session.getToken();
 
     if (!token) {
       return next.handle(req);

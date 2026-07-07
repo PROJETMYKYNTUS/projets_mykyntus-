@@ -124,6 +124,30 @@ public sealed class DirectoryUserSyncService(
         logger.LogInformation("DOCUMENTATION directory_users sync {Email} rôle={Role}", email, appRole);
     }
 
+    public async Task ApplyHrProfileFromMessageAsync(DirectoryEmployeeHrProfileChangedMessage msg, CancellationToken ct)
+    {
+        if (msg.IsDeleted)
+            return;
+
+        var tenantId = configuration["Documentation:DefaultTenantId"] ?? "atlas-tech-demo";
+        var row = await db.DirectoryUsers.FirstOrDefaultAsync(
+            u => u.TenantId == tenantId && u.Id == msg.EmployeeId, ct);
+        if (row is null)
+        {
+            logger.LogWarning(
+                "DOCUMENTATION HR profile sync : directory_user absent id={EmployeeId}",
+                msg.EmployeeId);
+            return;
+        }
+
+        row.Cin = msg.Cin;
+        row.Rib = msg.Rib;
+        row.ImmatriculationCnss = msg.ImmatriculationCnss;
+        row.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("DOCUMENTATION HR profile sync {EmployeeId}", msg.EmployeeId);
+    }
+
     public async Task ApplyOrgAssignmentAsync(OrgAssignmentChangedMessage msg, CancellationToken ct)
     {
         if (msg.Removed || string.IsNullOrWhiteSpace(msg.EmployeeId))

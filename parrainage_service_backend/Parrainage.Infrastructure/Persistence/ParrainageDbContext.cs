@@ -69,6 +69,8 @@ public class ParrainageDbContext(DbContextOptions<ParrainageDbContext> options) 
             e.Property(x => x.PaidByUserId).HasMaxLength(128);
             e.Property(x => x.PaidByLabel).HasMaxLength(256);
             e.Property(x => x.PaymentReference).HasMaxLength(256);
+            e.Property(x => x.CandidateEmployeeId).HasMaxLength(128);
+            e.HasIndex(x => x.CandidateEmployeeId);
             e.HasIndex(x => x.ReferrerId);
             e.HasIndex(x => x.Status);
             e.HasIndex(x => x.PaymentStatus);

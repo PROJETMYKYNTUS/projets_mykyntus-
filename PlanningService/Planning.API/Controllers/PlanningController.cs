@@ -254,6 +254,34 @@ public class PlanningController(IPlanningService planningService, IUserService u
 
     // GET api/planning/my/history?userId=5
 
+    // ----------------------------------------------------
+    // NOTIFICATIONS DE PUBLICATION (persistées)
+    // ----------------------------------------------------
+
+    // GET api/planning/notifications?userId={authUserId}
+    [HttpGet("notifications")]
+    public async Task<IActionResult> GetMyNotifications([FromQuery] int userId)
+    {
+        var result = await _planningService.GetMyNotificationsAsync(userId);
+        return Ok(result);
+    }
+
+    // POST api/planning/notifications/{id}/read?userId={authUserId}
+    [HttpPost("notifications/{id:int}/read")]
+    public async Task<IActionResult> MarkNotificationRead(int id, [FromQuery] int userId)
+    {
+        await _planningService.MarkNotificationReadAsync(id, userId);
+        return NoContent();
+    }
+
+    // POST api/planning/notifications/read-all?userId={authUserId}
+    [HttpPost("notifications/read-all")]
+    public async Task<IActionResult> MarkAllNotificationsRead([FromQuery] int userId)
+    {
+        await _planningService.MarkAllNotificationsReadAsync(userId);
+        return NoContent();
+    }
+
     // POST api/planning/comment
     [HttpPost("comment")]
     public async Task<IActionResult> SaveComment([FromBody] SavePlanningCommentDto dto)

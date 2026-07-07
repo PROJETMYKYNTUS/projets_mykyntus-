@@ -40,4 +40,17 @@ namespace Planning.Application.DTOs
         DateTime HireDate);
 
     public record SetSaturdaySlotResultDto(int UserId, int Slot, string SlotLabel);
+
+    public sealed class BulkAbsenceDaysRequestDto
+    {
+        public string Period { get; set; } = "";
+        public List<string> EmployeeGuids { get; set; } = [];
+    }
+
+    public record BulkAbsenceDaysItemDto(string EmployeeGuid, int AbsenceDayCount);
+
+    public sealed class BulkAbsenceDaysResponseDto
+    {
+        public List<BulkAbsenceDaysItemDto> Items { get; set; } = [];
+    }
 }

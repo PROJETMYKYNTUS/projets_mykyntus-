@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { emptySecteurPairValues } from '../models/prime-fiche-ligne.model';
 import { PRIME_FICHE_TEMPLATE_FORMAT_V1, PRIME_FICHE_TEMPLATE_FORMAT_V2 } from '../models/prime-fiche-template.schema';
 import {
   FIRST_SECTOR_DATA_COL,
@@ -8,6 +9,7 @@ import {
   parsePrimeFicheGrid,
   sectorHeadersMatch,
 } from './prime-fiche-grid.parser';
+import { validateSecteurCoreFields } from './prime-fiche-sector-validation';
 
 function buildMinimalValidGridSheet(): XLSX.WorkSheet {
   const primeHdr = ['Résultat', 'KPI Point MIN', 'KPI Point MAX', 'Pondération', 'Bonus Atteint (%)', 'Montant'];
@@ -185,5 +187,43 @@ describe('parsePrimeFicheGrid', () => {
     const res = parsePrimeFicheGrid('dup.xlsx', buf);
     expect(res.schema).toBeNull();
     expect(res.diagnostics.errors.some((e) => e.includes('dupliqué'))).toBe(true);
+  });
+
+  it('accepte Taux de report / ZTD avec bonusAtteintChallenge et montantChallenge vides', () => {
+    const primeHdr = ['Résultat', 'KPI Point MIN', 'KPI Point MAX', 'Pondération', 'Bonus Atteint (%)', 'Montant'];
+    const chHdr = ['Résultat', 'KPI Challenge', 'Pondération', 'Bonus Atteint (%)', 'Montant'];
+    const row0: (string | number)[] = ['', '', '', '', '', 'Répartition', ...Array(6).fill('Prime'), ...Array(5).fill('Challenge')];
+    const row1: (string | number)[] = ['Contrat', 'Indicateur', 'Barème', 'Groupe', 'ID_UNIQUE', 'Répartition RDV'];
+    row1.push(...primeHdr, ...chHdr);
+    const row2: (string | number)[] = [
+      'RACC',
+      'Taux de report',
+      'ZTD',
+      'Groupe A',
+      'taux-ztd',
+      '15.44%',
+      '19.41%',
+      '15%',
+      '13%',
+      '2.00%',
+      '0.00%',
+      '0.00',
+      '',
+      '6.00%',
+      '0.00%',
+      '',
+      '',
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([row0, row1, row2]);
+    ws['!merges'] = [{ s: { r: GRID_DATA_START_ROW, c: 0 }, e: { r: GRID_DATA_START_ROW, c: 0 } }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Fiche');
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+    const res = parsePrimeFicheGrid('taux-report.xlsx', buf);
+    expect(res.diagnostics.errors.length).toBe(0);
+    const defaults = res.schema!.lines[0].secteurs[0]?.defaults ?? emptySecteurPairValues();
+    expect(defaults.bonusAtteintChallenge).toBe('');
+    expect(defaults.montantChallenge).toBe('');
+    expect(validateSecteurCoreFields(defaults, 0)).toBeNull();
   });
 });

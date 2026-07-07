@@ -59,7 +59,9 @@ export class AuthCallbackComponent implements OnInit {
       const role     = payload[this.ROLE_CLAIM]  || '';
       const nameIdentifier = payload[this.ID_CLAIM];
       const sub = payload['sub'];
-      const userId =
+      const authUserIdRaw = nameIdentifier != null ? parseInt(String(nameIdentifier), 10) : NaN;
+      const authUserId = Number.isFinite(authUserIdRaw) && authUserIdRaw > 0 ? authUserIdRaw : 0;
+      const subjectId =
         typeof sub === 'string' && sub.trim().length > 0
           ? sub.trim()
           : nameIdentifier != null && String(nameIdentifier).trim() !== ''
@@ -72,11 +74,13 @@ export class AuthCallbackComponent implements OnInit {
       console.log('=== AuthCallback ===');
       console.log('Payload JWT :', payload);
       console.log('Rôle détecté :', role);
-      console.log('User :', { userId, username, email });
+      console.log('User :', { authUserId, subjectId, username, email });
 
       // ✅ Sauvegarder le user complet
       localStorage.setItem('user', JSON.stringify({
-        id: userId,
+        id: subjectId,
+        authUserId,
+        subjectId,
         username,
         email,
         role

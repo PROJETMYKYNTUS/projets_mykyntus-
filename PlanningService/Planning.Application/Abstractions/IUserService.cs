@@ -13,11 +13,28 @@ public interface IUserService
     Task<bool> DeleteUserAsync(int id);
     Task SyncMissingAuthUsersAsync();
     Task<UserDto?> GetUserByAuthIdAsync(int authUserId);
+    Task<UserDto?> GetUserByEmailAsync(string email);
+    Task<UserDto?> GetOrLinkUserForAuthAsync(int authUserId, string? email);
     Task<bool> IsEmailUniqueAsync(string email, int? excludeId = null);
     Task SyncAllEmployesToCongeAsync();
     Task<List<UserDto>> GetManagersBySubServiceAsync(int subServiceId, CancellationToken ct = default);
     Task<SetNewEmployeeStatusResultDto?> SetNewEmployeeStatusAsync(
         int id,
         SetNewEmployeeDto dto,
+        CancellationToken ct = default);
+
+    Task RollbackImportCreatedUserAsync(int planningUserId, CancellationToken ct = default);
+
+    Task RollbackImportUpdatedUserAsync(
+        int planningUserId,
+        UpdateUserDto previousState,
+        Dictionary<string, string?> previousCustomFields,
+        CancellationToken ct = default);
+
+    Task<UserDto?> UpdateContractualLevelAsync(
+        int targetUserId,
+        int level,
+        Guid actorSubjectId,
+        string actorRole,
         CancellationToken ct = default);
 }

@@ -15,6 +15,10 @@ public interface IDirectoryOrgWriteClient
     Task<bool> AssignChefDeProjetAsync(string poleDirectoryId, Guid employeeGuid, CancellationToken ct = default);
     Task<bool> AssignSuperviseurAsync(string celluleDirectoryId, Guid employeeGuid, CancellationToken ct = default);
     Task<bool> AssignReferentTechniqueAsync(string serviceDirectoryId, Guid employeeGuid, CancellationToken ct = default);
+
+    Task DeletePoleAsync(string nodeId, CancellationToken ct = default);
+    Task DeleteCelluleAsync(string poleId, string nodeId, CancellationToken ct = default);
+    Task DeleteServiceAsync(string celluleId, string nodeId, CancellationToken ct = default);
 }
 
 public sealed class DirectoryOrgWriteClient(
@@ -107,6 +111,34 @@ public sealed class DirectoryOrgWriteClient(
             employeeGuid,
             ct);
 
+    public Task DeletePoleAsync(string nodeId, CancellationToken ct = default) =>
+        DeleteNodeAsync($"api/directory/org/structure/poles/{Uri.EscapeDataString(nodeId)}", ct);
+
+    public Task DeleteCelluleAsync(string poleId, string nodeId, CancellationToken ct = default) =>
+        DeleteNodeAsync(
+            $"api/directory/org/structure/poles/{Uri.EscapeDataString(poleId)}/cellules/{Uri.EscapeDataString(nodeId)}",
+            ct);
+
+    public Task DeleteServiceAsync(string celluleId, string nodeId, CancellationToken ct = default) =>
+        DeleteNodeAsync(
+            $"api/directory/org/structure/cellules/{Uri.EscapeDataString(celluleId)}/services/{Uri.EscapeDataString(nodeId)}",
+            ct);
+
+    private async Task DeleteNodeAsync(string path, CancellationToken ct)
+    {
+        var client = CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Delete, path);
+        AttachAuth(request);
+
+        var response = await client.SendAsync(request, ct);
+        if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return;
+
+        var err = await response.Content.ReadAsStringAsync(ct);
+        logger.LogWarning("Directory org delete {Path} failed {Status}: {Body}", path, response.StatusCode, err);
+        throw new InvalidOperationException($"Suppression organisationnelle échouée ({response.StatusCode}).");
+    }
+
     private async Task<string> PostNodeAsync(string path, object body, CancellationToken ct)
     {
         var client = CreateClient();
@@ -121,7 +153,8 @@ public sealed class DirectoryOrgWriteClient(
         {
             var err = await response.Content.ReadAsStringAsync(ct);
             logger.LogWarning("Directory org create {Path} failed {Status}: {Body}", path, response.StatusCode, err);
-            throw new InvalidOperationException($"Création organisationnelle échouée ({response.StatusCode}).");
+            var detail = string.IsNullOrWhiteSpace(err) ? string.Empty : $" {err.Trim()}";
+            throw new InvalidOperationException($"Création organisationnelle échouée ({response.StatusCode}).{detail}");
         }
 
         var created = await response.Content.ReadFromJsonAsync<DirectoryNodeJson>(cancellationToken: ct);
@@ -157,7 +190,7 @@ public sealed class DirectoryOrgWriteClient(
 
         var client = httpClientFactory.CreateClient("DirectorySync");
         client.BaseAddress = new Uri(baseUrl);
-        client.Timeout = TimeSpan.FromSeconds(15);
+        client.Timeout = TimeSpan.FromSeconds(30);
         return client;
     }
 

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Parrainage.Infrastructure.Persistence;
 using Parrainage.Application.DTOs;
+using Parrainage.Application.Abstractions;
 using Parrainage.Domain.Entities;
 
 namespace Parrainage.Infrastructure.Services;
@@ -8,7 +9,11 @@ namespace Parrainage.Infrastructure.Services;
 /// <summary>
 /// Workflow parrainage : soumission, validation RH (sans paiement), éligibilité, marquage payé compta.
 /// </summary>
-public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRuleResolver ruleResolver, ReferralCvStorageService cvStorage)
+public sealed class ReferralWorkflowService(
+    ParrainageDbContext db,
+    ReferralRuleResolver ruleResolver,
+    ReferralCvStorageService cvStorage,
+    IPlanningEmploymentCheckClient employmentCheck)
 {
     private static readonly Dictionary<string, string> StatusLabelFr = new()
     {
@@ -315,6 +320,14 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRule
             throw new InvalidOperationException(
                 "Ce dossier n'est pas en attente de confirmation RH (période minimum non atteinte ou déjà transmis).");
 
+        if (!string.IsNullOrWhiteSpace(current.CandidateEmployeeId))
+        {
+            var employment = await employmentCheck.GetEmploymentSummaryAsync(current.CandidateEmployeeId, ct);
+            if (employment is not null && !employment.IsEligibleForPaymentConfirmation)
+                throw new InvalidOperationException(
+                    employment.BlockReason ?? "Le candidat n'est pas éligible à la confirmation de paiement.");
+        }
+
         var now = DateTimeOffset.UtcNow;
         var actor = ResolveActor(request.Actor, "rh-1", "RH");
         MarkPaymentReady(current, now, actor);
@@ -337,6 +350,83 @@ public sealed class ReferralWorkflowService(ParrainageDbContext db, ReferralRule
 
         await db.SaveChangesAsync(ct);
         return current;
+    }
+
+    public async Task<IReadOnlyList<ReferralEntity>> ListOnboardingReferralsAsync(CancellationToken ct)
+    {
+        return await db.Referrals.AsNoTracking()
+            .Where(r => r.Status == "PROCESSED" && r.CandidateEmployeeId == null)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync(ct);
+    }
+
+    public async Task<ReferralEntity?> LinkEmployeeAsync(string id, LinkEmployeeRequest request, CancellationToken ct)
+    {
+        var current = await db.Referrals.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (current is null) return null;
+
+        await LinkEmployeeInternalAsync(current, request.EmployeeId, request.Actor, ct);
+        await db.SaveChangesAsync(ct);
+        return current;
+    }
+
+    public async Task<ReferralEntity?> CompleteOnboardingAsync(
+        string id,
+        CompleteOnboardingRequest request,
+        CancellationToken ct)
+    {
+        var current = await db.Referrals.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (current is null) return null;
+        if (current.Status != "PROCESSED")
+            throw new InvalidOperationException("Seuls les dossiers traités (PROCESSED) peuvent être finalisés depuis l'onboarding employé.");
+
+        await LinkEmployeeInternalAsync(current, request.EmployeeId, request.Actor, ct);
+        await db.SaveChangesAsync(ct);
+
+        return await ApproveReferralAsync(
+            id,
+            new ApproveReferralRequest
+            {
+                CandidateStartDate = request.CandidateStartDate,
+                RewardAmount = request.RewardAmount,
+                RequiresTraining = request.RequiresTraining,
+                TrainingEndDate = request.TrainingEndDate,
+                Comment = request.Comment,
+                Actor = request.Actor,
+            },
+            ct);
+    }
+
+    private async Task LinkEmployeeInternalAsync(
+        ReferralEntity current,
+        string employeeId,
+        ActorDto? actor,
+        CancellationToken ct)
+    {
+        var guid = employeeId.Trim();
+        if (string.IsNullOrEmpty(guid))
+            throw new InvalidOperationException("L'identifiant employé est requis.");
+
+        if (!string.IsNullOrEmpty(current.CandidateEmployeeId) && current.CandidateEmployeeId != guid)
+            throw new InvalidOperationException("Un autre employé est déjà lié à ce dossier.");
+
+        if (current.CandidateEmployeeId == guid)
+            return;
+
+        current.CandidateEmployeeId = guid;
+        var resolved = ResolveActor(actor, "rh-1", "RH");
+        db.ReferralHistory.Add(new ReferralHistoryEntryEntity
+        {
+            Id = $"hist-{current.Id}-link-{NowMs()}",
+            ReferralId = current.Id,
+            CandidateName = current.CandidateName,
+            Action = "EMPLOYEE_LINKED",
+            PerformedById = resolved.Id,
+            PerformedByLabel = resolved.Label,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Comment = $"Employé lié : {guid}",
+        });
+        await Task.CompletedTask;
     }
 
     public async Task<ReferralEntity?> UpdateStatusAsync(

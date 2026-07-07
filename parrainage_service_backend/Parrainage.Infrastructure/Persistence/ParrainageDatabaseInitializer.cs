@@ -38,6 +38,8 @@ public sealed class ParrainageDatabaseInitializer(
             throw;
         }
 
+        await ParrainageSchemaPatches.ApplyPendingSchemaAsync(db, logger, cancellationToken);
+
         var seedDemo = configuration.GetValue("Parrainage:SeedDemoData", false);
         logger.LogInformation("PARRAINAGE : SeedDemoData={SeedDemo}.", seedDemo);
         try

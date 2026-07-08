@@ -5,7 +5,7 @@ using Microsoft.Extensions.Configuration;
 namespace EmployeeDirectory.Infrastructure.Persistence;
 
 /// <summary>
-/// Département opérationnel minimal pour l'import employés (colonne « OP-001 - departement operationnel »).
+/// Département de production minimal pour l'import employés (colonne « OP-001 »).
 /// </summary>
 internal static class DockerComposeDirectoryDemoSeed
 {
@@ -21,7 +21,7 @@ internal static class DockerComposeDirectoryDemoSeed
         {
             Id = Guid.Parse("11111111-1111-4111-8111-111111110001"),
             Code = "OP-001",
-            Name = "departement operationnel",
+            Name = "Département de production",
             Kind = BusinessDepartmentKind.Operational,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,

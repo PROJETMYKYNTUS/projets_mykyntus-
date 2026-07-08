@@ -14,193 +14,103 @@
   </app-kyntus-page-header>
 
   <div class="search-container">
-
     <div class="search-box ky-card">
-
       <span class="search-icon"><app-lucide-icon [icon]="icons.search" className="w-4 h-4" /></span>
-
       <input
-
         type="text"
-
         class="search-input ky-input"
-
-        placeholder="Rechercher par nom, prénom ou email..."
-
+        placeholder="Rechercher par nom, email, matricule, CIN ou téléphone..."
         [(ngModel)]="searchTerm"
-
         (input)="onSearch()"
-
       />
-
     </div>
-
   </div>
-
-
 
   <div class="card ky-card">
-
     @if (loading) {
-
       <div class="state-box">
-
         <div class="spinner"></div>
-
         <p>Chargement des données en cours...</p>
-
       </div>
-
     } @else if (error) {
-
       <div class="state-box error">
-
         <div class="icon-error"><app-lucide-icon [icon]="icons.warn" className="w-5 h-5" /></div>
-
         <p>{{ error }}</p>
-
         <button class="btn btn-outline ky-btn-secondary" (click)="loadUsers()">Réessayer</button>
-
       </div>
-
     } @else if (filteredUsers.length === 0) {
-
       <div class="state-box empty">
-
         <p>Aucun employé ne correspond à "<strong>{{ searchTerm }}</strong>"</p>
-
         <button class="btn btn-outline ky-btn-secondary" (click)="searchTerm=''; onSearch()">Effacer la recherche</button>
-
       </div>
-
     } @else {
-
       <div class="table-wrapper">
-
         <table class="prime-table">
-
           <thead>
-
             <tr>
-
               <th>Collaborateur</th>
-
               <th>Rôle</th>
-
-              <th>Département</th>
-
-              <th>Pôle</th>
-
-              <th>Cellule</th>
-
-              <th>Service</th>
-
+              <th>Organisation</th>
+              <th>Matricule</th>
+              <th>Téléphone</th>
               <th>Embauche</th>
-
               <th>Ancienneté</th>
-
               <th>Statut</th>
-
-              @for (field of customFieldColumns; track field.fieldKey) {
-                <th>{{ field.label }}</th>
-              }
-
               <th class="col-actions">Actions</th>
-
             </tr>
-
           </thead>
-
           <tbody>
-
             @for (user of filteredUsers; track user.id) {
-
-              <tr>
-
+              <tr class="user-row" (click)="viewUser(user.id)">
                 <td>
-
                   <div class="user-cell">
-
                     <div class="user-avatar">{{ user.lastName[0] }}{{ user.firstName[0] }}</div>
-
                     <div class="user-info">
-
                       <div class="user-name-row">
-
                         <span class="name">{{ user.lastName }} {{ user.firstName }}</span>
-
-                        <span class="level-badge lv-{{ user.level }}">N{{ user.level }}</span>
-
+                        <span class="level-badge lv-{{ user.level }}" [title]="'Niveau contractuel : ' + contractLevelLabel(user.level)">N{{ user.level }}</span>
+                        @if (user.niveauExpertiseMetier) {
+                          <span class="level-badge expertise lv-{{ user.niveauExpertiseMetier }}" [title]="'Expertise métier : ' + (expertiseLevelLabel(user.niveauExpertiseMetier) ?? '')">E{{ user.niveauExpertiseMetier }}</span>
+                        }
                       </div>
-
                       <span class="email">{{ user.email }}</span>
-
                     </div>
-
                   </div>
-
                 </td>
-
                 <td><span class="badge badge-role">{{ user.roleName }}</span></td>
-
-                @if (userPerimeter(user).isSupport) {
-                  <td colspan="4">
-                    <span class="badge badge-support">Support</span>
-                    <span class="org-cell org-cell--support">{{ orgCellLabel(userPerimeter(user).supportDepartmentName) }}</span>
-                  </td>
-                } @else {
-                  <td><span class="org-cell org-cell--dept">{{ orgCellLabel(userPerimeter(user).operationalDepartment) }}</span></td>
-                  <td><span class="org-cell">{{ orgCellLabel(userPerimeter(user).pole) }}</span></td>
-                  <td><span class="org-cell">{{ orgCellLabel(userPerimeter(user).cellule) }}</span></td>
-                  <td><span class="org-cell org-cell--service">{{ orgCellLabel(userPerimeter(user).service) }}</span></td>
-                }
-
-                <td>{{ user.hireDate | date:'dd/MM/yyyy' }}</td>
-
-                <td><span class="text-small">{{ getAnciennete(user.hireDate) }}</span></td>
-
                 <td>
-
-                  <span class="status-indicator" [class.inactive]="!user.isActive">
-
-                    {{ user.isActive ? 'Actif' : 'Inactif' }}
-
+                  <span class="org-summary" [title]="orgSummaryForList(user, userPerimeter(user))">
+                    {{ orgSummaryForList(user, userPerimeter(user)) }}
                   </span>
-
                 </td>
-
-                @for (field of customFieldColumns; track field.fieldKey) {
-                  <td>{{ customFieldValue(user, field.fieldKey) }}</td>
-                }
-
-                <td class="col-actions">
-
+                <td><span class="hr-cell">{{ matriculeDisplay(user) }}</span></td>
+                <td><span class="hr-cell">{{ telephoneDisplay(user) }}</span></td>
+                <td>{{ user.hireDate | date:'dd/MM/yyyy' }}</td>
+                <td><span class="text-small">{{ getAnciennete(user) }}</span></td>
+                <td>
+                  <span class="status-indicator" [class.inactive]="!user.isActive">
+                    {{ user.isActive ? 'Actif' : 'Inactif' }}
+                  </span>
+                </td>
+                <td class="col-actions" (click)="$event.stopPropagation()">
                   <div class="action-group">
-
-                    <button class="btn-action view" title="Voir" (click)="viewUser(user.id)"><app-lucide-icon [icon]="icons.eye" className="w-4 h-4" /></button>
-
-                    <button class="btn-action edit" title="Modifier" (click)="editUser(user.id)"><app-lucide-icon [icon]="icons.edit" className="w-4 h-4" /></button>
-
-                    <button class="btn-action delete" title="Supprimer" (click)="deleteUser(user.id)"><app-lucide-icon [icon]="icons.trash" className="w-4 h-4" /></button>
-
+                    <button class="btn-action view btn-detail" title="Voir les détails" (click)="viewUser(user.id)">
+                      <app-lucide-icon [icon]="icons.eye" className="w-4 h-4" />
+                      <span class="btn-detail-label">Détails</span>
+                    </button>
+                    <button class="btn-action edit" title="Modifier" (click)="editUser(user.id)">
+                      <app-lucide-icon [icon]="icons.edit" className="w-4 h-4" />
+                    </button>
+                    <button class="btn-action delete" title="Supprimer" (click)="deleteUser(user.id)">
+                      <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+                    </button>
                   </div>
-
                 </td>
-
               </tr>
-
             }
-
           </tbody>
-
         </table>
-
       </div>
-
     }
-
   </div>
-
 </div>
-
-

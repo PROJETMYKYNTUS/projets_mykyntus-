@@ -167,10 +167,8 @@ public static class DirectoryPrimeBootstrap
         var active = await db.OrgAssignments
             .Where(a => a.Kind == kind && a.NodeId == nodeId && a.EffectiveTo == null)
             .ToListAsync(ct);
-        if (active.Any(a => a.EmployeeId == employeeId)) return;
-
-        foreach (var row in active)
-            row.EffectiveTo = DateTime.UtcNow;
+        if (active.Any(a => a.EmployeeId == employeeId))
+            return;
 
         db.OrgAssignments.Add(new OrgAssignment
         {

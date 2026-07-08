@@ -208,6 +208,9 @@ public class ImportExecutionJournalTests
 
         public Task<int> SyncEmployeeSubServicesFromDirectoryOverviewAsync(string? authorizationHeader, CancellationToken ct = default) =>
             Task.FromResult(0);
+
+        public Task<EmployeeImportOrgOverview?> GetDirectoryOverviewAsync(string? authorizationHeader, CancellationToken ct = default) =>
+            Task.FromResult<EmployeeImportOrgOverview?>(null);
     }
 }
 

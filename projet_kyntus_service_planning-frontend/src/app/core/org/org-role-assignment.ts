@@ -74,7 +74,7 @@ export function orgAssignmentIsRequired(depth: OrgRoleAssignmentDepth): boolean 
 
 export function orgAssignmentHint(roleName: string, depth: OrgRoleAssignmentDepth): string {
   if (depth === 'pole') {
-    return 'Chef de projet : département opérationnel puis pôle supervisé.';
+    return 'Chef de projet : département de production puis pôle supervisé.';
   }
   if (depth === 'cellule') {
     return 'Superviseur : département, pôle puis cellule supervisée.';

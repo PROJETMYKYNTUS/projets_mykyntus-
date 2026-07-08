@@ -23,6 +23,19 @@ import { EmployeeImportFieldConfig } from '../../services/employee-import.servic
 export class EmployeeFieldsPageComponent implements OnInit {
   readonly icons = { back: ArrowLeft, plus: Plus, save: Save, trash: Trash2, warn: AlertTriangle };
 
+  /** Champs système retirés du modèle (import legacy) — masqués dans l'admin. */
+  private static readonly hiddenSystemFieldKeys = new Set([
+    'isNewEmployee',
+    'managerEmail',
+    'structurePole',
+    'structureCellule',
+    'structureService',
+    'subService',
+    'chefDeProjetEmail',
+    'superviseurEmail',
+    'referentTechniqueEmail',
+  ]);
+
   private readonly fieldSvc = inject(EmployeeFieldService);
   private readonly cdr = inject(ChangeDetectorRef);
 
@@ -154,7 +167,9 @@ export class EmployeeFieldsPageComponent implements OnInit {
   }
 
   systemFields(): EmployeeImportFieldConfig[] {
-    return this.fields.filter((f) => f.isSystemField);
+    return this.fields.filter(
+      (f) => f.isSystemField && !EmployeeFieldsPageComponent.hiddenSystemFieldKeys.has(f.fieldKey),
+    );
   }
 
   private parseAliases(raw: string): string[] {

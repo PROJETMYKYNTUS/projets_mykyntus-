@@ -103,13 +103,23 @@ export function orgCellLabel(value: string | null | undefined): string {
   return value?.trim() || '—';
 }
 
-export function orgPerimeterSummary(view: UserOrgPerimeterView): string {
+/** Libellé département unifié (production ou support) pour les interfaces employés. */
+export function orgDepartmentLabel(
+  view: Pick<UserOrgPerimeterView, 'isSupport' | 'supportDepartmentName' | 'operationalDepartment'>,
+): string | null {
   if (view.isSupport && view.supportDepartmentName?.trim()) {
-    return `Support — ${view.supportDepartmentName.trim()}`;
+    return view.supportDepartmentName.trim();
   }
-  const parts = [view.operationalDepartment, view.pole, view.cellule, view.service].filter(
-    (p) => !!p?.trim(),
-  );
+  return view.operationalDepartment?.trim() || null;
+}
+
+export function orgPerimeterSummary(view: UserOrgPerimeterView): string {
+  const parts = [
+    orgDepartmentLabel(view),
+    view.pole,
+    view.cellule,
+    view.service,
+  ].filter((p) => !!p?.trim());
   return parts.length ? parts.join(' / ') : '—';
 }
 
@@ -194,7 +204,20 @@ export function enrichUserOrgPerimeter(
     (e) => e.id.trim().toLowerCase() === guid.toLowerCase(),
   );
   view = applyOperationalBusinessDepartmentToPerimeter(view, directoryEmployee, businessDepartments);
-  return applySupportDepartmentToPerimeter(view, directoryEmployee, businessDepartments);
+  view = applySupportDepartmentToPerimeter(view, directoryEmployee, businessDepartments);
+  return mergePerimeterWithApiFields(view, user);
+}
+
+function mergePerimeterWithApiFields(view: UserOrgPerimeterView, user: User): UserOrgPerimeterView {
+  if (view.isSupport) return view;
+  const api = orgPerimeterFromUser(user);
+  return {
+    ...view,
+    operationalDepartment: view.operationalDepartment?.trim() || api.operationalDepartment,
+    pole: view.pole?.trim() || api.pole,
+    cellule: view.cellule?.trim() || api.cellule,
+    service: view.service?.trim() || api.service,
+  };
 }
 
 function enrichFromOrgOverview(

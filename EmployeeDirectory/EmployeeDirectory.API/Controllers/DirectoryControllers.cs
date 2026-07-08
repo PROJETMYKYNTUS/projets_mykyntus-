@@ -1,6 +1,7 @@
 using EmployeeDirectory.Application.BusinessDepartments;
 using EmployeeDirectory.Application.Dtos;
 using EmployeeDirectory.Application.Employees;
+using EmployeeDirectory.Application.Exceptions;
 using EmployeeDirectory.Application.Iam;
 using EmployeeDirectory.Application.Org;
 using EmployeeDirectory.Application.Queries.Health;
@@ -83,6 +84,23 @@ public class DirectoryEmployeesController(IMediator mediator) : ControllerBase
     [HttpGet("employees/{id:guid}/assignment-history")]
     public async Task<ActionResult<IReadOnlyList<AssignmentHistoryEntryDto>>> History(Guid id, CancellationToken ct) =>
         Ok(await mediator.Send(new GetAssignmentHistoryQuery(id), ct));
+
+    [HttpGet("employees/{id:guid}/pilot-rotation-history")]
+    public async Task<ActionResult<IReadOnlyList<PilotRotationHistoryEntryDto>>> PilotRotationHistory(
+        Guid id,
+        CancellationToken ct) =>
+        Ok(await mediator.Send(new GetPilotRotationHistoryQuery(id), ct));
+
+    [HttpGet("employees/{id:guid}/pilot-rotation-eligibility")]
+    public async Task<ActionResult<PilotRotationEligibilityDto>> PilotRotationEligibility(
+        Guid id,
+        [FromQuery] string targetServiceId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(targetServiceId))
+            return BadRequest(new { error = "targetServiceId requis." });
+        return Ok(await mediator.Send(new GetPilotRotationEligibilityQuery(id, targetServiceId), ct));
+    }
 }
 
 [ApiController]
@@ -202,8 +220,41 @@ public class DirectoryOrgController(IMediator mediator, ILogger<DirectoryOrgCont
         if (!Guid.TryParse(body.EmployeeId, out var employeeId))
             return BadRequest(new { error = "employeeId invalide" });
         var changedBy = User.GetSubjectId();
-        var result = await mediator.Send(new AssignStructureRoleCommand(kind, nodeId, employeeId, changedBy, body.Reason), ct);
-        return Ok(result);
+        IReadOnlyList<Guid>? revokeIds = null;
+        if (body.RevokeEmployeeIds is { Count: > 0 })
+        {
+            revokeIds = body.RevokeEmployeeIds
+                .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                .Where(g => g != Guid.Empty)
+                .ToList();
+        }
+
+        var forceOverride = body.ForceTenureOverride == true
+            && User.IsInRole("Admin");
+
+        try
+        {
+            var result = await mediator.Send(
+                new AssignStructureRoleCommand(
+                    kind, nodeId, employeeId, changedBy, body.Reason, revokeIds, forceOverride),
+                ct);
+            return Ok(result);
+        }
+        catch (PilotRotationTenureException ex)
+        {
+            return UnprocessableEntity(new
+            {
+                error = ex.Message,
+                currentServiceId = ex.CurrentServiceId,
+                currentSince = ex.CurrentSince,
+                eligibleAt = ex.EligibleAt,
+                daysRemaining = ex.DaysRemaining,
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
     }
 
     [HttpDelete("assignments/Pilote/{serviceId}/employees/{employeeId:guid}")]
@@ -211,6 +262,16 @@ public class DirectoryOrgController(IMediator mediator, ILogger<DirectoryOrgCont
     {
         var changedBy = User.GetSubjectId();
         return await mediator.Send(new RemoveStructurePilotCommand(serviceId, employeeId, changedBy), ct)
+            ? NoContent()
+            : NotFound();
+    }
+
+    [HttpDelete("assignments/{kind}/{nodeId}/employees/{employeeId:guid}")]
+    public async Task<IActionResult> RemoveAssignment(string kind, string nodeId, Guid employeeId, CancellationToken ct)
+    {
+        var changedBy = User.GetSubjectId();
+        return await mediator.Send(
+            new RemoveStructureAssignmentCommand(kind, nodeId, employeeId, changedBy, null), ct)
             ? NoContent()
             : NotFound();
     }
@@ -380,7 +441,11 @@ public class DirectoryHealthController(IMediator mediator) : ControllerBase
 }
 
 public record CreateNodeRequest(string Name);
-public record AssignRequest(string EmployeeId, string? Reason);
+public record AssignRequest(
+    string EmployeeId,
+    string? Reason,
+    IReadOnlyList<string>? RevokeEmployeeIds,
+    bool? ForceTenureOverride);
 public record SetAuthSubjectRequest(Guid AuthSubjectId);
 public record EvaluatePolicyRequest(string Action, string ResourceType, string? ResourceId);
 

@@ -34,7 +34,7 @@ import type { OperationalDepartmentNode } from '../models/org-tree.types';
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div class="lg:col-span-1 space-y-6">
-            <app-prime-card title="Organization Structure" description="Départements opérationnels actifs">
+            <app-prime-card title="Organization Structure" description="Départements de production actifs">
               <div class="space-y-4">
                 @for (dept of operationalDepartments(); track dept.id) {
                   <div
@@ -65,7 +65,7 @@ import type { OperationalDepartmentNode } from '../models/org-tree.types';
           </div>
 
           <div class="lg:col-span-2 space-y-6">
-            <app-prime-card title="Structure Details" description="Département opérationnel">
+            <app-prime-card title="Structure Details" description="Département de production">
               <div class="space-y-6">
                 @for (pole of firstOperationalDeptPoles(); track pole.id) {
                   <div class="bg-navy-900 rounded-xl p-5 border border-default">

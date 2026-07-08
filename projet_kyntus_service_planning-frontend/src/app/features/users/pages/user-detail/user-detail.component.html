@@ -4,7 +4,7 @@
 
     <app-kyntus-page-header
       title="Détail employé"
-      subtitle="Informations du compte et périmètre organisationnel">
+      subtitle="Fiche complète — toutes les données du collaborateur">
       <div actions>
         <button type="button" class="ky-btn-secondary" (click)="goBack()">
           <app-lucide-icon [icon]="icons.back" className="w-4 h-4" />
@@ -12,49 +12,28 @@
         </button>
         @if (user) {
           <button type="button" class="ky-btn-secondary" (click)="editUser()">
-
             <app-lucide-icon [icon]="icons.edit" className="w-4 h-4" />
-
             Modifier
-
           </button>
-
           <button type="button" class="ky-btn-danger" (click)="deleteUser()">
-
             <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
-
             Supprimer
-
           </button>
-
         }
       </div>
     </app-kyntus-page-header>
 
-
-
     <div class="card ky-card">
-
       @if (loading) {
-
         <div class="state-box">
-
           <div class="spinner"></div>
-
           <p>Chargement des informations...</p>
-
         </div>
-
       } @else if (error) {
-
         <div class="state-box error">
-
           <p>{{ error }}</p>
-
           <button type="button" class="btn btn-outline ky-btn-secondary" (click)="goBack()">Retour</button>
-
         </div>
-
       } @else if (user) {
 
         @if (linkedReferral) {
@@ -68,194 +47,126 @@
         }
 
         <section class="profile-hero">
-
           <div class="avatar">{{ user.firstName[0] }}{{ user.lastName[0] }}</div>
-
           <div class="profile-main">
-
             <h2>{{ user.firstName }} {{ user.lastName }}</h2>
-
             <p class="email">{{ user.email }}</p>
-
             <div class="profile-badges">
-
               <span class="badge badge-role">{{ user.roleName }}</span>
-
               <span class="level-badge lv-{{ user.level }}">N{{ user.level }} — {{ levelLabel(user.level) }}</span>
-
+              @if (user.niveauExpertiseMetier) {
+                <span class="level-badge expertise lv-{{ user.niveauExpertiseMetier }}">
+                  E{{ user.niveauExpertiseMetier }} — {{ expertiseLevelLabel(user.niveauExpertiseMetier) }}
+                </span>
+              }
               <span class="status-indicator" [class.inactive]="!user.isActive">
-
                 {{ user.isActive ? 'Actif' : 'Inactif' }}
-
               </span>
-
             </div>
-
+            <div class="profile-quick-stats">
+              <span>Embauche : {{ user.hireDate | date:'dd/MM/yyyy' }}</span>
+              <span>Ancienneté : {{ getAnciennete() }}</span>
+              <span>Matricule : {{ user.hrProfile?.immatriculationInterne?.trim() || '—' }}</span>
+            </div>
           </div>
-
         </section>
 
-
-
         <section class="form-section">
-
           <div class="section-heading">
-
             <h2>Périmètre organisationnel</h2>
-
+            <p>Affectation synchronisée avec Organisation RH (département, pôle, cellule, service).</p>
             @if (perimeter.isSupport) {
-              <p>Département Support — équipe plate (Allowances).</p>
-            } @else {
-              <p>Affectation synchronisée avec Organisation RH (département → pôle → cellule → service).</p>
+              <p class="section-hint">Profil rattaché à un département Support (équipe plate Allowances).</p>
             }
-
           </div>
-
           <div class="org-breadcrumb">{{ perimeterSummary }}</div>
-
-          @if (perimeter.isSupport) {
-            <div class="info-grid org-grid">
-              <div class="info-item">
-                <span class="info-label">Département Support</span>
-                <span class="info-value info-value--accent">{{ orgCellLabel(perimeter.supportDepartmentName) }}</span>
-              </div>
+          <div class="info-grid org-grid">
+            <div class="info-item">
+              <span class="info-label">Département</span>
+              <span class="info-value info-value--accent">{{ orgCellLabel(orgDepartmentLabel(perimeter)) }}</span>
             </div>
-          } @else {
-            <div class="info-grid org-grid">
-
-              <div class="info-item">
-
-                <span class="info-label">Département opérationnel</span>
-
-                <span class="info-value info-value--accent">{{ orgCellLabel(perimeter.operationalDepartment) }}</span>
-
-              </div>
-
-              <div class="info-item">
-
-                <span class="info-label">Pôle</span>
-
-                <span class="info-value">{{ orgCellLabel(perimeter.pole) }}</span>
-
-              </div>
-
-              <div class="info-item">
-
-                <span class="info-label">Cellule</span>
-
-                <span class="info-value">{{ orgCellLabel(perimeter.cellule) }}</span>
-
-              </div>
-
-              <div class="info-item">
-
-                <span class="info-label">Service</span>
-
-                <span class="info-value info-value--accent">{{ orgCellLabel(perimeter.service) }}</span>
-
-              </div>
-
+            <div class="info-item">
+              <span class="info-label">Pôle</span>
+              <span class="info-value">{{ orgCellLabel(perimeter.pole) }}</span>
             </div>
-          }
-
+            <div class="info-item">
+              <span class="info-label">Cellule</span>
+              <span class="info-value">{{ orgCellLabel(perimeter.cellule) }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Service</span>
+              <span class="info-value info-value--accent">{{ orgCellLabel(perimeter.service) }}</span>
+            </div>
+          </div>
         </section>
 
-
-
-        <section class="form-section">
-
-          <div class="section-heading">
-
-            <h2>Informations RH</h2>
-
-          </div>
-
-          <div class="info-grid">
-
-            <div class="info-item">
-
-              <span class="info-label">Date d'embauche</span>
-
-              <span class="info-value">{{ user.hireDate | date:'dd/MM/yyyy' }}</span>
-
-            </div>
-
-            <div class="info-item">
-
-              <span class="info-label">Ancienneté</span>
-
-              <span class="info-value">{{ getAnciennete(user.hireDate) }}</span>
-
-            </div>
-
-            <div class="info-item">
-
-              <span class="info-label">Compte créé le</span>
-
-              <span class="info-value">{{ user.createdAt | date:'dd/MM/yyyy' }}</span>
-
-            </div>
-
-          </div>
-
-        </section>
-
-
-
-        @if (customFields.length) {
-          <section class="form-section">
+        @if (showPilotRotationHistory) {
+          <section class="form-section detail-section">
             <div class="section-heading">
-              <h2>Informations complémentaires</h2>
+              <h2>Historique des rotations</h2>
+              <p>Parcours Pilote sur les services (règle des 6 mois minimum par service).</p>
+            </div>
+            @if (pilotRotationLoading) {
+              <p class="section-hint">Chargement de l'historique…</p>
+            } @else if (pilotRotationHistory.length === 0) {
+              <p class="section-hint">Aucune rotation enregistrée pour cet employé.</p>
+            } @else {
+              <div class="rotation-timeline">
+                @for (entry of pilotRotationHistory; track entry.serviceId + entry.effectiveFrom) {
+                  <article class="rotation-entry" [class.rotation-entry--override]="entry.isOverride">
+                    <div class="rotation-entry-header">
+                      <strong>{{ entry.serviceName }}</strong>
+                      @if (entry.isOverride) {
+                        <span class="rotation-badge rotation-badge--override">Dérogation</span>
+                      }
+                      @if (!entry.effectiveTo) {
+                        <span class="rotation-badge rotation-badge--current">Actuel</span>
+                      }
+                    </div>
+                    <dl class="rotation-meta">
+                      <div>
+                        <dt>Du</dt>
+                        <dd>{{ formatRotationDate(entry.effectiveFrom) }}</dd>
+                      </div>
+                      <div>
+                        <dt>Au</dt>
+                        <dd>{{ formatRotationDate(entry.effectiveTo) }}</dd>
+                      </div>
+                      <div>
+                        <dt>Durée</dt>
+                        <dd>{{ formatRotationDuration(entry.durationDays) }}</dd>
+                      </div>
+                    </dl>
+                    @if (entry.changeReason?.trim()) {
+                      <p class="rotation-reason">{{ entry.changeReason }}</p>
+                    }
+                  </article>
+                }
+              </div>
+            }
+          </section>
+        }
+
+        @for (section of detailSections; track section.id) {
+          <section class="form-section detail-section">
+            <div class="section-heading">
+              <h2>{{ section.title }}</h2>
+              @if (section.description) {
+                <p>{{ section.description }}</p>
+              }
             </div>
             <div class="info-grid">
-              @for (field of customFields; track field.fieldKey) {
+              @for (row of section.rows; track row.label + row.value) {
                 <div class="info-item">
-                  <span class="info-label">{{ field.label }}</span>
-                  <span class="info-value">{{ customFieldValue(field.fieldKey) }}</span>
+                  <span class="info-label">{{ row.label }}</span>
+                  <span class="info-value" [class.info-value--empty]="row.value === '—'">{{ row.value }}</span>
                 </div>
               }
             </div>
           </section>
         }
 
-        @if (user.managedServices.length || user.managedSubServices.length) {
-
-          <section class="form-section">
-
-            <div class="section-heading">
-
-              <h2>Périmètre supervisé</h2>
-
-              <p>Responsabilités hiérarchiques enregistrées dans Planning.</p>
-
-            </div>
-
-            <div class="tags-container">
-
-              @for (svc of user.managedServices; track svc.id) {
-
-                <span class="tag tag-service">{{ svc.floorName }} / {{ svc.name }}</span>
-
-              }
-
-              @for (sub of user.managedSubServices; track sub.id) {
-
-                <span class="tag tag-sub">{{ sub.serviceName }} / {{ sub.name }}</span>
-
-              }
-
-            </div>
-
-          </section>
-
-        }
-
       }
-
     </div>
-
   </div>
-
 </div>
-
-

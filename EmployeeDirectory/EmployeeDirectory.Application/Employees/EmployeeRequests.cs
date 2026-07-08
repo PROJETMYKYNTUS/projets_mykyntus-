@@ -75,3 +75,22 @@ public sealed class GetAssignmentHistoryQueryHandler(IDirectoryReadService read)
     public Task<IReadOnlyList<AssignmentHistoryEntryDto>> Handle(GetAssignmentHistoryQuery request, CancellationToken ct) =>
         read.GetAssignmentHistoryAsync(request.EmployeeId, ct);
 }
+
+public record GetPilotRotationHistoryQuery(Guid EmployeeId) : IRequest<IReadOnlyList<PilotRotationHistoryEntryDto>>;
+
+public sealed class GetPilotRotationHistoryQueryHandler(IPilotRotationTenureService tenure)
+    : IRequestHandler<GetPilotRotationHistoryQuery, IReadOnlyList<PilotRotationHistoryEntryDto>>
+{
+    public Task<IReadOnlyList<PilotRotationHistoryEntryDto>> Handle(GetPilotRotationHistoryQuery request, CancellationToken ct) =>
+        tenure.GetRotationHistoryAsync(request.EmployeeId, ct);
+}
+
+public record GetPilotRotationEligibilityQuery(Guid EmployeeId, string TargetServiceId)
+    : IRequest<PilotRotationEligibilityDto>;
+
+public sealed class GetPilotRotationEligibilityQueryHandler(IPilotRotationTenureService tenure)
+    : IRequestHandler<GetPilotRotationEligibilityQuery, PilotRotationEligibilityDto>
+{
+    public Task<PilotRotationEligibilityDto> Handle(GetPilotRotationEligibilityQuery request, CancellationToken ct) =>
+        tenure.GetEligibilityAsync(request.EmployeeId, request.TargetServiceId, ct);
+}

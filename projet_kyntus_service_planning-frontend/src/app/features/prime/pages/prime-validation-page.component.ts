@@ -288,7 +288,9 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
                           Prime {{ formatAmount(item.primeAmount) }} • Chal.
                           {{ formatAmount(item.challengeAmount) }}
                         </div>
-                        <div class="text-[10px] text-muted/80 mt-0.5">Issus de la fiche employé</div>
+                        <div class="text-[10px] text-muted/80 mt-0.5">
+                          Montants calculés ou plafonds pilote en attente de validation finale
+                        </div>
                       </td>
                       <td>
                         <span class="prime-status-badge">

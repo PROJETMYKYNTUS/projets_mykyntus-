@@ -89,7 +89,7 @@ public sealed class PrimeValidationListService(
         var ready = draft is not null &&
                     PrimeFicheValidationSubmissionService.ComputeIsReadyForValidation(draft, f);
 
-        var amounts = PrimeEmployeeFicheAmountService.ExtractFromFiche(f);
+        var amounts = PrimeEmployeeFicheAmountService.ResolveWorkflowDisplayAmounts(f);
 
         return new EmployeePrimeServiceFicheValidationDto
         {

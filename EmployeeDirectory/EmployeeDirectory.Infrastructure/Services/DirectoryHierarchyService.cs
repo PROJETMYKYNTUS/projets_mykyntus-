@@ -10,8 +10,14 @@ public sealed class DirectoryHierarchyService(DirectoryDbContext db)
 {
     public async Task<Guid?> ResolveDefaultParentIdAsync(Employee employee, CancellationToken ct)
     {
+        if (employee.ReferentTechniqueId.HasValue)
+            return employee.ReferentTechniqueId;
         if (employee.SuperviseurId.HasValue)
             return employee.SuperviseurId;
+        if (employee.ChefDeProjetId.HasValue)
+            return employee.ChefDeProjetId;
+        if (employee.ParentId.HasValue)
+            return employee.ParentId;
 
         if (employee.BusinessDepartmentId.HasValue)
         {

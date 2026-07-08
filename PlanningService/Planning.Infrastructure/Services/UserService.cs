@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using Kyntus.Messaging.Contracts;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Planning.Infrastructure.Messaging.Publishers;
 using Planning.Infrastructure.Persistence;
@@ -23,6 +25,7 @@ public class UserService : IUserService
     private readonly IConfiguration _configuration;
     private readonly ILogger<UserService> _logger;
     private readonly IEmployeeFieldService _fieldService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public UserService(
            AppDbContext context,
@@ -34,7 +37,8 @@ public class UserService : IUserService
            IDirectoryOrgWriteClient directoryOrg,
            IConfiguration configuration,
            ILogger<UserService> logger,
-           IEmployeeFieldService fieldService)
+           IEmployeeFieldService fieldService,
+           IHttpContextAccessor httpContextAccessor)
     {
         _context = context;
         _employePublisher = employePublisher;
@@ -46,6 +50,7 @@ public class UserService : IUserService
         _configuration = configuration;
         _logger = logger;
         _fieldService = fieldService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<List<UserDto>> GetAllUsersAsync()
@@ -361,6 +366,12 @@ public class UserService : IUserService
             .Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Id == id);
         if (user == null) return null;
+
+        var callerRole = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value
+            ?? _httpContextAccessor.HttpContext?.User?.FindFirst("role")?.Value
+            ?? string.Empty;
+        if (dto.NiveauExpertiseMetier.HasValue && !IsHrOrAdminRole(callerRole))
+            throw new UnauthorizedAccessException("Seuls RH et Admin peuvent modifier l'expertise métier.");
 
         user.RoleId = dto.RoleId;
         user.SubServiceId = dto.SubServiceId;

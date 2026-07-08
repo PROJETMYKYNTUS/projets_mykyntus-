@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable, throwError, timer } from 'rxjs';
 import { catchError, filter, map, switchMap, take, timeout } from 'rxjs/operators';
+import type { PilotRotationEligibilityDto } from '../../../core/directory/directory-employee-api.service';
 import type { Cellule, Department, Employee, Pole } from '../models';
 import type { OperationalDepartmentNode, OrgPoleNode } from '../models/org-tree.types';
 
@@ -59,8 +60,16 @@ export interface RevokedStructuralRoleDto {
   departmentCode?: string | null;
 }
 
+export interface NodeIncumbentRevokedDto {
+  employeeId: string;
+  kind: string;
+  nodeId: string;
+}
+
 export interface StructuralRoleAssignmentResult {
   revoked: RevokedStructuralRoleDto[];
+  revokedOnNode?: NodeIncumbentRevokedDto[];
+  addedEmployeeId?: string | null;
 }
 
 export interface SupervisorOrgScopeService {
@@ -208,24 +217,42 @@ export class PrimeOrgApiService {
     );
   }
 
-  assignManagerEtage(userId: string, etageId: string): Observable<StructuralRoleAssignmentResult> {
-    return this.http.post<StructuralRoleAssignmentResult>(
-      `${orgBase}/assignments/ChefDeProjet/${encodeURIComponent(etageId)}`,
-      { employeeId: userId },
-    );
+  assignManagerEtage(
+    userId: string,
+    etageId: string,
+    revokeEmployeeIds?: string[],
+  ): Observable<StructuralRoleAssignmentResult> {
+    return this.assignStructureRole('ChefDeProjet', etageId, userId, revokeEmployeeIds);
   }
 
-  assignSupervisorService(userId: string, serviceId: string): Observable<StructuralRoleAssignmentResult> {
-    return this.http.post<StructuralRoleAssignmentResult>(
-      `${orgBase}/assignments/Superviseur/${encodeURIComponent(serviceId)}`,
-      { employeeId: userId },
-    );
+  assignSupervisorService(
+    userId: string,
+    serviceId: string,
+    revokeEmployeeIds?: string[],
+  ): Observable<StructuralRoleAssignmentResult> {
+    return this.assignStructureRole('Superviseur', serviceId, userId, revokeEmployeeIds);
   }
 
-  assignCoachSousService(userId: string, sousServiceId: string): Observable<StructuralRoleAssignmentResult> {
+  assignCoachSousService(
+    userId: string,
+    sousServiceId: string,
+    revokeEmployeeIds?: string[],
+  ): Observable<StructuralRoleAssignmentResult> {
+    return this.assignStructureRole('ReferentTechnique', sousServiceId, userId, revokeEmployeeIds);
+  }
+
+  assignStructureRole(
+    kind: 'ChefDeProjet' | 'Superviseur' | 'ReferentTechnique' | 'Pilote',
+    nodeId: string,
+    employeeId: string,
+    revokeEmployeeIds?: string[],
+  ): Observable<StructuralRoleAssignmentResult> {
     return this.http.post<StructuralRoleAssignmentResult>(
-      `${orgBase}/assignments/ReferentTechnique/${encodeURIComponent(sousServiceId)}`,
-      { employeeId: userId },
+      `${orgBase}/assignments/${kind}/${encodeURIComponent(nodeId)}`,
+      {
+        employeeId,
+        revokeEmployeeIds: revokeEmployeeIds?.length ? revokeEmployeeIds : undefined,
+      },
     );
   }
 
@@ -234,6 +261,28 @@ export class PrimeOrgApiService {
       coachUserId,
       pilotUserId,
     });
+  }
+
+  removeStructureIncumbent(
+    kind: 'ChefDeProjet' | 'Superviseur' | 'ReferentTechnique' | 'Pilote',
+    nodeId: string,
+    employeeId: string,
+  ): Observable<unknown> {
+    return this.http.delete(
+      `${orgBase}/assignments/${kind}/${encodeURIComponent(nodeId)}/employees/${encodeURIComponent(employeeId)}`,
+    );
+  }
+
+  removeManagerIncumbent(etageId: string, employeeId: string): Observable<unknown> {
+    return this.removeStructureIncumbent('ChefDeProjet', etageId, employeeId);
+  }
+
+  removeSupervisorIncumbent(celluleId: string, employeeId: string): Observable<unknown> {
+    return this.removeStructureIncumbent('Superviseur', celluleId, employeeId);
+  }
+
+  removeCoachIncumbent(serviceId: string, employeeId: string): Observable<unknown> {
+    return this.removeStructureIncumbent('ReferentTechnique', serviceId, employeeId);
   }
 
   removeManagerEtage(id: string): Observable<unknown> {
@@ -255,34 +304,64 @@ export class PrimeOrgApiService {
     return this.http.delete(`${primeBase}/org/assignments/coach-pilot/${encodeURIComponent(id)}`);
   }
 
-  setStructureManager(departmentId: string, employeeId: string): Observable<StructuralRoleAssignmentResult> {
-    return this.assignManagerEtage(employeeId, departmentId);
+  setStructureManager(
+    departmentId: string,
+    employeeId: string,
+    revokeEmployeeIds?: string[],
+  ): Observable<StructuralRoleAssignmentResult> {
+    return this.assignManagerEtage(employeeId, departmentId, revokeEmployeeIds);
   }
 
   clearStructureManager(departmentId: string): Observable<unknown> {
     return this.removeManagerEtage(`m|*|${departmentId}`);
   }
 
-  setStructureSupervisor(poleId: string, employeeId: string): Observable<StructuralRoleAssignmentResult> {
-    return this.assignSupervisorService(employeeId, poleId);
+  setStructureSupervisor(
+    poleId: string,
+    employeeId: string,
+    revokeEmployeeIds?: string[],
+  ): Observable<StructuralRoleAssignmentResult> {
+    return this.assignSupervisorService(employeeId, poleId, revokeEmployeeIds);
   }
 
   clearStructureSupervisor(poleId: string): Observable<unknown> {
     return this.removeSupervisorService(`s|*|${poleId}`);
   }
 
-  setStructureCoach(celluleId: string, employeeId: string): Observable<StructuralRoleAssignmentResult> {
-    return this.assignCoachSousService(employeeId, celluleId);
+  setStructureCoach(
+    celluleId: string,
+    employeeId: string,
+    revokeEmployeeIds?: string[],
+  ): Observable<StructuralRoleAssignmentResult> {
+    return this.assignCoachSousService(employeeId, celluleId, revokeEmployeeIds);
   }
 
   clearStructureCoach(celluleId: string): Observable<unknown> {
     return this.removeCoachSousService(`c|*|${celluleId}`);
   }
 
-  addStructurePilot(serviceId: string, employeeId: string, _teamId?: string | null): Observable<StructuralRoleAssignmentResult> {
+  addStructurePilot(
+    serviceId: string,
+    employeeId: string,
+    options?: { reason?: string; forceTenureOverride?: boolean },
+  ): Observable<StructuralRoleAssignmentResult> {
     return this.http.post<StructuralRoleAssignmentResult>(
       `${orgBase}/assignments/Pilote/${encodeURIComponent(serviceId)}`,
-      { employeeId },
+      {
+        employeeId,
+        reason: options?.reason,
+        forceTenureOverride: options?.forceTenureOverride ?? false,
+      },
+    );
+  }
+
+  getPilotRotationEligibility(
+    employeeId: string,
+    targetServiceId: string,
+  ): Observable<PilotRotationEligibilityDto> {
+    return this.http.get<PilotRotationEligibilityDto>(
+      `${directoryBase}/employees/${encodeURIComponent(employeeId)}/pilot-rotation-eligibility`,
+      { params: { targetServiceId } },
     );
   }
 

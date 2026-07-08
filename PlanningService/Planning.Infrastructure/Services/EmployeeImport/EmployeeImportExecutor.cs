@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Planning.Application.Abstractions;
 using Planning.Application.Abstractions.EmployeeImport;
 using Planning.Infrastructure.Persistence;
 using Planning.Application.DTOs;
@@ -17,13 +19,17 @@ public interface IEmployeeImportExecutor
 public class EmployeeImportExecutor(
     AppDbContext db,
     IEmployeeImportUserPersistence userPersistence,
+    IUserService userService,
+    IContractService contractService,
     IEmployeeImportSessionStore sessionStore,
     IEmployeeImportConfigService configService,
     IEmployeeFieldService fieldService,
     IEmployeeImportOrgResolver orgResolver,
     IEmployeeImportOrgProvisioner orgProvisioner,
     IEmployeeImportStructureAssignmentService structureAssignment,
-    IImportExecutionJournal journal) : IEmployeeImportExecutor
+    IImportExecutionJournal journal,
+    IPlanningOrgMirrorService orgMirror,
+    IHttpContextAccessor httpContextAccessor) : IEmployeeImportExecutor
 {
     public async Task<EmployeeImportReportDto> ExecuteAsync(
         EmployeeImportExecuteRequest request,
@@ -42,6 +48,10 @@ public class EmployeeImportExecutor(
         var orgSnapshot = await orgResolver.LoadSnapshotAsync(ct);
 
         ValidateStructuralPreconditions(parsed, columnToField, request, orgSnapshot);
+
+        var auth = httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
+        var directoryOverview = await orgMirror.GetDirectoryOverviewAsync(
+            string.IsNullOrWhiteSpace(auth) ? null : auth, ct);
 
         if (request.ApprovedOrgCreations.Count > 0)
             EmployeeImportOrgExistence.ValidateNoDuplicateCreations(request.ApprovedOrgCreations, orgSnapshot);
@@ -120,7 +130,8 @@ public class EmployeeImportExecutor(
 
                     if (existing is null)
                     {
-                        var created = await CreateAsync(effectiveMapped, email, orgSnapshot, roleResult, activeFields, ct);
+                        var created = await CreateAsync(
+                            effectiveMapped, email, orgSnapshot, roleResult, activeFields, directoryOverview, ct);
                         journal.RecordUserCreated(created.Id, created.Guid, created.AuthUserId);
 
                         try
@@ -133,6 +144,7 @@ public class EmployeeImportExecutor(
                                 effectiveMapped,
                                 orgSnapshot,
                                 ct);
+                            await UpsertContractForUserAsync(created.Id, effectiveMapped, created.HireDate, ct);
                             AddLine(job, report, lineNumber, email, "create", "Employé créé.");
                         }
                         catch (Exception lineEx)
@@ -143,22 +155,25 @@ public class EmployeeImportExecutor(
                     }
                     else
                     {
+                        var fullUser = await userService.GetUserByIdAsync(existing.Id);
                         var customBefore = await fieldService.LoadCustomFieldsForUsersAsync([existing.Id], ct);
                         var previousCustom = customBefore.GetValueOrDefault(existing.Id)
                             ?? new Dictionary<string, string?>();
 
-                        var updated = await UpdateAsync(
-                            existing.Id, effectiveMapped, email, orgSnapshot, roleResult, activeFields, ct);
-                        UpdateUserDto? previousState = null;
-                        if (updated is not null)
-                            previousState = BuildUpdateSnapshot(existing);
+                        var previousState = fullUser is not null
+                            ? EmployeeImportHrProfileMapper.MapToUpdateDto(fullUser)
+                            : BuildUpdateSnapshot(existing);
+
+                        var (updated, contractChanged) = await UpdateAsync(
+                            existing.Id, effectiveMapped, email, orgSnapshot, roleResult, activeFields, fullUser,
+                            directoryOverview, ct);
 
                         var customChanged = await UpsertCustomFieldsForUserAsync(
                             existing.Id, effectiveMapped, activeFields, isCreate: false, ct);
 
-                        if (updated is not null || customChanged)
+                        if (updated is not null || customChanged || contractChanged)
                         {
-                            if (updated is not null && previousState is not null)
+                            if (updated is not null)
                             {
                                 journal.RecordUserUpdated(existing.Id, previousState, previousCustomFields: previousCustom);
 
@@ -177,6 +192,10 @@ public class EmployeeImportExecutor(
                                     await journal.RollbackLastUserChangeAsync(ct);
                                     AddLine(job, report, lineNumber, email, "error", lineEx.Message);
                                 }
+                            }
+                            else if (contractChanged)
+                            {
+                                AddLine(job, report, lineNumber, email, "update", "Employé mis à jour.");
                             }
                             else
                             {
@@ -311,6 +330,7 @@ public class EmployeeImportExecutor(
         EmployeeImportOrgSnapshot orgSnapshot,
         RoleResolveResult roleResult,
         List<EmployeeImportFieldConfigDto> activeFields,
+        EmployeeImportOrgOverview? directoryOverview,
         CancellationToken ct)
     {
         ValidateRequiredOnCreate(mapped, activeFields);
@@ -324,6 +344,10 @@ public class EmployeeImportExecutor(
             ? orgResolver.ResolveSubServiceId(orgSnapshot, mapped)
             : null;
 
+        var hireDate = ResolveHireDate(mapped);
+        var hrBuild = EmployeeImportHrProfileMapper.BuildForCreate(mapped, hireDate);
+        var mentors = await ResolveMentorsAsync(mapped, roleResult.CanonicalRoleName, directoryOverview, ct);
+
         var dto = new CreateUserFromImportDto
         {
             Email = email,
@@ -331,29 +355,38 @@ public class EmployeeImportExecutor(
             LastName = GetRequired(mapped, "lastName"),
             RoleId = roleId,
             SubServiceId = subServiceId,
-            HireDate = ResolveHireDate(mapped),
+            HireDate = hireDate,
             Level = ResolveLevel(mapped),
             Password = mapped.GetValueOrDefault("password"),
             IsActiveOnImport = mapped.ContainsKey("isActive") &&
                 EmployeeImportRowMapper.TryParseBool(mapped["isActive"], out var isActive)
                 ? isActive
                 : null,
+            HrProfile = hrBuild.Profile,
+            NiveauExpertiseMetier = hrBuild.NiveauExpertiseMetier,
+            ChefDeProjetId = mentors.Chef,
+            SuperviseurId = mentors.Superviseur,
+            ReferentTechniqueId = mentors.Referent,
         };
 
         return await userPersistence.CreateFromImportAsync(dto, ct);
     }
 
-    private async Task<EmployeeImportUserResult?> UpdateAsync(
+    private async Task<(EmployeeImportUserResult? User, bool ContractChanged)> UpdateAsync(
         int userId,
         Dictionary<string, string?> mapped,
         string email,
         EmployeeImportOrgSnapshot orgSnapshot,
         RoleResolveResult roleResult,
         List<EmployeeImportFieldConfigDto> activeFields,
+        UserDto? fullUser,
+        EmployeeImportOrgOverview? directoryOverview,
         CancellationToken ct)
     {
         var existing = await userPersistence.GetByIdAsync(userId, ct)
             ?? throw new InvalidOperationException("Employé introuvable.");
+
+        fullUser ??= await userService.GetUserByIdAsync(userId);
 
         var hasOrgColumns = mapped.ContainsKey("pole") || mapped.ContainsKey("cellule") ||
                             mapped.ContainsKey("service") || mapped.ContainsKey("subService");
@@ -373,6 +406,24 @@ public class EmployeeImportExecutor(
             EnsureImportRoleAllowed(orgSnapshot.Roles, newRoleId);
         }
 
+        var hireDate = mapped.ContainsKey("hireDate") && EmployeeImportRowMapper.TryParseDate(mapped["hireDate"], out var hd)
+            ? hd
+            : existing.HireDate;
+
+        var hrMerge = EmployeeImportHrProfileMapper.MergeForUpdate(
+            mapped,
+            fullUser?.HrProfile,
+            fullUser?.NiveauExpertiseMetier,
+            fullUser?.ChefDeProjetId,
+            fullUser?.SuperviseurId,
+            fullUser?.ReferentTechniqueId,
+            hireDate);
+
+        var mentors = await ResolveMentorsAsync(mapped, roleResult.CanonicalRoleName, directoryOverview, ct);
+        var chefId = mapped.ContainsKey("chefDeProjetName") ? mentors.Chef : fullUser?.ChefDeProjetId;
+        var superviseurId = mapped.ContainsKey("superviseurName") ? mentors.Superviseur : fullUser?.SuperviseurId;
+        var referentId = mapped.ContainsKey("referentTechniqueName") ? mentors.Referent : fullUser?.ReferentTechniqueId;
+
         var dto = new UpdateUserDto
         {
             Email = email,
@@ -382,12 +433,16 @@ public class EmployeeImportExecutor(
                 ? ln.Trim() : existing.LastName,
             RoleId = newRoleId,
             SubServiceId = hasOrgColumns ? newSubServiceId : existing.SubServiceId,
-            HireDate = mapped.ContainsKey("hireDate") && EmployeeImportRowMapper.TryParseDate(mapped["hireDate"], out var hd)
-                ? hd : existing.HireDate,
+            HireDate = hireDate,
             Level = mapped.TryGetValue("level", out var levelRaw) && !string.IsNullOrWhiteSpace(levelRaw)
                 ? EmployeeImportLevelResolver.Resolve(levelRaw)
                 : existing.Level,
             IsActive = existing.IsActive,
+            HrProfile = hrMerge.Profile,
+            NiveauExpertiseMetier = hrMerge.NiveauExpertiseMetier,
+            ChefDeProjetId = chefId,
+            SuperviseurId = superviseurId,
+            ReferentTechniqueId = referentId,
         };
 
         if (mapped.ContainsKey("isActive") &&
@@ -396,6 +451,10 @@ public class EmployeeImportExecutor(
             dto.IsActive = isActive;
         }
 
+        var mentorsChanged = (mapped.ContainsKey("chefDeProjetName") && chefId != fullUser?.ChefDeProjetId)
+            || (mapped.ContainsKey("superviseurName") && superviseurId != fullUser?.SuperviseurId)
+            || (mapped.ContainsKey("referentTechniqueName") && referentId != fullUser?.ReferentTechniqueId);
+
         var changed = dto.FirstName != existing.FirstName
             || dto.LastName != existing.LastName
             || dto.Email != existing.Email
@@ -403,13 +462,62 @@ public class EmployeeImportExecutor(
             || dto.SubServiceId != existing.SubServiceId
             || dto.HireDate != existing.HireDate
             || dto.Level != existing.Level
-            || dto.IsActive != existing.IsActive;
+            || dto.IsActive != existing.IsActive
+            || hrMerge.HasHrData
+            || mentorsChanged;
+
+        var contractChanged = false;
+        if (EmployeeImportHrProfileMapper.ShouldUpsertContract(mapped))
+            contractChanged = await UpsertContractForUserAsync(userId, mapped, hireDate, ct);
 
         if (!changed)
-            return null;
+            return (null, contractChanged);
 
         await userPersistence.UpdateAsync(userId, dto, ct);
-        return await userPersistence.GetByIdAsync(userId, ct);
+        var updated = await userPersistence.GetByIdAsync(userId, ct);
+        return (updated, contractChanged);
+    }
+
+    private async Task<bool> UpsertContractForUserAsync(
+        int userId,
+        Dictionary<string, string?> mapped,
+        DateTime hireDate,
+        CancellationToken ct)
+    {
+        if (!EmployeeImportHrProfileMapper.ShouldUpsertContract(mapped))
+            return false;
+
+        var existingContracts = (await contractService.GetContractsByUserIdAsync(userId)).ToList();
+        var latest = existingContracts.FirstOrDefault();
+
+        if (latest is null)
+        {
+            var createDto = EmployeeImportHrProfileMapper.BuildCreateContractDto(mapped, userId, hireDate);
+            if (createDto is null)
+                return false;
+
+            await contractService.CreateContractAsync(createDto);
+            return true;
+        }
+
+        var updateDto = EmployeeImportHrProfileMapper.BuildUpdateContractDto(mapped, latest);
+        if (updateDto is null)
+        {
+            if (mapped.ContainsKey("contractType"))
+            {
+                var createDto = EmployeeImportHrProfileMapper.BuildCreateContractDto(mapped, userId, hireDate);
+                if (createDto is not null)
+                {
+                    await contractService.CreateContractAsync(createDto);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        await contractService.UpdateContractAsync(latest.Id, updateDto);
+        return true;
     }
 
     private void ValidateOrgForRole(
@@ -510,6 +618,33 @@ public class EmployeeImportExecutor(
         }
 
         return false;
+    }
+
+    private async Task<(Guid? Chef, Guid? Superviseur, Guid? Referent)> ResolveMentorsAsync(
+        IReadOnlyDictionary<string, string?> mapped,
+        string canonicalRole,
+        EmployeeImportOrgOverview? directoryOverview,
+        CancellationToken ct)
+    {
+        if (mapped.ContainsKey("chefDeProjetEmail")
+            || mapped.ContainsKey("superviseurEmail")
+            || mapped.ContainsKey("referentTechniqueEmail"))
+        {
+            throw new InvalidOperationException(
+                "Les colonnes email des responsables sont obsolètes. Utilisez Chef de projet, Superviseur et Référent technique (nom complet).");
+        }
+
+        if (!EmployeeImportMentorResolver.HasAnyMentorField(mapped))
+            return (null, null, null);
+
+        if (directoryOverview is null)
+        {
+            throw new InvalidOperationException(
+                "Impossible de valider les responsables : synchronisation Organisation RH requise (réessayez après connexion).");
+        }
+
+        return await EmployeeImportMentorResolver.ResolveAndValidateAsync(
+            db, directoryOverview, mapped, canonicalRole, ct);
     }
 
     private static void ValidateRequiredOnCreate(

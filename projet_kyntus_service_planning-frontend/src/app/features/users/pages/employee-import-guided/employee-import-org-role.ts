@@ -39,19 +39,19 @@ export function employeeImportOrgDepth(roleName: string | null | undefined): Emp
 export function requiredOrgColumnsMessage(depth: EmployeeImportOrgDepth): string {
   switch (depth) {
     case 'operationalDepartment':
-      return 'Département opérationnel requis.';
+      return 'Département de production requis.';
     case 'pole':
-      return 'Chef de projet : Département opérationnel et Pôle sont requis.';
+      return 'Chef de projet : Département de production et Pôle sont requis.';
     case 'cellule':
-      return 'Superviseur : Département opérationnel, Pôle et Cellule sont requis.';
+      return 'Superviseur : Département de production, Pôle et Cellule sont requis.';
     case 'service':
-      return 'Pilote / Référent technique : Département opérationnel, Pôle, Cellule et Service sont requis.';
+      return 'Pilote / Référent technique : Département de production, Pôle, Cellule et Service sont requis.';
     default:
       return '';
   }
 }
 
-/** Message si création de pôle sans département opérationnel mappable. */
+/** Message si création de pôle sans département de production mappable. */
 export function operationalDeptRequiredForPoleCreationMessage(poleName: string): string {
-  return `Département opérationnel requis pour créer le pôle « ${poleName} » — mappez la colonne ou utilisez un pôle existant.`;
+  return `Département de production requis pour créer le pôle « ${poleName} » — mappez la colonne ou utilisez un pôle existant.`;
 }

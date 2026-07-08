@@ -152,7 +152,7 @@ import { cn } from '@/lib/utils';
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium text-muted mb-1">Département opérationnel</label>
+              <label class="block text-sm font-medium text-muted mb-1">Département de production</label>
               <select
                 class="w-full px-3 py-2 border border-default rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-input text-primary"
                 required

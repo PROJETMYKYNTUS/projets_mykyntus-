@@ -80,13 +80,28 @@ export function findStructureIncumbent(
   return findStructureIncumbents(overview, roleName, nodeIds)[0] ?? null;
 }
 
-/** Charges multiples : pas d'écrasement du titulaire sur un même nœud. */
+/** Charges multiples : pas d'écrasement silencieux — dialogue RH add/replace. */
 export function shouldConfirmOverwrite(
   _incumbentUserId: string | null | undefined,
   _assigneeGuid: string | null | undefined,
 ): boolean {
   return false;
 }
+
+export function shouldConfirmIncumbentChoice(incumbents: readonly StructureIncumbent[]): boolean {
+  return incumbents.length > 0;
+}
+
+export function buildIncumbentChoiceMessage(
+  roleName: string,
+  incumbents: readonly StructureIncumbent[],
+): string {
+  const label = structureRoleLabel(roleName);
+  const names = incumbents.map((i) => i.displayName).join(', ');
+  return `Ce poste a déjà ${incumbents.length} ${label}(s) : ${names}.`;
+}
+
+export type IncumbentAssignmentChoice = 'add' | 'replace' | 'cancel';
 
 export function buildStructureOverwriteMessage(
   incumbent: StructureIncumbent,

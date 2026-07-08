@@ -13,7 +13,7 @@ export const SUPPORT_MANAGER_ALLOWED_PATHS = [
   '/allowances/requests',
 ] as const;
 
-/** Chemins autorisés pour un manager de département opérationnel (track PRIME classique). */
+/** Chemins autorisés pour un manager de département de production (track PRIME classique). */
 export const OPERATIONAL_MANAGER_ALLOWED_PATHS = [
   '/',
   '/results',

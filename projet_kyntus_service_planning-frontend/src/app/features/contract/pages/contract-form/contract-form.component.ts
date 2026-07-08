@@ -171,9 +171,20 @@ export class ContractFormComponent implements OnInit {
           perimeter: enrichUserOrgPerimeter(u, this.orgDepartments, null, []),
           searchText: `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase(),
         };
+        if (!this.isEditMode) {
+          this.prefillContractFromUser(u);
+        }
         this.cdr.detectChanges();
       },
     });
+  }
+
+  private prefillContractFromUser(user: User): void {
+    const startDate = user.hireDate ? String(user.hireDate).substring(0, 10) : '';
+    this.contractFields = {
+      ...createEmptyContractFields('CDI'),
+      startDate,
+    };
   }
 
   refreshEmployeeFilters(): void {
@@ -231,6 +242,9 @@ export class ContractFormComponent implements OnInit {
     this.selectedEmployee = row;
     this.contractForm.patchValue({ userId: row.user.id });
     this.contractForm.get('userId')?.markAsTouched();
+    if (!this.isEditMode) {
+      this.prefillContractFromUser(row.user);
+    }
     this.cdr.detectChanges();
   }
 

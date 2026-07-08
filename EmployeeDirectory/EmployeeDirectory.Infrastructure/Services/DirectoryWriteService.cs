@@ -16,7 +16,8 @@ public sealed class DirectoryWriteService(
     DirectoryDbContext db,
     IOutboxWriter outbox,
     DirectoryHierarchyService hierarchy,
-    IOrgStructuralRoleExclusivityService exclusivity) : IDirectoryWriteService
+    IOrgStructuralRoleExclusivityService exclusivity,
+    IPilotRotationTenureService pilotRotation) : IDirectoryWriteService
 {
     public async Task<EmployeeDto> CreateEmployeeAsync(CreateEmployeeRequest request, Guid? changedBy, CancellationToken ct = default)
     {
@@ -158,12 +159,34 @@ public sealed class DirectoryWriteService(
         return true;
     }
 
-    public async Task<StructuralRoleAssignmentResult> AssignStructureRoleAsync(string kind, string nodeId, Guid employeeId, Guid? changedBy, string? reason, CancellationToken ct = default)
+    public async Task<StructuralRoleAssignmentResult> AssignStructureRoleAsync(
+        string kind,
+        string nodeId,
+        Guid employeeId,
+        Guid? changedBy,
+        string? reason,
+        IReadOnlyList<Guid>? revokeEmployeeIds = null,
+        bool forceTenureOverride = false,
+        CancellationToken ct = default)
     {
         if (!Enum.TryParse<DomainAssignmentKind>(kind, true, out var assignmentKind))
             throw new ArgumentException($"Kind invalide : {kind}");
 
         var trimmedNodeId = nodeId.Trim();
+        string? previousServiceId = null;
+        if (assignmentKind == DomainAssignmentKind.Pilote)
+        {
+            var eligibility = await pilotRotation.GetEligibilityAsync(employeeId, trimmedNodeId, ct);
+            if (!eligibility.IsSameService && !string.IsNullOrWhiteSpace(eligibility.CurrentServiceId))
+                previousServiceId = eligibility.CurrentServiceId;
+
+            await pilotRotation.ValidateRotationAsync(
+                employeeId, trimmedNodeId, forceTenureOverride, reason, ct);
+        }
+
+        var assignmentReason = reason;
+        if (assignmentKind == DomainAssignmentKind.Pilote && forceTenureOverride && !string.IsNullOrWhiteSpace(reason))
+            assignmentReason = PilotRotationTenureService.FormatOverrideReason(reason);
         var nodeLevel = assignmentKind switch
         {
             DomainAssignmentKind.ChefDeProjet => DomainNodeLevel.Pole,
@@ -172,6 +195,22 @@ public sealed class DirectoryWriteService(
             DomainAssignmentKind.Pilote => DomainNodeLevel.Service,
             _ => DomainNodeLevel.Service,
         };
+
+        var revokedOnNode = new List<NodeIncumbentRevokedDto>();
+        if (revokeEmployeeIds is { Count: > 0 })
+        {
+            foreach (var revokeId in revokeEmployeeIds.Distinct())
+            {
+                if (revokeId == employeeId) continue;
+                var removed = await RevokeNodeIncumbentAsync(
+                    assignmentKind, trimmedNodeId, nodeLevel, revokeId, changedBy, reason, ct);
+                if (removed)
+                {
+                    revokedOnNode.Add(new NodeIncumbentRevokedDto(
+                        revokeId.ToString(), kind, trimmedNodeId));
+                }
+            }
+        }
 
         var revoked = (await exclusivity.RevokeAllStructuralRolesForEmployeeAsync(
             employeeId, changedBy, reason ?? "Nouvelle affectation structurelle", ct)).ToList();
@@ -195,7 +234,7 @@ public sealed class DirectoryWriteService(
             EmployeeId = employeeId,
             EffectiveFrom = DateTime.UtcNow,
             ChangedBy = changedBy,
-            ChangeReason = reason,
+            ChangeReason = assignmentReason,
         };
         db.OrgAssignments.Add(assignment);
 
@@ -217,7 +256,94 @@ public sealed class DirectoryWriteService(
 
         await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
         await db.SaveChangesAsync(ct);
-        return new StructuralRoleAssignmentResult(revoked);
+
+        if (assignmentKind == DomainAssignmentKind.Pilote
+            && !string.IsNullOrWhiteSpace(previousServiceId)
+            && !string.Equals(previousServiceId, trimmedNodeId, StringComparison.OrdinalIgnoreCase))
+        {
+            await pilotRotation.ApplyRotationHrProfileAsync(employeeId, previousServiceId, ct);
+        }
+
+        return new StructuralRoleAssignmentResult(revoked, revokedOnNode, employeeId.ToString());
+    }
+
+    public async Task<bool> RemoveStructureAssignmentAsync(
+        string kind,
+        string nodeId,
+        Guid employeeId,
+        Guid? changedBy,
+        string? reason,
+        CancellationToken ct = default)
+    {
+        if (!Enum.TryParse<DomainAssignmentKind>(kind, true, out var assignmentKind))
+            throw new ArgumentException($"Kind invalide : {kind}");
+
+        if (assignmentKind == DomainAssignmentKind.Pilote)
+            return await RemoveStructurePilotAsync(nodeId, employeeId, changedBy, reason, ct);
+
+        var trimmedNodeId = nodeId.Trim();
+        var nodeLevel = assignmentKind switch
+        {
+            DomainAssignmentKind.ChefDeProjet => DomainNodeLevel.Pole,
+            DomainAssignmentKind.Superviseur => DomainNodeLevel.Cellule,
+            DomainAssignmentKind.ReferentTechnique => DomainNodeLevel.Service,
+            _ => DomainNodeLevel.Service,
+        };
+
+        var removed = await RevokeNodeIncumbentAsync(
+            assignmentKind, trimmedNodeId, nodeLevel, employeeId, changedBy, reason, ct);
+        if (!removed) return false;
+
+        await ResetDisplacedEmployeeAsync(employeeId, changedBy, reason, ct);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    private async Task<bool> RevokeNodeIncumbentAsync(
+        DomainAssignmentKind assignmentKind,
+        string nodeId,
+        DomainNodeLevel nodeLevel,
+        Guid employeeId,
+        Guid? changedBy,
+        string? reason,
+        CancellationToken ct)
+    {
+        var rows = await db.OrgAssignments
+            .Where(a => a.Kind == assignmentKind
+                && a.NodeId == nodeId
+                && a.EmployeeId == employeeId
+                && a.EffectiveTo == null)
+            .ToListAsync(ct);
+        if (rows.Count == 0) return false;
+
+        var now = DateTime.UtcNow;
+        foreach (var row in rows)
+        {
+            row.EffectiveTo = now;
+            db.OrgAssignmentHistories.Add(new OrgAssignmentHistory
+            {
+                Id = Guid.NewGuid(),
+                Kind = assignmentKind,
+                NodeId = nodeId,
+                NodeLevel = nodeLevel,
+                PreviousEmployeeId = employeeId,
+                NewEmployeeId = null,
+                ChangedBy = changedBy,
+                ChangeReason = reason ?? "Retrait titulaire",
+                ChangedAt = now,
+            });
+
+            await outbox.EnqueueAsync(new DirectoryAssignmentChangedMessage
+            {
+                Kind = MessagingEnumMapper.ToMessage(assignmentKind),
+                NodeId = nodeId,
+                NodeLevel = MessagingEnumMapper.ToMessage(nodeLevel),
+                EmployeeId = employeeId,
+                Removed = true,
+            }, aggregateId: employeeId.ToString(), ct: ct);
+        }
+
+        return true;
     }
 
     public async Task<bool> RemoveStructurePilotAsync(string serviceId, Guid employeeId, Guid? changedBy, string? reason, CancellationToken ct = default)
@@ -360,7 +486,7 @@ public sealed class DirectoryWriteService(
             .FirstOrDefaultAsync(d => d.Id == businessDepartmentId, ct)
             ?? throw new KeyNotFoundException("Département introuvable.");
         if (dept.Kind != BusinessDepartmentKind.Operational)
-            throw new InvalidOperationException("Seuls les départements opérationnels peuvent recevoir des pôles.");
+            throw new InvalidOperationException("Seuls les départements de production peuvent recevoir des pôles.");
         if (!dept.IsActive)
             throw new InvalidOperationException("Département inactif.");
 
@@ -396,7 +522,7 @@ public sealed class DirectoryWriteService(
             .FirstOrDefaultAsync(d => d.Id == businessDepartmentId, ct)
             ?? throw new KeyNotFoundException("Département introuvable.");
         if (dept.Kind != BusinessDepartmentKind.Operational)
-            throw new InvalidOperationException("Seuls les départements opérationnels peuvent recevoir des pôles.");
+            throw new InvalidOperationException("Seuls les départements de production peuvent recevoir des pôles.");
         if (!dept.IsActive)
             throw new InvalidOperationException("Département inactif.");
 
@@ -679,7 +805,7 @@ public sealed class DirectoryWriteService(
         await EnqueueBusinessDepartmentChangedAsync(dept, ct);
         await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
         await db.SaveChangesAsync(ct);
-        return new StructuralRoleAssignmentResult(revoked);
+        return new StructuralRoleAssignmentResult(revoked, [], employeeId.ToString());
     }
 
     public async Task<bool> ClearBusinessDepartmentManagerAsync(Guid departmentId, CancellationToken ct = default)

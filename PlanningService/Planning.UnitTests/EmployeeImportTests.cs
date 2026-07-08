@@ -98,10 +98,13 @@ public class EmployeeImportRowMapperTests
 public class EmployeeImportFieldRegistryTests
 {
     [Fact]
-    public void TemplateFields_has_twelve_columns_including_operational_department()
+    public void TemplateFields_has_full_hr_and_contract_columns()
     {
-        Assert.Equal(12, EmployeeImportFieldRegistry.TemplateFields.Count);
+        Assert.Equal(48, EmployeeImportFieldRegistry.TemplateFields.Count);
         Assert.Contains(EmployeeImportFieldRegistry.TemplateFields, f => f.FieldKey == "operationalDepartment");
+        Assert.Contains(EmployeeImportFieldRegistry.TemplateFields, f => f.FieldKey == "contractType");
+        Assert.Contains(EmployeeImportFieldRegistry.TemplateFields, f => f.FieldKey == "contractAlertThresholdDays");
+        Assert.Contains(EmployeeImportFieldRegistry.TemplateFields, f => f.FieldKey == "villeNaissance");
     }
 
     [Theory]
@@ -139,7 +142,7 @@ public class EmployeeImportLevelResolverTests
     [Fact]
     public void Resolve_invalid_throws()
     {
-        Assert.Throws<InvalidOperationException>(() => EmployeeImportLevelResolver.Resolve("Confirmé"));
+        Assert.Throws<InvalidOperationException>(() => EmployeeImportLevelResolver.Resolve("Invalide"));
     }
 }
 
@@ -314,7 +317,7 @@ public class EmployeeImportOrgGapAnalyzerTests
         Assert.Equal("pole", result.PendingOrgCreations[0].Type);
         Assert.Equal("Nord", result.PendingOrgCreations[0].Pole);
         Assert.Contains(result.OrgLineIssues, i =>
-            i.Message.Contains("Département opérationnel", StringComparison.OrdinalIgnoreCase));
+            i.Message.Contains("Département de production", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -346,7 +349,7 @@ public class EmployeeImportOrgGapAnalyzerTests
         Assert.Single(result.PendingOrgCreations);
         Assert.Equal("Commercial", result.PendingOrgCreations[0].OperationalDepartment);
         Assert.DoesNotContain(result.OrgLineIssues, i =>
-            i.Message.Contains("Département opérationnel", StringComparison.OrdinalIgnoreCase));
+            i.Message.Contains("Département de production", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -411,5 +414,107 @@ public class EmployeeImportOrgResolverTests
 
         var mapped = new Dictionary<string, string?> { ["service"] = "Support" };
         Assert.Equal(3, _resolver.ResolveSubServiceId(snapshot, mapped));
+    }
+}
+
+public class EmployeeImportHrProfileMapperTests
+{
+    private static readonly DateTime HireDate = new(2024, 1, 15, 0, 0, 0, DateTimeKind.Utc);
+
+    [Theory]
+    [InlineData("M", "M")]
+    [InlineData("Homme", "M")]
+    [InlineData("F", "F")]
+    [InlineData("Femme", "F")]
+    public void BuildForCreate_normalizes_sexe(string input, string expected)
+    {
+        var mapped = new Dictionary<string, string?> { ["sexe"] = input };
+        var result = EmployeeImportHrProfileMapper.BuildForCreate(mapped, HireDate);
+        Assert.Equal(expected, result.Profile?.Sexe);
+    }
+
+    [Theory]
+    [InlineData("Célibataire", "CELIBATAIRE")]
+    [InlineData("Marié", "MARIE")]
+    [InlineData("Marocain", "MAROCAIN")]
+    public void BuildForCreate_normalizes_enums(string input, string expected)
+    {
+        var key = input.StartsWith("Maroc", StringComparison.Ordinal) ? "nationalite" : "situationFamiliale";
+        var mapped = new Dictionary<string, string?> { [key] = input };
+        if (key == "situationFamiliale" && expected is "MARIE" or "DIVORCE" or "VEUF")
+            mapped["nombreEnfants"] = "0";
+        var result = EmployeeImportHrProfileMapper.BuildForCreate(mapped, HireDate);
+        if (key == "nationalite")
+            Assert.Equal(expected, result.Profile?.Nationalite);
+        else
+            Assert.Equal(expected, result.Profile?.SituationFamiliale);
+    }
+
+    [Fact]
+    public void MergeForUpdate_preserves_unmapped_fields()
+    {
+        var existing = new UserHrProfileDto
+        {
+            Cin = "AB123",
+            VilleNaissance = "Rabat",
+            DateEmbauche = DateOnly.FromDateTime(HireDate.Date),
+        };
+
+        var mapped = new Dictionary<string, string?> { ["telephone1"] = "0611223344" };
+        var result = EmployeeImportHrProfileMapper.MergeForUpdate(
+            mapped, existing, null, null, null, null, HireDate);
+
+        Assert.Equal("AB123", result.Profile?.Cin);
+        Assert.Equal("Rabat", result.Profile?.VilleNaissance);
+        Assert.Equal("0611223344", result.Profile?.Telephone1);
+        Assert.True(result.HasHrData);
+    }
+
+    [Fact]
+    public void BuildCreateContractDto_defaults_alert_threshold_to_seven_days()
+    {
+        var mapped = new Dictionary<string, string?>
+        {
+            ["contractType"] = "CDI",
+        };
+
+        var dto = EmployeeImportHrProfileMapper.BuildCreateContractDto(mapped, userId: 1, HireDate);
+        Assert.NotNull(dto);
+        Assert.Equal(7, dto!.AlertThresholdDays);
+    }
+
+    [Fact]
+    public void BuildCreateContractDto_uses_mapped_alert_threshold()
+    {
+        var mapped = new Dictionary<string, string?>
+        {
+            ["contractType"] = "CDI",
+            ["contractAlertThresholdDays"] = "14",
+        };
+
+        var dto = EmployeeImportHrProfileMapper.BuildCreateContractDto(mapped, userId: 1, HireDate);
+        Assert.NotNull(dto);
+        Assert.Equal(14, dto!.AlertThresholdDays);
+    }
+
+    [Fact]
+    public void BuildForCreate_sets_date_embauche_from_hire_date()
+    {
+        var mapped = new Dictionary<string, string?> { ["cin"] = "XY999" };
+        var result = EmployeeImportHrProfileMapper.BuildForCreate(mapped, HireDate);
+        Assert.Equal(DateOnly.FromDateTime(HireDate.Date), result.Profile?.DateEmbauche);
+    }
+
+    [Fact]
+    public void BuildForCreate_requires_nombre_enfants_when_married()
+    {
+        var mapped = new Dictionary<string, string?>
+        {
+            ["situationFamiliale"] = "Marié",
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            EmployeeImportHrProfileMapper.BuildForCreate(mapped, HireDate));
+        Assert.Contains("Nombre d'enfants", ex.Message);
     }
 }

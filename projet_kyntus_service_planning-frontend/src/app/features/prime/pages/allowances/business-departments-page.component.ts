@@ -57,7 +57,7 @@ type PageTab = 'list' | 'assignments';
           <h1 class="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Départements métier</h1>
           <p class="mt-2 max-w-3xl text-sm text-slate-400 leading-relaxed">
             Départements <span class="font-medium text-slate-300">Support</span> — équipes plates sans pôle /
-            cellule / service. Manager direct, primes Allowances. L’organisation opérationnelle (pôles) reste
+            cellule / service. Manager direct, primes Allowances. L’organisation de production (pôles) reste
             dans <span class="font-medium text-slate-300">Organisation RH</span>.
           </p>
         </div>

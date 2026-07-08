@@ -2,7 +2,8 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of, firstValueFrom } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { UserService } from '../../services/user.service';
 import { User } from '../../users-module';
 import { EmployeeFieldService } from '../../services/employee-field.service';
@@ -11,19 +12,34 @@ import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kynt
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { ArrowLeft, Pencil, Trash2 } from 'lucide';
 import type { Department } from '../../../prime/models';
-import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
+import { PrimeOrgApiService, type OrgAssignmentsOverview } from '../../../prime/services/prime-org-api.service';
+import type { SubService } from '../../../sub-services/sub-services-module';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
 import { ParrainageApiService } from '../../../parrainage/services/parrainage-api.service';
 import type { Referral } from '../../../parrainage/models/referral.model';
+import { ContractService, type ContractResponse } from '../../../contract/services/contract.service';
 import { resolveUserGuid } from '../../../../core/lib/user-guid.util';
 import {
   enrichUserOrgPerimeter,
   orgCellLabel,
+  orgDepartmentLabel,
   orgPerimeterSummary,
   type BusinessDepartmentRef,
   type DirectoryEmployeeOrgRef,
   type UserOrgPerimeterView,
 } from '../../../../core/org/user-org-perimeter';
+import {
+  buildContractDisplayRows,
+  buildEmployeeDetailSections,
+  contractLevelLabel,
+  expertiseLevelLabel,
+  seniorityReferenceDate,
+  type EmployeeDetailSection,
+} from '../../../../core/hr/user-hr-display.util';
+import {
+  DirectoryEmployeeApiService,
+  type PilotRotationHistoryEntryDto,
+} from '../../../../core/directory/directory-employee-api.service';
 
 @Component({
   selector: 'app-user-detail',
@@ -35,10 +51,15 @@ import {
 export class UserDetailComponent implements OnInit {
   readonly icons = { back: ArrowLeft, edit: Pencil, trash: Trash2 };
   readonly orgCellLabel = orgCellLabel;
+  readonly orgDepartmentLabel = orgDepartmentLabel;
+  readonly contractLevelLabel = contractLevelLabel;
+  readonly expertiseLevelLabel = expertiseLevelLabel;
   user: User | null = null;
+  detailSections: EmployeeDetailSection[] = [];
   linkedReferral: Referral | null = null;
-  customFields: EmployeeImportFieldConfig[] = [];
   perimeter: UserOrgPerimeterView = { operationalDepartment: null, pole: null, cellule: null, service: null };
+  pilotRotationHistory: PilotRotationHistoryEntryDto[] = [];
+  pilotRotationLoading = false;
   loading = false;
   error: string | null = null;
 
@@ -50,23 +71,15 @@ export class UserDetailComponent implements OnInit {
     private subServiceService: SubServiceService,
     private fieldService: EmployeeFieldService,
     private http: HttpClient,
+    private contractService: ContractService,
     private parrainageApi: ParrainageApiService,
+    private directoryEmployeeApi: DirectoryEmployeeApiService,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
-    this.fieldService.getFields(true).subscribe({
-      next: (fields) => {
-        this.customFields = fields.filter((f) => f.isSystemField === false);
-        this.cdr.detectChanges();
-      },
-    });
     this.loadUser(id);
-  }
-
-  customFieldValue(fieldKey: string): string {
-    return this.user?.customFields?.[fieldKey] ?? '—';
   }
 
   get perimeterSummary(): string {
@@ -83,26 +96,27 @@ export class UserDetailComponent implements OnInit {
       subServices: this.subServiceService.getAllSubServices(),
       directoryEmployees: this.http.get<DirectoryEmployeeOrgRef[]>('/api/directory/employees'),
       businessDepartments: this.http.get<BusinessDepartmentRef[]>('/api/directory/business-departments'),
+      customFields: this.fieldService.getFields(true),
+      contracts: this.contractService.getByUser(id).pipe(catchError(() => of([] as ContractResponse[]))),
     }).subscribe({
-      next: ({ user, departments, overview, subServices, directoryEmployees, businessDepartments }) => {
-        this.user = user;
-        this.perimeter = enrichUserOrgPerimeter(
+      next: ({ user, departments, overview, subServices, directoryEmployees, businessDepartments, customFields, contracts }) => {
+        this.applyUserData(
           user,
           departments ?? [],
           overview,
           subServices ?? [],
           directoryEmployees ?? [],
           businessDepartments ?? [],
+          customFields.filter((f) => f.isSystemField === false),
+          contracts ?? [],
         );
-        void this.loadLinkedReferral(user);
         this.loading = false;
         this.cdr.detectChanges();
       },
       error: () => {
         this.userService.getUserById(id).subscribe({
           next: (user) => {
-            this.user = user;
-            this.perimeter = enrichUserOrgPerimeter(user, [], null, []);
+            this.applyUserData(user, [], null, [], [], [], [], []);
             this.loading = false;
             this.cdr.detectChanges();
           },
@@ -114,6 +128,94 @@ export class UserDetailComponent implements OnInit {
         });
       },
     });
+  }
+
+  private applyUserData(
+    user: User,
+    departments: Department[],
+    overview: OrgAssignmentsOverview | null,
+    subServices: SubService[],
+    directoryEmployees: DirectoryEmployeeOrgRef[],
+    businessDepartments: BusinessDepartmentRef[],
+    customFields: EmployeeImportFieldConfig[],
+    contracts: ContractResponse[],
+  ): void {
+    this.user = user;
+    this.perimeter = enrichUserOrgPerimeter(
+      user,
+      departments,
+      overview,
+      subServices,
+      directoryEmployees,
+      businessDepartments,
+    );
+
+    const mentorEmployees = (overview?.employees ?? []).map((e) => ({
+      id: e.id,
+      firstName: e.firstName,
+      lastName: e.lastName,
+    }));
+
+    const latestContract = contracts.length
+      ? [...contracts].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0]
+      : null;
+
+    const contractRows = latestContract
+      ? [
+          { label: 'Référence contrat', value: String(latestContract.id) },
+          ...buildContractDisplayRows(latestContract),
+        ]
+      : [];
+
+    const customFieldRows = customFields.map((field) => ({
+      label: field.label,
+      value: user.customFields?.[field.fieldKey]?.trim() ? user.customFields[field.fieldKey]!.trim() : '—',
+    }));
+
+    this.detailSections = buildEmployeeDetailSections(user, {
+      mentorEmployees,
+      contractRows,
+      customFieldRows,
+    });
+
+    void this.loadLinkedReferral(user);
+    void this.loadPilotRotationHistory(user);
+  }
+
+  get showPilotRotationHistory(): boolean {
+    if (!this.user) return false;
+    if (this.pilotRotationHistory.length > 0) return true;
+    return (this.user.roleName ?? '').toLowerCase() === 'pilote';
+  }
+
+  formatRotationDate(value?: string | null): string {
+    if (!value) return '—';
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('fr-FR');
+  }
+
+  formatRotationDuration(days?: number | null): string {
+    if (days == null) return '—';
+    if (days < 30) return `${days} jour${days > 1 ? 's' : ''}`;
+    const months = Math.floor(days / 30);
+    const rem = days % 30;
+    if (rem === 0) return `${months} mois`;
+    return `${months} mois ${rem} j`;
+  }
+
+  private async loadPilotRotationHistory(user: User): Promise<void> {
+    const guid = resolveUserGuid(user);
+    if (!guid) return;
+
+    this.pilotRotationLoading = true;
+    try {
+      this.pilotRotationHistory = await firstValueFrom(
+        this.directoryEmployeeApi.getPilotRotationHistory(guid).pipe(catchError(() => of([]))),
+      );
+    } finally {
+      this.pilotRotationLoading = false;
+      this.cdr.detectChanges();
+    }
   }
 
   private async loadLinkedReferral(user: User): Promise<void> {
@@ -128,8 +230,10 @@ export class UserDetailComponent implements OnInit {
     }
   }
 
-  getAnciennete(hireDate: string): string {
-    const debut = new Date(hireDate);
+  getAnciennete(): string {
+    if (!this.user) return '—';
+    const ref = seniorityReferenceDate(this.user);
+    const debut = new Date(ref);
     const now = new Date();
     const totalMois = (now.getFullYear() - debut.getFullYear()) * 12
                     + (now.getMonth() - debut.getMonth());

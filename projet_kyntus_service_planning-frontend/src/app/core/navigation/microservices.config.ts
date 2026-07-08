@@ -82,7 +82,7 @@ export const MICROSERVICES: Microservice[] = [
     icon: ICONS.building,
     roles: ADMIN_RH,
     children: [
-      { label: 'Organisation opérationnel', route: '/organisation', roles: ADMIN_RH },
+      { label: 'Organisation de production', route: '/organisation', roles: ADMIN_RH },
       { label: 'Organisation support', route: '/departements-metier', roles: ADMIN_RH },
     ],
   },

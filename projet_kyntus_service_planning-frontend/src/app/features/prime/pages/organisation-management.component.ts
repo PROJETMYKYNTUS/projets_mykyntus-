@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { finalize, type Observable } from 'rxjs';
+import { finalize, firstValueFrom, type Observable } from 'rxjs';
 import {
   Activity,
   Building2,
@@ -50,8 +50,12 @@ import {
   findEmployeeStructuralRole,
   findStructureIncumbents,
   shouldConfirmOverwrite,
+  shouldConfirmIncumbentChoice,
+  buildIncumbentChoiceMessage,
 } from '../../../core/org/org-structure-incumbent.util';
 import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
+import { KyntusSessionService } from '../../../core/session/kyntus-session.service';
+import { evaluatePilotRotationEligibility } from '../../../core/directory/pilot-rotation-eligibility.util';
 import type { OperationalDepartmentNode, OrgCelluleNode, OrgPoleNode } from '../models/org-tree.types';
 
 function matchAssignmentUserId(
@@ -144,7 +148,7 @@ function httpErrMessage(err: unknown): string {
             <h1 class="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Organisation RH</h1>
             <div class="mt-3 max-w-3xl space-y-2 text-sm leading-relaxed text-slate-400">
               <p>
-                <span class="font-medium text-slate-300">Départements opérationnels</span> — managers métier
+                <span class="font-medium text-slate-300">Départements de production</span> — managers métier
                 (interface Prime classique) distincts des
                 <span class="font-medium text-slate-300">chefs de projet</span> par pôle.
               </p>
@@ -212,7 +216,7 @@ function httpErrMessage(err: unknown): string {
           @case ('metier-departments') {
             <app-prime-card
               className="p-0"
-              title="Départements opérationnels"
+              title="Départements de production"
               description="Manager métier (interface Prime classique). Distinct du chef de projet, rattaché à chaque pôle."
             >
               <div
@@ -345,7 +349,7 @@ function httpErrMessage(err: unknown): string {
               </div>
               @if ((data()?.operationalDepartments?.length ?? 0) === 0) {
                 <p class="px-4 sm:px-6 py-2 text-xs text-amber-400/90">
-                  Créez d’abord un département opérationnel (onglet Départements).
+                  Créez d’abord un département de production (onglet Départements).
                 </p>
               }
               @if (newDepartmentNameConflict(); as msg) {
@@ -376,7 +380,27 @@ function httpErrMessage(err: unknown): string {
                           }
                         </td>
                         <td class="px-4 py-2.5"><span class="prime-cell-strong">{{ row.poleName }}</span></td>
-                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ managerLabel(row.poleId) }}</span></td>
+                        <td class="px-4 py-2.5">
+                          @if (managerUserIds(row.poleId).length === 0) {
+                            <span class="prime-cell-muted">—</span>
+                          } @else {
+                            <ul class="space-y-1">
+                              @for (uid of managerUserIds(row.poleId); track uid) {
+                                <li class="flex items-center justify-between gap-2 text-sm text-slate-200">
+                                  <span>{{ employeeLabel(uid) }}</span>
+                                  <button
+                                    type="button"
+                                    (click)="removeDepartmentManagerIncumbent(row.poleId, uid)"
+                                    [disabled]="saving()"
+                                    class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                  >
+                                    Retirer
+                                  </button>
+                                </li>
+                              }
+                            </ul>
+                          }
+                        </td>
                         <td class="px-4 py-2.5">
                           <select
                             class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
@@ -425,10 +449,10 @@ function httpErrMessage(err: unknown): string {
                               <button
                                 type="button"
                                 (click)="clearDepartmentManagerRow(row.poleId)"
-                                [disabled]="saving() || !managerUserId(row.poleId)"
+                                [disabled]="saving() || managerUserIds(row.poleId).length === 0"
                                 class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
                               >
-                                Retirer
+                                Retirer tous
                               </button>
                             </div>
                           </div>
@@ -447,7 +471,7 @@ function httpErrMessage(err: unknown): string {
             </app-prime-card>
           }
           @case ('poles') {
-            <app-prime-card className="p-0" title="Cellules" description="Un superviseur par cellule.">
+            <app-prime-card className="p-0" title="Cellules" description="Titulaires du poste superviseur par cellule.">
               <div
                 class="px-4 py-3 sm:px-6 border-b border-navy-800 bg-navy-950/40 flex flex-col lg:flex-row lg:flex-wrap gap-3 lg:items-end"
               >
@@ -522,7 +546,27 @@ function httpErrMessage(err: unknown): string {
                         <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.metierDepartmentName }}</span></td>
                         <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.poleName }}</span></td>
                         <td class="px-4 py-2.5"><span class="prime-cell-strong">{{ row.celluleName }}</span></td>
-                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ supervisorLabel(row.celluleId) }}</span></td>
+                        <td class="px-4 py-2.5">
+                          @if (supervisorUserIds(row.celluleId).length === 0) {
+                            <span class="prime-cell-muted">—</span>
+                          } @else {
+                            <ul class="space-y-1">
+                              @for (uid of supervisorUserIds(row.celluleId); track uid) {
+                                <li class="flex items-center justify-between gap-2 text-sm text-slate-200">
+                                  <span>{{ employeeLabel(uid) }}</span>
+                                  <button
+                                    type="button"
+                                    (click)="removePoleSupervisorIncumbent(row.celluleId, uid)"
+                                    [disabled]="saving()"
+                                    class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                  >
+                                    Retirer
+                                  </button>
+                                </li>
+                              }
+                            </ul>
+                          }
+                        </td>
                         <td class="px-4 py-2.5">
                           <select
                             class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
@@ -548,10 +592,10 @@ function httpErrMessage(err: unknown): string {
                             <button
                               type="button"
                               (click)="clearPoleSupervisorRow(row.celluleId)"
-                              [disabled]="saving() || !supervisorUserId(row.celluleId)"
+                              [disabled]="saving() || supervisorUserIds(row.celluleId).length === 0"
                               class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
                             >
-                              Retirer
+                              Retirer tous
                             </button>
                           </div>
                         </td>
@@ -679,7 +723,27 @@ function httpErrMessage(err: unknown): string {
                         <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.poleName }}</span></td>
                         <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ row.parentCelluleName }}</span></td>
                         <td class="px-4 py-2.5"><span class="prime-cell-strong">{{ row.celluleName }}</span></td>
-                        <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ coachLabel(row.celluleId) }}</span></td>
+                        <td class="px-4 py-2.5">
+                          @if (coachUserIds(row.celluleId).length === 0) {
+                            <span class="prime-cell-muted">—</span>
+                          } @else {
+                            <ul class="space-y-1">
+                              @for (uid of coachUserIds(row.celluleId); track uid) {
+                                <li class="flex items-center justify-between gap-2 text-sm text-slate-200">
+                                  <span>{{ employeeLabel(uid) }}</span>
+                                  <button
+                                    type="button"
+                                    (click)="removeCellCoachIncumbent(row.celluleId, uid)"
+                                    [disabled]="saving()"
+                                    class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                  >
+                                    Retirer
+                                  </button>
+                                </li>
+                              }
+                            </ul>
+                          }
+                        </td>
                         <td class="px-4 py-2.5">
                           <select
                             class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
@@ -705,10 +769,10 @@ function httpErrMessage(err: unknown): string {
                             <button
                               type="button"
                               (click)="clearCellCoachRow(row.celluleId)"
-                              [disabled]="saving() || !coachUserId(row.celluleId)"
+                              [disabled]="saving() || coachUserIds(row.celluleId).length === 0"
                               class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
                             >
-                              Retirer
+                              Retirer tous
                             </button>
                           </div>
                         </td>
@@ -734,7 +798,7 @@ function httpErrMessage(err: unknown): string {
                                 <li class="px-3 py-3 text-sm text-slate-500">Aucun pilote</li>
                               }
                             </ul>
-                            @if (!coachUserId(row.celluleId)) {
+                            @if (coachUserIds(row.celluleId).length === 0) {
                               <p class="text-xs text-amber-400/90 mb-2">Affectez un référent technique pour ajouter des pilotes.</p>
                             }
                             <div class="flex flex-wrap gap-2 items-end max-w-lg">
@@ -742,7 +806,7 @@ function httpErrMessage(err: unknown): string {
                                 class="flex-1 min-w-[160px] rounded-lg border border-navy-700 bg-navy-900 px-2 py-2 text-sm text-slate-200"
                                 [kyntusSelectSync]="draftPilotCell(row.celluleId)"
                                 (kyntusSelectSyncChange)="patchDraftPilotCell(row.celluleId, $event)"
-                                [disabled]="!coachUserId(row.celluleId)"
+                                [disabled]="coachUserIds(row.celluleId).length === 0"
                               >
                                 <option value="">— Pilote —</option>
                                 @for (e of employeesForPilotRow(row.celluleId); track e.id) {
@@ -763,7 +827,7 @@ function httpErrMessage(err: unknown): string {
                               <button
                                 type="button"
                                 (click)="addPilotRow(row.celluleId)"
-                                [disabled]="saving() || !coachUserId(row.celluleId) || !draftPilotCell(row.celluleId)"
+                                [disabled]="saving() || coachUserIds(row.celluleId).length === 0 || !draftPilotCell(row.celluleId)"
                                 class="rounded-lg bg-slate-700 px-3 py-2 text-sm text-white disabled:opacity-50"
                               >
                                 Ajouter pilote
@@ -1036,7 +1100,27 @@ function httpErrMessage(err: unknown): string {
 
                       @if (sel.kind === 'pole') {
                         <div class="space-y-3">
-                          <label class="text-sm font-medium text-slate-300 block">Chef de projet</label>
+                          <label class="text-sm font-medium text-slate-300 block">Titulaires du poste — chef de projet</label>
+                          @if (managerUserIds(sel.id).length > 0) {
+                            <ul class="rounded-lg border border-navy-800 divide-y divide-navy-800 bg-navy-950/40 max-h-32 overflow-y-auto">
+                              @for (uid of managerUserIds(sel.id); track uid) {
+                                <li class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-slate-200">
+                                  <span>{{ employeeLabel(uid) }}</span>
+                                  <button
+                                    type="button"
+                                    (click)="removeDepartmentManagerIncumbent(sel.id, uid)"
+                                    [disabled]="saving()"
+                                    class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                  >
+                                    Retirer
+                                  </button>
+                                </li>
+                              }
+                            </ul>
+                          } @else {
+                            <p class="text-xs text-slate-500">Aucun titulaire sur ce poste.</p>
+                          }
+                          <label class="text-sm font-medium text-slate-300 block">Ajouter un chef de projet</label>
                           @if (draftEmployeeId()) {
                             <div
                               class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-navy-700 bg-navy-950/50 px-3 py-2.5"
@@ -1102,11 +1186,11 @@ function httpErrMessage(err: unknown): string {
                             <button
                               type="button"
                               (click)="clearDepartmentManager(sel.id)"
-                              [disabled]="saving() || !managerUserId(sel.id)"
+                              [disabled]="saving() || managerUserIds(sel.id).length === 0"
                               class="inline-flex items-center justify-center gap-2 rounded-lg border border-navy-600 px-4 py-2.5 text-sm text-slate-300 hover:bg-navy-800 disabled:opacity-50"
                             >
                               <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
-                              Retirer le chef de projet
+                              Retirer tous les titulaires
                             </button>
                           </div>
                         </div>
@@ -1114,7 +1198,27 @@ function httpErrMessage(err: unknown): string {
 
                       @if (sel.kind === 'cellule') {
                         <div class="space-y-3">
-                          <label class="text-sm font-medium text-slate-300 block">Superviseur</label>
+                          <label class="text-sm font-medium text-slate-300 block">Titulaires du poste — superviseur</label>
+                          @if (supervisorUserIds(sel.id).length > 0) {
+                            <ul class="rounded-lg border border-navy-800 divide-y divide-navy-800 bg-navy-950/40 max-h-32 overflow-y-auto">
+                              @for (uid of supervisorUserIds(sel.id); track uid) {
+                                <li class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-slate-200">
+                                  <span>{{ employeeLabel(uid) }}</span>
+                                  <button
+                                    type="button"
+                                    (click)="removePoleSupervisorIncumbent(sel.id, uid)"
+                                    [disabled]="saving()"
+                                    class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                  >
+                                    Retirer
+                                  </button>
+                                </li>
+                              }
+                            </ul>
+                          } @else {
+                            <p class="text-xs text-slate-500">Aucun titulaire sur ce poste.</p>
+                          }
+                          <label class="text-sm font-medium text-slate-300 block">Ajouter un superviseur</label>
                             @if (draftEmployeeId()) {
                               <div
                                 class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-navy-700 bg-navy-950/50 px-3 py-2.5"
@@ -1180,11 +1284,11 @@ function httpErrMessage(err: unknown): string {
                               <button
                                 type="button"
                                 (click)="clearPoleSupervisor(sel.id)"
-                                [disabled]="saving() || !supervisorUserId(sel.id)"
+                                [disabled]="saving() || supervisorUserIds(sel.id).length === 0"
                                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-navy-600 px-4 py-2.5 text-sm text-slate-300 hover:bg-navy-800 disabled:opacity-50"
                               >
                                 <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
-                                Retirer le superviseur
+                                Retirer tous les titulaires
                               </button>
                             </div>
                         </div>
@@ -1193,7 +1297,27 @@ function httpErrMessage(err: unknown): string {
                       @if (sel.kind === 'service') {
                         <div class="space-y-5 border-t border-navy-800 pt-5">
                           <div class="space-y-3">
-                            <label class="text-sm font-medium text-slate-300 block">Référent technique</label>
+                            <label class="text-sm font-medium text-slate-300 block">Titulaires du poste — référent technique</label>
+                            @if (coachUserIds(sel.id).length > 0) {
+                              <ul class="rounded-lg border border-navy-800 divide-y divide-navy-800 bg-navy-950/40 max-h-32 overflow-y-auto">
+                                @for (uid of coachUserIds(sel.id); track uid) {
+                                  <li class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-slate-200">
+                                    <span>{{ employeeLabel(uid) }}</span>
+                                    <button
+                                      type="button"
+                                      (click)="removeCellCoachIncumbent(sel.id, uid)"
+                                      [disabled]="saving()"
+                                      class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                    >
+                                      Retirer
+                                    </button>
+                                  </li>
+                                }
+                              </ul>
+                            } @else {
+                              <p class="text-xs text-slate-500">Aucun titulaire sur ce poste.</p>
+                            }
+                            <label class="text-sm font-medium text-slate-300 block">Ajouter un référent technique</label>
                             @if (draftEmployeeId()) {
                               <div
                                 class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-navy-700 bg-navy-950/50 px-3 py-2.5"
@@ -1259,18 +1383,18 @@ function httpErrMessage(err: unknown): string {
                               <button
                                 type="button"
                                 (click)="clearCellCoach(sel.id)"
-                                [disabled]="saving() || !coachUserId(sel.id)"
+                                [disabled]="saving() || coachUserIds(sel.id).length === 0"
                                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-navy-600 px-4 py-2.5 text-sm text-slate-300 hover:bg-navy-800 disabled:opacity-50"
                               >
                                 <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
-                                Retirer le référent technique
+                                Retirer tous les titulaires
                               </button>
                             </div>
                           </div>
 
                           <div class="space-y-3">
                             <label class="text-sm font-medium text-slate-300 block">Pilotes</label>
-                            @if (!coachUserId(sel.id)) {
+                            @if (coachUserIds(sel.id).length === 0) {
                               <p class="text-sm text-amber-400/90">Affectez d’abord un référent technique.</p>
                             }
                             <ul
@@ -1318,7 +1442,7 @@ function httpErrMessage(err: unknown): string {
                                 placeholder="Rechercher un employé…"
                                 [value]="structurePilotEmpSearch()"
                                 (input)="setPilotEmpSearch($event)"
-                                [disabled]="!coachUserId(sel.id)"
+                                [disabled]="coachUserIds(sel.id).length === 0"
                               />
                               <ul
                                 class="max-h-40 overflow-y-auto rounded-lg border border-navy-800 bg-navy-950/40 divide-y divide-navy-800"
@@ -1328,7 +1452,7 @@ function httpErrMessage(err: unknown): string {
                                     <button
                                       type="button"
                                       (click)="pickPilotEmployee(e.id)"
-                                      [disabled]="!coachUserId(sel.id)"
+                                      [disabled]="coachUserIds(sel.id).length === 0"
                                       class="w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-navy-800/60 disabled:opacity-40"
                                     >
                                       <span
@@ -1361,7 +1485,7 @@ function httpErrMessage(err: unknown): string {
                               <button
                                 type="button"
                                 (click)="addPilot(sel.id)"
-                                [disabled]="saving() || !coachUserId(sel.id) || !draftPilotId()"
+                                [disabled]="saving() || coachUserIds(sel.id).length === 0 || !draftPilotId()"
                                 class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-600 disabled:opacity-50"
                               >
                                 <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
@@ -1501,6 +1625,7 @@ function httpErrMessage(err: unknown): string {
 export class OrganisationManagementComponent implements OnInit {
   private readonly orgApi = inject(PrimeOrgApiService);
   private readonly confirmService = inject(KyntusConfirmService);
+  private readonly session = inject(KyntusSessionService);
   private readonly role = inject(RoleService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -1799,7 +1924,7 @@ export class OrganisationManagementComponent implements OnInit {
     this.runMutation(
       this.orgApi.createOperationalDepartment(name),
       () => this.newMetierDeptName.set(''),
-      'Département opérationnel créé',
+      'Département de production créé',
     );
   }
 
@@ -2144,7 +2269,7 @@ export class OrganisationManagementComponent implements OnInit {
     const employees = data?.employees ?? [];
 
     if (!sel) {
-      const sansMgr = this.allPolesFlat().filter((p) => !this.managerUserId(p.poleId)).length;
+      const sansMgr = this.allPolesFlat().filter((p) => this.managerUserIds(p.poleId).length === 0).length;
       const sansMetier = (data?.operationalDepartments ?? []).filter((d) => !d.managerEmployeeId).length;
       return {
         scopeTitle: 'Organisation',
@@ -2155,7 +2280,7 @@ export class OrganisationManagementComponent implements OnInit {
     }
     if (sel.kind === 'metierDepartment') {
       const md = data?.operationalDepartments.find((x) => x.id === sel.id);
-      const sansChef = (md?.poles ?? []).filter((p) => !this.managerUserId(p.id)).length;
+      const sansChef = (md?.poles ?? []).filter((p) => this.managerUserIds(p.id).length === 0).length;
       const effectif = this.employeesForStructureSelection(sel, employees).length;
       return {
         scopeTitle: sel.name,
@@ -2166,7 +2291,7 @@ export class OrganisationManagementComponent implements OnInit {
     }
     if (sel.kind === 'pole') {
       const pole = this.findPoleNode(sel.id);
-      const sansSup = (pole?.cellules ?? []).filter((c) => !this.supervisorUserId(c.id)).length;
+      const sansSup = (pole?.cellules ?? []).filter((c) => this.supervisorUserIds(c.id).length === 0).length;
       const effectif = this.employeesForStructureSelection(sel, employees).length;
       return {
         scopeTitle: sel.name,
@@ -2177,7 +2302,7 @@ export class OrganisationManagementComponent implements OnInit {
     }
     if (sel.kind === 'cellule') {
       const cellule = this.findCelluleNode(sel.id);
-      const sansCoach = (cellule?.services ?? []).filter((s) => !this.coachUserId(s.id)).length;
+      const sansCoach = (cellule?.services ?? []).filter((s) => this.coachUserIds(s.id).length === 0).length;
       const effectif = this.employeesForStructureSelection(sel, employees).length;
       return {
         scopeTitle: sel.name,
@@ -2624,6 +2749,70 @@ export class OrganisationManagementComponent implements OnInit {
     });
   }
 
+  private async resolveIncumbentAssignment(
+    roleName: 'Chef de projet' | 'Superviseur' | 'Référent technique',
+    nodeId: string,
+    newUserId: string,
+  ): Promise<{ revokeIds?: string[]; cancelled: boolean }> {
+    const overview = this.data();
+    if (!overview) return { cancelled: false };
+    const nodeIds =
+      roleName === 'Chef de projet'
+        ? { orgPoleId: nodeId }
+        : roleName === 'Superviseur'
+          ? { orgCelluleId: nodeId }
+          : { orgServiceId: nodeId };
+    const incumbents = findStructureIncumbents(overview, roleName, nodeIds).filter(
+      (i) => i.userId !== newUserId,
+    );
+    if (!shouldConfirmIncumbentChoice(incumbents)) {
+      return { cancelled: false };
+    }
+
+    const add = await this.confirmService.confirm({
+      title: 'Titulaires existants',
+      message: `${buildIncumbentChoiceMessage(roleName, incumbents)} Ajouter le nouveau titulaire sans retirer les autres ?`,
+      confirmLabel: 'Ajouter',
+      cancelLabel: 'Autre choix…',
+      variant: 'default',
+    });
+    if (add) return { cancelled: false };
+
+    const replace = await this.confirmService.confirm({
+      title: 'Remplacer les titulaires',
+      message: `Remplacer tous les titulaires actuels (${incumbents.map((i) => i.displayName).join(', ')}) ?`,
+      confirmLabel: 'Remplacer',
+      cancelLabel: 'Annuler',
+      variant: 'warning',
+    });
+    if (!replace) return { cancelled: true };
+    return { revokeIds: incumbents.map((i) => i.userId), cancelled: false };
+  }
+
+  removeDepartmentManagerIncumbent(poleId: string, employeeId: string): void {
+    this.runMutation(
+      this.orgApi.removeManagerIncumbent(poleId, employeeId),
+      undefined,
+      'Chef de projet retiré',
+    );
+  }
+
+  removePoleSupervisorIncumbent(celluleId: string, employeeId: string): void {
+    this.runMutation(
+      this.orgApi.removeSupervisorIncumbent(celluleId, employeeId),
+      undefined,
+      'Superviseur retiré',
+    );
+  }
+
+  removeCellCoachIncumbent(serviceId: string, employeeId: string): void {
+    this.runMutation(
+      this.orgApi.removeCoachIncumbent(serviceId, employeeId),
+      undefined,
+      'Référent technique retiré',
+    );
+  }
+
   private async confirmStructureReplace(
     roleName: 'Chef de projet' | 'Superviseur' | 'Référent technique',
     incumbentUserId: string | undefined,
@@ -2652,11 +2841,10 @@ export class OrganisationManagementComponent implements OnInit {
     if (!(await this.confirmCrossRoleAssignment(id))) {
       return;
     }
-    if (!(await this.confirmStructureReplace('Chef de projet', this.managerUserId(departmentId), id))) {
-      return;
-    }
+    const choice = await this.resolveIncumbentAssignment('Chef de projet', departmentId, id);
+    if (choice.cancelled) return;
     this.runMutation(
-      this.orgApi.setStructureManager(departmentId, id),
+      this.orgApi.setStructureManager(departmentId, id, choice.revokeIds),
       () => {
         this.clearRowDraftDirty('mgr', departmentId);
         this.patchDraftManager(departmentId, '');
@@ -2677,11 +2865,10 @@ export class OrganisationManagementComponent implements OnInit {
     const id = this.draftSupervisorByPole()[poleId];
     if (!id) return;
     if (!(await this.confirmCrossRoleAssignment(id))) return;
-    if (!(await this.confirmStructureReplace('Superviseur', this.supervisorUserId(poleId), id))) {
-      return;
-    }
+    const choice = await this.resolveIncumbentAssignment('Superviseur', poleId, id);
+    if (choice.cancelled) return;
     this.runMutation(
-      this.orgApi.setStructureSupervisor(poleId, id),
+      this.orgApi.setStructureSupervisor(poleId, id, choice.revokeIds),
       () => {
         this.clearRowDraftDirty('sup', poleId);
         this.patchDraftSupervisor(poleId, '');
@@ -2702,11 +2889,10 @@ export class OrganisationManagementComponent implements OnInit {
     const id = this.draftCoachByCell()[celluleId];
     if (!id) return;
     if (!(await this.confirmCrossRoleAssignment(id))) return;
-    if (!(await this.confirmStructureReplace('Référent technique', this.coachUserId(celluleId), id))) {
-      return;
-    }
+    const choice = await this.resolveIncumbentAssignment('Référent technique', celluleId, id);
+    if (choice.cancelled) return;
     this.runMutation(
-      this.orgApi.setStructureCoach(celluleId, id),
+      this.orgApi.setStructureCoach(celluleId, id, choice.revokeIds),
       () => {
         this.clearRowDraftDirty('coach', celluleId);
         this.patchDraftCoach(celluleId, '');
@@ -2723,17 +2909,66 @@ export class OrganisationManagementComponent implements OnInit {
     );
   }
 
+  private async resolvePilotRotationAssignment(
+    employeeId: string,
+    targetServiceId: string,
+  ): Promise<{ proceed: boolean; reason?: string; forceTenureOverride?: boolean }> {
+    try {
+      const eligibility = await firstValueFrom(
+        this.orgApi.getPilotRotationEligibility(employeeId, targetServiceId),
+      );
+      const decision = evaluatePilotRotationEligibility(
+        eligibility,
+        this.session.getRole() ?? '',
+      );
+
+      if (decision.action === 'proceed') {
+        return { proceed: true };
+      }
+
+      if (decision.action === 'block') {
+        await this.confirmService.confirm({
+          title: 'Rotation bloquée',
+          message: decision.message,
+          confirmLabel: 'Compris',
+          cancelLabel: 'Fermer',
+          variant: 'warning',
+        });
+        return { proceed: false };
+      }
+
+      const force = await this.confirmService.confirm({
+        title: 'Dérogation — règle des 6 mois',
+        message: `${decision.message}\n\nForcer la rotation en tant qu'Admin ? Un motif sera demandé.`,
+        confirmLabel: 'Forcer la rotation',
+        cancelLabel: 'Annuler',
+        variant: 'warning',
+      });
+      if (!force) return { proceed: false };
+
+      const reason = window.prompt('Motif de la dérogation (obligatoire) :');
+      if (!reason?.trim()) {
+        this.error.set('Motif obligatoire pour une dérogation Admin.');
+        return { proceed: false };
+      }
+
+      return { proceed: true, reason: reason.trim(), forceTenureOverride: true };
+    } catch {
+      return { proceed: true };
+    }
+  }
+
   async addPilotRow(celluleId: string): Promise<void> {
     const emp = this.draftPilotByCell()[celluleId];
     if (!emp) return;
     if (!(await this.confirmCrossRoleAssignment(emp))) return;
-    const teams = this.teamsForCell(celluleId);
-    const teamId =
-      teams.length > 1
-        ? this.draftPilotTeamByCell()[celluleId] || teams[0]?.id || undefined
-        : undefined;
+    const rotation = await this.resolvePilotRotationAssignment(emp, celluleId);
+    if (!rotation.proceed) return;
     this.runMutation(
-      this.orgApi.addStructurePilot(celluleId, emp, teamId),
+      this.orgApi.addStructurePilot(celluleId, emp, {
+        reason: rotation.reason,
+        forceTenureOverride: rotation.forceTenureOverride,
+      }),
       () => {
         this.clearRowDraftDirty('pilot', celluleId);
         this.patchDraftPilotCell(celluleId, '');
@@ -2776,11 +3011,10 @@ export class OrganisationManagementComponent implements OnInit {
     if (!(await this.confirmCrossRoleAssignment(id))) {
       return;
     }
-    if (!(await this.confirmStructureReplace('Chef de projet', this.managerUserId(departmentId), id))) {
-      return;
-    }
+    const choice = await this.resolveIncumbentAssignment('Chef de projet', departmentId, id);
+    if (choice.cancelled) return;
     this.runMutation(
-      this.orgApi.setStructureManager(departmentId, id),
+      this.orgApi.setStructureManager(departmentId, id, choice.revokeIds),
       undefined,
       'Chef de projet mis à jour (vue structure)',
     );
@@ -2798,11 +3032,10 @@ export class OrganisationManagementComponent implements OnInit {
     const id = this.draftEmployeeId();
     if (!id) return;
     if (!(await this.confirmCrossRoleAssignment(id))) return;
-    if (!(await this.confirmStructureReplace('Superviseur', this.supervisorUserId(poleId), id))) {
-      return;
-    }
+    const choice = await this.resolveIncumbentAssignment('Superviseur', poleId, id);
+    if (choice.cancelled) return;
     this.runMutation(
-      this.orgApi.setStructureSupervisor(poleId, id),
+      this.orgApi.setStructureSupervisor(poleId, id, choice.revokeIds),
       undefined,
       'Superviseur mis à jour (vue structure)',
     );
@@ -2820,11 +3053,10 @@ export class OrganisationManagementComponent implements OnInit {
     const id = this.draftEmployeeId();
     if (!id) return;
     if (!(await this.confirmCrossRoleAssignment(id))) return;
-    if (!(await this.confirmStructureReplace('Référent technique', this.coachUserId(celluleId), id))) {
-      return;
-    }
+    const choice = await this.resolveIncumbentAssignment('Référent technique', celluleId, id);
+    if (choice.cancelled) return;
     this.runMutation(
-      this.orgApi.setStructureCoach(celluleId, id),
+      this.orgApi.setStructureCoach(celluleId, id, choice.revokeIds),
       undefined,
       'Référent technique mis à jour (vue structure)',
     );
@@ -2842,11 +3074,13 @@ export class OrganisationManagementComponent implements OnInit {
     const emp = this.draftPilotId();
     if (!emp) return;
     if (!(await this.confirmCrossRoleAssignment(emp))) return;
-    const teams = this.teamsForCell(celluleId);
-    const teamId =
-      teams.length > 1 ? this.draftPilotTeamId() || teams[0]?.id || undefined : undefined;
+    const rotation = await this.resolvePilotRotationAssignment(emp, celluleId);
+    if (!rotation.proceed) return;
     this.runMutation(
-      this.orgApi.addStructurePilot(celluleId, emp, teamId),
+      this.orgApi.addStructurePilot(celluleId, emp, {
+        reason: rotation.reason,
+        forceTenureOverride: rotation.forceTenureOverride,
+      }),
       undefined,
       'Pilote ajouté (vue structure)',
     );

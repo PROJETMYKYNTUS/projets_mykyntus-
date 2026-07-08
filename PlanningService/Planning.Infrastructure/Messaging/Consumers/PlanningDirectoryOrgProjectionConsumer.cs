@@ -36,7 +36,13 @@ public sealed class PlanningDirectoryOrgProjectionConsumer(
     public async Task Consume(ConsumeContext<DirectoryAssignmentChangedMessage> context)
     {
         var msg = context.Message;
-        if (msg.Removed || msg.EmployeeId == Guid.Empty)
+        if (msg.Removed)
+        {
+            await HandleRemovalAsync(msg, context.CancellationToken);
+            return;
+        }
+
+        if (msg.EmployeeId == Guid.Empty)
             return;
 
         var user = await db.Users.FirstOrDefaultAsync(
@@ -99,6 +105,44 @@ public sealed class PlanningDirectoryOrgProjectionConsumer(
 
         await db.SaveChangesAsync(context.CancellationToken);
         logger.LogInformation("Planning Directory assignment {Kind} applied to user {UserId}", msg.Kind, user.Id);
+    }
+
+    private async Task HandleRemovalAsync(DirectoryAssignmentChangedMessage msg, CancellationToken ct)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Guid == msg.EmployeeId, ct);
+        if (user is null)
+        {
+            logger.LogWarning("Directory assignment removal: user {Id} not found in Planning", msg.EmployeeId);
+            return;
+        }
+
+        switch (msg.Kind)
+        {
+            case OrgAssignmentKind.Superviseur when !string.IsNullOrWhiteSpace(msg.NodeId):
+            {
+                var planningService = await db.Services.FirstOrDefaultAsync(
+                    s => s.PrimeCelluleId == msg.NodeId.Trim(), ct);
+                if (planningService is not null)
+                {
+                    var links = await db.UserManagedServices
+                        .Where(us => us.UserId == user.Id && us.ServiceId == planningService.Id)
+                        .ToListAsync(ct);
+                    db.UserManagedServices.RemoveRange(links);
+                }
+                break;
+            }
+            case OrgAssignmentKind.ReferentTechnique when !string.IsNullOrWhiteSpace(msg.NodeId):
+            {
+                var sub = await db.SubServices.FirstOrDefaultAsync(
+                    s => s.PrimeServiceId == msg.NodeId.Trim(), ct);
+                if (sub is not null && user.SubServiceId == sub.Id)
+                    user.SubServiceId = null;
+                break;
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Planning Directory assignment removal {Kind} applied for user {UserId}", msg.Kind, user.Id);
     }
 
     private async Task UpsertFloorAsync(string primePoleId, string name)

@@ -6,8 +6,6 @@ import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { UserService } from '../../services/user.service';
 import { User } from '../../users-module';
-import { EmployeeFieldService } from '../../services/employee-field.service';
-import type { EmployeeImportFieldConfig } from '../../services/employee-import.service';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { AlertTriangle, Eye, Pencil, Search, Trash2 } from 'lucide';
@@ -23,6 +21,15 @@ import {
   type DirectoryEmployeeOrgRef,
   type UserOrgPerimeterView,
 } from '../../../../core/org/user-org-perimeter';
+import {
+  contractLevelLabel,
+  expertiseLevelLabel,
+  matriculeDisplay,
+  orgSummaryForList,
+  seniorityReferenceDate,
+  telephoneDisplay,
+  userMatchesSearch,
+} from '../../../../core/hr/user-hr-display.util';
 
 @Component({
   selector: 'app-user-list',
@@ -34,9 +41,13 @@ import {
 export class UserListComponent implements OnInit {
   readonly icons = { warn: AlertTriangle, eye: Eye, edit: Pencil, trash: Trash2, search: Search };
   readonly orgCellLabel = orgCellLabel;
+  readonly contractLevelLabel = contractLevelLabel;
+  readonly expertiseLevelLabel = expertiseLevelLabel;
+  readonly matriculeDisplay = matriculeDisplay;
+  readonly telephoneDisplay = telephoneDisplay;
+  readonly orgSummaryForList = orgSummaryForList;
   users: User[] = [];
   filteredUsers: User[] = [];
-  customFieldColumns: EmployeeImportFieldConfig[] = [];
   private perimeterByUserId = new Map<number, UserOrgPerimeterView>();
   private directoryEmployees: DirectoryEmployeeOrgRef[] = [];
   private businessDepartments: BusinessDepartmentRef[] = [];
@@ -48,24 +59,13 @@ export class UserListComponent implements OnInit {
     private userService: UserService,
     private subServiceService: SubServiceService,
     private orgApi: PrimeOrgApiService,
-    private fieldService: EmployeeFieldService,
     private http: HttpClient,
     private router: Router,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
-    this.fieldService.getFields(true).subscribe({
-      next: (fields) => {
-        this.customFieldColumns = fields.filter((f) => f.isSystemField === false);
-        this.cdr.detectChanges();
-      },
-    });
     this.loadUsers();
-  }
-
-  customFieldValue(user: User, fieldKey: string): string {
-    return user.customFields?.[fieldKey] ?? '—';
   }
 
   userPerimeter(user: User): UserOrgPerimeterView {
@@ -138,15 +138,15 @@ export class UserListComponent implements OnInit {
   onSearch(): void {
     const term = this.searchTerm.toLowerCase().trim();
     this.filteredUsers = term
-      ? this.users.filter(u =>
-          `${u.firstName} ${u.lastName}`.toLowerCase().includes(term) ||
-          `${u.lastName} ${u.firstName}`.toLowerCase().includes(term) ||
-          u.email.toLowerCase().includes(term)
-        )
+      ? this.users.filter((u) => userMatchesSearch(u, term))
       : this.users;
   }
 
-  getAnciennete(hireDate: string): string {
+  getAnciennete(user: User): string {
+    return this.getAncienneteFromDate(seniorityReferenceDate(user));
+  }
+
+  private getAncienneteFromDate(hireDate: string): string {
     const debut = new Date(hireDate);
     const now = new Date();
     let ans = now.getFullYear() - debut.getFullYear();

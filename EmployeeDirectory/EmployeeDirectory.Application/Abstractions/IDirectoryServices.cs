@@ -23,9 +23,18 @@ public interface IDirectoryWriteService
     Task<EmployeeDto> CreateEmployeeAsync(CreateEmployeeRequest request, Guid? changedBy, CancellationToken ct = default);
     Task<EmployeeDto?> UpdateEmployeeAsync(Guid id, UpdateEmployeeRequest request, Guid? changedBy, CancellationToken ct = default);
     Task<bool> DeleteEmployeeAsync(Guid id, Guid? changedBy, CancellationToken ct = default);
-    Task<StructuralRoleAssignmentResult> AssignStructureRoleAsync(string kind, string nodeId, Guid employeeId, Guid? changedBy, string? reason, CancellationToken ct = default);
+    Task<StructuralRoleAssignmentResult> AssignStructureRoleAsync(
+        string kind,
+        string nodeId,
+        Guid employeeId,
+        Guid? changedBy,
+        string? reason,
+        IReadOnlyList<Guid>? revokeEmployeeIds = null,
+        bool forceTenureOverride = false,
+        CancellationToken ct = default);
     Task ClearStructureRoleAsync(string kind, string nodeId, Guid? changedBy, string? reason, CancellationToken ct = default);
     Task<bool> RemoveStructurePilotAsync(string serviceId, Guid employeeId, Guid? changedBy, string? reason, CancellationToken ct = default);
+    Task<bool> RemoveStructureAssignmentAsync(string kind, string nodeId, Guid employeeId, Guid? changedBy, string? reason, CancellationToken ct = default);
     Task<string> CreatePoleAsync(string name, Guid businessDepartmentId, CancellationToken ct = default);
     Task<bool> AttachPoleToBusinessDepartmentAsync(string poleId, Guid businessDepartmentId, CancellationToken ct = default);
     Task<string> CreateCelluleAsync(string poleId, string name, CancellationToken ct = default);

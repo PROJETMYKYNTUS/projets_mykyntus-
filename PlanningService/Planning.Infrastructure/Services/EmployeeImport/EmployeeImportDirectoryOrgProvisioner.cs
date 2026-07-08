@@ -96,12 +96,12 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
         {
             var departments = _operationalDepartments ?? await directoryOrg.GetOperationalDepartmentsAsync(ct);
             var cause = string.IsNullOrWhiteSpace(item.OperationalDepartment)
-                ? "la colonne « Département opérationnel » est vide pour ce pôle"
-                : $"la valeur « {item.OperationalDepartment} » ne correspond à aucun département opérationnel existant";
+                ? "la colonne « Département de production » est vide pour ce pôle"
+                : $"la valeur « {item.OperationalDepartment} » ne correspond à aucun département de production existant";
             var hint = departments.Count == 0
-                ? "Aucun département opérationnel n'existe : créez-en un dans « Organisation » (ex. OP-001) avant l'import."
+                ? "Aucun département de production n'existe : créez-en un dans « Organisation » (ex. OP-001) avant l'import."
                 : "Départements disponibles : " + string.Join(", ", departments.Select(d => $"{d.Code} - {d.Name}"))
-                  + ". Reprenez l'une de ces valeurs dans le fichier, ou créez le département dans « Organisation » (l'import ne crée pas de département opérationnel).";
+                  + ". Reprenez l'une de ces valeurs dans le fichier, ou créez le département dans « Organisation » (l'import ne crée pas de département de production).";
             throw new InvalidOperationException(
                 $"Impossible de créer le pôle « {poleName} » : {cause}. {hint}");
         }

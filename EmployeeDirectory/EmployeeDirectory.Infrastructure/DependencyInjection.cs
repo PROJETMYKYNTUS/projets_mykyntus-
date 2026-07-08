@@ -34,6 +34,7 @@ public static class DependencyInjection
 
         services.AddScoped<IDirectoryReadService, DirectoryReadService>();
         services.AddScoped<IOrgStructuralRoleExclusivityService, OrgStructuralRoleExclusivityService>();
+        services.AddScoped<IPilotRotationTenureService, PilotRotationTenureService>();
         services.AddScoped<IDirectoryWriteService, DirectoryWriteService>();
         services.AddScoped<IDirectoryReconciliationService, DirectoryReconciliationService>();
         services.AddHttpClient("DirectoryReconcile");

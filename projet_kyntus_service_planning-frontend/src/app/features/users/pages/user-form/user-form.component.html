@@ -81,6 +81,23 @@
 
         <form class="form">
 
+          @if (showCreateSuccess) {
+            <section class="form-section create-success-panel">
+              <h2>Employé créé</h2>
+              <p>{{ createSuccessMessage }}</p>
+              <div class="form-actions">
+                @if (!hrProfile.enFormation) {
+                  <button type="button" class="btn btn-primary ky-btn-primary" (click)="goToNewContract()">
+                    Suivant — Contrat
+                  </button>
+                }
+                <button type="button" class="btn btn-outline ky-btn-secondary" (click)="viewCreatedUser()">
+                  Voir la fiche
+                </button>
+              </div>
+            </section>
+          }
+
           @if (!showCreateSuccess) {
             <nav class="wizard-stepper" aria-label="Étapes du formulaire employé">
               @for (step of wizardSteps; track step.id; let i = $index) {
@@ -97,7 +114,6 @@
                 </button>
               }
             </nav>
-          }
 
           @if (currentWizardStep === 'identity') {
           <section class="form-section">
@@ -291,7 +307,7 @@
                     [class.active]="orgMode === 'operational'"
                     (click)="setOrgMode('operational')"
                   >
-                    <span class="org-mode-title">Organisation opérationnel</span>
+                    <span class="org-mode-title">Organisation de production</span>
                     <span class="org-mode-text">Département, pôle, cellule et service</span>
                   </button>
                   <button
@@ -368,14 +384,14 @@
             @if (showOperationalManagerBlock) {
               <div class="org-picker-block support-picker-block">
                 <p class="org-picker-hint">
-                  Affectation manager de département opérationnel — synchronisée avec
+                  Affectation manager de département de production — synchronisée avec
                   <button type="button" class="link-inline" (click)="goToOrganisationRh()">Organisation RH</button>.
                 </p>
                 @if (supportDeptLoading) {
-                  <p class="hint">Chargement des départements opérationnels…</p>
+                  <p class="hint">Chargement des départements de production…</p>
                 } @else {
                   <div class="form-group">
-                    <label for="operationalBusinessDept">Département opérationnel <span class="required">*</span></label>
+                    <label for="operationalBusinessDept">Département de production <span class="required">*</span></label>
                     <select
                       class="ky-input"
                       id="operationalBusinessDept"
@@ -389,7 +405,7 @@
                       }
                     </select>
                     @if (operationalBusinessDepartments.length === 0) {
-                      <span class="input-error">Aucun département opérationnel actif. Créez-en un dans Organisation RH.</span>
+                      <span class="input-error">Aucun département de production actif. Créez-en un dans Organisation RH.</span>
                     }
                   </div>
                 }
@@ -440,7 +456,7 @@
                     <div class="form-grid org-grid">
                       @if (showOrgOperationalDeptSelect) {
                         <div class="form-group">
-                          <label for="orgOperationalDept">Département opérationnel @if (orgAssignmentRequired) { <span class="required">*</span> }</label>
+                          <label for="orgOperationalDept">Département de production @if (orgAssignmentRequired) { <span class="required">*</span> }</label>
                           <select
                             class="ky-input"
                             id="orgOperationalDept"
@@ -671,27 +687,27 @@
 
 
 
-            <div class="form-group">
+            <div class="form-group" [class.form-group--readonly]="!canEditExpertiseMetier">
 
-              <label>Niveau d'expertise métier</label>
+              <label>Niveau d'expertise métier @if (!canEditExpertiseMetier) { <span class="field-hint">(RH uniquement)</span> }</label>
 
               <div class="level-selector level-selector--compact">
 
-                <button type="button" class="level-btn level-btn--1" [class.active]="form.niveauExpertiseMetier === 1" (click)="setExpertiseLevel(1)">
+                <button type="button" class="level-btn level-btn--1" [class.active]="form.niveauExpertiseMetier === 1" [disabled]="!canEditExpertiseMetier" (click)="setExpertiseLevel(1)">
                   <span class="level-badge">1</span>
                   <span class="level-content">
                     <span class="level-title">Débutant</span>
                   </span>
                 </button>
 
-                <button type="button" class="level-btn level-btn--2" [class.active]="form.niveauExpertiseMetier === 2" (click)="setExpertiseLevel(2)">
+                <button type="button" class="level-btn level-btn--2" [class.active]="form.niveauExpertiseMetier === 2" [disabled]="!canEditExpertiseMetier" (click)="setExpertiseLevel(2)">
                   <span class="level-badge">2</span>
                   <span class="level-content">
                     <span class="level-title">Intermédiaire</span>
                   </span>
                 </button>
 
-                <button type="button" class="level-btn level-btn--3" [class.active]="form.niveauExpertiseMetier === 3" (click)="setExpertiseLevel(3)">
+                <button type="button" class="level-btn level-btn--3" [class.active]="form.niveauExpertiseMetier === 3" [disabled]="!canEditExpertiseMetier" (click)="setExpertiseLevel(3)">
                   <span class="level-badge">3</span>
                   <span class="level-content">
                     <span class="level-title">Confirmé</span>
@@ -850,7 +866,7 @@
                   <label for="dateEvolutionPoste">Date évolution poste</label>
                   <input class="ky-input" id="dateEvolutionPoste" name="dateEvolutionPoste" type="date" [(ngModel)]="hrProfile.dateEvolutionPoste" />
                 </div>
-                <div class="form-group">
+                <div class="form-group form-group--full ancien-poste-block">
                   <label for="ancienPosteRole">Ancien poste</label>
                   <select
                     class="ky-input"
@@ -859,27 +875,106 @@
                     (ngModelChange)="patchAncienPosteRole(+$event)"
                     name="ancienPosteRole"
                   >
-                    <option [ngValue]="0">— Sélectionner —</option>
+                    <option [ngValue]="0">— Sélectionner un rôle —</option>
                     @for (role of roles; track role.id) {
                       <option [ngValue]="role.id">{{ role.name }}</option>
                     }
                   </select>
                 </div>
-                <div class="form-group">
-                  <label for="ancienServiceSelect">Ancien service</label>
-                  <select
-                    class="ky-input"
-                    id="ancienServiceSelect"
-                    [ngModel]="ancienServiceSubServiceId"
-                    (ngModelChange)="patchAncienService($event ? +$event : null)"
-                    name="ancienServiceSelect"
-                  >
-                    <option [ngValue]="null">— Sélectionner —</option>
-                    @for (svc of subServices; track svc.id) {
-                      <option [ngValue]="svc.id">{{ svc.name }}</option>
+
+                @if (ancienShowOrgAssignmentBlock) {
+                  <div class="org-picker-block ancien-org-picker form-group--full">
+                    @if (orgLoading) {
+                      <p class="hint">Chargement de la structure…</p>
+                    } @else {
+                      <p class="org-picker-hint">{{ ancienOrgAssignmentHintText }}</p>
+                      <div class="form-grid org-grid">
+                        @if (ancienShowOrgOperationalDeptSelect) {
+                          <div class="form-group">
+                            <label for="ancienOrgOperationalDept">Département de production</label>
+                            <select
+                              class="ky-input"
+                              id="ancienOrgOperationalDept"
+                              [kyntusSelectSync]="ancienOrgOperationalDeptId"
+                              (kyntusSelectSyncChange)="patchAncienOrgOperationalDept($event)"
+                              [disabled]="operationalDepartments.length === 0 && !hasUnassignedPoles"
+                            >
+                              <option value="">— Sélectionner un département —</option>
+                              @for (d of operationalDepartments; track d.id) {
+                                <option [value]="d.id">{{ d.code }} — {{ d.name }}</option>
+                              }
+                            </select>
+                          </div>
+                        }
+                        @if (ancienShowOrgPoleSelect) {
+                          <div class="form-group">
+                            <label for="ancienOrgPole">Pôle</label>
+                            <select
+                              class="ky-input"
+                              id="ancienOrgPole"
+                              [kyntusSelectSync]="ancienOrgPoleId"
+                              (kyntusSelectSyncChange)="patchAncienOrgPole($event)"
+                              [disabled]="!ancienOrgOperationalDeptId && !hasUnassignedPoles"
+                            >
+                              <option value="">— Sélectionner un pôle —</option>
+                              @if (ancienOrgOperationalDeptId) {
+                                @for (p of ancienFilteredOrgPoleOptions; track p.id) {
+                                  <option [value]="p.id">{{ p.name }}</option>
+                                }
+                              }
+                              @if (hasUnassignedPoles) {
+                                <optgroup label="Pôles non rattachés">
+                                  @for (p of unassignedPoles; track p.id) {
+                                    <option [value]="p.id">{{ p.name }}</option>
+                                  }
+                                </optgroup>
+                              }
+                            </select>
+                          </div>
+                        }
+                        @if (ancienShowOrgCelluleSelect) {
+                          <div class="form-group">
+                            <label for="ancienOrgCellule">Cellule</label>
+                            <select
+                              class="ky-input"
+                              id="ancienOrgCellule"
+                              [kyntusSelectSync]="ancienOrgCelluleId"
+                              (kyntusSelectSyncChange)="patchAncienOrgCellule($event)"
+                              [disabled]="!ancienOrgPoleId || ancienOrgCelluleOptions.length === 0"
+                            >
+                              <option value="">— Sélectionner une cellule —</option>
+                              @for (c of ancienOrgCelluleOptions; track c.id) {
+                                <option [value]="c.id">{{ c.name }}</option>
+                              }
+                            </select>
+                          </div>
+                        }
+                        @if (ancienShowOrgServiceSelect) {
+                          <div class="form-group">
+                            <label for="ancienOrgService">Ancien service</label>
+                            <select
+                              class="ky-input"
+                              id="ancienOrgService"
+                              [kyntusSelectSync]="ancienOrgServiceId"
+                              (kyntusSelectSyncChange)="patchAncienOrgService($event)"
+                              [disabled]="!ancienOrgCelluleId || ancienOrgServiceOptions.length === 0"
+                            >
+                              <option value="">— Sélectionner un service —</option>
+                              @for (s of ancienOrgServiceOptions; track s.id) {
+                                <option [value]="s.id">{{ s.name }}</option>
+                              }
+                            </select>
+                          </div>
+                        }
+                      </div>
+                      @if (ancienOrgPoleId || ancienOrgCelluleId || ancienOrgServiceId || ancienOrgOperationalDeptId) {
+                        <div class="selected-org">
+                          <strong>Ancien service :</strong> {{ ancienSelectedOrgSummary }}
+                        </div>
+                      }
                     }
-                  </select>
-                </div>
+                  </div>
+                }
                 <div class="form-group">
                   <label for="niveauScolaire">Niveau scolaire</label>
                   <select
@@ -1002,6 +1097,8 @@
             }
 
           </div>
+
+          }
 
         </form>
 

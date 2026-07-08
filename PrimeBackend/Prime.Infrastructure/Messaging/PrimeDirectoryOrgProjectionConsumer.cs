@@ -38,8 +38,29 @@ public sealed class PrimeDirectoryOrgProjectionConsumer(
         var msg = context.Message;
         if (msg.Removed)
         {
-            if (msg.Kind == OrgAssignmentKind.ChefDeProjet)
-                await orgCommands.ClearManagerForPoleAsync(msg.NodeId, context.CancellationToken);
+            var removedUserId = msg.EmployeeId.ToString();
+            try
+            {
+                switch (msg.Kind)
+                {
+                    case OrgAssignmentKind.ChefDeProjet:
+                        await orgCommands.RemoveAssignmentByPrefixAsync($"m|{removedUserId}|{msg.NodeId}", 'm', context.CancellationToken);
+                        break;
+                    case OrgAssignmentKind.Superviseur:
+                        await orgCommands.RemoveAssignmentByPrefixAsync($"s|{removedUserId}|{msg.NodeId}", 's', context.CancellationToken);
+                        break;
+                    case OrgAssignmentKind.ReferentTechnique:
+                        await orgCommands.RemoveAssignmentByPrefixAsync($"c|{removedUserId}|{msg.NodeId}", 'c', context.CancellationToken);
+                        break;
+                    case OrgAssignmentKind.Pilote:
+                        await orgCommands.RemovePilotFromServiceAsync(removedUserId, msg.NodeId, context.CancellationToken);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Prime Directory assignment removal {Kind} failed for {UserId}", msg.Kind, removedUserId);
+            }
             return;
         }
 

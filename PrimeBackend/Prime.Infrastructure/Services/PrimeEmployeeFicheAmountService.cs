@@ -111,6 +111,26 @@ public static class PrimeEmployeeFicheAmountService
     public static PrimeEmployeeFicheAmounts ExtractFromFiche(EmployeePrimeServiceFiche fiche) =>
         ExtractFromServiceSaisieJson(fiche.ServiceSaisieJson);
 
+    /// <summary>
+    /// Montants affichés sur les écrans de validation : saisie calculée, sinon colonnes entité, sinon plafonds pilote.
+    /// </summary>
+    public static PrimeEmployeeFicheAmounts ResolveWorkflowDisplayAmounts(EmployeePrimeServiceFiche fiche)
+    {
+        var fromSaisie = ExtractFromFiche(fiche);
+        var plafonds = ExtractPlafondsFromFiche(fiche);
+
+        var prime = fromSaisie.PrimeAmount ?? fiche.PrimeAmount ?? plafonds.PrimeAmount;
+        var challenge = fromSaisie.ChallengeAmount ?? fiche.ChallengeAmount ?? plafonds.ChallengeAmount;
+        var total = fromSaisie.TotalAmount ?? fiche.TotalAmount;
+        if (!total.HasValue && (prime.HasValue || challenge.HasValue))
+            total = (prime ?? 0m) + (challenge ?? 0m);
+
+        if (!prime.HasValue && !challenge.HasValue && !total.HasValue)
+            return PrimeEmployeeFicheAmounts.Empty;
+
+        return new PrimeEmployeeFicheAmounts(prime, challenge, total);
+    }
+
     public static void ApplySnapshotToEntity(EmployeePrimeServiceFiche fiche, PrimeEmployeeFicheAmounts amounts)
     {
         fiche.PrimeAmount = amounts.PrimeAmount;

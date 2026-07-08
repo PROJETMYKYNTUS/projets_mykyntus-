@@ -77,14 +77,44 @@ public sealed class DeleteOrgNodeCommandHandler(IDirectoryWriteService write)
         write.DeleteOrgNodeAsync(request.Level, request.NodeId, ct);
 }
 
-public record AssignStructureRoleCommand(string Kind, string NodeId, Guid EmployeeId, Guid? ChangedBy, string? Reason)
+public record AssignStructureRoleCommand(
+    string Kind,
+    string NodeId,
+    Guid EmployeeId,
+    Guid? ChangedBy,
+    string? Reason,
+    IReadOnlyList<Guid>? RevokeEmployeeIds = null,
+    bool ForceTenureOverride = false)
     : IRequest<StructuralRoleAssignmentResult>;
 
 public sealed class AssignStructureRoleCommandHandler(IDirectoryWriteService write)
     : IRequestHandler<AssignStructureRoleCommand, StructuralRoleAssignmentResult>
 {
     public Task<StructuralRoleAssignmentResult> Handle(AssignStructureRoleCommand request, CancellationToken ct) =>
-        write.AssignStructureRoleAsync(request.Kind, request.NodeId, request.EmployeeId, request.ChangedBy, request.Reason, ct);
+        write.AssignStructureRoleAsync(
+            request.Kind,
+            request.NodeId,
+            request.EmployeeId,
+            request.ChangedBy,
+            request.Reason,
+            request.RevokeEmployeeIds,
+            request.ForceTenureOverride,
+            ct);
+}
+
+public record RemoveStructureAssignmentCommand(
+    string Kind,
+    string NodeId,
+    Guid EmployeeId,
+    Guid? ChangedBy,
+    string? Reason) : IRequest<bool>;
+
+public sealed class RemoveStructureAssignmentCommandHandler(IDirectoryWriteService write)
+    : IRequestHandler<RemoveStructureAssignmentCommand, bool>
+{
+    public Task<bool> Handle(RemoveStructureAssignmentCommand request, CancellationToken ct) =>
+        write.RemoveStructureAssignmentAsync(
+            request.Kind, request.NodeId, request.EmployeeId, request.ChangedBy, request.Reason, ct);
 }
 
 public record RemoveStructurePilotCommand(string ServiceId, Guid EmployeeId, Guid? ChangedBy) : IRequest<bool>;

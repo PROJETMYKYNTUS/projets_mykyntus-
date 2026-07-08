@@ -1,3 +1,4 @@
+using EmployeeDirectory.Application.Abstractions;
 using EmployeeDirectory.Domain.Entities;
 using EmployeeDirectory.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +24,8 @@ public static class DirectoryDatabaseInitializer
             {
                 await db.Database.EnsureCreatedAsync(ct);
                 await DirectorySchemaPatches.ApplyAsync(db, ct);
+                await scope.ServiceProvider.GetRequiredService<IPilotRotationTenureService>()
+                    .BootstrapProjectedPilotsAsync(ct);
                 await SeedIamPermissionsAsync(db, ct);
                 await DockerComposeDirectoryDemoSeed.ApplyIfEnabledAsync(configuration, db, ct);
                 log.LogInformation("Employee Directory database ready.");

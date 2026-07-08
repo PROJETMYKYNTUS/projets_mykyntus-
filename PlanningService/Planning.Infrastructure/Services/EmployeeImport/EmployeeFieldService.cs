@@ -337,9 +337,12 @@ public partial class EmployeeFieldService(AppDbContext db) : IEmployeeFieldServi
 
     private static string ResolveSystemDataType(string fieldKey) => fieldKey switch
     {
-        "hireDate" => "date",
-        "isActive" => "boolean",
-        "level" => "number",
+        "hireDate" or "dateNaissance" or "dateEntree" or "dateAnciennete" or "dateSortie"
+            or "dateEvolutionPoste" or "dateDebutFormation" or "dateFinFormationPrevue"
+            or "contractStartDate" or "contractEndDate" => "date",
+        "isActive" or "enFormation" => "boolean",
+        "level" or "niveauExpertiseMetier" or "nombreEnfants" or "contractProbationDays"
+            or "contractAlertThresholdDays" or "contractStatus" => "number",
         _ => "text"
     };
 

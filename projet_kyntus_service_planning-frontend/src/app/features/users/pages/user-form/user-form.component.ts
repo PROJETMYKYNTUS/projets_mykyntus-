@@ -18,6 +18,7 @@ import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-select-sync.directive';
 import { LockKeyhole, Search, Sparkles } from 'lucide';
 import { NavigationActionsService } from '../../../../core/navigation/navigation-actions.service';
+import { KyntusSessionService } from '../../../../core/session/kyntus-session.service';
 import {
   PrimeOrgApiService,
   type OrgAssignmentsOverview,
@@ -70,14 +71,11 @@ import {
 } from '../../../../core/org/org-role-assignment';
 import {
   buildCrossRoleOverwriteMessage,
-  buildStructureOverwriteMessage,
   employeeDisplayName,
   findEmployeeStructuralRole,
-  findStructureIncumbent,
   findStructureIncumbents,
   filterSuperviseursForChefDeProjet,
   filterReferentsForSuperviseur,
-  shouldConfirmOverwrite,
 } from '../../../../core/org/org-structure-incumbent.util';
 import {
   HR_EDUCATION_LEVEL_OPTIONS,
@@ -218,7 +216,10 @@ export class UserFormComponent implements OnInit {
   nationaliteCode = '';
   nationaliteAutre = '';
   ancienPosteRoleId = 0;
-  ancienServiceSubServiceId: number | null = null;
+  ancienOrgOperationalDeptId = '';
+  ancienOrgPoleId = '';
+  ancienOrgCelluleId = '';
+  ancienOrgServiceId = '';
 
   readonly maritalStatusOptions = HR_MARITAL_STATUS_OPTIONS;
   readonly educationLevelOptions = HR_EDUCATION_LEVEL_OPTIONS;
@@ -242,8 +243,14 @@ export class UserFormComponent implements OnInit {
     private http: HttpClient,
     private contractService: ContractService,
     private parrainageApi: ParrainageApiService,
+    private session: KyntusSessionService,
     private cdr: ChangeDetectorRef
   ) {}
+
+  get canEditExpertiseMetier(): boolean {
+    const role = this.session.getRole().toUpperCase();
+    return role === 'RH' || role === 'ADMIN';
+  }
 
   ngOnInit(): void {
     this.fieldService.getFields(true).subscribe({
@@ -279,6 +286,7 @@ export class UserFormComponent implements OnInit {
           id: Number((r as RoleOption & { Id?: number }).id ?? (r as { Id?: number }).Id),
           name: String((r as RoleOption & { Name?: string }).name ?? (r as { Name?: string }).Name ?? ''),
         }));
+        this.syncAncienPickersFromProfile();
         this.cdr.detectChanges();
       },
       error: () => {
@@ -293,6 +301,7 @@ export class UserFormComponent implements OnInit {
           { id: 8, name: 'EquipeFormation' },
           { id: 9, name: 'Manager' },
         ];
+        this.syncAncienPickersFromProfile();
         this.cdr.detectChanges();
       }
     });
@@ -537,6 +546,68 @@ export class UserFormComponent implements OnInit {
     return this.nationaliteCode === 'AUTRE';
   }
 
+  get ancienSelectedRoleName(): string {
+    return this.roles.find((r) => r.id === this.ancienPosteRoleId)?.name ?? '';
+  }
+
+  get ancienOrgAssignmentDepth(): OrgRoleAssignmentDepth {
+    return orgRoleAssignmentDepth(this.ancienSelectedRoleName);
+  }
+
+  get ancienShowOrgAssignmentBlock(): boolean {
+    return this.ancienOrgAssignmentDepth !== 'none';
+  }
+
+  get ancienShowOrgOperationalDeptSelect(): boolean {
+    return this.ancienShowOrgAssignmentBlock
+      && orgAssignmentRequiresOperationalDept(this.ancienOrgAssignmentDepth);
+  }
+
+  get ancienShowOrgPoleSelect(): boolean {
+    return this.ancienShowOrgAssignmentBlock && orgAssignmentRequiresPole(this.ancienOrgAssignmentDepth);
+  }
+
+  get ancienShowOrgCelluleSelect(): boolean {
+    return this.ancienShowOrgAssignmentBlock && orgAssignmentRequiresCellule(this.ancienOrgAssignmentDepth);
+  }
+
+  get ancienShowOrgServiceSelect(): boolean {
+    return this.ancienShowOrgAssignmentBlock && orgAssignmentRequiresService(this.ancienOrgAssignmentDepth);
+  }
+
+  get ancienFilteredOrgPoleOptions(): OrgPoleNode[] {
+    const fromDept = this.ancienOrgOperationalDeptId
+      ? polesForOperationalDept(this.operationalDepartments, this.ancienOrgOperationalDeptId)
+      : [];
+    if (!this.ancienOrgOperationalDeptId && this.unassignedPoles.length) {
+      return this.unassignedPoles;
+    }
+    return fromDept;
+  }
+
+  get ancienOrgCelluleOptions(): OrgCelluleNode[] {
+    return cellulesForPole(this.operationalDepartments, this.unassignedPoles, this.ancienOrgPoleId);
+  }
+
+  get ancienOrgServiceOptions(): OrgServiceNode[] {
+    return servicesForCellule(this.operationalDepartments, this.unassignedPoles, this.ancienOrgCelluleId);
+  }
+
+  get ancienSelectedOrgSummary(): string {
+    return operationalSelectionSummary(
+      this.operationalDepartments,
+      this.unassignedPoles,
+      this.ancienOrgOperationalDeptId,
+      this.ancienOrgPoleId,
+      this.ancienOrgCelluleId,
+      this.ancienOrgServiceId,
+    );
+  }
+
+  get ancienOrgAssignmentHintText(): string {
+    return orgAssignmentHint(this.ancienSelectedRoleName, this.ancienOrgAssignmentDepth);
+  }
+
   get canShowContractFields(): boolean {
     if (this.hrProfile.enFormation && !this.isEditMode) return false;
     if (this.isEditMode && this.hrProfile.enFormation && !this.contractId) return false;
@@ -739,14 +810,170 @@ export class UserFormComponent implements OnInit {
     this.ancienPosteRoleId = roleId;
     const role = this.roles.find((r) => r.id === roleId);
     this.hrProfile.ancienPoste = role?.name ?? '';
+    this.clearAncienOrgAssignment();
     this.cdr.detectChanges();
   }
 
-  patchAncienService(subServiceId: number | null): void {
-    this.ancienServiceSubServiceId = subServiceId;
-    const svc = this.subServices.find((s) => s.id === subServiceId);
-    this.hrProfile.ancienService = svc?.name ?? '';
+  patchAncienOrgOperationalDept(deptId: string): void {
+    this.ancienOrgOperationalDeptId = deptId;
+    this.ancienOrgPoleId = '';
+    this.ancienOrgCelluleId = '';
+    this.ancienOrgServiceId = '';
+    this.syncAncienServiceFromOrg();
     this.cdr.detectChanges();
+  }
+
+  patchAncienOrgPole(poleId: string): void {
+    this.ancienOrgPoleId = poleId;
+    if (isUnassignedPole(this.unassignedPoles, poleId)) {
+      this.ancienOrgOperationalDeptId = '';
+    } else {
+      const sel = findOperationalSelectionByPoleId(this.operationalDepartments, this.unassignedPoles, poleId);
+      if (sel?.operationalDeptId) {
+        this.ancienOrgOperationalDeptId = sel.operationalDeptId;
+      }
+    }
+    this.ancienOrgCelluleId = '';
+    this.ancienOrgServiceId = '';
+    this.syncAncienServiceFromOrg();
+    this.cdr.detectChanges();
+  }
+
+  patchAncienOrgCellule(celluleId: string): void {
+    this.ancienOrgCelluleId = celluleId;
+    this.ancienOrgServiceId = '';
+    this.syncAncienServiceFromOrg();
+    this.cdr.detectChanges();
+  }
+
+  patchAncienOrgService(serviceId: string): void {
+    this.ancienOrgServiceId = serviceId;
+    this.syncAncienServiceFromOrg();
+    this.cdr.detectChanges();
+  }
+
+  private clearAncienOrgAssignment(): void {
+    this.ancienOrgOperationalDeptId = '';
+    this.ancienOrgPoleId = '';
+    this.ancienOrgCelluleId = '';
+    this.ancienOrgServiceId = '';
+    this.hrProfile.ancienService = '';
+  }
+
+  private syncAncienServiceFromOrg(): void {
+    if (!this.ancienShowOrgAssignmentBlock) {
+      this.hrProfile.ancienService = '';
+      return;
+    }
+    const summary = this.ancienSelectedOrgSummary;
+    this.hrProfile.ancienService = summary === '—' ? '' : summary;
+  }
+
+  private syncAncienPickersFromProfile(): void {
+    const poste = this.hrProfile.ancienPoste.trim();
+    if (poste) {
+      const role = this.roles.find((r) => r.name.toLowerCase() === poste.toLowerCase());
+      this.ancienPosteRoleId = role?.id ?? 0;
+    } else {
+      this.ancienPosteRoleId = 0;
+    }
+    this.resolveAncienOrgFromLabel();
+  }
+
+  private resolveAncienOrgFromLabel(): void {
+    this.ancienOrgOperationalDeptId = '';
+    this.ancienOrgPoleId = '';
+    this.ancienOrgCelluleId = '';
+    this.ancienOrgServiceId = '';
+
+    const label = this.hrProfile.ancienService.trim();
+    if (!label || !this.ancienPosteRoleId) return;
+
+    const depth = this.ancienOrgAssignmentDepth;
+    if (depth === 'none') return;
+
+    const matches = (deptId: string, poleId: string, celluleId: string, serviceId: string): boolean => {
+      const summary = operationalSelectionSummary(
+        this.operationalDepartments,
+        this.unassignedPoles,
+        deptId,
+        poleId,
+        celluleId,
+        serviceId,
+      );
+      return summary === label;
+    };
+
+    const apply = (deptId: string, poleId: string, celluleId: string, serviceId: string): void => {
+      this.ancienOrgOperationalDeptId = deptId;
+      this.ancienOrgPoleId = poleId;
+      this.ancienOrgCelluleId = celluleId;
+      this.ancienOrgServiceId = serviceId;
+    };
+
+    for (const md of this.operationalDepartments) {
+      for (const pole of md.poles) {
+        if (depth === 'pole' && matches(md.id, pole.id, '', '')) {
+          apply(md.id, pole.id, '', '');
+          return;
+        }
+        for (const cellule of pole.cellules) {
+          if (depth === 'cellule' && matches(md.id, pole.id, cellule.id, '')) {
+            apply(md.id, pole.id, cellule.id, '');
+            return;
+          }
+          for (const service of cellule.services) {
+            if (depth === 'service' && matches(md.id, pole.id, cellule.id, service.id)) {
+              apply(md.id, pole.id, cellule.id, service.id);
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    for (const pole of this.unassignedPoles) {
+      if (depth === 'pole' && matches('', pole.id, '', '')) {
+        apply('', pole.id, '', '');
+        return;
+      }
+      for (const cellule of pole.cellules) {
+        if (depth === 'cellule' && matches('', pole.id, cellule.id, '')) {
+          apply('', pole.id, cellule.id, '');
+          return;
+        }
+        for (const service of cellule.services) {
+          if (depth === 'service' && matches('', pole.id, cellule.id, service.id)) {
+            apply('', pole.id, cellule.id, service.id);
+            return;
+          }
+        }
+      }
+    }
+
+    const lastPart = label.split('/').pop()?.trim().toLowerCase() ?? '';
+    if (!lastPart) return;
+
+    for (const md of this.operationalDepartments) {
+      for (const pole of md.poles) {
+        if (depth === 'pole' && pole.name.toLowerCase() === lastPart) {
+          apply(md.id, pole.id, '', '');
+          return;
+        }
+        for (const cellule of pole.cellules) {
+          if (depth === 'cellule' && cellule.name.toLowerCase() === lastPart) {
+            apply(md.id, pole.id, cellule.id, '');
+            return;
+          }
+          for (const service of cellule.services) {
+            if (depth === 'service' && service.name.toLowerCase() === lastPart) {
+              apply(md.id, pole.id, cellule.id, service.id);
+              return;
+            }
+          }
+        }
+      }
+    }
   }
 
   onContractDraftChange(model: ContractFieldsModel): void {
@@ -895,10 +1122,35 @@ export class UserFormComponent implements OnInit {
     ) {
       this.form.referentTechniqueId = '';
     }
+    this.syncDefaultMentorsFromIncumbents();
+  }
+
+  private syncDefaultMentorsFromIncumbents(): void {
+    if (!this.isOrgReadyForResponsables || this.isEditMode) return;
+    if (this.chefDeProjetOptions.length === 1 && !this.form.chefDeProjetId.trim()) {
+      this.form.chefDeProjetId = this.chefDeProjetOptions[0].userId;
+    }
+    if (this.superviseurOptions.length === 1 && !this.form.superviseurId.trim()) {
+      this.form.superviseurId = this.superviseurOptions[0].userId;
+    }
+    if (this.referentTechniqueOptions.length === 1 && !this.form.referentTechniqueId.trim()) {
+      this.form.referentTechniqueId = this.referentTechniqueOptions[0].userId;
+    }
   }
 
   private validateResponsables(): string | null {
     if (!this.isOrgReadyForResponsables) return null;
+    if (isPiloteRole(this.selectedRoleName)) {
+      if (this.chefDeProjetOptions.length > 0 && !this.form.chefDeProjetId.trim()) {
+        return 'Choisissez le chef de projet parmi les titulaires du pôle.';
+      }
+      if (this.superviseurOptions.length > 0 && !this.form.superviseurId.trim()) {
+        return 'Choisissez le superviseur parmi les titulaires de la cellule.';
+      }
+      if (this.referentTechniqueOptions.length > 0 && !this.form.referentTechniqueId.trim()) {
+        return 'Choisissez le référent technique parmi les titulaires du service.';
+      }
+    }
     if (
       this.form.chefDeProjetId &&
       !this.chefDeProjetOptions.some((o) => o.userId === this.form.chefDeProjetId)
@@ -961,6 +1213,7 @@ export class UserFormComponent implements OnInit {
         this.planningServices = services ?? [];
         this.orgLoading = false;
         this.reconcileOrgPickerAfterLoad();
+        this.syncAncienPickersFromProfile();
         this.cdr.detectChanges();
       },
       error: () => {
@@ -1244,6 +1497,7 @@ export class UserFormComponent implements OnInit {
     } else if (this.showOrgAssignmentBlock) {
       this.ensureOrgPickerDefaults();
     }
+    this.syncDefaultMentorsFromIncumbents();
   }
 
   private applyOrgFromPrimeOverview(guid: string, roleName: string): boolean {
@@ -1383,6 +1637,7 @@ export class UserFormComponent implements OnInit {
         }
         this.loadDirectoryEmployeeContext(this.loadedUserGuid);
         this.syncEducationPickersFromProfile();
+        this.syncAncienPickersFromProfile();
         this.loadContractForUser(id);
         if (this.operationalDepartments.length > 0 || this.unassignedPoles.length > 0) {
           this.reconcileOrgPickerAfterLoad();
@@ -1454,7 +1709,7 @@ export class UserFormComponent implements OnInit {
       !this.orgOperationalDeptId.trim() &&
       !isUnassignedPole(this.unassignedPoles, this.orgPoleId)
     ) {
-      return 'Sélectionnez un département opérationnel (Organisation RH).';
+      return 'Sélectionnez un département de production (Organisation RH).';
     }
     if (orgAssignmentRequiresPole(depth) && !this.orgPoleId.trim()) {
       return 'Sélectionnez un pôle (Organisation RH).';
@@ -1481,10 +1736,10 @@ export class UserFormComponent implements OnInit {
   private validateOperationalManagerAssignment(): string | null {
     if (!this.showOperationalManagerBlock) return null;
     if (!this.operationalBusinessDepartmentId.trim()) {
-      return 'Sélectionnez un département opérationnel.';
+      return 'Sélectionnez un département de production.';
     }
     if (this.operationalBusinessDepartments.length === 0) {
-      return 'Aucun département opérationnel disponible — créez-en un dans Organisation RH.';
+      return 'Aucun département de production disponible — créez-en un dans Organisation RH.';
     }
     return null;
   }
@@ -1661,7 +1916,7 @@ export class UserFormComponent implements OnInit {
   private syncOperationalManagerAssignment(employeeGuid: string, roleName: string): Observable<void> {
     const deptId = this.operationalBusinessDepartmentId.trim();
     if (!deptId) {
-      return throwError(() => new Error('Département opérationnel manquant.'));
+      return throwError(() => new Error('Département de production manquant.'));
     }
     return this.ensureEmployeeInDirectory(employeeGuid, roleName).pipe(
       switchMap(() =>
@@ -1760,27 +2015,6 @@ export class UserFormComponent implements OnInit {
       return false;
     }
 
-    if (needsPrimeStructureAssignment(roleName)) {
-      const incumbent = findStructureIncumbent(overview, roleName, {
-        orgPoleId: this.orgPoleId,
-        orgCelluleId: this.orgCelluleId,
-        orgServiceId: this.orgServiceId,
-      });
-      if (incumbent) {
-        const assigneeGuid = this.isEditMode ? this.loadedUserGuid : null;
-        if (shouldConfirmOverwrite(incumbent.userId, assigneeGuid)) {
-          const ok = await this.confirmService.confirm({
-            title: 'Remplacer le titulaire actuel',
-            message: buildStructureOverwriteMessage(incumbent, roleName),
-            confirmLabel: 'Écraser et continuer',
-            cancelLabel: 'Annuler',
-            variant: 'warning',
-          });
-          if (!ok) return false;
-        }
-      }
-    }
-
     if (this.isEditMode && this.loadedUserGuid.trim()) {
       return this.confirmCrossRoleAssignment(this.loadedUserGuid);
     }
@@ -1877,12 +2111,7 @@ export class UserFormComponent implements OnInit {
           }
           return this.resolveDirectorySync$(guid, roleName).pipe(map(() => user));
         }),
-        switchMap((user) => {
-          if (this.hrProfile.enFormation && !this.contractId) {
-            return of(user);
-          }
-          return this.saveContract$(user.id).pipe(map(() => user));
-        }),
+        switchMap((user) => of(user)),
         switchMap((user) => {
           const guid = resolveUserGuid(user);
           if (!guid || !this.selectedReferralId.trim()) {
@@ -1900,11 +2129,11 @@ export class UserFormComponent implements OnInit {
           this.createdUserId = user.id;
           this.createSuccessMessage = this.hrProfile.enFormation
             ? 'Employé créé — le contrat pourra être défini après la formation.'
-            : 'Employé et contrat créés avec succès.';
+            : 'Employé créé avec succès.';
           this.showCreateSuccess = true;
           this.submitting = false;
           this.toastService.success(this.createSuccessMessage);
-          void this.router.navigate(['/users', user.id]);
+          this.cdr.detectChanges();
         },
         error: (err) => {
           this.error = formatHttpErrorMessage(err);
@@ -2002,6 +2231,9 @@ export class UserFormComponent implements OnInit {
     }
     if (!this.form.hireDate) {
       return 'La date d\'embauche est obligatoire.';
+    }
+    if (this.showNombreEnfants && this.hrProfile.nombreEnfants === null) {
+      return 'Le nombre d\'enfants est obligatoire pour cette situation familiale.';
     }
     return null;
   }

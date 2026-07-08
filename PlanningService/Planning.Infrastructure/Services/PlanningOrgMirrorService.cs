@@ -32,7 +32,12 @@ public sealed class PlanningOrgMirrorService(
         return overview is null ? 0 : await SyncEmployeeSubServicesFromOverviewAsync(overview, ct);
     }
 
-    private async Task<DirectoryOverviewJson?> FetchDirectoryOverviewAsync(
+    public Task<EmployeeImportOrgOverview?> GetDirectoryOverviewAsync(
+        string? authorizationHeader,
+        CancellationToken ct = default) =>
+        FetchDirectoryOverviewAsync(authorizationHeader, ct);
+
+    private async Task<EmployeeImportOrgOverview?> FetchDirectoryOverviewAsync(
         string? authorizationHeader,
         CancellationToken ct)
     {
@@ -51,14 +56,14 @@ public sealed class PlanningOrgMirrorService(
             return null;
         }
 
-        return await response.Content.ReadFromJsonAsync<DirectoryOverviewJson>(cancellationToken: ct);
+        return await response.Content.ReadFromJsonAsync<EmployeeImportOrgOverview>(cancellationToken: ct);
     }
 
     /// <summary>
     /// Aligne User.SubServiceId sur l'affectation feuille Directory (PrimeServiceId).
     /// </summary>
     private async Task<int> SyncEmployeeSubServicesFromOverviewAsync(
-        DirectoryOverviewJson overview,
+        EmployeeImportOrgOverview overview,
         CancellationToken ct)
     {
         var primeToSub = await db.SubServices
@@ -71,7 +76,7 @@ public sealed class PlanningOrgMirrorService(
 
         var guidToPrimeService = new Dictionary<Guid, string>();
 
-        foreach (var emp in overview.Employees ?? [])
+        foreach (var emp in overview.Employees)
         {
             var primeId = emp.ServiceId?.Trim();
             if (string.IsNullOrEmpty(primeId) || !Guid.TryParse(emp.Id, out var guid))
@@ -79,7 +84,7 @@ public sealed class PlanningOrgMirrorService(
             guidToPrimeService[guid] = primeId;
         }
 
-        foreach (var coach in overview.CoachSousService ?? [])
+        foreach (var coach in overview.CoachSousService)
         {
             var primeId = (coach.SousServiceId ?? coach.ServiceId)?.Trim();
             if (string.IsNullOrEmpty(primeId) || !Guid.TryParse(coach.UserId, out var guid))
@@ -110,20 +115,20 @@ public sealed class PlanningOrgMirrorService(
         return updated;
     }
 
-    private static List<PrimeOrgPoleMirrorDto> MapOverviewToMirrorPoles(DirectoryOverviewJson overview)
+    private static List<PrimeOrgPoleMirrorDto> MapOverviewToMirrorPoles(EmployeeImportOrgOverview overview)
     {
         var poles = new List<PrimeOrgPoleMirrorDto>();
-        foreach (var etage in overview.Etages ?? [])
+        foreach (var etage in overview.Etages)
         {
             if (string.IsNullOrWhiteSpace(etage.Id)) continue;
 
-            var cellules = (overview.Services ?? [])
+            var cellules = overview.Services
                 .Where(s => string.Equals(s.EtageId, etage.Id, StringComparison.OrdinalIgnoreCase))
                 .Select(cellule => new PrimeOrgCelluleMirrorDto
                 {
                     Id = cellule.Id,
                     Name = cellule.Name,
-                    Services = (overview.SousServices ?? [])
+                    Services = overview.SousServices
                         .Where(ss => string.Equals(ss.ServiceId, cellule.Id, StringComparison.OrdinalIgnoreCase))
                         .Select(ss => new PrimeOrgLeafServiceMirrorDto { Id = ss.Id, Name = ss.Name })
                         .ToList(),
@@ -246,46 +251,4 @@ public sealed class PlanningOrgMirrorService(
             logger.LogInformation("Miroir org Planning : {Count} mise(s) à jour depuis Organisation RH.", actions);
         return actions;
     }
-}
-
-internal sealed class DirectoryOverviewJson
-{
-    public List<DirectoryEtageJson>? Etages { get; set; }
-    public List<DirectoryServiceNodeJson>? Services { get; set; }
-    public List<DirectorySousServiceJson>? SousServices { get; set; }
-    public List<DirectoryEmployeeJson>? Employees { get; set; }
-    public List<DirectoryCoachAssignmentJson>? CoachSousService { get; set; }
-}
-
-internal sealed class DirectoryEmployeeJson
-{
-    public string Id { get; set; } = "";
-    public string? ServiceId { get; set; }
-}
-
-internal sealed class DirectoryCoachAssignmentJson
-{
-    public string UserId { get; set; } = "";
-    public string? ServiceId { get; set; }
-    public string? SousServiceId { get; set; }
-}
-
-internal sealed class DirectoryEtageJson
-{
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-}
-
-internal sealed class DirectoryServiceNodeJson
-{
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-    public string EtageId { get; set; } = "";
-}
-
-internal sealed class DirectorySousServiceJson
-{
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-    public string ServiceId { get; set; } = "";
 }

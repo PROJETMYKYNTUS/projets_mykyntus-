@@ -72,7 +72,43 @@ public class EmployeeImportTemplateBuilder(AppDbContext db, IEmployeeFieldServic
             ["hireDate"] = "15/01/2024",
             ["isActive"] = "Oui",
             ["level"] = "Débutant",
+            ["niveauExpertiseMetier"] = "1",
+            ["dateNaissance"] = "12/05/1990",
+            ["cin"] = "AB123456",
+            ["rib"] = "007780000000000000000000",
+            ["immatriculationCnss"] = "1234567",
+            ["immatriculationInterne"] = "EMP-001",
             ["operationalDepartment"] = "",
+            ["villeNaissance"] = "Casablanca",
+            ["nationalite"] = "Marocain",
+            ["sexe"] = "M",
+            ["situationFamiliale"] = "Célibataire",
+            ["nombreEnfants"] = "0",
+            ["adresse"] = "12 Rue Example, Casablanca",
+            ["telephone1"] = "0612345678",
+            ["telephoneUrgence"] = "0698765432",
+            ["relationUrgence"] = "Père",
+            ["dateEntree"] = "15/01/2024",
+            ["dateAnciennete"] = "15/01/2024",
+            ["dateSortie"] = "",
+            ["dateEvolutionPoste"] = "",
+            ["ancienPoste"] = "",
+            ["ancienService"] = "",
+            ["niveauScolaire"] = "Bac +5 (Master, ingénieur)",
+            ["intitulesEtudes"] = "Master Informatique",
+            ["enFormation"] = "Non",
+            ["dateDebutFormation"] = "",
+            ["dateFinFormationPrevue"] = "",
+            ["chefDeProjetName"] = "",
+            ["superviseurName"] = "",
+            ["referentTechniqueName"] = "",
+            ["contractType"] = "CDI",
+            ["contractStartDate"] = "15/01/2024",
+            ["contractEndDate"] = "",
+            ["contractProbationDays"] = "90",
+            ["contractAlertThresholdDays"] = "",
+            ["contractStatus"] = "En période d'essai",
+            ["contractNotes"] = "",
         };
 
         col = 1;
@@ -122,11 +158,30 @@ public class EmployeeImportTemplateBuilder(AppDbContext db, IEmployeeFieldServic
         }
 
         var levelCol = startCol + 3;
-        StyleHeader(ws.Cell(1, levelCol), "Niveau");
+        StyleHeader(ws.Cell(1, levelCol), "Niveau contractuel");
         for (var i = 0; i < EmployeeImportLevelResolver.Labels.Count; i++)
             ws.Cell(i + 2, levelCol).Value = EmployeeImportLevelResolver.Labels[i];
 
+        var refCol = levelCol + 2;
+        WriteReferentialColumn(ws, refCol, "Sexe", ["M", "F"]);
+        WriteReferentialColumn(ws, refCol + 1, "Situation familiale",
+            ["Célibataire", "Marié(e)", "Divorcé(e)", "Veuf / Veuve"]);
+        WriteReferentialColumn(ws, refCol + 2, "Nationalité", ["Marocain", "Marocaine", "Autre"]);
+        WriteReferentialColumn(ws, refCol + 3, "Niveau scolaire",
+            ["CAP / BEP", "Baccalauréat", "Bac +2", "Bac +3", "Bac +5", "Bac +8", "Autre"]);
+        WriteReferentialColumn(ws, refCol + 4, "Expertise métier", ["1 - Débutant", "2 - Intermédiaire", "3 - Confirmé"]);
+        WriteReferentialColumn(ws, refCol + 5, "Type contrat", ["CDI", "CDD", "Stage", "ANAPEC"]);
+        WriteReferentialColumn(ws, refCol + 6, "Statut contrat",
+            ["En période d'essai", "Actif", "Expiré", "Résilié"]);
+
         ws.Columns().AdjustToContents();
+    }
+
+    private static void WriteReferentialColumn(IXLWorksheet ws, int col, string title, IReadOnlyList<string> values)
+    {
+        StyleHeader(ws.Cell(1, col), title);
+        for (var i = 0; i < values.Count; i++)
+            ws.Cell(i + 2, col).Value = values[i];
     }
 
     private static void BuildNoticeSheet(XLWorkbook wb, int customFieldCount)
@@ -141,8 +196,15 @@ public class EmployeeImportTemplateBuilder(AppDbContext db, IEmployeeFieldServic
             "• Cellule vide = la valeur en base n'est pas effacée.",
             "• Mot de passe vide = mot de passe système par défaut (Azerty@123).",
             "• Pôle / Cellule / Service : utilisez les noms exacts de la feuille Référentiels.",
-            "• Département opérationnel (optionnel) : requis uniquement si l'import doit créer un nouveau pôle.",
-            "• Niveau : Débutant, Intermédiaire ou Expert (voir feuille Référentiels).",
+            "• Département de production (optionnel) : requis uniquement si l'import doit créer un nouveau pôle.",
+            "• Niveau contractuel : Débutant, Intermédiaire ou Confirmé (voir feuille Référentiels).",
+            "• Expertise métier : 1, 2 ou 3 (Débutant, Intermédiaire, Confirmé).",
+            "• Sexe : M ou F. Situation familiale et nationalité : voir Référentiels.",
+            "• Responsables : indiquez le nom complet (Prénom Nom) d'un employé existant, cohérent avec le pôle / la cellule / le service.",
+            "• Chef de projet → titulaire du pôle ; superviseur → rattaché au chef et à la cellule ; référent → rattaché au superviseur et au service.",
+            "• Contrat : type CDI/CDD/Stage/ANAPEC. CDD et Stage exigent une date de fin.",
+            "• Seuil alerte contrat (jours) vide à la création = 7 jours (une semaine).",
+            "• En formation = Oui : un contrat est créé si absent (CDI par défaut).",
             "• Les rôles Admin et Manager ne peuvent pas être attribués via l'import employés.",
             "• Une erreur sur une ligne n'arrête pas le reste du fichier.",
         };

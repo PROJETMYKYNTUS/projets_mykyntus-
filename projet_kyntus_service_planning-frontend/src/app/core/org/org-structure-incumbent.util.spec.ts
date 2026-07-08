@@ -6,6 +6,8 @@ import {
   filterSuperviseursForChefDeProjet,
   findStructureIncumbent,
   shouldConfirmOverwrite,
+  shouldConfirmIncumbentChoice,
+  buildIncumbentChoiceMessage,
   structureRoleLabel,
 } from './org-structure-incumbent.util';
 
@@ -95,5 +97,20 @@ describe('org-structure-incumbent.util', () => {
   it('filters referents for selected superviseur', () => {
     const rows = filterReferentsForSuperviseur(overview, 'u2', 'svc-c');
     expect(rows.map((r) => r.userId)).toContain('u3');
+  });
+
+  it('detects when incumbent choice is required', () => {
+    expect(shouldConfirmIncumbentChoice([])).toBe(false);
+    expect(
+      shouldConfirmIncumbentChoice([{ userId: 'u1', displayName: 'Alice Martin' }]),
+    ).toBe(true);
+  });
+
+  it('builds incumbent choice message', () => {
+    expect(
+      buildIncumbentChoiceMessage('Superviseur', [
+        { userId: 'u2', displayName: 'Bob Dupont' },
+      ]),
+    ).toContain('Bob Dupont');
   });
 });

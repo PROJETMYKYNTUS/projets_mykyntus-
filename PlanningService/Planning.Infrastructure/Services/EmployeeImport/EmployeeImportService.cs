@@ -184,7 +184,7 @@ public partial class EmployeeImportService(
         if (departments.Count == 0)
         {
             alerts.Add(
-                "Aucun département opérationnel dans le référentiel Directory. " +
+                "Aucun département de production dans le référentiel Directory. " +
                 "Créez au moins « OP-001 » (Organisation) ou redémarrez le stack Docker avec le seed démo avant de créer de nouveaux pôles.");
             return;
         }
@@ -201,7 +201,7 @@ public partial class EmployeeImportService(
             foreach (var line in creation.AffectedLineNumbers.Distinct())
             {
                 alerts.Add(
-                    $"Ligne {line} : département opérationnel « {creation.OperationalDepartment} » introuvable. " +
+                    $"Ligne {line} : département de production « {creation.OperationalDepartment} » introuvable. " +
                     "Vérifiez le code (ex. OP-001) ou créez-le dans Organisation.");
             }
         }

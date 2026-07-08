@@ -111,7 +111,12 @@ public record CoachPilotLinkDto(string Id, string CoachUserId, string PilotUserI
 
 public record RevokedStructuralRoleDto(string Role, string NodeId, string? NodeLabel, string? DepartmentCode);
 
-public record StructuralRoleAssignmentResult(IReadOnlyList<RevokedStructuralRoleDto> Revoked);
+public record NodeIncumbentRevokedDto(string EmployeeId, string Kind, string NodeId);
+
+public record StructuralRoleAssignmentResult(
+    IReadOnlyList<RevokedStructuralRoleDto> Revoked,
+    IReadOnlyList<NodeIncumbentRevokedDto> RevokedOnNode,
+    string? AddedEmployeeId);
 
 public record CreateEmployeeRequest(
     Guid? EmployeeId,
@@ -162,6 +167,24 @@ public record AssignmentHistoryEntryDto(
     string? NewEmployeeId,
     DateTime ChangedAt,
     string? ChangeReason);
+
+public record PilotRotationHistoryEntryDto(
+    string ServiceId,
+    string ServiceName,
+    DateTime EffectiveFrom,
+    DateTime? EffectiveTo,
+    int? DurationDays,
+    string? ChangeReason,
+    bool IsOverride);
+
+public record PilotRotationEligibilityDto(
+    bool Eligible,
+    bool IsSameService,
+    string? CurrentServiceId,
+    string? CurrentServiceName,
+    DateTime? CurrentSince,
+    DateTime? EligibleAt,
+    int DaysRemaining);
 
 public record RebacSubtreeDto(string EmployeeId, IReadOnlyList<string> DescendantIds);
 public record RebacManagedNodesDto(string EmployeeId, string Kind, IReadOnlyList<string> NodeIds);

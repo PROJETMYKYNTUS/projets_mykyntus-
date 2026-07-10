@@ -91,6 +91,7 @@
                     <app-generated-document-format-menu
                       [generatedDocumentId]="doc.generatedDocumentId ?? null"
                       [fileNameBase]="doc.exportFileBase ?? null"
+                      [allowedFormats]="['pdf']"
                       appearance="standard"
                     />
                   } @else {

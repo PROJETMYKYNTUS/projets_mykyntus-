@@ -123,6 +123,7 @@
                   <app-generated-document-format-menu
                     [generatedDocumentId]="r.generatedDocumentId ?? null"
                     [fileNameBase]="exportFileNameHint(r)"
+                    [allowedFormats]="['pdf', 'docx']"
                     appearance="standard"
                   />
                 </div>

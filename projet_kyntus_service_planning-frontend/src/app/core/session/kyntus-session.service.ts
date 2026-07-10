@@ -1,15 +1,19 @@
 ﻿import { Injectable } from '@angular/core';
 import { KYNTUS_JWT_CLAIMS, type KyntusStoredUser } from './kyntus-session.constants';
+import {
+  clearStoredTokens,
+  isJwtExpired,
+  persistAccessTokens,
+  readStoredAccessToken,
+  readStoredRefreshToken,
+} from './kyntus-auth-token.util';
 
 @Injectable({ providedIn: 'root' })
 export class KyntusSessionService {
   getToken(): string | null {
-    const token =
-      localStorage.getItem('token') ||
-      localStorage.getItem('accessToken') ||
-      localStorage.getItem('access_token');
-    if (!token?.trim()) return null;
-    if (!this.isTokenNotExpired(token)) {
+    const token = readStoredAccessToken();
+    if (!token) return null;
+    if (isJwtExpired(token)) {
       this.clearAuthStorage();
       return null;
     }
@@ -20,24 +24,21 @@ export class KyntusSessionService {
     return !!this.getToken();
   }
 
-  /** Retire les jetons expirés ou illisibles pour permettre le repli en-têtes documentation. */
-  private isTokenNotExpired(token: string): boolean {
-    try {
-      const part = token.split('.')[1];
-      if (!part) return false;
-      const payload = JSON.parse(atob(part)) as { exp?: unknown };
-      const exp = typeof payload.exp === 'number' ? payload.exp : Number(payload.exp);
-      if (!Number.isFinite(exp) || exp <= 0) return true;
-      return exp * 1000 > Date.now() + 5_000;
-    } catch {
-      return false;
-    }
+  persistSession(accessToken: string, refreshToken?: string | null): void {
+    persistAccessTokens(accessToken, refreshToken);
+  }
+
+  clearSession(): void {
+    clearStoredTokens();
+    localStorage.removeItem('user');
+  }
+
+  getRefreshToken(): string | null {
+    return readStoredRefreshToken();
   }
 
   private clearAuthStorage(): void {
-    localStorage.removeItem('token');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('access_token');
+    clearStoredTokens();
   }
 
   getStoredUser(): KyntusStoredUser | null {

@@ -8,8 +8,24 @@ export const HR_MARITAL_STATUS_OPTIONS = [
 export const HR_NATIONALITY_OPTIONS = [
   { value: 'MAROCAIN', label: 'Marocain' },
   { value: 'MAROCAINE', label: 'Marocaine' },
+  { value: 'SENEGALAIS', label: 'Sénégalais' },
+  { value: 'SENEGALAISE', label: 'Sénégalaise' },
+  { value: 'TUNISIEN', label: 'Tunisien' },
+  { value: 'TUNISIENNE', label: 'Tunisienne' },
   { value: 'AUTRE', label: 'Autre' },
 ] as const;
+
+export const HR_NATIONALITY_AUTOENTREPRENEUR_EXEMPT = new Set([
+  'SENEGALAIS',
+  'SENEGALAISE',
+  'TUNISIEN',
+  'TUNISIENNE',
+]);
+
+export function requiresAutoentrepreneur(nationalityCode: string): boolean {
+  if (!nationalityCode || nationalityCode === 'AUTRE') return true;
+  return !HR_NATIONALITY_AUTOENTREPRENEUR_EXEMPT.has(nationalityCode);
+}
 
 export function defaultNationalityCode(sexe?: string): 'MAROCAIN' | 'MAROCAINE' {
   return sexe === 'M' ? 'MAROCAIN' : 'MAROCAINE';
@@ -26,6 +42,13 @@ export function syncNationalityCodeFromLabel(label: string, sexe?: string): { co
     return { code: known.value, autre: '' };
   }
   if (trimmed) {
+    const normalized = trimmed.toLowerCase();
+    if (normalized.includes('senegal') || normalized.includes('sénégal')) {
+      return { code: normalized.includes('aise') ? 'SENEGALAISE' : 'SENEGALAIS', autre: '' };
+    }
+    if (normalized.includes('tunis')) {
+      return { code: normalized.includes('ienne') ? 'TUNISIENNE' : 'TUNISIEN', autre: '' };
+    }
     return { code: 'AUTRE', autre: trimmed };
   }
   const code = defaultNationalityCode(sexe);

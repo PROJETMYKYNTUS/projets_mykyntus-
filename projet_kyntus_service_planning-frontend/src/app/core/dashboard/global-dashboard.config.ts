@@ -4,7 +4,7 @@ import type { GlobalKpiKey, RoleCluster, RoleDashboardConfig } from './global-da
 export function resolveRoleCluster(role: string): RoleCluster {
   const r = role.trim();
   if (['Admin', 'RH'].includes(r)) return 'adminRh';
-  if (['Manager', 'Coach', 'RP', 'Equipe_Formation'].includes(r)) return 'manager';
+  if (['Manager', 'Coach', 'RP', 'Equipe_Formation', 'Formateur'].includes(r)) return 'manager';
   if (r === 'Superviseur') return 'superviseur';
   if (['Employee', 'Pilote'].includes(r)) return 'employee';
   if (r === 'Audit') return 'audit';

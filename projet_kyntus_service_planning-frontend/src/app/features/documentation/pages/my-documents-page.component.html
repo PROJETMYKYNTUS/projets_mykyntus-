@@ -39,7 +39,6 @@
           >
             <p class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted">Télécharger en</p>
             <button type="button" role="menuitem" (click)="downloadAllFiltered('pdf')">PDF (.pdf)</button>
-            <button type="button" role="menuitem" (click)="downloadAllFiltered('docx')">DOCX (.docx)</button>
           </div>
         </details>
       </div>
@@ -107,6 +106,7 @@
                     <app-generated-document-format-menu
                       [generatedDocumentId]="doc.generatedDocumentId ?? null"
                       [fileNameBase]="doc.exportFileBase ?? null"
+                      [allowedFormats]="['pdf']"
                       appearance="standard"
                     />
                   } @else {

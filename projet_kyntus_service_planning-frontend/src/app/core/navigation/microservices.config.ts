@@ -55,7 +55,7 @@ export interface Microservice {
   dynamicChildren?: boolean;
   children: MenuItem[];
 }
-const ALL_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Employee', 'Superviseur'];
+const ALL_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Formateur', 'Employee', 'Superviseur'];
 const MANAGER_ROLES = ['Admin', 'RH', 'Manager'];
 const ADMIN_RH = ['Admin', 'RH'];
 const EMPLOYEE_ROLES = ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation', 'Superviseur'];
@@ -130,7 +130,10 @@ export const MICROSERVICES: Microservice[] = [
     label: 'Formation',
     icon: ICONS.graduation,
     children: [
-      { label: 'Gestion des formations', route: '/formations', roles: ['Admin', 'RH', 'Equipe_Formation'] },
+      { label: 'Gestion des formations', route: '/formations', roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation'] },
+      { label: 'Planifier formation continue', route: '/formations/planifier', roles: ['Admin', 'RH'] },
+      { label: 'Formation initiale (formateur)', route: '/formations/initiales', roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation'] },
+      { label: 'Passage en production', route: '/formations/passage-production', roles: ['Admin', 'RH'] },
       { label: 'Mes formations', route: '/mes-formations', roles: EMPLOYEE_ROLES },
     ],
   },

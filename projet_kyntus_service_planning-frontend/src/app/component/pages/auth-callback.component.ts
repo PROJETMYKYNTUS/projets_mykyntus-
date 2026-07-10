@@ -5,6 +5,7 @@ import { RedirectService } from '../../core/services/redirect.service';
 import { DocumentationIdentityService } from '../../core/services/documentation-identity.service';
 import { KyntusNotificationInitService } from '../../core/notifications/kyntus-notification-init.service';
 import { KYNTUS_PUBLIC_URLS } from '../../config/kyntus-public-urls';
+import { persistAccessTokens, clearStoredTokens } from '../../core/session/kyntus-auth-token.util';
 
 @Component({
   selector: 'app-auth-callback',
@@ -47,10 +48,7 @@ export class AuthCallbackComponent implements OnInit {
     }
 
     // ── Stocker les tokens ───────────────────────────────────
-    localStorage.setItem('token', token);
-    if (refresh) {
-      localStorage.setItem('refreshToken', refresh);
-    }
+    persistAccessTokens(token, refresh ?? undefined);
 
     // ── Décoder le JWT et sauvegarder le user ────────────────
     try {
@@ -95,8 +93,7 @@ export class AuthCallbackComponent implements OnInit {
     } catch (e) {
       // JWT invalide → fallback dashboard-employee
       console.warn('Impossible de décoder le token JWT :', e);
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
+      clearStoredTokens();
       setTimeout(() => this.router.navigate(['/dashboard-employee']), 100);
     }
   }

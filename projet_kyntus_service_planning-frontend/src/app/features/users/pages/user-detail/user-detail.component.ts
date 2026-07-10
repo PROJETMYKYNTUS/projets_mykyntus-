@@ -245,12 +245,6 @@ export class UserDetailComponent implements OnInit {
     return `${ans} an${ans > 1 ? 's' : ''} et ${mois} mois`;
   }
 
-  levelLabel(level: number): string {
-    if (level === 2) return 'Intermédiaire';
-    if (level === 3) return 'Confirmé';
-    return 'Débutant';
-  }
-
   goBack(): void { this.router.navigate(['/users']); }
   editUser(): void { this.router.navigate(['/users', 'edit', this.user?.id]); }
 

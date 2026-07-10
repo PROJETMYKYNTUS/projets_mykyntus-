@@ -1,35 +1,23 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { CanActivate, ActivatedRouteSnapshot, Router } from '@angular/router';
 import { KYNTUS_PUBLIC_URLS } from '../../config/kyntus-public-urls';
+import { KYNTUS_JWT_CLAIMS } from '../../core/session/kyntus-session.constants';
+import { clearStoredTokens, isJwtExpired, readStoredAccessToken } from '../../core/session/kyntus-auth-token.util';
 
 @Injectable({ providedIn: 'root' })
 export class AuthGuard implements CanActivate {
-
-  private readonly ROLE_CLAIM = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
-
-  constructor(private router: Router) {}
+  private readonly router = inject(Router);
 
   canActivate(route: ActivatedRouteSnapshot): boolean {
-    const token = localStorage.getItem('token');
-  console.log('=== AuthGuard ===');
-  console.log('Token présent :', !!token);
-  console.log('Token valeur :', token);
-  console.log('isExpired :', token ? this.isTokenExpired(token) : 'N/A');
-  console.log('Route roles :', route.data?.['roles']);
-  console.log('Role extrait :', token ? this.getRole(token) : 'N/A');
-    if (!token) {
-      window.location.href = KYNTUS_PUBLIC_URLS.authLogin;
+    const token = readStoredAccessToken();
+    if (!token || isJwtExpired(token)) {
+      clearStoredTokens();
+      localStorage.removeItem('user');
+      this.redirectToLogin();
       return false;
     }
 
-    if (this.isTokenExpired(token)) {
-      localStorage.removeItem('token');
-      window.location.href = KYNTUS_PUBLIC_URLS.authLogin;
-      return false;
-    }
-
-    // Si la route exige un rôle spécifique
-    const allowedRoles = route.data?.['roles'] as string[];
+    const allowedRoles = route.data?.['roles'] as string[] | undefined;
     if (allowedRoles?.length) {
       const role = this.getRole(token);
       const normalized = role.toLowerCase();
@@ -42,27 +30,27 @@ export class AuthGuard implements CanActivate {
 
     return true;
   }
-  
+
   isAdminRole(token: string): boolean {
-  const role = this.getRole(token);
-  return ['Admin', 'RH'].includes(role);
-}
+    const role = this.getRole(token);
+    return ['Admin', 'RH'].includes(role);
+  }
 
   getRole(token: string): string {
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload[this.ROLE_CLAIM] || '';
+      const payload = JSON.parse(atob(token.split('.')[1])) as Record<string, unknown>;
+      const role = payload[KYNTUS_JWT_CLAIMS.role];
+      return typeof role === 'string' ? role : '';
     } catch {
       return '';
     }
   }
 
   isTokenExpired(token: string): boolean {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.exp * 1000 < Date.now();
-    } catch {
-      return true;
-    }
+    return isJwtExpired(token);
+  }
+
+  private redirectToLogin(): void {
+    window.location.href = KYNTUS_PUBLIC_URLS.authLogin;
   }
 }

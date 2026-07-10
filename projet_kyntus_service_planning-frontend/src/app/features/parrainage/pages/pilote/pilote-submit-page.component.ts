@@ -46,6 +46,16 @@ const ALLOWED_CV_EXT = /\.(pdf|doc|docx)$/i;
       <form (ngSubmit)="submit()" class="grid gap-4 lg:grid-cols-3">
         <div class="card-navy p-4 lg:col-span-2 space-y-4">
           <div class="grid gap-4 md:grid-cols-2">
+            <div class="space-y-1.5 md:col-span-2">
+              <label class="text-xs text-muted">Nom du parrain <span class="text-rose-300">*</span></label>
+              <input
+                required
+                class="ky-input w-full"
+                placeholder="Ex : Jean Dupont"
+                [(ngModel)]="form.referrerName"
+                name="referrerName"
+              />
+            </div>
             <div class="space-y-1.5">
               <label class="text-xs text-muted">Nom du candidat</label>
               <input
@@ -247,7 +257,7 @@ export class PiloteSubmitPageComponent implements OnInit {
   readonly fileUpIcon = FileUp;
   readonly arrowRightIcon = ArrowRight;
   readonly xIcon = X;
-  form = { candidateName: '', candidateEmail: '', candidatePhone: '', project: '', notes: '' };
+  form = { referrerName: '', candidateName: '', candidateEmail: '', candidatePhone: '', project: '', notes: '' };
 
   get isOtherPost(): boolean {
     return this.selectedRuleId === OTHER_POST_VALUE;
@@ -265,6 +275,7 @@ export class PiloteSubmitPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.form.referrerName = this.role.user().name;
     void this.loadCatalog();
   }
 
@@ -348,12 +359,16 @@ export class PiloteSubmitPageComponent implements OnInit {
       this.error.set('Précisez le poste.');
       return;
     }
+    if (!this.form.referrerName.trim()) {
+      this.error.set('Le nom du parrain est obligatoire.');
+      return;
+    }
     this.busy.set(true);
     this.error.set(null);
     try {
       await this.referrals.submitReferral({
         referrerId: user.id,
-        referrerName: user.name,
+        referrerName: this.form.referrerName.trim(),
         candidateName: this.form.candidateName,
         candidateEmail: this.form.candidateEmail,
         candidatePhone: this.form.candidatePhone,

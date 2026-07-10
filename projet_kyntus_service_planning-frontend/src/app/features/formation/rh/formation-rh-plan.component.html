@@ -1,0 +1,60 @@
+<app-kyntus-page-header title="Planifier une formation continue" subtitle="Sessions imposées par la RH" />
+<div class="card-navy p-4 space-y-4">
+  <div class="grid gap-3 md:grid-cols-2">
+    <label class="space-y-1 block">
+      <span class="text-xs text-muted">Intitulé</span>
+      <input class="ky-input w-full" [(ngModel)]="form.title" />
+    </label>
+    <label class="space-y-1 block">
+      <span class="text-xs text-muted">Capacité</span>
+      <input class="ky-input w-full" type="number" min="1" [(ngModel)]="form.capacity" />
+    </label>
+    <label class="space-y-1 block md:col-span-2">
+      <span class="text-xs text-muted">Description</span>
+      <textarea class="ky-textarea w-full" rows="2" [(ngModel)]="form.description"></textarea>
+    </label>
+    <label class="space-y-1 block">
+      <span class="text-xs text-muted">Début</span>
+      <input class="ky-input w-full" type="datetime-local" [(ngModel)]="form.plannedStart" />
+    </label>
+    <label class="space-y-1 block">
+      <span class="text-xs text-muted">Fin</span>
+      <input class="ky-input w-full" type="datetime-local" [(ngModel)]="form.plannedEnd" />
+    </label>
+  </div>
+
+  <fieldset class="space-y-2">
+    <legend class="text-sm font-medium">Animateur</legend>
+    <label class="inline-flex items-center gap-2 mr-4">
+      <input type="radio" name="animatorKind" value="Internal" [(ngModel)]="form.animatorKind" />
+      Interne
+    </label>
+    <label class="inline-flex items-center gap-2">
+      <input type="radio" name="animatorKind" value="External" [(ngModel)]="form.animatorKind" />
+      Externe
+    </label>
+    @if (form.animatorKind === 'Internal') {
+      <input class="ky-input w-full" placeholder="GUID animateur interne" [(ngModel)]="form.animatorUserId" />
+    } @else {
+      <div class="grid gap-3 md:grid-cols-2">
+        <input class="ky-input" placeholder="Nom animateur" [(ngModel)]="form.externalAnimatorName" />
+        <input class="ky-input" placeholder="Société / organisme" [(ngModel)]="form.externalAnimatorOrganization" />
+        <input class="ky-input" placeholder="Email" [(ngModel)]="form.externalAnimatorEmail" />
+        <input class="ky-input" placeholder="Téléphone (optionnel)" [(ngModel)]="form.externalAnimatorPhone" />
+      </div>
+    }
+  </fieldset>
+
+  <button type="button" class="ky-btn-primary" [disabled]="busy()" (click)="publish()">Publier la session</button>
+  @if (error()) { <p class="text-rose-300 text-sm">{{ error() }}</p> }
+</div>
+
+<div class="card-navy p-4 mt-4">
+  <h2 class="text-sm font-semibold mb-3">Sessions planifiées</h2>
+  @for (s of sessions(); track s.id) {
+    <div class="border-b border-default/40 py-2 text-sm">
+      <strong>{{ s.title }}</strong> — {{ s.assignmentCount }}/{{ s.capacity }} participants
+      <span class="text-muted">({{ s.status }})</span>
+    </div>
+  }
+</div>

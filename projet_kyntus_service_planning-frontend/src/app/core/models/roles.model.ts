@@ -10,19 +10,20 @@ export enum Role {
   CHEF_DE_PROJET  = 'Chef_de_projet',
   ADMIN           = 'Admin',
   AUDIT           = 'Audit',
-  EQUIPE_FORMATION= 'Equipe_Formation'
+  EQUIPE_FORMATION= 'Equipe_Formation',
+  FORMATEUR       = 'Formateur',
 }
  
 const ALL_ROLES = [
   Role.EMPLOYEE, Role.PILOTE, Role.RH, Role.MANAGER, Role.SUPERVISEUR,
   Role.COACH, Role.REFERENT_TECHNIQUE, Role.RP, Role.CHEF_DE_PROJET,
-  Role.ADMIN, Role.AUDIT, Role.EQUIPE_FORMATION
+  Role.ADMIN, Role.AUDIT, Role.EQUIPE_FORMATION, Role.FORMATEUR
 ];
 
 const EMPLOYEE_LIKE_ROLES = [
   Role.EMPLOYEE, Role.PILOTE, Role.MANAGER, Role.SUPERVISEUR,
   Role.COACH, Role.REFERENT_TECHNIQUE, Role.RP, Role.CHEF_DE_PROJET,
-  Role.AUDIT, Role.EQUIPE_FORMATION
+  Role.AUDIT, Role.EQUIPE_FORMATION, Role.FORMATEUR
 ];
 
 const MANAGER_LIKE_ROLES = [

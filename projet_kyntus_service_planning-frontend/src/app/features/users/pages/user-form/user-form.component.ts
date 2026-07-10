@@ -84,8 +84,10 @@ import {
   HR_NATIONALITY_OPTIONS,
   defaultNationalityCode,
   nationalityLabelForCode,
+  requiresAutoentrepreneur,
   syncNationalityCodeFromLabel,
 } from '../../../../core/hr/hr-form-options';
+import { contractLevelLabel } from '../../../../core/hr/user-hr-display.util';
 import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
 import { ContractFieldsComponent } from '../../../../shared/components/contract-fields/contract-fields.component';
@@ -96,6 +98,13 @@ import {
 } from '../../../../shared/components/contract-fields/contract-fields.model';
 import { ParrainageApiService } from '../../../parrainage/services/parrainage-api.service';
 import type { Referral } from '../../../parrainage/models/referral.model';
+import {
+  filterLinkableReferrals,
+  matchReferralCandidates,
+  type ReferralMatchResult,
+} from '../../../parrainage/utils/referral-candidate-match.util';
+import { REFERRAL_STATUS_LABELS } from '../../../parrainage/utils/referral-status.util';
+import { FormationTrainingService } from '../../../../core/services/formation-training.service';
 import {
   ContractService,
   type CreateContractDto,
@@ -150,6 +159,7 @@ export class UserFormComponent implements OnInit {
   showCareerDetails = true;
   error: string | null = null;
   emailError: string | null = null;
+  personalEmailError: string | null = null;
   roles: RoleOption[] = [];
   private loadedManagedServiceIds: number[] = [];
   private loadedManagedSubServiceIds: number[] = [];
@@ -175,11 +185,13 @@ export class UserFormComponent implements OnInit {
     dateNaissance: '',
     villeNaissance: '',
     nationalite: '',
+    numeroCarteAutoentrepreneur: '',
     sexe: '',
     situationFamiliale: '',
     nombreEnfants: null as number | null,
     cin: '',
     adresse: '',
+    emailPersonnel: '',
     telephone1: '',
     telephoneUrgence: '',
     relationUrgence: '',
@@ -204,17 +216,23 @@ export class UserFormComponent implements OnInit {
   contractLoading = false;
 
   selectedReferralId = '';
-  onboardingReferrals: Referral[] = [];
+  linkableReferrals: Referral[] = [];
   selectedReferral: Referral | null = null;
   referralRewardAmount = 0;
   referralLoading = false;
   referralLockedFromUrl = false;
   referralPositionHint = '';
+  referralSearchQuery = '';
+  referralMatchResult: ReferralMatchResult | null = null;
+  referralManualIdentityEdit = false;
+  private referralMatchTimer: ReturnType<typeof setTimeout> | null = null;
+  readonly referralStatusLabels = REFERRAL_STATUS_LABELS;
 
   niveauScolaireCode = '';
   niveauScolaireAutre = '';
   nationaliteCode = '';
   nationaliteAutre = '';
+  situationAvecEnfants: '' | 'OUI' | 'NON' = '';
   ancienPosteRoleId = 0;
   ancienOrgOperationalDeptId = '';
   ancienOrgPoleId = '';
@@ -224,6 +242,7 @@ export class UserFormComponent implements OnInit {
   readonly maritalStatusOptions = HR_MARITAL_STATUS_OPTIONS;
   readonly educationLevelOptions = HR_EDUCATION_LEVEL_OPTIONS;
   readonly nationalityOptions = HR_NATIONALITY_OPTIONS;
+  readonly contractLevelLabel = contractLevelLabel;
 
   private readonly defaultProbation: Record<string, number> = {
     CDI: 90, CDD: 30, Stage: 15, ANAPEC: 0,
@@ -243,6 +262,7 @@ export class UserFormComponent implements OnInit {
     private http: HttpClient,
     private contractService: ContractService,
     private parrainageApi: ParrainageApiService,
+    private formationTraining: FormationTrainingService,
     private session: KyntusSessionService,
     private cdr: ChangeDetectorRef
   ) {}
@@ -265,7 +285,7 @@ export class UserFormComponent implements OnInit {
     this.loadOrgAndSubServices();
     this.loadBusinessDepartments();
     this.loadRoles();
-    void this.loadOnboardingReferrals();
+    void this.loadLinkableReferrals();
     const referralId = this.route.snapshot.queryParamMap.get('referralId');
     if (referralId) {
       this.referralLockedFromUrl = true;
@@ -534,8 +554,16 @@ export class UserFormComponent implements OnInit {
     );
   }
 
-  get showNombreEnfants(): boolean {
+  get showSituationEnfantsChoice(): boolean {
     return HR_MARITAL_STATUS_WITH_CHILDREN.has(this.hrProfile.situationFamiliale);
+  }
+
+  get showNombreEnfants(): boolean {
+    return this.showSituationEnfantsChoice && this.situationAvecEnfants === 'OUI';
+  }
+
+  get showRequiresAutoentrepreneur(): boolean {
+    return requiresAutoentrepreneur(this.nationaliteCode);
   }
 
   get showNiveauScolaireAutre(): boolean {
@@ -653,11 +681,13 @@ export class UserFormComponent implements OnInit {
       dateNaissance: this.dateToInputValue(profile.dateNaissance),
       villeNaissance: profile.villeNaissance ?? '',
       nationalite: profile.nationalite ?? '',
+      numeroCarteAutoentrepreneur: profile.numeroCarteAutoentrepreneur ?? '',
       sexe: profile.sexe ?? '',
       situationFamiliale: profile.situationFamiliale ?? '',
       nombreEnfants: profile.nombreEnfants ?? null,
       cin: profile.cin ?? '',
       adresse: profile.adresse ?? '',
+      emailPersonnel: profile.emailPersonnel ?? '',
       telephone1: profile.telephone1 ?? '',
       telephoneUrgence: profile.telephoneUrgence ?? '',
       relationUrgence: profile.relationUrgence ?? '',
@@ -676,6 +706,29 @@ export class UserFormComponent implements OnInit {
       dateDebutFormation: this.dateToInputValue(profile.dateDebutFormation),
       dateFinFormationPrevue: this.dateToInputValue(profile.dateFinFormationPrevue),
     };
+    this.syncSituationAvecEnfantsFromProfile();
+  }
+
+  private syncSituationAvecEnfantsFromProfile(): void {
+    if (!this.showSituationEnfantsChoice) {
+      this.situationAvecEnfants = '';
+      return;
+    }
+    const nb = this.hrProfile.nombreEnfants;
+    if (nb === null || nb === undefined) {
+      this.situationAvecEnfants = '';
+    } else if (nb === 0) {
+      this.situationAvecEnfants = 'NON';
+    } else {
+      this.situationAvecEnfants = 'OUI';
+    }
+  }
+
+  private resolveNombreEnfantsForSave(): number | null {
+    if (!this.showSituationEnfantsChoice) return null;
+    if (this.situationAvecEnfants === 'NON') return 0;
+    if (this.situationAvecEnfants === 'OUI') return this.hrProfile.nombreEnfants;
+    return null;
   }
 
   private buildHrProfilePayload(): UserHrProfile {
@@ -683,11 +736,15 @@ export class UserFormComponent implements OnInit {
       dateNaissance: this.toOptionalDateIso(this.hrProfile.dateNaissance),
       villeNaissance: this.hrProfile.villeNaissance.trim() || null,
       nationalite: this.hrProfile.nationalite.trim() || null,
+      numeroCarteAutoentrepreneur: this.showRequiresAutoentrepreneur
+        ? this.hrProfile.numeroCarteAutoentrepreneur.trim() || null
+        : null,
       sexe: this.hrProfile.sexe.trim() || null,
       situationFamiliale: this.hrProfile.situationFamiliale.trim() || null,
-      nombreEnfants: this.hrProfile.nombreEnfants,
+      nombreEnfants: this.resolveNombreEnfantsForSave(),
       cin: this.hrProfile.cin.trim() || null,
       adresse: this.hrProfile.adresse.trim() || null,
+      emailPersonnel: this.hrProfile.emailPersonnel.trim() || null,
       telephone1: this.hrProfile.telephone1.trim() || null,
       telephoneUrgence: this.hrProfile.telephoneUrgence.trim() || null,
       relationUrgence: this.hrProfile.relationUrgence.trim() || null,
@@ -697,10 +754,12 @@ export class UserFormComponent implements OnInit {
       dateEntree: this.toOptionalDateIso(this.hrProfile.dateEntree),
       dateEmbauche: this.toOptionalDateIso(this.form.hireDate),
       dateAnciennete: this.toOptionalDateIso(this.hrProfile.dateAnciennete),
-      dateSortie: this.toOptionalDateIso(this.hrProfile.dateSortie),
-      dateEvolutionPoste: this.toOptionalDateIso(this.hrProfile.dateEvolutionPoste),
-      ancienPoste: this.hrProfile.ancienPoste.trim() || null,
-      ancienService: this.hrProfile.ancienService.trim() || null,
+      dateSortie: this.isEditMode ? this.toOptionalDateIso(this.hrProfile.dateSortie) : null,
+      dateEvolutionPoste: this.isEditMode
+        ? this.toOptionalDateIso(this.hrProfile.dateEvolutionPoste)
+        : null,
+      ancienPoste: this.isEditMode ? this.hrProfile.ancienPoste.trim() || null : null,
+      ancienService: this.isEditMode ? this.hrProfile.ancienService.trim() || null : null,
       niveauScolaire: this.hrProfile.niveauScolaire.trim() || null,
       intitulesEtudes: this.hrProfile.intitulesEtudes.trim() || null,
       enFormation: this.hrProfile.enFormation,
@@ -751,6 +810,20 @@ export class UserFormComponent implements OnInit {
     this.hrProfile.situationFamiliale = value;
     if (!HR_MARITAL_STATUS_WITH_CHILDREN.has(value)) {
       this.hrProfile.nombreEnfants = null;
+      this.situationAvecEnfants = '';
+    } else {
+      this.situationAvecEnfants = '';
+      this.hrProfile.nombreEnfants = null;
+    }
+    this.cdr.detectChanges();
+  }
+
+  patchSituationAvecEnfants(value: '' | 'OUI' | 'NON'): void {
+    this.situationAvecEnfants = value;
+    if (value === 'NON') {
+      this.hrProfile.nombreEnfants = 0;
+    } else if (value !== 'OUI') {
+      this.hrProfile.nombreEnfants = null;
     }
     this.cdr.detectChanges();
   }
@@ -773,11 +846,13 @@ export class UserFormComponent implements OnInit {
     this.nationaliteCode = value;
     if (value === 'AUTRE') {
       this.hrProfile.nationalite = this.nationaliteAutre.trim();
-      this.cdr.detectChanges();
-      return;
+    } else {
+      this.nationaliteAutre = '';
+      this.hrProfile.nationalite = nationalityLabelForCode(value);
     }
-    this.nationaliteAutre = '';
-    this.hrProfile.nationalite = nationalityLabelForCode(value);
+    if (!requiresAutoentrepreneur(value)) {
+      this.hrProfile.numeroCarteAutoentrepreneur = '';
+    }
     this.cdr.detectChanges();
   }
 
@@ -981,21 +1056,101 @@ export class UserFormComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  async loadOnboardingReferrals(): Promise<void> {
+  get filteredLinkableReferrals(): Referral[] {
+    return filterLinkableReferrals(this.linkableReferrals, this.referralSearchQuery);
+  }
+
+  get referralMatchBanner(): ReferralMatchResult | null {
+    if (this.referralLockedFromUrl || this.referralManualIdentityEdit || !this.referralMatchResult) {
+      return null;
+    }
+    if (!this.referralMatchResult.alertMatches.length) return null;
+    return this.referralMatchResult;
+  }
+
+  get wizardRecapReferral(): string {
+    if (!this.selectedReferral) return '—';
+    const status = this.referralStatusLabels[this.selectedReferral.status] ?? this.selectedReferral.status;
+    const after = this.hrProfile.enFormation ? 'En cours de formation' : 'Validé';
+    return `${this.selectedReferral.candidateName} (${status}) — après enregistrement : ${after}`;
+  }
+
+  referralStatusClass(status: Referral['status']): string {
+    switch (status) {
+      case 'SUBMITTED':
+        return 'referral-badge referral-badge--submitted';
+      case 'PROCESSED':
+        return 'referral-badge referral-badge--processed';
+      default:
+        return 'referral-badge';
+    }
+  }
+
+  async loadLinkableReferrals(): Promise<void> {
     if (this.isEditMode) return;
     try {
-      this.onboardingReferrals = await this.parrainageApi.getOnboardingReferrals();
+      this.linkableReferrals = await this.parrainageApi.getLinkableReferrals();
       this.cdr.detectChanges();
     } catch {
-      this.onboardingReferrals = [];
+      this.linkableReferrals = [];
     }
+  }
+
+  onReferralSearchChange(query: string): void {
+    this.referralSearchQuery = query;
+    this.cdr.detectChanges();
+  }
+
+  onIdentityFieldChange(): void {
+    this.referralManualIdentityEdit = true;
+    this.scheduleReferralMatch();
+  }
+
+  private scheduleReferralMatch(): void {
+    if (this.isEditMode || this.referralLockedFromUrl) return;
+    if (this.referralMatchTimer) clearTimeout(this.referralMatchTimer);
+    this.referralMatchTimer = setTimeout(() => this.runReferralMatch(), 400);
+  }
+
+  private runReferralMatch(): void {
+    if (this.referralManualIdentityEdit && this.selectedReferralId) return;
+    const firstName = this.form.firstName.trim();
+    const lastName = this.form.lastName.trim();
+    if (!firstName && !lastName) {
+      this.referralMatchResult = null;
+      this.cdr.detectChanges();
+      return;
+    }
+    const result = matchReferralCandidates(
+      { firstName, lastName, email: this.form.email },
+      this.linkableReferrals,
+    );
+    this.referralMatchResult = result;
+    if (result.shouldPreselect && result.best && !this.referralManualIdentityEdit) {
+      void this.selectReferral(result.best.referral.id, false);
+    }
+    this.cdr.detectChanges();
+  }
+
+  confirmReferralSuggestion(): void {
+    const best = this.referralMatchResult?.best;
+    if (!best) return;
+    this.referralManualIdentityEdit = false;
+    void this.selectReferral(best.referral.id, true);
   }
 
   async prefillFromReferral(referralId: string): Promise<void> {
     this.referralLoading = true;
     try {
-      const referral = await this.parrainageApi.getReferral(referralId);
-      if (referral.status !== 'PROCESSED' || referral.candidateEmployeeId) return;
+      const referral =
+        this.linkableReferrals.find((r) => r.id === referralId) ??
+        (await this.parrainageApi.getReferral(referralId));
+      if (
+        referral.candidateEmployeeId ||
+        (referral.status !== 'SUBMITTED' && referral.status !== 'PROCESSED')
+      ) {
+        return;
+      }
       this.selectedReferralId = referral.id;
       this.selectedReferral = referral;
       this.referralPositionHint = referral.position?.trim() ?? '';
@@ -1009,7 +1164,7 @@ export class UserFormComponent implements OnInit {
       } else {
         this.form.firstName = referral.candidateName;
       }
-      this.form.email = referral.candidateEmail;
+      this.hrProfile.emailPersonnel = referral.candidateEmail;
       this.hrProfile.telephone1 = referral.candidatePhone;
       const preview = await this.parrainageApi.getRewardPreview(referral.id);
       this.referralRewardAmount = preview.suggestedAmount;
@@ -1021,10 +1176,32 @@ export class UserFormComponent implements OnInit {
   }
 
   onReferralSelectionChange(referralId: string): void {
+    if (!referralId) {
+      this.selectedReferralId = '';
+      this.selectedReferral = null;
+      this.referralRewardAmount = 0;
+      this.referralPositionHint = '';
+      this.cdr.detectChanges();
+      return;
+    }
+    this.referralManualIdentityEdit = false;
+    void this.selectReferral(referralId, true);
+  }
+
+  private async selectReferral(referralId: string, prefillIdentity: boolean): Promise<void> {
     this.selectedReferralId = referralId;
-    this.selectedReferral = this.onboardingReferrals.find((r) => r.id === referralId) ?? null;
-    if (this.selectedReferral) {
-      void this.prefillFromReferral(this.selectedReferral.id);
+    this.selectedReferral = this.linkableReferrals.find((r) => r.id === referralId) ?? null;
+    if (prefillIdentity) {
+      await this.prefillFromReferral(referralId);
+    } else if (this.selectedReferral) {
+      this.referralPositionHint = this.selectedReferral.position?.trim() ?? '';
+      try {
+        const preview = await this.parrainageApi.getRewardPreview(referralId);
+        this.referralRewardAmount = preview.suggestedAmount;
+      } catch {
+        this.referralRewardAmount = 0;
+      }
+      this.cdr.detectChanges();
     }
   }
 
@@ -1084,8 +1261,8 @@ export class UserFormComponent implements OnInit {
     );
   }
 
-  private completeReferralOnboarding$(employeeGuid: string): Observable<void> {
-    if (!this.selectedReferralId.trim()) return of(undefined);
+  private completeReferralOnboarding$(employeeGuid: string): Observable<Referral | null> {
+    if (!this.selectedReferralId.trim()) return of(null);
     return defer(() =>
       this.parrainageApi.completeOnboarding(this.selectedReferralId, {
         employeeId: employeeGuid,
@@ -1094,7 +1271,7 @@ export class UserFormComponent implements OnInit {
         requiresTraining: this.hrProfile.enFormation,
         trainingEndDate: this.hrProfile.enFormation ? this.hrProfile.dateFinFormationPrevue : undefined,
       }),
-    ).pipe(map(() => undefined));
+    );
   }
 
   private resetResponsables(): void {
@@ -1694,10 +1871,21 @@ export class UserFormComponent implements OnInit {
     if (!this.form.email.trim()) return;
     this.userService.checkEmailUnique(this.form.email, this.userId ?? undefined).subscribe({
       next: (res) => {
-        this.emailError = res.isUnique ? null : 'Cet email est déjà utilisé.';
+        this.emailError = res.isUnique ? null : 'Ce mail interne est déjà utilisé.';
         this.cdr.detectChanges();
       }
     });
+  }
+
+  checkPersonalEmail(): void {
+    const value = this.hrProfile.emailPersonnel.trim();
+    if (!value) {
+      this.personalEmailError = null;
+      return;
+    }
+    const basicEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    this.personalEmailError = basicEmail.test(value) ? null : 'Format d\'email personnel invalide.';
+    this.cdr.detectChanges();
   }
 
   private validateOrgAssignment(): string | null {
@@ -2050,6 +2238,7 @@ export class UserFormComponent implements OnInit {
       return;
     }
     if (this.emailError) return;
+    if (this.personalEmailError) return;
     const supportError = this.validateSupportAssignment();
     if (supportError) {
       this.error = supportError;
@@ -2115,21 +2304,60 @@ export class UserFormComponent implements OnInit {
         switchMap((user) => {
           const guid = resolveUserGuid(user);
           if (!guid || !this.selectedReferralId.trim()) {
-            return of(user);
+            return of({ user, referralResult: null as Referral | null });
           }
           return this.completeReferralOnboarding$(guid).pipe(
-            map(() => user),
+            map((referralResult) => ({ user, referralResult })),
             catchError((err) =>
               throwError(() => new Error(formatHttpErrorMessage(err, 'Employé créé mais échec de la finalisation parrainage.'))),
             ),
           );
         }),
+        switchMap(({ user, referralResult }) => {
+          if (!this.hrProfile.enFormation) {
+            return of({ user, referralResult });
+          }
+          const guid = resolveUserGuid(user);
+          if (!guid) return of({ user, referralResult });
+          const name = `${this.form.firstName} ${this.form.lastName}`.trim();
+          return defer(() =>
+            this.formationTraining.createInitialPath({
+              employeeId: guid,
+              employeeName: name || this.form.email,
+              dateDebut: this.hrProfile.dateDebutFormation || this.form.hireDate,
+              dateFinPrevue: this.hrProfile.dateFinFormationPrevue,
+            }),
+          ).pipe(
+            map(() => ({ user, referralResult })),
+            catchError((err) =>
+              throwError(
+                () =>
+                  new Error(
+                    formatHttpErrorMessage(
+                      err,
+                      'Employé créé mais échec de l’enregistrement du parcours formation initiale.',
+                    ),
+                  ),
+              ),
+            ),
+          );
+        }),
       ).subscribe({
-        next: (user) => {
+        next: ({ user, referralResult }) => {
           this.createdUserId = user.id;
-          this.createSuccessMessage = this.hrProfile.enFormation
+          let message = this.hrProfile.enFormation
             ? 'Employé créé — le contrat pourra être défini après la formation.'
             : 'Employé créé avec succès.';
+          if (referralResult) {
+            const statusLabel =
+              referralResult.status === 'IN_TRAINING'
+                ? 'En cours de formation'
+                : referralResult.status === 'APPROVED'
+                  ? 'Validé'
+                  : this.referralStatusLabels[referralResult.status] ?? referralResult.status;
+            message = `Employé créé et dossier parrainage passé en ${statusLabel}.`;
+          }
+          this.createSuccessMessage = message;
           this.showCreateSuccess = true;
           this.submitting = false;
           this.toastService.success(this.createSuccessMessage);
@@ -2224,16 +2452,25 @@ export class UserFormComponent implements OnInit {
       return 'Le nom et le prénom sont obligatoires.';
     }
     if (!this.form.email.trim()) {
-      return 'L\'email est obligatoire.';
+      return 'Le mail interne est obligatoire.';
     }
     if (this.emailError) {
       return this.emailError;
     }
+    if (this.personalEmailError) {
+      return this.personalEmailError;
+    }
     if (!this.form.hireDate) {
       return 'La date d\'embauche est obligatoire.';
     }
-    if (this.showNombreEnfants && this.hrProfile.nombreEnfants === null) {
-      return 'Le nombre d\'enfants est obligatoire pour cette situation familiale.';
+    if (this.showSituationEnfantsChoice && !this.situationAvecEnfants) {
+      return 'Indiquez si l\'employé a des enfants pour cette situation familiale.';
+    }
+    if (this.showNombreEnfants && (this.hrProfile.nombreEnfants === null || this.hrProfile.nombreEnfants < 1)) {
+      return 'Le nombre d\'enfants est obligatoire (minimum 1).';
+    }
+    if (this.showRequiresAutoentrepreneur && !this.hrProfile.numeroCarteAutoentrepreneur.trim()) {
+      return 'Le numéro de carte autoentrepreneur est obligatoire pour cette nationalité.';
     }
     return null;
   }

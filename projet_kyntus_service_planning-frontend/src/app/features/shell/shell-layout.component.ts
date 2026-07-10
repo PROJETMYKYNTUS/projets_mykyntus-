@@ -176,12 +176,9 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
     this.role = (this.auth.getRole() || this.currentUser?.role || '').trim();
 
-    if (!localStorage.getItem('token')) {
-
+    if (!this.session.isAuthenticated()) {
       window.location.href = KYNTUS_PUBLIC_URLS.authLogin;
-
       return;
-
     }
 
     this.notifInit.connectIfAuthenticated();

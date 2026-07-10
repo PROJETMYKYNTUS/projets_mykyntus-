@@ -252,9 +252,9 @@
 
           @if (generationMode === 'template' && hrVariablesForCurrentTemplate().length > 0) {
             <div class="space-y-3 rounded-lg border border-blue-900/40 bg-blue-950/20 p-3">
-              <p class="text-xs font-bold text-primary uppercase tracking-wide">Formulaire RH</p>
+              <p class="text-xs font-bold text-primary uppercase tracking-wide">Données complémentaires (RH)</p>
               <p class="text-[11px] text-muted">
-                Les valeurs RH ont priorité sur le formulaire pilote puis sur la base employé.
+                Les valeurs RH ont priorité sur la base employé. Les champs d’identité / organisation sont alimentés automatiquement.
               </p>
               @for (v of hrVariablesForCurrentTemplate(); track v.name) {
                 <div class="space-y-1">
@@ -356,6 +356,7 @@
                 <app-generated-document-format-menu
                   [generatedDocumentId]="downloadMenuDocumentId"
                   [fileNameBase]="exportFileHintForPreviewModal"
+                  [allowedFormats]="['pdf', 'docx']"
                   appearance="standard"
                 />
                 <button
@@ -422,6 +423,7 @@
               <app-generated-document-format-menu
                 [generatedDocumentId]="downloadMenuDocumentId"
                 [fileNameBase]="exportFileHintForPreviewModal"
+                [allowedFormats]="['pdf', 'docx']"
                 appearance="standard"
               />
             }

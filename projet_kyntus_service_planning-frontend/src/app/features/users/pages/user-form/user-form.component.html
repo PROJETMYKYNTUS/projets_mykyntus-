@@ -60,12 +60,13 @@
 
 
 
-        @if (!isEditMode && selectedReferral) {
+        @if (!isEditMode && selectedReferral && currentWizardStep !== 'identity') {
           <div class="alert alert-info referral-context-banner">
             <div>
               <strong>Dossier parrainage lié</strong>
               <p>
-                Candidat : {{ selectedReferral.candidateName }} — statut <strong>Consulté</strong>.
+                Candidat : {{ selectedReferral.candidateName }} — statut
+                <strong>{{ referralStatusLabels[selectedReferral.status] }}</strong>.
                 @if (referralPositionHint) {
                   Poste visé : {{ referralPositionHint }}.
                 }
@@ -118,6 +119,89 @@
           @if (currentWizardStep === 'identity') {
           <section class="form-section">
 
+            @if (!isEditMode) {
+              <div class="referral-picker-block">
+                <div class="section-heading">
+                  <h2>Parrainage</h2>
+                  <p class="section-hint">Liez un dossier parrainage (en attente ou consulté) sans compte employé.</p>
+                </div>
+                @if (referralLoading) {
+                  <p class="hint">Chargement des dossiers parrainage…</p>
+                } @else if (referralLockedFromUrl && selectedReferral) {
+                  <div class="wizard-recap">
+                    <p><strong>Dossier :</strong> {{ selectedReferral.candidateName }} — {{ selectedReferral.position }}</p>
+                    <p><strong>Parrain :</strong> {{ selectedReferral.referrerName }} (lecture seule)</p>
+                    <p><strong>Statut :</strong> {{ referralStatusLabels[selectedReferral.status] }}</p>
+                  </div>
+                } @else {
+                  <div class="form-group">
+                    <label for="referralSearch">Rechercher un dossier</label>
+                    <input
+                      class="ky-input"
+                      id="referralSearch"
+                      name="referralSearch"
+                      type="search"
+                      placeholder="Nom candidat, email, parrain, poste…"
+                      [ngModel]="referralSearchQuery"
+                      (ngModelChange)="onReferralSearchChange($event)"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="referralSelect">Dossier parrainage</label>
+                    <select
+                      class="ky-input"
+                      id="referralSelect"
+                      name="referralSelect"
+                      [ngModel]="selectedReferralId"
+                      (ngModelChange)="onReferralSelectionChange($event)"
+                    >
+                      <option value="">— Aucun parrainage —</option>
+                      @for (ref of filteredLinkableReferrals; track ref.id) {
+                        <option [value]="ref.id">
+                          {{ ref.candidateName }} — {{ ref.position }} ({{ referralStatusLabels[ref.status] }})
+                        </option>
+                      }
+                    </select>
+                  </div>
+                  @if (selectedReferral) {
+                    <div class="wizard-recap referral-picker-preview">
+                      <p>
+                        <span [class]="referralStatusClass(selectedReferral.status)">{{ referralStatusLabels[selectedReferral.status] }}</span>
+                        — Parrain : {{ selectedReferral.referrerName }}
+                      </p>
+                      <p class="section-hint">
+                        Après enregistrement :
+                        {{ hrProfile.enFormation ? 'En cours de formation' : 'Validé' }}
+                        (selon parcours formation à l'étape 3).
+                      </p>
+                      @if (referralRewardAmount > 0) {
+                        <p><strong>Montant prime suggéré :</strong> {{ referralRewardAmount | number:'1.0-0' }} MAD</p>
+                      }
+                    </div>
+                  }
+                  @if (referralMatchBanner; as match) {
+                    <div class="alert alert-info referral-match-banner">
+                      @if (match.ambiguous) {
+                        <p><strong>Plusieurs dossiers parrainage possibles</strong> — confirmez le dossier dans la liste.</p>
+                      } @else if (match.best) {
+                        <p>
+                          <strong>Cet employé est peut-être issu d'un parrainage</strong> —
+                          {{ match.best.referral.candidateName }}
+                          (Parrain : {{ match.best.referral.referrerName }},
+                          {{ referralStatusLabels[match.best.referral.status] }}).
+                        </p>
+                        @if (!match.shouldPreselect) {
+                          <button type="button" class="btn btn-outline ky-btn-secondary referral-match-confirm" (click)="confirmReferralSuggestion()">
+                            Confirmer ce dossier
+                          </button>
+                        }
+                      }
+                    </div>
+                  }
+                }
+              </div>
+            }
+
             <div class="section-heading">
 
               <h2>Identité</h2>
@@ -132,7 +216,7 @@
 
                 <label for="lastName">Nom <span class="required">*</span></label>
 
-                <input class="ky-input" id="lastName" name="lastName" type="text" [(ngModel)]="form.lastName" placeholder="Nom de famille" />
+                <input class="ky-input" id="lastName" name="lastName" type="text" [(ngModel)]="form.lastName" (ngModelChange)="onIdentityFieldChange()" placeholder="Nom de famille" />
 
               </div>
 
@@ -140,13 +224,14 @@
 
                 <label for="firstName">Prénom <span class="required">*</span></label>
 
-                <input class="ky-input" id="firstName" name="firstName" type="text" [(ngModel)]="form.firstName" placeholder="Prénom" />
+                <input class="ky-input" id="firstName" name="firstName" type="text" [(ngModel)]="form.firstName" (ngModelChange)="onIdentityFieldChange()" placeholder="Prénom" />
 
               </div>
 
               <div class="form-group">
 
-                <label for="email">Email <span class="required">*</span></label>
+                <label for="email">Mail interne <span class="required">*</span></label>
+                <p class="hint">Adresse de connexion à la plateforme (compte employé).</p>
 
                 <input
                   class="ky-input"
@@ -154,11 +239,32 @@
                   name="email"
                   type="email"
                   [(ngModel)]="form.email"
-                  placeholder="email@exemple.com"
+                  (ngModelChange)="onIdentityFieldChange()"
+                  placeholder="prenom.nom@entreprise.ma"
                   (blur)="checkEmail()"
                 />
                 @if (emailError) {
                   <span class="input-error">{{ emailError }}</span>
+                }
+
+              </div>
+
+              <div class="form-group">
+
+                <label for="emailPersonnel">Email personnel</label>
+                <p class="hint">Adresse personnelle — non utilisée pour la connexion.</p>
+
+                <input
+                  class="ky-input"
+                  id="emailPersonnel"
+                  name="emailPersonnel"
+                  type="email"
+                  [(ngModel)]="hrProfile.emailPersonnel"
+                  placeholder="exemple@gmail.com"
+                  (blur)="checkPersonalEmail()"
+                />
+                @if (personalEmailError) {
+                  <span class="input-error">{{ personalEmailError }}</span>
                 }
 
               </div>
@@ -246,6 +352,21 @@
                     />
                   </div>
                 }
+                @if (showRequiresAutoentrepreneur) {
+                  <div class="form-group form-group--full">
+                    <p class="hint">Statut : Autoentrepreneur (obligatoire pour cette nationalité)</p>
+                  </div>
+                  <div class="form-group">
+                    <label for="numeroCarteAutoentrepreneur">N° carte autoentrepreneur</label>
+                    <input
+                      class="ky-input"
+                      id="numeroCarteAutoentrepreneur"
+                      name="numeroCarteAutoentrepreneur"
+                      type="text"
+                      [(ngModel)]="hrProfile.numeroCarteAutoentrepreneur"
+                    />
+                  </div>
+                }
                 <div class="form-group">
                   <label for="situationFamiliale">Situation familiale</label>
                   <select
@@ -261,10 +382,26 @@
                     }
                   </select>
                 </div>
+                @if (showSituationEnfantsChoice) {
+                  <div class="form-group">
+                    <label for="situationAvecEnfants">Avec ou sans enfants</label>
+                    <select
+                      class="ky-input"
+                      id="situationAvecEnfants"
+                      name="situationAvecEnfants"
+                      [ngModel]="situationAvecEnfants"
+                      (ngModelChange)="patchSituationAvecEnfants($event)"
+                    >
+                      <option value="">— Sélectionner —</option>
+                      <option value="OUI">Avec enfants</option>
+                      <option value="NON">Sans enfants</option>
+                    </select>
+                  </div>
+                }
                 @if (showNombreEnfants) {
                   <div class="form-group">
                     <label for="nombreEnfants">Nombre d'enfants</label>
-                    <input class="ky-input" id="nombreEnfants" name="nombreEnfants" type="number" min="0" [(ngModel)]="hrProfile.nombreEnfants" />
+                    <input class="ky-input" id="nombreEnfants" name="nombreEnfants" type="number" min="1" [(ngModel)]="hrProfile.nombreEnfants" />
                   </div>
                 }
                 <div class="form-group form-group--full">
@@ -276,7 +413,7 @@
                   <input class="ky-input" id="telephoneUrgence" name="telephoneUrgence" type="tel" [(ngModel)]="hrProfile.telephoneUrgence" />
                 </div>
                 <div class="form-group">
-                  <label for="relationUrgence">Lien urgence</label>
+                  <label for="relationUrgence">Relation avec l'employé</label>
                   <input class="ky-input" id="relationUrgence" name="relationUrgence" type="text" [(ngModel)]="hrProfile.relationUrgence" />
                 </div>
             </div>
@@ -668,7 +805,7 @@
                 <button type="button" class="level-btn level-btn--2" [class.active]="form.level === 2" (click)="setLevel(2)">
                   <span class="level-badge">2</span>
                   <span class="level-content">
-                    <span class="level-title">Intermédiaire</span>
+                    <span class="level-title">Confirmé</span>
                     <span class="level-text">Autonome sur les tâches courantes</span>
                   </span>
                 </button>
@@ -676,7 +813,7 @@
                 <button type="button" class="level-btn level-btn--3" [class.active]="form.level === 3" (click)="setLevel(3)">
                   <span class="level-badge">3</span>
                   <span class="level-content">
-                    <span class="level-title">Confirmé</span>
+                    <span class="level-title">Expert</span>
                     <span class="level-text">Référent métier ou opérationnel</span>
                   </span>
                 </button>
@@ -703,14 +840,14 @@
                 <button type="button" class="level-btn level-btn--2" [class.active]="form.niveauExpertiseMetier === 2" [disabled]="!canEditExpertiseMetier" (click)="setExpertiseLevel(2)">
                   <span class="level-badge">2</span>
                   <span class="level-content">
-                    <span class="level-title">Intermédiaire</span>
+                    <span class="level-title">Confirmé</span>
                   </span>
                 </button>
 
                 <button type="button" class="level-btn level-btn--3" [class.active]="form.niveauExpertiseMetier === 3" [disabled]="!canEditExpertiseMetier" (click)="setExpertiseLevel(3)">
                   <span class="level-badge">3</span>
                   <span class="level-content">
-                    <span class="level-title">Confirmé</span>
+                    <span class="level-title">Expert</span>
                   </span>
                 </button>
 
@@ -723,52 +860,6 @@
 
           @if (currentWizardStep === 'pathway') {
           <section class="form-section">
-
-            @if (!isEditMode) {
-              <div class="form-section">
-                <div class="section-heading">
-                  <h2>Parrainage</h2>
-                  <p class="section-hint">Liez un dossier parrainage consulté sans compte employé.</p>
-                </div>
-                @if (referralLoading) {
-                  <p class="hint">Chargement des dossiers parrainage…</p>
-                } @else if (referralLockedFromUrl && selectedReferral) {
-                  <div class="wizard-recap">
-                    <p><strong>Dossier :</strong> {{ selectedReferral.candidateName }} — {{ selectedReferral.position }}</p>
-                    <p><strong>Parrain :</strong> {{ selectedReferral.referrerName }} (lecture seule)</p>
-                    <p><strong>Candidat :</strong> {{ selectedReferral.candidateEmail }} · {{ selectedReferral.candidatePhone }}</p>
-                    @if (referralRewardAmount > 0) {
-                      <p><strong>Montant prime suggéré :</strong> {{ referralRewardAmount | number:'1.0-0' }} MAD</p>
-                    }
-                  </div>
-                } @else {
-                  <div class="form-group">
-                    <label for="referralSelect">Dossier parrainage</label>
-                    <select
-                      class="ky-input"
-                      id="referralSelect"
-                      name="referralSelect"
-                      [ngModel]="selectedReferralId"
-                      (ngModelChange)="onReferralSelectionChange($event)"
-                    >
-                      <option value="">— Aucun —</option>
-                      @for (ref of onboardingReferrals; track ref.id) {
-                        <option [value]="ref.id">{{ ref.candidateName }} — {{ ref.position }}</option>
-                      }
-                    </select>
-                  </div>
-                  @if (selectedReferral) {
-                    <div class="wizard-recap">
-                      <p><strong>Parrain :</strong> {{ selectedReferral.referrerName }} (lecture seule)</p>
-                      <p><strong>Candidat :</strong> {{ selectedReferral.candidateName }} — {{ selectedReferral.candidateEmail }}</p>
-                      @if (referralRewardAmount > 0) {
-                        <p><strong>Montant prime suggéré :</strong> {{ referralRewardAmount | number:'1.0-0' }} MAD</p>
-                      }
-                    </div>
-                  }
-                }
-              </div>
-            }
 
             <div class="section-heading">
               <h2>{{ hrProfile.enFormation ? 'Formation' : 'Contrat' }}</h2>
@@ -818,12 +909,16 @@
               <h3>Récapitulatif</h3>
               <dl class="wizard-recap-list">
                 <div><dt>Identité</dt><dd>{{ wizardRecapName }}</dd></div>
-                <div><dt>Email</dt><dd>{{ form.email || '—' }}</dd></div>
+                <div><dt>Mail interne</dt><dd>{{ form.email || '—' }}</dd></div>
+                <div><dt>Email personnel</dt><dd>{{ hrProfile.emailPersonnel || '—' }}</dd></div>
                 <div><dt>Embauche</dt><dd>{{ form.hireDate || '—' }}</dd></div>
                 <div><dt>Rôle</dt><dd>{{ wizardRecapRole }}</dd></div>
                 <div><dt>Périmètre</dt><dd>{{ selectedOrgSummary || '—' }}</dd></div>
-                <div><dt>Niveau contractuel</dt><dd>{{ form.level === 1 ? 'Débutant' : form.level === 2 ? 'Intermédiaire' : 'Confirmé' }}</dd></div>
+                <div><dt>Niveau contractuel</dt><dd>{{ contractLevelLabel(form.level) }}</dd></div>
                 <div><dt>{{ hrProfile.enFormation ? 'Formation' : 'Contrat' }}</dt><dd>{{ wizardRecapPathway }}</dd></div>
+                @if (selectedReferral) {
+                  <div><dt>Parrainage</dt><dd>{{ wizardRecapReferral }}</dd></div>
+                }
               </dl>
               <p class="wizard-recap-hint">Les champs administratifs ci-dessous sont optionnels à la création.</p>
             </div>
@@ -839,10 +934,6 @@
                 <div class="form-group">
                   <label for="dateAnciennete">Date d'ancienneté</label>
                   <input class="ky-input" id="dateAnciennete" name="dateAnciennete" type="date" [(ngModel)]="hrProfile.dateAnciennete" />
-                </div>
-                <div class="form-group">
-                  <label for="dateSortie">Date de sortie</label>
-                  <input class="ky-input" id="dateSortie" name="dateSortie" type="date" [(ngModel)]="hrProfile.dateSortie" />
                 </div>
                 <div class="form-group">
                   <label for="rib">RIB</label>
@@ -862,6 +953,7 @@
               <h3>Parcours &amp; formation</h3>
             </div>
             <div class="form-grid form-grid--dense">
+                @if (isEditMode) {
                 <div class="form-group">
                   <label for="dateEvolutionPoste">Date évolution poste</label>
                   <input class="ky-input" id="dateEvolutionPoste" name="dateEvolutionPoste" type="date" [(ngModel)]="hrProfile.dateEvolutionPoste" />
@@ -974,6 +1066,7 @@
                       }
                     }
                   </div>
+                }
                 }
                 <div class="form-group">
                   <label for="niveauScolaire">Niveau scolaire</label>

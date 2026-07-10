@@ -31,6 +31,7 @@ export type ParrainageRhManagementFilter =
   | 'all'
   | 'pending-rh'
   | 'processed-rh'
+  | 'linkable'
   | 'in-training'
   | 'training-end-due'
   | 'in-period'

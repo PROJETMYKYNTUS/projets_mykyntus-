@@ -1284,7 +1284,7 @@ export class DocGenPageComponent implements OnInit, OnDestroy {
           const nextValues: Record<string, string> = {};
           for (const v of detail.currentVersion?.variables ?? []) {
             const scope = (v.formScope ?? 'pilot').toLowerCase();
-            if (scope === 'hr' || scope === 'both') {
+            if (scope === 'hr' || scope === 'both' || scope === 'pilot') {
               nextValues[v.name] = this.hrFieldValues[v.name] ?? (v.defaultValue ?? '');
             }
           }
@@ -1306,7 +1306,8 @@ export class DocGenPageComponent implements OnInit, OnDestroy {
     return (this.currentTemplateDetail()?.currentVersion?.variables ?? [])
       .filter((v) => {
         const scope = (v.formScope ?? 'pilot').toLowerCase();
-        return scope === 'hr' || scope === 'both';
+        // Absorbe les anciennes variables « pilot » dans le formulaire RH.
+        return scope === 'hr' || scope === 'both' || scope === 'pilot';
       })
       .map((v) => ({ name: v.name, displayLabel: v.displayLabel, isRequired: v.isRequired }));
   }

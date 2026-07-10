@@ -537,7 +537,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
 
   pilotVarBusy = false;
 
-  addPilotVariable(formScope: 'pilot' | 'hr' | 'db' = 'pilot'): void {
+  addPilotVariable(formScope: 'hr' | 'db' = 'hr'): void {
     const vars = this.selectedTemplate?.currentVersion?.variables;
     if (!vars) return;
     const used = new Set(vars.map((v) => v.name.trim().toLowerCase()));
@@ -556,7 +556,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
       validationRule: null,
       displayLabel: '',
       formScope,
-      sourcePriority: formScope === 'hr' ? 30 : formScope === 'db' ? 10 : 20,
+      sourcePriority: formScope === 'hr' ? 30 : 10,
       normalizedName: name,
       rawPlaceholder: formScope === 'hr' ? null : `(${name})`,
       sortOrder: vars.length,
@@ -572,10 +572,11 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
   }
 
   private normalizeFormScope(scope: string | null | undefined): 'pilot' | 'hr' | 'db' {
-    const normalized = (scope ?? 'pilot').trim().toLowerCase();
+    const normalized = (scope ?? 'hr').trim().toLowerCase();
     if (normalized === 'hr' || normalized === 'both') return 'hr';
     if (normalized === 'db') return 'db';
-    return 'pilot';
+    if (normalized === 'pilot') return 'pilot';
+    return 'hr';
   }
 
   private normalizeTemplateVariableScopes(vars: TemplateVariableDto[]): TemplateVariableDto[] {
@@ -619,10 +620,12 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     );
   }
 
+  /** Inclut aussi les anciennes variables `pilot` (absorbées par le formulaire RH). */
   hrVariables(): TemplateVariableDto[] {
-    return (this.selectedTemplate?.currentVersion?.variables ?? []).filter(
-      (v) => this.normalizeFormScope(v.formScope) === 'hr',
-    );
+    return (this.selectedTemplate?.currentVersion?.variables ?? []).filter((v) => {
+      const scope = this.normalizeFormScope(v.formScope);
+      return scope === 'hr' || scope === 'pilot';
+    });
   }
 
   dbVariables(): TemplateVariableDto[] {
@@ -631,7 +634,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     );
   }
 
-  /** Enregistre la définition des formulaires Pilote / RH / DB (version courante). */
+  /** Enregistre la définition des formulaires RH / DB (version courante). */
   savePilotDefinitions(): void {
     if (!this.selectedTemplate?.currentVersion?.variables?.length) {
       this.setDetailFeedback('Aucune variable à enregistrer.', 'info');

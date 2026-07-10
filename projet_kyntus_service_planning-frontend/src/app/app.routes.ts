@@ -73,15 +73,39 @@ export const routes: Routes = [
       {
         path: 'formations',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Equipe_Formation'] },
+        data: { roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation'] },
         loadComponent: () =>
           import('./features/formation/admin/formation-admin.component')
             .then(m => m.FormationAdminComponent),
       },
       {
+        path: 'formations/planifier',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadComponent: () =>
+          import('./features/formation/rh/formation-rh-plan.component')
+            .then(m => m.FormationRhPlanComponent),
+      },
+      {
+        path: 'formations/initiales',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation'] },
+        loadComponent: () =>
+          import('./features/formation/formateur/formation-formateur-initial.component')
+            .then(m => m.FormationFormateurInitialComponent),
+      },
+      {
+        path: 'formations/passage-production',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadComponent: () =>
+          import('./features/formation/rh/formation-rh-prod-queue.component')
+            .then(m => m.FormationRhProdQueueComponent),
+      },
+      {
         path: 'mes-formations',
         canActivate: [AuthGuard],
-        data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation', 'Superviseur'] },
+        data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Formateur', 'Equipe_Formation', 'Superviseur'] },
         loadComponent: () =>
           import('./features/formation/employee/formation-employee.component')
             .then(m => m.FormationEmployeeComponent),

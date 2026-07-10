@@ -282,6 +282,46 @@
   line-height: 1.45;
 }
 
+.referral-picker-block {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--ky-border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.referral-picker-preview {
+  margin-top: 12px;
+}
+
+.referral-match-banner {
+  margin-top: 12px;
+}
+
+.referral-match-confirm {
+  margin-top: 8px;
+}
+
+.referral-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.referral-badge--submitted {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.referral-badge--processed {
+  background: rgba(34, 211, 238, 0.12);
+  color: #67e8f9;
+  border-color: rgba(34, 211, 238, 0.25);
+}
+
 .form-section.compact {
   padding: 18px 22px;
 }

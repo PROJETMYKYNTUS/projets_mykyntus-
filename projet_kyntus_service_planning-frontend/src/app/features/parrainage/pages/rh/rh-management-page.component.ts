@@ -6,7 +6,6 @@ import { ParrainageRoleService } from '../../state/parrainage-role.service';
 import { ParrainageNavService, type ParrainageRhManagementFilter } from '../../state/parrainage-nav.service';
 import type { Referral, ReferralStatus } from '../../models/referral.model';
 import {
-  REFERRAL_PROCESSED_FILTER_LABEL,
   REFERRAL_STATUS_LABELS,
   REFERRAL_STATUS_STYLES_RH,
 } from '../../utils/referral-status.util';
@@ -14,7 +13,8 @@ import {
 const FILTER_OPTIONS = [
   { id: 'all', label: 'Tous' },
   { id: 'pending-rh', label: 'En attente RH' },
-  { id: 'processed-rh', label: REFERRAL_PROCESSED_FILTER_LABEL },
+  { id: 'processed-rh', label: 'À lier à l\'embauche (consulté)' },
+  { id: 'linkable', label: 'À lier à l\'embauche (en attente + consulté)' },
   { id: 'in-training', label: 'En formation' },
   { id: 'training-end-due', label: 'Fin formation à traiter' },
   { id: 'in-period', label: 'En période' },
@@ -156,6 +156,9 @@ export class RhManagementPageComponent {
     if (filter === 'all') return all;
     if (filter === 'pending-rh') return all.filter((r) => r.status === 'SUBMITTED');
     if (filter === 'processed-rh') return all.filter((r) => r.status === 'PROCESSED');
+    if (filter === 'linkable') {
+      return all.filter((r) => (r.status === 'SUBMITTED' || r.status === 'PROCESSED') && !r.candidateEmployeeId);
+    }
     if (filter === 'in-training') return all.filter((r) => r.status === 'IN_TRAINING');
     if (filter === 'training-end-due') {
       const today = new Date().toISOString().slice(0, 10);

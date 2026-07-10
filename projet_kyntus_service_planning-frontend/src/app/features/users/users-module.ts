@@ -15,11 +15,13 @@ export interface UserHrProfile {
   dateNaissance?: string | null;
   villeNaissance?: string | null;
   nationalite?: string | null;
+  numeroCarteAutoentrepreneur?: string | null;
   sexe?: string | null;
   situationFamiliale?: string | null;
   nombreEnfants?: number | null;
   cin?: string | null;
   adresse?: string | null;
+  emailPersonnel?: string | null;
   telephone1?: string | null;
   telephoneUrgence?: string | null;
   relationUrgence?: string | null;

@@ -1,5 +1,4 @@
 ﻿import { CommonModule } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, of } from 'rxjs';
@@ -9,7 +8,6 @@ import { DocumentationDataApiService } from '../../../core/services/documentatio
 import { DocumentationNotificationService } from '../../../core/services/documentation-notification.service';
 import type {
   CreateDocumentRequestPayload,
-  DocumentTemplateDetailDto,
   DocumentTemplateListItemDto,
   DocumentTypeDto,
 } from '../../../core/models/documentation.models';
@@ -39,30 +37,25 @@ export class RequestDocumentPageComponent implements OnInit {
   docTypesError: string | null = null;
 
   /**
-   * Clé composite : `tpl:{uuid}` (modèle RH), `type:{uuid}` (type catalogue seul), ou `OTHER_KEY`.
+   * Sélection multi-documents : clés `tpl:{uuid}` ou `type:{uuid}`.
+   * Mutuellement exclusive avec le mode « Autre ».
    */
-  selectionKey = '';
+  selectedKeys = new Set<string>();
+  otherMode = false;
 
   otherDescription = '';
   otherDescriptionError = false;
-
-  /** Détail du modèle sélectionné (variables / libellés). */
-  templateDetail: DocumentTemplateDetailDto | null = null;
-  templateDetailLoading = false;
-  templateDetailError: string | null = null;
-  /** Valeurs saisies par le pilote pour les variables du modèle. */
-  pilotFieldValues: Record<string, string> = {};
-  fieldValidationError: string | null = null;
 
   reason = '';
   complementaryComments = '';
 
   submitting = false;
   submitError: string | null = null;
+  fieldValidationError: string | null = null;
   submitSuccess = false;
-  submitSuccessRef: string | null = null;
-  submitSuccessInternalId: string | null = null;
-  submitSuccessTenant: string | null = null;
+  submitSuccessCount = 0;
+  submitSuccessRefs: string[] = [];
+  submitPartialFailures: string[] = [];
 
   constructor(
     private readonly api: DocumentationApiService,
@@ -87,135 +80,66 @@ export class RequestDocumentPageComponent implements OnInit {
       error: (err: unknown) => {
         this.docTypesLoading = false;
         this.docTypesError = this.formatHttpError(err);
-        this.selectionKey = OTHER_KEY;
+        this.otherMode = true;
+        this.selectedKeys.clear();
       },
     });
   }
 
   private initDefaultSelection(): void {
+    this.selectedKeys.clear();
+    this.otherMode = false;
     if (this.templates.length > 0) {
-      const first = this.templates[0]!;
-      this.selectionKey = `${TPL_PREFIX}${first.id}`;
-      this.onSelectionChange(this.selectionKey);
+      this.selectedKeys.add(`${TPL_PREFIX}${this.templates[0]!.id}`);
     } else if (this.docTypes.length > 0) {
-      this.selectionKey = `${TYPE_PREFIX}${this.docTypes[0]!.id}`;
-      this.templateDetail = null;
-      this.pilotFieldValues = {};
+      this.selectedKeys.add(`${TYPE_PREFIX}${this.docTypes[0]!.id}`);
     } else {
-      this.selectionKey = OTHER_KEY;
-      this.templateDetail = null;
+      this.otherMode = true;
     }
   }
 
-  onSelectionChange(value: string): void {
-    this.selectionKey = value;
+  isSelected(key: string): boolean {
+    return this.selectedKeys.has(key);
+  }
+
+  toggleKey(key: string, checked: boolean): void {
+    this.otherMode = false;
     this.otherDescriptionError = false;
     this.fieldValidationError = null;
-    this.templateDetailError = null;
-    if (value === OTHER_KEY) {
-      this.otherDescription = '';
-      this.templateDetail = null;
-      this.pilotFieldValues = {};
-      return;
-    }
-    if (value.startsWith(TYPE_PREFIX)) {
-      this.templateDetail = null;
-      this.pilotFieldValues = {};
-      return;
-    }
-    if (value.startsWith(TPL_PREFIX)) {
-      const id = value.slice(TPL_PREFIX.length).trim();
-      if (id) this.loadTemplateDetail(id);
-    }
+    if (checked) this.selectedKeys.add(key);
+    else this.selectedKeys.delete(key);
   }
 
-  private loadTemplateDetail(templateId: string): void {
-    this.templateDetailLoading = true;
-    this.templateDetail = null;
-    this.pilotFieldValues = {};
-    this.data.getDocumentTemplate(templateId).subscribe({
-      next: (d) => {
-        this.templateDetail = d;
-        this.templateDetailLoading = false;
-        this.pilotFieldValues = {};
-        for (const v of this.pilotVariables(d)) {
-          this.pilotFieldValues[v.name] = (v.defaultValue ?? '').trim();
-        }
-      },
-      error: (err: unknown) => {
-        this.templateDetailLoading = false;
-        this.templateDetailError = this.formatHttpError(err);
-      },
-    });
+  onOtherModeChange(enabled: boolean): void {
+    this.otherMode = enabled;
+    this.fieldValidationError = null;
+    this.otherDescriptionError = false;
+    if (enabled) this.selectedKeys.clear();
   }
 
-  /** Libellé affiché pour une variable (RH). */
-  variableLabel(name: string, displayLabel?: string | null): string {
-    const d = (displayLabel ?? '').trim();
-    return d || name;
+  get selectionCount(): number {
+    if (this.otherMode) return 1;
+    return this.selectedKeys.size;
   }
 
-  pilotVariables(detail: DocumentTemplateDetailDto | null = this.templateDetail): NonNullable<DocumentTemplateDetailDto['currentVersion']>['variables'] {
-    return (detail?.currentVersion?.variables ?? []).filter((v) => {
-      const scope = (v.formScope ?? 'pilot').toLowerCase();
-      return scope !== 'hr' && scope !== 'db';
-    });
+  templateLabel(t: DocumentTemplateListItemDto): string {
+    const type = t.documentTypeName?.trim();
+    const kind = (t.kind ?? 'dynamic').toLowerCase() === 'static' ? ' (fichier prêt)' : '';
+    return type ? `${t.name} — ${type}${kind}` : `${t.name}${kind}`;
   }
 
   handleSubmit(ev: Event): void {
     ev.preventDefault();
     this.submitError = null;
     this.submitSuccess = false;
-    this.submitSuccessRef = null;
-    this.submitSuccessInternalId = null;
-    this.submitSuccessTenant = null;
+    this.submitSuccessCount = 0;
+    this.submitSuccessRefs = [];
+    this.submitPartialFailures = [];
     this.fieldValidationError = null;
 
     if (this.docTypesLoading || this.submitting) return;
 
-    if (this.selectionKey.startsWith(TPL_PREFIX)) {
-      if (this.templateDetailLoading || !this.templateDetail) {
-        this.submitError = 'Chargement du modèle en cours ou indisponible.';
-        return;
-      }
-      const tid = this.selectionKey.slice(TPL_PREFIX.length).trim();
-      const vars = this.pilotVariables(this.templateDetail);
-      for (const v of vars) {
-        if (v.isRequired && !(this.pilotFieldValues[v.name] ?? '').trim()) {
-          this.fieldValidationError = `Veuillez renseigner "${this.variableLabel(v.name, v.displayLabel)}".`;
-          return;
-        }
-      }
-
-      const hasCatalogType = !!(this.templateDetail.documentTypeId ?? '').trim();
-      const payload: CreateDocumentRequestPayload = {
-        isCustomType: !hasCatalogType,
-        documentTypeId: hasCatalogType ? this.templateDetail.documentTypeId!.trim() : null,
-        documentTemplateId: tid,
-        customTypeDescription: null,
-        reason: this.reason.trim() || null,
-        complementaryComments: this.complementaryComments.trim() || null,
-        initialFieldValues: { ...this.pilotFieldValues },
-      };
-
-      this.postRequest(payload);
-      return;
-    }
-
-    if (this.selectionKey.startsWith(TYPE_PREFIX)) {
-      const typeId = this.selectionKey.slice(TYPE_PREFIX.length).trim();
-      if (!typeId) return;
-      const payload: CreateDocumentRequestPayload = {
-        isCustomType: false,
-        documentTypeId: typeId,
-        reason: this.reason.trim() || null,
-        complementaryComments: this.complementaryComments.trim() || null,
-      };
-      this.postRequest(payload);
-      return;
-    }
-
-    if (this.selectionKey === OTHER_KEY) {
+    if (this.otherMode) {
       const trimmed = this.otherDescription.trim();
       if (!trimmed) {
         this.otherDescriptionError = true;
@@ -223,38 +147,109 @@ export class RequestDocumentPageComponent implements OnInit {
         return;
       }
       this.otherDescriptionError = false;
-      const payload: CreateDocumentRequestPayload = {
-        isCustomType: true,
-        documentTypeId: null,
-        customTypeDescription: trimmed,
-        reason: this.reason.trim() || null,
-        complementaryComments: this.complementaryComments.trim() || null,
-      };
-      this.postRequest(payload);
+      this.postRequests([
+        {
+          isCustomType: true,
+          documentTypeId: null,
+          customTypeDescription: trimmed,
+          reason: this.reason.trim() || null,
+          complementaryComments: this.complementaryComments.trim() || null,
+        },
+      ]);
+      return;
     }
+
+    if (this.selectedKeys.size === 0) {
+      this.fieldValidationError = 'Sélectionnez au moins un document (ou « Autre »).';
+      return;
+    }
+
+    const payloads: CreateDocumentRequestPayload[] = [];
+    for (const key of this.selectedKeys) {
+      if (key.startsWith(TPL_PREFIX)) {
+        const tid = key.slice(TPL_PREFIX.length).trim();
+        const tpl = this.templates.find((t) => t.id === tid);
+        if (!tpl) continue;
+        const hasCatalogType = !!(tpl.documentTypeId ?? '').trim();
+        payloads.push({
+          isCustomType: !hasCatalogType,
+          documentTypeId: hasCatalogType ? tpl.documentTypeId!.trim() : null,
+          documentTemplateId: tid,
+          customTypeDescription: null,
+          reason: this.reason.trim() || null,
+          complementaryComments: this.complementaryComments.trim() || null,
+        });
+      } else if (key.startsWith(TYPE_PREFIX)) {
+        const typeId = key.slice(TYPE_PREFIX.length).trim();
+        if (!typeId) continue;
+        payloads.push({
+          isCustomType: false,
+          documentTypeId: typeId,
+          reason: this.reason.trim() || null,
+          complementaryComments: this.complementaryComments.trim() || null,
+        });
+      }
+    }
+
+    if (payloads.length === 0) {
+      this.fieldValidationError = 'Sélection invalide. Réessayez.';
+      return;
+    }
+
+    this.postRequests(payloads);
   }
 
-  private postRequest(payload: CreateDocumentRequestPayload): void {
+  private postRequests(payloads: CreateDocumentRequestPayload[]): void {
     this.submitting = true;
-    this.api
-      .createDocumentRequest(payload)
+    const calls = payloads.map((p) =>
+      this.api.createDocumentRequest(p).pipe(
+        catchError((err: unknown) => of({ __error: this.formatHttpError(err) } as const)),
+      ),
+    );
+
+    forkJoin(calls)
       .pipe(finalize(() => (this.submitting = false)))
       .subscribe({
-        next: (created) => {
-          this.submitSuccess = true;
-          this.submitSuccessRef = created.id;
-          this.submitSuccessInternalId = created.internalId;
-          this.submitSuccessTenant = this.identity.getTenantId() || null;
-          this.reason = '';
-          this.complementaryComments = '';
-          this.otherDescription = '';
-          this.otherDescriptionError = false;
-          this.pilotFieldValues = {};
-          this.initDefaultSelection();
-          this.notify.showSuccess('Votre demande a bien ete envoyee.');
-          window.setTimeout(() => {
-            this.submitSuccess = false;
-          }, 4000);
+        next: (results) => {
+          const refs: string[] = [];
+          const failures: string[] = [];
+          for (const r of results) {
+            if (r && typeof r === 'object' && '__error' in r) {
+              failures.push(String((r as { __error: string }).__error));
+            } else if (r && typeof r === 'object' && 'id' in r) {
+              refs.push(String((r as { id: string }).id));
+            }
+          }
+
+          this.submitSuccessCount = refs.length;
+          this.submitSuccessRefs = refs;
+          this.submitPartialFailures = failures;
+
+          if (refs.length > 0) {
+            this.submitSuccess = true;
+            this.reason = '';
+            this.complementaryComments = '';
+            this.otherDescription = '';
+            this.otherDescriptionError = false;
+            this.initDefaultSelection();
+            const msg =
+              failures.length === 0
+                ? refs.length === 1
+                  ? 'Votre demande a bien été envoyée.'
+                  : `${refs.length} demandes ont bien été envoyées.`
+                : `${refs.length} demande(s) envoyée(s), ${failures.length} échec(s).`;
+            this.notify.showSuccess(msg);
+            window.setTimeout(() => {
+              this.submitSuccess = false;
+            }, 5000);
+          }
+
+          if (failures.length > 0 && refs.length === 0) {
+            this.submitError = failures[0] ?? 'Envoi impossible.';
+            this.notify.showError(this.submitError);
+          } else if (failures.length > 0) {
+            this.submitError = failures.join(' · ');
+          }
         },
         error: (err: unknown) => {
           this.submitError = this.formatHttpError(err);

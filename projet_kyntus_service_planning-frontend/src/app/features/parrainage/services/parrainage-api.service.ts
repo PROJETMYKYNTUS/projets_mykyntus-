@@ -194,6 +194,12 @@ export class ParrainageApiService {
     return rows.map(reviveReferral);
   }
 
+  async getLinkableReferrals(search?: string): Promise<Referral[]> {
+    const qs = search?.trim() ? `?q=${encodeURIComponent(search.trim())}` : '';
+    const rows = await firstValueFrom(this.http.get<RawReferral[]>(`${PREFIX}/referrals/linkable${qs}`));
+    return rows.map(reviveReferral);
+  }
+
   async linkEmployee(id: string, body: { employeeId: string; actor?: Actor }): Promise<Referral> {
     return reviveReferral(
       await firstValueFrom(this.http.post<RawReferral>(`${PREFIX}/referrals/${id}/link-employee`, body)),

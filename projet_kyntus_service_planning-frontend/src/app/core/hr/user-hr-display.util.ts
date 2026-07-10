@@ -7,8 +7,8 @@ import {
 } from './hr-form-options';
 
 export function contractLevelLabel(level: number): string {
-  if (level === 2) return 'Intermédiaire';
-  if (level === 3) return 'Confirmé';
+  if (level === 2) return 'Confirmé';
+  if (level === 3) return 'Expert';
   return 'Débutant';
 }
 
@@ -98,6 +98,7 @@ export function buildCompleteHrProfileDisplayRows(profile: UserHrProfile | null 
     { label: 'Date de naissance', value: dateDisplay(p.dateNaissance) },
     { label: 'Ville de naissance', value: hrDisplayValue(p.villeNaissance) },
     { label: 'Nationalité', value: nationaliteDisplay(p.nationalite) },
+    { label: 'N° carte autoentrepreneur', value: hrDisplayValue(p.numeroCarteAutoentrepreneur) },
     { label: 'Sexe', value: sexeDisplay(p.sexe) },
     { label: 'Situation familiale', value: situationFamilialeDisplay(p.situationFamiliale) },
     {
@@ -106,9 +107,10 @@ export function buildCompleteHrProfileDisplayRows(profile: UserHrProfile | null 
     },
     { label: 'CIN', value: hrDisplayValue(p.cin) },
     { label: 'Adresse', value: hrDisplayValue(p.adresse) },
+    { label: 'Email personnel', value: hrDisplayValue(p.emailPersonnel) },
     { label: 'Téléphone', value: hrDisplayValue(p.telephone1) },
     { label: 'Téléphone urgence', value: hrDisplayValue(p.telephoneUrgence) },
-    { label: 'Relation urgence', value: hrDisplayValue(p.relationUrgence) },
+    { label: 'Relation avec l\'employé', value: hrDisplayValue(p.relationUrgence) },
     { label: 'RIB', value: hrDisplayValue(p.rib) },
     { label: 'Matricule interne', value: hrDisplayValue(p.immatriculationInterne) },
     { label: 'Immatriculation CNSS', value: hrDisplayValue(p.immatriculationCnss) },
@@ -161,7 +163,7 @@ export function buildEmployeeDetailSections(
       rows: [
         { label: 'Identifiant Planning', value: String(user.id) },
         { label: 'GUID employé', value: hrDisplayValue(user.guid) },
-        { label: 'Email', value: hrDisplayValue(user.email) },
+        { label: 'Mail interne', value: hrDisplayValue(user.email) },
         { label: 'Rôle', value: hrDisplayValue(user.roleName) },
         { label: 'Statut compte', value: user.isActive ? 'Actif' : 'Inactif' },
         { label: 'Compte créé le', value: dateDisplay(user.createdAt) },
@@ -206,7 +208,7 @@ export function buildEmployeeDetailSections(
       id: 'contact',
       title: 'Coordonnées & administratif',
       rows: allHr.filter((r) =>
-        ['Adresse', 'Téléphone', 'Téléphone urgence', 'Relation urgence', 'RIB', 'Matricule interne', 'Immatriculation CNSS'].includes(r.label),
+        ['Adresse', 'Téléphone', 'Téléphone urgence', 'Relation avec l\'employé', 'RIB', 'Matricule interne', 'Immatriculation CNSS'].includes(r.label),
       ),
     },
     {

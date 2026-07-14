@@ -312,6 +312,15 @@ public sealed class GeneratedDocumentAppService(
         if (format is null)
             throw new DocumentationApiException(400, "Format non pris en charge (pdf, docx, txt, html).");
 
+        // Pilote : PDF uniquement (Word réservé RH / Admin / Audit).
+        if (format is "docx" or "txt" or "html"
+            && userContext.Role is AppRole.Pilote)
+        {
+            throw new DocumentationApiException(
+                403,
+                "Le téléchargement Word n’est pas disponible pour le profil Pilote. Utilisez le format PDF.");
+        }
+
         if (gen.Status == GeneratedDocumentStatus.DraftPendingRhReview)
         {
             throw new DocumentationApiException(

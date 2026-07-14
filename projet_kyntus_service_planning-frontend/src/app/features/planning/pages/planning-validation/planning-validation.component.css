@@ -1,0 +1,84 @@
+.pv-validation .week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.pv-validation .nav-btn {
+  border: 1px solid var(--ky-border, #e2e8f0);
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.5rem;
+  cursor: pointer;
+}
+
+.pv-validation .week-center {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.pv-validation .week-code {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.pv-validation .week-range {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.pv-validation .week-hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.pv-validation .filters-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pv-validation .filters-row .ky-input {
+  flex: 1;
+}
+
+.pv-validation .settings-panel {
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.pv-validation .settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.pv-validation .status-pill {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pv-validation .st-draft { background: #fef3c7; color: #92400e; }
+.pv-validation .st-published { background: #d1fae5; color: #065f46; }
+.pv-validation .st-missing { background: #e2e8f0; color: #475569; }
+.pv-validation .st-missing-cfg { background: #fee2e2; color: #991b1b; }
+
+.pv-validation .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.85rem; }
+.pv-validation .empty { text-align: center; color: #94a3b8; padding: 1.5rem; }
+.pv-validation .ok { color: #059669; font-size: 0.85rem; }
+.pv-validation .muted { color: #94a3b8; font-size: 0.85rem; }
+.pv-validation .alert-error { background: #fef2f2; color: #b91c1c; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; }
+.pv-validation .alert-success { background: #ecfdf5; color: #047857; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; }
+.pv-validation .pv-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.pv-validation .hint { color: #64748b; font-size: 0.85rem; }
+.pv-validation .table-wrap { overflow-x: auto; }
+.pv-validation .chk { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }

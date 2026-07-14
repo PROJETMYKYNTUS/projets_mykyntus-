@@ -1,5 +1,12 @@
 <div class="ky-page-shell">
 
+  <app-pilot-rotation-history-modal
+    [open]="rotationHistoryOpen"
+    [employeeId]="rotationHistoryEmployeeId"
+    [employeeName]="rotationHistoryEmployeeName"
+    (close)="closePilotRotationHistory()"
+  />
+
   <app-kyntus-page-header
     title="Employés"
     [subtitle]="filteredUsers.length + ' employé(s) trouvé(s)'">
@@ -50,7 +57,10 @@
             <tr>
               <th>Collaborateur</th>
               <th>Rôle</th>
-              <th>Organisation</th>
+              <th>Département</th>
+              <th>Pôle</th>
+              <th>Cellule</th>
+              <th>Service</th>
               <th>Matricule</th>
               <th>Téléphone</th>
               <th>Embauche</th>
@@ -61,6 +71,7 @@
           </thead>
           <tbody>
             @for (user of filteredUsers; track user.id) {
+              @let perimeter = userPerimeter(user);
               <tr class="user-row" (click)="viewUser(user.id)">
                 <td>
                   <div class="user-cell">
@@ -68,9 +79,9 @@
                     <div class="user-info">
                       <div class="user-name-row">
                         <span class="name">{{ user.lastName }} {{ user.firstName }}</span>
-                        <span class="level-badge lv-{{ user.level }}" [title]="'Niveau contractuel : ' + contractLevelLabel(user.level)">N{{ user.level }}</span>
+                        <span class="level-badge lv-{{ user.level }}" [title]="'Niveau contractuel : ' + contractLevelLabel(user.level)">{{ contractLevelLabel(user.level) }}</span>
                         @if (user.niveauExpertiseMetier) {
-                          <span class="level-badge expertise lv-{{ user.niveauExpertiseMetier }}" [title]="'Expertise métier : ' + (expertiseLevelLabel(user.niveauExpertiseMetier) ?? '')">E{{ user.niveauExpertiseMetier }}</span>
+                          <span class="level-badge expertise lv-{{ user.niveauExpertiseMetier }}" [title]="'Expertise métier : ' + (expertiseLevelLabel(user.niveauExpertiseMetier) ?? '')">{{ expertiseLevelLabel(user.niveauExpertiseMetier) }}</span>
                         }
                       </div>
                       <span class="email">{{ user.email }}</span>
@@ -79,8 +90,23 @@
                 </td>
                 <td><span class="badge badge-role">{{ user.roleName }}</span></td>
                 <td>
-                  <span class="org-summary" [title]="orgSummaryForList(user, userPerimeter(user))">
-                    {{ orgSummaryForList(user, userPerimeter(user)) }}
+                  <span class="org-cell" [title]="orgCellLabel(orgDepartmentLabel(perimeter))">
+                    {{ orgCellLabel(orgDepartmentLabel(perimeter)) }}
+                  </span>
+                </td>
+                <td>
+                  <span class="org-cell" [title]="orgCellLabel(perimeter.pole)">
+                    {{ orgCellLabel(perimeter.pole) }}
+                  </span>
+                </td>
+                <td>
+                  <span class="org-cell" [title]="orgCellLabel(perimeter.cellule)">
+                    {{ orgCellLabel(perimeter.cellule) }}
+                  </span>
+                </td>
+                <td>
+                  <span class="org-cell" [title]="orgCellLabel(perimeter.service)">
+                    {{ orgCellLabel(perimeter.service) }}
                   </span>
                 </td>
                 <td><span class="hr-cell">{{ matriculeDisplay(user) }}</span></td>
@@ -97,6 +123,16 @@
                     <button class="btn-action view btn-detail" title="Voir les détails" (click)="viewUser(user.id)">
                       <app-lucide-icon [icon]="icons.eye" className="w-4 h-4" />
                       <span class="btn-detail-label">Détails</span>
+                    </button>
+                    <button
+                      class="btn-action view btn-detail"
+                      type="button"
+                      title="Historique rotation"
+                      aria-label="Historique rotation"
+                      (click)="openPilotRotationHistory(user, $event)"
+                    >
+                      <app-lucide-icon [icon]="icons.history" className="w-4 h-4" />
+                      <span class="btn-detail-label">Historique rotation</span>
                     </button>
                     <button class="btn-action edit" title="Modifier" (click)="editUser(user.id)">
                       <app-lucide-icon [icon]="icons.edit" className="w-4 h-4" />

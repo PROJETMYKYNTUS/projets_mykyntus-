@@ -37,4 +37,21 @@ public interface IUserService
         Guid actorSubjectId,
         string actorRole,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Sortie complète après rejet de formation initiale : désactivation, date de sortie, sync Directory / Auth.
+    /// </summary>
+    Task<bool> ExitAfterInitialTrainingRejectionAsync(
+        Guid employeeGuid,
+        string reason,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Passage en production après validation RH Formation : clear EnFormation, expertise, sync Directory.
+    /// </summary>
+    Task<bool> CompleteInitialTrainingAsync(
+        Guid employeeGuid,
+        int niveauExpertiseMetier,
+        DateOnly productionStartDate,
+        CancellationToken ct = default);
 }

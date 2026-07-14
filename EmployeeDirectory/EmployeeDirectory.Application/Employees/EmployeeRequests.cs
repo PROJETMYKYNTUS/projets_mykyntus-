@@ -85,6 +85,28 @@ public sealed class GetPilotRotationHistoryQueryHandler(IPilotRotationTenureServ
         tenure.GetRotationHistoryAsync(request.EmployeeId, ct);
 }
 
+public record ListPilotRotationsQuery(
+    string? ServiceId,
+    DateTime? From,
+    DateTime? To,
+    int? MinRotations,
+    int? MaxRotations,
+    string? Sort) : IRequest<IReadOnlyList<PilotRotationSummaryDto>>;
+
+public sealed class ListPilotRotationsQueryHandler(IPilotRotationTenureService tenure)
+    : IRequestHandler<ListPilotRotationsQuery, IReadOnlyList<PilotRotationSummaryDto>>
+{
+    public Task<IReadOnlyList<PilotRotationSummaryDto>> Handle(ListPilotRotationsQuery request, CancellationToken ct) =>
+        tenure.ListRotationSummariesAsync(
+            request.ServiceId,
+            request.From,
+            request.To,
+            request.MinRotations,
+            request.MaxRotations,
+            request.Sort,
+            ct);
+}
+
 public record GetPilotRotationEligibilityQuery(Guid EmployeeId, string TargetServiceId)
     : IRequest<PilotRotationEligibilityDto>;
 

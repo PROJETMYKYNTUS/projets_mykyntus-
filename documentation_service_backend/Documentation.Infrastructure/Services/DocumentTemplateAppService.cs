@@ -453,7 +453,7 @@ public sealed class DocumentTemplateAppService(
             IsRequired = v.IsRequired,
             ValidationRule = v.ValidationRule,
             DisplayLabel = v.SuggestedLabel,
-            FormScope = placeholderNormalization.IsDatabaseBackedKey(v.CanonicalKey) ? "db" : "pilot",
+            FormScope = placeholderNormalization.IsDatabaseBackedKey(v.CanonicalKey) ? "db" : "hr",
             SourcePriority = placeholderNormalization.IsDatabaseBackedKey(v.CanonicalKey) ? 10 : 20,
             NormalizedName = v.NormalizedKey,
             RawPlaceholder = v.RawToken,
@@ -489,7 +489,7 @@ public sealed class DocumentTemplateAppService(
             IsRequired = p.IsRequired,
             ValidationRule = p.ValidationRule,
             DisplayLabel = p.SuggestedLabel,
-            FormScope = placeholderNormalization.IsDatabaseBackedKey(p.CanonicalKey) ? "db" : "pilot",
+            FormScope = placeholderNormalization.IsDatabaseBackedKey(p.CanonicalKey) ? "db" : "hr",
             SourcePriority = placeholderNormalization.IsDatabaseBackedKey(p.CanonicalKey) ? 10 : 20,
             NormalizedName = p.NormalizedKey,
             RawPlaceholder = p.RawToken,
@@ -1071,8 +1071,8 @@ public sealed class DocumentTemplateAppService(
 
     private static string NormalizeFormScope(string? formScope)
     {
-        var normalized = (formScope ?? "pilot").Trim().ToLowerInvariant();
-        return normalized is "pilot" or "hr" or "both" or "db" ? normalized : "pilot";
+        var normalized = (formScope ?? "hr").Trim().ToLowerInvariant();
+        return normalized is "pilot" or "hr" or "both" or "db" ? normalized : "hr";
     }
 
     private static int GuessSourcePriority(string? formScope) =>
@@ -1082,7 +1082,7 @@ public sealed class DocumentTemplateAppService(
             "pilot" => 20,
             "both" => 25,
             "hr" => 30,
-            _ => 20,
+            _ => 30,
         };
 
     private void EnsureAuthenticated()

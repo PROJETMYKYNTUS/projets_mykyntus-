@@ -183,6 +183,136 @@ public sealed class PilotRotationTenureService(DirectoryDbContext db) : IPilotRo
         }).ToList();
     }
 
+    public async Task<IReadOnlyList<PilotRotationSummaryDto>> ListRotationSummariesAsync(
+        string? serviceId,
+        DateTime? from,
+        DateTime? to,
+        int? minRotations,
+        int? maxRotations,
+        string? sort,
+        CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        var serviceFilter = string.IsNullOrWhiteSpace(serviceId) ? null : serviceId.Trim();
+
+        var assignments = await db.OrgAssignments.AsNoTracking()
+            .Where(a => a.Kind == DomainAssignmentKind.Pilote)
+            .ToListAsync(ct);
+
+        if (from.HasValue || to.HasValue)
+        {
+            var rangeStart = from ?? DateTime.MinValue;
+            var rangeEnd = to ?? DateTime.MaxValue;
+            assignments = assignments
+                .Where(a =>
+                {
+                    var end = a.EffectiveTo ?? now;
+                    return a.EffectiveFrom <= rangeEnd && end >= rangeStart;
+                })
+                .ToList();
+        }
+
+        if (serviceFilter is not null)
+        {
+            assignments = assignments
+                .Where(a => string.Equals(a.NodeId, serviceFilter, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        var employeeIds = assignments.Select(a => a.EmployeeId).Distinct().ToList();
+        if (employeeIds.Count == 0)
+            return Array.Empty<PilotRotationSummaryDto>();
+
+        var employees = await db.Employees.AsNoTracking()
+            .Where(e => employeeIds.Contains(e.Id))
+            .ToDictionaryAsync(e => e.Id, ct);
+
+        var allServiceIds = assignments.Select(a => a.NodeId)
+            .Concat(employees.Values.Where(e => !string.IsNullOrWhiteSpace(e.ServiceId)).Select(e => e.ServiceId!))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var serviceNames = await db.OrgServices.AsNoTracking()
+            .Where(s => allServiceIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, s => s.Name, StringComparer.OrdinalIgnoreCase, ct);
+
+        var currentAssignments = await db.OrgAssignments.AsNoTracking()
+            .Where(a => employeeIds.Contains(a.EmployeeId)
+                        && a.Kind == DomainAssignmentKind.Pilote
+                        && a.EffectiveTo == null)
+            .ToListAsync(ct);
+        var currentByEmployee = currentAssignments
+            .GroupBy(a => a.EmployeeId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(a => a.EffectiveFrom).First());
+
+        var summaries = new List<PilotRotationSummaryDto>();
+        foreach (var group in assignments.GroupBy(a => a.EmployeeId))
+        {
+            if (!employees.TryGetValue(group.Key, out var employee))
+                continue;
+
+            var segments = group
+                .OrderByDescending(a => a.EffectiveFrom)
+                .Select(a =>
+                {
+                    var end = a.EffectiveTo;
+                    var duration = end is { } e
+                        ? Math.Max(0, (int)Math.Floor((e - a.EffectiveFrom).TotalDays))
+                        : Math.Max(0, (int)Math.Floor((now - a.EffectiveFrom).TotalDays));
+                    return new PilotRotationHistoryEntryDto(
+                        a.NodeId,
+                        serviceNames.GetValueOrDefault(a.NodeId) ?? a.NodeId,
+                        a.EffectiveFrom,
+                        a.EffectiveTo,
+                        duration,
+                        a.ChangeReason,
+                        IsOverrideReason(a.ChangeReason));
+                })
+                .ToList();
+
+            var count = segments.Count;
+            if (minRotations.HasValue && count < minRotations.Value) continue;
+            if (maxRotations.HasValue && count > maxRotations.Value) continue;
+
+            string? currentServiceId = null;
+            string? currentServiceName = null;
+            if (currentByEmployee.TryGetValue(group.Key, out var current))
+            {
+                currentServiceId = current.NodeId;
+                currentServiceName = serviceNames.GetValueOrDefault(current.NodeId) ?? current.NodeId;
+            }
+            else if (!string.IsNullOrWhiteSpace(employee.ServiceId))
+            {
+                currentServiceId = employee.ServiceId;
+                currentServiceName = serviceNames.GetValueOrDefault(employee.ServiceId) ?? employee.ServiceId;
+            }
+
+            summaries.Add(new PilotRotationSummaryDto(
+                employee.Id,
+                employee.FirstName,
+                employee.LastName,
+                employee.Email,
+                count,
+                currentServiceId,
+                currentServiceName,
+                segments.MinBy(s => s.EffectiveFrom)?.EffectiveFrom,
+                segments.MaxBy(s => s.EffectiveFrom)?.EffectiveFrom,
+                segments));
+        }
+
+        var sortKey = (sort ?? "rotationCountDesc").Trim().ToLowerInvariant();
+        IEnumerable<PilotRotationSummaryDto> ordered = sortKey switch
+        {
+            "rotationcountasc" => summaries.OrderBy(s => s.RotationCount).ThenBy(s => s.LastName),
+            "name" => summaries.OrderBy(s => s.LastName).ThenBy(s => s.FirstName),
+            _ => summaries.OrderByDescending(s => s.RotationCount).ThenBy(s => s.LastName),
+        };
+
+        return ordered.ToList();
+    }
+
     public async Task ApplyRotationHrProfileAsync(
         Guid employeeId,
         string previousServiceId,

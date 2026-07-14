@@ -45,8 +45,10 @@ public static class DependencyInjection
         services.AddScoped<IServiceService, ServiceService>();
         services.AddScoped<ISubServiceService, SubServiceService>();
         services.AddHttpClient("DirectorySync");
+        services.AddHttpClient("FormationSync");
         services.AddScoped<IDirectoryEmployeeEnsureClient, DirectoryEmployeeEnsureClient>();
         services.AddScoped<IDirectoryEmployeeWriteClient, DirectoryEmployeeWriteClient>();
+        services.AddScoped<IFormationInitialTrainingClient, FormationInitialTrainingClient>();
         services.AddScoped<IDirectoryHierarchyClient, DirectoryHierarchyClient>();
         services.AddHttpClient<IUserService, UserService>(client =>
         {
@@ -57,6 +59,7 @@ public static class DependencyInjection
         services.AddScoped<IPlanningOrgMirrorService, PlanningOrgMirrorService>();
         services.AddScoped<IOrgReconciliationService, OrgReconciliationService>();
         services.AddScoped<IPlanningService, PlanningServiceImpl>();
+        services.AddHostedService<WeeklyPlanningAutoGeneratorHostedService>();
         services.AddScoped<IPlanningOrgMirrorService, PlanningOrgMirrorService>();
         services.AddScoped<IDirectoryOrgWriteClient, DirectoryOrgWriteClient>();
 
@@ -90,10 +93,14 @@ public static class DependencyInjection
             services.AddMassTransit(x =>
             {
                 x.AddConsumer<CongeValideConsumer>();
+                x.AddConsumer<CongeRefuseConsumer>();
                 x.AddConsumer<OrgStructureConsumer>();
                 x.AddConsumer<DirectoryEmployeeProjectionConsumer>();
                 x.AddConsumer<DirectoryEmployeeHrProfileProjectionConsumer>();
                 x.AddConsumer<PlanningDirectoryOrgProjectionConsumer>();
+                x.AddConsumer<InitialTrainingRejectedConsumer>();
+                x.AddConsumer<InitialTrainingCompletedConsumer>();
+                x.AddConsumer<TrainingSessionAssignedConsumer>();
 
                 x.UsingRabbitMq((ctx, cfg) =>
                 {
@@ -105,6 +112,8 @@ public static class DependencyInjection
 
                     cfg.ReceiveEndpoint("planning-conge-valide", e =>
                         e.ConfigureConsumer<CongeValideConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-conge-refuse", e =>
+                        e.ConfigureConsumer<CongeRefuseConsumer>(ctx));
                     cfg.ReceiveEndpoint("planning-org-structure", e =>
                         e.ConfigureConsumer<OrgStructureConsumer>(ctx));
                     cfg.ReceiveEndpoint("planning-directory-employee", e =>
@@ -113,6 +122,12 @@ public static class DependencyInjection
                         e.ConfigureConsumer<DirectoryEmployeeHrProfileProjectionConsumer>(ctx));
                     cfg.ReceiveEndpoint("planning-directory-org", e =>
                         e.ConfigureConsumer<PlanningDirectoryOrgProjectionConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-initial-training-rejected", e =>
+                        e.ConfigureConsumer<InitialTrainingRejectedConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-initial-training-completed", e =>
+                        e.ConfigureConsumer<InitialTrainingCompletedConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-training-session-assigned", e =>
+                        e.ConfigureConsumer<TrainingSessionAssignedConsumer>(ctx));
 
                     cfg.ConfigureEndpoints(ctx);
                 });

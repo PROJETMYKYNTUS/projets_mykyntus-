@@ -87,7 +87,7 @@ import {
   requiresAutoentrepreneur,
   syncNationalityCodeFromLabel,
 } from '../../../../core/hr/hr-form-options';
-import { contractLevelLabel } from '../../../../core/hr/user-hr-display.util';
+import { contractLevelLabel, formatSeniorityDuration } from '../../../../core/hr/user-hr-display.util';
 import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
 import { ContractFieldsComponent } from '../../../../shared/components/contract-fields/contract-fields.component';
@@ -101,6 +101,8 @@ import type { Referral } from '../../../parrainage/models/referral.model';
 import {
   filterLinkableReferrals,
   matchReferralCandidates,
+  rankReferralsByQuery,
+  type ReferralMatchCandidate,
   type ReferralMatchResult,
 } from '../../../parrainage/utils/referral-candidate-match.util';
 import { REFERRAL_STATUS_LABELS } from '../../../parrainage/utils/referral-status.util';
@@ -225,6 +227,8 @@ export class UserFormComponent implements OnInit {
   referralSearchQuery = '';
   referralMatchResult: ReferralMatchResult | null = null;
   referralManualIdentityEdit = false;
+  /** RH a ignoré l'alerte de matching pour cette saisie. */
+  referralMatchDismissed = false;
   private referralMatchTimer: ReturnType<typeof setTimeout> | null = null;
   readonly referralStatusLabels = REFERRAL_STATUS_LABELS;
 
@@ -243,6 +247,25 @@ export class UserFormComponent implements OnInit {
   readonly educationLevelOptions = HR_EDUCATION_LEVEL_OPTIONS;
   readonly nationalityOptions = HR_NATIONALITY_OPTIONS;
   readonly contractLevelLabel = contractLevelLabel;
+
+  get computedAncienneteLabel(): string {
+    const ref = this.hrProfile.dateEntree.trim() || this.form.hireDate;
+    return formatSeniorityDuration(ref);
+  }
+
+  onDateEntreeChange(value: string): void {
+    this.hrProfile.dateEntree = value;
+    // Ancienneté = date d'entrée (pas de saisie manuelle).
+    this.hrProfile.dateAnciennete = value;
+  }
+
+  onHireDateChange(value: string): void {
+    this.form.hireDate = value;
+    if (!this.hrProfile.dateEntree.trim()) {
+      this.hrProfile.dateEntree = value;
+    }
+    this.hrProfile.dateAnciennete = this.hrProfile.dateEntree.trim() || value;
+  }
 
   private readonly defaultProbation: Record<string, number> = {
     CDI: 90, CDD: 30, Stage: 15, ANAPEC: 0,
@@ -751,9 +774,12 @@ export class UserFormComponent implements OnInit {
       rib: this.hrProfile.rib.trim() || null,
       immatriculationInterne: this.hrProfile.immatriculationInterne.trim() || null,
       immatriculationCnss: this.hrProfile.immatriculationCnss.trim() || null,
-      dateEntree: this.toOptionalDateIso(this.hrProfile.dateEntree),
+      dateEntree: this.toOptionalDateIso(this.hrProfile.dateEntree || this.form.hireDate),
       dateEmbauche: this.toOptionalDateIso(this.form.hireDate),
-      dateAnciennete: this.toOptionalDateIso(this.hrProfile.dateAnciennete),
+      // Alignée automatiquement sur la date d'entrée (pas de champ formulaire).
+      dateAnciennete: this.toOptionalDateIso(
+        this.hrProfile.dateEntree || this.form.hireDate || this.hrProfile.dateAnciennete,
+      ),
       dateSortie: this.isEditMode ? this.toOptionalDateIso(this.hrProfile.dateSortie) : null,
       dateEvolutionPoste: this.isEditMode
         ? this.toOptionalDateIso(this.hrProfile.dateEvolutionPoste)
@@ -1060,12 +1086,31 @@ export class UserFormComponent implements OnInit {
     return filterLinkableReferrals(this.linkableReferrals, this.referralSearchQuery);
   }
 
+  /** Suggestions floues sous le champ recherche (max 5). */
+  get referralSearchSuggestions(): ReferralMatchCandidate[] {
+    const q = this.referralSearchQuery.trim();
+    if (!q) return [];
+    return rankReferralsByQuery(q, this.linkableReferrals).slice(0, 5);
+  }
+
   get referralMatchBanner(): ReferralMatchResult | null {
-    if (this.referralLockedFromUrl || this.referralManualIdentityEdit || !this.referralMatchResult) {
+    if (this.referralLockedFromUrl || this.referralMatchDismissed || !this.referralMatchResult) {
+      return null;
+    }
+    // Ne pas ré-alerter si le dossier déjà sélectionné est le meilleur match.
+    if (
+      this.selectedReferralId &&
+      this.referralMatchResult.best?.referral.id === this.selectedReferralId
+    ) {
       return null;
     }
     if (!this.referralMatchResult.alertMatches.length) return null;
     return this.referralMatchResult;
+  }
+
+  /** Jusqu'à 3 meilleurs dossiers pour confirmation multi-match. */
+  get referralMatchChoices(): ReferralMatchCandidate[] {
+    return (this.referralMatchBanner?.alertMatches ?? []).slice(0, 3);
   }
 
   get wizardRecapReferral(): string {
@@ -1103,6 +1148,7 @@ export class UserFormComponent implements OnInit {
 
   onIdentityFieldChange(): void {
     this.referralManualIdentityEdit = true;
+    this.referralMatchDismissed = false;
     this.scheduleReferralMatch();
   }
 
@@ -1113,30 +1159,42 @@ export class UserFormComponent implements OnInit {
   }
 
   private runReferralMatch(): void {
-    if (this.referralManualIdentityEdit && this.selectedReferralId) return;
     const firstName = this.form.firstName.trim();
     const lastName = this.form.lastName.trim();
-    if (!firstName && !lastName) {
+    if (firstName.length < 2 || lastName.length < 2) {
       this.referralMatchResult = null;
       this.cdr.detectChanges();
       return;
     }
-    const result = matchReferralCandidates(
+    this.referralMatchResult = matchReferralCandidates(
       { firstName, lastName, email: this.form.email },
       this.linkableReferrals,
     );
-    this.referralMatchResult = result;
-    if (result.shouldPreselect && result.best && !this.referralManualIdentityEdit) {
-      void this.selectReferral(result.best.referral.id, false);
-    }
+    // Pas de liaison silencieuse : le RH confirme via l'alerte.
     this.cdr.detectChanges();
   }
 
-  confirmReferralSuggestion(): void {
-    const best = this.referralMatchResult?.best;
-    if (!best) return;
+  confirmReferralSuggestion(referralId?: string): void {
+    const id =
+      referralId?.trim() ||
+      this.referralMatchResult?.best?.referral.id ||
+      '';
+    if (!id) return;
+    this.referralMatchDismissed = false;
     this.referralManualIdentityEdit = false;
-    void this.selectReferral(best.referral.id, true);
+    this.referralSearchQuery = '';
+    void this.selectReferral(id, true);
+  }
+
+  dismissReferralMatch(): void {
+    this.referralMatchDismissed = true;
+    this.cdr.detectChanges();
+  }
+
+  pickReferralFromSearch(referralId: string): void {
+    this.referralSearchQuery = '';
+    this.referralMatchDismissed = true;
+    void this.selectReferral(referralId, true);
   }
 
   async prefillFromReferral(referralId: string): Promise<void> {
@@ -2469,8 +2527,11 @@ export class UserFormComponent implements OnInit {
     if (this.showNombreEnfants && (this.hrProfile.nombreEnfants === null || this.hrProfile.nombreEnfants < 1)) {
       return 'Le nombre d\'enfants est obligatoire (minimum 1).';
     }
+    if (this.showNationaliteAutre && !this.nationaliteAutre.trim()) {
+      return 'Précisez la nationalité lorsque « Autre » est sélectionné.';
+    }
     if (this.showRequiresAutoentrepreneur && !this.hrProfile.numeroCarteAutoentrepreneur.trim()) {
-      return 'Le numéro de carte autoentrepreneur est obligatoire pour cette nationalité.';
+      return 'Le numéro de carte autoentrepreneur est obligatoire pour la nationalité « Autre ».';
     }
     return null;
   }

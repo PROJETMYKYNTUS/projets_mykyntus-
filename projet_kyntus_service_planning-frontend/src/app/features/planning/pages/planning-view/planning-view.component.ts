@@ -16,6 +16,7 @@ import {
   SavePlanningCommentDto,
   SetSaturdayHistoryDto
 } from '../../services/planning.service';
+import { contractLevelLabel } from '../../../../core/hr/user-hr-display.util';
 
 @Component({
   selector: 'app-planning-view',
@@ -27,12 +28,19 @@ import {
 })
 export class PlanningViewComponent implements OnInit {
 
+  readonly contractLevelLabel = contractLevelLabel;
   planning:     WeeklyPlanningResponse | null = null;
   shifts:       ShiftSimple[] = [];
   loading       = false;
   publishing    = false;
+  regenerating  = false;
+  hasConsulted  = false;
+  consulting    = false;
+  canValidate   = false;
+  coverageOpen  = false;
   error         = '';
   successMsg    = '';
+  private planningUserId: number | null = null;
 
   // ── Override shift modal ──
   showOverride             = false;
@@ -99,9 +107,18 @@ selectedHolidayShiftId      = 0;
   ) {}
 
   ngOnInit(): void {
+    const role = this.session.getRole();
+    this.canValidate = role === 'Admin' || role === 'RH';
+
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
-      this.loadPlanning(+id);
+      this.userService.getCurrentUser().subscribe({
+        next: (user) => {
+          this.planningUserId = user?.id ?? null;
+          this.loadPlanning(+id);
+        },
+        error: () => this.loadPlanning(+id),
+      });
       this.loadShifts();
     }
     this.breakSlotOptions = this.planningService.getBreakSlotOptions();
@@ -117,15 +134,30 @@ selectedHolidayShiftId      = 0;
         this.loading  = false;
         this.buildShiftColorMap(data);
 
-        // ✅ Charger les configs shifts une seule fois pour lun–ven ET samedi
         if (data.subServiceId && data.weekCode) {
           this.planningService.getShiftConfigsForSaturday(
             data.subServiceId,
             data.weekCode
           ).subscribe(configs => {
             this.weekShiftConfigs    = configs;
-            this.saturdayShiftConfigs = configs; // partagé avec modal samedi
+            this.saturdayShiftConfigs = configs;
             this.cdr.detectChanges();
+          });
+        }
+
+        // Enregistre la consultation (Admin/RH) pour activer Valider
+        if (this.canValidate && this.planningUserId && data.status === 'Draft') {
+          this.consulting = true;
+          this.planningService.consultPlanning(data.id, this.planningUserId).subscribe({
+            next: () => {
+              this.hasConsulted = true;
+              this.consulting = false;
+              this.cdr.detectChanges();
+            },
+            error: () => {
+              this.consulting = false;
+              this.cdr.detectChanges();
+            },
           });
         }
 
@@ -158,36 +190,92 @@ selectedHolidayShiftId      = 0;
     return this.shiftColorMap[label] ?? 'shift-color-1';
   }
 
-  // ── Publication ────────────────────────────────────
+  // ── Validation ────────────────────────────────────
   publishPlanning(): void {
-    if (!this.planning) return;
+    if (!this.planning || !this.canValidate) return;
+    if (!this.hasConsulted) {
+      this.error = 'Consultez d\'abord le planning pour activer la validation.';
+      return;
+    }
+
+    const under = this.planning.coverageReport?.hasUnderstaffing;
+    if (under) {
+      const details = (this.planning.coverageReport?.warnings ?? []).slice(0, 5).join('\n');
+      const ok = confirm(
+        `Points de couverture à vérifier.\n\n${details}\n\nValider quand même ?`,
+      );
+      if (!ok) return;
+    }
+
     this.publishing = true;
     this.error = '';
 
-    const authUserId = this.session.getAuthUserId();
-    if (!authUserId) {
+    if (!this.planningUserId) {
       this.error = 'Session expirée — veuillez vous reconnecter.';
       this.publishing = false;
       this.cdr.detectChanges();
       return;
     }
 
-    this.userService.getCurrentUser().pipe(
-      switchMap((user) => this.planningService.publish(this.planning!.id, user.id)),
-    ).subscribe({
+    this.planningService.publish(this.planning.id, this.planningUserId).subscribe({
       next: data => {
         this.planning   = data;
         this.publishing = false;
-        this.successMsg = 'Planning publié !';
+        this.successMsg = 'Planning validé !';
         this.cdr.detectChanges();
       },
       error: (err) => {
-        this.error = err.error?.message || 'Erreur publication';
+        this.error = err.error?.message || 'Erreur validation';
         this.publishing = false;
         this.cdr.detectChanges();
       }
     });
   }
+
+  /** Régénère le brouillon à partir du modèle de shifts (écrase les overrides). */
+  regeneratePlanning(): void {
+    if (!this.planning || !this.canValidate || this.planning.status !== 'Draft') return;
+    const ok = confirm(
+      'Régénérer ce planning ?\n\nLes affectations et modifications manuelles de ce brouillon seront recalculées depuis le modèle de shifts.',
+    );
+    if (!ok) return;
+
+    this.regenerating = true;
+    this.error = '';
+    this.successMsg = '';
+
+    this.planningService.generateFromConfig({
+      subServiceId: this.planning.subServiceId,
+      weekCode: this.planning.weekCode,
+      weeklyPlanningId: this.planning.id,
+    }).subscribe({
+      next: () => {
+        this.regenerating = false;
+        this.successMsg = 'Planning régénéré.';
+        this.loadPlanning(this.planning!.id);
+        setTimeout(() => { this.successMsg = ''; this.cdr.detectChanges(); }, 3000);
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.regenerating = false;
+        this.error = err.error?.message ?? 'Erreur régénération.';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  get coverageWarnings(): string[] {
+    return this.planning?.coverageReport?.warnings ?? [];
+  }
+
+  get coverageQuotaWarnings(): string[] {
+    return this.coverageWarnings.filter((w) => w.includes('(quota)'));
+  }
+
+  get coveragePresenceWarnings(): string[] {
+    return this.coverageWarnings.filter((w) => !w.includes('(quota)'));
+  }
+
   getAssignment(employee: EmployeePlanning, day: string): DayAssignment | null {
     return employee.days.find(d => d.day === day) ?? null;
   }
@@ -545,7 +633,7 @@ confirmHolidayOverride(): void {
   }
 
   getStatusLabel(status: string): string {
-    return ({ Draft: 'Brouillon', Published: 'Publié' } as any)[status] ?? status;
+    return ({ Draft: 'À valider', Published: 'Validé' } as any)[status] ?? status;
   }
   
   getAbsenceLabel(value: string | null): string {

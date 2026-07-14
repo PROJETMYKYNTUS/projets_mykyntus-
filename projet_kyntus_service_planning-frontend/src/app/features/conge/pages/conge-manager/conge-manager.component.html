@@ -6,65 +6,11 @@
     title="Gestion des congés"
     subtitle="Validez ou refusez les demandes de votre équipe">
     <div actions>
-      <button type="button" class="ky-btn-primary" (click)="openMyDemande()">
-        + Ma demande
-      </button>
       <button type="button" class="ky-btn-secondary" (click)="loadDemandes()">
         Actualiser
       </button>
     </div>
   </app-kyntus-page-header>
-
-
-<!-- ✅ MODAL Ma demande -->
-<div class="cm-modal-overlay" *ngIf="showMyDemandeModal" 
-     (click)="showMyDemandeModal = false">
-  <div class="cm-modal" (click)="$event.stopPropagation()">
-    <div class="cm-modal-head">
-      <h3>+ Nouvelle demande de congé</h3>
-      <button (click)="showMyDemandeModal = false">Fermer</button>
-    </div>
-    <div class="cm-modal-body">
-      <div class="cm-field">
-        <label>Type de congé</label>
-        <select class="ky-input" [(ngModel)]="myForm.typeConge" (change)="onMyTypeChange()">
-          <option *ngFor="let t of typesConge" [value]="t.value">
-            {{ t.label }}
-          </option>
-        </select>
-      </div>
-      <div class="cm-field" *ngIf="myForm.typeConge === TypeConge.Exceptionnel">
-        <label>Type exceptionnel</label>
-        <select class="ky-input" [(ngModel)]="myForm.typeExceptionnel">
-          <option *ngFor="let t of typesExceptionnels" [value]="t.value">
-            {{ t.label }}
-          </option>
-        </select>
-      </div>
-      <div class="cm-field">
-        <label>Date début</label>
-        <input class="ky-input" type="date" [(ngModel)]="myForm.dateDebut" />
-      </div>
-      <div class="cm-field">
-        <label>Date fin</label>
-        <input class="ky-input" type="date" [(ngModel)]="myForm.dateFin" />
-      </div>
-      <div class="cm-field">
-        <label>Motif</label>
-        <textarea class="ky-input" [(ngModel)]="myForm.motif" rows="3" 
-                  placeholder="Motif (optionnel)…"></textarea>
-      </div>
-    </div>
-    <div class="cm-modal-foot">
-      <button class="prime-btn-secondary" (click)="showMyDemandeModal = false">
-        Annuler
-      </button>
-      <button class="ky-btn-primary" (click)="submitMyDemande()">
-        Envoyer
-      </button>
-    </div>
-  </div>
-</div>
 
   <div class="cm-stats-grid">
     <div class="cm-stat-card pending">

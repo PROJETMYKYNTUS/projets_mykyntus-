@@ -60,11 +60,39 @@ export function dateDisplay(value: string | null | undefined): string {
   return d.toLocaleDateString('fr-FR');
 }
 
-/** Date de référence pour l'ancienneté (profil RH puis embauche). */
+/** Date de référence pour l'ancienneté : date d'entrée, sinon embauche. */
 export function seniorityReferenceDate(user: User): string {
-  return user.hrProfile?.dateAnciennete?.trim()
-    || user.hrProfile?.dateEntree?.trim()
-    || user.hireDate;
+  return user.hrProfile?.dateEntree?.trim()
+    || user.hireDate
+    || user.hrProfile?.dateAnciennete?.trim()
+    || '';
+}
+
+/** Durée d'ancienneté lisible depuis une date d'entrée / embauche. */
+export function formatSeniorityDuration(fromDate: string | null | undefined, toDate: Date = new Date()): string {
+  if (!fromDate?.trim()) return '—';
+  const debut = new Date(fromDate);
+  if (Number.isNaN(debut.getTime())) return '—';
+  const now = toDate;
+  let ans = now.getFullYear() - debut.getFullYear();
+  let mois = now.getMonth() - debut.getMonth();
+  let jours = now.getDate() - debut.getDate();
+  if (jours < 0) {
+    mois--;
+    const dernierMois = new Date(now.getFullYear(), now.getMonth(), 0);
+    jours += dernierMois.getDate();
+  }
+  if (mois < 0) {
+    ans--;
+    mois += 12;
+  }
+  const totalJours = Math.floor((now.getTime() - debut.getTime()) / (1000 * 60 * 60 * 24));
+  if (totalJours <= 0) return "Pas encore embauché";
+  if (totalJours < 30) return `${totalJours} jour${totalJours > 1 ? 's' : ''}`;
+  const partAns = ans > 0 ? `${ans} an${ans > 1 ? 's' : ''}` : '';
+  const partMois = mois > 0 ? `${mois} mois` : '';
+  const partJour = jours > 0 ? `${jours} jour${jours > 1 ? 's' : ''}` : '';
+  return [partAns, partMois, partJour].filter(Boolean).join(' et ') || '—';
 }
 
 export function matriculeDisplay(user: User): string {
@@ -116,7 +144,10 @@ export function buildCompleteHrProfileDisplayRows(profile: UserHrProfile | null 
     { label: 'Immatriculation CNSS', value: hrDisplayValue(p.immatriculationCnss) },
     { label: "Date d'entrée", value: dateDisplay(p.dateEntree) },
     { label: "Date d'embauche (RH)", value: dateDisplay(p.dateEmbauche) },
-    { label: "Date d'ancienneté", value: dateDisplay(p.dateAnciennete) },
+    {
+      label: 'Ancienneté',
+      value: formatSeniorityDuration(p.dateEntree || p.dateEmbauche || p.dateAnciennete),
+    },
     { label: 'Date de sortie', value: dateDisplay(p.dateSortie) },
     { label: 'Date évolution poste', value: dateDisplay(p.dateEvolutionPoste) },
     { label: 'Ancien poste', value: hrDisplayValue(p.ancienPoste) },
@@ -167,11 +198,11 @@ export function buildEmployeeDetailSections(
         { label: 'Rôle', value: hrDisplayValue(user.roleName) },
         { label: 'Statut compte', value: user.isActive ? 'Actif' : 'Inactif' },
         { label: 'Compte créé le', value: dateDisplay(user.createdAt) },
-        { label: 'Niveau contractuel', value: `${contractLevelLabel(user.level)} (N${user.level})` },
+        { label: 'Niveau contractuel', value: contractLevelLabel(user.level) },
         {
           label: 'Niveau expertise métier',
           value: user.niveauExpertiseMetier
-            ? `${expertiseLevelLabel(user.niveauExpertiseMetier) ?? '—'} (E${user.niveauExpertiseMetier})`
+            ? expertiseLevelLabel(user.niveauExpertiseMetier) ?? '—'
             : '—',
         },
         { label: 'Sous-service (ID)', value: user.subServiceId != null ? String(user.subServiceId) : '—' },

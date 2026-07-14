@@ -10,6 +10,7 @@ import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kynt
 import {
   PlanningService,
   SaturdayHistoryResponse,
+  SaturdayYtd,
   SetSaturdayHistoryDto,
 } from '../../services/planning.service';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
@@ -68,6 +69,8 @@ export class SaturdayHistoryComponent implements OnInit {
 
   allEntries: SaturdayEntryView[] = [];
   filteredEntries: SaturdayEntryView[] = [];
+  ytdEntries: SaturdayYtd[] = [];
+  ytdYear = new Date().getFullYear();
 
   searchTerm = '';
   filterOperationalDepartment = '';
@@ -164,10 +167,11 @@ export class SaturdayHistoryComponent implements OnInit {
 
     forkJoin({
       history: this.planningService.getSaturdayHistory(this.subServiceId, this.weekCode),
+      ytd: this.planningService.getSaturdayYtd(this.subServiceId, this.ytdYear),
       users: this.userService.getAllUsers(),
       overview: this.orgApi.loadOverview(),
     }).subscribe({
-      next: ({ history, users, overview }) => {
+      next: ({ history, ytd, users, overview }) => {
         const activeUsers = (users ?? []).filter((u) => u.isActive);
         const perimeterById = new Map<number, UserOrgPerimeterView>();
         for (const u of activeUsers) {
@@ -192,6 +196,8 @@ export class SaturdayHistoryComponent implements OnInit {
           return { ...entry, perimeter, searchText };
         });
 
+        this.ytdEntries = [...(ytd ?? [])].sort((a, b) => b.workedCount - a.workedCount);
+
         this.refreshOrgFilterOptions();
         this.applyFilters();
         this.loading = false;
@@ -203,6 +209,10 @@ export class SaturdayHistoryComponent implements OnInit {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  ytdFor(userId: number): SaturdayYtd | undefined {
+    return this.ytdEntries.find((e) => e.userId === userId);
   }
 
   refreshOrgFilterOptions(): void {

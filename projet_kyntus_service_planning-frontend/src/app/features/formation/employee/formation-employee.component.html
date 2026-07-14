@@ -10,6 +10,17 @@
     [subtitle]="!loading ? filteredFormations.length + ' formation(s) disponible(s) — Consultez et inscrivez-vous aux formations ouvertes' : 'Consultez et inscrivez-vous aux formations ouvertes'">
   </app-kyntus-page-header>
 
+  <div class="ky-card p-4 mb-4" *ngIf="initialPaths.length > 0">
+    <h2 class="text-sm font-semibold mb-2">Mon parcours formation initiale</h2>
+    <div *ngFor="let p of initialPaths" class="border-b border-default/30 py-2 text-sm">
+      <strong>{{ initialStatusLabels[p.status] || p.status }}</strong>
+      <span class="text-muted">
+        · {{ p.dateDebut | date:'shortDate' }} → {{ p.dateFinPrevue | date:'shortDate' }}
+      </span>
+      <span *ngIf="p.rejectReason" class="text-rose-400 block text-xs mt-1">Motif : {{ p.rejectReason }}</span>
+    </div>
+  </div>
+
   <div class="kpi-row">
     <div class="kpi-card ky-card kc-blue">
       <span class="kpi-label">Ouvertes</span>

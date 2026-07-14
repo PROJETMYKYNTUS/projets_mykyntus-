@@ -351,3 +351,27 @@
     justify-content: center;
   }
 }
+
+.ytd-summary {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--soft-blue, #93c5fd) 12%, var(--bg-card, #fff));
+  border: 1px solid color-mix(in srgb, var(--blue-600, #2563eb) 20%, transparent);
+}
+.ytd-summary strong { display: block; font-size: 0.9rem; }
+.ytd-hint { display: block; font-size: 0.75rem; color: var(--text-muted, #64748b); margin: 2px 0 8px; }
+.ytd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ytd-chip {
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+.emp-ytd {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--blue-600, #2563eb);
+  margin-top: 2px;
+}

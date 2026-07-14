@@ -12,11 +12,16 @@ import {
   User,
 } from 'lucide';
 import { FormationService } from '../../../core/services/formation.service';
+import { FormationTrainingService } from '../../../core/services/formation-training.service';
 import {
   FormationDto,
   StatutFormation,
   StatutFormationLabels,
 } from '../../../core/models/formation.models';
+import {
+  INITIAL_TRAINING_STATUS_LABELS,
+  type InitialTrainingPathDto,
+} from '../../../core/models/formation-training.models';
 import { LucideIconComponent } from '../../../shared/lucide-icon.component';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 
@@ -41,6 +46,8 @@ export class FormationEmployeeComponent implements OnInit {
 
   formations: FormationDto[] = [];
   filteredFormations: FormationDto[] = [];
+  initialPaths: InitialTrainingPathDto[] = [];
+  initialStatusLabels = INITIAL_TRAINING_STATUS_LABELS;
   loading = false;
   searchTerm = '';
   toast = { show: false, message: '', type: 'success' as 'success' | 'error' };
@@ -53,6 +60,7 @@ export class FormationEmployeeComponent implements OnInit {
 
   constructor(
     private svc: FormationService,
+    private trainingApi: FormationTrainingService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -63,12 +71,25 @@ export class FormationEmployeeComponent implements OnInit {
     const rawId = user?.id;
     if (typeof rawId === 'string' && rawId.includes('-')) {
       this.userId = rawId;
+    } else if (user?.guid && String(user.guid).includes('-')) {
+      this.userId = String(user.guid);
     } else {
       const padded = String(rawId).padStart(12, '0');
       this.userId = `00000000-0000-0000-0000-${padded}`;
     }
 
     this.loadFormations();
+    void this.loadInitialPaths();
+  }
+
+  private async loadInitialPaths(): Promise<void> {
+    if (!this.userId?.includes('-')) return;
+    try {
+      this.initialPaths = await this.trainingApi.listInitialByEmployee(this.userId);
+    } catch {
+      this.initialPaths = [];
+    }
+    this.cdr.detectChanges();
   }
 
   get stats() {

@@ -47,10 +47,12 @@ public class DirectoryDbContext(DbContextOptions<DirectoryDbContext> options) : 
             e.HasKey(x => x.EmployeeId);
             e.Property(x => x.VilleNaissance).HasMaxLength(128);
             e.Property(x => x.Nationalite).HasMaxLength(128);
+            e.Property(x => x.NumeroCarteAutoentrepreneur).HasMaxLength(64);
             e.Property(x => x.Sexe).HasMaxLength(16);
             e.Property(x => x.SituationFamiliale).HasMaxLength(64);
             e.Property(x => x.Cin).HasMaxLength(32);
             e.Property(x => x.Adresse).HasMaxLength(512);
+            e.Property(x => x.EmailPersonnel).HasMaxLength(256);
             e.Property(x => x.Telephone1).HasMaxLength(32);
             e.Property(x => x.TelephoneUrgence).HasMaxLength(32);
             e.Property(x => x.RelationUrgence).HasMaxLength(128);

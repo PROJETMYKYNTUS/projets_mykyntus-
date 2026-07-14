@@ -55,6 +55,8 @@ public class ValiderCongeHandler : IRequestHandler<ValiderCongeCommand, bool>
             demande.DateDebut,
             demande.DateFin,
             demande.NombreJours,
+            demande.TypeConge.ToString(),
+            demande.TypeExceptionnel?.ToString(),
             ct);
 
         return true;

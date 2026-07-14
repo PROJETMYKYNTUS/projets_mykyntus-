@@ -2,7 +2,12 @@ import { Component, OnInit, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { Router } from '@angular/router';
-import { DayAssignment, PlanningService, WeeklyPlanningResponse } from '../../services/planning.service';
+import {
+  CoverageDayShift,
+  DayAssignment,
+  PlanningService,
+  WeeklyPlanningResponse,
+} from '../../services/planning.service';
 
 @Component({
   selector: 'app-planning-equipe',
@@ -57,8 +62,33 @@ export class PlanningEquipeComponent implements OnInit {
     });
   }
 
+  selectPlanning(p: WeeklyPlanningResponse): void {
+    this.selectedEquipePlanning = p;
+  }
+
   getEmpDay(emp: { days?: DayAssignment[] }, day: string): DayAssignment | null {
     return emp.days?.find(d => d.day === day) ?? null;
+  }
+
+  dayCoverageClass(day: string): string {
+    const items = this.coverageForDay(day);
+    if (items.length === 0) return '';
+    if (items.some(i => i.isUnderstaffed)) return 'cov-bad';
+    return 'cov-ok';
+  }
+
+  coverageForDay(day: string): CoverageDayShift[] {
+    const report = this.selectedEquipePlanning?.coverageReport;
+    if (!report?.items?.length) return [];
+    return report.items.filter(i => i.day === day);
+  }
+
+  dayCoverageLabel(day: string): string {
+    const items = this.coverageForDay(day);
+    if (items.length === 0) return '';
+    const assigned = items.reduce((s, i) => s + i.assignedCount, 0);
+    const required = items.reduce((s, i) => s + i.requiredCount, 0);
+    return `${assigned}/${required}`;
   }
 
   goBack(): void {

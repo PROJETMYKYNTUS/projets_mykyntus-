@@ -29,6 +29,7 @@ public class EmployeeImportExecutor(
     IEmployeeImportStructureAssignmentService structureAssignment,
     IImportExecutionJournal journal,
     IPlanningOrgMirrorService orgMirror,
+    IFormationInitialTrainingClient formationInitialTraining,
     IHttpContextAccessor httpContextAccessor) : IEmployeeImportExecutor
 {
     public async Task<EmployeeImportReportDto> ExecuteAsync(
@@ -145,6 +146,12 @@ public class EmployeeImportExecutor(
                                 orgSnapshot,
                                 ct);
                             await UpsertContractForUserAsync(created.Id, effectiveMapped, created.HireDate, ct);
+                            await TryEnsureInitialTrainingPathAsync(
+                                created.Guid,
+                                $"{created.FirstName} {created.LastName}".Trim(),
+                                effectiveMapped,
+                                created.HireDate,
+                                ct);
                             AddLine(job, report, lineNumber, email, "create", "Employé créé.");
                         }
                         catch (Exception lineEx)
@@ -184,6 +191,12 @@ public class EmployeeImportExecutor(
                                         roleResult.CanonicalRoleName,
                                         effectiveMapped,
                                         orgSnapshot,
+                                        ct);
+                                    await TryEnsureInitialTrainingPathAsync(
+                                        updated.Guid,
+                                        $"{updated.FirstName} {updated.LastName}".Trim(),
+                                        effectiveMapped,
+                                        updated.HireDate,
                                         ct);
                                     AddLine(job, report, lineNumber, email, "update", "Employé mis à jour.");
                                 }
@@ -645,6 +658,37 @@ public class EmployeeImportExecutor(
 
         return await EmployeeImportMentorResolver.ResolveAndValidateAsync(
             db, directoryOverview, mapped, canonicalRole, ct);
+    }
+
+    private async Task TryEnsureInitialTrainingPathAsync(
+        Guid employeeId,
+        string employeeName,
+        Dictionary<string, string?> mapped,
+        DateTime hireDate,
+        CancellationToken ct)
+    {
+        if (!mapped.ContainsKey("enFormation")
+            || !EmployeeImportRowMapper.TryParseBool(mapped["enFormation"], out var enFormation)
+            || !enFormation)
+            return;
+
+        DateTime dateDebut = hireDate;
+        if (mapped.TryGetValue("dateDebutFormation", out var debutRaw)
+            && EmployeeImportRowMapper.TryParseDate(debutRaw, out var parsedDebut))
+            dateDebut = parsedDebut;
+
+        DateTime dateFinPrevue = dateDebut.AddDays(30);
+        if (mapped.TryGetValue("dateFinFormationPrevue", out var finRaw)
+            && EmployeeImportRowMapper.TryParseDate(finRaw, out var parsedFin))
+            dateFinPrevue = parsedFin;
+
+        var name = string.IsNullOrWhiteSpace(employeeName) ? employeeId.ToString("D") : employeeName;
+        await formationInitialTraining.TryCreateInitialPathAsync(
+            employeeId,
+            name,
+            dateDebut,
+            dateFinPrevue,
+            ct);
     }
 
     private static void ValidateRequiredOnCreate(

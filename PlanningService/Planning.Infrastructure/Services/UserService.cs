@@ -169,6 +169,9 @@ public class UserService : IUserService
 
         await _fieldService.UpsertCustomFieldsAsync(user.Id, dto.CustomFields, isCreate: true);
 
+        if (user.SubServiceId is int subId)
+            await EnsureBalancedSaturdayGroupAsync(user.Id, subId);
+
         return await GetUserByIdAsync(user.Id)
             ?? throw new Exception("Erreur création utilisateur.");
     }
@@ -294,6 +297,9 @@ public class UserService : IUserService
         await PublishEmployeCreatedForUserAsync(user, dto.SubServiceId);
         await _context.SaveChangesAsync();
 
+        if (user.SubServiceId is int subId)
+            await EnsureBalancedSaturdayGroupAsync(user.Id, subId);
+
         return await GetUserByIdAsync(user.Id)
             ?? throw new Exception("Erreur création utilisateur.");
     }
@@ -406,6 +412,9 @@ public class UserService : IUserService
         if (IsDirectoryWriteMaster())
             await _directoryEmployeeWrite.TryUpdateEmployeeAsync(user);
 
+        if (user.SubServiceId is int subId)
+            await EnsureBalancedSaturdayGroupAsync(user.Id, subId);
+
         return await GetUserByIdAsync(id);
     }
 
@@ -450,6 +459,113 @@ public class UserService : IUserService
 
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> ExitAfterInitialTrainingRejectionAsync(
+        Guid employeeGuid,
+        string reason,
+        CancellationToken ct = default)
+    {
+        if (employeeGuid == Guid.Empty) return false;
+
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Guid == employeeGuid, ct);
+        if (user is null) return false;
+
+        user.IsActive = false;
+
+        var profile = await _context.UserHrProfiles.FirstOrDefaultAsync(p => p.UserId == user.Id, ct);
+        if (profile is null)
+        {
+            profile = new UserHrProfile { UserId = user.Id };
+            _context.UserHrProfiles.Add(profile);
+        }
+
+        profile.EnFormation = false;
+        profile.DateSortie ??= DateOnly.FromDateTime(DateTime.UtcNow);
+
+        await _context.SaveChangesAsync(ct);
+
+        if (IsDirectoryWriteMaster())
+            await _directoryEmployeeWrite.TryUpdateEmployeeAsync(user, ct);
+        else
+            await _directoryEmployeeEnsure.TryEnsureFromPlanningAsync(user);
+
+        if (user.AuthUserId.HasValue)
+        {
+            try
+            {
+                var response = await _httpClient.DeleteAsync(
+                    $"api/auth/users/from-planning/{user.AuthUserId.Value}",
+                    ct);
+                if (!response.IsSuccessStatusCode && response.StatusCode != System.Net.HttpStatusCode.NotFound)
+                {
+                    var body = await response.Content.ReadAsStringAsync(ct);
+                    _logger.LogWarning(
+                        "Suppression Auth après rejet formation échouée pour {Email} ({Status}): {Body}",
+                        user.Email,
+                        response.StatusCode,
+                        body);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Auth indisponible après rejet formation pour {Email}", user.Email);
+            }
+        }
+
+        _logger.LogInformation(
+            "Sortie employé {Guid} ({Email}) après rejet formation initiale. Motif: {Reason}",
+            employeeGuid,
+            user.Email,
+            reason);
+        return true;
+    }
+
+    public async Task<bool> CompleteInitialTrainingAsync(
+        Guid employeeGuid,
+        int niveauExpertiseMetier,
+        DateOnly productionStartDate,
+        CancellationToken ct = default)
+    {
+        if (employeeGuid == Guid.Empty) return false;
+
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Guid == employeeGuid, ct);
+        if (user is null) return false;
+
+        var profile = await _context.UserHrProfiles.FirstOrDefaultAsync(p => p.UserId == user.Id, ct);
+        if (profile is null)
+        {
+            profile = new UserHrProfile { UserId = user.Id };
+            _context.UserHrProfiles.Add(profile);
+        }
+
+        profile.EnFormation = false;
+        profile.DateFinFormationPrevue = productionStartDate == default
+            ? DateOnly.FromDateTime(DateTime.UtcNow)
+            : productionStartDate;
+
+        var expertise = niveauExpertiseMetier is >= 1 and <= 3
+            ? niveauExpertiseMetier
+            : 1;
+        profile.NiveauExpertiseMetier = expertise;
+
+        await _context.SaveChangesAsync(ct);
+
+        if (IsDirectoryWriteMaster())
+            await _directoryEmployeeWrite.TryUpdateEmployeeAsync(user, ct);
+        else
+            await _directoryEmployeeEnsure.TryEnsureFromPlanningAsync(user);
+
+        _logger.LogInformation(
+            "Passage production employé {Guid} ({Email}) — EnFormation=false, expertise={Expertise}.",
+            employeeGuid,
+            user.Email,
+            expertise);
         return true;
     }
 
@@ -715,11 +831,13 @@ public class UserService : IUserService
         DateNaissance = p.DateNaissance,
         VilleNaissance = p.VilleNaissance,
         Nationalite = p.Nationalite,
+        NumeroCarteAutoentrepreneur = p.NumeroCarteAutoentrepreneur,
         Sexe = p.Sexe,
         SituationFamiliale = p.SituationFamiliale,
         NombreEnfants = p.NombreEnfants,
         Cin = p.Cin,
         Adresse = p.Adresse,
+        EmailPersonnel = p.EmailPersonnel,
         Telephone1 = p.Telephone1,
         TelephoneUrgence = p.TelephoneUrgence,
         RelationUrgence = p.RelationUrgence,
@@ -781,11 +899,13 @@ public class UserService : IUserService
             profile.DateNaissance = dto.DateNaissance;
             profile.VilleNaissance = dto.VilleNaissance;
             profile.Nationalite = dto.Nationalite;
+            profile.NumeroCarteAutoentrepreneur = dto.NumeroCarteAutoentrepreneur;
             profile.Sexe = dto.Sexe;
             profile.SituationFamiliale = dto.SituationFamiliale;
             profile.NombreEnfants = dto.NombreEnfants;
             profile.Cin = dto.Cin;
             profile.Adresse = dto.Adresse;
+            profile.EmailPersonnel = dto.EmailPersonnel;
             profile.Telephone1 = dto.Telephone1;
             profile.TelephoneUrgence = dto.TelephoneUrgence;
             profile.RelationUrgence = dto.RelationUrgence;
@@ -1054,6 +1174,38 @@ public class UserService : IUserService
             IsActive = u.IsActive,
             CreatedAt = u.CreatedAt
         }).ToList();
+    }
+
+    /// <summary>
+    /// Place l'employé dans le groupe samedi minoritaire (ex. 2:3 → 3:3).
+    /// No-op s'il a déjà un SaturdayGroup.
+    /// </summary>
+    private async Task EnsureBalancedSaturdayGroupAsync(int userId, int subServiceId)
+    {
+        var already = await _context.SaturdayGroups.AnyAsync(sg => sg.UserId == userId);
+        if (already) return;
+
+        var peerUserIds = await _context.Users
+            .Where(u => u.SubServiceId == subServiceId && u.IsActive && u.Id != userId)
+            .Select(u => u.Id)
+            .ToListAsync();
+
+        var group1Count = await _context.SaturdayGroups
+            .CountAsync(sg => peerUserIds.Contains(sg.UserId) && sg.GroupNumber == 1);
+        var group2Count = await _context.SaturdayGroups
+            .CountAsync(sg => peerUserIds.Contains(sg.UserId) && sg.GroupNumber == 2);
+
+        var groupNumber = group1Count <= group2Count ? 1 : 2;
+        _context.SaturdayGroups.Add(new SaturdayGroup
+        {
+            UserId = userId,
+            GroupNumber = groupNumber,
+            IsNewEmployee = false,
+            ManagerOverride = false,
+            AssignedAt = DateTime.UtcNow,
+            AssignedBy = 0
+        });
+        await _context.SaveChangesAsync();
     }
 
     public async Task<SetNewEmployeeStatusResultDto?> SetNewEmployeeStatusAsync(

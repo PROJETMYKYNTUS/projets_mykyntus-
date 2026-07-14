@@ -81,6 +81,7 @@ public class EmployeeImportTemplateBuilder(AppDbContext db, IEmployeeFieldServic
             ["operationalDepartment"] = "",
             ["villeNaissance"] = "Casablanca",
             ["nationalite"] = "Marocain",
+            ["numeroCarteAutoentrepreneur"] = "AE-123456",
             ["sexe"] = "M",
             ["situationFamiliale"] = "Célibataire",
             ["nombreEnfants"] = "0",
@@ -166,10 +167,11 @@ public class EmployeeImportTemplateBuilder(AppDbContext db, IEmployeeFieldServic
         WriteReferentialColumn(ws, refCol, "Sexe", ["M", "F"]);
         WriteReferentialColumn(ws, refCol + 1, "Situation familiale",
             ["Célibataire", "Marié(e)", "Divorcé(e)", "Veuf / Veuve"]);
-        WriteReferentialColumn(ws, refCol + 2, "Nationalité", ["Marocain", "Marocaine", "Autre"]);
+        WriteReferentialColumn(ws, refCol + 2, "Nationalité",
+            ["Marocain", "Marocaine", "Sénégalais", "Sénégalaise", "Tunisien", "Tunisienne", "Autre"]);
         WriteReferentialColumn(ws, refCol + 3, "Niveau scolaire",
             ["CAP / BEP", "Baccalauréat", "Bac +2", "Bac +3", "Bac +5", "Bac +8", "Autre"]);
-        WriteReferentialColumn(ws, refCol + 4, "Expertise métier", ["1 - Débutant", "2 - Intermédiaire", "3 - Confirmé"]);
+        WriteReferentialColumn(ws, refCol + 4, "Expertise métier", ["1 - Débutant", "2 - Confirmé", "3 - Expert"]);
         WriteReferentialColumn(ws, refCol + 5, "Type contrat", ["CDI", "CDD", "Stage", "ANAPEC"]);
         WriteReferentialColumn(ws, refCol + 6, "Statut contrat",
             ["En période d'essai", "Actif", "Expiré", "Résilié"]);
@@ -197,9 +199,10 @@ public class EmployeeImportTemplateBuilder(AppDbContext db, IEmployeeFieldServic
             "• Mot de passe vide = mot de passe système par défaut (Azerty@123).",
             "• Pôle / Cellule / Service : utilisez les noms exacts de la feuille Référentiels.",
             "• Département de production (optionnel) : requis uniquement si l'import doit créer un nouveau pôle.",
-            "• Niveau contractuel : Débutant, Intermédiaire ou Confirmé (voir feuille Référentiels).",
-            "• Expertise métier : 1, 2 ou 3 (Débutant, Intermédiaire, Confirmé).",
+            "• Niveau contractuel : Débutant, Confirmé ou Expert (voir feuille Référentiels).",
+            "• Expertise métier : 1, 2 ou 3 (Débutant, Confirmé, Expert).",
             "• Sexe : M ou F. Situation familiale et nationalité : voir Référentiels.",
+            "• Nationalité hors Sénégal/Tunisie : n° carte autoentrepreneur obligatoire.",
             "• Responsables : indiquez le nom complet (Prénom Nom) d'un employé existant, cohérent avec le pôle / la cellule / le service.",
             "• Chef de projet → titulaire du pôle ; superviseur → rattaché au chef et à la cellule ; référent → rattaché au superviseur et au service.",
             "• Contrat : type CDI/CDD/Stage/ANAPEC. CDD et Stage exigent une date de fin.",

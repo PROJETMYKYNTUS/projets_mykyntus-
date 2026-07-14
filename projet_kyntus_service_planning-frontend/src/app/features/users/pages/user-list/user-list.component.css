@@ -206,9 +206,9 @@
   white-space: nowrap;
 }
 
-.org-summary {
+.org-cell {
   display: block;
-  max-width: 220px;
+  max-width: 160px;
   font-size: 0.84rem;
   line-height: 1.35;
   color: var(--text-secondary, var(--text-primary));

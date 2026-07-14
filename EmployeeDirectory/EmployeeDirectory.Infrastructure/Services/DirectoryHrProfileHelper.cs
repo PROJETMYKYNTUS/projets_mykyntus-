@@ -58,11 +58,13 @@ internal static class DirectoryHrProfileHelper
         profile.DateNaissance = dto.DateNaissance;
         profile.VilleNaissance = dto.VilleNaissance;
         profile.Nationalite = dto.Nationalite;
+        profile.NumeroCarteAutoentrepreneur = dto.NumeroCarteAutoentrepreneur;
         profile.Sexe = dto.Sexe;
         profile.SituationFamiliale = dto.SituationFamiliale;
         profile.NombreEnfants = dto.NombreEnfants;
         profile.Cin = dto.Cin;
         profile.Adresse = dto.Adresse;
+        profile.EmailPersonnel = dto.EmailPersonnel;
         profile.Telephone1 = dto.Telephone1;
         profile.TelephoneUrgence = dto.TelephoneUrgence;
         profile.RelationUrgence = dto.RelationUrgence;
@@ -88,11 +90,13 @@ internal static class DirectoryHrProfileHelper
         p.DateNaissance,
         p.VilleNaissance,
         p.Nationalite,
+        p.NumeroCarteAutoentrepreneur,
         p.Sexe,
         p.SituationFamiliale,
         p.NombreEnfants,
         p.Cin,
         p.Adresse,
+        p.EmailPersonnel,
         p.Telephone1,
         p.TelephoneUrgence,
         p.RelationUrgence,
@@ -125,11 +129,13 @@ internal static class DirectoryHrProfileHelper
             DateNaissance = profile.DateNaissance,
             VilleNaissance = profile.VilleNaissance,
             Nationalite = profile.Nationalite,
+            NumeroCarteAutoentrepreneur = profile.NumeroCarteAutoentrepreneur,
             Sexe = profile.Sexe,
             SituationFamiliale = profile.SituationFamiliale,
             NombreEnfants = profile.NombreEnfants,
             Cin = profile.Cin,
             Adresse = profile.Adresse,
+            EmailPersonnel = profile.EmailPersonnel,
             Telephone1 = profile.Telephone1,
             TelephoneUrgence = profile.TelephoneUrgence,
             RelationUrgence = profile.RelationUrgence,

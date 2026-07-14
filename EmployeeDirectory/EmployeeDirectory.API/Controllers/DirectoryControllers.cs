@@ -91,6 +91,19 @@ public class DirectoryEmployeesController(IMediator mediator) : ControllerBase
         CancellationToken ct) =>
         Ok(await mediator.Send(new GetPilotRotationHistoryQuery(id), ct));
 
+    [HttpGet("pilot-rotations")]
+    public async Task<ActionResult<IReadOnlyList<PilotRotationSummaryDto>>> ListPilotRotations(
+        [FromQuery] string? serviceId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] int? minRotations,
+        [FromQuery] int? maxRotations,
+        [FromQuery] string? sort,
+        CancellationToken ct) =>
+        Ok(await mediator.Send(
+            new ListPilotRotationsQuery(serviceId, from, to, minRotations, maxRotations, sort),
+            ct));
+
     [HttpGet("employees/{id:guid}/pilot-rotation-eligibility")]
     public async Task<ActionResult<PilotRotationEligibilityDto>> PilotRotationEligibility(
         Guid id,

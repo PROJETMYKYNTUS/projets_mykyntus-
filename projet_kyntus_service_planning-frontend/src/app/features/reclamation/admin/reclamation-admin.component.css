@@ -488,3 +488,6 @@
   border-radius: 50%;
   animation: spin .6s linear infinite;
 }
+.rp-aging { font-size: 0.75rem; color: var(--text-muted, #94a3b8); }
+.rp-aging-warn { color: #d97706; font-weight: 600; }
+.rp-aging-breach { color: #dc2626; font-weight: 700; }

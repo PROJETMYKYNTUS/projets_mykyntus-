@@ -8,15 +8,17 @@ import { UserService } from '../../services/user.service';
 import { User } from '../../users-module';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
-import { AlertTriangle, Eye, Pencil, Search, Trash2 } from 'lucide';
+import { AlertTriangle, Eye, History, Pencil, Search, Trash2 } from 'lucide';
 import type { Department } from '../../../prime/models';
 import type { OrgAssignmentsOverview } from '../../../prime/services/prime-org-api.service';
 import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
+import { PilotRotationHistoryModalComponent } from '../../../prime/components/pilot-rotation-history-modal.component';
 import type { SubService } from '../../../sub-services/sub-services-module';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
 import {
   enrichUserOrgPerimeter,
   orgCellLabel,
+  orgDepartmentLabel,
   type BusinessDepartmentRef,
   type DirectoryEmployeeOrgRef,
   type UserOrgPerimeterView,
@@ -25,27 +27,41 @@ import {
   contractLevelLabel,
   expertiseLevelLabel,
   matriculeDisplay,
-  orgSummaryForList,
+  formatSeniorityDuration,
   seniorityReferenceDate,
   telephoneDisplay,
   userMatchesSearch,
 } from '../../../../core/hr/user-hr-display.util';
+import { resolveUserGuid } from '../../../../core/lib/user-guid.util';
 
 @Component({
   selector: 'app-user-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    LucideIconComponent,
+    KyntusPageHeaderComponent,
+    PilotRotationHistoryModalComponent,
+  ],
   templateUrl: './user-list.component.html',
   styleUrls: ['./user-list.component.css']
 })
 export class UserListComponent implements OnInit {
-  readonly icons = { warn: AlertTriangle, eye: Eye, edit: Pencil, trash: Trash2, search: Search };
+  readonly icons = {
+    warn: AlertTriangle,
+    eye: Eye,
+    edit: Pencil,
+    trash: Trash2,
+    search: Search,
+    history: History,
+  };
   readonly orgCellLabel = orgCellLabel;
+  readonly orgDepartmentLabel = orgDepartmentLabel;
   readonly contractLevelLabel = contractLevelLabel;
   readonly expertiseLevelLabel = expertiseLevelLabel;
   readonly matriculeDisplay = matriculeDisplay;
   readonly telephoneDisplay = telephoneDisplay;
-  readonly orgSummaryForList = orgSummaryForList;
   users: User[] = [];
   filteredUsers: User[] = [];
   private perimeterByUserId = new Map<number, UserOrgPerimeterView>();
@@ -54,6 +70,10 @@ export class UserListComponent implements OnInit {
   searchTerm = '';
   loading = false;
   error: string | null = null;
+
+  rotationHistoryOpen = false;
+  rotationHistoryEmployeeId = '';
+  rotationHistoryEmployeeName = '';
 
   constructor(
     private userService: UserService,
@@ -143,37 +163,31 @@ export class UserListComponent implements OnInit {
   }
 
   getAnciennete(user: User): string {
-    return this.getAncienneteFromDate(seniorityReferenceDate(user));
-  }
-
-  private getAncienneteFromDate(hireDate: string): string {
-    const debut = new Date(hireDate);
-    const now = new Date();
-    let ans = now.getFullYear() - debut.getFullYear();
-    let mois = now.getMonth() - debut.getMonth();
-    let jours = now.getDate() - debut.getDate();
-    if (jours < 0) {
-      mois--;
-      const dernierMois = new Date(now.getFullYear(), now.getMonth(), 0);
-      jours += dernierMois.getDate();
-    }
-    if (mois < 0) {
-      ans--;
-      mois += 12;
-    }
-    const totalJours = Math.floor((now.getTime() - debut.getTime()) / (1000 * 60 * 60 * 24));
-    if (totalJours <= 0) return "Pas encore embauché";
-    if (totalJours < 30) return `${totalJours} jour${totalJours > 1 ? 's' : ''}`;
-    const partAns = ans > 0 ? `${ans} an${ans > 1 ? 's' : ''}` : '';
-    const partMois = mois > 0 ? `${mois} mois` : '';
-    const partJour = jours > 0 ? `${jours} jour${jours > 1 ? 's' : ''}` : '';
-    return [partAns, partMois, partJour].filter(Boolean).join(' et ');
+    return formatSeniorityDuration(seniorityReferenceDate(user));
   }
 
   goimport(): void { this.router.navigate(['/import']); }
   viewUser(id: number): void { this.router.navigate(['/users', id]); }
   editUser(id: number): void { this.router.navigate(['/users', 'edit', id]); }
   createUser(): void { this.router.navigate(['/users/create']); }
+
+  openPilotRotationHistory(user: User, event?: Event): void {
+    event?.stopPropagation();
+    const guid = resolveUserGuid(user);
+    if (!guid) {
+      alert('Identifiant employé (GUID) introuvable — historique indisponible.');
+      return;
+    }
+    this.rotationHistoryEmployeeId = guid;
+    this.rotationHistoryEmployeeName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+    this.rotationHistoryOpen = true;
+  }
+
+  closePilotRotationHistory(): void {
+    this.rotationHistoryOpen = false;
+    this.rotationHistoryEmployeeId = '';
+    this.rotationHistoryEmployeeName = '';
+  }
 
   deleteUser(id: number): void {
     if (confirm('Supprimer cet employé ?')) {

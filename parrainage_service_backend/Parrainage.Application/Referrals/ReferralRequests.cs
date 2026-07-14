@@ -149,6 +149,14 @@ public sealed class ListOnboardingReferralsQueryHandler(IReferralAppService refe
         referrals.ListOnboardingAsync(ct);
 }
 
+public record ListLinkableReferralsQuery(string? Search) : IRequest<IReadOnlyList<ReferralDto>>;
+public sealed class ListLinkableReferralsQueryHandler(IReferralAppService referrals)
+    : IRequestHandler<ListLinkableReferralsQuery, IReadOnlyList<ReferralDto>>
+{
+    public Task<IReadOnlyList<ReferralDto>> Handle(ListLinkableReferralsQuery request, CancellationToken ct) =>
+        referrals.ListLinkableAsync(request.Search, ct);
+}
+
 public record LinkEmployeeCommand(string Id, LinkEmployeeRequest Body) : IRequest<ReferralDto?>;
 public sealed class LinkEmployeeCommandHandler(IReferralAppService referrals)
     : IRequestHandler<LinkEmployeeCommand, ReferralDto?>

@@ -22,11 +22,13 @@ public record EmployeeHrProfileDto(
     DateOnly? DateNaissance,
     string? VilleNaissance,
     string? Nationalite,
+    string? NumeroCarteAutoentrepreneur,
     string? Sexe,
     string? SituationFamiliale,
     int? NombreEnfants,
     string? Cin,
     string? Adresse,
+    string? EmailPersonnel,
     string? Telephone1,
     string? TelephoneUrgence,
     string? RelationUrgence,
@@ -176,6 +178,18 @@ public record PilotRotationHistoryEntryDto(
     int? DurationDays,
     string? ChangeReason,
     bool IsOverride);
+
+public record PilotRotationSummaryDto(
+    Guid EmployeeId,
+    string FirstName,
+    string LastName,
+    string Email,
+    int RotationCount,
+    string? CurrentServiceId,
+    string? CurrentServiceName,
+    DateTime? FirstEffectiveFrom,
+    DateTime? LastEffectiveFrom,
+    IReadOnlyList<PilotRotationHistoryEntryDto> Segments);
 
 public record PilotRotationEligibilityDto(
     bool Eligible,

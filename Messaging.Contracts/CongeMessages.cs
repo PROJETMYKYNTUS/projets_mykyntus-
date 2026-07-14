@@ -11,6 +11,9 @@ public record CongeValideMessage
     public DateTime DateFin { get; init; }
     public double NombreJours { get; init; }
     public DateTime DateValidation { get; init; }
+    /// <summary>Annuel, Exceptionnel, Maternite, Paternite, Maladie.</summary>
+    public string TypeConge { get; init; } = "Annuel";
+    public string? TypeExceptionnel { get; init; }
 }
 
 /// <summary>
@@ -26,7 +29,7 @@ public record CongeDemandeMessage
 }
 
 /// <summary>
-/// Publié quand un congé est refusé.
+/// Publié quand un congé est refusé ou annulé après validation — retire l'absence Planning.
 /// </summary>
 public record CongeRefuseMessage
 {

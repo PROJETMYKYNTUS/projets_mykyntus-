@@ -17,6 +17,8 @@ public class CongeEventPublisher : ICongeEventPublisher
         DateTime dateDebut,
         DateTime dateFin,
         double nombreJours,
+        string typeConge,
+        string? typeExceptionnel = null,
         CancellationToken ct = default)
     {
         await _publishEndpoint.Publish(new CongeValideMessage
@@ -26,7 +28,9 @@ public class CongeEventPublisher : ICongeEventPublisher
             DateDebut = dateDebut,
             DateFin = dateFin,
             NombreJours = nombreJours,
-            DateValidation = DateTime.UtcNow
+            DateValidation = DateTime.UtcNow,
+            TypeConge = typeConge,
+            TypeExceptionnel = typeExceptionnel,
         }, ct);
     }
 

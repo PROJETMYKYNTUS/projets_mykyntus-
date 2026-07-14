@@ -11,12 +11,18 @@ const routes: Routes = [
         .then(m => m.PlanningGenerateComponent)
   },
   {
+    path: 'validation',
+    loadComponent: () =>
+      import('./pages/planning-validation/planning-validation.component')
+        .then(m => m.PlanningValidationComponent),
+  },
+  {
   path: 'saturday-history',
   loadComponent: () => import('./pages/saturday-history/saturday-history.component')
     .then(m => m.SaturdayHistoryComponent)
 },
  {
-    path: 'shift-config',                                    // ✅ loadComponent
+    path: 'shift-config',
     loadComponent: () =>
       import('./pages/shift-config/shift-config.component')
         .then(m => m.ShiftConfigComponent)

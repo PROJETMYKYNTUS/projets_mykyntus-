@@ -1,0 +1,50 @@
+namespace Planning.Infrastructure.Services.EmployeeImport;
+
+public static class EmployeeImportExpertiseLevelResolver
+{
+    public const int DefaultLevel = 1;
+
+    public static readonly IReadOnlyList<string> Labels = ["Débutant", "Confirmé", "Expert"];
+
+    public static int Resolve(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return DefaultLevel;
+
+        if (TryResolve(raw, out var level))
+            return level;
+
+        throw new InvalidOperationException(
+            "Niveau expertise métier invalide : utilisez Débutant, Confirmé ou Expert.");
+    }
+
+    public static bool TryResolve(string? raw, out int level)
+    {
+        level = DefaultLevel;
+        if (string.IsNullOrWhiteSpace(raw))
+            return false;
+
+        var trimmed = raw.Trim();
+        if (int.TryParse(trimmed, out var num) && num is >= 1 and <= 3)
+        {
+            level = num;
+            return true;
+        }
+
+        var normalized = EmployeeImportColumnMatcher.Normalize(trimmed);
+        switch (normalized)
+        {
+            case "debutant" or "beginner":
+                level = 1;
+                return true;
+            case "confirme" or "confirmé" or "intermediaire" or "intermediate":
+                level = 2;
+                return true;
+            case "expert" or "senior":
+                level = 3;
+                return true;
+            default:
+                return false;
+        }
+    }
+}

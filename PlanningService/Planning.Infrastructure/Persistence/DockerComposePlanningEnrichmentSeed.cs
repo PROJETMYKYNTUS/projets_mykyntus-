@@ -83,6 +83,12 @@ internal static class DockerComposePlanningEnrichmentSeed
         await EnsureSaturdayGroupsAsync(context, cellUsers, manager.Id, ct);
         await SeedPlanningCongesAsync(context, cellUsers, ct);
 
+        await planningService.SaveShiftTemplateAsync(new SaveShiftConfigDto
+        {
+            SubServiceId = sub.Id,
+            Shifts = BuildShiftConfigItems(cellUsers.Count),
+        });
+
         var weeks = new[] { -3, -2, -1, 0 };
         foreach (var offset in weeks)
         {
@@ -90,14 +96,6 @@ internal static class DockerComposePlanningEnrichmentSeed
             if (await context.WeeklyPlannings.AnyAsync(
                     p => p.SubServiceId == sub.Id && p.WeekCode == weekCode, ct))
                 continue;
-
-            await planningService.SaveShiftConfigAsync(new SaveShiftConfigDto
-            {
-                SubServiceId = sub.Id,
-                WeekCode = weekCode,
-                WeekStartDate = weekStart,
-                Shifts = BuildShiftConfigItems(cellUsers.Count),
-            });
 
             var created = await planningService.CreatePlanningAsync(new CreateWeeklyPlanningDto
             {
@@ -114,6 +112,7 @@ internal static class DockerComposePlanningEnrichmentSeed
                 WeeklyPlanningId = created.Id,
             });
 
+            await planningService.RecordConsultationAsync(created.Id, manager.Id);
             await planningService.PublishPlanningAsync(created.Id, manager.Id);
         }
 

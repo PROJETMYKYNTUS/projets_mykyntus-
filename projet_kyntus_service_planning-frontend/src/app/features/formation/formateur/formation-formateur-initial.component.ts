@@ -5,6 +5,7 @@ import { FormationTrainingService } from '../../../core/services/formation-train
 import {
   INITIAL_TRAINING_STATUS_LABELS,
   type InitialTrainingPathDto,
+  type TrainingSessionDto,
 } from '../../../core/models/formation-training.models';
 import { KyntusSessionService } from '../../../core/session/kyntus-session.service';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
@@ -23,23 +24,35 @@ import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-
             <span class="text-xs text-muted">{{ statusLabels[p.status] }}</span>
           </div>
           <p class="text-xs text-muted">{{ p.dateDebut | date:'shortDate' }} → {{ p.dateFinPrevue | date:'shortDate' }}</p>
-          @if (!p.hasQuizResult) {
+          @if (!p.hasQuizResult || p.status === 'QuizASaisir') {
             <div class="grid gap-2 md:grid-cols-3">
-              <input class="ky-input" type="number" min="0" max="100" placeholder="Note %" [(ngModel)]="quiz[p.id].score" />
-              <label class="inline-flex items-center gap-2 text-sm">
-                <input type="checkbox" [(ngModel)]="quiz[p.id].passed" /> Réussi
-              </label>
+              <input class="ky-input" type="number" min="0" max="100" placeholder="Note %" [(ngModel)]="quiz[p.id].score" (ngModelChange)="onScoreChange(p.id)" />
+              <span class="inline-flex items-center text-sm" [class.text-emerald-400]="quiz[p.id].passed" [class.text-rose-300]="!quiz[p.id].passed">
+                {{ quiz[p.id].passed ? 'Réussi (≥ ' + passThreshold + ' %)' : 'Échec (< ' + passThreshold + ' %)' }}
+              </span>
               <button type="button" class="ky-btn-secondary" (click)="saveQuiz(p)">Enregistrer quiz</button>
             </div>
           }
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="ky-btn-primary" (click)="validate(p)">Valider</button>
+            <button type="button" class="ky-btn-primary" (click)="validate(p)" [disabled]="!canValidate(p)">Valider</button>
             <button type="button" class="ky-btn-secondary" (click)="extend(p)">Prolonger</button>
             <button type="button" class="ky-btn-secondary text-rose-300" (click)="reject(p)">Rejeter</button>
           </div>
         </div>
       } @empty {
         <p class="text-muted text-sm">Aucun nouvel arrivant en formation initiale.</p>
+      }
+    </div>
+
+    <div class="card-navy p-4 mt-4 space-y-2">
+      <h2 class="text-sm font-semibold">Mes sessions continues (animateur)</h2>
+      @for (s of animated(); track s.id) {
+        <div class="text-sm border-b border-default/30 py-2">
+          <strong>{{ s.title }}</strong> — {{ s.assignmentCount }}/{{ s.capacity }} · {{ s.status }}
+          <span class="text-muted text-xs block">{{ s.plannedStart | date:'short' }} → {{ s.plannedEnd | date:'short' }}</span>
+        </div>
+      } @empty {
+        <p class="text-muted text-sm">Aucune session où vous êtes animateur.</p>
       }
     </div>
   `,
@@ -49,11 +62,23 @@ export class FormationFormateurInitialComponent implements OnInit {
   private readonly api = inject(FormationTrainingService);
   private readonly session = inject(KyntusSessionService);
   readonly paths = signal<InitialTrainingPathDto[]>([]);
+  readonly animated = signal<TrainingSessionDto[]>([]);
   readonly statusLabels = INITIAL_TRAINING_STATUS_LABELS;
+  readonly passThreshold = 70;
   quiz: Record<string, { score: number; passed: boolean }> = {};
 
   ngOnInit(): void {
     void this.reload();
+  }
+
+  onScoreChange(pathId: string): void {
+    const q = this.quiz[pathId];
+    if (!q) return;
+    q.passed = Number(q.score) >= this.passThreshold;
+  }
+
+  canValidate(path: InitialTrainingPathDto): boolean {
+    return path.hasQuizResult && path.status === 'AttenteValidationFormateur';
   }
 
   private async reload(): Promise<void> {
@@ -61,11 +86,24 @@ export class FormationFormateurInitialComponent implements OnInit {
     this.paths.set(rows);
     for (const row of rows) {
       this.quiz[row.id] ??= { score: 0, passed: false };
+      this.onScoreChange(row.id);
+    }
+
+    const stored = this.session.getStoredUser();
+    const animatorId = stored?.subjectId
+      || (JSON.parse(localStorage.getItem('user') || '{}')?.guid as string | undefined);
+    if (animatorId && String(animatorId).includes('-')) {
+      try {
+        this.animated.set(await this.api.listMyAnimatedSessions(String(animatorId)));
+      } catch {
+        this.animated.set([]);
+      }
     }
   }
 
   async saveQuiz(path: InitialTrainingPathDto): Promise<void> {
     const q = this.quiz[path.id];
+    this.onScoreChange(path.id);
     await this.api.recordQuiz(path.id, {
       quizScore: q.score,
       quizPassed: q.passed,

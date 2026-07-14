@@ -9,11 +9,14 @@ public class EmployeeHrProfile
     public DateOnly? DateNaissance { get; set; }
     public string? VilleNaissance { get; set; }
     public string? Nationalite { get; set; }
+    public string? NumeroCarteAutoentrepreneur { get; set; }
     public string? Sexe { get; set; }
     public string? SituationFamiliale { get; set; }
     public int? NombreEnfants { get; set; }
     public string? Cin { get; set; }
     public string? Adresse { get; set; }
+    /// <summary>Email personnel (hors compte / login).</summary>
+    public string? EmailPersonnel { get; set; }
     public string? Telephone1 { get; set; }
     public string? TelephoneUrgence { get; set; }
     public string? RelationUrgence { get; set; }
@@ -35,7 +38,7 @@ public class EmployeeHrProfile
     public bool EnFormation { get; set; }
     public DateOnly? DateDebutFormation { get; set; }
     public DateOnly? DateFinFormationPrevue { get; set; }
-    /// <summary>Niveau d'expertise métier (1=Débutant, 2=Intermédiaire, 3=Confirmé).</summary>
+    /// <summary>Niveau d'expertise métier (1=Débutant, 2=Confirmé, 3=Expert).</summary>
     public int? NiveauExpertiseMetier { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

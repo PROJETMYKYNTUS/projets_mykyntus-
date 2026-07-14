@@ -1,250 +1,270 @@
-import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  OnInit,
+  inject,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
+  ArrowRight,
   Calendar,
   CheckCircle,
+  ClipboardList,
   GraduationCap,
   Inbox,
   Loader2,
-  Pencil,
-  Plus,
   Search,
-  Trash2,
   Users,
-  X,
 } from 'lucide';
-import { FormationService } from '../../../core/services/formation.service';
+import { FormationTrainingService } from '../../../core/services/formation-training.service';
 import {
-  FormationDto,
-  CreateFormationCommand,
-  StatutFormation,
-  StatutFormationLabels,
-} from '../../../core/models/formation.models';
+  INITIAL_TRAINING_ACTIVE_STATUSES,
+  INITIAL_TRAINING_STATUS_LABELS,
+  TRAINING_SESSION_STATUS_LABELS,
+  type InitialTrainingPathDto,
+  type InitialTrainingStatus,
+  type TrainingSessionDto,
+  type TrainingSessionStatus,
+} from '../../../core/models/formation-training.models';
 import { LucideIconComponent } from '../../../shared/lucide-icon.component';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
+
+type AdminTab = 'initial' | 'continue';
 
 @Component({
   selector: 'app-formation-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent],
+  imports: [CommonModule, FormsModule, RouterLink, LucideIconComponent, KyntusPageHeaderComponent],
   templateUrl: './formation-admin.component.html',
   styleUrls: ['./formation-admin.component.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FormationAdminComponent implements OnInit {
+  private readonly api = inject(FormationTrainingService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
+
   readonly icons = {
     graduation: GraduationCap,
-    plus: Plus,
     search: Search,
     inbox: Inbox,
     loader: Loader2,
-    edit: Pencil,
-    validate: CheckCircle,
-    delete: Trash2,
-    close: X,
     users: Users,
     calendar: Calendar,
+    validate: CheckCircle,
+    clipboard: ClipboardList,
+    arrow: ArrowRight,
   };
 
-  formations: FormationDto[] = [];
-  filteredFormations: FormationDto[] = [];
+  readonly statusLabels = INITIAL_TRAINING_STATUS_LABELS;
+  readonly sessionStatusLabels = TRAINING_SESSION_STATUS_LABELS;
+  readonly initialStatuses: InitialTrainingStatus[] = [
+    'EnCours',
+    'QuizASaisir',
+    'AttenteValidationFormateur',
+    'AttenteValidationRh',
+    'EnProduction',
+    'Rejete',
+  ];
+  readonly sessionStatuses: TrainingSessionStatus[] = [
+    'Draft',
+    'Scheduled',
+    'InProgress',
+    'Completed',
+    'Cancelled',
+  ];
+
+  paths: InitialTrainingPathDto[] = [];
+  sessions: TrainingSessionDto[] = [];
+  filteredPaths: InitialTrainingPathDto[] = [];
+  filteredSessions: TrainingSessionDto[] = [];
+
   loading = false;
-  showModal = false;
-  editMode = false;
-  selectedId = '';
-  statutLabels = StatutFormationLabels;
-  StatutFormation = StatutFormation;
-
+  tab: AdminTab = 'initial';
   searchTerm = '';
-  filterStatut: '' | StatutFormation = '';
-
-  form: CreateFormationCommand = {
-    titre: '',
-    description: '',
-    formateur: '',
-    dateDebut: '',
-    dateFin: '',
-    capaciteMax: 10,
-    prix: 0,
-  };
-
-  toast = { show: false, message: '', type: 'success' as 'success' | 'error' };
-
-  constructor(
-    private svc: FormationService,
-    private cdr: ChangeDetectorRef,
-  ) {}
-
-  private readonly route = inject(ActivatedRoute);
+  filterInitialStatut: '' | InitialTrainingStatus = '';
+  filterSessionStatut: '' | TrainingSessionStatus = '';
 
   ngOnInit(): void {
+    const tabParam = this.route.snapshot.queryParamMap.get('tab');
+    if (tabParam === 'continue' || tabParam === 'initial') {
+      this.tab = tabParam;
+    }
+
     const statutParam = this.route.snapshot.queryParamMap.get('statut');
-    if (statutParam && statutParam in StatutFormation) {
-      const parsed = StatutFormation[statutParam as keyof typeof StatutFormation];
-      if (typeof parsed === 'number') {
-        this.filterStatut = parsed;
+    if (statutParam) {
+      if (this.isInitialStatus(statutParam)) {
+        this.tab = 'initial';
+        this.filterInitialStatut = statutParam;
+      } else if (this.isSessionStatus(statutParam)) {
+        this.tab = 'continue';
+        this.filterSessionStatut = statutParam;
+      } else if (statutParam === 'EnAttente' || statutParam === 'pending') {
+        // Ancien filtre catalogue → file RH production
+        this.tab = 'initial';
+        this.filterInitialStatut = 'AttenteValidationRh';
       }
     }
-    this.loadFormations();
+
+    void this.load();
   }
 
   get stats() {
-    const list = this.formations;
+    const active = this.paths.filter((p) =>
+      INITIAL_TRAINING_ACTIVE_STATUSES.includes(p.status),
+    );
     return {
-      total: list.length,
-      pending: list.filter(
-        (f) =>
-          f.statut === StatutFormation.Brouillon ||
-          f.statut === StatutFormation.EnAttente,
+      activeInitial: active.length,
+      quizOrFormateur: this.paths.filter(
+        (p) =>
+          p.status === 'QuizASaisir' ||
+          p.status === 'AttenteValidationFormateur' ||
+          p.status === 'EnCours',
       ).length,
-      active: list.filter(
-        (f) =>
-          f.statut === StatutFormation.Validee ||
-          f.statut === StatutFormation.EnCours,
+      rhPending: this.paths.filter((p) => p.status === 'AttenteValidationRh').length,
+      sessionsOpen: this.sessions.filter(
+        (s) => s.status === 'Scheduled' || s.status === 'InProgress' || s.status === 'Draft',
       ).length,
-      inscriptions: list.reduce((sum, f) => sum + f.nombreInscrits, 0),
     };
   }
 
-  loadFormations(): void {
+  async load(): Promise<void> {
     this.loading = true;
-    this.cdr.detectChanges();
-    this.svc.getAll().subscribe({
-      next: (data) => {
-        this.formations = data;
-        this.applyFilters();
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
+    this.cdr.markForCheck();
+    try {
+      const [paths, sessions] = await Promise.all([
+        this.api.listInitialOverview(),
+        this.api.listSessions(),
+      ]);
+      this.paths = paths ?? [];
+      this.sessions = sessions ?? [];
+      this.applyFilters();
+    } catch {
+      this.paths = [];
+      this.sessions = [];
+      this.applyFilters();
+    } finally {
+      this.loading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  setTab(tab: AdminTab): void {
+    this.tab = tab;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab, statut: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
     });
+    this.cdr.markForCheck();
   }
 
   applyFilters(): void {
-    let rows = [...this.formations];
     const q = this.searchTerm.trim().toLowerCase();
+
+    let paths = [...this.paths];
     if (q) {
-      rows = rows.filter(
-        (f) =>
-          f.titre.toLowerCase().includes(q) ||
-          f.formateur.toLowerCase().includes(q) ||
-          f.description.toLowerCase().includes(q),
+      paths = paths.filter(
+        (p) =>
+          p.employeeName.toLowerCase().includes(q) ||
+          p.employeeId.toLowerCase().includes(q),
       );
     }
-    if (this.filterStatut !== '') {
-      rows = rows.filter((f) => f.statut === this.filterStatut);
+    if (this.filterInitialStatut) {
+      paths = paths.filter((p) => p.status === this.filterInitialStatut);
     }
-    this.filteredFormations = rows;
-    this.cdr.detectChanges();
+    this.filteredPaths = paths;
+
+    let sessions = [...this.sessions];
+    if (q) {
+      sessions = sessions.filter(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          s.description.toLowerCase().includes(q) ||
+          (s.externalAnimatorName ?? '').toLowerCase().includes(q),
+      );
+    }
+    if (this.filterSessionStatut) {
+      sessions = sessions.filter((s) => s.status === this.filterSessionStatut);
+    }
+    this.filteredSessions = sessions;
+    this.cdr.markForCheck();
   }
 
   clearFilters(): void {
     this.searchTerm = '';
-    this.filterStatut = '';
+    this.filterInitialStatut = '';
+    this.filterSessionStatut = '';
     this.applyFilters();
   }
 
-  openCreate(): void {
-    this.editMode = false;
-    this.selectedId = '';
-    this.form = {
-      titre: '',
-      description: '',
-      formateur: '',
-      dateDebut: '',
-      dateFin: '',
-      capaciteMax: 10,
-      prix: 0,
+  getInitialStatusClass(status: InitialTrainingStatus): string {
+    const map: Record<InitialTrainingStatus, string> = {
+      EnCours: 'badge-active',
+      QuizASaisir: 'badge-pending',
+      AttenteValidationFormateur: 'badge-pending',
+      AttenteValidationRh: 'badge-rh',
+      EnProduction: 'badge-valid',
+      Rejete: 'badge-cancel',
     };
-    this.showModal = true;
+    return map[status] ?? '';
   }
 
-  openEdit(f: FormationDto): void {
-    this.editMode = true;
-    this.selectedId = f.id;
-    this.form = {
-      titre: f.titre,
-      description: f.description,
-      formateur: f.formateur,
-      dateDebut: f.dateDebut.substring(0, 10),
-      dateFin: f.dateFin.substring(0, 10),
-      capaciteMax: f.capaciteMax,
-      prix: f.prix,
+  getSessionStatusClass(status: TrainingSessionStatus): string {
+    const map: Record<TrainingSessionStatus, string> = {
+      Draft: 'badge-draft',
+      Scheduled: 'badge-valid',
+      InProgress: 'badge-active',
+      Completed: 'badge-done',
+      Cancelled: 'badge-cancel',
     };
-    this.showModal = true;
+    return map[status] ?? '';
   }
 
-  submit(): void {
-    const cmd = {
-      ...this.form,
-      dateDebut: this.form.dateDebut + 'T00:00:00Z',
-      dateFin: this.form.dateFin + 'T00:00:00Z',
-    };
+  animatorLabel(s: TrainingSessionDto): string {
+    if (s.animatorKind === 'External') {
+      return s.externalAnimatorName?.trim() || 'Animateur externe';
+    }
+    return s.animatorUserId ? 'Animateur interne' : '—';
+  }
 
-    if (this.editMode) {
-      this.svc.update(this.selectedId, cmd).subscribe({
-        next: () => {
-          this.showModal = false;
-          this.loadFormations();
-          this.showToast('Formation mise à jour !', 'success');
-        },
-        error: () => this.showToast('Erreur lors de la sauvegarde.', 'error'),
-      });
-    } else {
-      this.svc.create(cmd).subscribe({
-        next: () => {
-          this.showModal = false;
-          this.loadFormations();
-          this.showToast('Formation créée !', 'success');
-        },
-        error: () => this.showToast('Erreur lors de la sauvegarde.', 'error'),
-      });
+  nextActionRoute(path: InitialTrainingPathDto): string | null {
+    switch (path.status) {
+      case 'EnCours':
+      case 'QuizASaisir':
+      case 'AttenteValidationFormateur':
+        return '/formations/initiales';
+      case 'AttenteValidationRh':
+        return '/formations/passage-production';
+      default:
+        return null;
     }
   }
 
-  valider(f: FormationDto): void {
-    this.svc.valider(f.id).subscribe({
-      next: () => {
-        this.loadFormations();
-        this.showToast('Formation validée !', 'success');
-      },
-      error: () => this.showToast('Impossible de valider.', 'error'),
-    });
+  nextActionLabel(path: InitialTrainingPathDto): string {
+    switch (path.status) {
+      case 'EnCours':
+      case 'QuizASaisir':
+        return 'Saisir quiz';
+      case 'AttenteValidationFormateur':
+        return 'File formateur';
+      case 'AttenteValidationRh':
+        return 'Passage production';
+      default:
+        return '';
+    }
   }
 
-  delete(f: FormationDto): void {
-    if (!confirm(`Supprimer "${f.titre}" ?`)) return;
-    this.svc.delete(f.id).subscribe({
-      next: () => {
-        this.loadFormations();
-        this.showToast('Formation supprimée.', 'success');
-      },
-      error: () => this.showToast('Erreur lors de la suppression.', 'error'),
-    });
+  private isInitialStatus(value: string): value is InitialTrainingStatus {
+    return value in INITIAL_TRAINING_STATUS_LABELS;
   }
 
-  getStatutClass(statut: StatutFormation): string {
-    const map: Record<number, string> = {
-      0: 'badge-draft',
-      1: 'badge-pending',
-      2: 'badge-valid',
-      3: 'badge-active',
-      4: 'badge-done',
-      5: 'badge-cancel',
-    };
-    return map[statut] || '';
-  }
-
-  showToast(message: string, type: 'success' | 'error'): void {
-    this.toast = { show: true, message, type };
-    this.cdr.detectChanges();
-    setTimeout(() => {
-      this.toast.show = false;
-      this.cdr.detectChanges();
-    }, 4000);
+  private isSessionStatus(value: string): value is TrainingSessionStatus {
+    return value in TRAINING_SESSION_STATUS_LABELS;
   }
 }

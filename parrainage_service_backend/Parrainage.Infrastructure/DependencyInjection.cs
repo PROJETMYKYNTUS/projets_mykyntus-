@@ -67,6 +67,8 @@ public static class DependencyInjection
                 x.AddConsumer<EmployePortalSyncConsumer>();
                 x.AddConsumer<OrgAssignmentPortalSyncConsumer>();
                 x.AddConsumer<DirectoryEmployeePortalProjectionConsumer>();
+                x.AddConsumer<InitialTrainingRejectedReferralConsumer>();
+                x.AddConsumer<InitialTrainingCompletedReferralConsumer>();
 
                 x.UsingRabbitMq((ctx, cfg) =>
                 {
@@ -85,6 +87,16 @@ public static class DependencyInjection
                     cfg.ReceiveEndpoint("parrainage-directory-projection", e =>
                     {
                         e.ConfigureConsumer<DirectoryEmployeePortalProjectionConsumer>(ctx);
+                    });
+
+                    cfg.ReceiveEndpoint("parrainage-initial-training-rejected", e =>
+                    {
+                        e.ConfigureConsumer<InitialTrainingRejectedReferralConsumer>(ctx);
+                    });
+
+                    cfg.ReceiveEndpoint("parrainage-initial-training-completed", e =>
+                    {
+                        e.ConfigureConsumer<InitialTrainingCompletedReferralConsumer>(ctx);
                     });
 
                     cfg.ConfigureEndpoints(ctx);

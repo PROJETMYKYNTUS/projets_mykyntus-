@@ -34,11 +34,13 @@ public sealed class DirectoryEmployeeHrProfileProjectionConsumer(AppDbContext db
         profile.DateNaissance = msg.DateNaissance;
         profile.VilleNaissance = msg.VilleNaissance;
         profile.Nationalite = msg.Nationalite;
+        profile.NumeroCarteAutoentrepreneur = msg.NumeroCarteAutoentrepreneur;
         profile.Sexe = msg.Sexe;
         profile.SituationFamiliale = msg.SituationFamiliale;
         profile.NombreEnfants = msg.NombreEnfants;
         profile.Cin = msg.Cin;
         profile.Adresse = msg.Adresse;
+        profile.EmailPersonnel = msg.EmailPersonnel;
         profile.Telephone1 = msg.Telephone1;
         profile.TelephoneUrgence = msg.TelephoneUrgence;
         profile.RelationUrgence = msg.RelationUrgence;

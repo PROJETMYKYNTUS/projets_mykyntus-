@@ -1,0 +1,124 @@
+<div class="ky-page-shell pv-validation">
+  <app-kyntus-page-header
+    title="Validation plannings"
+    subtitle="Consultez les brouillons générés automatiquement par service (plus petite entité organisationnelle), modifiez si besoin, puis validez (Admin / RH).">
+    <div actions class="pv-actions">
+      <button type="button" class="ky-btn-secondary" (click)="showSettings = !showSettings">
+        <app-lucide-icon [icon]="icons.settings" className="w-4 h-4" />
+        Auto-génération
+      </button>
+      <button type="button" class="ky-btn-secondary" [disabled]="generating" (click)="regenerate()">
+        <app-lucide-icon [icon]="icons.refresh" className="w-4 h-4" />
+        {{ generating ? 'Génération…' : 'Générer / compléter' }}
+      </button>
+    </div>
+  </app-kyntus-page-header>
+
+  <div class="week-nav ky-card">
+    <button type="button" class="nav-btn" (click)="prevWeek()" aria-label="Semaine précédente">
+      <app-lucide-icon [icon]="icons.prev" className="w-5 h-5" />
+    </button>
+    <div class="week-center">
+      <span class="week-code">{{ weekCode }}</span>
+      <span class="week-range">{{ weekRangeLabel() }}</span>
+      <span class="week-hint">Par défaut : semaine prochaine</span>
+    </div>
+    <button type="button" class="nav-btn" (click)="nextWeek()" aria-label="Semaine suivante">
+      <app-lucide-icon [icon]="icons.next" className="w-5 h-5" />
+    </button>
+  </div>
+
+  <div class="settings-panel ky-card" *ngIf="showSettings">
+    <h3>Génération automatique</h3>
+    <p class="hint">Défaut : chaque jeudi pour la semaine suivante. Modifiable par RH / Admin.</p>
+    <div class="settings-grid">
+      <label class="chk">
+        <input type="checkbox" [(ngModel)]="settings.enabled" />
+        Activée
+      </label>
+      <div class="form-group">
+        <label>Jour</label>
+        <select class="ky-input" [(ngModel)]="settings.dayOfWeek">
+          <option *ngFor="let d of dayNames; let i = index" [ngValue]="i">{{ d }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Heure</label>
+        <input class="ky-input" type="number" min="0" max="23" [(ngModel)]="settings.hourLocal" />
+      </div>
+      <div class="form-group">
+        <label>Minute</label>
+        <input class="ky-input" type="number" min="0" max="59" [(ngModel)]="settings.minuteLocal" />
+      </div>
+      <div class="form-group">
+        <label>Cible</label>
+        <select class="ky-input" [(ngModel)]="settings.target">
+          <option value="NextWeek">Semaine suivante</option>
+          <option value="CurrentWeek">Semaine en cours</option>
+        </select>
+      </div>
+    </div>
+    <p class="hint" *ngIf="settings.lastRunWeekCode">
+      Dernière exécution : {{ settings.lastRunWeekCode }}
+      <span *ngIf="settings.lastRunAt"> ({{ settings.lastRunAt | date:'short' }})</span>
+    </p>
+    <button type="button" class="ky-btn-primary" [disabled]="savingSettings" (click)="saveSettings()">
+      {{ savingSettings ? 'Enregistrement…' : 'Enregistrer' }}
+    </button>
+  </div>
+
+  <div class="filters-row">
+    <input class="ky-input" type="search" placeholder="Rechercher un service…" [(ngModel)]="search" />
+    <select class="ky-input" [(ngModel)]="statusFilter">
+      <option value="all">Tous</option>
+      <option value="draft">À valider</option>
+      <option value="published">Validés</option>
+      <option value="missing">Non générés</option>
+    </select>
+  </div>
+
+  <div class="alert-error" *ngIf="error">{{ error }}</div>
+  <div class="alert-success" *ngIf="successMsg">{{ successMsg }}</div>
+
+  <div class="loading" *ngIf="loading">Chargement…</div>
+
+  <div class="table-wrap ky-card" *ngIf="!loading">
+    <table class="prime-table">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Effectif</th>
+          <th>Statut</th>
+          <th>Consultation</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of filteredItems">
+          <td>
+            <div class="cell-name">{{ item.orgLabel || item.subServiceName }}</div>
+          </td>
+          <td>{{ item.totalEffectif || '—' }}</td>
+          <td><span class="status-pill" [ngClass]="statusClass(item)">{{ statusLabel(item) }}</span></td>
+          <td>
+            <span *ngIf="item.planningId && item.hasConsulted" class="ok">Consulté</span>
+            <span *ngIf="item.planningId && !item.hasConsulted" class="muted">Non consulté</span>
+            <span *ngIf="!item.planningId" class="muted">—</span>
+          </td>
+          <td>
+            <button
+              type="button"
+              class="ky-btn-secondary btn-sm"
+              [disabled]="!item.planningId"
+              (click)="openItem(item)">
+              Consulter
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="filteredItems.length === 0">
+          <td colspan="5" class="empty">Aucun planning pour cette semaine.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

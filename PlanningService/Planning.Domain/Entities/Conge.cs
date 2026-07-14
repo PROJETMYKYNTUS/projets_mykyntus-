@@ -10,8 +10,10 @@ public class Conge
     public DateOnly EndDate { get; set; }
     public string Reason { get; set; } = string.Empty;
     public CongeStatus Status { get; set; } = CongeStatus.Approved;
-    public AbsenceType AbsenceType { get; set; } = AbsenceType.CongesPayes; // ? NOUVEAU
+    public AbsenceType AbsenceType { get; set; } = AbsenceType.CongesPayes;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    /// <summary>Id de la demande Conge.API (sync validate/refuse/cancel).</summary>
+    public Guid? SourceDemandeId { get; set; }
 
     // Navigation
     public User User { get; set; } = null!;

@@ -72,15 +72,42 @@ public class PlanningService : IPlanningService
     }
 
     // ----------------------------------------------------
-    // SAUVEGARDER CONFIG SHIFTS DU RESPONSABLE
+    // CONFIG SHIFTS — TEMPLATE + SNAPSHOT
     // ----------------------------------------------------
+    public async Task<WeekShiftConfigResponseDto> SaveShiftTemplateAsync(SaveShiftConfigDto dto)
+    {
+        dto.WeekCode = null;
+        dto.WeekStartDate = null;
+        return await SaveShiftConfigInternalAsync(dto, isTemplate: true);
+    }
+
     public async Task<WeekShiftConfigResponseDto> SaveShiftConfigAsync(SaveShiftConfigDto dto)
     {
-        var existing = await _context.SubServiceShiftConfigs
-            .Where(c => c.SubServiceId == dto.SubServiceId && c.WeekCode == dto.WeekCode)
-            .ToListAsync();
+        // WeekCode vide → modèle permanent (rétro-compat + nouvelle UI)
+        var isTemplate = string.IsNullOrWhiteSpace(dto.WeekCode);
+        return await SaveShiftConfigInternalAsync(dto, isTemplate);
+    }
 
-        if (existing.Any())
+    private async Task<WeekShiftConfigResponseDto> SaveShiftConfigInternalAsync(
+        SaveShiftConfigDto dto, bool isTemplate)
+    {
+        List<SubServiceShiftConfig> existing;
+        if (isTemplate)
+        {
+            existing = await _context.SubServiceShiftConfigs
+                .Where(c => c.SubServiceId == dto.SubServiceId && c.IsTemplate)
+                .ToListAsync();
+        }
+        else
+        {
+            existing = await _context.SubServiceShiftConfigs
+                .Where(c => c.SubServiceId == dto.SubServiceId
+                         && !c.IsTemplate
+                         && c.WeekCode == dto.WeekCode)
+                .ToListAsync();
+        }
+
+        if (existing.Count > 0)
             _context.SubServiceShiftConfigs.RemoveRange(existing);
 
         var totalEffectif = dto.Shifts.Sum(s => s.RequiredCount);
@@ -93,11 +120,12 @@ public class PlanningService : IPlanningService
 
             var breakStart = shift.BreakRangeStart != null
                 ? TimeOnly.Parse(shift.BreakRangeStart)
-                : startTime.AddHours(3);
+                : startTime.AddHours(4);
 
+            var breakDuration = shift.BreakDurationMinutes > 0 ? shift.BreakDurationMinutes : 60;
             var breakEnd = shift.BreakRangeEnd != null
                 ? TimeOnly.Parse(shift.BreakRangeEnd)
-                : startTime.AddHours(shift.WorkHours - 1);
+                : breakStart.AddMinutes(breakDuration);
 
             var percentage = totalEffectif > 0
                 ? Math.Round((decimal)shift.RequiredCount / totalEffectif * 100, 1)
@@ -106,8 +134,9 @@ public class PlanningService : IPlanningService
             configs.Add(new SubServiceShiftConfig
             {
                 SubServiceId = dto.SubServiceId,
-                WeekCode = dto.WeekCode,
-                WeekStartDate = dto.WeekStartDate,
+                WeekCode = isTemplate ? null : dto.WeekCode,
+                WeekStartDate = isTemplate ? null : dto.WeekStartDate,
+                IsTemplate = isTemplate,
                 Label = shift.Label,
                 StartTime = startTime,
                 WorkHours = shift.WorkHours,
@@ -125,13 +154,93 @@ public class PlanningService : IPlanningService
         _context.SubServiceShiftConfigs.AddRange(configs);
         await _context.SaveChangesAsync();
 
-        return await GetShiftConfigAsync(dto.SubServiceId, dto.WeekCode)
+        if (isTemplate)
+            return await GetShiftTemplateAsync(dto.SubServiceId)
+                ?? throw new Exception("Erreur sauvegarde template.");
+
+        return await GetShiftConfigAsync(dto.SubServiceId, dto.WeekCode!)
             ?? throw new Exception("Erreur sauvegarde config.");
     }
 
-    // ----------------------------------------------------
-    // LIRE LA CONFIG D'UNE SEMAINE
-    // ----------------------------------------------------
+    public async Task<WeekShiftConfigResponseDto?> GetShiftTemplateAsync(int subServiceId)
+    {
+        var subService = await _context.SubServices.FindAsync(subServiceId);
+        if (subService == null) return null;
+
+        var configs = await _context.SubServiceShiftConfigs
+            .Where(c => c.SubServiceId == subServiceId && c.IsTemplate)
+            .OrderBy(c => c.DisplayOrder)
+            .ToListAsync();
+
+        if (configs.Count == 0) return null;
+
+        return new WeekShiftConfigResponseDto
+        {
+            SubServiceId = subServiceId,
+            SubServiceName = subService.Name,
+            WeekCode = string.Empty,
+            WeekStartDate = default,
+            IsTemplate = true,
+            TotalEffectif = configs.Sum(c => c.RequiredCount),
+            Shifts = configs.Select(MapToShiftConfigResponseDto).ToList()
+        };
+    }
+
+    public async Task<ShiftConfigStatusResponseDto> GetShiftConfigStatusAsync()
+    {
+        var subs = await _context.SubServices
+            .AsNoTracking()
+            .OrderBy(s => s.Name)
+            .Select(s => new { s.Id, s.Name, s.PrimeServiceId })
+            .ToListAsync();
+
+        var templateAgg = await _context.SubServiceShiftConfigs
+            .AsNoTracking()
+            .Where(c => c.IsTemplate)
+            .GroupBy(c => c.SubServiceId)
+            .Select(g => new
+            {
+                SubServiceId = g.Key,
+                ShiftCount = g.Count(),
+                TemplateEffectif = g.Sum(x => x.RequiredCount)
+            })
+            .ToListAsync();
+
+        var templateBySub = templateAgg.ToDictionary(x => x.SubServiceId);
+
+        var activeCounts = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.IsActive && u.SubServiceId != null)
+            .GroupBy(u => u.SubServiceId!.Value)
+            .Select(g => new { SubServiceId = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var activeBySub = activeCounts.ToDictionary(x => x.SubServiceId, x => x.Count);
+
+        var items = subs.Select(s =>
+        {
+            templateBySub.TryGetValue(s.Id, out var tpl);
+            activeBySub.TryGetValue(s.Id, out var active);
+            return new ShiftConfigStatusItemDto
+            {
+                SubServiceId = s.Id,
+                SubServiceName = s.Name,
+                PrimeServiceId = s.PrimeServiceId,
+                HasTemplate = tpl != null && tpl.ShiftCount > 0,
+                ShiftCount = tpl?.ShiftCount ?? 0,
+                TemplateEffectif = tpl?.TemplateEffectif ?? 0,
+                ActiveEmployeeCount = active
+            };
+        }).ToList();
+
+        return new ShiftConfigStatusResponseDto
+        {
+            Items = items,
+            ConfiguredCount = items.Count(i => i.HasTemplate),
+            TotalCount = items.Count
+        };
+    }
+
     public async Task<WeekShiftConfigResponseDto?> GetShiftConfigAsync(
         int subServiceId, string weekCode)
     {
@@ -139,9 +248,24 @@ public class PlanningService : IPlanningService
         if (subService == null) return null;
 
         var configs = await _context.SubServiceShiftConfigs
-            .Where(c => c.SubServiceId == subServiceId && c.WeekCode == weekCode)
+            .Where(c => c.SubServiceId == subServiceId
+                     && !c.IsTemplate
+                     && c.WeekCode == weekCode)
             .OrderBy(c => c.DisplayOrder)
             .ToListAsync();
+
+        // Fallback template si pas encore de snapshot
+        if (configs.Count == 0)
+        {
+            var template = await GetShiftTemplateAsync(subServiceId);
+            if (template != null)
+            {
+                template.WeekCode = weekCode;
+                template.IsTemplate = true;
+                return template;
+            }
+            return null;
+        }
 
         return new WeekShiftConfigResponseDto
         {
@@ -149,13 +273,63 @@ public class PlanningService : IPlanningService
             SubServiceName = subService.Name,
             WeekCode = weekCode,
             WeekStartDate = configs.FirstOrDefault()?.WeekStartDate ?? DateOnly.MinValue,
+            IsTemplate = false,
             TotalEffectif = configs.Sum(c => c.RequiredCount),
             Shifts = configs.Select(MapToShiftConfigResponseDto).ToList()
         };
     }
 
+    public async Task EnsureWeekSnapshotAsync(
+        int subServiceId, string weekCode, DateOnly weekStartDate, bool forceRefresh = false)
+    {
+        var existing = await _context.SubServiceShiftConfigs
+            .Where(c => c.SubServiceId == subServiceId
+                     && !c.IsTemplate
+                     && c.WeekCode == weekCode)
+            .ToListAsync();
+
+        if (existing.Count > 0 && !forceRefresh)
+            return;
+
+        var template = await _context.SubServiceShiftConfigs
+            .Where(c => c.SubServiceId == subServiceId && c.IsTemplate)
+            .OrderBy(c => c.DisplayOrder)
+            .ToListAsync();
+
+        if (template.Count == 0)
+            throw new InvalidOperationException(
+                "Aucune configuration shifts (modèle) pour ce sous-service. Configurez d'abord les shifts.");
+
+        if (existing.Count > 0)
+            _context.SubServiceShiftConfigs.RemoveRange(existing);
+
+        foreach (var t in template)
+        {
+            _context.SubServiceShiftConfigs.Add(new SubServiceShiftConfig
+            {
+                SubServiceId = subServiceId,
+                WeekCode = weekCode,
+                WeekStartDate = weekStartDate,
+                IsTemplate = false,
+                Label = t.Label,
+                StartTime = t.StartTime,
+                WorkHours = t.WorkHours,
+                BreakDurationMinutes = t.BreakDurationMinutes,
+                BreakRangeStart = t.BreakRangeStart,
+                BreakRangeEnd = t.BreakRangeEnd,
+                RequiredCount = t.RequiredCount,
+                Percentage = t.Percentage,
+                MinPresencePercent = t.MinPresencePercent,
+                DisplayOrder = t.DisplayOrder,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
     // ----------------------------------------------------
-    // G�N�RER DEPUIS LA CONFIG
+    // GÉNÉRER DEPUIS LA CONFIG
     // ----------------------------------------------------
     public async Task<WeeklyPlanningResponseDto> GeneratePlanningFromConfigAsync(
        GeneratePlanningFromConfigDto dto)
@@ -165,13 +339,31 @@ public class PlanningService : IPlanningService
             .FirstOrDefaultAsync(p => p.Id == dto.WeeklyPlanningId)
             ?? throw new Exception("Planning introuvable.");
 
+        var weekCode = string.IsNullOrWhiteSpace(dto.WeekCode) ? planning.WeekCode : dto.WeekCode!;
+        var subServiceId = dto.SubServiceId > 0 ? dto.SubServiceId : planning.SubServiceId;
+
+        // Régénération brouillon : retirer les assignments avant refresh snapshot (FK)
+        var forceRefresh = planning.Status == PlanningStatus.Draft;
+        if (forceRefresh)
+        {
+            _context.ShiftAssignments.RemoveRange(
+                _context.ShiftAssignments.Where(a => a.WeeklyPlanningId == planning.Id));
+            _context.WeeklyShiftConfigs.RemoveRange(
+                _context.WeeklyShiftConfigs.Where(c => c.WeeklyPlanningId == planning.Id));
+            await _context.SaveChangesAsync();
+        }
+
+        await EnsureWeekSnapshotAsync(subServiceId, weekCode, planning.WeekStartDate, forceRefresh);
+
         var shiftConfigs = await _context.SubServiceShiftConfigs
-            .Where(c => c.SubServiceId == dto.SubServiceId && c.WeekCode == dto.WeekCode)
+            .Where(c => c.SubServiceId == subServiceId
+                     && !c.IsTemplate
+                     && c.WeekCode == weekCode)
             .OrderBy(c => c.DisplayOrder)
             .ToListAsync();
 
         if (!shiftConfigs.Any())
-            throw new Exception("Aucune config de shifts trouv�e.");
+            throw new Exception("Aucune config de shifts trouvée.");
 
         var employees = await _context.Users
             .Where(u => u.SubServiceId == planning.SubServiceId && u.IsActive)
@@ -180,16 +372,22 @@ public class PlanningService : IPlanningService
 
         planning.TotalEffectif = employees.Count;
 
+        // Aligne les quotas snapshot sur l'effectif réel (conserve les proportions du modèle)
+        RescaleShiftQuotasToEffectif(shiftConfigs, employees.Count);
+
         await AutoAssignSaturdayGroupsAsync(planning.SubServiceId);
 
         var weekNumber = System.Globalization.ISOWeek.GetWeekOfYear(
             planning.WeekStartDate.ToDateTime(TimeOnly.MinValue));
         planning.SaturdayGroupId = weekNumber % 2 == 0 ? 1 : 2;
 
-        _context.ShiftAssignments.RemoveRange(
-            _context.ShiftAssignments.Where(a => a.WeeklyPlanningId == planning.Id));
-        _context.WeeklyShiftConfigs.RemoveRange(
-            _context.WeeklyShiftConfigs.Where(c => c.WeeklyPlanningId == planning.Id));
+        if (!forceRefresh)
+        {
+            _context.ShiftAssignments.RemoveRange(
+                _context.ShiftAssignments.Where(a => a.WeeklyPlanningId == planning.Id));
+            _context.WeeklyShiftConfigs.RemoveRange(
+                _context.WeeklyShiftConfigs.Where(c => c.WeeklyPlanningId == planning.Id));
+        }
 
         await _context.SaveChangesAsync();
 
@@ -236,6 +434,7 @@ public class PlanningService : IPlanningService
             }
         }
 
+        // Après rescale, le surplus ne devrait plus arriver ; filet de sécurité
         while (cumulative < employees.Count)
         {
             var empStartIdx = (cumulative + currentWeekNumber) % orderedShifts.Count;
@@ -264,7 +463,7 @@ public class PlanningService : IPlanningService
                         IsSaturday = false,
                         IsOnLeave = false,
                         IsHoliday = true,
-                        IsNewEmployee = IsNewEmployee(emp.Id, saturdayGroups)
+                        IsNewEmployee = IsBeginnerLevel(emp)
                     });
                 }
                 dayIdx++;
@@ -297,7 +496,7 @@ public class PlanningService : IPlanningService
                     IsSaturday = false,
                     IsOnLeave = true,
                     IsHoliday = false,
-                    IsNewEmployee = IsNewEmployee(emp.Id, saturdayGroups)
+                    IsNewEmployee = IsBeginnerLevel(emp)
                 });
             }
 
@@ -333,7 +532,7 @@ public class PlanningService : IPlanningService
                     IsSaturday = false,
                     IsOnLeave = false,
                     IsHoliday = false,
-                    IsNewEmployee = IsNewEmployee(emp.Id, saturdayGroups)
+                    IsNewEmployee = IsBeginnerLevel(emp)
                 });
             }
 
@@ -361,12 +560,15 @@ public class PlanningService : IPlanningService
                     IsSaturday = true,
                     IsOnLeave = false,
                     IsHoliday = true,
-                    IsNewEmployee = IsNewEmployee(emp.Id, saturdayGroups)
+                    IsNewEmployee = IsBeginnerLevel(emp)
                 });
             }
         }
         else
         {
+            // Compteurs d'équité demi-journée Débutant (créneau 1 = plus tôt, 2 = suivant)
+            var beginnerHalfDaySlotCounts = new Dictionary<int, int> { [1] = 0, [2] = 0 };
+
             for (int empIndex = 0; empIndex < employees.Count; empIndex++)
             {
                 var employee = employees[empIndex];
@@ -388,13 +590,15 @@ public class PlanningService : IPlanningService
                         IsSaturday = true,
                         IsOnLeave = true,
                         IsHoliday = false,
-                        IsNewEmployee = IsNewEmployee(employee.Id, saturdayGroups)
+                        IsNewEmployee = IsBeginnerLevel(employee)
                     });
                 }
                 else
                 {
                     var satAssignment = await GenerateSaturdayAssignmentFromConfigAsync(
-                        employee, planning, shiftConfigs, saturdayGroups, empIndex, dto.WeekCode);
+                        employee, planning, shiftConfigs, saturdayGroups, empIndex,
+                        string.IsNullOrWhiteSpace(dto.WeekCode) ? planning.WeekCode : dto.WeekCode!,
+                        beginnerHalfDaySlotCounts);
 
                     if (satAssignment != null)
                     {
@@ -481,6 +685,37 @@ public class PlanningService : IPlanningService
                 history?.WorkedSaturday ?? false,
                 history?.IsManualEntry ?? false
             );
+        }).ToList();
+    }
+
+    public async Task<List<SaturdayYtdDto>> GetSaturdayYtdAsync(int subServiceId, int year)
+    {
+        var prefix = $"{year}-";
+        var employees = await _context.Users
+            .Where(u => u.SubServiceId == subServiceId && u.IsActive)
+            .OrderBy(u => u.LastName).ThenBy(u => u.FirstName)
+            .ToListAsync();
+
+        var histories = await _context.SaturdayHistories
+            .Where(h => h.SubServiceId == subServiceId && h.WeekCode.StartsWith(prefix))
+            .ToListAsync();
+
+        return employees.Select(emp =>
+        {
+            var rows = histories.Where(h => h.UserId == emp.Id).ToList();
+            var worked = rows.Count(h => h.WorkedSaturday);
+            var total = rows.Count;
+            var off = total - worked;
+            var pct = total > 0
+                ? Math.Round((decimal)worked / total * 100, 1)
+                : 0m;
+            return new SaturdayYtdDto(
+                emp.Id,
+                $"{emp.FirstName} {emp.LastName}",
+                worked,
+                off,
+                total,
+                pct);
         }).ToList();
     }
 
@@ -611,7 +846,7 @@ public class PlanningService : IPlanningService
                         DayOfWeek = day,
                         IsSaturday = false,
                         IsOnLeave = true,
-                        IsNewEmployee = IsNewEmployee(employee.Id, saturdayGroups)
+                        IsNewEmployee = IsBeginnerLevel(employee)
                     });
                     continue;
                 }
@@ -626,7 +861,7 @@ public class PlanningService : IPlanningService
                     DayOfWeek = day,
                     IsSaturday = false,
                     IsOnLeave = false,
-                    IsNewEmployee = IsNewEmployee(employee.Id, saturdayGroups)
+                    IsNewEmployee = IsBeginnerLevel(employee)
                 });
 
                 if (shiftId == shifts.First().Id)
@@ -641,8 +876,13 @@ public class PlanningService : IPlanningService
 
             if (!isOnLeaveSat)
             {
+                var beginnerSlots = new Dictionary<int, int> { [1] = 0, [2] = 0 };
+                // Compter les débutants déjà placés dans ce batch (boucle par employé)
+                foreach (var a in assignments.Where(x => x.IsSaturday && x.IsHalfDaySaturday && x.SaturdaySlot is 1 or 2))
+                    beginnerSlots[a.SaturdaySlot] = beginnerSlots.GetValueOrDefault(a.SaturdaySlot, 0) + 1;
+
                 var satAssignment = GenerateSaturdayAssignment(
-                    employee, planning, shifts, saturdayGroups, empIndex);
+                    employee, planning, shifts, saturdayGroups, empIndex, beginnerSlots);
                 if (satAssignment != null)
                     assignments.Add(satAssignment);
             }
@@ -828,8 +1068,37 @@ public class PlanningService : IPlanningService
         }
     }
     // ----------------------------------------------------
-    // PUBLIER
+    // PUBLIER (validation Admin/RH — consultation obligatoire)
     // ----------------------------------------------------
+    public async Task RecordConsultationAsync(int planningId, int userId)
+    {
+        var exists = await _context.WeeklyPlannings.AnyAsync(p => p.Id == planningId);
+        if (!exists) throw new InvalidOperationException("Planning introuvable.");
+
+        var existing = await _context.PlanningConsultations
+            .FirstOrDefaultAsync(c => c.PlanningId == planningId && c.UserId == userId);
+
+        if (existing != null)
+        {
+            existing.ConsultedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            _context.PlanningConsultations.Add(new PlanningConsultation
+            {
+                PlanningId = planningId,
+                UserId = userId,
+                ConsultedAt = DateTime.UtcNow
+            });
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<bool> HasConsultedAsync(int planningId, int userId) =>
+        await _context.PlanningConsultations
+            .AnyAsync(c => c.PlanningId == planningId && c.UserId == userId);
+
     public async Task<WeeklyPlanningResponseDto> PublishPlanningAsync(int planningId, int validatorId)
     {
         var planning = await _context.WeeklyPlannings
@@ -838,6 +1107,14 @@ public class PlanningService : IPlanningService
             .FirstOrDefaultAsync(p => p.Id == planningId);
 
         if (planning == null) throw new Exception("Planning introuvable");
+
+        if (planning.Status != PlanningStatus.Draft)
+            throw new InvalidOperationException("Seuls les brouillons peuvent être validés.");
+
+        var consulted = await HasConsultedAsync(planningId, validatorId);
+        if (!consulted)
+            throw new InvalidOperationException(
+                "Consultation obligatoire avant validation. Ouvrez d'abord le planning.");
 
         planning.Status = PlanningStatus.Published;
         planning.ValidatedBy = validatorId;
@@ -1071,6 +1348,40 @@ public class PlanningService : IPlanningService
                      && c.EndDate >= planning.WeekStartDate)
             .ToListAsync();
 
+        var subConfigs = await _context.SubServiceShiftConfigs
+            .Where(c => c.SubServiceId == planning.SubServiceId && c.WeekCode == planning.WeekCode)
+            .OrderBy(c => c.DisplayOrder)
+            .ToListAsync();
+
+        List<ShiftConfigResponseDto> shiftConfigs;
+        if (planning.WeeklyShiftConfigs.Count > 0)
+        {
+            shiftConfigs = planning.WeeklyShiftConfigs.Select(c => new ShiftConfigResponseDto
+            {
+                ShiftId = c.ShiftId,
+                ShiftLabel = c.Shift.Label,
+                StartTime = c.Shift.StartTime.ToString("HH:mm"),
+                RequiredCount = c.RequiredCount,
+                Percentage = c.Percentage
+            }).ToList();
+        }
+        else
+        {
+            var totalRequired = subConfigs.Sum(c => c.RequiredCount);
+            shiftConfigs = subConfigs.Select(c => new ShiftConfigResponseDto
+            {
+                ShiftId = c.Id,
+                ShiftLabel = c.Label,
+                StartTime = c.StartTime.ToString("HH:mm"),
+                RequiredCount = c.RequiredCount,
+                Percentage = totalRequired > 0
+                    ? Math.Round((decimal)c.RequiredCount / totalRequired * 100, 1)
+                    : 0
+            }).ToList();
+        }
+
+        var coverage = BuildCoverageReport(planning, subConfigs);
+
         return new WeeklyPlanningResponseDto
         {
             Id = planning.Id,
@@ -1081,14 +1392,8 @@ public class PlanningService : IPlanningService
             TotalEffectif = planning.TotalEffectif,
             SaturdayGroupId = planning.SaturdayGroupId,
             SubServiceName = planning.SubService.Name,
-            ShiftConfigs = planning.WeeklyShiftConfigs.Select(c => new ShiftConfigResponseDto
-            {
-                ShiftId = c.ShiftId,
-                ShiftLabel = c.Shift.Label,
-                StartTime = c.Shift.StartTime.ToString("HH:mm"),
-                RequiredCount = c.RequiredCount,
-                Percentage = c.Percentage
-            }).ToList(),
+            ShiftConfigs = shiftConfigs,
+            CoverageReport = coverage,
             Assignments = planning.ShiftAssignments
                 .GroupBy(a => a.UserId)
                 .Select(g => new EmployeePlanningDto
@@ -1099,7 +1404,7 @@ public class PlanningService : IPlanningService
                     Level = g.First().User.Level,
                     ManagerComment = comments.FirstOrDefault(c => c.UserId == g.Key)?.Comment,
                     Days = g.OrderBy(a => a.AssignedDate)
-                             .Select(a => MapToDayDtoNew(a, conges)) // ? passer conges
+                             .Select(a => MapToDayDtoNew(a, conges))
                              .ToList()
                 }).ToList()
         };
@@ -1305,7 +1610,7 @@ public class PlanningService : IPlanningService
     }
 
     // ----------------------------------------------------
-    // HELPERS � NOUVEAU SYST�ME
+    // HELPERS — génération samedi (niveau contractuel)
     // ----------------------------------------------------
     private async Task<ShiftAssignment?> GenerateSaturdayAssignmentFromConfigAsync(
         User employee,
@@ -1313,17 +1618,23 @@ public class PlanningService : IPlanningService
         List<SubServiceShiftConfig> shiftConfigs,
         List<SaturdayGroup> saturdayGroups,
         int employeeIndex,
-        string weekCode)
+        string weekCode,
+        Dictionary<int, int> beginnerHalfDaySlotCounts)
     {
         var satGroup = saturdayGroups.FirstOrDefault(sg => sg.UserId == employee.Id);
+        var orderedConfigs = shiftConfigs.OrderBy(s => s.StartTime).ThenBy(s => s.DisplayOrder).ToList();
 
-        if (satGroup?.IsNewEmployee == true)
+        // Débutant (Level 1) : tous les samedis, demi-journée, créneau auto équitable
+        if (IsBeginnerLevel(employee))
         {
-            if (satGroup.NewEmployeeSlot == 0) return null;
+            if (orderedConfigs.Count == 0) return null;
 
-            var shiftConfig = satGroup.NewEmployeeSlot == 1
-                ? shiftConfigs.OrderBy(s => s.StartTime).First()
-                : shiftConfigs.OrderBy(s => s.StartTime).Skip(1).First();
+            var slot = PickBalancedHalfDaySlot(beginnerHalfDaySlotCounts);
+            var shiftConfig = slot == 1 || orderedConfigs.Count == 1
+                ? orderedConfigs[0]
+                : orderedConfigs[Math.Min(1, orderedConfigs.Count - 1)];
+
+            beginnerHalfDaySlotCounts[slot] = beginnerHalfDaySlotCounts.GetValueOrDefault(slot, 0) + 1;
 
             return new ShiftAssignment
             {
@@ -1335,7 +1646,7 @@ public class PlanningService : IPlanningService
                 IsSaturday = true,
                 IsNewEmployee = true,
                 IsHalfDaySaturday = true,
-                SaturdaySlot = satGroup.NewEmployeeSlot
+                SaturdaySlot = slot
             };
         }
 
@@ -1357,13 +1668,13 @@ public class PlanningService : IPlanningService
 
         var weekNumber = System.Globalization.ISOWeek.GetWeekOfYear(
             planning.WeekStartDate.ToDateTime(TimeOnly.MinValue));
-        var shiftIndex = (employeeIndex + weekNumber) % shiftConfigs.Count;
+        var shiftIndex = (employeeIndex + weekNumber) % orderedConfigs.Count;
 
         return new ShiftAssignment
         {
             WeeklyPlanningId = planning.Id,
             UserId = employee.Id,
-            SubServiceShiftConfigId = shiftConfigs[shiftIndex].Id,
+            SubServiceShiftConfigId = orderedConfigs[shiftIndex].Id,
             AssignedDate = planning.WeekStartDate.AddDays(5),
             DayOfWeek = DayOfWeekEnum.Saturday,
             IsSaturday = true,
@@ -1372,6 +1683,16 @@ public class PlanningService : IPlanningService
             SaturdaySlot = 0
         };
     }
+
+    /// <summary>Choisit le créneau demi-journée le moins chargé (égalité → 1).</summary>
+    private static int PickBalancedHalfDaySlot(Dictionary<int, int> counts)
+    {
+        var c1 = counts.GetValueOrDefault(1, 0);
+        var c2 = counts.GetValueOrDefault(2, 0);
+        return c1 <= c2 ? 1 : 2;
+    }
+
+    private static bool IsBeginnerLevel(User employee) => employee.Level == 1;
 
     private static string GetPreviousWeekCode(string weekCode)
     {
@@ -1385,6 +1706,66 @@ public class PlanningService : IPlanningService
         return $"{year}-W{(week - 1):D2}";
     }
 
+    /// <summary>
+    /// Ajuste RequiredCount des configs pour que la somme = effectif réel,
+    /// en conservant les proportions (et Percentage).
+    /// </summary>
+    private static void RescaleShiftQuotasToEffectif(
+        List<SubServiceShiftConfig> shiftConfigs, int employeeCount)
+    {
+        if (shiftConfigs.Count == 0 || employeeCount <= 0) return;
+
+        var totalRequired = shiftConfigs.Sum(c => c.RequiredCount);
+        if (totalRequired == employeeCount) return;
+
+        if (totalRequired <= 0)
+        {
+            var baseCount = employeeCount / shiftConfigs.Count;
+            var rest = employeeCount % shiftConfigs.Count;
+            for (var i = 0; i < shiftConfigs.Count; i++)
+            {
+                shiftConfigs[i].RequiredCount = baseCount + (i < rest ? 1 : 0);
+                shiftConfigs[i].Percentage = employeeCount > 0
+                    ? Math.Round((decimal)shiftConfigs[i].RequiredCount / employeeCount * 100, 1)
+                    : 0;
+            }
+            return;
+        }
+
+        var allocated = 0;
+        for (var i = 0; i < shiftConfigs.Count; i++)
+        {
+            if (i == shiftConfigs.Count - 1)
+            {
+                shiftConfigs[i].RequiredCount = Math.Max(0, employeeCount - allocated);
+            }
+            else
+            {
+                var share = (int)Math.Floor(
+                    (decimal)shiftConfigs[i].RequiredCount / totalRequired * employeeCount);
+                shiftConfigs[i].RequiredCount = share;
+                allocated += share;
+            }
+        }
+
+        // Corriger si arrondis laissent un reste non placé sur le dernier (déjà fait)
+        // ou trop alloué avant le dernier
+        var sum = shiftConfigs.Sum(c => c.RequiredCount);
+        if (sum != employeeCount && shiftConfigs.Count > 0)
+        {
+            shiftConfigs[^1].RequiredCount = Math.Max(
+                0,
+                shiftConfigs[^1].RequiredCount + (employeeCount - sum));
+        }
+
+        foreach (var c in shiftConfigs)
+        {
+            c.Percentage = employeeCount > 0
+                ? Math.Round((decimal)c.RequiredCount / employeeCount * 100, 1)
+                : 0;
+        }
+    }
+
     private void AssignBreakTimesFromConfig(
         List<ShiftAssignment> dayAssignments,
         List<SubServiceShiftConfig> shiftConfigs,
@@ -1392,8 +1773,14 @@ public class PlanningService : IPlanningService
     {
         if (!dayAssignments.Any()) return;
 
-        int maxSimultaneous = Math.Max(1, (int)Math.Floor(totalEmployees * 0.30));
+        // Usage global par créneau (tous shifts confondus) + limite par shift
         var breakSlotUsage = new Dictionary<TimeOnly, int>();
+        // Max pauses simultanées au niveau service : basé sur la présence min la plus stricte
+        var serviceMinPresence = shiftConfigs.Count > 0
+            ? shiftConfigs.Min(c => c.MinPresencePercent <= 0 ? 70 : c.MinPresencePercent)
+            : 70;
+        serviceMinPresence = Math.Clamp(serviceMinPresence, 50, 95);
+        var serviceMaxBreak = Math.Max(1, (int)Math.Floor(totalEmployees * (100 - serviceMinPresence) / 100.0));
 
         var shiftGroups = dayAssignments
             .GroupBy(a => a.SubServiceShiftConfigId)
@@ -1404,23 +1791,117 @@ public class PlanningService : IPlanningService
             var config = shiftConfigs.FirstOrDefault(c => c.Id == group.Key);
             if (config == null) continue;
 
+            var groupSize = group.Count();
+            var minPresence = config.MinPresencePercent <= 0 ? 70 : config.MinPresencePercent;
+            minPresence = Math.Clamp(minPresence, 50, 95);
+            // Présence min PAR SHIFT : max en pause = floor(effectifs_shift * (100 - min) / 100)
+            var shiftMaxBreak = Math.Max(0, (int)Math.Floor(groupSize * (100 - minPresence) / 100.0));
+            if (shiftMaxBreak == 0 && groupSize > 0)
+                shiftMaxBreak = 1; // au moins 1 possible si le groupe est petit
+
             var slots = GenerateBreakSlots(config.BreakRangeStart, config.BreakRangeEnd);
+            var shiftSlotUsage = new Dictionary<TimeOnly, int>();
 
             foreach (var assignment in group)
             {
                 var bestSlot = slots
                     .OrderBy(s => breakSlotUsage.GetValueOrDefault(s, 0))
-                    .FirstOrDefault(s => breakSlotUsage.GetValueOrDefault(s, 0) < maxSimultaneous);
+                    .ThenBy(s => shiftSlotUsage.GetValueOrDefault(s, 0))
+                    .FirstOrDefault(s =>
+                        shiftSlotUsage.GetValueOrDefault(s, 0) < shiftMaxBreak
+                        && breakSlotUsage.GetValueOrDefault(s, 0) < serviceMaxBreak);
 
                 if (bestSlot == default)
+                {
                     bestSlot = slots
                         .OrderBy(s => breakSlotUsage.GetValueOrDefault(s, 0))
+                        .ThenBy(s => shiftSlotUsage.GetValueOrDefault(s, 0))
                         .First();
+                }
 
                 assignment.BreakTime = bestSlot;
+                shiftSlotUsage[bestSlot] = shiftSlotUsage.GetValueOrDefault(bestSlot, 0) + 1;
                 breakSlotUsage[bestSlot] = breakSlotUsage.GetValueOrDefault(bestSlot, 0) + 1;
             }
         }
+    }
+
+    private static CoverageReportDto BuildCoverageReport(
+        WeeklyPlanning planning,
+        List<SubServiceShiftConfig> shiftConfigs)
+    {
+        var report = new CoverageReportDto();
+        if (shiftConfigs.Count == 0)
+            return report;
+
+        var dayNames = new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday" };
+        for (var i = 0; i < 5; i++)
+        {
+            var date = planning.WeekStartDate.AddDays(i);
+            var dayName = dayNames[i];
+
+            foreach (var cfg in shiftConfigs.OrderBy(c => c.DisplayOrder))
+            {
+                var dayAssignments = planning.ShiftAssignments
+                    .Where(a =>
+                        a.AssignedDate == date
+                        && a.SubServiceShiftConfigId == cfg.Id
+                        && !a.IsOnLeave
+                        && !a.IsHoliday)
+                    .ToList();
+
+                var assigned = dayAssignments.Count;
+                var staffingPct = cfg.RequiredCount > 0
+                    ? Math.Round((decimal)assigned / cfg.RequiredCount * 100, 1)
+                    : 100m;
+
+                // Sous-effectif = quota non atteint
+                var understaffed = cfg.RequiredCount > 0 && assigned < cfg.RequiredCount;
+
+                // Présence min = contrainte pauses (par shift) — aligné sur l'algo de génération
+                var minPresence = cfg.MinPresencePercent <= 0 ? 70 : Math.Clamp(cfg.MinPresencePercent, 50, 100);
+                var presenceIssue = false;
+                if (assigned > 1)
+                {
+                    var maxBreakAllowed = (int)Math.Floor(assigned * (100 - minPresence) / 100.0);
+                    // Petits effectifs : floor(2×0.3)=0 serait impossible → au moins 1 pause autorisée
+                    if (maxBreakAllowed == 0)
+                        maxBreakAllowed = 1;
+                    presenceIssue = dayAssignments
+                        .Where(a => a.BreakTime.HasValue)
+                        .GroupBy(a => a.BreakTime!.Value)
+                        .Any(g => g.Count() > maxBreakAllowed);
+                }
+
+                report.Items.Add(new CoverageDayShiftDto
+                {
+                    Date = date,
+                    Day = dayName,
+                    ShiftConfigId = cfg.Id,
+                    ShiftLabel = cfg.Label,
+                    RequiredCount = cfg.RequiredCount,
+                    AssignedCount = assigned,
+                    MinPresencePercent = minPresence,
+                    PresencePercent = staffingPct,
+                    IsUnderstaffed = understaffed || presenceIssue,
+                });
+
+                if (understaffed)
+                {
+                    report.HasUnderstaffing = true;
+                    report.Warnings.Add(
+                        $"{dayName} {date:dd/MM} — {cfg.Label}: {assigned}/{cfg.RequiredCount} affectés (quota)");
+                }
+                else if (presenceIssue)
+                {
+                    report.HasUnderstaffing = true;
+                    report.Warnings.Add(
+                        $"{dayName} {date:dd/MM} — {cfg.Label}: trop de pauses simultanées (présence min {minPresence} %)");
+                }
+            }
+        }
+
+        return report;
     }
 
     private static List<TimeOnly> GenerateBreakSlots(TimeOnly rangeStart, TimeOnly rangeEnd)
@@ -1574,17 +2055,22 @@ public class PlanningService : IPlanningService
 
     private ShiftAssignment? GenerateSaturdayAssignment(
         User employee, WeeklyPlanning planning,
-        List<Shift> shifts, List<SaturdayGroup> saturdayGroups, int employeeIndex)
+        List<Shift> shifts, List<SaturdayGroup> saturdayGroups, int employeeIndex,
+        Dictionary<int, int> beginnerHalfDaySlotCounts)
     {
         var satGroup = saturdayGroups.FirstOrDefault(sg => sg.UserId == employee.Id);
-        if (satGroup == null) return null;
+        var orderedShifts = shifts.OrderBy(s => s.StartTime).ToList();
 
-        if (satGroup.IsNewEmployee)
+        if (IsBeginnerLevel(employee))
         {
-            if (satGroup.NewEmployeeSlot == 0) return null;
-            var shiftId = satGroup.NewEmployeeSlot == 1
-                ? shifts.OrderBy(s => s.StartTime).First().Id
-                : shifts.OrderBy(s => s.StartTime).Skip(1).First().Id;
+            if (orderedShifts.Count == 0) return null;
+
+            var slot = PickBalancedHalfDaySlot(beginnerHalfDaySlotCounts);
+            var shiftId = slot == 1 || orderedShifts.Count == 1
+                ? orderedShifts[0].Id
+                : orderedShifts[Math.Min(1, orderedShifts.Count - 1)].Id;
+
+            beginnerHalfDaySlotCounts[slot] = beginnerHalfDaySlotCounts.GetValueOrDefault(slot, 0) + 1;
 
             return new ShiftAssignment
             {
@@ -1596,21 +2082,22 @@ public class PlanningService : IPlanningService
                 IsSaturday = true,
                 IsNewEmployee = true,
                 IsHalfDaySaturday = true,
-                SaturdaySlot = satGroup.NewEmployeeSlot
+                SaturdaySlot = slot
             };
         }
 
+        if (satGroup == null) return null;
         if (satGroup.GroupNumber != planning.SaturdayGroupId) return null;
 
         var weekNumber = System.Globalization.ISOWeek.GetWeekOfYear(
             planning.WeekStartDate.ToDateTime(TimeOnly.MinValue));
-        var shiftIndex = (employeeIndex + weekNumber) % shifts.Count;
+        var shiftIndex = (employeeIndex + weekNumber) % orderedShifts.Count;
 
         return new ShiftAssignment
         {
             WeeklyPlanningId = planning.Id,
             UserId = employee.Id,
-            ShiftId = shifts[shiftIndex].Id,
+            ShiftId = orderedShifts[shiftIndex].Id,
             AssignedDate = planning.WeekStartDate.AddDays(5),
             DayOfWeek = DayOfWeekEnum.Saturday,
             IsSaturday = true,
@@ -1647,7 +2134,7 @@ public class PlanningService : IPlanningService
     private static List<TimeOnly> GetBreakSlots(TimeOnly shiftStart)
     {
         var slots = new List<TimeOnly>();
-        var earliest = shiftStart.AddHours(3);
+        var earliest = shiftStart.AddHours(4);
         for (int h = 0; h < 4; h++)
             slots.Add(earliest.AddHours(h));
         return slots;
@@ -1682,9 +2169,6 @@ public class PlanningService : IPlanningService
             weekStart.ToDateTime(TimeOnly.MinValue));
         return weekNumber % 2 == 0 ? 1 : 2;
     }
-
-    private static bool IsNewEmployee(int userId, List<SaturdayGroup> groups)
-        => groups.Any(g => g.UserId == userId && g.IsNewEmployee);
 
     private static List<(DayOfWeekEnum day, DateOnly date)> GetWeekDays(DateOnly weekStart)
         => new()
@@ -1744,6 +2228,251 @@ public class PlanningService : IPlanningService
         }
 
         return result;
+    }
+
+    // ----------------------------------------------------
+    // VUE SEMAINE + AUTO-GÉNÉRATION
+    // ----------------------------------------------------
+    public async Task<PlanningWeekListDto> GetWeekOverviewAsync(string weekCode, int? viewerUserId = null)
+    {
+        var weekStart = ParseWeekCodeToMonday(weekCode);
+        var subServices = await _context.SubServices
+            .Include(s => s.Service)
+            .OrderBy(s => s.Name)
+            .ToListAsync();
+
+        var plannings = await _context.WeeklyPlannings
+            .Where(p => p.WeekCode == weekCode)
+            .ToListAsync();
+
+        var templateSubIds = await _context.SubServiceShiftConfigs
+            .Where(c => c.IsTemplate)
+            .Select(c => c.SubServiceId)
+            .Distinct()
+            .ToListAsync();
+
+        var consultedIds = new HashSet<int>();
+        if (viewerUserId.HasValue)
+        {
+            var planningIds = plannings.Select(p => p.Id).ToList();
+            consultedIds = (await _context.PlanningConsultations
+                .Where(c => c.UserId == viewerUserId.Value && planningIds.Contains(c.PlanningId))
+                .Select(c => c.PlanningId)
+                .ToListAsync()).ToHashSet();
+        }
+
+        var items = new List<PlanningWeekItemDto>();
+        foreach (var ss in subServices)
+        {
+            var planning = plannings.FirstOrDefault(p => p.SubServiceId == ss.Id);
+            var hasTemplate = templateSubIds.Contains(ss.Id);
+            // SubService = plus petite entité orga (= « service » métier pour le planning)
+            var orgLabel = ss.Service != null
+                ? $"{ss.Name} · {ss.Service.Name}"
+                : ss.Name;
+
+            items.Add(new PlanningWeekItemDto
+            {
+                SubServiceId = ss.Id,
+                SubServiceName = ss.Name,
+                OrgLabel = orgLabel,
+                PlanningId = planning?.Id,
+                Status = planning?.Status.ToString(),
+                TotalEffectif = planning?.TotalEffectif ?? 0,
+                HasTemplate = hasTemplate,
+                CoverageOk = true,
+                HasConsulted = planning != null && consultedIds.Contains(planning.Id)
+            });
+        }
+
+        return new PlanningWeekListDto
+        {
+            WeekCode = weekCode,
+            WeekStartDate = weekStart,
+            Items = items
+        };
+    }
+
+    public async Task<AutoGenerateSettingsDto> GetAutoGenerateSettingsAsync()
+    {
+        var settings = await EnsureAutoGenerateSettingsEntityAsync();
+        return MapAutoGenerateSettings(settings);
+    }
+
+    public async Task<AutoGenerateSettingsDto> SaveAutoGenerateSettingsAsync(
+        AutoGenerateSettingsDto dto, int? updatedByUserId)
+    {
+        var settings = await EnsureAutoGenerateSettingsEntityAsync();
+        settings.Enabled = dto.Enabled;
+        settings.DayOfWeek = dto.DayOfWeek;
+        settings.HourLocal = Math.Clamp(dto.HourLocal, 0, 23);
+        settings.MinuteLocal = Math.Clamp(dto.MinuteLocal, 0, 59);
+        settings.TimeZone = string.IsNullOrWhiteSpace(dto.TimeZone) ? "Africa/Casablanca" : dto.TimeZone.Trim();
+        settings.Target = string.Equals(dto.Target, "CurrentWeek", StringComparison.OrdinalIgnoreCase)
+            ? "CurrentWeek"
+            : "NextWeek";
+        settings.UpdatedAt = DateTime.UtcNow;
+        settings.UpdatedByUserId = updatedByUserId;
+        await _context.SaveChangesAsync();
+        return MapAutoGenerateSettings(settings);
+    }
+
+    public async Task<AutoGenerateWeekResultDto> AutoGenerateWeekAsync(
+        string? weekCode = null, bool forceDraftRefresh = false)
+    {
+        DateOnly weekStart;
+        string code;
+        if (!string.IsNullOrWhiteSpace(weekCode))
+        {
+            code = weekCode!;
+            weekStart = ParseWeekCodeToMonday(code);
+        }
+        else
+        {
+            var settings = await EnsureAutoGenerateSettingsEntityAsync();
+            weekStart = GetTargetWeekMonday(settings.Target);
+            code = FormatWeekCode(weekStart);
+        }
+
+        var result = new AutoGenerateWeekResultDto { WeekCode = code };
+
+        var templateSubIds = await _context.SubServiceShiftConfigs
+            .Where(c => c.IsTemplate)
+            .Select(c => c.SubServiceId)
+            .Distinct()
+            .ToListAsync();
+
+        var allSubs = await _context.SubServices.Select(s => s.Id).ToListAsync();
+        foreach (var subId in allSubs.Where(id => !templateSubIds.Contains(id)))
+        {
+            result.Skipped++;
+            result.Messages.Add($"SubService {subId}: config shifts manquante (template).");
+        }
+
+        foreach (var subId in templateSubIds)
+        {
+            try
+            {
+                var existing = await _context.WeeklyPlannings
+                    .FirstOrDefaultAsync(p => p.SubServiceId == subId && p.WeekCode == code);
+
+                if (existing != null)
+                {
+                    if (existing.Status == PlanningStatus.Published)
+                    {
+                        result.Skipped++;
+                        result.Messages.Add($"SubService {subId}: déjà publié — ignoré.");
+                        continue;
+                    }
+
+                    if (!forceDraftRefresh)
+                    {
+                        result.Skipped++;
+                        result.Messages.Add($"SubService {subId}: brouillon existant — ignoré.");
+                        continue;
+                    }
+
+                    await GeneratePlanningFromConfigAsync(new GeneratePlanningFromConfigDto
+                    {
+                        SubServiceId = subId,
+                        WeekCode = code,
+                        WeeklyPlanningId = existing.Id
+                    });
+                    result.Created++;
+                    result.Messages.Add($"SubService {subId}: brouillon régénéré.");
+                    continue;
+                }
+
+                var employeesCount = await _context.Users
+                    .CountAsync(u => u.SubServiceId == subId && u.IsActive);
+
+                var created = await CreatePlanningAsync(new CreateWeeklyPlanningDto
+                {
+                    SubServiceId = subId,
+                    WeekCode = code,
+                    WeekStartDate = weekStart,
+                    TotalEffectif = Math.Max(1, employeesCount)
+                });
+
+                await GeneratePlanningFromConfigAsync(new GeneratePlanningFromConfigDto
+                {
+                    SubServiceId = subId,
+                    WeekCode = code,
+                    WeeklyPlanningId = created.Id
+                });
+
+                result.Created++;
+                result.Messages.Add($"SubService {subId}: brouillon créé.");
+            }
+            catch (Exception ex)
+            {
+                result.Errors++;
+                result.Messages.Add($"SubService {subId}: {ex.Message}");
+            }
+        }
+
+        var settingsEntity = await EnsureAutoGenerateSettingsEntityAsync();
+        settingsEntity.LastRunAt = DateTime.UtcNow;
+        settingsEntity.LastRunWeekCode = code;
+        await _context.SaveChangesAsync();
+
+        return result;
+    }
+
+    private async Task<PlanningAutoGenerateSettings> EnsureAutoGenerateSettingsEntityAsync()
+    {
+        var settings = await _context.PlanningAutoGenerateSettings
+            .FirstOrDefaultAsync(s => s.Id == PlanningAutoGenerateSettings.SingletonId);
+
+        if (settings != null) return settings;
+
+        settings = new PlanningAutoGenerateSettings();
+        _context.PlanningAutoGenerateSettings.Add(settings);
+        await _context.SaveChangesAsync();
+        return settings;
+    }
+
+    private static AutoGenerateSettingsDto MapAutoGenerateSettings(PlanningAutoGenerateSettings s) => new()
+    {
+        Enabled = s.Enabled,
+        DayOfWeek = s.DayOfWeek,
+        HourLocal = s.HourLocal,
+        MinuteLocal = s.MinuteLocal,
+        TimeZone = s.TimeZone,
+        Target = s.Target,
+        LastRunAt = s.LastRunAt,
+        LastRunWeekCode = s.LastRunWeekCode
+    };
+
+    private static DateOnly GetTargetWeekMonday(string target)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var currentMonday = GetMonday(today);
+        return string.Equals(target, "CurrentWeek", StringComparison.OrdinalIgnoreCase)
+            ? currentMonday
+            : currentMonday.AddDays(7);
+    }
+
+    private static DateOnly GetMonday(DateOnly date)
+    {
+        var diff = ((int)date.DayOfWeek + 6) % 7; // Monday=0
+        return date.AddDays(-diff);
+    }
+
+    private static string FormatWeekCode(DateOnly monday)
+    {
+        var dt = monday.ToDateTime(TimeOnly.MinValue);
+        var week = System.Globalization.ISOWeek.GetWeekOfYear(dt);
+        var year = System.Globalization.ISOWeek.GetYear(dt);
+        return $"{year}-W{week:D2}";
+    }
+
+    private static DateOnly ParseWeekCodeToMonday(string weekCode)
+    {
+        var parts = weekCode.Split('-');
+        var year = int.Parse(parts[0]);
+        var week = int.Parse(parts[1].Replace("W", "", StringComparison.OrdinalIgnoreCase));
+        return DateOnly.FromDateTime(System.Globalization.ISOWeek.ToDateTime(year, week, DayOfWeek.Monday));
     }
 
 }

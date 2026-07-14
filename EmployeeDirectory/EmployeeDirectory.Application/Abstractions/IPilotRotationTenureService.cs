@@ -22,6 +22,15 @@ public interface IPilotRotationTenureService
         Guid employeeId,
         CancellationToken ct = default);
 
+    Task<IReadOnlyList<PilotRotationSummaryDto>> ListRotationSummariesAsync(
+        string? serviceId,
+        DateTime? from,
+        DateTime? to,
+        int? minRotations,
+        int? maxRotations,
+        string? sort,
+        CancellationToken ct = default);
+
     Task ApplyRotationHrProfileAsync(
         Guid employeeId,
         string previousServiceId,

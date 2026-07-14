@@ -174,7 +174,13 @@ export class KyntusNotificationHubService {
 
     for (const n of this.planningItems()) {
       const src: KyntusNotificationSource =
-        n.type === 'proposition' ? 'proposition' : n.type === 'reclamation' ? 'reclamation' : 'planning';
+        n.type === 'proposition'
+          ? 'proposition'
+          : n.type === 'reclamation'
+            ? 'reclamation'
+            : n.type === 'formation'
+              ? 'formation'
+              : 'planning';
       const prefKey = prefKeyForSource(src);
       if (!prefs[prefKey]) continue;
 
@@ -182,7 +188,14 @@ export class KyntusNotificationHubService {
       items.push({
         id: planningNotificationId(n),
         source: src,
-        title: src === 'proposition' ? 'Proposition' : src === 'reclamation' ? 'Réclamation' : 'Planning',
+        title:
+          src === 'proposition'
+            ? 'Proposition'
+            : src === 'reclamation'
+              ? 'Réclamation'
+              : src === 'formation'
+                ? 'Formation'
+                : 'Planning',
         body: n.message,
         read: n.read,
         createdAt: n.receivedAt instanceof Date ? n.receivedAt : new Date(n.receivedAt),
@@ -277,6 +290,9 @@ export class KyntusNotificationHubService {
     src: KyntusNotificationSource,
     jwtRole: string,
   ): KyntusNotificationAction {
+    if (src === 'formation') {
+      return { route: '/mes-formations' };
+    }
     if (src === 'planning') {
       if (n.weeklyPlanningId) {
         return { route: `/planning/view/${n.weeklyPlanningId}` };

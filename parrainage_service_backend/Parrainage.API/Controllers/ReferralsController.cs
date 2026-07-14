@@ -25,6 +25,10 @@ public sealed class ReferralsController(
     public async Task<ActionResult<List<ReferralDto>>> Onboarding(CancellationToken ct) =>
         Ok(await mediator.Send(new ListOnboardingReferralsQuery(), ct));
 
+    [HttpGet("linkable")]
+    public async Task<ActionResult<List<ReferralDto>>> Linkable([FromQuery] string? q, CancellationToken ct) =>
+        Ok(await mediator.Send(new ListLinkableReferralsQuery(q), ct));
+
     [HttpGet("{id}")]
     public async Task<ActionResult<ReferralDto>> GetById(string id, CancellationToken ct)
     {

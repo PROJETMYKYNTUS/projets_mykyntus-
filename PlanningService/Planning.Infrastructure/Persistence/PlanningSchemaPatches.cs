@@ -95,4 +95,112 @@ public static class PlanningSchemaPatches
             """,
             ct);
     }
+
+    public static async Task EnsureNumeroCarteAutoentrepreneurColumnAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE user_hr_profiles ADD COLUMN IF NOT EXISTS "NumeroCarteAutoentrepreneur" character varying(64) NULL;
+            """,
+            ct);
+    }
+
+    public static async Task EnsureEmailPersonnelColumnAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE user_hr_profiles ADD COLUMN IF NOT EXISTS "EmailPersonnel" character varying(256) NULL;
+            """,
+            ct);
+    }
+
+    public static async Task EnsureCongeSourceDemandeIdColumnAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE "Conges" ADD COLUMN IF NOT EXISTS "SourceDemandeId" uuid NULL;
+            CREATE INDEX IF NOT EXISTS "IX_Conges_SourceDemandeId" ON "Conges" ("SourceDemandeId");
+            """,
+            ct);
+    }
+
+    /// <summary>
+    /// Template shifts + consultations + auto-generate settings (idempotent).
+    /// </summary>
+    public static async Task EnsureShiftTemplateAndValidationSchemaAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE "SubServiceShiftConfigs" ADD COLUMN IF NOT EXISTS "IsTemplate" boolean NOT NULL DEFAULT false;
+
+            ALTER TABLE "SubServiceShiftConfigs" ALTER COLUMN "WeekCode" DROP NOT NULL;
+            ALTER TABLE "SubServiceShiftConfigs" ALTER COLUMN "WeekStartDate" DROP NOT NULL;
+
+            -- Clone latest week configs into permanent templates (keep original rows as snapshots)
+            INSERT INTO "SubServiceShiftConfigs" (
+                "SubServiceId", "WeekCode", "WeekStartDate", "IsTemplate",
+                "Label", "StartTime", "WorkHours",
+                "BreakRangeStart", "BreakRangeEnd", "BreakDurationMinutes",
+                "RequiredCount", "Percentage", "MinPresencePercent", "DisplayOrder", "CreatedAt"
+            )
+            SELECT
+                c."SubServiceId", NULL, NULL, true,
+                c."Label", c."StartTime", c."WorkHours",
+                c."BreakRangeStart", c."BreakRangeEnd", c."BreakDurationMinutes",
+                c."RequiredCount", c."Percentage", c."MinPresencePercent", c."DisplayOrder", now()
+            FROM "SubServiceShiftConfigs" c
+            INNER JOIN (
+                SELECT "SubServiceId", MAX("WeekStartDate") AS max_start
+                FROM "SubServiceShiftConfigs"
+                WHERE "WeekCode" IS NOT NULL
+                GROUP BY "SubServiceId"
+            ) latest ON latest."SubServiceId" = c."SubServiceId" AND latest.max_start = c."WeekStartDate"
+            WHERE COALESCE(c."IsTemplate", false) = false
+              AND NOT EXISTS (
+                SELECT 1 FROM "SubServiceShiftConfigs" t
+                WHERE t."SubServiceId" = c."SubServiceId" AND t."IsTemplate" = true
+              );
+            DROP INDEX IF EXISTS "IX_SubServiceShiftConfigs_SubServiceId_WeekCode_Label";
+
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_SubServiceShiftConfigs_Template_SubServiceId_Label"
+              ON "SubServiceShiftConfigs" ("SubServiceId", "Label")
+              WHERE "IsTemplate" = TRUE;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_SubServiceShiftConfigs_Snapshot_SubServiceId_WeekCode_Label"
+              ON "SubServiceShiftConfigs" ("SubServiceId", "WeekCode", "Label")
+              WHERE "IsTemplate" = FALSE AND "WeekCode" IS NOT NULL;
+
+            CREATE TABLE IF NOT EXISTS "PlanningConsultations" (
+                "Id" serial PRIMARY KEY,
+                "PlanningId" integer NOT NULL,
+                "UserId" integer NOT NULL,
+                "ConsultedAt" timestamp with time zone NOT NULL DEFAULT now(),
+                CONSTRAINT "FK_PlanningConsultations_WeeklyPlannings_PlanningId"
+                    FOREIGN KEY ("PlanningId") REFERENCES "WeeklyPlannings" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_PlanningConsultations_Users_UserId"
+                    FOREIGN KEY ("UserId") REFERENCES "Users" ("Id") ON DELETE RESTRICT
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_PlanningConsultations_PlanningId_UserId"
+              ON "PlanningConsultations" ("PlanningId", "UserId");
+
+            CREATE TABLE IF NOT EXISTS "PlanningAutoGenerateSettings" (
+                "Id" character varying(32) NOT NULL PRIMARY KEY,
+                "Enabled" boolean NOT NULL DEFAULT true,
+                "DayOfWeek" integer NOT NULL DEFAULT 4,
+                "HourLocal" integer NOT NULL DEFAULT 6,
+                "MinuteLocal" integer NOT NULL DEFAULT 0,
+                "TimeZone" character varying(64) NOT NULL DEFAULT 'Africa/Casablanca',
+                "Target" character varying(32) NOT NULL DEFAULT 'NextWeek',
+                "LastRunAt" timestamp with time zone NULL,
+                "LastRunWeekCode" character varying(16) NULL,
+                "UpdatedAt" timestamp with time zone NOT NULL DEFAULT now(),
+                "UpdatedByUserId" integer NULL
+            );
+
+            INSERT INTO "PlanningAutoGenerateSettings" ("Id", "Enabled", "DayOfWeek", "HourLocal", "MinuteLocal", "TimeZone", "Target", "UpdatedAt")
+            VALUES ('default', true, 4, 6, 0, 'Africa/Casablanca', 'NextWeek', now())
+            ON CONFLICT ("Id") DO NOTHING;
+            """,
+            ct);
+    }
 }

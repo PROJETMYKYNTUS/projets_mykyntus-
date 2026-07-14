@@ -12,7 +12,7 @@ export interface PlanningNotification {
   message: string;
   receivedAt: Date;
   read: boolean;
-  type?: 'planning' | 'reclamation' | 'proposition';
+  type?: 'planning' | 'reclamation' | 'proposition' | 'formation';
   icon?: string;
   weeklyPlanningId?: number;
 }
@@ -26,9 +26,22 @@ export interface NewsletterNotification {
 }
 
 export function planningNotificationId(n: PlanningNotification): string {
-  const src = n.type === 'proposition' ? 'proposition' : n.type === 'reclamation' ? 'reclamation' : 'planning';
+  const src =
+    n.type === 'proposition'
+      ? 'proposition'
+      : n.type === 'reclamation'
+        ? 'reclamation'
+        : n.type === 'formation'
+          ? 'formation'
+          : 'planning';
   const ts = n.receivedAt instanceof Date ? n.receivedAt.getTime() : new Date(n.receivedAt).getTime();
   return `${src}-${n.weekCode || 'na'}-${ts}`;
+}
+
+function resolvePlanningNotifType(weekCode: string, subServiceName?: string): PlanningNotification['type'] {
+  if ((weekCode ?? '').toUpperCase().startsWith('FORMATION-')) return 'formation';
+  if ((subServiceName ?? '').toLowerCase().includes('formation')) return 'formation';
+  return 'planning';
 }
 
 export interface ReclamationNotif {
@@ -149,8 +162,8 @@ export class NotificationService {
             message: r.message,
             receivedAt: new Date(r.createdAt),
             read: r.isRead,
-            type: 'planning',
-            icon: 'calendar',
+            type: resolvePlanningNotifType(r.weekCode ?? '', r.subServiceName),
+            icon: resolvePlanningNotifType(r.weekCode ?? '', r.subServiceName) === 'formation' ? 'book' : 'calendar',
             weeklyPlanningId: r.weeklyPlanningId,
           }));
           // Fusion avec les notifs déjà présentes (temps réel), en évitant les doublons backend.
@@ -200,14 +213,15 @@ private connectPlanningHub(): void {
     .build();
 
     this.connection.on('PlanningPublished', (data: { weekCode: string; subServiceName: string; message: string; weeklyPlanningId?: number }) => {
+      const type = resolvePlanningNotifType(data.weekCode ?? '', data.subServiceName);
       this.pushNotification({
         weekCode:       data.weekCode,
         subServiceName: data.subServiceName,
         message:        data.message,
         receivedAt:     new Date(),
         read:           false,
-        type:           'planning',
-        icon:           'calendar',
+        type,
+        icon:           type === 'formation' ? 'book' : 'calendar',
         weeklyPlanningId: data.weeklyPlanningId,
       });
     });

@@ -25,7 +25,7 @@
               type="button"
               class="equipe-chip"
               [class.active]="selectedEquipePlanning?.id === p.id"
-              (click)="selectedEquipePlanning = p">
+              (click)="selectPlanning(p)">
         {{ p.weekCode }} — {{ p.subServiceName }}
       </button>
     </div>
@@ -36,18 +36,33 @@
         <span class="status-published">Publié</span>
       </div>
 
+      <div class="coverage-banner cov-bad"
+           *ngIf="selectedEquipePlanning.coverageReport?.hasUnderstaffing">
+        Sous-effectif détecté sur cette semaine
+        ({{ selectedEquipePlanning.coverageReport!.warnings.length }} alerte(s)).
+      </div>
+      <div class="coverage-banner cov-ok"
+           *ngIf="selectedEquipePlanning.coverageReport && !selectedEquipePlanning.coverageReport.hasUnderstaffing">
+        Couverture OK vs effectifs requis.
+      </div>
+
       <div class="equipe-table-wrap">
         <table class="equipe-table">
           <thead>
             <tr>
               <th>Employé</th>
-              <th *ngFor="let day of weekDays">{{ dayLabels[day] }}</th>
+              <th *ngFor="let day of weekDays"
+                  [ngClass]="dayCoverageClass(day)"
+                  [title]="dayCoverageLabel(day)">
+                {{ dayLabels[day] }}
+                <small *ngIf="dayCoverageLabel(day)" class="cov-chip">{{ dayCoverageLabel(day) }}</small>
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let emp of selectedEquipePlanning.assignments">
               <td class="emp-name">{{ emp.fullName }}</td>
-              <td *ngFor="let day of weekDays" class="emp-cell">
+              <td *ngFor="let day of weekDays" class="emp-cell" [ngClass]="dayCoverageClass(day)">
                 <ng-container *ngIf="getEmpDay(emp, day) as d">
                   <span *ngIf="d.isHoliday" class="cell-ferie">Férié</span>
                   <span *ngIf="d.isOnLeave && !d.isHoliday" class="cell-conge">Congé</span>

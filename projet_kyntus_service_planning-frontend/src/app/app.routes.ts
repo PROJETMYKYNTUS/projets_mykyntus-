@@ -162,6 +162,14 @@ export const routes: Routes = [
 
       // ─── RH — Employés & Imports ─────────────────
       {
+        path: 'pilotage-rh',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadComponent: () =>
+          import('./features/rh/pilotage-rh/pilotage-rh.component')
+            .then(m => m.PilotageRhComponent),
+      },
+      {
         path: 'users',
         canActivate: [AuthGuard],
         data: { roles: ['Admin', 'RH'] },
@@ -189,11 +197,8 @@ export const routes: Routes = [
       },
       {
         path: 'new-employees',
-        canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Manager'] },
-        loadComponent: () =>
-          import('./features/planning/pages/new-employee-manager/new-employee-manager.component')
-            .then(m => m.NewEmployeeManagerComponent),
+        redirectTo: 'users',
+        pathMatch: 'full',
       },
       {
         path: 'conge',

@@ -7,6 +7,7 @@ import { StatutDemande } from '../models/conge.models';
 import { StatutFormation } from '../models/formation.models';
 import { CongeService } from '../services/conge.service';
 import { FormationService } from '../services/formation.service';
+import { FormationTrainingService } from '../services/formation-training.service';
 import { PlanningService } from '../services/planning.service';
 import { ReclamationService } from '../services/reclamation.service';
 import { ContractService } from '../../features/contract/services/contract.service';
@@ -122,6 +123,7 @@ export class GlobalDashboardService {
   private readonly planningService = inject(PlanningService);
   private readonly contractService = inject(ContractService);
   private readonly formationService = inject(FormationService);
+  private readonly formationTrainingService = inject(FormationTrainingService);
   private readonly docApi = inject(DocumentationApiService);
   private readonly parrainageApi = inject(ParrainageApiService);
   private readonly menuService = inject(NavigationMenuService);
@@ -352,7 +354,7 @@ export class GlobalDashboardService {
 
     if ((cluster === 'manager' || cluster === 'adminRh') && mods.has('formation')) {
       deferred.formations = this.dashCall(
-        this.formationService.getAll(StatutFormation.EnAttente),
+        from(this.formationTrainingService.listRhPendingInitial().catch(() => [])),
         [],
       );
     }
@@ -696,7 +698,7 @@ export class GlobalDashboardService {
         accent: m.docPending > 0 ? 'orange' : 'neutral',
       },
       formationsPending: {
-        label: 'Formations à valider',
+        label: 'Passage production',
         value: m.formationsPending,
         accent: m.formationsPending > 0 ? 'orange' : 'neutral',
       },
@@ -907,8 +909,8 @@ export class GlobalDashboardService {
       if (mods.has('formation') && m.formationsPending > 0) {
         push({
           id: 'formations',
-          label: 'Valider les formations',
-          detail: `${m.formationsPending} formation(s) en attente`,
+          label: 'Passage en production',
+          detail: `${m.formationsPending} parcours en attente RH`,
           module: moduleLabel('formation'),
           moduleId: 'formation',
           count: m.formationsPending,
@@ -978,8 +980,8 @@ export class GlobalDashboardService {
       if (mods.has('formation') && m.formationsPending > 0) {
         push({
           id: 'formations-mgr',
-          label: 'Formations à valider',
-          detail: `${m.formationsPending} en attente`,
+          label: 'Passage en production',
+          detail: `${m.formationsPending} en attente RH`,
           module: moduleLabel('formation'),
           moduleId: 'formation',
           count: m.formationsPending,
@@ -1139,7 +1141,7 @@ export class GlobalDashboardService {
             detail:
               cluster === 'employee'
                 ? `${m.enrolledFormations} inscription(s), ${m.availableFormations} disponible(s)`
-                : `${m.formationsPending} à valider`,
+                : `${m.formationsPending} en attente passage production`,
             severity: cluster === 'employee' ? 'neutral' : m.formationsPending > 0 ? 'warn' : 'ok',
             ...nav,
           };

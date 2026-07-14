@@ -37,28 +37,49 @@
             <span class="sub-sep">·</span>
             <span class="sub-item">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-             {{ planning.shiftConfigs ? planning.shiftConfigs.length : 0 }}
+             {{ planning.shiftConfigs ? planning.shiftConfigs.length : 0 }} shifts
             </span>
           </p>
         </div>
       </div>
 
-      <div class="header-right">
-        <button class="btn-publish"
-          *ngIf="planning.status === 'Draft'"
-          [disabled]="publishing"
-          (click)="publishPlanning()">
+    </div>
+
+    <!-- ── Actions RH (Valider / Régénérer) ── -->
+    <div class="pv-decision-bar" *ngIf="planning.status === 'Draft' && canValidate">
+      <div class="pv-decision-copy">
+        <strong>Aperçu brouillon</strong>
+        <span *ngIf="!hasConsulted || consulting">Consultation en cours — Valider s’active après ouverture…</span>
+        <span *ngIf="hasConsulted && !consulting">Contrôlez la grille, puis validez ou régénérez.</span>
+      </div>
+      <div class="pv-decision-actions">
+        <button type="button"
+                class="btn-regen"
+                [disabled]="regenerating || publishing"
+                (click)="regeneratePlanning()">
+          <ng-container *ngIf="!regenerating">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+            Régénérer
+          </ng-container>
+          <ng-container *ngIf="regenerating">
+            <span class="btn-spinner"></span>
+            Régénération…
+          </ng-container>
+        </button>
+        <button type="button"
+                class="btn-validate-lg"
+                [disabled]="publishing || regenerating || !hasConsulted || consulting"
+                (click)="publishPlanning()">
           <ng-container *ngIf="!publishing">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            Publier le planning
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Valider
           </ng-container>
           <ng-container *ngIf="publishing">
             <span class="btn-spinner"></span>
-            Publication…
+            Validation…
           </ng-container>
         </button>
       </div>
-
     </div>
 
     <!-- ── Alertes ── -->
@@ -69,6 +90,29 @@
     <div class="alert alert-error" *ngIf="error">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       {{ error }}
+    </div>
+
+    <div class="alert alert-warn coverage-panel" *ngIf="planning.coverageReport?.hasUnderstaffing">
+      <button type="button" class="coverage-toggle" (click)="coverageOpen = !coverageOpen">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div class="coverage-toggle-text">
+          <strong>À vérifier avant validation</strong>
+          <span>
+            Indicateur d’aide RH (quotas / pauses) — n’empêche pas de valider.
+            {{ coverageQuotaWarnings.length }} quota(s), {{ coveragePresenceWarnings.length }} pause(s).
+          </span>
+        </div>
+        <span class="coverage-chev">{{ coverageOpen ? '▴' : '▾' }}</span>
+      </button>
+      <div class="coverage-body" *ngIf="coverageOpen">
+        <p class="coverage-help">
+          <strong>Quota</strong> : moins d’employés affectés que prévu (congés, absences…).<br>
+          <strong>Pauses</strong> : trop de pauses au même créneau par rapport à la présence min du shift.
+        </p>
+        <ul>
+          <li *ngFor="let w of coverageWarnings">{{ w }}</li>
+        </ul>
+      </div>
     </div>
 
     <!-- ══════════════ KPI SHIFTS ══════════════ -->
@@ -147,13 +191,13 @@
                 <div class="emp-row">
                   <div class="emp-avatar-wrap">
                     <div class="emp-av">{{ emp.fullName[0] }}</div>
-                    <span class="emp-level-dot level-dot-{{ emp.level }}" [title]="'Niveau ' + emp.level"></span>
+                    <span class="emp-level-dot level-dot-{{ emp.level }}" [title]="'Niveau contractuel : ' + contractLevelLabel(emp.level)"></span>
                   </div>
                   <div class="emp-info">
                     <div class="emp-name-row">
                       <span class="emp-name">{{ emp.fullName }}</span>
-                      <span class="lvl-badge lvl-{{ emp.level }}">N{{ emp.level }}</span>
-                      <span class="new-badge" *ngIf="emp.isNewEmployee">Nouveau</span>
+                      <span class="lvl-badge lvl-{{ emp.level }}">{{ contractLevelLabel(emp.level) }}</span>
+                      <span class="new-badge" *ngIf="emp.isNewEmployee" title="Niveau Débutant — samedis en demi-journée">Débutant</span>
                     </div>
                     <!-- Actions commentaire -->
                     <div class="emp-actions" *ngIf="planning!.status === 'Draft'">

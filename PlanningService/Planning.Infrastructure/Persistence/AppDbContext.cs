@@ -32,6 +32,8 @@ public class AppDbContext : DbContext
     public DbSet<PlanningComment> PlanningComments { get; set; } = null!;
     public DbSet<SaturdayHistory> SaturdayHistories => Set<SaturdayHistory>();
     public DbSet<SubServiceShiftConfig> SubServiceShiftConfigs { get; set; } = null!;
+    public DbSet<PlanningConsultation> PlanningConsultations { get; set; } = null!;
+    public DbSet<PlanningAutoGenerateSettings> PlanningAutoGenerateSettings { get; set; } = null!;
     public DbSet<Reclamation> Reclamations { get; set; } = null!;
     public DbSet<ReclamationHistorique> ReclamationHistoriques { get; set; } = null!;
     public DbSet<Proposition> Propositions { get; set; } = null!;
@@ -186,20 +188,52 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(c => new { c.UserId, c.StartDate, c.EndDate });
+            entity.HasIndex(c => c.SourceDemandeId);
         });
 
         // ── SubServiceShiftConfig ──
         modelBuilder.Entity<SubServiceShiftConfig>(entity =>
         {
-            entity.HasIndex(e => new { e.SubServiceId, e.WeekCode, e.Label }).IsUnique();
             entity.Property(e => e.Label).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.WeekCode).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.WeekCode).HasMaxLength(10);
             entity.Property(e => e.Percentage).HasPrecision(5, 2);
             entity.Ignore(e => e.EndTime);
             entity.HasOne(e => e.SubService)
                   .WithMany()
                   .HasForeignKey(e => e.SubServiceId)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            // Template: unique (SubServiceId, Label) when IsTemplate
+            entity.HasIndex(e => new { e.SubServiceId, e.Label })
+                .IsUnique()
+                .HasFilter("\"IsTemplate\" = TRUE");
+
+            // Snapshot: unique (SubServiceId, WeekCode, Label) when not template
+            entity.HasIndex(e => new { e.SubServiceId, e.WeekCode, e.Label })
+                .IsUnique()
+                .HasFilter("\"IsTemplate\" = FALSE AND \"WeekCode\" IS NOT NULL");
+        });
+
+        modelBuilder.Entity<PlanningConsultation>(entity =>
+        {
+            entity.HasIndex(e => new { e.PlanningId, e.UserId }).IsUnique();
+            entity.HasOne(e => e.Planning)
+                .WithMany()
+                .HasForeignKey(e => e.PlanningId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PlanningAutoGenerateSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(32);
+            entity.Property(e => e.TimeZone).HasMaxLength(64);
+            entity.Property(e => e.Target).HasMaxLength(32);
+            entity.Property(e => e.LastRunWeekCode).HasMaxLength(16);
         });
 
         // ── PlanningComment ──

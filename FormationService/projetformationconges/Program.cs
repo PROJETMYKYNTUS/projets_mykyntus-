@@ -7,6 +7,7 @@ using Formation.Domain.Interfaces;
 using Formation.API.Middlewares;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 var isTesting = builder.Environment.IsEnvironment("Testing");
@@ -27,6 +28,7 @@ builder.Services.AddMediatR(cfg =>
 
 // Repositories
 builder.Services.AddScoped<IFormationRepository, FormationRepository>();
+builder.Services.AddScoped<Formation.Infrastructure.Services.TrainingWorkflowService>();
 
 if (isTesting)
 {
@@ -63,7 +65,11 @@ builder.Services.AddMassTransit(x =>
 });
 }
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(o =>
+    {
+        o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -74,23 +80,43 @@ app.UseSwagger();
 app.UseSwaggerUI();
 app.MapControllers();
 
-// Migration automatique au d�marrage
+// Migration automatique au démarrage
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<FormationDbContext>();
+    var startupLog = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Formation.Startup");
     if (isTesting)
         await db.Database.EnsureCreatedAsync();
     else
-        db.Database.Migrate();
+    {
+        try
+        {
+            db.Database.Migrate();
+        }
+        catch (Exception ex)
+        {
+            startupLog.LogWarning(ex, "EF Migrate partiel — application des patches SQL training.");
+        }
+
+        try
+        {
+            await FormationSchemaPatches.EnsureTrainingWorkflowTablesAsync(db, startupLog);
+        }
+        catch (Exception ex)
+        {
+            startupLog.LogError(ex, "Impossible de créer les tables training workflow.");
+            throw;
+        }
+    }
 
     if (!isTesting
         && string.Equals(app.Configuration["KYNTUS_FORMATION_DEMO_SEED"], "true", StringComparison.OrdinalIgnoreCase)
         && !await db.Formations.AnyAsync())
     {
         var demo = FormationEntity.Create(
-            "Formation d'accueil (d�mo Docker)",
-            "Jeu de donn�es ins�r� automatiquement apr�s git clone (KYNTUS_FORMATION_DEMO_SEED).",
-            "Formateur d�mo",
+            "Formation d'accueil (démo Docker)",
+            "Jeu de données inséré automatiquement après git clone (KYNTUS_FORMATION_DEMO_SEED).",
+            "Formateur démo",
             DateTime.UtcNow.AddDays(7),
             DateTime.UtcNow.AddDays(9),
             25,

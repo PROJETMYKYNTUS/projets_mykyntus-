@@ -23,6 +23,7 @@ public interface IReferralAppService
     Task<ReferralDto?> UploadCvAsync(string id, IFormFile file, CancellationToken ct = default);
     Task<ReferralCvFile?> OpenCvAsync(string id, CancellationToken ct = default);
     Task<IReadOnlyList<ReferralDto>> ListOnboardingAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<ReferralDto>> ListLinkableAsync(string? search = null, CancellationToken ct = default);
     Task<ReferralDto?> LinkEmployeeAsync(string id, LinkEmployeeRequest body, CancellationToken ct = default);
     Task<ReferralDto?> CompleteOnboardingAsync(string id, CompleteOnboardingRequest body, CancellationToken ct = default);
 }

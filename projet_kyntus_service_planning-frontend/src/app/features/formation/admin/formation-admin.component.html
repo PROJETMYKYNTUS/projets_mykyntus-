@@ -1,41 +1,62 @@
 <div class="ky-page-shell">
 
-  <div class="fa-toast ky-card" [class.visible]="toast.show" [class.error]="toast.type === 'error'">
-    <app-lucide-icon
-      [icon]="toast.type === 'success' ? icons.validate : icons.delete"
-      className="w-4 h-4"
-    />
-    {{ toast.message }}
-  </div>
-
   <app-kyntus-page-header
     title="Gestion des formations"
-    [subtitle]="!loading ? filteredFormations.length + ' formation(s) affichée(s) — Créez, validez et suivez les inscriptions' : 'Créez, validez et suivez les inscriptions aux formations'">
-    <div actions>
-      <button type="button" class="ky-btn-primary btn-add" (click)="openCreate()">
-        <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
-        Nouvelle formation
-      </button>
+    [subtitle]="loading
+      ? 'Parcours initiaux et sessions continues'
+      : tab === 'initial'
+        ? filteredPaths.length + ' parcours affiché(s) — vue d’ensemble du pipeline formation'
+        : filteredSessions.length + ' session(s) affichée(s) — formations continues planifiées'">
+    <div actions class="header-actions">
+      <a routerLink="/formations/initiales" class="ky-btn-secondary btn-link">
+        <app-lucide-icon [icon]="icons.clipboard" className="w-4 h-4" />
+        File formateur
+      </a>
+      <a routerLink="/formations/passage-production" class="ky-btn-secondary btn-link">
+        <app-lucide-icon [icon]="icons.validate" className="w-4 h-4" />
+        Passage production
+      </a>
+      <a routerLink="/formations/planifier" class="ky-btn-primary btn-link">
+        <app-lucide-icon [icon]="icons.calendar" className="w-4 h-4" />
+        Planifier continue
+      </a>
     </div>
   </app-kyntus-page-header>
 
   <div class="kpi-row">
     <div class="kpi-card ky-card kc-blue">
-      <span class="kpi-label">Total</span>
-      <span class="kpi-value">{{ stats.total }}</span>
+      <span class="kpi-label">Parcours actifs</span>
+      <span class="kpi-value">{{ stats.activeInitial }}</span>
     </div>
     <div class="kpi-card ky-card kc-amber">
-      <span class="kpi-label">À valider</span>
-      <span class="kpi-value">{{ stats.pending }}</span>
+      <span class="kpi-label">Côté formateur</span>
+      <span class="kpi-value">{{ stats.quizOrFormateur }}</span>
     </div>
     <div class="kpi-card ky-card kc-green">
-      <span class="kpi-label">Actives</span>
-      <span class="kpi-value">{{ stats.active }}</span>
+      <span class="kpi-label">Attente RH</span>
+      <span class="kpi-value">{{ stats.rhPending }}</span>
     </div>
     <div class="kpi-card ky-card kc-gray">
-      <span class="kpi-label">Inscriptions</span>
-      <span class="kpi-value">{{ stats.inscriptions }}</span>
+      <span class="kpi-label">Sessions ouvertes</span>
+      <span class="kpi-value">{{ stats.sessionsOpen }}</span>
     </div>
+  </div>
+
+  <div class="tabs-row">
+    <button
+      type="button"
+      class="tab-btn"
+      [class.active]="tab === 'initial'"
+      (click)="setTab('initial')">
+      Formation initiale
+    </button>
+    <button
+      type="button"
+      class="tab-btn"
+      [class.active]="tab === 'continue'"
+      (click)="setTab('continue')">
+      Formation continue
+    </button>
   </div>
 
   <div class="filters-panel ky-card">
@@ -45,21 +66,27 @@
         <input
           class="filter-search-input"
           type="text"
-          placeholder="Titre, formateur…"
+          [placeholder]="tab === 'initial' ? 'Employé…' : 'Titre, animateur…'"
           [(ngModel)]="searchTerm"
           (input)="applyFilters()"
         />
       </div>
 
-      <select class="filter-ctl ky-input" [(ngModel)]="filterStatut" (change)="applyFilters()">
-        <option value="">Statut</option>
-        <option [ngValue]="StatutFormation.Brouillon">Brouillon</option>
-        <option [ngValue]="StatutFormation.EnAttente">En attente</option>
-        <option [ngValue]="StatutFormation.Validee">Validée</option>
-        <option [ngValue]="StatutFormation.EnCours">En cours</option>
-        <option [ngValue]="StatutFormation.Terminee">Terminée</option>
-        <option [ngValue]="StatutFormation.Annulee">Annulée</option>
-      </select>
+      @if (tab === 'initial') {
+        <select class="filter-ctl ky-input" [(ngModel)]="filterInitialStatut" (change)="applyFilters()">
+          <option value="">Tous les statuts</option>
+          @for (s of initialStatuses; track s) {
+            <option [ngValue]="s">{{ statusLabels[s] }}</option>
+          }
+        </select>
+      } @else {
+        <select class="filter-ctl ky-input" [(ngModel)]="filterSessionStatut" (change)="applyFilters()">
+          <option value="">Tous les statuts</option>
+          @for (s of sessionStatuses; track s) {
+            <option [ngValue]="s">{{ sessionStatusLabels[s] }}</option>
+          }
+        </select>
+      }
 
       <button type="button" class="filter-reset ky-btn-secondary" (click)="clearFilters()">
         Réinitialiser
@@ -68,133 +95,130 @@
   </div>
 
   <div class="table-card ky-card">
-    <div class="state-loading" *ngIf="loading">
-      <app-lucide-icon [icon]="icons.loader" className="w-5 h-5 spin" />
-      <span>Chargement des formations…</span>
-    </div>
-
-    <div class="state-empty" *ngIf="!loading && formations.length === 0">
-      <app-lucide-icon [icon]="icons.inbox" className="w-10 h-10" />
-      <h3>Aucune formation</h3>
-      <p>Créez votre première formation pour commencer.</p>
-      <button type="button" class="ky-btn-primary" (click)="openCreate()">
-        <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
-        Nouvelle formation
-      </button>
-    </div>
-
-    <div class="state-empty" *ngIf="!loading && formations.length > 0 && filteredFormations.length === 0">
-      <p>Aucune formation ne correspond aux filtres.</p>
-      <button type="button" class="ky-btn-secondary" (click)="clearFilters()">Réinitialiser</button>
-    </div>
-
-    <div class="table-wrapper" *ngIf="!loading && filteredFormations.length > 0">
-      <table class="prime-table">
-        <thead>
-          <tr>
-            <th>Titre</th>
-            <th>Formateur</th>
-            <th>Dates</th>
-            <th>Places</th>
-            <th>Prix</th>
-            <th>Statut</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let f of filteredFormations">
-            <td class="td-title">{{ f.titre }}</td>
-            <td>{{ f.formateur }}</td>
-            <td class="td-date">
-              {{ f.dateDebut | date:'dd/MM/yy' }} → {{ f.dateFin | date:'dd/MM/yy' }}
-            </td>
-            <td>
-              <span class="places-badge">
-                <app-lucide-icon [icon]="icons.users" className="w-3.5 h-3.5" />
-                {{ f.nombreInscrits }}/{{ f.capaciteMax }}
-              </span>
-            </td>
-            <td>{{ f.prix | number:'1.0-0' }} MAD</td>
-            <td>
-              <span class="status-badge" [ngClass]="getStatutClass(f.statut)">
-                {{ statutLabels[f.statut] }}
-              </span>
-            </td>
-            <td class="td-actions">
-              <button type="button" class="ky-btn-secondary btn-icon" (click)="openEdit(f)" title="Modifier">
-                <app-lucide-icon [icon]="icons.edit" className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                class="ky-btn-secondary btn-icon btn-valid"
-                *ngIf="f.statut === StatutFormation.Brouillon || f.statut === StatutFormation.EnAttente"
-                (click)="valider(f)"
-                title="Valider">
-                <app-lucide-icon [icon]="icons.validate" className="w-4 h-4" />
-              </button>
-              <button type="button" class="ky-btn-secondary btn-icon btn-del" (click)="delete(f)" title="Supprimer">
-                <app-lucide-icon [icon]="icons.delete" className="w-4 h-4" />
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="modal-overlay" *ngIf="showModal" (click)="showModal = false">
-    <div class="modal ky-card" (click)="$event.stopPropagation()">
-      <div class="modal-head">
-        <div>
-          <span class="modal-eyebrow">{{ editMode ? 'Modification' : 'Création' }}</span>
-          <h3>{{ editMode ? 'Modifier la formation' : 'Nouvelle formation' }}</h3>
-        </div>
-        <button type="button" class="modal-close" (click)="showModal = false" aria-label="Fermer">
-          <app-lucide-icon [icon]="icons.close" className="w-5 h-5" />
-        </button>
+    @if (loading) {
+      <div class="state-loading">
+        <app-lucide-icon [icon]="icons.loader" className="w-5 h-5 spin" />
+        <span>Chargement…</span>
       </div>
-
-      <div class="modal-body">
-        <div class="form-field">
-          <label>Titre <span class="req">*</span></label>
-          <input class="ky-input" [(ngModel)]="form.titre" placeholder="Titre de la formation" />
+    } @else if (tab === 'initial') {
+      @if (paths.length === 0) {
+        <div class="state-empty">
+          <app-lucide-icon [icon]="icons.inbox" className="w-10 h-10" />
+          <h3>Aucun parcours initial</h3>
+          <p>Les parcours sont créés automatiquement à l’embauche (flag En formation).</p>
         </div>
-        <div class="form-field">
-          <label>Description</label>
-          <textarea class="ky-input" [(ngModel)]="form.description" rows="3" placeholder="Description…"></textarea>
+      } @else if (filteredPaths.length === 0) {
+        <div class="state-empty">
+          <p>Aucun parcours ne correspond aux filtres.</p>
+          <button type="button" class="ky-btn-secondary" (click)="clearFilters()">Réinitialiser</button>
         </div>
-        <div class="form-field">
-          <label>Formateur <span class="req">*</span></label>
-          <input class="ky-input" [(ngModel)]="form.formateur" placeholder="Nom du formateur" />
+      } @else {
+        <div class="table-wrapper">
+          <table class="prime-table">
+            <thead>
+              <tr>
+                <th>Employé</th>
+                <th>Début → Fin prévue</th>
+                <th>Quiz</th>
+                <th>Statut</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of filteredPaths; track p.id) {
+                <tr>
+                  <td class="td-title">{{ p.employeeName }}</td>
+                  <td class="td-date">
+                    {{ p.dateDebut | date:'dd/MM/yy' }} → {{ p.dateFinPrevue | date:'dd/MM/yy' }}
+                  </td>
+                  <td>
+                    @if (p.hasQuizResult) {
+                      <span class="quiz-ok">Saisi</span>
+                    } @else {
+                      <span class="quiz-missing">À saisir</span>
+                    }
+                  </td>
+                  <td>
+                    <span class="status-badge" [ngClass]="getInitialStatusClass(p.status)">
+                      {{ statusLabels[p.status] }}
+                    </span>
+                  </td>
+                  <td class="td-actions">
+                    @if (nextActionRoute(p); as route) {
+                      <a [routerLink]="route" class="ky-btn-secondary btn-action">
+                        {{ nextActionLabel(p) }}
+                        <app-lucide-icon [icon]="icons.arrow" className="w-3.5 h-3.5" />
+                      </a>
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
-        <div class="form-row">
-          <div class="form-field">
-            <label>Date début</label>
-            <input class="ky-input" type="date" [(ngModel)]="form.dateDebut" />
-          </div>
-          <div class="form-field">
-            <label>Date fin</label>
-            <input class="ky-input" type="date" [(ngModel)]="form.dateFin" />
-          </div>
+      }
+    } @else {
+      @if (sessions.length === 0) {
+        <div class="state-empty">
+          <app-lucide-icon [icon]="icons.inbox" className="w-10 h-10" />
+          <h3>Aucune session continue</h3>
+          <p>Planifiez une session RH pour les formations imposées.</p>
+          <a routerLink="/formations/planifier" class="ky-btn-primary btn-link">
+            <app-lucide-icon [icon]="icons.calendar" className="w-4 h-4" />
+            Planifier
+          </a>
         </div>
-        <div class="form-row">
-          <div class="form-field">
-            <label>Capacité max</label>
-            <input class="ky-input" type="number" [(ngModel)]="form.capaciteMax" min="1" />
-          </div>
-          <div class="form-field">
-            <label>Prix (MAD)</label>
-            <input class="ky-input" type="number" [(ngModel)]="form.prix" min="0" />
-          </div>
+      } @else if (filteredSessions.length === 0) {
+        <div class="state-empty">
+          <p>Aucune session ne correspond aux filtres.</p>
+          <button type="button" class="ky-btn-secondary" (click)="clearFilters()">Réinitialiser</button>
         </div>
-      </div>
-
-      <div class="modal-foot">
-        <button type="button" class="ky-btn-secondary" (click)="showModal = false">Annuler</button>
-        <button type="button" class="ky-btn-primary" (click)="submit()">
-          {{ editMode ? 'Mettre à jour' : 'Créer' }}
-        </button>
-      </div>
-    </div>
+      } @else {
+        <div class="table-wrapper">
+          <table class="prime-table">
+            <thead>
+              <tr>
+                <th>Titre</th>
+                <th>Animateur</th>
+                <th>Dates</th>
+                <th>Places</th>
+                <th>Statut</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (s of filteredSessions; track s.id) {
+                <tr>
+                  <td class="td-title">{{ s.title }}</td>
+                  <td>{{ animatorLabel(s) }}</td>
+                  <td class="td-date">
+                    {{ s.plannedStart | date:'dd/MM/yy HH:mm' }} → {{ s.plannedEnd | date:'dd/MM/yy HH:mm' }}
+                  </td>
+                  <td>
+                    <span class="places-badge">
+                      <app-lucide-icon [icon]="icons.users" className="w-3.5 h-3.5" />
+                      {{ s.assignmentCount }}/{{ s.capacity }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="status-badge" [ngClass]="getSessionStatusClass(s.status)">
+                      {{ sessionStatusLabels[s.status] }}
+                    </span>
+                  </td>
+                  <td class="td-actions">
+                    <a routerLink="/formations/planifier" class="ky-btn-secondary btn-action">
+                      Gérer
+                      <app-lucide-icon [icon]="icons.arrow" className="w-3.5 h-3.5" />
+                    </a>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
   </div>
 </div>

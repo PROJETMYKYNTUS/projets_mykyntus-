@@ -281,6 +281,11 @@ type ToastType = 'success' | 'error' | 'info';
                     Confirmer passage en production
                   </button>
                 }
+                @if (productionAutoConfirmed()) {
+                  <span class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+                    Passage en production confirmé automatiquement (Formation)
+                  </span>
+                }
                 @if (canExtendTraining()) {
                   <button
                     type="button"
@@ -767,6 +772,17 @@ export class RhDetailsPageComponent {
     () => this.referral()?.status === 'APPROVED' && this.referral()?.paymentStatus === 'AWAITING_RH',
   );
   readonly canConfirmProduction = computed(() => this.referral()?.status === 'IN_TRAINING');
+  readonly productionAutoConfirmed = computed(() => {
+    const r = this.referral();
+    if (!r || r.status === 'IN_TRAINING') return false;
+    return this.history().some(
+      (h) =>
+        h.action === 'PRODUCTION_CONFIRMED' &&
+        (h.performedById === 'formation-system' ||
+          (h.comment ?? '').toLowerCase().includes('formation') ||
+          (h.performedByLabel ?? '').toLowerCase() === 'formation'),
+    );
+  });
   readonly canExtendTraining = computed(() => this.referral()?.status === 'IN_TRAINING');
   readonly canRejectEarlyDeparture = computed(() => {
     const r = this.referral();

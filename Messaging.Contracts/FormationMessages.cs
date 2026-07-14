@@ -1,0 +1,45 @@
+namespace Kyntus.Messaging.Contracts;
+
+/// <summary>
+/// Publié par Formation lorsqu'un parcours de formation initiale est rejeté
+/// (Formateur ou RH) — déclenche la sortie complète de l'employé côté Planning / Directory / Parrainage.
+/// </summary>
+public record InitialTrainingRejectedMessage
+{
+    public Guid TrainingPathId { get; init; }
+    public Guid EmployeeId { get; init; }
+    public string EmployeeName { get; init; } = string.Empty;
+    public string RejectedBy { get; init; } = string.Empty;
+    public string Reason { get; init; } = string.Empty;
+    public DateTime RejectedAt { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Publié par Formation lorsque la RH valide le passage en production —
+/// clear EnFormation, expertise initiale, sync Parrainage.
+/// </summary>
+public record InitialTrainingCompletedMessage
+{
+    public Guid TrainingPathId { get; init; }
+    public Guid EmployeeId { get; init; }
+    public string EmployeeName { get; init; } = string.Empty;
+    public DateTime CompletedAt { get; init; } = DateTime.UtcNow;
+    public DateOnly ProductionStartDate { get; init; }
+    /// <summary>1 = Débutant, 2 = Confirmé, 3 = Expert. Défaut métier à la production : Débutant.</summary>
+    public int NiveauExpertiseMetier { get; init; } = 1;
+    public decimal? QuizScore { get; init; }
+}
+
+/// <summary>
+/// Publié par Formation lorsqu'un employé est affecté à une session de formation continue —
+/// notification in-app destinée au bénéficiaire.
+/// </summary>
+public record TrainingSessionAssignedMessage
+{
+    public Guid SessionId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public DateTime PlannedStart { get; init; }
+    public Guid EmployeeId { get; init; }
+    public string EmployeeName { get; init; } = string.Empty;
+    public DateTime AssignedAt { get; init; } = DateTime.UtcNow;
+}

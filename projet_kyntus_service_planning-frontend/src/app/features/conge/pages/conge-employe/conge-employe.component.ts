@@ -36,8 +36,6 @@ export class CongeEmployeComponent implements OnInit {
   typesConge = [
     { value: TypeConge.Annuel,       label: TypeCongeLabels[TypeConge.Annuel] },
     { value: TypeConge.Exceptionnel, label: TypeCongeLabels[TypeConge.Exceptionnel] },
-    { value: TypeConge.Paternite,    label: TypeCongeLabels[TypeConge.Paternite] },
-    { value: TypeConge.Maternite,    label: TypeCongeLabels[TypeConge.Maternite] }
   ];
 
   typesExceptionnels = Object.entries(TypeCongeExceptionnelLabels).map(([k, v]) => ({

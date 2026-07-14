@@ -2,30 +2,49 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import {
   PlanningService,
   ShiftConfigItem,
   SaveShiftConfigDto,
   WeekShiftConfigResponse,
-  ShiftOption
+  ShiftOption,
+  ShiftConfigStatusItem,
 } from '../../services/planning.service';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
 import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
 import type { SubService } from '../../../sub-services/sub-services-module';
 import type { Department } from '../../../prime/models';
-import type { OperationalDepartmentNode, OrgPoleNode } from '../../../prime/models/org-tree.types';
-import { buildSubServiceOrgLabels } from '../../../../core/org/operational-org-picker';
+import type {
+  OperationalDepartmentNode,
+  OrgCelluleNode,
+  OrgPoleNode,
+  OrgServiceNode,
+} from '../../../prime/models/org-tree.types';
+import { findOperationalSelectionByServiceId } from '../../../../core/org/operational-org-picker';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
-import { Coffee, Info, Plus, Save, Settings, Trash2, Users } from 'lucide';
+import {
+  ChevronDown,
+  ChevronRight,
+  Coffee,
+  Info,
+  Plus,
+  Save,
+  Settings,
+  Trash2,
+  Users,
+} from 'lucide';
+
+type ConfigStatus = 'ok' | 'missing' | 'partial' | 'none';
 
 type SubServiceOption = {
   id: number;
   name: string;
   orgLabel: string;
   employeesCount: number;
+  primeServiceId: string | null;
+  hasTemplate: boolean;
 };
 
 @Component({
@@ -33,7 +52,7 @@ type SubServiceOption = {
   standalone: true,
   imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent],
   templateUrl: './shift-config.component.html',
-  styleUrls: ['./shift-config.component.css']
+  styleUrls: ['./shift-config.component.css'],
 })
 export class ShiftConfigComponent implements OnInit {
   readonly icons = {
@@ -44,28 +63,38 @@ export class ShiftConfigComponent implements OnInit {
     plus: Plus,
     trash: Trash2,
     info: Info,
+    chevDown: ChevronDown,
+    chevRight: ChevronRight,
   };
 
   subServiceId = 0;
-  weekCode = '';
-  weekStartDate = '';
+  selectedServiceName = '';
 
   operationalDepartments: OperationalDepartmentNode[] = [];
   unassignedPoles: OrgPoleNode[] = [];
   legacyDepartments: Department[] = [];
   subServiceOptions: SubServiceOption[] = [];
+  /** primeServiceId → SubServiceOption */
+  private byPrimeId = new Map<string, SubServiceOption>();
+  /** subServiceId → status */
+  private statusBySubId = new Map<number, ShiftConfigStatusItem>();
+
+  configuredCount = 0;
+  totalServiceCount = 0;
+
+  expandedDepts = new Set<string>();
+  expandedPoles = new Set<string>();
+  expandedCellules = new Set<string>();
+
   serviceEmployeeCount = 0;
-  weekDateAdjusted = false;
 
   startOptions: ShiftOption[] = [];
   breakSlotOptions: ShiftOption[] = [];
   savedConfig: WeekShiftConfigResponse | null = null;
   loading = false;
   saving = false;
-  generating = false;
   error = '';
   successMsg = '';
-  currentWeekCode = '';
 
   shifts: ShiftConfigItem[] = [];
 
@@ -74,13 +103,11 @@ export class ShiftConfigComponent implements OnInit {
     private subServiceService: SubServiceService,
     private orgApi: PrimeOrgApiService,
     private http: HttpClient,
-    private router: Router,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
-    this.initCurrentWeek();
-    this.loadSubServices();
+    this.loadStructure();
     this.startOptions = this.planningService.getShiftStartOptions();
     this.breakSlotOptions = this.planningService.getBreakSlotOptions();
     this.initShifts();
@@ -105,62 +132,267 @@ export class ShiftConfigComponent implements OnInit {
       breakRangeEnd: undefined,
       requiredCount: 0,
       minPresencePercent: 70,
-      displayOrder: order
+      displayOrder: order,
     };
   }
 
-  loadSubServices(): void {
+  loadStructure(): void {
     forkJoin({
       subServices: this.subServiceService.getAllSubServices(),
       departments: this.http.get<Department[]>('/api/prime/departments'),
       overview: this.orgApi.loadOverview(),
+      status: this.planningService.getShiftConfigStatus(),
     }).subscribe({
-      next: ({ subServices, departments, overview }) => {
+      next: ({ subServices, departments, overview, status }) => {
         this.operationalDepartments = overview.operationalDepartments ?? [];
         this.unassignedPoles = overview.unassignedPoles ?? [];
         this.legacyDepartments = departments?.length ? departments : (overview.departments ?? []);
-        this.subServiceOptions = this.buildSubServiceOptions(subServices ?? []);
-        if (this.subServiceOptions.length > 0) {
-          this.subServiceId = this.subServiceOptions[0].id;
-          this.onSubServiceChange();
+
+        this.statusBySubId.clear();
+        for (const item of status.items ?? []) {
+          this.statusBySubId.set(item.subServiceId, item);
         }
+        this.subServiceOptions = (subServices ?? []).map((s) => this.toOption(s));
+        this.byPrimeId.clear();
+        for (const opt of this.subServiceOptions) {
+          if (opt.primeServiceId) this.byPrimeId.set(opt.primeServiceId, opt);
+        }
+
+        // Avancement = uniquement les services rattachés à la structure orga
+        const inTree = this.subServiceOptions.filter((opt) => this.isLinkedToTree(opt));
+        this.totalServiceCount = inTree.length;
+        this.configuredCount = inTree.filter((opt) => opt.hasTemplate).length;
+
+        this.expandAllWithMissing();
+
         this.cdr.detectChanges();
       },
       error: () => {
-        this.error = 'Impossible de charger les services.';
+        this.error = 'Impossible de charger la structure et les services.';
         this.cdr.detectChanges();
       },
     });
   }
 
-  private buildSubServiceOptions(subServices: SubService[]): SubServiceOption[] {
-    const labels = buildSubServiceOrgLabels(
-      subServices,
+  private toOption(s: SubService): SubServiceOption {
+    const st = this.statusBySubId.get(s.id);
+    return {
+      id: s.id,
+      name: s.name,
+      orgLabel: s.name,
+      employeesCount: st?.activeEmployeeCount ?? s.employeesCount ?? 0,
+      primeServiceId: s.primeServiceId?.trim() || null,
+      hasTemplate: st?.hasTemplate ?? false,
+    };
+  }
+
+  private isLinkedToTree(opt: SubServiceOption): boolean {
+    if (!opt.primeServiceId) return false;
+    return !!findOperationalSelectionByServiceId(
       this.operationalDepartments,
       this.unassignedPoles,
-      this.legacyDepartments,
+      opt.primeServiceId,
     );
-    return labels
-      .map((l) => ({
-        id: l.subServiceId,
-        name: l.name,
-        orgLabel: [l.operationalDepartment, l.pole, l.cellule, l.service].filter(Boolean).join(' / ') || l.name,
-        employeesCount: subServices.find((s) => s.id === l.subServiceId)?.employeesCount ?? 0,
-      }))
-      .sort((a, b) => a.orgLabel.localeCompare(b.orgLabel, 'fr'));
   }
+
+  /** Ouvre les branches qui contiennent au moins un service non configuré. */
+  private expandAllWithMissing(): void {
+    this.expandedDepts.clear();
+    this.expandedPoles.clear();
+    this.expandedCellules.clear();
+
+    const markMissing = (primeId: string) => {
+      const opt = this.byPrimeId.get(primeId);
+      return opt && !opt.hasTemplate;
+    };
+
+    for (const md of this.operationalDepartments) {
+      let deptOpen = false;
+      for (const pole of md.poles) {
+        let poleOpen = false;
+        for (const cell of pole.cellules) {
+          let cellOpen = false;
+          for (const svc of cell.services) {
+            if (markMissing(svc.id)) {
+              cellOpen = true;
+              poleOpen = true;
+              deptOpen = true;
+            }
+          }
+          if (cellOpen) this.expandedCellules.add(cell.id);
+        }
+        if (poleOpen) this.expandedPoles.add(pole.id);
+      }
+      if (deptOpen) this.expandedDepts.add(md.id);
+    }
+
+    for (const pole of this.unassignedPoles) {
+      let poleOpen = false;
+      for (const cell of pole.cellules) {
+        let cellOpen = false;
+        for (const svc of cell.services) {
+          if (markMissing(svc.id)) {
+            cellOpen = true;
+            poleOpen = true;
+          }
+        }
+        if (cellOpen) this.expandedCellules.add(cell.id);
+      }
+      if (poleOpen) this.expandedPoles.add(pole.id);
+    }
+
+    // Si tout est OK, ouvrir le premier département pour la vision d’ensemble
+    if (this.expandedDepts.size === 0 && this.operationalDepartments.length > 0) {
+      const md = this.operationalDepartments[0];
+      this.expandedDepts.add(md.id);
+      if (md.poles[0]) {
+        this.expandedPoles.add(md.poles[0].id);
+        if (md.poles[0].cellules[0]) {
+          this.expandedCellules.add(md.poles[0].cellules[0].id);
+        }
+      }
+    }
+  }
+
+  refreshStatusAfterSave(): void {
+    this.planningService.getShiftConfigStatus().subscribe({
+      next: (status) => {
+        this.statusBySubId.clear();
+        for (const item of status.items ?? []) {
+          this.statusBySubId.set(item.subServiceId, item);
+        }
+        for (const opt of this.subServiceOptions) {
+          opt.hasTemplate = this.statusBySubId.get(opt.id)?.hasTemplate ?? false;
+          opt.employeesCount =
+            this.statusBySubId.get(opt.id)?.activeEmployeeCount ?? opt.employeesCount;
+        }
+        const inTree = this.subServiceOptions.filter((opt) => this.isLinkedToTree(opt));
+        this.totalServiceCount = inTree.length;
+        this.configuredCount = inTree.filter((opt) => opt.hasTemplate).length;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  // ── Tree expand / status ───────────────────────────
+
+  toggleDept(id: string, event?: Event): void {
+    event?.stopPropagation();
+    if (this.expandedDepts.has(id)) this.expandedDepts.delete(id);
+    else this.expandedDepts.add(id);
+  }
+
+  togglePole(id: string, event?: Event): void {
+    event?.stopPropagation();
+    if (this.expandedPoles.has(id)) this.expandedPoles.delete(id);
+    else this.expandedPoles.add(id);
+  }
+
+  toggleCellule(id: string, event?: Event): void {
+    event?.stopPropagation();
+    if (this.expandedCellules.has(id)) this.expandedCellules.delete(id);
+    else this.expandedCellules.add(id);
+  }
+
+  deptExpanded(id: string): boolean {
+    return this.expandedDepts.has(id);
+  }
+  poleExpanded(id: string): boolean {
+    return this.expandedPoles.has(id);
+  }
+  celluleExpanded(id: string): boolean {
+    return this.expandedCellules.has(id);
+  }
+
+  optionForPrime(primeId: string): SubServiceOption | undefined {
+    return this.byPrimeId.get(primeId);
+  }
+
+  statusForPrime(primeId: string): ConfigStatus {
+    const opt = this.byPrimeId.get(primeId);
+    if (!opt) return 'none';
+    return opt.hasTemplate ? 'ok' : 'missing';
+  }
+
+  statusForServices(services: OrgServiceNode[]): ConfigStatus {
+    const linked = services
+      .map((s) => this.byPrimeId.get(s.id))
+      .filter((o): o is SubServiceOption => !!o);
+    if (linked.length === 0) return 'none';
+    const ok = linked.filter((o) => o.hasTemplate).length;
+    if (ok === linked.length) return 'ok';
+    if (ok === 0) return 'missing';
+    return 'partial';
+  }
+
+  statusForCellule(cell: OrgCelluleNode): ConfigStatus {
+    return this.statusForServices(cell.services);
+  }
+
+  statusForPole(pole: OrgPoleNode): ConfigStatus {
+    const all = pole.cellules.flatMap((c) => c.services);
+    return this.statusForServices(all);
+  }
+
+  statusForDept(md: OperationalDepartmentNode): ConfigStatus {
+    const all = md.poles.flatMap((p) => p.cellules.flatMap((c) => c.services));
+    return this.statusForServices(all);
+  }
+
+  statusTitle(status: ConfigStatus): string {
+    switch (status) {
+      case 'ok':
+        return 'Modèle shift configuré';
+      case 'missing':
+        return 'Modèle shift manquant';
+      case 'partial':
+        return 'Configuration partielle';
+      default:
+        return 'Aucun service planification lié';
+    }
+  }
+
+  selectOrgService(svc: OrgServiceNode): void {
+    const opt = this.byPrimeId.get(svc.id);
+    if (!opt) {
+      this.error = `« ${svc.name} » n’est pas lié à un service planification.`;
+      return;
+    }
+    this.selectSubService(opt);
+  }
+
+  selectSubService(opt: SubServiceOption): void {
+    this.error = '';
+    this.successMsg = '';
+    this.subServiceId = opt.id;
+    this.selectedServiceName = opt.name;
+    this.serviceEmployeeCount = opt.employeesCount;
+    this.savedConfig = null;
+    this.loadExistingConfig();
+  }
+
+  isSelected(subServiceId: number): boolean {
+    return this.subServiceId === subServiceId;
+  }
+
+  isOrgServiceSelected(primeId: string): boolean {
+    const opt = this.byPrimeId.get(primeId);
+    return !!opt && this.subServiceId === opt.id;
+  }
+
+  // ── Shifts table (inchangé) ────────────────────────
 
   addShift(): void {
     if (this.shifts.length >= 8) return;
     this.shifts.push(
-      this.createShift(`Shift ${this.shifts.length + 1}`, '08:00', this.shifts.length + 1)
+      this.createShift(`Shift ${this.shifts.length + 1}`, '08:00', this.shifts.length + 1),
     );
   }
 
   removeShift(index: number): void {
     if (this.shifts.length <= 1) return;
     this.shifts.splice(index, 1);
-    this.shifts.forEach((s, i) => s.displayOrder = i + 1);
+    this.shifts.forEach((s, i) => (s.displayOrder = i + 1));
   }
 
   getEndTime(shift: ShiftConfigItem): string {
@@ -171,15 +403,26 @@ export class ShiftConfigComponent implements OnInit {
     if (!shift.startTime) return '';
     const [h, m] = shift.startTime.split(':').map(Number);
     const startMin = h * 60 + m;
-    const breakStart = startMin + 3 * 60;
-    const breakEnd = startMin + (shift.workHours - 1) * 60;
+    const breakDurationMin = shift.breakDurationMinutes > 0 ? shift.breakDurationMinutes : 60;
+    const breakStart = startMin + 4 * 60;
+    const breakEnd = breakStart + breakDurationMin;
     const fmt = (min: number) =>
-      `${Math.floor(min / 60).toString().padStart(2, '0')}:${(min % 60).toString().padStart(2, '0')}`;
+      `${Math.floor(min / 60)
+        .toString()
+        .padStart(2, '0')}:${(min % 60).toString().padStart(2, '0')}`;
     return `${fmt(breakStart)} → ${fmt(breakEnd)}`;
   }
 
   get totalEffectif(): number {
     return this.shifts.reduce((sum, s) => sum + (s.requiredCount || 0), 0);
+  }
+
+  get totalPercentageLabel(): string {
+    return this.totalEffectif === 0 ? '0%' : '100%';
+  }
+
+  get quotasMatchEffectif(): boolean {
+    return this.serviceEmployeeCount <= 0 || this.totalEffectif === this.serviceEmployeeCount;
   }
 
   getPercentage(shift: ShiftConfigItem): number {
@@ -188,28 +431,58 @@ export class ShiftConfigComponent implements OnInit {
   }
 
   onRequiredCountChange(): void {
-    if (
-      this.serviceEmployeeCount > 0 &&
-      this.totalEffectif > this.serviceEmployeeCount
-    ) {
+    if (this.serviceEmployeeCount > 0 && this.totalEffectif > this.serviceEmployeeCount) {
       this.error = `Le total (${this.totalEffectif}) dépasse l'effectif du service (${this.serviceEmployeeCount}).`;
-    } else if (this.error.includes('dépasse l\'effectif')) {
+    } else if (
+      this.serviceEmployeeCount > 0 &&
+      this.totalEffectif < this.serviceEmployeeCount &&
+      this.totalEffectif > 0
+    ) {
+      this.error = `Le total (${this.totalEffectif}) doit égaler l'effectif actif (${this.serviceEmployeeCount}). Utilisez « Répartir ».`;
+    } else if (
+      this.error.includes("dépasse l'effectif") ||
+      this.error.includes("doit égaler l'effectif")
+    ) {
       this.error = '';
     }
   }
 
+  distributeEvenly(): void {
+    if (this.serviceEmployeeCount <= 0 || this.shifts.length === 0) {
+      this.error = 'Aucun effectif actif à répartir pour ce service.';
+      return;
+    }
+    const n = this.shifts.length;
+    const base = Math.floor(this.serviceEmployeeCount / n);
+    let rest = this.serviceEmployeeCount % n;
+    this.shifts.forEach((s) => {
+      s.requiredCount = base + (rest > 0 ? 1 : 0);
+      if (rest > 0) rest--;
+    });
+    this.error = '';
+    this.successMsg = `Effectif réparti : ${this.serviceEmployeeCount} sur ${n} shift(s).`;
+    this.cdr.detectChanges();
+  }
+
   saveConfig(): void {
-    if (!this.subServiceId || !this.weekCode) {
-      this.error = 'Veuillez sélectionner un service et une semaine.';
+    if (!this.subServiceId) {
+      this.error = 'Veuillez sélectionner un service dans l’arbre.';
       return;
     }
     if (this.totalEffectif === 0) {
-      this.error = 'Veuillez définir le nombre d\'employés pour chaque shift.';
+      this.error = "Veuillez définir le nombre d'employés pour chaque shift.";
       return;
     }
-    if (this.serviceEmployeeCount > 0 && this.totalEffectif > this.serviceEmployeeCount) {
-      this.error = `Le total ne peut pas dépasser ${this.serviceEmployeeCount} employés actifs.`;
+    if (this.serviceEmployeeCount > 0 && this.totalEffectif !== this.serviceEmployeeCount) {
+      this.error = `La somme des NB employés (${this.totalEffectif}) doit égaler l'effectif actif (${this.serviceEmployeeCount}).`;
       return;
+    }
+    for (const s of this.shifts) {
+      const p = s.minPresencePercent ?? 70;
+      if (p < 50 || p > 100) {
+        this.error = `Présence min invalide pour « ${s.label} » (50–100 %).`;
+        return;
+      }
     }
 
     this.saving = true;
@@ -218,106 +491,37 @@ export class ShiftConfigComponent implements OnInit {
 
     const dto: SaveShiftConfigDto = {
       subServiceId: this.subServiceId,
-      weekCode: this.weekCode,
-      weekStartDate: this.weekStartDate,
-      shifts: this.shifts
+      weekCode: null,
+      weekStartDate: null,
+      shifts: this.shifts,
     };
 
     this.planningService.saveShiftConfig(dto).subscribe({
-      next: result => {
+      next: (result) => {
         this.savedConfig = result;
         this.saving = false;
-        this.successMsg = `Config sauvegardée — ${result.totalEffectif} employés sur ${result.shifts.length} shifts`;
+        this.successMsg = `Modèle sauvegardé — ${result.totalEffectif} employés sur ${result.shifts.length} shifts (toutes les semaines)`;
+        const opt = this.subServiceOptions.find((s) => s.id === this.subServiceId);
+        if (opt) opt.hasTemplate = true;
+        this.refreshStatusAfterSave();
         this.cdr.detectChanges();
       },
-      error: err => {
+      error: (err) => {
         this.saving = false;
         this.error = `Erreur : ${err.error?.message ?? 'Erreur serveur'}`;
         this.cdr.detectChanges();
-      }
-    });
-  }
-
-  generatePlanning(): void {
-    if (!this.savedConfig) {
-      this.error = 'Veuillez d\'abord sauvegarder la configuration.';
-      return;
-    }
-
-    this.generating = true;
-    this.error = '';
-    this.successMsg = '';
-    this.cdr.detectChanges();
-
-    this.planningService.create({
-      subServiceId: this.subServiceId,
-      weekCode: this.weekCode,
-      weekStartDate: this.weekStartDate,
-      totalEffectif: this.totalEffectif
-    }).subscribe({
-      next: planning => {
-        this.runGenerateFromConfig(planning.id);
       },
-      error: err => {
-        if (err.status === 409) {
-          this.getExistingPlanningAndGenerate();
-        } else {
-          this.generating = false;
-          this.error = `Erreur : ${err.error?.message ?? 'Erreur serveur'}`;
-          this.cdr.detectChanges();
-        }
-      }
-    });
-  }
-
-  private getExistingPlanningAndGenerate(): void {
-    this.planningService.getBySubService(this.subServiceId).subscribe({
-      next: plannings => {
-        const existing = plannings.find(p => p.weekCode === this.weekCode);
-        if (existing) {
-          this.runGenerateFromConfig(existing.id);
-        } else {
-          this.generating = false;
-          this.error = 'Planning introuvable après conflit 409.';
-          this.cdr.detectChanges();
-        }
-      },
-      error: () => {
-        this.generating = false;
-        this.error = 'Impossible de récupérer le planning existant.';
-        this.cdr.detectChanges();
-      }
-    });
-  }
-
-  private runGenerateFromConfig(planningId: number): void {
-    this.planningService.generateFromConfig({
-      subServiceId: this.subServiceId,
-      weekCode: this.weekCode,
-      weeklyPlanningId: planningId
-    }).subscribe({
-      next: result => {
-        this.generating = false;
-        this.successMsg = `Planning ${result.weekCode} généré avec succès.`;
-        this.cdr.detectChanges();
-        setTimeout(() => this.router.navigate(['/planning/view', result.id]), 1500);
-      },
-      error: err => {
-        this.generating = false;
-        this.error = `Erreur génération : ${err.error?.message ?? 'Erreur serveur'}`;
-        this.cdr.detectChanges();
-      }
     });
   }
 
   loadExistingConfig(): void {
-    if (!this.subServiceId || !this.weekCode) return;
+    if (!this.subServiceId) return;
     this.loading = true;
 
-    this.planningService.getShiftConfig(this.subServiceId, this.weekCode).subscribe({
-      next: config => {
+    this.planningService.getShiftTemplate(this.subServiceId).subscribe({
+      next: (config) => {
         this.savedConfig = config;
-        this.shifts = config.shifts.map(s => ({
+        this.shifts = config.shifts.map((s) => ({
           label: s.label,
           startTime: s.startTime,
           workHours: s.workHours,
@@ -326,7 +530,7 @@ export class ShiftConfigComponent implements OnInit {
           breakRangeEnd: s.breakRangeEnd,
           requiredCount: s.requiredCount,
           minPresencePercent: s.minPresencePercent,
-          displayOrder: s.displayOrder
+          displayOrder: s.displayOrder,
         }));
         this.loading = false;
         this.cdr.detectChanges();
@@ -336,69 +540,7 @@ export class ShiftConfigComponent implements OnInit {
         this.initShifts();
         this.loading = false;
         this.cdr.detectChanges();
-      }
+      },
     });
-  }
-
-  onSubServiceChange(): void {
-    const id = Number(this.subServiceId);
-    this.subServiceId = Number.isFinite(id) && id > 0 ? id : 0;
-    const opt = this.subServiceOptions.find((s) => s.id === this.subServiceId);
-    this.serviceEmployeeCount = opt?.employeesCount ?? 0;
-    this.savedConfig = null;
-    this.loadExistingConfig();
-  }
-
-  onWeekChange(): void {
-    if (!this.weekStartDate) return;
-    const picked = this.parseDateInput(this.weekStartDate);
-    const monday = this.getMondayOfWeek(picked);
-    const mondayStr = this.formatDate(monday);
-    this.weekDateAdjusted = mondayStr !== this.weekStartDate;
-    this.weekStartDate = mondayStr;
-    this.weekCode = this.getWeekCode(monday);
-    this.savedConfig = null;
-    this.loadExistingConfig();
-    this.cdr.detectChanges();
-  }
-
-  initCurrentWeek(): void {
-    const today = new Date();
-    const monday = this.getMondayOfWeek(today);
-    this.weekStartDate = this.formatDate(monday);
-    this.weekCode = this.getWeekCode(monday);
-    this.currentWeekCode = this.weekCode;
-  }
-
-  private parseDateInput(value: string): Date {
-    const [y, m, d] = value.split('-').map(Number);
-    return new Date(y, m - 1, d);
-  }
-
-  getMondayOfWeek(date: Date): Date {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    d.setDate(diff);
-    return d;
-  }
-
-  getWeekCode(monday: Date): string {
-    const year = monday.getFullYear();
-    const weekNum = this.getISOWeek(monday);
-    return `${year}-W${weekNum.toString().padStart(2, '0')}`;
-  }
-
-  getISOWeek(date: Date): number {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
-    const week1 = new Date(d.getFullYear(), 0, 4);
-    return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000
-      - 3 + (week1.getDay() + 6) % 7) / 7);
-  }
-
-  formatDate(d: Date): string {
-    return d.toLocaleDateString('en-CA');
   }
 }

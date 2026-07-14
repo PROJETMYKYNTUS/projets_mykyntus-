@@ -81,11 +81,10 @@ public class PlanningController(IPlanningService planningService, IUserService u
     }
 
     // ----------------------------------------------------
-    // ? NOUVEAU � CONFIG SHIFTS
+    // CONFIG SHIFTS (template + snapshot)
     // ----------------------------------------------------
 
-    // POST api/planning/config
-    // Le responsable sauvegarde sa config shifts pour la semaine
+    // POST api/planning/config — template si WeekCode vide
     [HttpPost("config")]
     public async Task<IActionResult> SaveShiftConfig([FromBody] SaveShiftConfigDto dto)
     {
@@ -100,9 +99,23 @@ public class PlanningController(IPlanningService planningService, IUserService u
         }
     }
 
-    // GET api/planning/config/3/2026-W10
-    // Lire la config d'un sous-service pour une semaine
-    [HttpGet("config/{subServiceId}/{weekCode}")]
+    // GET api/planning/config/status — avancement modèles (rouge/vert)
+    [HttpGet("config/status")]
+    public async Task<IActionResult> GetShiftConfigStatus()
+    {
+        return Ok(await _planningService.GetShiftConfigStatusAsync());
+    }
+
+    // GET api/planning/config/3 — modèle permanent
+    [HttpGet("config/{subServiceId:int}")]
+    public async Task<IActionResult> GetShiftTemplate(int subServiceId)
+    {
+        var result = await _planningService.GetShiftTemplateAsync(subServiceId);
+        return result == null ? NotFound() : Ok(result);
+    }
+
+    // GET api/planning/config/3/2026-W10 — snapshot semaine
+    [HttpGet("config/{subServiceId:int}/{weekCode}")]
     public async Task<IActionResult> GetShiftConfig(int subServiceId, string weekCode)
     {
         var result = await _planningService.GetShiftConfigAsync(subServiceId, weekCode);
@@ -110,11 +123,66 @@ public class PlanningController(IPlanningService planningService, IUserService u
     }
 
     // ----------------------------------------------------
-    // G�N�RATION
+    // VALIDATION / AUTO-GÉNÉRATION
+    // ----------------------------------------------------
+
+    [HttpGet("week/{weekCode}")]
+    public async Task<IActionResult> GetWeekOverview(string weekCode, [FromQuery] int? viewerUserId = null)
+    {
+        var result = await _planningService.GetWeekOverviewAsync(weekCode, viewerUserId);
+        return Ok(result);
+    }
+
+    [HttpPost("{id:int}/consult")]
+    public async Task<IActionResult> Consult(int id, [FromQuery] int userId)
+    {
+        try
+        {
+            await _planningService.RecordConsultationAsync(id, userId);
+            return Ok(new { consulted = true });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("auto-generate-settings")]
+    public async Task<IActionResult> GetAutoGenerateSettings()
+    {
+        return Ok(await _planningService.GetAutoGenerateSettingsAsync());
+    }
+
+    [HttpPut("auto-generate-settings")]
+    public async Task<IActionResult> SaveAutoGenerateSettings(
+        [FromBody] AutoGenerateSettingsDto dto,
+        [FromQuery] int? updatedByUserId = null)
+    {
+        var result = await _planningService.SaveAutoGenerateSettingsAsync(dto, updatedByUserId);
+        return Ok(result);
+    }
+
+    [HttpPost("week/{weekCode}/auto-generate")]
+    public async Task<IActionResult> AutoGenerateWeek(
+        string weekCode,
+        [FromQuery] bool force = false)
+    {
+        try
+        {
+            var result = await _planningService.AutoGenerateWeekAsync(weekCode, force);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // ----------------------------------------------------
+    // GÉNÉRATION
     // ----------------------------------------------------
 
     // POST api/planning/generate
-    // Ancienne g�n�ration (compatibilit�)
     [HttpPost("generate")]
     public async Task<IActionResult> Generate([FromBody] GeneratePlanningDto dto)
     {
@@ -134,7 +202,6 @@ public class PlanningController(IPlanningService planningService, IUserService u
     }
 
     // POST api/planning/generate-from-config
-    // ? Nouvelle g�n�ration depuis la config du responsable
     [HttpPost("generate-from-config")]
     public async Task<IActionResult> GenerateFromConfig(
         [FromBody] GeneratePlanningFromConfigDto dto)
@@ -162,6 +229,10 @@ public class PlanningController(IPlanningService planningService, IUserService u
         {
             var result = await _planningService.PublishPlanningAsync(id, validatorId);
             return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -331,6 +402,14 @@ public class PlanningController(IPlanningService planningService, IUserService u
             return BadRequest(new { message = ex.Message });
         }
     }
+    // GET /api/planning/saturday-history/{subServiceId}/ytd?year=2026
+    // (déclaré avant {weekCode} pour éviter que "ytd" soit capturé comme code semaine)
+    [HttpGet("saturday-history/{subServiceId}/ytd")]
+    public async Task<IActionResult> GetSaturdayYtd(int subServiceId, [FromQuery] int? year)
+        => Ok(await _planningService.GetSaturdayYtdAsync(
+            subServiceId,
+            year ?? DateTime.UtcNow.Year));
+
     // GET /api/planning/saturday-history/{subServiceId}/{weekCode}
     [HttpGet("saturday-history/{subServiceId}/{weekCode}")]
     public async Task<IActionResult> GetSaturdayHistory(
@@ -343,7 +422,7 @@ public class PlanningController(IPlanningService planningService, IUserService u
         [FromBody] SetSaturdayHistoryDto dto)
     {
         await _planningService.SaveSaturdayHistoryAsync(dto, true);
-        return Ok(new { message = "Historique samedi sauvegard�." });
+        return Ok(new { message = "Historique samedi sauvegardé." });
     }
     // PUT api/planning/override-saturday
     [HttpPut("override-saturday")]

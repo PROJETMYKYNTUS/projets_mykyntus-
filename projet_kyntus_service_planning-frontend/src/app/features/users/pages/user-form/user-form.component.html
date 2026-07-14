@@ -141,10 +141,31 @@
                       id="referralSearch"
                       name="referralSearch"
                       type="search"
-                      placeholder="Nom candidat, email, parrain, poste…"
+                      placeholder="Nom, prénom, email, parrain, poste…"
                       [ngModel]="referralSearchQuery"
                       (ngModelChange)="onReferralSearchChange($event)"
                     />
+                    @if (referralSearchSuggestions.length) {
+                      <ul class="referral-search-suggestions" role="listbox" aria-label="Dossiers similaires">
+                        @for (item of referralSearchSuggestions; track item.referral.id) {
+                          <li>
+                            <button
+                              type="button"
+                              class="referral-search-suggestion"
+                              (click)="pickReferralFromSearch(item.referral.id)"
+                            >
+                              <span class="referral-search-suggestion-name">{{ item.referral.candidateName }}</span>
+                              <span class="referral-search-suggestion-meta">
+                                {{ item.referral.position }} · {{ referralStatusLabels[item.referral.status] }}
+                                · Parrain : {{ item.referral.referrerName }}
+                              </span>
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    } @else if (referralSearchQuery.trim()) {
+                      <p class="hint referral-search-empty">Aucun dossier proche de « {{ referralSearchQuery.trim() }} ».</p>
+                    }
                   </div>
                   <div class="form-group">
                     <label for="referralSelect">Dossier parrainage</label>
@@ -181,21 +202,41 @@
                   }
                   @if (referralMatchBanner; as match) {
                     <div class="alert alert-info referral-match-banner">
-                      @if (match.ambiguous) {
-                        <p><strong>Plusieurs dossiers parrainage possibles</strong> — confirmez le dossier dans la liste.</p>
+                      @if (match.ambiguous || referralMatchChoices.length > 1) {
+                        <p>
+                          <strong>Plusieurs dossiers parrainage possibles</strong> —
+                          ce candidat pourrait correspondre à l’un des dossiers ci-dessous. Confirmez pour préremplir.
+                        </p>
                       } @else if (match.best) {
                         <p>
-                          <strong>Cet employé est peut-être issu d'un parrainage</strong> —
-                          {{ match.best.referral.candidateName }}
+                          <strong>Possible dossier de parrainage</strong> —
+                          le nom saisi ressemble à
+                          <em>{{ match.best.referral.candidateName }}</em>
                           (Parrain : {{ match.best.referral.referrerName }},
                           {{ referralStatusLabels[match.best.referral.status] }}).
                         </p>
-                        @if (!match.shouldPreselect) {
-                          <button type="button" class="btn btn-outline ky-btn-secondary referral-match-confirm" (click)="confirmReferralSuggestion()">
-                            Confirmer ce dossier
-                          </button>
-                        }
                       }
+                      <ul class="referral-match-choices">
+                        @for (choice of referralMatchChoices; track choice.referral.id) {
+                          <li>
+                            <span>
+                              {{ choice.referral.candidateName }} —
+                              {{ choice.referral.position }}
+                              ({{ referralStatusLabels[choice.referral.status] }})
+                            </span>
+                            <button
+                              type="button"
+                              class="btn btn-outline ky-btn-secondary referral-match-confirm"
+                              (click)="confirmReferralSuggestion(choice.referral.id)"
+                            >
+                              Confirmer ce dossier
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                      <button type="button" class="btn btn-link referral-match-dismiss" (click)="dismissReferralMatch()">
+                        Ce n’est pas un parrainage
+                      </button>
                     </div>
                   }
                 }
@@ -273,7 +314,14 @@
 
                 <label for="hireDate">Date d'embauche <span class="required">*</span></label>
 
-                <input class="ky-input" id="hireDate" name="hireDate" type="date" [(ngModel)]="form.hireDate" />
+                <input
+                  class="ky-input"
+                  id="hireDate"
+                  name="hireDate"
+                  type="date"
+                  [ngModel]="form.hireDate"
+                  (ngModelChange)="onHireDateChange($event)"
+                />
 
               </div>
 
@@ -341,7 +389,7 @@
                 </div>
                 @if (showNationaliteAutre) {
                   <div class="form-group">
-                    <label for="nationaliteAutre">Précisez la nationalité</label>
+                    <label for="nationaliteAutre">Précisez la nationalité <span class="required">*</span></label>
                     <input
                       class="ky-input"
                       id="nationaliteAutre"
@@ -354,10 +402,10 @@
                 }
                 @if (showRequiresAutoentrepreneur) {
                   <div class="form-group form-group--full">
-                    <p class="hint">Statut : Autoentrepreneur (obligatoire pour cette nationalité)</p>
+                    <p class="hint">Statut : Autoentrepreneur (obligatoire uniquement pour « Autre »)</p>
                   </div>
                   <div class="form-group">
-                    <label for="numeroCarteAutoentrepreneur">N° carte autoentrepreneur</label>
+                    <label for="numeroCarteAutoentrepreneur">N° carte autoentrepreneur <span class="required">*</span></label>
                     <input
                       class="ky-input"
                       id="numeroCarteAutoentrepreneur"
@@ -795,7 +843,6 @@
               <div class="level-selector level-selector--compact">
 
                 <button type="button" class="level-btn level-btn--1" [class.active]="form.level === 1" (click)="setLevel(1)">
-                  <span class="level-badge">1</span>
                   <span class="level-content">
                     <span class="level-title">Débutant</span>
                     <span class="level-text">Prise de poste ou montée en compétence</span>
@@ -803,7 +850,6 @@
                 </button>
 
                 <button type="button" class="level-btn level-btn--2" [class.active]="form.level === 2" (click)="setLevel(2)">
-                  <span class="level-badge">2</span>
                   <span class="level-content">
                     <span class="level-title">Confirmé</span>
                     <span class="level-text">Autonome sur les tâches courantes</span>
@@ -811,7 +857,6 @@
                 </button>
 
                 <button type="button" class="level-btn level-btn--3" [class.active]="form.level === 3" (click)="setLevel(3)">
-                  <span class="level-badge">3</span>
                   <span class="level-content">
                     <span class="level-title">Expert</span>
                     <span class="level-text">Référent métier ou opérationnel</span>
@@ -820,32 +865,31 @@
 
               </div>
 
+              <p class="field-hint" *ngIf="form.level === 1">
+                Débutant : travaille tous les samedis en demi-journée (créneau auto). Passer en Confirmé retire cette règle à la prochaine génération.
+              </p>
+
             </div>
 
-
-
-            <div class="form-group" [class.form-group--readonly]="!canEditExpertiseMetier">
+            <div class="form-group">
 
               <label>Niveau d'expertise métier @if (!canEditExpertiseMetier) { <span class="field-hint">(RH uniquement)</span> }</label>
 
               <div class="level-selector level-selector--compact">
 
                 <button type="button" class="level-btn level-btn--1" [class.active]="form.niveauExpertiseMetier === 1" [disabled]="!canEditExpertiseMetier" (click)="setExpertiseLevel(1)">
-                  <span class="level-badge">1</span>
                   <span class="level-content">
                     <span class="level-title">Débutant</span>
                   </span>
                 </button>
 
                 <button type="button" class="level-btn level-btn--2" [class.active]="form.niveauExpertiseMetier === 2" [disabled]="!canEditExpertiseMetier" (click)="setExpertiseLevel(2)">
-                  <span class="level-badge">2</span>
                   <span class="level-content">
                     <span class="level-title">Confirmé</span>
                   </span>
                 </button>
 
                 <button type="button" class="level-btn level-btn--3" [class.active]="form.niveauExpertiseMetier === 3" [disabled]="!canEditExpertiseMetier" (click)="setExpertiseLevel(3)">
-                  <span class="level-badge">3</span>
                   <span class="level-content">
                     <span class="level-title">Expert</span>
                   </span>
@@ -929,11 +973,15 @@
             <div class="form-grid form-grid--dense">
                 <div class="form-group">
                   <label for="dateEntree">Date d'entrée</label>
-                  <input class="ky-input" id="dateEntree" name="dateEntree" type="date" [(ngModel)]="hrProfile.dateEntree" />
-                </div>
-                <div class="form-group">
-                  <label for="dateAnciennete">Date d'ancienneté</label>
-                  <input class="ky-input" id="dateAnciennete" name="dateAnciennete" type="date" [(ngModel)]="hrProfile.dateAnciennete" />
+                  <input
+                    class="ky-input"
+                    id="dateEntree"
+                    name="dateEntree"
+                    type="date"
+                    [(ngModel)]="hrProfile.dateEntree"
+                    (ngModelChange)="onDateEntreeChange($event)"
+                  />
+                  <span class="hint">Ancienneté calculée : {{ computedAncienneteLabel }}</span>
                 </div>
                 <div class="form-group">
                   <label for="rib">RIB</label>

@@ -17,7 +17,7 @@ public static class EmployeeImportHrProfileMapper
 
     private static readonly HashSet<string> HrFieldKeys =
     [
-        "dateNaissance", "villeNaissance", "nationalite", "sexe", "situationFamiliale", "nombreEnfants",
+        "dateNaissance", "villeNaissance", "nationalite", "numeroCarteAutoentrepreneur", "sexe", "situationFamiliale", "nombreEnfants",
         "cin", "adresse", "telephone1", "telephoneUrgence", "relationUrgence", "rib",
         "immatriculationInterne", "immatriculationCnss", "dateEntree", "dateAnciennete", "dateSortie",
         "dateEvolutionPoste", "ancienPoste", "ancienService", "niveauScolaire", "intitulesEtudes",
@@ -236,6 +236,9 @@ public static class EmployeeImportHrProfileMapper
         if (mapped.ContainsKey("nationalite"))
             profile.Nationalite = NormalizeNationalite(mapped["nationalite"]);
 
+        if (mapped.ContainsKey("numeroCarteAutoentrepreneur"))
+            profile.NumeroCarteAutoentrepreneur = TrimOrNull(mapped, "numeroCarteAutoentrepreneur");
+
         if (mapped.ContainsKey("sexe"))
             profile.Sexe = NormalizeSexe(mapped["sexe"]);
 
@@ -251,6 +254,9 @@ public static class EmployeeImportHrProfileMapper
 
         if (mapped.ContainsKey("adresse"))
             profile.Adresse = TrimOrNull(mapped, "adresse");
+
+        if (mapped.ContainsKey("emailPersonnel"))
+            profile.EmailPersonnel = TrimOrNull(mapped, "emailPersonnel");
 
         if (mapped.ContainsKey("telephone1"))
             profile.Telephone1 = TrimOrNull(mapped, "telephone1");
@@ -313,6 +319,43 @@ public static class EmployeeImportHrProfileMapper
             profile.DateFinFormationPrevue = ParseDateOnly(mapped, "dateFinFormationPrevue");
 
         ValidateNombreEnfantsForSituationFamiliale(mapped, profile);
+        ValidateAutoentrepreneurCarte(mapped, profile);
+    }
+
+    private static void ValidateAutoentrepreneurCarte(
+        IReadOnlyDictionary<string, string?> mapped,
+        UserHrProfileDto profile)
+    {
+        if (!mapped.ContainsKey("nationalite") && !mapped.ContainsKey("numeroCarteAutoentrepreneur"))
+            return;
+
+        var nationalite = profile.Nationalite;
+        if (string.IsNullOrWhiteSpace(nationalite) && mapped.TryGetValue("nationalite", out var raw))
+            nationalite = NormalizeNationalite(raw);
+
+        if (string.IsNullOrWhiteSpace(nationalite) || !RequiresAutoentrepreneur(nationalite))
+            return;
+
+        var hasCarte = !string.IsNullOrWhiteSpace(profile.NumeroCarteAutoentrepreneur)
+            || mapped.TryGetValue("numeroCarteAutoentrepreneur", out var carteRaw)
+                && !string.IsNullOrWhiteSpace(carteRaw);
+
+        if (!hasCarte)
+        {
+            throw new InvalidOperationException(
+                "Le numéro de carte autoentrepreneur est obligatoire pour cette nationalité.");
+        }
+    }
+
+    private static bool RequiresAutoentrepreneur(string? nationalite)
+    {
+        if (string.IsNullOrWhiteSpace(nationalite)) return false;
+        var n = EmployeeImportColumnMatcher.Normalize(nationalite);
+        // Nationalités prédéfinies : pas de carte autoentrepreneur.
+        if (n is "marocain" or "marocaine" or "senegalais" or "senegalaise" or "tunisien" or "tunisienne")
+            return false;
+        // « Autre » ou nationalité libre saisie → carte obligatoire.
+        return true;
     }
 
     private static void ValidateNombreEnfantsForSituationFamiliale(
@@ -336,7 +379,7 @@ public static class EmployeeImportHrProfileMapper
         if (!hasValue)
         {
             throw new InvalidOperationException(
-                "Nombre d'enfants obligatoire pour la situation familiale indiquée (marié, divorcé ou veuf).");
+                "Nombre d'enfants obligatoire pour la situation familiale indiquée (marié, divorcé ou veuf) : indiquez 0 si sans enfants.");
         }
     }
 
@@ -345,11 +388,11 @@ public static class EmployeeImportHrProfileMapper
         if (!mapped.TryGetValue("niveauExpertiseMetier", out var raw) || string.IsNullOrWhiteSpace(raw))
             return null;
 
-        if (EmployeeImportLevelResolver.TryResolve(raw, out var level))
+        if (EmployeeImportExpertiseLevelResolver.TryResolve(raw, out var level))
             return level;
 
         throw new InvalidOperationException(
-            "Niveau expertise métier invalide : utilisez 1, 2, 3 ou Débutant, Intermédiaire, Confirmé.");
+            "Niveau expertise métier invalide : utilisez 1, 2, 3 ou Débutant, Confirmé, Expert.");
     }
 
     private static DateTime ResolveContractStartDate(IReadOnlyDictionary<string, string?> mapped, DateTime hireDate)
@@ -472,6 +515,10 @@ public static class EmployeeImportHrProfileMapper
         {
             "marocain" => "MAROCAIN",
             "marocaine" => "MAROCAINE",
+            "senegalais" => "SENEGALAIS",
+            "senegalaise" => "SENEGALAISE",
+            "tunisien" => "TUNISIEN",
+            "tunisienne" => "TUNISIENNE",
             "autre" => "AUTRE",
             _ => raw.Trim()
         };
@@ -522,11 +569,13 @@ public static class EmployeeImportHrProfileMapper
             DateNaissance = source.DateNaissance,
             VilleNaissance = source.VilleNaissance,
             Nationalite = source.Nationalite,
+            NumeroCarteAutoentrepreneur = source.NumeroCarteAutoentrepreneur,
             Sexe = source.Sexe,
             SituationFamiliale = source.SituationFamiliale,
             NombreEnfants = source.NombreEnfants,
             Cin = source.Cin,
             Adresse = source.Adresse,
+            EmailPersonnel = source.EmailPersonnel,
             Telephone1 = source.Telephone1,
             TelephoneUrgence = source.TelephoneUrgence,
             RelationUrgence = source.RelationUrgence,
@@ -555,11 +604,13 @@ public static class EmployeeImportHrProfileMapper
         return a.DateNaissance == b.DateNaissance
             && a.VilleNaissance == b.VilleNaissance
             && a.Nationalite == b.Nationalite
+            && a.NumeroCarteAutoentrepreneur == b.NumeroCarteAutoentrepreneur
             && a.Sexe == b.Sexe
             && a.SituationFamiliale == b.SituationFamiliale
             && a.NombreEnfants == b.NombreEnfants
             && a.Cin == b.Cin
             && a.Adresse == b.Adresse
+            && a.EmailPersonnel == b.EmailPersonnel
             && a.Telephone1 == b.Telephone1
             && a.TelephoneUrgence == b.TelephoneUrgence
             && a.RelationUrgence == b.RelationUrgence

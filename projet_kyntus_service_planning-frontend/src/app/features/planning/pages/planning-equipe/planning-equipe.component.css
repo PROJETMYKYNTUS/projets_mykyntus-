@@ -77,3 +77,41 @@
 .equipe-error {
   color: #b91c1c;
 }
+
+.coverage-banner {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.coverage-banner.cov-ok {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.coverage-banner.cov-bad {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.equipe-table th.cov-ok,
+.equipe-table td.cov-ok {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.equipe-table th.cov-bad,
+.equipe-table td.cov-bad {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.cov-chip {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.85;
+  margin-top: 2px;
+}

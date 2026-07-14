@@ -25,7 +25,15 @@ export class FormationTrainingService {
   }
 
   createSession(body: Record<string, unknown>): Promise<TrainingSessionDto> {
-    return firstValueFrom(this.http.post<TrainingSessionDto>(`${PREFIX}/sessions`, body));
+    return firstValueFrom(this.http.post<TrainingSessionDto>(`${PREFIX}/sessions`, body)).catch((err) => {
+      const msg =
+        err?.error?.error ||
+        err?.error?.title ||
+        (typeof err?.error === 'string' ? err.error : null) ||
+        err?.message ||
+        'Échec de la création';
+      throw new Error(msg);
+    });
   }
 
   assignEmployees(sessionId: string, employees: { employeeId: string; employeeName: string }[]): Promise<unknown> {
@@ -55,6 +63,16 @@ export class FormationTrainingService {
 
   listRhPendingInitial(): Promise<InitialTrainingPathDto[]> {
     return firstValueFrom(this.http.get<InitialTrainingPathDto[]>(`${PREFIX}/initial-paths/rh-pending`));
+  }
+
+  listInitialOverview(): Promise<InitialTrainingPathDto[]> {
+    return firstValueFrom(this.http.get<InitialTrainingPathDto[]>(`${PREFIX}/initial-paths/overview`));
+  }
+
+  listInitialByEmployee(employeeId: string): Promise<InitialTrainingPathDto[]> {
+    return firstValueFrom(
+      this.http.get<InitialTrainingPathDto[]>(`${PREFIX}/initial-paths/by-employee/${employeeId}`),
+    );
   }
 
   recordQuiz(pathId: string, body: { quizScore: number; quizPassed: boolean; formateurComment?: string; recordedBy: string }): Promise<InitialTrainingPathDto> {

@@ -11,6 +11,9 @@ public class FormationDbContext : DbContext
     public DbSet<Inscription> Inscriptions => Set<Inscription>();
     public DbSet<Certification> Certifications => Set<Certification>();
     public DbSet<EmployeAnnuaire> EmployeAnnuaires => Set<EmployeAnnuaire>();
+    public DbSet<TrainingSession> TrainingSessions => Set<TrainingSession>();
+    public DbSet<TrainingAssignment> TrainingAssignments => Set<TrainingAssignment>();
+    public DbSet<InitialTrainingPath> InitialTrainingPaths => Set<InitialTrainingPath>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,6 +45,28 @@ public class FormationDbContext : DbContext
             e.Property(x => x.Prenom).HasMaxLength(200);
             e.Property(x => x.Email).HasMaxLength(320);
             e.Property(x => x.Role).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<TrainingSession>(e =>
+        {
+            e.ToTable("training_sessions");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Title).HasMaxLength(300).IsRequired();
+            e.HasMany(x => x.Assignments).WithOne(x => x.Session).HasForeignKey(x => x.SessionId);
+        });
+
+        modelBuilder.Entity<TrainingAssignment>(e =>
+        {
+            e.ToTable("training_assignments");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.SessionId, x.EmployeeId }).IsUnique();
+        });
+
+        modelBuilder.Entity<InitialTrainingPath>(e =>
+        {
+            e.ToTable("initial_training_paths");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.EmployeeId);
         });
     }
 }

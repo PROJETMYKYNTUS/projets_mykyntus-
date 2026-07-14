@@ -34,11 +34,13 @@ public class UserHrProfileDto
     public DateOnly? DateNaissance { get; set; }
     public string? VilleNaissance { get; set; }
     public string? Nationalite { get; set; }
+    public string? NumeroCarteAutoentrepreneur { get; set; }
     public string? Sexe { get; set; }
     public string? SituationFamiliale { get; set; }
     public int? NombreEnfants { get; set; }
     public string? Cin { get; set; }
     public string? Adresse { get; set; }
+    public string? EmailPersonnel { get; set; }
     public string? Telephone1 { get; set; }
     public string? TelephoneUrgence { get; set; }
     public string? RelationUrgence { get; set; }

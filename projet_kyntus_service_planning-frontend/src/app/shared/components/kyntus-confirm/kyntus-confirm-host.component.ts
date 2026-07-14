@@ -27,6 +27,26 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
 
           <div class="ky-confirm-body">
             <p class="ky-confirm-message">{{ d.message }}</p>
+
+            @if (d.choices.length > 0) {
+              <ul class="ky-confirm-choices" role="group" aria-label="Titulaires à remplacer">
+                @for (choice of d.choices; track choice.id) {
+                  <li>
+                    <label class="ky-confirm-choice">
+                      <input
+                        type="checkbox"
+                        [checked]="d.selectedIds.includes(choice.id)"
+                        (change)="onChoiceChange(choice.id, $event)"
+                      />
+                      <span>{{ choice.label }}</span>
+                    </label>
+                  </li>
+                }
+              </ul>
+              @if (d.choicesHint) {
+                <p class="ky-confirm-hint">{{ d.choicesHint }}</p>
+              }
+            }
           </div>
 
           <div class="ky-confirm-footer">
@@ -37,6 +57,7 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
               type="button"
               class="ky-btn-primary"
               [class.ky-btn-danger]="d.variant === 'danger'"
+              [disabled]="!confirm.canAccept()"
               (click)="confirm.accept()"
             >
               {{ d.confirmLabel }}
@@ -132,6 +153,47 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
       line-height: 1.55;
     }
 
+    .ky-confirm-choices {
+      list-style: none;
+      margin: 14px 0 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .ky-confirm-choice {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--text-muted, #94a3b8) 22%, transparent);
+      background: color-mix(in srgb, var(--navy-900, #1e293b) 35%, transparent);
+      cursor: pointer;
+      font-size: 0.92rem;
+      color: var(--text-primary);
+      line-height: 1.35;
+    }
+
+    .ky-confirm-choice input {
+      margin-top: 2px;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      accent-color: var(--accent-primary, #3b82f6);
+      cursor: pointer;
+    }
+
+    .ky-confirm-hint {
+      margin: 10px 0 0;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
     .ky-confirm-footer {
       display: flex;
       justify-content: flex-end;
@@ -142,6 +204,12 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
     .ky-btn-danger {
       background: color-mix(in srgb, #ef4444 88%, #000) !important;
       border-color: color-mix(in srgb, #ef4444 70%, transparent) !important;
+    }
+
+    .ky-btn-primary:disabled,
+    .ky-btn-danger:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
     }
 
     @media (max-width: 480px) {
@@ -163,6 +231,11 @@ export class KyntusConfirmHostComponent {
 
   iconFor(variant: 'warning' | 'danger' | 'default') {
     return this.icons[variant];
+  }
+
+  onChoiceChange(id: string, event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    this.confirm.toggleChoice(id, !!input?.checked);
   }
 
   @HostListener('document:keydown.escape')

@@ -92,11 +92,11 @@ export const MICROSERVICES: Microservice[] = [
     icon: ICONS.users,
     children: [
       { label: 'Employés', route: '/users', roles: ADMIN_RH },
+      { label: 'Historique rotations', route: '/pilotage-rh', roles: ADMIN_RH },
       { label: 'Champs employés', route: '/users/fields', roles: ADMIN_RH },
       { label: 'Nouvel employé', route: '/users/create', roles: ADMIN_RH },
       { label: 'Import employés', route: '/import', roles: ADMIN_RH },
       { label: 'Contrats', route: '/contracts', roles: MANAGER_ROLES },
-      { label: 'Nouveaux Employés', route: '/new-employees', roles: MANAGER_ROLES },
     ],
   },
   {
@@ -119,7 +119,9 @@ export const MICROSERVICES: Microservice[] = [
     roles: ALL_ROLES,
     children: [
       { label: 'Mes plannings', route: '/mes-plannings', roles: EMPLOYEE_ROLES },
-      { label: 'Plannings', route: '/planning', roles: PLANNING_MANAGER_ROLES },
+      // Masqué temporairement — génération manuelle legacy (« Algorithme intelligent… »)
+      // { label: 'Plannings', route: '/planning', roles: PLANNING_MANAGER_ROLES },
+      { label: 'Validation plannings', route: '/planning/validation', roles: ['Admin', 'RH'] },
       { label: 'Planning Équipe', route: '/planning/equipe', roles: ['Manager', 'Coach'] },
       { label: 'Configuration Shifts', route: '/planning/shift-config', roles: PLANNING_MANAGER_ROLES },
       { label: 'Historique Samedis', route: '/planning/saturday-history', roles: PLANNING_MANAGER_ROLES },

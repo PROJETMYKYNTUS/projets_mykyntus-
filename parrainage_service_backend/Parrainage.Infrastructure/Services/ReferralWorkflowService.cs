@@ -29,6 +29,9 @@ public sealed class ReferralWorkflowService(
 
     public async Task<ReferralEntity> SubmitReferralAsync(CreateReferralRequest data, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(data.ReferrerName))
+            throw new InvalidOperationException("Le nom du parrain est obligatoire.");
+
         var cfg = await db.SystemConfigs.AsNoTracking().FirstOrDefaultAsync(c => c.Id == 1, ct);
         var limit = cfg?.ReferralLimitPerEmployee ?? 10;
         var existingCount = await db.Referrals.CountAsync(r => r.ReferrerId == data.ReferrerId, ct);
@@ -360,6 +363,27 @@ public sealed class ReferralWorkflowService(
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<ReferralEntity>> ListLinkableReferralsAsync(string? search, CancellationToken ct)
+    {
+        var query = db.Referrals.AsNoTracking()
+            .Where(r =>
+                (r.Status == "SUBMITTED" || r.Status == "PROCESSED")
+                && r.CandidateEmployeeId == null);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(r =>
+                r.CandidateName.Contains(term)
+                || r.CandidateEmail.Contains(term)
+                || r.ReferrerName.Contains(term)
+                || r.Position.Contains(term));
+        }
+
+        var rows = await query.ToListAsync(ct);
+        return rows.OrderByDescending(r => r.CreatedAt).ToList();
+    }
+
     public async Task<ReferralEntity?> LinkEmployeeAsync(string id, LinkEmployeeRequest request, CancellationToken ct)
     {
         var current = await db.Referrals.FirstOrDefaultAsync(r => r.Id == id, ct);
@@ -377,8 +401,23 @@ public sealed class ReferralWorkflowService(
     {
         var current = await db.Referrals.FirstOrDefaultAsync(r => r.Id == id, ct);
         if (current is null) return null;
-        if (current.Status != "PROCESSED")
-            throw new InvalidOperationException("Seuls les dossiers traités (PROCESSED) peuvent être finalisés depuis l'onboarding employé.");
+        if (current.Status is not ("SUBMITTED" or "PROCESSED"))
+            throw new InvalidOperationException(
+                "Seuls les dossiers en attente (SUBMITTED) ou traités (PROCESSED) peuvent être finalisés depuis l'onboarding employé.");
+
+        if (current.Status == "SUBMITTED")
+        {
+            var processed = await ProcessReferralAsync(
+                id,
+                new ProcessReferralRequest
+                {
+                    Comment = "Traitement automatique lors de la création employé",
+                    Actor = request.Actor,
+                },
+                ct);
+            if (processed is null) return null;
+            current = processed;
+        }
 
         await LinkEmployeeInternalAsync(current, request.EmployeeId, request.Actor, ct);
         await db.SaveChangesAsync(ct);

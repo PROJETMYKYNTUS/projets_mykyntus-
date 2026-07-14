@@ -15,16 +15,9 @@ export const HR_NATIONALITY_OPTIONS = [
   { value: 'AUTRE', label: 'Autre' },
 ] as const;
 
-export const HR_NATIONALITY_AUTOENTREPRENEUR_EXEMPT = new Set([
-  'SENEGALAIS',
-  'SENEGALAISE',
-  'TUNISIEN',
-  'TUNISIENNE',
-]);
-
+/** Carte autoentrepreneur + saisie libre : uniquement pour « Autre ». */
 export function requiresAutoentrepreneur(nationalityCode: string): boolean {
-  if (!nationalityCode || nationalityCode === 'AUTRE') return true;
-  return !HR_NATIONALITY_AUTOENTREPRENEUR_EXEMPT.has(nationalityCode);
+  return nationalityCode === 'AUTRE';
 }
 
 export function defaultNationalityCode(sexe?: string): 'MAROCAIN' | 'MAROCAINE' {

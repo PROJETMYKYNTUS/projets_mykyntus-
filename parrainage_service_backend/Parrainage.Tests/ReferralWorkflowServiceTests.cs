@@ -63,6 +63,69 @@ public sealed class ReferralWorkflowServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SubmitReferral_Throws_WhenReferrerNameEmpty()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _workflow.SubmitReferralAsync(new CreateReferralRequest
+            {
+                ReferrerId = "emp-empty-ref",
+                ReferrerName = "   ",
+                CandidateName = "Bob",
+                CandidateEmail = "bob-empty@test.com",
+                CandidatePhone = "+33",
+                Position = "Dev",
+            }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CompleteOnboarding_FromSubmitted_ProcessesLinksAndApproves()
+    {
+        var created = await _workflow.SubmitReferralAsync(new CreateReferralRequest
+        {
+            ReferrerId = "emp-onb-sub",
+            ReferrerName = "Jean",
+            CandidateName = "Nouveau Candidat",
+            CandidateEmail = "nouveau@test.com",
+            CandidatePhone = "+33",
+            Position = "Dev",
+        }, CancellationToken.None);
+        await SetCvUrlAsync(created.Id);
+
+        var result = await _workflow.CompleteOnboardingAsync(
+            created.Id,
+            new CompleteOnboardingRequest
+            {
+                EmployeeId = "guid-from-submitted",
+                CandidateStartDate = new DateOnly(2026, 4, 1),
+                RewardAmount = 1500m,
+                RequiresTraining = true,
+                TrainingEndDate = new DateOnly(2026, 5, 31),
+            },
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("IN_TRAINING", result!.Status);
+        Assert.Equal("guid-from-submitted", result.CandidateEmployeeId);
+        Assert.Contains(await _db.ReferralHistory.ToListAsync(), h => h.Action == "PROCESSED");
+    }
+
+    [Fact]
+    public async Task ListLinkable_IncludesSubmittedAndProcessed_WithoutEmployee()
+    {
+        await SeedReferralAsync("ref-sub-link", "parrain-1", "SUBMITTED");
+        await SeedProcessedAsync("ref-proc-link", "parrain-1");
+        var linked = await SeedProcessedAsync("ref-linked", "parrain-1");
+        linked.CandidateEmployeeId = "already-linked";
+        await _db.SaveChangesAsync();
+
+        var rows = await _workflow.ListLinkableReferralsAsync(null, CancellationToken.None);
+        var ids = rows.Select(r => r.Id).ToHashSet();
+        Assert.Contains("ref-sub-link", ids);
+        Assert.Contains("ref-proc-link", ids);
+        Assert.DoesNotContain("ref-linked", ids);
+    }
+
+    [Fact]
     public async Task CompleteOnboarding_LinksAndApproves()
     {
         await SeedProcessedAsync("ref-onb", "parrain-1");

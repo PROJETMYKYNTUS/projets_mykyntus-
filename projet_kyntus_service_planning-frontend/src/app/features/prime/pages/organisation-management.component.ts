@@ -17,6 +17,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  History,
   Plus,
   RefreshCw,
   Trash2,
@@ -24,6 +25,7 @@ import {
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { KyntusSelectSyncDirective } from '@/shared/directives/kyntus-select-sync.directive';
 import { PrimeCardComponent } from '../components/prime-card.component';
+import { PilotRotationHistoryModalComponent } from '../components/pilot-rotation-history-modal.component';
 import {
   PrimeOrgApiService,
   type OrgAssignmentsOverview,
@@ -135,8 +137,15 @@ function httpErrMessage(err: unknown): string {
     LucideIconComponent,
     PrimeCardComponent,
     KyntusSelectSyncDirective,
+    PilotRotationHistoryModalComponent,
   ],
   template: `
+    <app-pilot-rotation-history-modal
+      [open]="rotationHistoryOpen()"
+      [employeeId]="rotationHistoryEmployeeId()"
+      [employeeName]="rotationHistoryEmployeeName()"
+      (close)="closePilotRotationHistory()"
+    />
     @if (loading()) {
       <div class="p-8 flex justify-center">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -783,16 +792,28 @@ function httpErrMessage(err: unknown): string {
                             <div class="text-xs text-slate-500 mb-2">Pilotes — {{ row.celluleName }}</div>
                             <ul class="rounded border border-navy-800 divide-y divide-navy-800 max-h-36 overflow-y-auto mb-3">
                               @for (p of pilotsInCell(row.celluleId); track p.id) {
-                                <li class="flex justify-between items-center px-3 py-2 text-sm text-slate-200">
-                                  <span>{{ p.firstName }} {{ p.lastName }}</span>
-                                  <button
-                                    type="button"
-                                    (click)="removePilot(row.celluleId, p.id)"
-                                    [disabled]="saving()"
-                                    class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
-                                  >
-                                    Retirer
-                                  </button>
+                                <li class="flex justify-between items-center gap-2 px-3 py-2 text-sm text-slate-200">
+                                  <span class="min-w-0 truncate">{{ p.firstName }} {{ p.lastName }}</span>
+                                  <div class="shrink-0 flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      (click)="openPilotRotationHistory(p)"
+                                      title="Historique rotation"
+                                      aria-label="Historique rotation"
+                                      class="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300"
+                                    >
+                                      <app-lucide-icon [icon]="icons.history" className="w-3.5 h-3.5" />
+                                      Historique rotation
+                                    </button>
+                                    <button
+                                      type="button"
+                                      (click)="removePilot(row.celluleId, p.id)"
+                                      [disabled]="saving()"
+                                      class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                    >
+                                      Retirer
+                                    </button>
+                                  </div>
                                 </li>
                               } @empty {
                                 <li class="px-3 py-3 text-sm text-slate-500">Aucun pilote</li>
@@ -1403,15 +1424,27 @@ function httpErrMessage(err: unknown): string {
                               @for (p of pilotsInCell(sel.id); track p.id) {
                                 <li class="flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-slate-200">
                                   <span class="min-w-0 truncate">{{ p.firstName }} {{ p.lastName }}</span>
-                                  <button
-                                    type="button"
-                                    (click)="removePilot(sel.id, p.id)"
-                                    [disabled]="saving()"
-                                    class="shrink-0 inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
-                                  >
-                                    <app-lucide-icon [icon]="icons.trash" className="w-3.5 h-3.5" />
-                                    Retirer
-                                  </button>
+                                  <div class="shrink-0 flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      (click)="openPilotRotationHistory(p)"
+                                      title="Historique rotation"
+                                      aria-label="Historique rotation"
+                                      class="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300"
+                                    >
+                                      <app-lucide-icon [icon]="icons.history" className="w-3.5 h-3.5" />
+                                      Historique rotation
+                                    </button>
+                                    <button
+                                      type="button"
+                                      (click)="removePilot(sel.id, p.id)"
+                                      [disabled]="saving()"
+                                      class="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                    >
+                                      <app-lucide-icon [icon]="icons.trash" className="w-3.5 h-3.5" />
+                                      Retirer
+                                    </button>
+                                  </div>
                                 </li>
                               } @empty {
                                 <li class="px-3 py-4 text-sm text-slate-500">Aucun pilote</li>
@@ -1637,10 +1670,15 @@ export class OrganisationManagementComponent implements OnInit {
     chevDown: ChevronDown,
     check: Check,
     trash: Trash2,
+    history: History,
     activity: Activity,
     building: Building2,
     plus: Plus,
   };
+
+  readonly rotationHistoryOpen = signal(false);
+  readonly rotationHistoryEmployeeId = signal('');
+  readonly rotationHistoryEmployeeName = signal('');
 
   readonly mainTabs: { id: OrgMainTab; label: string }[] = [
     { id: 'metier-departments', label: 'Départements' },
@@ -2778,15 +2816,28 @@ export class OrganisationManagementComponent implements OnInit {
     });
     if (add) return { cancelled: false };
 
-    const replace = await this.confirmService.confirm({
+    const selectedIds = await this.confirmService.confirmSelect({
       title: 'Remplacer les titulaires',
-      message: `Remplacer tous les titulaires actuels (${incumbents.map((i) => i.displayName).join(', ')}) ?`,
+      message:
+        incumbents.length === 1
+          ? `Remplacer le titulaire actuel ?`
+          : `Cochez uniquement le(s) titulaire(s) à remplacer (les non cochés restent en place).`,
       confirmLabel: 'Remplacer',
       cancelLabel: 'Annuler',
       variant: 'warning',
+      choicesHint:
+        incumbents.length > 1
+          ? 'Vous pouvez n’en remplacer qu’un seul parmi plusieurs.'
+          : undefined,
+      choices: incumbents.map((i) => ({
+        id: i.userId,
+        label: i.displayName,
+        checked: true,
+      })),
+      requireSelection: true,
     });
-    if (!replace) return { cancelled: true };
-    return { revokeIds: incumbents.map((i) => i.userId), cancelled: false };
+    if (!selectedIds) return { cancelled: true };
+    return { revokeIds: selectedIds, cancelled: false };
   }
 
   removeDepartmentManagerIncumbent(poleId: string, employeeId: string): void {
@@ -3084,6 +3135,20 @@ export class OrganisationManagementComponent implements OnInit {
       undefined,
       'Pilote ajouté (vue structure)',
     );
+  }
+
+  openPilotRotationHistory(pilot: Pick<Employee, 'id' | 'firstName' | 'lastName'>): void {
+    const id = pilot.id?.trim();
+    if (!id) return;
+    this.rotationHistoryEmployeeId.set(id);
+    this.rotationHistoryEmployeeName.set(`${pilot.firstName ?? ''} ${pilot.lastName ?? ''}`.trim());
+    this.rotationHistoryOpen.set(true);
+  }
+
+  closePilotRotationHistory(): void {
+    this.rotationHistoryOpen.set(false);
+    this.rotationHistoryEmployeeId.set('');
+    this.rotationHistoryEmployeeName.set('');
   }
 
   removePilot(celluleId: string, employeeId: string): void {

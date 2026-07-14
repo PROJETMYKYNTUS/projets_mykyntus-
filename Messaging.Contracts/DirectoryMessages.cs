@@ -29,11 +29,13 @@ public record DirectoryEmployeeHrProfileChangedMessage
     public DateOnly? DateNaissance { get; init; }
     public string? VilleNaissance { get; init; }
     public string? Nationalite { get; init; }
+    public string? NumeroCarteAutoentrepreneur { get; init; }
     public string? Sexe { get; init; }
     public string? SituationFamiliale { get; init; }
     public int? NombreEnfants { get; init; }
     public string? Cin { get; init; }
     public string? Adresse { get; init; }
+    public string? EmailPersonnel { get; init; }
     public string? Telephone1 { get; init; }
     public string? TelephoneUrgence { get; init; }
     public string? RelationUrgence { get; init; }

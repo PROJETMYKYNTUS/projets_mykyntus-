@@ -186,7 +186,7 @@ internal static class DockerDocumentationEnrichmentSeed
                 DisplayLabel = "Nom",
                 VariableType = "text",
                 IsRequired = true,
-                FormScope = "pilot",
+                FormScope = "db",
                 SortOrder = 1,
             },
             new DocumentTemplateVariable
@@ -198,7 +198,7 @@ internal static class DockerDocumentationEnrichmentSeed
                 DisplayLabel = "Prénom",
                 VariableType = "text",
                 IsRequired = true,
-                FormScope = "pilot",
+                FormScope = "db",
                 SortOrder = 2,
             },
             new DocumentTemplateVariable
@@ -210,7 +210,7 @@ internal static class DockerDocumentationEnrichmentSeed
                 DisplayLabel = "CIN",
                 VariableType = "text",
                 IsRequired = true,
-                FormScope = "pilot",
+                FormScope = "hr",
                 SortOrder = 3,
             },
             new DocumentTemplateVariable
@@ -222,7 +222,7 @@ internal static class DockerDocumentationEnrichmentSeed
                 DisplayLabel = "Date d'entrée",
                 VariableType = "date",
                 IsRequired = true,
-                FormScope = "pilot",
+                FormScope = "hr",
                 SortOrder = 4,
             });
 

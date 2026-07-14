@@ -57,7 +57,7 @@ public static class AuthDatabaseInitializer
                 new Role { Id = 5, Name = "RP", Description = "Responsable de production", CreatedAt = DateTime.UtcNow },
                 new Role { Id = 6, Name = "Admin", Description = "Administrateur système", CreatedAt = DateTime.UtcNow },
                 new Role { Id = 7, Name = "Audit", Description = "Auditeur interne", CreatedAt = DateTime.UtcNow },
-                new Role { Id = 8, Name = "Equipe formation", Description = "Équipe de formation", CreatedAt = DateTime.UtcNow },
+                new Role { Id = 8, Name = "Formateur", Description = "Équipe formation — parcours initiale", CreatedAt = DateTime.UtcNow },
                 new Role { Id = 9, Name = "Superviseur", Description = "Superviseur de cellule PRIME", CreatedAt = DateTime.UtcNow });
             db.SaveChanges();
             Console.WriteLine("Auth roles seeded.");

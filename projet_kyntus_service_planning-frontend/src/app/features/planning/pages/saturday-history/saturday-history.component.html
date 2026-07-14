@@ -104,6 +104,16 @@
       <h2>Employés — {{ weekCode }}</h2>
     </div>
 
+    <div class="ytd-summary" *ngIf="ytdEntries.length > 0">
+      <strong>Équité samedis {{ ytdYear }}</strong>
+      <span class="ytd-hint">Samedis travaillés / semaines enregistrées (cumul année)</span>
+      <div class="ytd-chips">
+        <span class="ytd-chip" *ngFor="let y of ytdEntries.slice(0, 12)">
+          {{ y.fullName }} · {{ y.workedCount }}/{{ y.totalWeeksRecorded }} ({{ y.workedPercent }}%)
+        </span>
+      </div>
+    </div>
+
     <div class="state-empty-inline" *ngIf="filteredEntries.length === 0">
       <p>Aucun employé ne correspond aux filtres.</p>
       <button type="button" class="ky-btn-secondary" (click)="clearFilters()">Réinitialiser les filtres</button>
@@ -114,6 +124,9 @@
         <div class="emp-info">
           <span class="emp-name">{{ e.fullName }}</span>
           <span class="emp-org">{{ orgPerimeterSummary(e.perimeter) }}</span>
+          <span class="emp-ytd" *ngIf="ytdFor(e.userId) as y">
+            YTD {{ ytdYear }} : {{ y.workedCount }} samedi(s) / {{ y.totalWeeksRecorded }}
+          </span>
           <span class="emp-manual" *ngIf="e.isManualEntry">Saisie manuelle</span>
         </div>
         <div class="toggle-group">

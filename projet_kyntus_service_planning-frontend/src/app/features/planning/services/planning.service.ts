@@ -14,6 +14,33 @@ export interface ShiftConfig {
   percentage:    number;
 }
 
+export interface CoverageDayShift {
+  date: string;
+  day: string;
+  shiftConfigId: number;
+  shiftLabel: string;
+  requiredCount: number;
+  assignedCount: number;
+  minPresencePercent: number;
+  presencePercent: number;
+  isUnderstaffed: boolean;
+}
+
+export interface CoverageReport {
+  hasUnderstaffing: boolean;
+  warnings: string[];
+  items: CoverageDayShift[];
+}
+
+export interface SaturdayYtd {
+  userId: number;
+  fullName: string;
+  workedCount: number;
+  offCount: number;
+  totalWeeksRecorded: number;
+  workedPercent: number;
+}
+
 export interface DayAssignment {
   assignmentId:      number;
   day:               string;
@@ -53,6 +80,7 @@ export interface WeeklyPlanningResponse {
   subServiceName:  string;
   shiftConfigs:    ShiftConfig[];
   assignments:     EmployeePlanning[];
+  coverageReport?: CoverageReport | null;
 }
 
 export interface CreatePlanningDto {
@@ -122,8 +150,8 @@ export interface ShiftConfigItem {
 
 export interface SaveShiftConfigDto {
   subServiceId:  number;
-  weekCode:      string;
-  weekStartDate: string;
+  weekCode?:     string | null;
+  weekStartDate?: string | null;
   shifts:        ShiftConfigItem[];
 }
 
@@ -147,14 +175,68 @@ export interface WeekShiftConfigResponse {
   subServiceName: string;
   weekCode:       string;
   weekStartDate:  string;
+  isTemplate?:    boolean;
   totalEffectif:  number;
   shifts:         ShiftConfigResponseNew[];
 }
 
+export interface ShiftConfigStatusItem {
+  subServiceId: number;
+  subServiceName: string;
+  primeServiceId?: string | null;
+  hasTemplate: boolean;
+  shiftCount: number;
+  templateEffectif: number;
+  activeEmployeeCount: number;
+}
+
+export interface ShiftConfigStatusResponse {
+  items: ShiftConfigStatusItem[];
+  configuredCount: number;
+  totalCount: number;
+}
+
 export interface GeneratePlanningFromConfigDto {
   subServiceId:     number;
-  weekCode:         string;
+  weekCode?:        string;
   weeklyPlanningId: number;
+}
+
+export interface PlanningWeekItem {
+  subServiceId: number;
+  subServiceName: string;
+  orgLabel: string;
+  planningId?: number | null;
+  status?: string | null;
+  totalEffectif: number;
+  hasTemplate: boolean;
+  coverageOk: boolean;
+  hasConsulted: boolean;
+}
+
+export interface PlanningWeekList {
+  weekCode: string;
+  weekStartDate: string;
+  items: PlanningWeekItem[];
+}
+
+export interface AutoGenerateSettings {
+  enabled: boolean;
+  dayOfWeek: number;
+  hourLocal: number;
+  minuteLocal: number;
+  timeZone: string;
+  target: string;
+  lastRunAt?: string | null;
+  lastRunWeekCode?: string | null;
+}
+
+export interface AutoGenerateWeekResult {
+  weekCode: string;
+  created: number;
+  skipped: number;
+  errors: number;
+  messages: string[];
 }
 
 export interface SaturdayHistoryEntry {
@@ -235,12 +317,43 @@ export class PlanningService {
     return this.http.post<WeekShiftConfigResponse>(`${this.base}/config`, dto);
   }
 
+  getShiftTemplate(subServiceId: number): Observable<WeekShiftConfigResponse> {
+    return this.http.get<WeekShiftConfigResponse>(`${this.base}/config/${subServiceId}`);
+  }
+
+  getShiftConfigStatus(): Observable<ShiftConfigStatusResponse> {
+    return this.http.get<ShiftConfigStatusResponse>(`${this.base}/config/status`);
+  }
+
   getShiftConfig(subServiceId: number, weekCode: string): Observable<WeekShiftConfigResponse> {
     return this.http.get<WeekShiftConfigResponse>(`${this.base}/config/${subServiceId}/${weekCode}`);
   }
 
   generateFromConfig(dto: GeneratePlanningFromConfigDto): Observable<WeeklyPlanningResponse> {
     return this.http.post<WeeklyPlanningResponse>(`${this.base}/generate-from-config`, dto);
+  }
+
+  getWeekOverview(weekCode: string, viewerUserId?: number): Observable<PlanningWeekList> {
+    const q = viewerUserId != null ? `?viewerUserId=${viewerUserId}` : '';
+    return this.http.get<PlanningWeekList>(`${this.base}/week/${weekCode}${q}`);
+  }
+
+  consultPlanning(id: number, userId: number): Observable<{ consulted: boolean }> {
+    return this.http.post<{ consulted: boolean }>(`${this.base}/${id}/consult?userId=${userId}`, {});
+  }
+
+  getAutoGenerateSettings(): Observable<AutoGenerateSettings> {
+    return this.http.get<AutoGenerateSettings>(`${this.base}/auto-generate-settings`);
+  }
+
+  saveAutoGenerateSettings(dto: AutoGenerateSettings, updatedByUserId?: number): Observable<AutoGenerateSettings> {
+    const q = updatedByUserId != null ? `?updatedByUserId=${updatedByUserId}` : '';
+    return this.http.put<AutoGenerateSettings>(`${this.base}/auto-generate-settings${q}`, dto);
+  }
+
+  autoGenerateWeek(weekCode: string, force = false): Observable<AutoGenerateWeekResult> {
+    return this.http.post<AutoGenerateWeekResult>(
+      `${this.base}/week/${weekCode}/auto-generate?force=${force}`, {});
   }
 
   // ── Vue Employé ───────────────────────────────────
@@ -315,6 +428,12 @@ export class PlanningService {
   getSaturdayHistory(subServiceId: number, weekCode: string): Observable<SaturdayHistoryResponse[]> {
     return this.http.get<SaturdayHistoryResponse[]>(
       `${this.base}/saturday-history/${subServiceId}/${weekCode}`);
+  }
+
+  getSaturdayYtd(subServiceId: number, year?: number): Observable<SaturdayYtd[]> {
+    const y = year ?? new Date().getFullYear();
+    return this.http.get<SaturdayYtd[]>(
+      `${this.base}/saturday-history/${subServiceId}/ytd?year=${y}`);
   }
 
   saveSaturdayHistory(dto: SetSaturdayHistoryDto): Observable<any> {

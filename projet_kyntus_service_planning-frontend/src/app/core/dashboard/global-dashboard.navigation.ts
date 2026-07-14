@@ -49,7 +49,10 @@ export function congeMesDemandesTarget(): DashboardNavTarget {
 }
 
 export function formationsPendingTarget(): DashboardNavTarget {
-  return { route: DASHBOARD_ROUTES.formations, queryParams: { statut: 'EnAttente' } };
+  return {
+    route: DASHBOARD_ROUTES.formations,
+    queryParams: { tab: 'initial', statut: 'AttenteValidationRh' },
+  };
 }
 
 export function parrainageRhManagementTarget(): DashboardNavTarget {

@@ -12,6 +12,8 @@ public static class DirectorySchemaPatches
         await EnsureOrgPoleBusinessDepartmentAsync(db, ct);
         await EnsureEmployeeManagersAndHrProfileAsync(db, ct);
         await EnsureDateDebutFormationColumnAsync(db, ct);
+        await EnsureNumeroCarteAutoentrepreneurColumnAsync(db, ct);
+        await EnsureEmailPersonnelColumnAsync(db, ct);
     }
 
     public static async Task EnsureOutboxTableAsync(DirectoryDbContext db, CancellationToken ct = default)
@@ -182,6 +184,24 @@ public static class DirectorySchemaPatches
         await db.Database.ExecuteSqlRawAsync(
             """
             ALTER TABLE employee_hr_profiles ADD COLUMN IF NOT EXISTS "DateDebutFormation" date NULL;
+            """,
+            ct);
+    }
+
+    public static async Task EnsureNumeroCarteAutoentrepreneurColumnAsync(DirectoryDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE employee_hr_profiles ADD COLUMN IF NOT EXISTS "NumeroCarteAutoentrepreneur" character varying(64) NULL;
+            """,
+            ct);
+    }
+
+    public static async Task EnsureEmailPersonnelColumnAsync(DirectoryDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE employee_hr_profiles ADD COLUMN IF NOT EXISTS "EmailPersonnel" character varying(256) NULL;
             """,
             ct);
     }

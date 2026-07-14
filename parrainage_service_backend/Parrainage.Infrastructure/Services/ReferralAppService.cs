@@ -203,6 +203,19 @@ public sealed class ReferralAppService(
     public async Task<IReadOnlyList<ReferralDto>> ListOnboardingAsync(CancellationToken ct = default)
     {
         var rows = await workflow.ListOnboardingReferralsAsync(ct);
+        return await MapReferralListAsync(rows, ct);
+    }
+
+    public async Task<IReadOnlyList<ReferralDto>> ListLinkableAsync(string? search = null, CancellationToken ct = default)
+    {
+        var rows = await workflow.ListLinkableReferralsAsync(search, ct);
+        return await MapReferralListAsync(rows, ct);
+    }
+
+    private async Task<IReadOnlyList<ReferralDto>> MapReferralListAsync(
+        IReadOnlyList<ReferralEntity> rows,
+        CancellationToken ct)
+    {
         var list = new List<ReferralDto>(rows.Count);
         foreach (var row in rows)
             list.Add(await EnrichDtoAsync(row.ToDto(), ct));

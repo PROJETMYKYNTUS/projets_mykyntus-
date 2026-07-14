@@ -26,6 +26,10 @@ public static class PlanningStartup
                     await PlanningSchemaPatches.EnsurePlanningNotificationsTableAsync(db);
                     await PlanningSchemaPatches.EnsureUserHrProfilesTableAsync(db);
                     await PlanningSchemaPatches.EnsureDateDebutFormationColumnAsync(db);
+                    await PlanningSchemaPatches.EnsureNumeroCarteAutoentrepreneurColumnAsync(db);
+                    await PlanningSchemaPatches.EnsureEmailPersonnelColumnAsync(db);
+                    await PlanningSchemaPatches.EnsureCongeSourceDemandeIdColumnAsync(db);
+                    await PlanningSchemaPatches.EnsureShiftTemplateAndValidationSchemaAsync(db);
                     Console.WriteLine("✅ Migrations appliquées avec succès.");
                     break;
                 }

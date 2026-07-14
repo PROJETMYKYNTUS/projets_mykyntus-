@@ -1,5 +1,12 @@
 <div class="ky-page-shell">
 
+  <app-pilot-rotation-history-modal
+    [open]="rotationHistoryOpen"
+    [employeeId]="rotationHistoryEmployeeId"
+    [employeeName]="rotationHistoryEmployeeName"
+    (close)="closePilotRotationHistory()"
+  />
+
   <div class="page-shell">
 
     <app-kyntus-page-header
@@ -11,6 +18,10 @@
           Retour à la liste
         </button>
         @if (user) {
+          <button type="button" class="ky-btn-secondary" (click)="openPilotRotationHistory()">
+            <app-lucide-icon [icon]="icons.history" className="w-4 h-4" />
+            Historique rotation
+          </button>
           <button type="button" class="ky-btn-secondary" (click)="editUser()">
             <app-lucide-icon [icon]="icons.edit" className="w-4 h-4" />
             Modifier
@@ -53,10 +64,10 @@
             <p class="email">{{ user.email }}</p>
             <div class="profile-badges">
               <span class="badge badge-role">{{ user.roleName }}</span>
-              <span class="level-badge lv-{{ user.level }}">N{{ user.level }} — {{ contractLevelLabel(user.level) }}</span>
+              <span class="level-badge lv-{{ user.level }}">{{ contractLevelLabel(user.level) }}</span>
               @if (user.niveauExpertiseMetier) {
                 <span class="level-badge expertise lv-{{ user.niveauExpertiseMetier }}">
-                  E{{ user.niveauExpertiseMetier }} — {{ expertiseLevelLabel(user.niveauExpertiseMetier) }}
+                  {{ expertiseLevelLabel(user.niveauExpertiseMetier) }}
                 </span>
               }
               <span class="status-indicator" [class.inactive]="!user.isActive">
@@ -99,53 +110,6 @@
             </div>
           </div>
         </section>
-
-        @if (showPilotRotationHistory) {
-          <section class="form-section detail-section">
-            <div class="section-heading">
-              <h2>Historique des rotations</h2>
-              <p>Parcours Pilote sur les services (règle des 6 mois minimum par service).</p>
-            </div>
-            @if (pilotRotationLoading) {
-              <p class="section-hint">Chargement de l'historique…</p>
-            } @else if (pilotRotationHistory.length === 0) {
-              <p class="section-hint">Aucune rotation enregistrée pour cet employé.</p>
-            } @else {
-              <div class="rotation-timeline">
-                @for (entry of pilotRotationHistory; track entry.serviceId + entry.effectiveFrom) {
-                  <article class="rotation-entry" [class.rotation-entry--override]="entry.isOverride">
-                    <div class="rotation-entry-header">
-                      <strong>{{ entry.serviceName }}</strong>
-                      @if (entry.isOverride) {
-                        <span class="rotation-badge rotation-badge--override">Dérogation</span>
-                      }
-                      @if (!entry.effectiveTo) {
-                        <span class="rotation-badge rotation-badge--current">Actuel</span>
-                      }
-                    </div>
-                    <dl class="rotation-meta">
-                      <div>
-                        <dt>Du</dt>
-                        <dd>{{ formatRotationDate(entry.effectiveFrom) }}</dd>
-                      </div>
-                      <div>
-                        <dt>Au</dt>
-                        <dd>{{ formatRotationDate(entry.effectiveTo) }}</dd>
-                      </div>
-                      <div>
-                        <dt>Durée</dt>
-                        <dd>{{ formatRotationDuration(entry.durationDays) }}</dd>
-                      </div>
-                    </dl>
-                    @if (entry.changeReason?.trim()) {
-                      <p class="rotation-reason">{{ entry.changeReason }}</p>
-                    }
-                  </article>
-                }
-              </div>
-            }
-          </section>
-        }
 
         @for (section of detailSections; track section.id) {
           <section class="form-section detail-section">

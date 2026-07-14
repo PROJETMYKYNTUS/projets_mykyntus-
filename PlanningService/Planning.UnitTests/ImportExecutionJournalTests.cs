@@ -151,6 +151,19 @@ public class ImportExecutionJournalTests
             string actorRole,
             CancellationToken ct = default) =>
             Task.FromResult<UserDto?>(null);
+
+        public Task<bool> ExitAfterInitialTrainingRejectionAsync(
+            Guid employeeGuid,
+            string reason,
+            CancellationToken ct = default) =>
+            Task.FromResult(false);
+
+        public Task<bool> CompleteInitialTrainingAsync(
+            Guid employeeGuid,
+            int niveauExpertiseMetier,
+            DateOnly productionStartDate,
+            CancellationToken ct = default) =>
+            Task.FromResult(false);
     }
 
     private sealed class FakeDirectoryOrgWriteClient : IDirectoryOrgWriteClient

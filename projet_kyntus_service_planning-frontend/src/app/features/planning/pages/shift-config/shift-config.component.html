@@ -1,206 +1,396 @@
-<div class="ky-page-shell">
+<div class="ky-page-shell sc-page">
 
   <app-kyntus-page-header
     title="Configuration Shifts"
-    subtitle="Définissez les shifts et pauses avant la génération">
-    <div actions>
-      <div class="week-badge">
-        <span class="week-label">Semaine en cours</span>
-        <span class="week-value">{{ currentWeekCode }}</span>
-      </div>
-    </div>
+    subtitle="Vision structure : sélectionnez un service dans l’arbre. Vert = modèle défini, rouge = à configurer.">
   </app-kyntus-page-header>
 
-  <div class="filters-panel ky-card selector-bar">
-    <div class="form-group">
-      <label>Service <span class="req">*</span></label>
-      <select class="ky-input filter-ctl--wide" [(ngModel)]="subServiceId" (ngModelChange)="onSubServiceChange()">
-        <option [ngValue]="0" disabled>-- Sélectionner --</option>
-        <option *ngFor="let s of subServiceOptions" [ngValue]="s.id">{{ s.orgLabel }}</option>
-      </select>
-      <span class="hint" *ngIf="subServiceId && serviceEmployeeCount > 0">
-        Effectif actif : {{ serviceEmployeeCount }} employé(s)
-      </span>
+  <div class="sc-progress ky-card" *ngIf="totalServiceCount > 0">
+    <span class="sc-progress-label">Avancement modèles</span>
+    <div class="sc-progress-bar">
+      <div
+        class="sc-progress-fill"
+        [style.width.%]="totalServiceCount ? (configuredCount / totalServiceCount) * 100 : 0">
+      </div>
     </div>
-
-    <div class="form-group">
-      <label>Semaine (Lundi) <span class="req">*</span></label>
-      <input class="ky-input" type="date" [(ngModel)]="weekStartDate" (change)="onWeekChange()" />
-      <span class="hint">Seuls les lundis sont acceptés.</span>
-      <span class="week-preview" *ngIf="weekCode">{{ weekCode }}</span>
-      <span class="hint warn" *ngIf="weekDateAdjusted">Date ajustée au lundi.</span>
-    </div>
-
-    <div class="effectif-badge" *ngIf="totalEffectif > 0">
-      <span class="eb-label">Total shifts</span>
-      <span class="eb-value">{{ totalEffectif }}</span>
-      <span class="eb-cap" *ngIf="serviceEmployeeCount > 0">/ {{ serviceEmployeeCount }} max</span>
-    </div>
+    <span class="sc-progress-count">
+      <span class="dot-ok"></span> {{ configuredCount }} / {{ totalServiceCount }}
+    </span>
+    <span class="sc-legend">
+      <span class="dot-ok"></span> Configuré
+      <span class="dot-missing"></span> Manquant
+      <span class="dot-partial"></span> Partiel
+    </span>
   </div>
 
   <div class="alert-error" *ngIf="error">{{ error }}</div>
   <div class="alert-success" *ngIf="successMsg">{{ successMsg }}</div>
 
-  <div class="config-card ky-card">
-    <div class="card-header">
-      <div class="ch-left">
-        <span class="card-icon"><app-lucide-icon [icon]="icons.settings" className="w-5 h-5" /></span>
-        <h2>Tableau des Shifts</h2>
-        <span class="shifts-count">{{ shifts.length }} shift(s)</span>
+  <div class="sc-layout">
+    <!-- ── Arbre organisation ── -->
+    <aside class="sc-tree ky-card">
+      <div class="sc-tree-header">
+        <h2>Vue structure</h2>
+        <p>Département → Pôle → Cellule → Service. Cliquez un service pour éditer son modèle.</p>
       </div>
-      <button type="button" class="ky-btn-secondary btn-add-shift" (click)="addShift()" [disabled]="shifts.length >= 8">
-        <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
-        Ajouter un shift
-      </button>
-    </div>
 
-    <div class="table-wrapper" *ngIf="!loading">
-      <table class="prime-table prime-table--dense shifts-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Label</th>
-            <th>Début</th>
-            <th>Fin (auto)</th>
-            <th>Durée travail</th>
-            <th>Pause début</th>
-            <th>Pause fin</th>
-            <th>Nb employés</th>
-            <th>%</th>
-            <th>Présence min</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let shift of shifts; let i = index" class="shift-row">
-            <td class="td-order">{{ i + 1 }}</td>
-            <td class="td-label">
-              <input type="text" [(ngModel)]="shift.label" placeholder="Ex: Matin" class="ky-input input-label" />
-            </td>
-            <td class="td-start">
-              <select [(ngModel)]="shift.startTime" class="ky-input select-time">
-                <option *ngFor="let opt of startOptions" [value]="opt.value">{{ opt.label }}</option>
-              </select>
-            </td>
-            <td class="td-end">
-              <span class="end-time-badge">{{ getEndTime(shift) }}</span>
-            </td>
-            <td class="td-hours">
-              <div class="hours-input">
-                <input type="number" [(ngModel)]="shift.workHours" min="4" max="12" class="ky-input input-hours" />
-                <span class="hours-unit">h</span>
-              </div>
-            </td>
-            <td class="td-break">
-              <select [(ngModel)]="shift.breakRangeStart" class="ky-input select-time">
-                <option [ngValue]="undefined">Auto ({{ getBreakRangeAuto(shift).split('→')[0] }})</option>
-                <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">{{ opt.label }}</option>
-              </select>
-            </td>
-            <td class="td-break">
-              <select [(ngModel)]="shift.breakRangeEnd" class="ky-input select-time">
-                <option [ngValue]="undefined">Auto ({{ getBreakRangeAuto(shift).split('→')[1] }})</option>
-                <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">{{ opt.label }}</option>
-              </select>
-            </td>
-            <td class="td-count">
-              <input
-                type="number"
-                [(ngModel)]="shift.requiredCount"
-                (ngModelChange)="onRequiredCountChange()"
-                min="0"
-                class="ky-input input-count"
-              />
-            </td>
-            <td class="td-pct">
-              <span class="pct-badge" [class.pct-high]="getPercentage(shift) > 30">
-                {{ getPercentage(shift) }}%
+      <div class="sc-tree-body">
+        <ng-container *ngFor="let md of operationalDepartments">
+          <div class="tree-block">
+            <button type="button" class="tree-row tree-row--dept" (click)="toggleDept(md.id)">
+              <app-lucide-icon
+                [icon]="deptExpanded(md.id) ? icons.chevDown : icons.chevRight"
+                className="w-4 h-4 tree-chev" />
+              <span class="badge badge-dept">Dépt</span>
+              <span class="tree-name">{{ md.code }} — {{ md.name }}</span>
+              <span
+                class="status-dot"
+                [class.dot-ok]="statusForDept(md) === 'ok'"
+                [class.dot-missing]="statusForDept(md) === 'missing'"
+                [class.dot-partial]="statusForDept(md) === 'partial'"
+                [class.dot-none]="statusForDept(md) === 'none'"
+                [attr.title]="statusTitle(statusForDept(md))">
               </span>
-            </td>
-            <td class="td-presence">
-              <div class="presence-input">
-                <input type="number" [(ngModel)]="shift.minPresencePercent" min="50" max="100" class="ky-input input-presence" />
-                <span class="hours-unit">%</span>
+            </button>
+
+            <div class="tree-children" *ngIf="deptExpanded(md.id)">
+              <ng-container *ngFor="let pole of md.poles">
+                <div class="tree-block tree-block--pole">
+                  <button type="button" class="tree-row tree-row--pole" (click)="togglePole(pole.id)">
+                    <app-lucide-icon
+                      [icon]="poleExpanded(pole.id) ? icons.chevDown : icons.chevRight"
+                      className="w-3.5 h-3.5 tree-chev" />
+                    <span class="badge badge-pole">Pôle</span>
+                    <span class="tree-name">{{ pole.name }}</span>
+                    <span
+                      class="status-dot"
+                      [class.dot-ok]="statusForPole(pole) === 'ok'"
+                      [class.dot-missing]="statusForPole(pole) === 'missing'"
+                      [class.dot-partial]="statusForPole(pole) === 'partial'"
+                      [class.dot-none]="statusForPole(pole) === 'none'"
+                      [attr.title]="statusTitle(statusForPole(pole))">
+                    </span>
+                  </button>
+
+                  <div class="tree-children" *ngIf="poleExpanded(pole.id)">
+                    <ng-container *ngFor="let cell of pole.cellules">
+                      <div class="tree-block tree-block--cell">
+                        <button type="button" class="tree-row tree-row--cell" (click)="toggleCellule(cell.id)">
+                          <app-lucide-icon
+                            [icon]="celluleExpanded(cell.id) ? icons.chevDown : icons.chevRight"
+                            className="w-3 h-3 tree-chev" />
+                          <span class="badge badge-cell">Cell.</span>
+                          <span class="tree-name">{{ cell.name }}</span>
+                          <span
+                            class="status-dot"
+                            [class.dot-ok]="statusForCellule(cell) === 'ok'"
+                            [class.dot-missing]="statusForCellule(cell) === 'missing'"
+                            [class.dot-partial]="statusForCellule(cell) === 'partial'"
+                            [class.dot-none]="statusForCellule(cell) === 'none'"
+                            [attr.title]="statusTitle(statusForCellule(cell))">
+                          </span>
+                        </button>
+
+                        <div class="tree-children" *ngIf="celluleExpanded(cell.id)">
+                          <button
+                            type="button"
+                            *ngFor="let svc of cell.services"
+                            class="tree-row tree-row--svc"
+                            [class.is-selected]="isOrgServiceSelected(svc.id)"
+                            [class.is-disabled]="!optionForPrime(svc.id)"
+                            [disabled]="!optionForPrime(svc.id)"
+                            (click)="selectOrgService(svc)"
+                            [attr.title]="optionForPrime(svc.id) ? statusTitle(statusForPrime(svc.id)) : 'Non lié à la planification'">
+                            <span class="tree-indent"></span>
+                            <span class="badge badge-svc">Svc.</span>
+                            <span class="tree-name">{{ svc.name }}</span>
+                            <span class="tree-meta" *ngIf="optionForPrime(svc.id) as opt">
+                              {{ opt.employeesCount }} emp.
+                            </span>
+                            <span
+                              class="status-dot"
+                              [class.dot-ok]="statusForPrime(svc.id) === 'ok'"
+                              [class.dot-missing]="statusForPrime(svc.id) === 'missing'"
+                              [class.dot-none]="statusForPrime(svc.id) === 'none'"
+                              [attr.title]="statusTitle(statusForPrime(svc.id))">
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    </ng-container>
+                  </div>
+                </div>
+              </ng-container>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- Pôles hors département -->
+        <div class="tree-block" *ngIf="unassignedPoles.length">
+          <div class="tree-row tree-row--dept tree-row--static">
+            <span class="badge badge-dept">Hors dépt</span>
+            <span class="tree-name">Pôles non rattachés</span>
+          </div>
+          <div class="tree-children">
+            <ng-container *ngFor="let pole of unassignedPoles">
+              <div class="tree-block tree-block--pole">
+                <button type="button" class="tree-row tree-row--pole" (click)="togglePole(pole.id)">
+                  <app-lucide-icon
+                    [icon]="poleExpanded(pole.id) ? icons.chevDown : icons.chevRight"
+                    className="w-3.5 h-3.5 tree-chev" />
+                  <span class="badge badge-pole">Pôle</span>
+                  <span class="tree-name">{{ pole.name }}</span>
+                  <span
+                    class="status-dot"
+                    [class.dot-ok]="statusForPole(pole) === 'ok'"
+                    [class.dot-missing]="statusForPole(pole) === 'missing'"
+                    [class.dot-partial]="statusForPole(pole) === 'partial'"
+                    [class.dot-none]="statusForPole(pole) === 'none'">
+                  </span>
+                </button>
+                <div class="tree-children" *ngIf="poleExpanded(pole.id)">
+                  <ng-container *ngFor="let cell of pole.cellules">
+                    <div class="tree-block tree-block--cell">
+                      <button type="button" class="tree-row tree-row--cell" (click)="toggleCellule(cell.id)">
+                        <app-lucide-icon
+                          [icon]="celluleExpanded(cell.id) ? icons.chevDown : icons.chevRight"
+                          className="w-3 h-3 tree-chev" />
+                        <span class="badge badge-cell">Cell.</span>
+                        <span class="tree-name">{{ cell.name }}</span>
+                        <span
+                          class="status-dot"
+                          [class.dot-ok]="statusForCellule(cell) === 'ok'"
+                          [class.dot-missing]="statusForCellule(cell) === 'missing'"
+                          [class.dot-partial]="statusForCellule(cell) === 'partial'"
+                          [class.dot-none]="statusForCellule(cell) === 'none'">
+                        </span>
+                      </button>
+                      <div class="tree-children" *ngIf="celluleExpanded(cell.id)">
+                        <button
+                          type="button"
+                          *ngFor="let svc of cell.services"
+                          class="tree-row tree-row--svc"
+                          [class.is-selected]="isOrgServiceSelected(svc.id)"
+                          [class.is-disabled]="!optionForPrime(svc.id)"
+                          [disabled]="!optionForPrime(svc.id)"
+                          (click)="selectOrgService(svc)">
+                          <span class="tree-indent"></span>
+                          <span class="badge badge-svc">Svc.</span>
+                          <span class="tree-name">{{ svc.name }}</span>
+                          <span
+                            class="status-dot"
+                            [class.dot-ok]="statusForPrime(svc.id) === 'ok'"
+                            [class.dot-missing]="statusForPrime(svc.id) === 'missing'"
+                            [class.dot-none]="statusForPrime(svc.id) === 'none'">
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </ng-container>
+                </div>
               </div>
-            </td>
-            <td class="td-delete">
-              <button
-                type="button"
-                class="btn-remove-shift"
-                (click)="removeShift(i)"
-                [disabled]="shifts.length <= 1"
-                title="Supprimer ce shift">
-                <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
-              </button>
-            </td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr class="total-row">
-            <td colspan="7" class="total-label">Total</td>
-            <td class="total-count">{{ totalEffectif }}</td>
-            <td class="total-pct">100%</td>
-            <td colspan="2"></td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+            </ng-container>
+          </div>
+        </div>
 
-    <div class="state-loading" *ngIf="loading">
-      <div class="spinner"></div>
-      <span>Chargement de la config…</span>
-    </div>
-
-    <div class="rule-info">
-      <app-lucide-icon [icon]="icons.info" className="w-4 h-4" />
-      <span>Règle fixe : <strong>70% présents</strong> en permanence → max <strong>30%</strong> en pause simultanément</span>
-    </div>
-  </div>
-
-  <div class="saved-config-card ky-card" *ngIf="savedConfig">
-    <div class="card-header">
-      <span class="card-icon"><app-lucide-icon [icon]="icons.coffee" className="w-5 h-5" /></span>
-      <h2>Config sauvegardée — {{ savedConfig.weekCode }}</h2>
-      <span class="total-badge">{{ savedConfig.totalEffectif }} employés</span>
-    </div>
-    <div class="saved-shifts">
-      <div class="saved-shift-item" *ngFor="let s of savedConfig.shifts">
-        <span class="ss-label">{{ s.label }}</span>
-        <span class="ss-time">{{ s.startTime }} → {{ s.endTime }}</span>
-        <span class="ss-break">
-          <app-lucide-icon [icon]="icons.coffee" className="w-3.5 h-3.5 inline" />
-          {{ s.breakRangeStart }} → {{ s.breakRangeEnd }}
-        </span>
-        <span class="ss-count">
-          <app-lucide-icon [icon]="icons.users" className="w-3.5 h-3.5 inline" />
-          {{ s.requiredCount }} pers.
-        </span>
-        <span class="ss-pct">{{ s.percentage }}%</span>
+        <p class="sc-tree-empty" *ngIf="!operationalDepartments.length && !unassignedPoles.length">
+          Aucune structure organisationnelle chargée.
+        </p>
       </div>
-    </div>
-  </div>
+    </aside>
 
-  <div class="action-bar">
-    <button
-      type="button"
-      class="ky-btn-secondary btn-save"
-      [disabled]="saving || !subServiceId || totalEffectif === 0 || (serviceEmployeeCount > 0 && totalEffectif > serviceEmployeeCount)"
-      (click)="saveConfig()">
-      <span *ngIf="!saving"><app-lucide-icon [icon]="icons.save" className="w-4 h-4 inline" /> Sauvegarder la config</span>
-      <span *ngIf="saving">Sauvegarde…</span>
-    </button>
+    <!-- ── Panneau édition ── -->
+    <section class="sc-editor">
+      <div class="sc-editor-empty ky-card" *ngIf="!subServiceId">
+        <app-lucide-icon [icon]="icons.settings" className="w-8 h-8" />
+        <h3>Sélectionnez un service</h3>
+        <p>Choisissez un service (violet) dans l’arbre pour définir ou modifier son modèle de shifts permanent.</p>
+      </div>
 
-    <button
-      type="button"
-      class="ky-btn-primary btn-generate"
-      [disabled]="generating || !savedConfig"
-      (click)="generatePlanning()">
-      <span *ngIf="!generating">Générer le planning</span>
-      <span *ngIf="generating" class="generating-state">
-        <span class="dot-pulse"></span>
-        Génération en cours…
-      </span>
-    </button>
+      <ng-container *ngIf="subServiceId">
+        <div class="filters-panel ky-card selector-bar">
+          <div class="form-group">
+            <label>Service sélectionné</label>
+            <div class="sc-selected-name">{{ selectedServiceName }}</div>
+            <span class="hint" *ngIf="serviceEmployeeCount > 0">
+              Effectif actif : {{ serviceEmployeeCount }} employé(s)
+            </span>
+          </div>
+
+          <div class="effectif-badge" *ngIf="totalEffectif > 0">
+            <span class="eb-label">Total shifts</span>
+            <span class="eb-value">{{ totalEffectif }}</span>
+            <span class="eb-cap" *ngIf="serviceEmployeeCount > 0">/ {{ serviceEmployeeCount }} max</span>
+          </div>
+        </div>
+
+        <div class="config-card ky-card">
+          <div class="card-header">
+            <div class="ch-left">
+              <span class="card-icon"><app-lucide-icon [icon]="icons.settings" className="w-5 h-5" /></span>
+              <h2>Tableau des Shifts</h2>
+              <span class="shifts-count">{{ shifts.length }} shift(s)</span>
+            </div>
+            <button type="button" class="ky-btn-secondary btn-add-shift" (click)="addShift()" [disabled]="shifts.length >= 8">
+              <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
+              Ajouter un shift
+            </button>
+          </div>
+
+          <div class="table-wrapper" *ngIf="!loading">
+            <table class="prime-table prime-table--dense shifts-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Label</th>
+                  <th>Début</th>
+                  <th>Fin (auto)</th>
+                  <th>Durée travail</th>
+                  <th>Pause début</th>
+                  <th>Pause fin</th>
+                  <th>Nb employés</th>
+                  <th>%</th>
+                  <th>Présence min</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let shift of shifts; let i = index" class="shift-row">
+                  <td class="td-order">{{ i + 1 }}</td>
+                  <td class="td-label">
+                    <input type="text" [(ngModel)]="shift.label" placeholder="Ex: Matin" class="ky-input input-label" />
+                  </td>
+                  <td class="td-start">
+                    <select [(ngModel)]="shift.startTime" class="ky-input select-time">
+                      <option *ngFor="let opt of startOptions" [value]="opt.value">{{ opt.label }}</option>
+                    </select>
+                  </td>
+                  <td class="td-end">
+                    <span class="end-time-badge">{{ getEndTime(shift) }}</span>
+                  </td>
+                  <td class="td-hours">
+                    <div class="hours-input">
+                      <input type="number" [(ngModel)]="shift.workHours" min="4" max="12" class="ky-input input-hours" />
+                      <span class="hours-unit">h</span>
+                    </div>
+                  </td>
+                  <td class="td-break">
+                    <select [(ngModel)]="shift.breakRangeStart" class="ky-input select-time">
+                      <option [ngValue]="undefined">Auto ({{ getBreakRangeAuto(shift).split('→')[0] }})</option>
+                      <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">{{ opt.label }}</option>
+                    </select>
+                  </td>
+                  <td class="td-break">
+                    <select [(ngModel)]="shift.breakRangeEnd" class="ky-input select-time">
+                      <option [ngValue]="undefined">Auto ({{ getBreakRangeAuto(shift).split('→')[1] }})</option>
+                      <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">{{ opt.label }}</option>
+                    </select>
+                  </td>
+                  <td class="td-count">
+                    <input
+                      type="number"
+                      [(ngModel)]="shift.requiredCount"
+                      (ngModelChange)="onRequiredCountChange()"
+                      min="0"
+                      class="ky-input input-count" />
+                  </td>
+                  <td class="td-pct">
+                    <span class="pct-badge">{{ getPercentage(shift) }}%</span>
+                  </td>
+                  <td class="td-presence">
+                    <div class="presence-input">
+                      <input
+                        type="number"
+                        [(ngModel)]="shift.minPresencePercent"
+                        min="50"
+                        max="100"
+                        class="ky-input input-presence" />
+                      <span class="hours-unit">%</span>
+                    </div>
+                  </td>
+                  <td class="td-actions">
+                    <button
+                      type="button"
+                      class="btn-remove-shift"
+                      (click)="removeShift(i)"
+                      [disabled]="shifts.length <= 1"
+                      title="Supprimer ce shift">
+                      <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr class="total-row">
+                  <td colspan="7" class="total-label">Total</td>
+                  <td class="total-count" [class.total-mismatch]="serviceEmployeeCount > 0 && !quotasMatchEffectif">
+                    {{ totalEffectif }}
+                    <span class="total-cap" *ngIf="serviceEmployeeCount > 0">/ {{ serviceEmployeeCount }}</span>
+                  </td>
+                  <td class="total-pct">{{ totalPercentageLabel }}</td>
+                  <td colspan="2"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="state-loading" *ngIf="loading">
+            <div class="spinner"></div>
+            <span>Chargement de la config…</span>
+          </div>
+
+          <div class="rule-info">
+            <app-lucide-icon [icon]="icons.info" className="w-4 h-4" />
+            <span>
+              <strong>Présence min</strong> (par shift) : % minimum de présents sur ce shift → le reste max en pause en même temps.
+              Ex. 70 % → max 30 % en pause. La somme des <strong>NB employés</strong> doit égaler l’effectif actif.
+            </span>
+          </div>
+        </div>
+
+        <div class="saved-config-card ky-card" *ngIf="savedConfig">
+          <div class="card-header">
+            <span class="card-icon"><app-lucide-icon [icon]="icons.coffee" className="w-5 h-5" /></span>
+            <h2>Modèle sauvegardé — {{ savedConfig.subServiceName }}</h2>
+            <span class="total-badge">{{ savedConfig.totalEffectif }} employés</span>
+          </div>
+          <div class="saved-shifts">
+            <div class="saved-shift-item" *ngFor="let s of savedConfig.shifts">
+              <span class="ss-label">{{ s.label }}</span>
+              <span class="ss-time">{{ s.startTime }} → {{ s.endTime }}</span>
+              <span class="ss-break">
+                <app-lucide-icon [icon]="icons.coffee" className="w-3.5 h-3.5 inline" />
+                {{ s.breakRangeStart }} → {{ s.breakRangeEnd }}
+              </span>
+              <span class="ss-count">
+                <app-lucide-icon [icon]="icons.users" className="w-3.5 h-3.5 inline" />
+                {{ s.requiredCount }} pers.
+              </span>
+              <span class="ss-pct">{{ s.percentage }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button
+            type="button"
+            class="ky-btn-secondary"
+            [disabled]="!subServiceId || serviceEmployeeCount <= 0 || shifts.length === 0"
+            (click)="distributeEvenly()">
+            <app-lucide-icon [icon]="icons.users" className="w-4 h-4 inline" />
+            Répartir l’effectif
+          </button>
+          <button
+            type="button"
+            class="ky-btn-primary btn-save"
+            [disabled]="saving || !subServiceId || totalEffectif === 0 || (serviceEmployeeCount > 0 && !quotasMatchEffectif)"
+            (click)="saveConfig()">
+            <span *ngIf="!saving"><app-lucide-icon [icon]="icons.save" className="w-4 h-4 inline" /> Sauvegarder le modèle</span>
+            <span *ngIf="saving">Sauvegarde…</span>
+          </button>
+        </div>
+      </ng-container>
+    </section>
   </div>
 
 </div>

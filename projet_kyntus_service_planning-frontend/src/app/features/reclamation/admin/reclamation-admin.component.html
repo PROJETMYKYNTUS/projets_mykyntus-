@@ -74,6 +74,9 @@
               <div class="rp-item-meta">
                 <span class="rp-badge-type">{{ getTypeLabel(r.type) }}</span>
                 <span>{{ r.auteurNom }} · {{ r.createdAt | date:'dd/MM/yyyy' }}</span>
+                <span class="rp-aging" [class.rp-aging-warn]="daysOpen(r.createdAt) >= 3" [class.rp-aging-breach]="daysOpen(r.createdAt) >= 7">
+                  · {{ daysOpen(r.createdAt) }} j
+                </span>
                 <span *ngIf="r.assigneeNom">· → {{ r.assigneeNom }}</span>
               </div>
             </div>

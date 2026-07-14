@@ -12,6 +12,8 @@ public interface ICongeEventPublisher
         DateTime dateDebut,
         DateTime dateFin,
         double nombreJours,
+        string typeConge,
+        string? typeExceptionnel = null,
         CancellationToken ct = default);
 
     Task PublishCongeRefuseAsync(

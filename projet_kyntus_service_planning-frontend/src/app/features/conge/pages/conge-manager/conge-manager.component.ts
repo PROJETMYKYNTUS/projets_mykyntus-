@@ -6,10 +6,9 @@ import { CongeService } from '../../../../core/services/conge.service';
 import { UserService } from '../../../users/services/user.service';
 import { AuthService }  from '../../../../core/services/auth.service';
 import {
-  DemandeCongeDto, StatutDemande, TypeConge, TypeCongeExceptionnel,
+  DemandeCongeDto, StatutDemande, TypeConge,
   TypeCongeLabels, StatutDemandeLabels, TypeCongeExceptionnelLabels,
   RefuserCongeRequest, ValiderCongeRequest,
-  DemanderCongeCommand
 } from '../../../../core/models/conge.models';
 
 @Component({
@@ -32,7 +31,6 @@ export class CongeManagerComponent implements OnInit {
 
   showDetailModal  = false;
   showMyCongeModal = false;
-  showMyDemandeModal = false;
   demandeDetail:   DemandeCongeDto | null = null;
 
   StatutDemande      = StatutDemande;
@@ -43,28 +41,6 @@ export class CongeManagerComponent implements OnInit {
 
   filtreStatut: StatutDemande | '' = StatutDemande.EnAttente;
   filtreSearch  = '';
-
-  // ── Nouvelle demande (manager en tant qu'employé) ──────────────────────────
-  typesConge = [
-    { value: TypeConge.Annuel,       label: TypeCongeLabels[TypeConge.Annuel] },
-    { value: TypeConge.Exceptionnel, label: TypeCongeLabels[TypeConge.Exceptionnel] },
-    { value: TypeConge.Paternite,    label: TypeCongeLabels[TypeConge.Paternite] },
-    { value: TypeConge.Maternite,    label: TypeCongeLabels[TypeConge.Maternite] }
-  ];
-
-  typesExceptionnels = Object.entries(TypeCongeExceptionnelLabels).map(([k, v]) => ({
-    value: +k as TypeCongeExceptionnel, label: v
-  }));
-
-  myForm: DemanderCongeCommand = {
-    employeId:        '',
-    typeConge:        TypeConge.Annuel,
-    dateDebut:        '',
-    dateFin:          '',
-    motif:            null,
-    typeExceptionnel: null
-  };
-  // ──────────────────────────────────────────────────────────────────────────
 
   get myEmployeIdAsString(): string {
     return this.managerId;
@@ -175,43 +151,6 @@ export class CongeManagerComponent implements OnInit {
     };
     return map[statut] || '';
   }
-
-  // ── Nouvelle demande (manager en tant qu'employé) ──────────────────────────
-  openMyDemande(): void {
-    this.myForm = {
-      employeId:        this.managerId,
-      typeConge:        TypeConge.Annuel,
-      dateDebut:        '',
-      dateFin:          '',
-      motif:            null,
-      typeExceptionnel: null
-    };
-    this.showMyDemandeModal = true;
-  }
-
-  onMyTypeChange(): void {
-    if (this.myForm.typeConge !== TypeConge.Exceptionnel)
-      this.myForm.typeExceptionnel = null;
-  }
-
-  submitMyDemande(): void {
-    const cmd: DemanderCongeCommand = {
-      ...this.myForm,
-      dateDebut: this.myForm.dateDebut + 'T00:00:00Z',
-      dateFin:   this.myForm.dateFin   ? this.myForm.dateFin + 'T00:00:00Z' : null,
-      motif:     this.myForm.motif     || null
-    };
-    this.svc.demanderConge(cmd).subscribe({
-      next: () => {
-        this.showMyDemandeModal = false;
-        this.showToast('Demande envoyée avec succès !', 'success');
-      },
-      error: (err) => {
-        this.showToast(err?.error?.message || 'Erreur lors de l\'envoi.', 'error');
-      }
-    });
-  }
-  // ──────────────────────────────────────────────────────────────────────────
 
   showToast(message: string, type: 'success' | 'error'): void {
     this.toast = { show: true, message, type };

@@ -4,7 +4,7 @@ public static class EmployeeImportLevelResolver
 {
     public const int DefaultLevel = 1;
 
-    public static readonly IReadOnlyList<string> Labels = ["Débutant", "Intermédiaire", "Confirmé"];
+    public static readonly IReadOnlyList<string> Labels = ["Débutant", "Confirmé", "Expert"];
 
     public static int Resolve(string? raw)
     {
@@ -15,7 +15,7 @@ public static class EmployeeImportLevelResolver
             return level;
 
         throw new InvalidOperationException(
-            "Niveau invalide : utilisez Débutant, Intermédiaire ou Confirmé.");
+            "Niveau invalide : utilisez Débutant, Confirmé ou Expert.");
     }
 
     public static bool TryResolve(string? raw, out int level)
@@ -37,10 +37,10 @@ public static class EmployeeImportLevelResolver
             case "debutant" or "beginner":
                 level = 1;
                 return true;
-            case "intermediaire" or "intermediate":
+            case "confirme" or "confirmé" or "intermediaire" or "intermediate":
                 level = 2;
                 return true;
-            case "expert" or "senior" or "confirme" or "confirmé":
+            case "expert" or "senior":
                 level = 3;
                 return true;
             default:

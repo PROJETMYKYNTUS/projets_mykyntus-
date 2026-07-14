@@ -2,7 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin, of, firstValueFrom } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { UserService } from '../../services/user.service';
 import { User } from '../../users-module';
@@ -10,7 +10,7 @@ import { EmployeeFieldService } from '../../services/employee-field.service';
 import type { EmployeeImportFieldConfig } from '../../services/employee-import.service';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
-import { ArrowLeft, Pencil, Trash2 } from 'lucide';
+import { ArrowLeft, History, Pencil, Trash2 } from 'lucide';
 import type { Department } from '../../../prime/models';
 import { PrimeOrgApiService, type OrgAssignmentsOverview } from '../../../prime/services/prime-org-api.service';
 import type { SubService } from '../../../sub-services/sub-services-module';
@@ -33,23 +33,21 @@ import {
   buildEmployeeDetailSections,
   contractLevelLabel,
   expertiseLevelLabel,
+  formatSeniorityDuration,
   seniorityReferenceDate,
   type EmployeeDetailSection,
 } from '../../../../core/hr/user-hr-display.util';
-import {
-  DirectoryEmployeeApiService,
-  type PilotRotationHistoryEntryDto,
-} from '../../../../core/directory/directory-employee-api.service';
+import { PilotRotationHistoryModalComponent } from '../../../prime/components/pilot-rotation-history-modal.component';
 
 @Component({
   selector: 'app-user-detail',
   standalone: true,
-  imports: [CommonModule, LucideIconComponent, KyntusPageHeaderComponent],
+  imports: [CommonModule, LucideIconComponent, KyntusPageHeaderComponent, PilotRotationHistoryModalComponent],
   templateUrl: './user-detail.component.html',
   styleUrls: ['./user-detail.component.css']
 })
 export class UserDetailComponent implements OnInit {
-  readonly icons = { back: ArrowLeft, edit: Pencil, trash: Trash2 };
+  readonly icons = { back: ArrowLeft, edit: Pencil, trash: Trash2, history: History };
   readonly orgCellLabel = orgCellLabel;
   readonly orgDepartmentLabel = orgDepartmentLabel;
   readonly contractLevelLabel = contractLevelLabel;
@@ -58,8 +56,9 @@ export class UserDetailComponent implements OnInit {
   detailSections: EmployeeDetailSection[] = [];
   linkedReferral: Referral | null = null;
   perimeter: UserOrgPerimeterView = { operationalDepartment: null, pole: null, cellule: null, service: null };
-  pilotRotationHistory: PilotRotationHistoryEntryDto[] = [];
-  pilotRotationLoading = false;
+  rotationHistoryOpen = false;
+  rotationHistoryEmployeeId = '';
+  rotationHistoryEmployeeName = '';
   loading = false;
   error: string | null = null;
 
@@ -73,7 +72,6 @@ export class UserDetailComponent implements OnInit {
     private http: HttpClient,
     private contractService: ContractService,
     private parrainageApi: ParrainageApiService,
-    private directoryEmployeeApi: DirectoryEmployeeApiService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -179,43 +177,24 @@ export class UserDetailComponent implements OnInit {
     });
 
     void this.loadLinkedReferral(user);
-    void this.loadPilotRotationHistory(user);
   }
 
-  get showPilotRotationHistory(): boolean {
-    if (!this.user) return false;
-    if (this.pilotRotationHistory.length > 0) return true;
-    return (this.user.roleName ?? '').toLowerCase() === 'pilote';
-  }
-
-  formatRotationDate(value?: string | null): string {
-    if (!value) return '—';
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('fr-FR');
-  }
-
-  formatRotationDuration(days?: number | null): string {
-    if (days == null) return '—';
-    if (days < 30) return `${days} jour${days > 1 ? 's' : ''}`;
-    const months = Math.floor(days / 30);
-    const rem = days % 30;
-    if (rem === 0) return `${months} mois`;
-    return `${months} mois ${rem} j`;
-  }
-
-  private async loadPilotRotationHistory(user: User): Promise<void> {
-    const guid = resolveUserGuid(user);
-    if (!guid) return;
-
-    this.pilotRotationLoading = true;
-    try {
-      this.pilotRotationHistory = await firstValueFrom(
-        this.directoryEmployeeApi.getPilotRotationHistory(guid).pipe(catchError(() => of([]))),
-      );
-    } finally {
-      this.pilotRotationLoading = false;
-      this.cdr.detectChanges();
+  openPilotRotationHistory(): void {
+    if (!this.user) return;
+    const guid = resolveUserGuid(this.user);
+    if (!guid) {
+      alert('Identifiant employé (GUID) introuvable — historique indisponible.');
+      return;
     }
+    this.rotationHistoryEmployeeId = guid;
+    this.rotationHistoryEmployeeName = `${this.user.firstName ?? ''} ${this.user.lastName ?? ''}`.trim();
+    this.rotationHistoryOpen = true;
+  }
+
+  closePilotRotationHistory(): void {
+    this.rotationHistoryOpen = false;
+    this.rotationHistoryEmployeeId = '';
+    this.rotationHistoryEmployeeName = '';
   }
 
   private async loadLinkedReferral(user: User): Promise<void> {
@@ -232,17 +211,7 @@ export class UserDetailComponent implements OnInit {
 
   getAnciennete(): string {
     if (!this.user) return '—';
-    const ref = seniorityReferenceDate(this.user);
-    const debut = new Date(ref);
-    const now = new Date();
-    const totalMois = (now.getFullYear() - debut.getFullYear()) * 12
-                    + (now.getMonth() - debut.getMonth());
-    const ans = Math.floor(totalMois / 12);
-    const mois = totalMois % 12;
-    if (totalMois <= 0) return "Moins d'1 mois";
-    if (ans === 0) return `${mois} mois`;
-    if (mois === 0) return `${ans} an${ans > 1 ? 's' : ''}`;
-    return `${ans} an${ans > 1 ? 's' : ''} et ${mois} mois`;
+    return formatSeniorityDuration(seniorityReferenceDate(this.user));
   }
 
   goBack(): void { this.router.navigate(['/users']); }

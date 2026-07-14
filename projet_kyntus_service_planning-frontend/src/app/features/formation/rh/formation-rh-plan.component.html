@@ -1,60 +1,244 @@
-<app-kyntus-page-header title="Planifier une formation continue" subtitle="Sessions imposées par la RH" />
-<div class="card-navy p-4 space-y-4">
-  <div class="grid gap-3 md:grid-cols-2">
-    <label class="space-y-1 block">
-      <span class="text-xs text-muted">Intitulé</span>
-      <input class="ky-input w-full" [(ngModel)]="form.title" />
-    </label>
-    <label class="space-y-1 block">
-      <span class="text-xs text-muted">Capacité</span>
-      <input class="ky-input w-full" type="number" min="1" [(ngModel)]="form.capacity" />
-    </label>
-    <label class="space-y-1 block md:col-span-2">
-      <span class="text-xs text-muted">Description</span>
-      <textarea class="ky-textarea w-full" rows="2" [(ngModel)]="form.description"></textarea>
-    </label>
-    <label class="space-y-1 block">
-      <span class="text-xs text-muted">Début</span>
-      <input class="ky-input w-full" type="datetime-local" [(ngModel)]="form.plannedStart" />
-    </label>
-    <label class="space-y-1 block">
-      <span class="text-xs text-muted">Fin</span>
-      <input class="ky-input w-full" type="datetime-local" [(ngModel)]="form.plannedEnd" />
-    </label>
-  </div>
+<div class="ky-page-shell">
+  <div class="formation-plan-page">
+    <app-kyntus-page-header
+      title="Planifier une formation continue"
+      subtitle="Sessions imposées par la RH — animateur, bénéficiaires et capacité"
+    />
 
-  <fieldset class="space-y-2">
-    <legend class="text-sm font-medium">Animateur</legend>
-    <label class="inline-flex items-center gap-2 mr-4">
-      <input type="radio" name="animatorKind" value="Internal" [(ngModel)]="form.animatorKind" />
-      Interne
-    </label>
-    <label class="inline-flex items-center gap-2">
-      <input type="radio" name="animatorKind" value="External" [(ngModel)]="form.animatorKind" />
-      Externe
-    </label>
-    @if (form.animatorKind === 'Internal') {
-      <input class="ky-input w-full" placeholder="GUID animateur interne" [(ngModel)]="form.animatorUserId" />
-    } @else {
-      <div class="grid gap-3 md:grid-cols-2">
-        <input class="ky-input" placeholder="Nom animateur" [(ngModel)]="form.externalAnimatorName" />
-        <input class="ky-input" placeholder="Société / organisme" [(ngModel)]="form.externalAnimatorOrganization" />
-        <input class="ky-input" placeholder="Email" [(ngModel)]="form.externalAnimatorEmail" />
-        <input class="ky-input" placeholder="Téléphone (optionnel)" [(ngModel)]="form.externalAnimatorPhone" />
+    <div class="card-navy formation-plan-card space-y-4">
+      <div class="formation-plan-grid">
+        <label class="block">
+          <span class="field-label">Intitulé</span>
+          <input class="ky-input w-full" [(ngModel)]="form.title" />
+        </label>
+        <label class="block">
+          <span class="field-label">Capacité</span>
+          <input class="ky-input w-full" type="number" min="1" [(ngModel)]="form.capacity" />
+        </label>
+        <label class="block span-2">
+          <span class="field-label">Description</span>
+          <textarea class="ky-textarea w-full" rows="2" [(ngModel)]="form.description"></textarea>
+        </label>
+        <label class="block">
+          <span class="field-label">Début</span>
+          <input class="ky-input w-full" type="datetime-local" [(ngModel)]="form.plannedStart" />
+        </label>
+        <label class="block">
+          <span class="field-label">Fin</span>
+          <input class="ky-input w-full" type="datetime-local" [(ngModel)]="form.plannedEnd" />
+        </label>
+      </div>
+
+      <fieldset class="animator-fieldset">
+        <legend>Animateur</legend>
+        <div class="radio-row">
+          <label class="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="animatorKind"
+              value="Internal"
+              [ngModel]="form.animatorKind"
+              (ngModelChange)="onAnimatorKindChange($event)"
+            />
+            Interne
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="animatorKind"
+              value="External"
+              [ngModel]="form.animatorKind"
+              (ngModelChange)="onAnimatorKindChange($event)"
+            />
+            Externe
+          </label>
+        </div>
+
+        @if (form.animatorKind === 'Internal') {
+          @if (selectedAnimator(); as anim) {
+            <div class="selected-chip">
+              <div>
+                <strong>{{ anim.displayName }}</strong>
+                <span>{{ anim.user.email }} — {{ anim.user.roleName }}</span>
+              </div>
+              <button type="button" class="ky-btn-secondary text-xs" (click)="clearAnimator()">Changer</button>
+            </div>
+          } @else {
+            <div class="search-box ky-card">
+              <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+              <input
+                class="ky-input search-input"
+                type="text"
+                placeholder="Rechercher un employé (nom, email, rôle)…"
+                [ngModel]="animatorSearch"
+                (ngModelChange)="onAnimatorSearchChange($event)"
+              />
+            </div>
+            @if (animatorSearch.trim() && searchRevision() >= 0) {
+              <div class="employee-options">
+                @for (row of visibleAnimatorRows(); track row.user.id) {
+                  <button type="button" class="employee-option" (click)="selectAnimator(row)">
+                    <span class="employee-option-name">{{ row.displayName }}</span>
+                    <span class="employee-option-meta">{{ row.user.email }} · {{ row.user.roleName }}</span>
+                  </button>
+                } @empty {
+                  <p class="text-muted text-sm p-3">Aucun employé trouvé.</p>
+                }
+              </div>
+            }
+          }
+
+          @if (selectedAnimator()) {
+            <div class="animated-sessions">
+              <h3>Sessions à animer</h3>
+              @if (animatorSessionsLoading()) {
+                <p class="text-muted text-sm">Chargement…</p>
+              } @else if (animatorSessions().length === 0) {
+                <p class="text-muted text-sm">Aucune session planifiée pour cet animateur.</p>
+              } @else {
+                <ul>
+                  @for (s of animatorSessions(); track s.id) {
+                    <li>
+                      <strong>{{ s.title }}</strong>
+                      — {{ formatSessionDate(s.plannedStart) }} → {{ formatSessionDate(s.plannedEnd) }}
+                      <span class="text-muted">({{ s.status }} · {{ s.assignmentCount }}/{{ s.capacity }})</span>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          }
+        } @else {
+          <div class="formation-plan-grid">
+            <input class="ky-input" placeholder="Nom animateur" [(ngModel)]="form.externalAnimatorName" />
+            <input class="ky-input" placeholder="Société / organisme" [(ngModel)]="form.externalAnimatorOrganization" />
+            <input class="ky-input" placeholder="Email" [(ngModel)]="form.externalAnimatorEmail" />
+            <input class="ky-input" placeholder="Téléphone (optionnel)" [(ngModel)]="form.externalAnimatorPhone" />
+          </div>
+        }
+      </fieldset>
+
+      <fieldset class="beneficiaries-fieldset">
+        <legend>Bénéficiaires</legend>
+        <p class="capacity-hint mb-2">
+          Employés qui suivront la formation et recevront une notification
+          ({{ selectedBeneficiaries().length }}/{{ form.capacity }}).
+        </p>
+
+        @if (selectedBeneficiaries().length) {
+          <div class="beneficiary-chips">
+            @for (row of selectedBeneficiaries(); track row.user.id) {
+              <span class="beneficiary-chip">
+                {{ row.displayName }}
+                <button type="button" (click)="removeBeneficiary(userGuid(row.user))" aria-label="Retirer">×</button>
+              </span>
+            }
+          </div>
+        }
+
+        <div class="search-box ky-card">
+          <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+          <input
+            class="ky-input search-input"
+            type="text"
+            placeholder="Rechercher un bénéficiaire…"
+            [ngModel]="beneficiarySearch"
+            (ngModelChange)="onBeneficiarySearchChange($event)"
+          />
+        </div>
+        @if (beneficiarySearch.trim() && searchRevision() >= 0) {
+          <div class="employee-options">
+            @for (row of visibleBeneficiaryRows(); track row.user.id) {
+              <button type="button" class="employee-option" (click)="addBeneficiary(row)">
+                <span class="employee-option-name">{{ row.displayName }}</span>
+                <span class="employee-option-meta">{{ row.user.email }} · {{ row.user.roleName }}</span>
+              </button>
+            } @empty {
+              <p class="text-muted text-sm p-3">Aucun employé trouvé.</p>
+            }
+          </div>
+        }
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="button" class="ky-btn-primary" [disabled]="busy()" (click)="publish()">
+          Publier la session
+        </button>
+        @if (error()) {
+          <p class="text-rose-300 text-sm m-0">{{ error() }}</p>
+        }
+      </div>
+    </div>
+
+    <div class="card-navy formation-plan-card">
+      <h2>Sessions planifiées — capacité formateur</h2>
+      @for (s of sessions(); track s.id) {
+        <div class="session-row text-sm">
+          <div>
+            <strong>{{ s.title }}</strong>
+            — {{ s.assignmentCount }}/{{ s.capacity }} ({{ fillRate(s) }} %)
+            <span class="text-muted">({{ s.status }})</span>
+            <div class="text-muted text-xs mt-1">
+              {{ formatSessionDate(s.plannedStart) }} → {{ formatSessionDate(s.plannedEnd) }}
+            </div>
+          </div>
+          <div class="session-actions">
+            <button type="button" class="ky-btn-secondary text-xs" (click)="openAssign(s.id)">Affecter</button>
+            <button type="button" class="ky-btn-secondary text-xs" (click)="setStatus(s.id, 'InProgress')">Démarrer</button>
+            <button type="button" class="ky-btn-secondary text-xs" (click)="setStatus(s.id, 'Completed')">Terminer</button>
+          </div>
+        </div>
+      } @empty {
+        <p class="text-muted text-sm">Aucune session.</p>
+      }
+      @if (assignMsg()) {
+        <p class="text-sm mt-2 text-emerald-300">{{ assignMsg() }}</p>
+      }
+    </div>
+
+    @if (assignSessionId()) {
+      <div class="card-navy formation-plan-card space-y-3">
+        <h3>Affecter des bénéficiaires</h3>
+
+        @if (assignSelected().length) {
+          <div class="beneficiary-chips">
+            @for (row of assignSelected(); track row.user.id) {
+              <span class="beneficiary-chip">
+                {{ row.displayName }}
+                <button type="button" (click)="removeAssignEmployee(userGuid(row.user))" aria-label="Retirer">×</button>
+              </span>
+            }
+          </div>
+        }
+
+        <div class="search-box ky-card">
+          <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+          <input
+            class="ky-input search-input"
+            type="text"
+            placeholder="Rechercher un employé…"
+            [ngModel]="assignSearch"
+            (ngModelChange)="onAssignSearchChange($event)"
+          />
+        </div>
+        @if (assignSearch.trim() && searchRevision() >= 0) {
+          <div class="employee-options">
+            @for (row of visibleAssignRows(); track row.user.id) {
+              <button type="button" class="employee-option" (click)="addAssignEmployee(row)">
+                <span class="employee-option-name">{{ row.displayName }}</span>
+                <span class="employee-option-meta">{{ row.user.email }} · {{ row.user.roleName }}</span>
+              </button>
+            } @empty {
+              <p class="text-muted text-sm p-3">Aucun employé trouvé.</p>
+            }
+          </div>
+        }
+
+        <div class="form-actions">
+          <button type="button" class="ky-btn-primary" [disabled]="busy()" (click)="confirmAssign()">Confirmer</button>
+          <button type="button" class="ky-btn-secondary" (click)="assignSessionId.set(null)">Annuler</button>
+        </div>
       </div>
     }
-  </fieldset>
-
-  <button type="button" class="ky-btn-primary" [disabled]="busy()" (click)="publish()">Publier la session</button>
-  @if (error()) { <p class="text-rose-300 text-sm">{{ error() }}</p> }
-</div>
-
-<div class="card-navy p-4 mt-4">
-  <h2 class="text-sm font-semibold mb-3">Sessions planifiées</h2>
-  @for (s of sessions(); track s.id) {
-    <div class="border-b border-default/40 py-2 text-sm">
-      <strong>{{ s.title }}</strong> — {{ s.assignmentCount }}/{{ s.capacity }} participants
-      <span class="text-muted">({{ s.status }})</span>
-    </div>
-  }
+  </div>
 </div>

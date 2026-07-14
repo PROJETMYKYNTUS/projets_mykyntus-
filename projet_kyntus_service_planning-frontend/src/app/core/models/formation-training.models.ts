@@ -48,3 +48,19 @@ export const INITIAL_TRAINING_STATUS_LABELS: Record<InitialTrainingStatus, strin
   EnProduction: 'En production',
   Rejete: 'Rejeté',
 };
+
+export const TRAINING_SESSION_STATUS_LABELS: Record<TrainingSessionStatus, string> = {
+  Draft: 'Brouillon',
+  Scheduled: 'Planifiée',
+  InProgress: 'En cours',
+  Completed: 'Terminée',
+  Cancelled: 'Annulée',
+};
+
+/** Parcours initial encore en pipeline (hors production / rejet). */
+export const INITIAL_TRAINING_ACTIVE_STATUSES: InitialTrainingStatus[] = [
+  'EnCours',
+  'QuizASaisir',
+  'AttenteValidationFormateur',
+  'AttenteValidationRh',
+];

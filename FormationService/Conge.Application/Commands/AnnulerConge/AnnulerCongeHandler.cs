@@ -1,4 +1,5 @@
-﻿using Conge.Domain.Enums;
+﻿using Conge.Application.Contracts;
+using Conge.Domain.Enums;
 using Conge.Domain.Exceptions;
 using Conge.Domain.Interfaces;
 using MediatR;
@@ -10,15 +11,18 @@ public class AnnulerCongeHandler : IRequestHandler<AnnulerCongeCommand, bool>
     private readonly IDemandeCongeRepository _demandeRepo;
     private readonly ISoldeCongeRepository _soldeRepo;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICongeEventPublisher _publisher;
 
     public AnnulerCongeHandler(
         IDemandeCongeRepository demandeRepo,
         ISoldeCongeRepository soldeRepo,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICongeEventPublisher publisher)
     {
         _demandeRepo = demandeRepo;
         _soldeRepo = soldeRepo;
         _unitOfWork = unitOfWork;
+        _publisher = publisher;
     }
 
     public async Task<bool> Handle(AnnulerCongeCommand request, CancellationToken ct)
@@ -26,16 +30,13 @@ public class AnnulerCongeHandler : IRequestHandler<AnnulerCongeCommand, bool>
         var demande = await _demandeRepo.GetByIdAsync(request.DemandeId, ct)
             ?? throw new CongeNotFoundException(request.DemandeId);
 
-        // Vérifier que c'est bien le propriétaire
         if (demande.EmployeId != request.EmployeId)
             throw new UnauthorizedAccessException("Vous ne pouvez annuler que vos propres demandes.");
 
         var ancienStatut = demande.Statut;
 
-        // Logique métier dans l'entité
         demande.Annuler();
 
-        // Si la demande était déjà validée, recréditer le solde annuel
         if (ancienStatut == StatutDemande.Validee && demande.TypeConge == TypeConge.Annuel)
         {
             var solde = await _soldeRepo.GetByEmployeAndAnneeAsync(
@@ -50,6 +51,15 @@ public class AnnulerCongeHandler : IRequestHandler<AnnulerCongeCommand, bool>
 
         _demandeRepo.Update(demande);
         await _unitOfWork.SaveChangesAsync(ct);
+
+        if (ancienStatut == StatutDemande.Validee)
+        {
+            await _publisher.PublishCongeRefuseAsync(
+                demande.EmployeId,
+                demande.Id,
+                "Annulation après validation",
+                ct);
+        }
 
         return true;
     }

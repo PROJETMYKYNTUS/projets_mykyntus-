@@ -100,11 +100,13 @@ public class EmployeeImportFieldRegistryTests
     [Fact]
     public void TemplateFields_has_full_hr_and_contract_columns()
     {
-        Assert.Equal(48, EmployeeImportFieldRegistry.TemplateFields.Count);
+        Assert.Equal(50, EmployeeImportFieldRegistry.TemplateFields.Count);
         Assert.Contains(EmployeeImportFieldRegistry.TemplateFields, f => f.FieldKey == "operationalDepartment");
         Assert.Contains(EmployeeImportFieldRegistry.TemplateFields, f => f.FieldKey == "contractType");
         Assert.Contains(EmployeeImportFieldRegistry.TemplateFields, f => f.FieldKey == "contractAlertThresholdDays");
         Assert.Contains(EmployeeImportFieldRegistry.TemplateFields, f => f.FieldKey == "villeNaissance");
+        Assert.Contains(EmployeeImportFieldRegistry.TemplateFields, f => f.FieldKey == "emailPersonnel");
+        Assert.Contains(EmployeeImportFieldRegistry.TemplateFields, f => f.FieldKey == "numeroCarteAutoentrepreneur");
     }
 
     [Theory]
@@ -117,14 +119,29 @@ public class EmployeeImportFieldRegistryTests
     }
 }
 
+public class EmployeeImportExpertiseLevelResolverTests
+{
+    [Theory]
+    [InlineData("Débutant", 1)]
+    [InlineData("Confirmé", 2)]
+    [InlineData("Expert", 3)]
+    [InlineData("intermediaire", 2)]
+    [InlineData("3", 3)]
+    public void TryResolve_maps_expertise_labels(string input, int expected)
+    {
+        Assert.True(EmployeeImportExpertiseLevelResolver.TryResolve(input, out var level));
+        Assert.Equal(expected, level);
+    }
+}
+
 public class EmployeeImportLevelResolverTests
 {
     [Theory]
     [InlineData("Débutant", 1)]
     [InlineData("debutant", 1)]
-    [InlineData("Intermédiaire", 2)]
-    [InlineData("intermediaire", 2)]
+    [InlineData("Confirmé", 2)]
     [InlineData("Expert", 3)]
+    [InlineData("intermediaire", 2)]
     [InlineData("3", 3)]
     public void TryResolve_maps_labels_to_level(string input, int expected)
     {

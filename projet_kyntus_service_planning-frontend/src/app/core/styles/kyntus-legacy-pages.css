@@ -1,6 +1,10 @@
 /**
  * Pont CSS pour écrans legacy (Organisation, RH, Planning, etc.)
  * Remplace progressivement les couleurs figées par les tokens Prime.
+ *
+ * ⚠ COUCHE EN EXTINCTION — ne rien ajouter ici (surtout pas de !important).
+ * Quand un écran est touché : le passer sur .ky-page-shell + tokens
+ * sémantiques et retirer ici les règles devenues inutiles.
  */
 
 .ks-content .page:not(.ky-page-shell):not(.prime-page-shell),
@@ -11,10 +15,22 @@
 .ks-content .form-page:not(.ky-page-shell):not(.prime-page-shell),
 .ks-content .detail-page:not(.ky-page-shell):not(.prime-page-shell) {
   min-height: 100%;
-  padding: 32px 24px 48px;
+  padding: 24px 24px 48px;
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (min-width: 1024px) {
+  .ks-content .page:not(.ky-page-shell):not(.prime-page-shell),
+  .ks-content .page-wrapper:not(.ky-page-shell):not(.prime-page-shell),
+  .ks-content .page-container:not(.ky-page-shell):not(.prime-page-shell),
+  .ks-content .service-page:not(.ky-page-shell):not(.prime-page-shell),
+  .ks-content .pv-wrapper:not(.ky-page-shell):not(.prime-page-shell),
+  .ks-content .form-page:not(.ky-page-shell):not(.prime-page-shell),
+  .ks-content .detail-page:not(.ky-page-shell):not(.prime-page-shell) {
+    padding: 32px 32px 48px;
+  }
 }
 
 .ks-content .page-header,

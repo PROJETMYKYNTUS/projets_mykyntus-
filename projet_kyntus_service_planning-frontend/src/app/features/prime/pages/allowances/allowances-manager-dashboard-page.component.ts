@@ -96,33 +96,33 @@ import { currentAllowancePeriod } from '../../lib/allowance-status';
     .mgr-dash { padding: 1.25rem 1.5rem 2rem; max-width: 1100px; margin: 0 auto; }
     .mgr-dash__header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
     .mgr-dash__title { margin: 0; font-size: 1.375rem; font-weight: 800; }
-    .mgr-dash__subtitle { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--text-muted, #6b7280); }
-    .mgr-dash__period { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; color: var(--text-muted, #6b7280); }
-    .mgr-dash__period input { padding: 0.375rem 0.625rem; border-radius: 0.375rem; border: 1px solid var(--border-default, #d1d5db); }
-    .mgr-dash__error { padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: 0.5rem; background: #FEE2E2; color: #B91C1C; font-size: 0.875rem; }
+    .mgr-dash__subtitle { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--text-muted); }
+    .mgr-dash__period { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; color: var(--text-muted); }
+    .mgr-dash__period input { padding: 0.375rem 0.625rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); }
+    .mgr-dash__error { padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: var(--radius-md); background: var(--danger-bg); color: var(--danger-text); font-size: 0.875rem; }
     .mgr-dash__loading { display: flex; justify-content: center; padding: 4rem; }
-    .mgr-dash__spinner { width: 1.75rem; height: 1.75rem; border: 3px solid rgba(79,70,229,0.2); border-top-color: #4F46E5; border-radius: 50%; animation: spin 0.6s linear infinite; }
-    .mgr-dash__progress-bar { height: 0.5rem; border-radius: 999px; background: #E5E7EB; overflow: hidden; margin-bottom: 0.35rem; }
-    .mgr-dash__progress-fill { height: 100%; background: linear-gradient(90deg, #4F46E5, #6366F1); transition: width 0.3s; }
-    .mgr-dash__progress-label { font-size: 0.8125rem; color: var(--text-muted, #6b7280); margin: 0 0 1rem; }
+    .mgr-dash__spinner { width: 1.75rem; height: 1.75rem; border: 3px solid color-mix(in srgb, var(--electric-blue) 20%, transparent); border-top-color: var(--electric-blue); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    .mgr-dash__progress-bar { height: 0.5rem; border-radius: var(--radius-pill); background: var(--bg-input); overflow: hidden; margin-bottom: 0.35rem; }
+    .mgr-dash__progress-fill { height: 100%; background: var(--ky-gradient); transition: width 0.3s; }
+    .mgr-dash__progress-label { font-size: 0.8125rem; color: var(--text-muted); margin: 0 0 1rem; }
     .mgr-dash__kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.65rem; margin-bottom: 1.25rem; }
-    .mgr-dash__kpi { padding: 0.875rem 1rem; border-radius: 0.625rem; border: 1px solid #E5E7EB; background: var(--bg-card, #fff); }
-    .mgr-dash__kpi-value { display: block; font-size: 1.375rem; font-weight: 800; color: #4F46E5; line-height: 1; }
-    .mgr-dash__kpi-label { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #6b7280); }
-    .mgr-dash__kpi--warn .mgr-dash__kpi-value { color: #D97706; }
-    .mgr-dash__kpi--draft .mgr-dash__kpi-value { color: #4338CA; }
-    .mgr-dash__kpi--ok .mgr-dash__kpi-value { color: #16A34A; }
+    .mgr-dash__kpi { padding: 0.875rem 1rem; border-radius: var(--radius-card); border: 1px solid var(--border-color); background: var(--bg-card); }
+    .mgr-dash__kpi-value { display: block; font-size: 1.375rem; font-weight: 800; color: var(--electric-blue); line-height: 1; }
+    .mgr-dash__kpi-label { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+    .mgr-dash__kpi--warn .mgr-dash__kpi-value { color: var(--warning-text); }
+    .mgr-dash__kpi--draft .mgr-dash__kpi-value { color: var(--electric-blue); }
+    .mgr-dash__kpi--ok .mgr-dash__kpi-value { color: var(--success-text); }
     .mgr-dash__kpi--amount .mgr-dash__kpi-value { font-size: 1.125rem; }
     .mgr-dash__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
-    .mgr-dash__btn-primary { padding: 0.5rem 1.125rem; border: none; border-radius: 0.5rem; background: #4F46E5; color: #fff; font-weight: 700; font-size: 0.875rem; cursor: pointer; }
-    .mgr-dash__btn-secondary { padding: 0.5rem 1rem; border-radius: 0.5rem; border: 1px solid #D1D5DB; background: var(--bg-card, #fff); font-weight: 600; font-size: 0.8125rem; cursor: pointer; }
-    .mgr-dash__section h2 { font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #6b7280); margin: 0 0 0.65rem; }
+    .mgr-dash__btn-primary { padding: 0.5rem 1.125rem; border: none; border-radius: var(--radius-md); background-color: var(--blue-600); background-image: var(--ky-gradient); color: white; font-weight: 700; font-size: 0.875rem; cursor: pointer; }
+    .mgr-dash__btn-secondary { padding: 0.5rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-card); font-weight: 600; font-size: 0.8125rem; cursor: pointer; }
+    .mgr-dash__section h2 { font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 0 0 0.65rem; }
     .mgr-dash__periods { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.5rem; }
-    .mgr-dash__period-card { text-align: left; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #E5E7EB; background: var(--bg-card, #fff); cursor: pointer; }
-    .mgr-dash__period-card:hover { border-color: #4F46E5; }
+    .mgr-dash__period-card { text-align: left; padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-card); cursor: pointer; }
+    .mgr-dash__period-card:hover { border-color: var(--electric-blue); }
     .mgr-dash__period-card-date { display: block; font-weight: 700; font-size: 0.875rem; }
-    .mgr-dash__period-card-meta { display: block; font-size: 0.75rem; color: var(--text-muted, #6b7280); margin-top: 0.15rem; }
-    .mgr-dash__period-card-amount { display: block; font-size: 0.8125rem; font-weight: 600; color: #4F46E5; margin-top: 0.25rem; }
+    .mgr-dash__period-card-meta { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+    .mgr-dash__period-card-amount { display: block; font-size: 0.8125rem; font-weight: 600; color: var(--electric-blue); margin-top: 0.25rem; }
     @keyframes spin { to { transform: rotate(360deg); } }
   `],
 })

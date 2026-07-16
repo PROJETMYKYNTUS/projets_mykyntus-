@@ -13,8 +13,8 @@
 
   padding: 0 20px;
 
-  background: #0b1a2b;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border-color);
 
   z-index: 1000;
 
@@ -22,18 +22,18 @@
   overflow-y: hidden;
   scrollbar-width: thin;
 
-  color: rgba(226, 232, 240, 0.95);
+  color: var(--text-primary);
   font-size: 0.8125rem;
   line-height: 1.25;
 
   select {
     min-width: 140px;
     max-width: min(22rem, 40vw);
-    background: #0f2744;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
     border-radius: 0.375rem;
     padding: 0.25rem 0.5rem;
-    color: #f8fafc;
+    color: var(--text-primary);
   }
 
   label {
@@ -48,7 +48,7 @@
   .dev-filter-bar__title {
     flex: 0 0 auto;
     font-weight: 600;
-    color: #fde68a;
+    color: var(--warning-text);
     letter-spacing: 0.02em;
   }
 
@@ -58,7 +58,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: rgba(226, 232, 240, 0.85);
+    color: var(--text-muted);
   }
 
   .dev-filter-bar__error {
@@ -66,9 +66,9 @@
     font-size: 11px;
     padding: 0.25rem 0.5rem;
     border-radius: 0.375rem;
-    border: 1px solid rgba(244, 63, 94, 0.35);
-    background: rgba(76, 5, 25, 0.45);
-    color: #fecdd3;
+    border: 1px solid var(--danger-border);
+    background: var(--danger-bg);
+    color: var(--danger-text);
   }
 
   code {

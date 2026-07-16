@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "description": "Pôle pilotage performance — employés Organisation RH (OP-002) pour seeds Planning / Formation / Parrainage.",
+  "department": {
+    "id": "33333333-3333-4333-8333-333333330001",
+    "code": "OP-002",
+    "name": "OP-003 - département opérationnel"
+  },
+  "pole": { "id": "pole-pilotage-performance", "name": "pole pilotage performance" },
+  "cellule": { "id": "cell-suivi-kpi", "name": "cellule suivi KPI" },
+  "service": { "id": "svc-analyse-operationnelle", "name": "service analyse operationnelle" },
+  "employees": [
+    {
+      "id": "33333333-3333-4333-8333-333333333001",
+      "firstName": "Malak",
+      "lastName": "Souiri",
+      "email": "malak.souiri@contactcentre.ma",
+      "role": "Chef de projet",
+      "assignment": "ChefDeProjet",
+      "node": "pole"
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333002",
+      "firstName": "Salim",
+      "lastName": "Ouazzani",
+      "email": "salim.ouazzani@contactcentre.ma",
+      "role": "Superviseur",
+      "assignment": "Superviseur",
+      "node": "cellule"
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333003",
+      "firstName": "Younes",
+      "lastName": "Elidrissi",
+      "email": "younes.elidrissi@contactcentre.ma",
+      "role": "Référent technique",
+      "assignment": "ReferentTechnique",
+      "node": "service"
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333004",
+      "firstName": "Chaima",
+      "lastName": "Benali",
+      "email": "chaima.benali@contactcentre.ma",
+      "role": "Pilote",
+      "assignment": "Pilote",
+      "node": "service"
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333005",
+      "firstName": "Hamid",
+      "lastName": "Fellah",
+      "email": "hamid.fellah@contactcentre.ma",
+      "role": "Pilote",
+      "assignment": "Pilote",
+      "node": "service"
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333006",
+      "firstName": "Othmane",
+      "lastName": "Kabbaj",
+      "email": "othmane.kabbaj@contactcentre.ma",
+      "role": "Pilote",
+      "assignment": "Pilote",
+      "node": "service"
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333007",
+      "firstName": "Asmae",
+      "lastName": "Tazi",
+      "email": "asmae.tazi@contactcentre.ma",
+      "role": "Pilote",
+      "assignment": null,
+      "node": "service"
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333008",
+      "firstName": "Rania",
+      "lastName": "Karimi",
+      "email": "rania.karimi@contactcentre.ma",
+      "role": "Pilote",
+      "assignment": null,
+      "node": "service"
+    }
+  ]
+}

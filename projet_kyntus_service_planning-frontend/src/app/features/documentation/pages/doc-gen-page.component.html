@@ -31,7 +31,7 @@
               }
             </select>
             @if (!loading && !loadError && users.length === 0) {
-              <p class="text-[11px] text-amber-500/90">Aucun utilisateur dans l’annuaire pour ce tenant.</p>
+              <p class="text-[11px] text-[var(--warning-text)]">Aucun utilisateur dans l’annuaire pour ce tenant.</p>
             }
           </div>
 
@@ -105,7 +105,7 @@
                   class="rounded-lg px-3 py-2 text-xs font-semibold border transition whitespace-nowrap"
                   [ngClass]="
                     generationMode === 'ready'
-                      ? 'border-amber-500/60 bg-amber-950/30 text-amber-300'
+                      ? 'border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning-text)]'
                       : 'border-default text-primary hover:bg-input'
                   "
                   (click)="setGenerationMode('ready')"
@@ -124,7 +124,7 @@
               ({{ selectedLinkedRequest.requestDate }}, {{ selectedLinkedRequest.status }}).
             </p>
           } @else {
-            <p class="text-[11px] text-amber-400/90">
+            <p class="text-[11px] text-[var(--warning-text)]">
               Sélectionnez d’abord une demande approuvée avant toute génération ou upload de document final.
             </p>
           }
@@ -146,14 +146,14 @@
               }
             </select>
             @if (selectedLinkedRequest && !loading && !loadError && templates.length === 0) {
-              <p class="text-[11px] text-amber-500/90">
+              <p class="text-[11px] text-[var(--warning-text)]">
                 Aucun modèle actif. Les modèles dynamiques se créent sous « Modèles ». Pour un document déjà prêt, utilisez
                 l’upload direct ci-dessus (sans modèle).
               </p>
             }
             @if (selectedTemplate(); as st) {
               @if ((st.kind ?? 'dynamic').toLowerCase() === 'static') {
-                <p class="text-[11px] text-amber-400/90 rounded border border-amber-500/25 px-2 py-1.5 bg-amber-950/20 leading-relaxed">
+                <p class="text-[11px] text-[var(--warning-text)] rounded border border-[var(--warning-border)] px-2 py-1.5 bg-[var(--warning-bg)] leading-relaxed">
                   Document statique : l’aperçu et la génération enregistrent une copie du fichier RH (sans fusion de variables).
                 </p>
               }
@@ -191,8 +191,8 @@
           }
 
           @if (generationMode === 'ready' && canGenerate(role)) {
-            <div class="space-y-3 rounded-lg border border-amber-500/25 bg-amber-950/15 p-3">
-              <p class="text-xs font-bold text-amber-400/95 uppercase tracking-wide">
+            <div class="space-y-3 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3">
+              <p class="text-xs font-bold text-[var(--warning-text)] uppercase tracking-wide">
                 Document déjà prêt (upload direct pilote)
               </p>
               <p class="text-[11px] text-muted leading-relaxed">
@@ -200,7 +200,7 @@
               </p>
               <label class="block text-[11px] text-muted">Fichier (PDF, DOCX, …) — stockage local / S3</label>
               <label
-                class="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl border border-amber-400/45 bg-gradient-to-r from-amber-500/20 to-orange-500/20 px-4 py-2 text-xs font-semibold text-amber-200 shadow-lg shadow-amber-900/20 transition-all hover:-translate-y-0.5 hover:brightness-110"
+                class="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-2 text-xs font-semibold text-[var(--warning-text)] shadow-[var(--shadow-2)] transition-all hover:-translate-y-0.5 hover:brightness-110"
               >
                 <app-doc-icon name="file-up" klass="h-4 w-4"></app-doc-icon>
                 <span class="whitespace-nowrap">Choisir un fichier</span>
@@ -214,15 +214,15 @@
                 />
               </label>
               @if (readyUploadFile) {
-                <p class="text-[11px] text-emerald-400/90">Sélection : {{ readyUploadFile.name }}</p>
+                <p class="text-[11px] text-[var(--success-text)]">Sélection : {{ readyUploadFile.name }}</p>
               }
               @if (readyUploadMessage) {
                 <p
                   class="text-[11px] rounded border px-2 py-1.5"
                   [ngClass]="
                     readyUploadMessageOk
-                      ? 'text-emerald-400/95 border-emerald-500/30 bg-emerald-950/30'
-                      : 'text-amber-400/95 border-amber-500/30 bg-amber-950/25'
+                      ? 'text-[var(--success-text)] border-[var(--success-border)] bg-[var(--success-bg)]'
+                      : 'text-[var(--warning-text)] border-[var(--warning-border)] bg-[var(--warning-bg)]'
                   "
                 >
                   {{ readyUploadMessage }}
@@ -230,7 +230,7 @@
               }
               <button
                 type="button"
-                class="w-full sm:w-auto whitespace-nowrap rounded-lg bg-amber-600/90 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 hover:bg-amber-500"
+                class="w-full sm:w-auto whitespace-nowrap rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-sm font-semibold text-[var(--warning-text)] hover:border-[var(--warning)] disabled:cursor-not-allowed disabled:opacity-50"
                 [disabled]="isReadyUploadSendDisabled()"
                 [attr.title]="isReadyUploadSendDisabled() ? 'Choisissez d’abord un fichier (PDF, DOCX, …) puis envoyez.' : null"
                 (click)="submitReadyDocument(role)"
@@ -251,7 +251,7 @@
           }
 
           @if (generationMode === 'template' && hrVariablesForCurrentTemplate().length > 0) {
-            <div class="space-y-3 rounded-lg border border-blue-900/40 bg-blue-950/20 p-3">
+            <div class="space-y-3 rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] p-3">
               <p class="text-xs font-bold text-primary uppercase tracking-wide">Données complémentaires (RH)</p>
               <p class="text-[11px] text-muted">
                 Les valeurs RH ont priorité sur la base employé. Les champs d’identité / organisation sont alimentés automatiquement.
@@ -278,8 +278,8 @@
           }
 
           @if (generationMode === 'template' && canGenerate(role) && selectedLinkedRequest) {
-            <div class="space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-3">
-              <p class="text-xs font-bold text-emerald-300/95 uppercase tracking-wide">Génération du document</p>
+            <div class="space-y-2 rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] p-3">
+              <p class="text-xs font-bold text-[var(--success-text)] uppercase tracking-wide">Génération du document</p>
               <p class="text-[11px] text-muted leading-relaxed">
                 @if (hrVariablesForCurrentTemplate().length > 0) {
                   Le bouton reste inactif tant que l’aperçu n’est pas prêt
@@ -291,7 +291,7 @@
               </p>
               <button
                 type="button"
-                class="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-900/30 transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none"
+                class="ky-btn-primary w-full border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success-text)] shadow-none hover:border-[var(--success)] disabled:cursor-not-allowed disabled:opacity-45"
                 [disabled]="!canFinalizeGenerate(role) || busyGenerate || busyPreview"
                 [attr.title]="generateDocButtonHint(role) || null"
                 (click)="runGenerate(role)"
@@ -303,7 +303,7 @@
                 }
               </button>
               @if (!canFinalizeGenerate(role) && !busyGenerate && !busyPreview) {
-                <p class="text-[10px] text-amber-400/90 leading-relaxed">{{ generateDocButtonHint(role) }}</p>
+                <p class="text-[10px] text-[var(--warning-text)] leading-relaxed">{{ generateDocButtonHint(role) }}</p>
               }
             </div>
           }
@@ -313,11 +313,11 @@
               <p class="text-[10px] font-bold uppercase tracking-wide text-muted">Pré-remplissage (KPI)</p>
               <p class="text-[11px] text-primary">
                 Champs obligatoires du modèle :
-                <span class="font-mono text-emerald-400/95">{{ previewKpi.filledCount }}</span>
+                <span class="font-mono text-[var(--success-text)]">{{ previewKpi.filledCount }}</span>
                 / {{ previewKpi.requiredTotal }} remplis automatiquement
                 <span class="text-muted">({{ previewKpi.filledPercent }} %)</span>
                 @if (previewKpi.missingCount > 0) {
-                  <span class="text-amber-400">
+                  <span class="text-[var(--warning-text)]">
                     — {{ previewKpi.missingCount }} manquant(s) ; marqués
                     <span class="font-mono">________</span>
                     dans l’aperçu.
@@ -330,7 +330,7 @@
           @if (previewMissingVariables.length > 0) {
             <div class="rounded-lg border border-default bg-app/50 p-4 space-y-2">
               <p class="text-[10px] font-bold uppercase tracking-wide text-muted">Contrôle des variables</p>
-              <p class="text-xs text-amber-400">
+              <p class="text-xs text-[var(--warning-text)]">
                 Variables obligatoires sans valeur : {{ previewMissingVariables.join(', ') }}
               </p>
             </div>
@@ -341,12 +341,12 @@
               class="space-y-2 text-xs rounded-lg px-3 py-2 border"
               [ngClass]="
                 lastGenerateMessage
-                  ? 'border-emerald-500/25 bg-emerald-950/30'
+                  ? 'border-[var(--success-border)] bg-[var(--success-bg)]'
                   : 'border-default bg-card/40'
               "
             >
               @if (lastGenerateMessage) {
-                <p class="text-emerald-400/90">{{ lastGenerateMessage }}</p>
+                <p class="text-[var(--success-text)]">{{ lastGenerateMessage }}</p>
               } @else {
                 <p class="text-muted">
                   PDF déjà disponible pour la demande sélectionnée — aperçu à droite. Téléchargement : PDF (.pdf) ou DOCX (.docx).
@@ -412,7 +412,7 @@
               </details>
               <button
                 type="button"
-                class="py-1.5 px-2.5 rounded-lg text-xs font-semibold border border-slate-500/40 text-primary hover:bg-slate-500/10 disabled:opacity-50"
+                class="py-1.5 px-2.5 rounded-lg text-xs font-semibold border border-default text-primary hover:bg-input disabled:opacity-50"
                 [disabled]="busyPreview || busyGenerate"
                 (click)="regenerateAiDirectPreview()"
               >
@@ -455,7 +455,7 @@
               }
             </p>
           } @else if (activeRightColumnPreviewKind === 'docx' && activeRightColumnPreviewHtml) {
-            <div class="flex-1 overflow-auto rounded border border-default bg-white p-6 text-left text-sm text-slate-900 shadow-inner [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_p]:mb-2 [&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_td]:border [&_td]:border-slate-300 [&_td]:p-1.5 [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:p-1.5 [&_th]:text-left [&_th]:font-semibold [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-6">
+            <div class="flex-1 overflow-auto rounded border border-default bg-card p-6 text-left text-sm text-primary shadow-inner [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_p]:mb-2 [&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_td]:border [&_td]:border-default [&_td]:p-1.5 [&_th]:border [&_th]:border-default [&_th]:bg-input [&_th]:p-1.5 [&_th]:text-left [&_th]:font-semibold [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-6">
               <div [innerHTML]="activeRightColumnPreviewHtml"></div>
             </div>
             <p class="text-[11px] text-muted mt-3">
@@ -463,12 +463,12 @@
               après génération conserve le format officiel.
             </p>
           } @else if (activeRightColumnPreviewKind === 'html' && activeRightColumnPreviewHtml) {
-            <div class="flex-1 overflow-auto rounded border border-default bg-white p-6 text-left text-sm text-slate-900 shadow-inner">
+            <div class="flex-1 overflow-auto rounded border border-default bg-card p-6 text-left text-sm text-primary shadow-inner">
               <div [innerHTML]="activeRightColumnPreviewHtml"></div>
             </div>
             <p class="text-[11px] text-muted mt-3">Aperçu HTML intégré.</p>
           } @else if (activeRightColumnPreviewKind === 'text' && embedPreviewText) {
-            <pre class="flex-1 overflow-auto whitespace-pre-wrap rounded border border-default bg-slate-950 p-4 text-xs text-primary">{{ embedPreviewText }}</pre>
+            <pre class="flex-1 overflow-auto whitespace-pre-wrap rounded border border-default bg-app p-4 text-xs text-primary">{{ embedPreviewText }}</pre>
             <p class="text-[11px] text-muted mt-3">Aperçu texte intégré.</p>
           } @else if (busyPreview) {
             <div class="empty-preview">

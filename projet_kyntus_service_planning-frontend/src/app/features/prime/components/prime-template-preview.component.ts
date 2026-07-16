@@ -34,17 +34,17 @@ export function excelColumnLabel(index: number): string {
           </div>
         }
         <div
-          class="excel-sheet-shell max-h-[min(62vh,640px)] overflow-auto rounded-md border border-[#a0a0a0] shadow-lg"
+          class="excel-sheet-shell max-h-[min(62vh,640px)] overflow-auto rounded-md shadow-lg"
         >
           <table class="excel-sheet-table border-collapse text-left" style="font-family: Calibri, 'Segoe UI', system-ui, sans-serif">
             <thead>
               <tr>
                 <th
-                  class="excel-corner h-7 w-10 min-w-[2.5rem] border border-[#8a8a8a] bg-[#f3f3f3] p-0 text-center text-[10px] font-normal text-[#333]"
+                  class="excel-corner h-7 w-10 min-w-[2.5rem] p-0 text-center text-[10px] font-normal"
                 ></th>
                 @for (ci of columnIndices(); track ci) {
                   <th
-                    class="excel-col-head h-7 min-w-[5.5rem] max-w-[14rem] border border-[#8a8a8a] bg-[#f3f3f3] px-1 py-0.5 text-center text-[11px] font-semibold tracking-wide text-[#333]"
+                    class="excel-col-head h-7 min-w-[5.5rem] max-w-[14rem] px-1 py-0.5 text-center text-[11px] font-semibold tracking-wide"
                   >
                     {{ excelColumnLabel(ci) }}
                   </th>
@@ -55,13 +55,13 @@ export function excelColumnLabel(index: number): string {
               @for (row of resolved().rows; track $index; let ri = $index) {
                 <tr>
                   <th
-                    class="excel-row-head w-10 min-w-[2.5rem] border border-[#d4d4d4] bg-[#f3f3f3] py-0.5 text-center text-[11px] font-normal tabular-nums text-[#333]"
+                    class="excel-row-head w-10 min-w-[2.5rem] py-0.5 text-center text-[11px] font-normal tabular-nums"
                   >
                     {{ ri + 1 }}
                   </th>
                   @for (cell of row; track $index) {
                     <td
-                      class="excel-cell max-w-[14rem] border border-[#d4d4d4] bg-white px-1.5 py-0.5 text-[11px] leading-snug text-[#111] align-top"
+                      class="excel-cell max-w-[14rem] px-1.5 py-0.5 text-[11px] leading-snug align-top"
                       [attr.title]="cell.length > 80 ? cell : null"
                     >
                       <span class="block truncate">{{ cell }}</span>
@@ -79,13 +79,27 @@ export function excelColumnLabel(index: number): string {
   `,
   styles: `
     .excel-sheet-shell {
-      background: #fff;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
     }
     .excel-sheet-table {
       table-layout: fixed;
     }
+    .excel-corner,
+    .excel-col-head,
+    .excel-row-head {
+      border: 1px solid var(--border-color);
+      background: var(--bg-input);
+      color: var(--text-primary);
+    }
+    .excel-cell {
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      color: var(--text-primary);
+    }
     .excel-cell:hover {
-      outline: 2px solid #217346;
+      outline: 2px solid var(--success);
       outline-offset: -1px;
       z-index: 1;
       position: relative;

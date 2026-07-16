@@ -257,7 +257,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
             <button
               type="button"
               (click)="session.exitWizardToList()"
-              class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-default bg-card px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-navy-700/50"
+              class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-default bg-card px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-input/50"
               title="Retour à la liste des fiches communes"
             >
               <app-lucide-icon [icon]="icons.back" className="w-4 h-4" />
@@ -318,7 +318,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
         <button
           type="button"
           (click)="copyJson()"
-          class="shrink-0 rounded-lg border border-default bg-card px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-navy-700/50"
+          class="shrink-0 rounded-lg border border-default bg-card px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-input/50"
         >
           <span class="inline-flex items-center gap-2">
             <app-lucide-icon [icon]="icons.clipboard" className="w-4 h-4" />
@@ -347,7 +347,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
           <button
             type="button"
             (click)="clearActiveTemplate()"
-            class="shrink-0 rounded-md border border-default bg-card px-2 py-1 text-xs font-medium hover:bg-navy-700/40"
+            class="shrink-0 rounded-md border border-default bg-card px-2 py-1 text-xs font-medium hover:bg-input/40"
           >
             {{ session.useWizardFlow() ? 'Quitter le flux assistant' : 'Revenir au mode RACC / SAV' }}
           </button>
@@ -365,14 +365,14 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
             <button
               type="button"
               (click)="nav.requestView('/prime-fiches-pilotes')"
-              class="shrink-0 rounded-md border border-emerald-600/50 bg-card px-2 py-1 text-xs font-semibold text-primary hover:bg-navy-700/40"
+              class="shrink-0 rounded-md border border-emerald-600/50 bg-card px-2 py-1 text-xs font-semibold text-primary hover:bg-input/40"
             >
               Pilotage fiches
             </button>
             <button
               type="button"
               (click)="nav.requestView('/prime-cellule-indicateurs')"
-              class="shrink-0 rounded-md border border-emerald-600/50 bg-card px-2 py-1 text-xs font-semibold text-primary hover:bg-navy-700/40"
+              class="shrink-0 rounded-md border border-emerald-600/50 bg-card px-2 py-1 text-xs font-semibold text-primary hover:bg-input/40"
             >
               Indicateurs par cellule
             </button>
@@ -431,7 +431,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         <li>
                           <button
                             type="button"
-                            class="w-full px-3 py-2 text-left text-sm text-primary hover:bg-navy-700/30"
+                            class="w-full px-3 py-2 text-left text-sm text-primary hover:bg-input/30"
                             (click)="openWizardDraftFromList(it)"
                           >
                             <span class="font-semibold">{{ it.period }}</span>
@@ -545,7 +545,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                 <button
                   type="button"
                   (click)="session.exitWizardToLegacy()"
-                  class="rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-navy-700/40"
+                  class="rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-input/40"
                 >
                   Mode saisie classique (RACC / SAV)
                 </button>
@@ -564,7 +564,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
               <button
                 type="button"
                 (click)="session.goBackToSetup()"
-                class="rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-navy-700/40"
+                class="rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-input/40"
               >
                 Retour
               </button>
@@ -630,7 +630,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
               <button
                 type="button"
                 (click)="session.backToEntry()"
-                class="rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-navy-700/40"
+                class="rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-input/40"
               >
                 Retour à la saisie
               </button>
@@ -665,7 +665,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
       } @else {
       <div class="flex flex-1 flex-col gap-0 lg:flex-row lg:items-stretch lg:gap-0 lg:min-h-[min(70dvh,720px)]">
         <aside
-          class="prime-nav-aside w-full shrink-0 border-b border-white/10 bg-navy-950 lg:w-[19.5rem] lg:border-b-0 lg:border-r lg:border-white/10 lg:max-h-[calc(100dvh-10rem)] lg:overflow-y-auto"
+          class="prime-nav-aside w-full shrink-0 border-b border-default bg-input lg:w-[19.5rem] lg:border-b-0 lg:border-r lg:border-default lg:max-h-[calc(100dvh-10rem)] lg:overflow-y-auto"
         >
           <div class="p-3 sm:p-4">
             <p
@@ -677,7 +677,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
               @for (block of navBlocks(); track block.id) {
                 @if (block.kind === 'heading') {
                   <div
-                    class="border-t border-white/10 px-1 pt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-muted/80 first:border-t-0 first:pt-0"
+                    class="border-t border-default px-1 pt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-muted/80 first:border-t-0 first:pt-0"
                   >
                     {{ block.title }}
                   </div>
@@ -842,7 +842,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         type="button"
                         (click)="goResultFromWizard()"
                         [disabled]="poleDraftSaving()"
-                        class="rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-navy-700/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        class="rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-input/40 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Aperçu calculé
                       </button>
@@ -1300,14 +1300,14 @@ export class PrimeSaisieComponent {
   }
 
   groupNavOuterClass(_items: { key: string }[]): string {
-    return 'rounded-xl border border-white/15 bg-navy-950/55 px-3 py-3 shadow-sm';
+    return 'rounded-xl border border-default bg-input px-3 py-3 shadow-sm';
   }
 
   navRadioRingClass(selected: boolean): string {
     const base = 'h-3.5 w-3.5 shrink-0 rounded-full border-2 transition-colors ';
     return selected
       ? base + 'border-white bg-white/95 shadow-inner'
-      : base + 'border-white/35 bg-transparent';
+      : base + 'border-default bg-transparent';
   }
 
   navProgressDotClass(key: string, rowSelected: boolean): string {
@@ -1329,7 +1329,7 @@ export class PrimeSaisieComponent {
     if (selected) {
       return base + 'border-blue-400 bg-blue-600 text-white shadow-sm ring-1 ring-blue-500/40';
     }
-    return base + 'border-white/10 bg-navy-900/35 text-primary hover:border-blue-500/40 hover:bg-navy-800/65';
+    return base + 'border-default bg-card/35 text-primary hover:border-blue-500/40 hover:bg-input/65';
   }
 
   navTitleForKey(key: string): string {
@@ -1351,7 +1351,7 @@ export class PrimeSaisieComponent {
       'rounded-lg border px-4 py-2 text-sm font-semibold transition-all ' +
       (active
         ? 'border-blue-400 bg-blue-600 text-white shadow-sm ring-1 ring-blue-500/35'
-        : 'border-white/10 bg-navy-900/40 text-muted hover:border-blue-500/35 hover:bg-navy-800/60 hover:text-primary')
+        : 'border-default bg-card/40 text-muted hover:border-blue-500/35 hover:bg-input/60 hover:text-primary')
     );
   }
 
@@ -1389,7 +1389,7 @@ export class PrimeSaisieComponent {
     }
     return (
       base +
-      'border-white/10 bg-navy-900/40 text-muted hover:border-blue-500/35 hover:bg-navy-800/60 hover:text-primary'
+      'border-default bg-card/40 text-muted hover:border-blue-500/35 hover:bg-input/60 hover:text-primary'
     );
   }
 
@@ -1632,7 +1632,7 @@ export class PrimeSaisieComponent {
     if (selected) {
       return base + 'border-blue-400 bg-blue-600 text-white shadow-sm ring-1 ring-blue-500/35';
     }
-    return base + 'border-white/10 bg-transparent text-primary hover:border-white/20 hover:bg-navy-900/55';
+    return base + 'border-default bg-transparent text-primary hover:border-default hover:bg-card/55';
   }
 
   progressFor(key: string): IndicateurProgress {

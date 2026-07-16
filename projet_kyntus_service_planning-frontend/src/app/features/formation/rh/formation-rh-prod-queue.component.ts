@@ -13,28 +13,97 @@ import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-
   standalone: true,
   imports: [CommonModule, KyntusPageHeaderComponent],
   template: `
-    <app-kyntus-page-header
-      title="Passage en production"
-      subtitle="Validation RH après accord formateur (sans affichage des notes quiz)"
-    />
-    <div class="card-navy p-4 space-y-3">
-      @for (p of paths(); track p.id) {
-        <div class="border border-default/30 rounded-lg p-3 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <strong>{{ p.employeeName }}</strong>
-            <p class="text-xs text-muted">{{ statusLabels[p.status] }}</p>
-            <p class="text-xs text-muted">Fin formation prévue : {{ p.dateFinPrevue | date:'shortDate' }}</p>
+    <div class="ky-page-shell frpq-page">
+      <app-kyntus-page-header
+        title="Passage en production"
+        subtitle="Validation RH après accord formateur, avec une vue plus lisible des validations en attente."
+      />
+
+      <section class="ky-card frpq-panel">
+        @for (p of paths(); track p.id) {
+          <article class="frpq-row">
+            <div class="frpq-copy">
+              <strong class="frpq-name">{{ p.employeeName }}</strong>
+              <p class="frpq-meta">{{ statusLabels[p.status] }}</p>
+              <p class="frpq-meta">Fin formation prévue : {{ p.dateFinPrevue | date:'shortDate' }}</p>
+            </div>
+            <div class="frpq-actions">
+              <button type="button" class="ky-btn-primary" (click)="validate(p)">Valider production</button>
+              <button type="button" class="ky-btn-secondary frpq-reject" (click)="reject(p)">Rejeter</button>
+            </div>
+          </article>
+        } @empty {
+          <div class="frpq-empty">
+            <h3>Aucune validation en attente</h3>
+            <p>Aucun employé n’est actuellement en attente de validation RH pour le passage en production.</p>
           </div>
-          <div class="flex gap-2">
-            <button type="button" class="ky-btn-primary" (click)="validate(p)">Valider production</button>
-            <button type="button" class="ky-btn-secondary text-rose-300" (click)="reject(p)">Rejeter</button>
-          </div>
-        </div>
-      } @empty {
-        <p class="text-muted text-sm">Aucun employé en attente de validation RH.</p>
-      }
+        }
+      </section>
     </div>
   `,
+  styles: [`
+    .frpq-page {
+      display: grid;
+      gap: 1rem;
+    }
+    .frpq-panel {
+      padding: 1rem;
+      display: grid;
+      gap: 0.875rem;
+      min-height: 12rem;
+    }
+    .frpq-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem;
+      border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+      border-radius: var(--radius-card);
+      background: color-mix(in srgb, var(--bg-input) 80%, var(--bg-card));
+    }
+    .frpq-copy {
+      display: grid;
+      gap: 0.3rem;
+      min-width: 15rem;
+    }
+    .frpq-name {
+      color: var(--text-primary);
+      font-size: 0.98rem;
+    }
+    .frpq-meta {
+      margin: 0;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .frpq-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .frpq-reject {
+      color: var(--danger-text);
+    }
+    .frpq-empty {
+      min-height: 10rem;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--text-muted);
+    }
+    .frpq-empty h3 {
+      margin: 0 0 0.4rem;
+      color: var(--text-primary);
+      font-size: 1rem;
+    }
+    .frpq-empty p {
+      margin: 0;
+      max-width: 32rem;
+      line-height: 1.5;
+    }
+  `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FormationRhProdQueueComponent implements OnInit {

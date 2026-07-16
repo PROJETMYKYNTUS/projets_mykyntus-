@@ -243,8 +243,8 @@
 
           <!-- Menu cards -->
           <div class="emp-menu-grid">
-            <div class="emp-menu-card" (click)="navigateTo('planning')">
-              <div class="emp-menu-card-icon" style="background: #eff6ff; color: #3b82f6;">
+            <div class="emp-menu-card" (click)="navigateTo('planning')" role="button" tabindex="0" (keydown.enter)="navigateTo('planning')">
+              <div class="emp-menu-card-icon ic-blue">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
                 </svg>
@@ -263,9 +263,10 @@
       <!-- Dans emp-menu-grid -->
 
 <!-- Carte Mes Congés — tout le monde -->
-<div class="emp-menu-card" 
-     (click)="navigateTo('conges'); navigateConges('mes-conges')">
-  <div class="emp-menu-card-icon" style="background:#f0fdf4; color:#10b981;">
+<div class="emp-menu-card" role="button" tabindex="0"
+     (click)="navigateTo('conges'); navigateConges('mes-conges')"
+     (keydown.enter)="navigateTo('conges'); navigateConges('mes-conges')">
+  <div class="emp-menu-card-icon ic-green">
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
          stroke="currentColor" stroke-width="2">
       <path d="M17.5 19H9a7 7 0 117-7v1"/>
@@ -286,9 +287,10 @@
 </div>
 
 <!-- Carte Congés Équipe — Manager uniquement -->
-<div class="emp-menu-card" *ngIf="userRole === 'Manager'"
-     (click)="navigateTo('conges'); navigateConges('equipe')">
-  <div class="emp-menu-card-icon" style="background:#fff7ed; color:#f97316;">
+<div class="emp-menu-card" *ngIf="userRole === 'Manager'" role="button" tabindex="0"
+     (click)="navigateTo('conges'); navigateConges('equipe')"
+     (keydown.enter)="navigateTo('conges'); navigateConges('equipe')">
+  <div class="emp-menu-card-icon ic-orange">
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
          stroke="currentColor" stroke-width="2">
       <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
@@ -309,8 +311,8 @@
   </div>
 </div>
 
-            <div class="emp-menu-card" (click)="navigateTo('newsletters')">
-              <div class="emp-menu-card-icon" style="background: #f5f3ff; color: #8b5cf6;">
+            <div class="emp-menu-card" (click)="navigateTo('newsletters')" role="button" tabindex="0" (keydown.enter)="navigateTo('newsletters')">
+              <div class="emp-menu-card-icon ic-purple">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                   <polyline points="22,6 12,13 2,6"/>
@@ -325,8 +327,8 @@
               </div>
             </div>
 
-            <div class="emp-menu-card" (click)="navigateTo('formations')">
-              <div class="emp-menu-card-icon" style="background: #eff6ff; color: #3b82f6;">
+            <div class="emp-menu-card" (click)="navigateTo('formations')" role="button" tabindex="0" (keydown.enter)="navigateTo('formations')">
+              <div class="emp-menu-card-icon ic-blue">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
                   <path d="M6 12v5c3 3 9 3 12 0v-5"/>
@@ -341,8 +343,8 @@
               </div>
             </div>
 
-            <div class="emp-menu-card" (click)="navigateTo('reclamations')">
-              <div class="emp-menu-card-icon" style="background: #fff7ed; color: #f97316;">
+            <div class="emp-menu-card" (click)="navigateTo('reclamations')" role="button" tabindex="0" (keydown.enter)="navigateTo('reclamations')">
+              <div class="emp-menu-card-icon ic-orange">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
                 </svg>
@@ -384,7 +386,7 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
               </div>
               <div>
-                <div class="emp-kpi-val" style="font-size:13px">{{ currentWeek }}</div>
+                <div class="emp-kpi-val emp-kpi-val--sm">{{ currentWeek }}</div>
                 <div class="emp-kpi-label">Semaine</div>
               </div>
             </div>
@@ -411,7 +413,7 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
               </div>
               <div>
-                <div class="emp-kpi-val" style="font-size:12px">{{ planning.subServiceName }}</div>
+                <div class="emp-kpi-val emp-kpi-val--sm">{{ planning.subServiceName }}</div>
                 <div class="emp-kpi-label">Service</div>
               </div>
             </div>

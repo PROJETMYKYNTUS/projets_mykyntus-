@@ -11,7 +11,7 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
   template: `
     <section class="flex-1 min-w-0 space-y-6">
       @if (unauthorized) {
-        <div class="card-navy p-10 text-center text-red-200 text-sm">
+        <div class="card-navy p-10 text-center text-[var(--danger-text)] text-sm">
           Accès refusé. Réservé à la RH.
         </div>
       }
@@ -108,7 +108,7 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
               type="button"
               (click)="submit()"
               [disabled]="!canSubmit()"
-              class="flex-1 min-w-[160px] rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50 transition-colors"
+              class="flex-1 min-w-[160px] ky-btn-primary disabled:opacity-50"
             >
               {{ editingId() ? 'Enregistrer les modifications' : 'Créer la règle' }}
             </button>
@@ -156,7 +156,7 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
                         {{ durationLabel(r) }}
                       </td>
                       <td class="px-6 py-4">
-                        <span [class]="'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ' + (r.status === 'ACTIVE' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40' : 'bg-yellow-500/15 text-yellow-300 border-yellow-500/40')">{{ r.status === 'ACTIVE' ? 'Actif' : 'En pause' }}</span>
+                        <span [class]="'ky-badge ' + (r.status === 'ACTIVE' ? 'ky-badge--success' : 'ky-badge--warning')">{{ r.status === 'ACTIVE' ? 'Actif' : 'En pause' }}</span>
                       </td>
                       <td class="px-6 py-4 text-right">
                         <div class="inline-flex items-center gap-2">
@@ -170,7 +170,7 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
                           <button
                             type="button"
                             (click)="deleteTargetId.set(r.id)"
-                            class="text-xs text-red-300 hover:underline font-medium"
+                            class="text-xs text-[var(--danger-text)] hover:underline font-medium"
                           >
                             Supprimer
                           </button>
@@ -200,7 +200,7 @@ import type { ReferralRule, ReferralRuleStatus, ReferralRuleType } from '../../m
             <button type="button" (click)="deleteTargetId.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80">
               Annuler
             </button>
-            <button type="button" (click)="confirmDelete()" class="rounded-lg px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white">
+            <button type="button" (click)="confirmDelete()" class="ky-btn-danger px-4 py-2 text-sm">
               Supprimer
             </button>
           </div>

@@ -91,9 +91,9 @@ function defaultDepartmentLabel(_id: string): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     .allowance-table-wrap {
-      background: var(--bg-card, #fff);
-      border: 1px solid color-mix(in srgb, var(--border-default, #e5e7eb) 90%, transparent);
-      border-radius: 0.75rem;
+      background: var(--bg-card);
+      border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
+      border-radius: var(--radius-card);
       overflow: hidden;
     }
     .allowance-table {
@@ -102,7 +102,7 @@ function defaultDepartmentLabel(_id: string): string {
       font-size: 0.875rem;
     }
     .allowance-table thead {
-      background: color-mix(in srgb, #4F46E5 4%, var(--bg-card, #fff));
+      background: color-mix(in srgb, var(--electric-blue) 4%, var(--bg-card));
     }
     .allowance-table th {
       padding: 0.75rem 1rem;
@@ -111,24 +111,24 @@ function defaultDepartmentLabel(_id: string): string {
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--text-muted, #6b7280);
-      border-bottom: 1px solid var(--border-default, #e5e7eb);
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-color);
     }
     .allowance-table__row {
       transition: background 0.12s;
     }
     .allowance-table__row:hover {
-      background: color-mix(in srgb, #4F46E5 3%, var(--bg-card, #fff));
+      background: color-mix(in srgb, var(--electric-blue) 3%, var(--bg-card));
     }
     .allowance-table td {
       padding: 0.875rem 1rem;
-      border-bottom: 1px solid color-mix(in srgb, var(--border-default, #e5e7eb) 60%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
       vertical-align: middle;
     }
-    .allowance-table__name { font-weight: 600; color: var(--text-primary, #111827); }
-    .allowance-table__amount { font-weight: 600; color: #4F46E5; }
-    .allowance-table__muted { color: var(--text-muted, #9ca3af); font-size: 0.8125rem; }
-    .allowance-table__reason { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted, #6b7280); }
+    .allowance-table__name { font-weight: 600; color: var(--text-primary); }
+    .allowance-table__amount { font-weight: 600; color: var(--electric-blue); }
+    .allowance-table__muted { color: var(--text-muted); font-size: 0.8125rem; }
+    .allowance-table__reason { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
     .allowance-table__actions { white-space: nowrap; text-align: right; }
     .allowance-table__actions-col { width: 1%; }
     .allowance-link {
@@ -137,40 +137,40 @@ function defaultDepartmentLabel(_id: string): string {
       padding: 0.25rem 0.5rem;
       font-size: 0.8125rem;
       font-weight: 600;
-      color: #4F46E5;
+      color: var(--electric-blue);
       cursor: pointer;
-      border-radius: 0.25rem;
+      border-radius: var(--radius-sm);
       transition: background 0.12s;
     }
-    .allowance-link:hover { background: color-mix(in srgb, #4F46E5 10%, transparent); }
-    .allowance-link--success { color: #22C55E; }
-    .allowance-link--success:hover { background: color-mix(in srgb, #22C55E 12%, transparent); }
+    .allowance-link:hover { background: color-mix(in srgb, var(--electric-blue) 10%, transparent); }
+    .allowance-link--success { color: var(--success); }
+    .allowance-link--success:hover { background: color-mix(in srgb, var(--success) 12%, transparent); }
     .allowance-empty {
       padding: 3rem 1.5rem;
       text-align: center;
     }
     .allowance-empty__icon {
       display: inline-flex;
-      color: #4F46E5;
+      color: var(--electric-blue);
       opacity: 0.5;
       margin-bottom: 0.75rem;
     }
     .allowance-empty__title {
       font-weight: 700;
       font-size: 1rem;
-      color: var(--text-primary, #111827);
+      color: var(--text-primary);
       margin: 0 0 0.25rem;
     }
     .allowance-empty__text {
       font-size: 0.875rem;
-      color: var(--text-muted, #6b7280);
+      color: var(--text-muted);
       margin: 0 0 1rem;
     }
     .allowance-btn {
       display: inline-flex;
       align-items: center;
       padding: 0.625rem 1.125rem;
-      border-radius: 0.5rem;
+      border-radius: var(--radius-md);
       font-size: 0.875rem;
       font-weight: 600;
       cursor: pointer;
@@ -178,11 +178,11 @@ function defaultDepartmentLabel(_id: string): string {
       transition: transform 0.1s, box-shadow 0.15s;
     }
     .allowance-btn--primary {
-      background: #4F46E5;
-      color: #fff;
-      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+      background: var(--electric-blue);
+      color: white;
+      box-shadow: 0 4px 14px color-mix(in srgb, var(--electric-blue) 30%, transparent);
     }
-    .allowance-btn--primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4); }
+    .allowance-btn--primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px color-mix(in srgb, var(--electric-blue) 40%, transparent); }
   `],
 })
 export class AllowanceRequestTableComponent {

@@ -72,14 +72,14 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
       <!-- Header -->
       <div class="flex flex-wrap justify-between items-start gap-4">
         <div>
-          <h1 class="text-2xl lg:text-3xl font-bold text-slate-100 tracking-tight">Synthèse globale PRIME</h1>
+          <h1 class="text-2xl lg:text-3xl font-bold text-primary tracking-tight">Synthèse globale PRIME</h1>
           @if (isComptaOnly()) {
-            <p class="text-slate-400 mt-1 max-w-3xl text-sm leading-relaxed">
+            <p class="text-muted mt-1 max-w-3xl text-sm leading-relaxed">
               Primes validées par les deux workflows (Manager + RH). Marquez le paiement de chaque
               prime employé via le bouton <strong>Marquer payé</strong>.
             </p>
           } @else {
-            <p class="text-slate-400 mt-1 max-w-3xl text-sm leading-relaxed">
+            <p class="text-muted mt-1 max-w-3xl text-sm leading-relaxed">
               Sélectionnez un périmètre prêt, puis approuvez ou rejetez chaque ligne employé.
               Le suivi détaillé (statuts par périmètre, historique) est disponible dans
               <button type="button" (click)="goToTracking()" class="text-indigo-400 hover:text-indigo-300 underline">
@@ -93,15 +93,15 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
             <button
               type="button"
               (click)="goToTracking()"
-              class="hidden sm:inline-flex shrink-0 rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 hover:bg-navy-800"
+              class="hidden sm:inline-flex shrink-0 rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary hover:bg-input"
             >
               Voir le suivi
             </button>
           }
-          <label class="flex items-center gap-2 text-sm text-slate-400">
+          <label class="flex items-center gap-2 text-sm text-muted">
             <span class="hidden sm:inline">Période</span>
             <select
-              class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+              class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary focus:border-indigo-500 focus:outline-none"
               [ngModel]="period()"
               (ngModelChange)="onPeriodChange($event)"
             >
@@ -114,7 +114,7 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
           type="button"
             (click)="reloadAll()"
           [disabled]="loading()"
-            class="inline-flex items-center gap-2 rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 hover:bg-navy-800 disabled:opacity-50"
+            class="inline-flex items-center gap-2 rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary hover:bg-input disabled:opacity-50"
             title="Actualiser"
         >
           @if (loading()) {
@@ -128,9 +128,9 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
       </div>
 
       @if (error()) {
-        <div class="rounded-lg border border-rose-500/40 bg-rose-950/40 px-4 py-3 text-sm text-rose-200 flex items-start justify-between gap-3">
+        <div class="rounded-lg border border-rose-500/40 bg-rose-950/40 px-4 py-3 text-sm text-[var(--danger-text)] flex items-start justify-between gap-3">
           <span>{{ error() }}</span>
-          <button type="button" (click)="error.set(null)" class="text-rose-300 hover:text-rose-100">
+          <button type="button" (click)="error.set(null)" class="text-[var(--danger-text)] hover:opacity-80">
             <app-lucide-icon [icon]="icons.close" className="w-4 h-4" />
           </button>
         </div>
@@ -139,28 +139,28 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
       <!-- KPI cards -->
       @if (!isComptaOnly()) {
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="rounded-xl border border-navy-800 bg-navy-900/60 p-4">
-          <p class="text-[11px] uppercase tracking-wider text-slate-500">Services prêts</p>
-          <p class="mt-1 text-2xl font-bold text-emerald-400">
-            {{ kpi().servicesReady }}<span class="text-slate-600 text-lg">/{{ kpi().servicesTotal }}</span>
+        <div class="rounded-xl border border-default bg-card/60 p-4">
+          <p class="text-[11px] uppercase tracking-wider text-muted">Services prêts</p>
+          <p class="mt-1 text-2xl font-bold text-[var(--success-text)]">
+            {{ kpi().servicesReady }}<span class="text-muted text-lg">/{{ kpi().servicesTotal }}</span>
           </p>
         </div>
-        <div class="rounded-xl border border-navy-800 bg-navy-900/60 p-4">
-          <p class="text-[11px] uppercase tracking-wider text-slate-500">Cellules prêtes</p>
+        <div class="rounded-xl border border-default bg-card/60 p-4">
+          <p class="text-[11px] uppercase tracking-wider text-muted">Cellules prêtes</p>
           <p class="mt-1 text-2xl font-bold text-cyan-400">
-            {{ kpi().cellulesReady }}<span class="text-slate-600 text-lg">/{{ kpi().cellulesTotal }}</span>
+            {{ kpi().cellulesReady }}<span class="text-muted text-lg">/{{ kpi().cellulesTotal }}</span>
           </p>
         </div>
-        <div class="rounded-xl border border-navy-800 bg-navy-900/60 p-4">
-          <p class="text-[11px] uppercase tracking-wider text-slate-500">Pôles prêts</p>
+        <div class="rounded-xl border border-default bg-card/60 p-4">
+          <p class="text-[11px] uppercase tracking-wider text-muted">Pôles prêts</p>
           <p class="mt-1 text-2xl font-bold text-violet-400">
-            {{ kpi().polesReady }}<span class="text-slate-600 text-lg">/{{ kpi().polesTotal }}</span>
+            {{ kpi().polesReady }}<span class="text-muted text-lg">/{{ kpi().polesTotal }}</span>
           </p>
         </div>
-        <div class="rounded-xl border border-navy-800 bg-navy-900/60 p-4">
-          <p class="text-[11px] uppercase tracking-wider text-slate-500">Lignes en attente</p>
-          <p class="mt-1 text-2xl font-bold text-amber-300">
-            {{ scopeLineKpi().pending }}<span class="text-slate-600 text-lg">/{{ scopeLineKpi().total }}</span>
+        <div class="rounded-xl border border-default bg-card/60 p-4">
+          <p class="text-[11px] uppercase tracking-wider text-muted">Lignes en attente</p>
+          <p class="mt-1 text-2xl font-bold text-[var(--warning-text)]">
+            {{ scopeLineKpi().pending }}<span class="text-muted text-lg">/{{ scopeLineKpi().total }}</span>
           </p>
         </div>
       </div>
@@ -170,9 +170,9 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
       <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,380px)_1fr] gap-5">
         <!-- Left: scope picker -->
         <app-prime-card title="Périmètres" className="p-0 flex flex-col">
-          <div class="p-3 space-y-3 border-b border-navy-800">
+          <div class="p-3 space-y-3 border-b border-default">
             <!-- segmented level -->
-            <div class="grid grid-cols-3 gap-1 rounded-lg bg-navy-950 p-1 border border-navy-800">
+            <div class="grid grid-cols-3 gap-1 rounded-lg bg-input p-1 border border-default">
               @for (lvl of levels; track lvl.key) {
                 <button
                   type="button"
@@ -180,7 +180,7 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
                   class="rounded-md px-2 py-1.5 text-xs font-medium transition-colors"
                   [class]="scopeLevel() === lvl.key
                     ? 'bg-indigo-600 text-white'
-                    : 'text-slate-400 hover:text-slate-200'"
+                    : 'text-muted hover:text-primary'"
                 >
                   {{ lvl.label }}
                 </button>
@@ -190,30 +190,30 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
             <div class="relative">
               <app-lucide-icon
                 [icon]="icons.search"
-                className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"
+                className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
               />
               <input
                 type="text"
                 [ngModel]="scopeSearch()"
                 (ngModelChange)="scopeSearch.set($event)"
                 placeholder="Rechercher un périmètre…"
-                class="w-full rounded-lg border border-navy-700 bg-navy-950 pl-8 pr-3 py-2 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none"
+                class="w-full rounded-lg border border-default bg-input pl-8 pr-3 py-2 text-sm text-primary focus:border-indigo-500 focus:outline-none"
               />
             </div>
-            <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+            <label class="flex items-center gap-2 text-xs text-muted cursor-pointer">
               <input
                 type="checkbox"
                 [ngModel]="readyOnly()"
                 (ngModelChange)="readyOnly.set($event)"
-                class="rounded border-navy-600 bg-navy-900 text-indigo-600"
+                class="rounded border-default bg-card text-indigo-600"
               />
               Périmètres prêts uniquement
             </label>
           </div>
 
-          <div class="overflow-y-auto max-h-[520px] divide-y divide-navy-800/70">
+          <div class="overflow-y-auto max-h-[520px] divide-y divide-default">
             @if (visibleScopes().length === 0) {
-              <p class="p-6 text-center text-sm text-slate-500">Aucun périmètre pour ces critères.</p>
+              <p class="p-6 text-center text-sm text-muted">Aucun périmètre pour ces critères.</p>
             } @else {
               @for (s of visibleScopes(); track s.id) {
                 <button
@@ -223,34 +223,34 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
                   [class]="isSelected(s)
                     ? 'bg-indigo-600/15 border-l-2 border-indigo-500'
                     : s.ready
-                      ? 'hover:bg-navy-800/60 border-l-2 border-transparent'
-                      : 'hover:bg-navy-800/40 opacity-80 border-l-2 border-transparent'"
+                      ? 'hover:bg-input/60 border-l-2 border-transparent'
+                      : 'hover:bg-input/40 opacity-80 border-l-2 border-transparent'"
                   [title]="s.blockingReason ?? ''"
                 >
                   <div class="flex items-center justify-between gap-2">
-                    <span class="text-sm font-medium text-slate-200 truncate">{{ s.name }}</span>
+                    <span class="text-sm font-medium text-primary truncate">{{ s.name }}</span>
                     @if (s.ready) {
-                      <span class="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                      <span class="shrink-0 inline-flex items-center gap-1 rounded-full bg-[var(--success-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--success-text)]">
                         <app-lucide-icon [icon]="icons.check" className="w-3 h-3" /> Prêt
                       </span>
       } @else {
-                      <span class="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                      <span class="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--warning-text)]">
                         <app-lucide-icon [icon]="icons.clock" className="w-3 h-3" /> En cours
                       </span>
                     }
                   </div>
                   <div class="flex items-center gap-2">
-                    <div class="flex-1 h-1.5 rounded-full bg-navy-800 overflow-hidden">
+                    <div class="flex-1 h-1.5 rounded-full bg-input overflow-hidden">
                       <div
                         class="h-full rounded-full"
                         [class]="s.ready ? 'bg-emerald-500' : 'bg-amber-500/70'"
                         [style.width.%]="progressPct(s)"
                       ></div>
                     </div>
-                    <span class="text-[10px] font-mono text-slate-500">{{ s.doneCount }}/{{ s.totalCount }}</span>
+                    <span class="text-[10px] font-mono text-muted">{{ s.doneCount }}/{{ s.totalCount }}</span>
                   </div>
                   @if (!s.ready && s.blockingReason) {
-                    <p class="text-[10px] text-amber-400/80 truncate">{{ s.blockingReason }}</p>
+                    <p class="text-[10px] text-[var(--warning-text)] truncate">{{ s.blockingReason }}</p>
                   }
                 </button>
               }
@@ -261,12 +261,12 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
         <!-- Right: detail -->
         @if (selected(); as sel) {
           <app-prime-card className="p-0 flex flex-col">
-            <div class="px-4 py-3 border-b border-navy-800 flex flex-wrap items-center justify-between gap-3">
+            <div class="px-4 py-3 border-b border-default flex flex-wrap items-center justify-between gap-3">
               <div class="flex items-center gap-2 min-w-0">
-                <span class="inline-flex items-center rounded-md bg-navy-800 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+                <span class="inline-flex items-center rounded-md bg-input px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted">
                   {{ scopeLevelLabel(sel.scopeType) }}
                 </span>
-                <h3 class="text-base font-semibold text-slate-100 truncate">{{ sel.label }}</h3>
+                <h3 class="text-base font-semibold text-primary truncate">{{ sel.label }}</h3>
               </div>
               <div class="flex items-center gap-2">
                 @if (canPay() && paymentSummary().total > 0 && paymentSummary().state !== 'Paid') {
@@ -296,7 +296,7 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
                     type="button"
                     [disabled]="busy()"
                     (click)="downloadCurrent()"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-navy-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-navy-800"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-default px-3 py-1.5 text-xs text-primary hover:bg-input"
                   >
                     <app-lucide-icon [icon]="icons.download" className="w-3.5 h-3.5" />
                     Excel
@@ -306,13 +306,13 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
             </div>
 
             @if (!sel.ready) {
-              <div class="px-4 py-3 border-b border-navy-800 bg-amber-950/20 flex items-start gap-2 text-xs text-amber-200">
+              <div class="px-4 py-3 border-b border-default bg-amber-950/20 flex items-start gap-2 text-xs text-[var(--warning-text)]">
                 <app-lucide-icon [icon]="icons.clock" className="w-4 h-4 shrink-0 mt-0.5" />
                 <div>
                   <p class="font-medium">
                     Périmètre non prêt — lecture seule ({{ sel.doneCount }}/{{ sel.totalCount }} fiche(s) validée(s)).
                   </p>
-                  <p class="text-amber-300/80">
+                  <p class="text-[var(--warning-text)]">
                     Génération possible une fois toutes les fiches du périmètre validées.
                     @if (sel.blockingReason) {
                       <span class="block mt-0.5">Bloquant : {{ sel.blockingReason }}</span>
@@ -323,24 +323,24 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
             }
 
             @if (preparing()) {
-              <div class="px-4 py-3 border-b border-navy-800 bg-indigo-950/20 flex items-center gap-2 text-xs text-indigo-200">
+              <div class="px-4 py-3 border-b border-default bg-indigo-950/20 flex items-center gap-2 text-xs text-indigo-200">
                 <app-lucide-icon [icon]="icons.loader" className="w-4 h-4 animate-spin" />
                 Ouverture de la fiche de synthèse (workflow 2) — les fiches employé sont déjà validées (workflow 1).
               </div>
             }
 
             @if (canEditAbsenceConfig() && scopeSynthesisId()) {
-              <div class="px-4 py-3 border-b border-navy-800 bg-navy-950/60 flex flex-wrap items-end gap-3 text-xs">
+              <div class="px-4 py-3 border-b border-default bg-input/60 flex flex-wrap items-end gap-3 text-xs">
                 <div>
-                  <p class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Diviseur sanction absence</p>
-                  <p class="text-[11px] text-slate-400">Formule : total × (jours absence / diviseur)</p>
+                  <p class="text-[10px] uppercase tracking-wider text-muted mb-1">Diviseur sanction absence</p>
+                  <p class="text-[11px] text-muted">Formule : total × (jours absence / diviseur)</p>
                 </div>
                 <label class="flex flex-col gap-1">
-                  <span class="text-slate-500">Jours (défaut 26)</span>
+                  <span class="text-muted">Jours (défaut 26)</span>
                   <input
                     type="number"
                     min="1"
-                    class="w-24 rounded border border-navy-600 bg-navy-950 px-2 py-1 text-slate-200"
+                    class="w-24 rounded border border-default bg-input px-2 py-1 text-primary"
                     [ngModel]="absenceDivisor()"
                     (ngModelChange)="absenceDivisor.set($event)"
                   />
@@ -357,7 +357,7 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
             }
 
             @if (scopeSynthesisId() && (isRhOrManager() || currentRole() === 'Admin')) {
-              <div class="px-4 py-3 border-b border-navy-800 bg-indigo-950/20 text-xs text-indigo-200">
+              <div class="px-4 py-3 border-b border-default bg-indigo-950/20 text-xs text-indigo-200">
                 <p class="font-medium">Validation par ligne — workflow synthèse</p>
                 <p class="text-indigo-300/80 mt-0.5">
                   Les fiches employé sont validées. Validez ou rejetez chaque ligne via <strong>Approuver</strong> / <strong>Rejeter</strong>.
@@ -365,60 +365,60 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
                 </p>
               </div>
             } @else if (synthesisPrepareError()) {
-              <div class="px-4 py-3 border-b border-navy-800 bg-rose-950/20 text-xs text-rose-200">
+              <div class="px-4 py-3 border-b border-default bg-rose-950/20 text-xs text-[var(--danger-text)]">
                 {{ synthesisPrepareError() }}
               </div>
             }
 
             @if (isCompta() && scopeSynthesisId()) {
-              <div class="px-4 py-3 border-b border-navy-800 flex flex-wrap items-center justify-between gap-3">
+              <div class="px-4 py-3 border-b border-default flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-2 text-sm">
-                  <app-lucide-icon [icon]="icons.money" className="w-4 h-4 text-slate-400" />
-                  <span class="text-slate-400">État du paiement :</span>
+                  <app-lucide-icon [icon]="icons.money" className="w-4 h-4 text-muted" />
+                  <span class="text-muted">État du paiement :</span>
                   <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold" [class]="paymentStateClass(paymentSummary().state)">
                     {{ paymentStateLabel(paymentSummary().state) }}
                   </span>
-                  <span class="text-[11px] font-mono text-slate-500">{{ paymentSummary().paid }}/{{ paymentSummary().total }} payée(s)</span>
+                  <span class="text-[11px] font-mono text-muted">{{ paymentSummary().paid }}/{{ paymentSummary().total }} payée(s)</span>
                 </div>
-                <span class="text-[11px] text-slate-400">Seules les primes validées par RH + Manager sont payables.</span>
+                <span class="text-[11px] text-muted">Seules les primes validées par RH + Manager sont payables.</span>
               </div>
             }
 
             <!-- summary strip -->
             @if (summary(); as sum) {
-              <div class="px-4 py-3 border-b border-navy-800 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 text-sm">
+              <div class="px-4 py-3 border-b border-default grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 text-sm">
                 <div>
-                  <p class="text-[10px] uppercase tracking-wider text-slate-500">Lignes</p>
-                  <p class="text-slate-100 font-semibold">{{ sum.lineCount }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-muted">Lignes</p>
+                  <p class="text-primary font-semibold">{{ sum.lineCount }}</p>
                 </div>
                 <div>
-                  <p class="text-[10px] uppercase tracking-wider text-slate-500">Plafond prime</p>
-                  <p class="text-slate-100 font-semibold font-mono">{{ sum.totalPrime | number: '1.0-2' }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-muted">Plafond prime</p>
+                  <p class="text-primary font-semibold font-mono">{{ sum.totalPrime | number: '1.0-2' }}</p>
                 </div>
                 <div>
-                  <p class="text-[10px] uppercase tracking-wider text-slate-500">Plafond challenge</p>
-                  <p class="text-slate-100 font-semibold font-mono">{{ sum.totalChallenge | number: '1.0-2' }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-muted">Plafond challenge</p>
+                  <p class="text-primary font-semibold font-mono">{{ sum.totalChallenge | number: '1.0-2' }}</p>
                 </div>
                 <div>
-                  <p class="text-[10px] uppercase tracking-wider text-slate-500">Total plafond</p>
-                  <p class="text-slate-100 font-semibold font-mono">{{ sum.totalAmount | number: '1.0-2' }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-muted">Total plafond</p>
+                  <p class="text-primary font-semibold font-mono">{{ sum.totalAmount | number: '1.0-2' }}</p>
                 </div>
                 <div>
-                  <p class="text-[10px] uppercase tracking-wider text-slate-500">Sanctions</p>
-                  <p class="text-rose-300 font-semibold font-mono">{{ sum.totalSanction | number: '1.0-2' }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-muted">Sanctions</p>
+                  <p class="text-[var(--danger-text)] font-semibold font-mono">{{ sum.totalSanction | number: '1.0-2' }}</p>
                 </div>
                 <div>
-                  <p class="text-[10px] uppercase tracking-wider text-slate-500">Régularisations</p>
-                  <p class="text-slate-100 font-semibold font-mono">{{ sum.totalRegularization | number: '1.0-2' }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-muted">Régularisations</p>
+                  <p class="text-primary font-semibold font-mono">{{ sum.totalRegularization | number: '1.0-2' }}</p>
                 </div>
                 <div>
-                  <p class="text-[10px] uppercase tracking-wider text-slate-500">Total net</p>
-                  <p class="text-emerald-300 font-semibold font-mono">{{ sum.totalNetPayable | number: '1.0-2' }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-muted">Total net</p>
+                  <p class="text-[var(--success-text)] font-semibold font-mono">{{ sum.totalNetPayable | number: '1.0-2' }}</p>
                 </div>
                 @if (!isComptaOnly()) {
                 <div>
-                  <p class="text-[10px] uppercase tracking-wider text-slate-500">Rejets ligne</p>
-                  <p class="font-semibold" [class]="sum.linesRejected > 0 ? 'text-rose-300' : 'text-slate-100'">
+                  <p class="text-[10px] uppercase tracking-wider text-muted">Rejets ligne</p>
+                  <p class="font-semibold" [class]="sum.linesRejected > 0 ? 'text-[var(--danger-text)]' : 'text-primary'">
                     {{ sum.linesRejected }}
                   </p>
                 </div>
@@ -427,7 +427,7 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
             }
 
             @if (lines().length === 0) {
-              <div class="p-10 text-center text-sm text-slate-500">
+              <div class="p-10 text-center text-sm text-muted">
                 @if (scopeSynthesisId()) {
                   Aucune ligne dans cette synthèse.
                 } @else {
@@ -436,23 +436,23 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
               </div>
                   } @else {
               <!-- line filters -->
-              <div class="px-4 py-2.5 border-b border-navy-800 flex flex-wrap items-center gap-2">
+              <div class="px-4 py-2.5 border-b border-default flex flex-wrap items-center gap-2">
                 <div class="relative flex-1 min-w-[180px]">
                   <app-lucide-icon
                     [icon]="icons.search"
-                    className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"
+                    className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
                   />
                   <input
                     type="text"
                     [ngModel]="lineSearch()"
                     (ngModelChange)="lineSearch.set($event)"
                     placeholder="Rechercher un employé…"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-950 pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
+                    class="w-full rounded-lg border border-default bg-input pl-8 pr-3 py-1.5 text-xs text-primary focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 @if (!isComptaOnly()) {
                 <div class="flex items-center gap-1">
-                  <app-lucide-icon [icon]="icons.filter" className="w-3.5 h-3.5 text-slate-500" />
+                  <app-lucide-icon [icon]="icons.filter" className="w-3.5 h-3.5 text-muted" />
                   @for (f of lineStatusOptions; track f.key) {
                     <button
                       type="button"
@@ -460,7 +460,7 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
                       class="rounded-md px-2 py-1 text-[11px] font-medium transition-colors"
                       [class]="lineStatusFilter() === f.key
                         ? 'bg-indigo-600 text-white'
-                        : 'bg-navy-900 text-slate-400 hover:text-slate-200'"
+                        : 'bg-card text-muted hover:text-primary'"
                     >
                       {{ f.label }}
                     </button>
@@ -471,8 +471,8 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
 
               <div class="overflow-auto max-h-[460px]">
                 <table class="w-full text-sm">
-                  <thead class="sticky top-0 bg-navy-900 z-10">
-                    <tr class="border-b border-navy-800 text-left text-slate-400">
+                  <thead class="sticky top-0 bg-card z-10">
+                    <tr class="border-b border-default text-left text-muted">
                       <th class="py-2 px-3 font-medium">Employé</th>
                       <th class="py-2 px-3 font-medium text-right">Plafond Prime</th>
                       <th class="py-2 px-3 font-medium text-right">Plafond Challenge</th>
@@ -492,66 +492,66 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
               </thead>
               <tbody>
                     @for (l of filteredLines(); track l.ficheId) {
-                      <tr class="border-b border-navy-800/50 hover:bg-navy-900/50">
+                      <tr class="border-b border-default/50 hover:bg-card/50">
                         <td class="py-2 px-3">
-                          <div class="text-slate-200">{{ l.employeeDisplayName }}</div>
-                          <div class="text-[10px] text-slate-500">{{ l.serviceName }}</div>
+                          <div class="text-primary">{{ l.employeeDisplayName }}</div>
+                          <div class="text-[10px] text-muted">{{ l.serviceName }}</div>
                     </td>
-                        <td class="py-2 px-3 font-mono text-right text-slate-300">{{ l.primeAmount != null ? (l.primeAmount | number: '1.0-2') : '—' }}</td>
-                        <td class="py-2 px-3 font-mono text-right text-slate-300">{{ l.challengeAmount != null ? (l.challengeAmount | number: '1.0-2') : '—' }}</td>
-                        <td class="py-2 px-3 font-mono text-right text-slate-300">{{ l.totalAmount != null ? (l.totalAmount | number: '1.0-2') : '—' }}</td>
+                        <td class="py-2 px-3 font-mono text-right text-muted">{{ l.primeAmount != null ? (l.primeAmount | number: '1.0-2') : '—' }}</td>
+                        <td class="py-2 px-3 font-mono text-right text-muted">{{ l.challengeAmount != null ? (l.challengeAmount | number: '1.0-2') : '—' }}</td>
+                        <td class="py-2 px-3 font-mono text-right text-muted">{{ l.totalAmount != null ? (l.totalAmount | number: '1.0-2') : '—' }}</td>
                         <td class="py-2 px-3 font-mono text-right">
                           @if (l.absenceDayCount > 0) {
-                            <span class="inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">{{ l.absenceDayCount }} j.</span>
+                            <span class="inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-[var(--warning-text)]">{{ l.absenceDayCount }} j.</span>
                           } @else {
-                            <span class="text-slate-500">0</span>
+                            <span class="text-muted">0</span>
                           }
                         </td>
-                        <td class="py-2 px-3 font-mono text-right text-rose-300">{{ l.sanctionAmount | number: '1.0-2' }}</td>
+                        <td class="py-2 px-3 font-mono text-right text-[var(--danger-text)]">{{ l.sanctionAmount | number: '1.0-2' }}</td>
                         <td class="py-2 px-3 font-mono text-right">
                           @if (canEditRegularization(l)) {
                             <input
                               type="number"
                               step="0.01"
-                              class="w-24 rounded border border-navy-600 bg-navy-950 px-2 py-1 text-right text-[11px] text-slate-200"
+                              class="w-24 rounded border border-default bg-input px-2 py-1 text-right text-[11px] text-primary"
                               [ngModel]="l.regularizationAmount"
                               (ngModelChange)="saveRegularization(l.lineId!, $event)"
                             />
                           } @else {
-                            <span class="text-slate-300">{{ l.regularizationAmount | number: '1.0-2' }}</span>
+                            <span class="text-muted">{{ l.regularizationAmount | number: '1.0-2' }}</span>
                           }
                         </td>
-                        <td class="py-2 px-3 font-mono text-right text-emerald-300 font-semibold">
+                        <td class="py-2 px-3 font-mono text-right text-[var(--success-text)] font-semibold">
                           {{ (l.netPayableAmount ?? l.totalAmount) != null ? ((l.netPayableAmount ?? l.totalAmount) | number: '1.0-2') : '—' }}
                         </td>
                         @if (canPay()) {
                           <td class="py-2 px-3">
                             @if (l.lineStatus === 'Approved') {
                               @if (l.paymentStatus === 'Paid') {
-                                <span class="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                                <span class="inline-flex items-center gap-1 rounded-full bg-[var(--success-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--success-text)]">
                                   <app-lucide-icon [icon]="icons.check" className="w-3 h-3" /> Payé
                                 </span>
                 } @else {
-                                <span class="inline-flex items-center rounded-full bg-slate-500/15 px-2 py-0.5 text-[10px] font-semibold text-slate-300">Non payé</span>
+                                <span class="inline-flex items-center rounded-full bg-slate-500/15 px-2 py-0.5 text-[10px] font-semibold text-muted">Non payé</span>
                               }
                               @if (l.lineId) {
                                 @if (payLineId() === l.lineId) {
                                   <div class="flex flex-col gap-1 mt-1.5 max-w-[200px]">
-                                    <input type="date" class="w-full rounded border border-navy-600 bg-navy-950 px-2 py-1 text-[11px] text-slate-200" [ngModel]="payDate()" (ngModelChange)="payDate.set($event)" />
-                                    <input type="text" class="w-full rounded border border-navy-600 bg-navy-950 px-2 py-1 text-[11px] text-slate-200" [ngModel]="payRef()" (ngModelChange)="payRef.set($event)" placeholder="Référence" />
+                                    <input type="date" class="w-full rounded border border-default bg-input px-2 py-1 text-[11px] text-primary" [ngModel]="payDate()" (ngModelChange)="payDate.set($event)" />
+                                    <input type="text" class="w-full rounded border border-default bg-input px-2 py-1 text-[11px] text-primary" [ngModel]="payRef()" (ngModelChange)="payRef.set($event)" placeholder="Référence" />
                                     <div class="flex gap-2">
-                                      <button type="button" class="text-[11px] text-slate-400" (click)="cancelPay()">Annuler</button>
-                                      <button type="button" class="text-[11px] font-medium text-emerald-300" (click)="confirmPay(l.lineId!)">Confirmer</button>
+                                      <button type="button" class="text-[11px] text-muted" (click)="cancelPay()">Annuler</button>
+                                      <button type="button" class="text-[11px] font-medium text-[var(--success-text)]" (click)="confirmPay(l.lineId!)">Confirmer</button>
                                     </div>
                                   </div>
                                 } @else if (l.paymentStatus !== 'Paid') {
-                                  <button type="button" class="block mt-1 text-[11px] text-emerald-400" (click)="startPay(l.lineId!)">Marquer payé</button>
+                                  <button type="button" class="block mt-1 text-[11px] text-[var(--success-text)]" (click)="startPay(l.lineId!)">Marquer payé</button>
                         } @else {
-                                  <button type="button" class="block mt-1 text-[11px] text-slate-400" (click)="unsetPay(l.lineId!)">Annuler paiement</button>
+                                  <button type="button" class="block mt-1 text-[11px] text-muted" (click)="unsetPay(l.lineId!)">Annuler paiement</button>
                                 }
                               }
                             } @else {
-                              <span class="text-[10px] text-slate-500">—</span>
+                              <span class="text-[10px] text-muted">—</span>
                             }
                           </td>
                         }
@@ -573,24 +573,24 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
                               {{ lineDecisionLabel(l) }}
                             </span>
                             @if (l.rhRejectionReason) {
-                              <span class="text-[10px] text-rose-300/90 max-w-[160px] truncate" [title]="'RH : ' + l.rhRejectionReason">
+                              <span class="text-[10px] text-[var(--danger-text)] max-w-[160px] truncate" [title]="'RH : ' + l.rhRejectionReason">
                                 RH : {{ l.rhRejectionReason }}
                               </span>
                             }
                             @if (l.managerRejectionReason) {
-                              <span class="text-[10px] text-rose-300/90 max-w-[160px] truncate" [title]="'Manager : ' + l.managerRejectionReason">
+                              <span class="text-[10px] text-[var(--danger-text)] max-w-[160px] truncate" [title]="'Manager : ' + l.managerRejectionReason">
                                 Manager : {{ l.managerRejectionReason }}
                               </span>
                             }
                             @if (canActOnLine()) {
                               @if (!l.lineId) {
-                                <span class="text-[10px] text-slate-500 italic">Initialisation de la ligne…</span>
+                                <span class="text-[10px] text-muted italic">Initialisation de la ligne…</span>
                               } @else if (myDecision(l) === 'Approved') {
-                                <span class="inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                                <span class="inline-flex items-center rounded-full bg-[var(--success-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--success-text)]">
                                   Approuvé par vous
                                 </span>
                               } @else if (myDecision(l) === 'Rejected') {
-                                <span class="inline-flex items-center rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-300">
+                                <span class="inline-flex items-center rounded-full bg-[var(--danger-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--danger-text)]">
                                   Rejeté par vous
                                 </span>
                           } @else {
@@ -601,14 +601,14 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
                           }
                                 @if (rejectLineId() === l.lineId) {
                                   <div class="flex flex-col gap-1 w-full basis-full mt-1">
-                                    <textarea class="w-full rounded border border-navy-600 bg-navy-950 px-2 py-1 text-xs text-slate-200" rows="2" [ngModel]="rejectReason()" (ngModelChange)="rejectReason.set($event)" placeholder="Motif obligatoire"></textarea>
+                                    <textarea class="w-full rounded border border-default bg-input px-2 py-1 text-xs text-primary" rows="2" [ngModel]="rejectReason()" (ngModelChange)="rejectReason.set($event)" placeholder="Motif obligatoire"></textarea>
                                     <div class="flex gap-2">
-                                      <button type="button" class="text-[11px] text-slate-400" (click)="cancelReject()">Annuler</button>
-                                      <button type="button" class="text-[11px] font-medium text-rose-300" (click)="confirmReject(l.lineId!)">Confirmer rejet</button>
+                                      <button type="button" class="text-[11px] text-muted" (click)="cancelReject()">Annuler</button>
+                                      <button type="button" class="text-[11px] font-medium text-[var(--danger-text)]" (click)="confirmReject(l.lineId!)">Confirmer rejet</button>
                                     </div>
                                   </div>
                                 } @else if (canRejectLine(l)) {
-                                  <button type="button" class="rounded-md border border-rose-500/60 bg-rose-950/30 px-2.5 py-1 text-[11px] font-medium text-rose-300 hover:bg-rose-950/50 shadow-sm" (click)="startReject(l.lineId!)">
+                                  <button type="button" class="rounded-md border border-rose-500/60 bg-rose-950/30 px-2.5 py-1 text-[11px] font-medium text-[var(--danger-text)] hover:bg-rose-950/50 shadow-sm" (click)="startReject(l.lineId!)">
                                     Rejeter
                             </button>
                           }
@@ -627,8 +627,8 @@ type LineStatusFilter = 'all' | 'PendingReview' | 'Approved' | 'LineRejected';
         } @else {
           <app-prime-card className="p-0">
             <div class="p-12 flex flex-col items-center justify-center text-center gap-3">
-              <app-lucide-icon [icon]="icons.chevron" className="w-10 h-10 text-slate-700" />
-              <p class="text-sm text-slate-400 max-w-xs">
+              <app-lucide-icon [icon]="icons.chevron" className="w-10 h-10 text-muted" />
+              <p class="text-sm text-muted max-w-xs">
                 Sélectionnez un périmètre prêt à gauche pour afficher le détail des employés et générer la synthèse.
               </p>
           </div>
@@ -1011,13 +1011,13 @@ export class PrimeGlobalPoolPageComponent implements OnInit {
   lineBadgeClass(status?: string | null): string {
     switch (status) {
       case 'Approved':
-        return 'bg-emerald-500/15 text-emerald-300';
+        return 'bg-[var(--success-bg)] text-[var(--success-text)]';
       case 'LineRejected':
-        return 'bg-rose-500/15 text-rose-300';
+        return 'bg-[var(--danger-bg)] text-[var(--danger-text)]';
       case 'PendingReview':
-        return 'bg-amber-500/10 text-amber-300';
+        return 'bg-amber-500/10 text-[var(--warning-text)]';
       default:
-        return 'bg-navy-800 text-slate-500';
+        return 'bg-input text-muted';
     }
   }
 
@@ -1050,21 +1050,21 @@ export class PrimeGlobalPoolPageComponent implements OnInit {
   lineDecisionBadgeClass(l: GlobalSynthesisLineDto): string {
     const rh = l.rhDecision;
     const mgr = l.managerDecision;
-    if (rh === 'Pending' || mgr === 'Pending') return 'bg-amber-500/10 text-amber-300';
-    if (rh === 'Approved' && mgr === 'Approved') return 'bg-emerald-500/15 text-emerald-300';
-    return 'bg-rose-500/15 text-rose-300';
+    if (rh === 'Pending' || mgr === 'Pending') return 'bg-amber-500/10 text-[var(--warning-text)]';
+    if (rh === 'Approved' && mgr === 'Approved') return 'bg-[var(--success-bg)] text-[var(--success-text)]';
+    return 'bg-[var(--danger-bg)] text-[var(--danger-text)]';
   }
 
   ficheBadgeClass(status?: string | null): string {
     const s = (status ?? '').trim();
-    if (s === 'Rejected') return 'bg-rose-500/15 text-rose-300';
+    if (s === 'Rejected') return 'bg-[var(--danger-bg)] text-[var(--danger-text)]';
     if (s === 'AwaitingData' || s === 'NotStarted' || s === 'Pending' || s === '') {
-      return 'bg-slate-500/15 text-slate-300';
+      return 'bg-slate-500/15 text-muted';
     }
     if (s.endsWith('Approved') || s.includes('Approved')) {
-      return 'bg-emerald-500/15 text-emerald-300';
+      return 'bg-[var(--success-bg)] text-[var(--success-text)]';
     }
-    return 'bg-amber-500/10 text-amber-300';
+    return 'bg-amber-500/10 text-[var(--warning-text)]';
   }
 
   loadLines(sel: SelectedScope): void {
@@ -1259,11 +1259,11 @@ export class PrimeGlobalPoolPageComponent implements OnInit {
   paymentStateClass(state: 'Unpaid' | 'Partial' | 'Paid'): string {
     switch (state) {
       case 'Paid':
-        return 'bg-emerald-500/15 text-emerald-300';
+        return 'bg-[var(--success-bg)] text-[var(--success-text)]';
       case 'Partial':
-        return 'bg-amber-500/10 text-amber-300';
+        return 'bg-amber-500/10 text-[var(--warning-text)]';
       default:
-        return 'bg-slate-500/15 text-slate-300';
+        return 'bg-slate-500/15 text-muted';
     }
   }
 

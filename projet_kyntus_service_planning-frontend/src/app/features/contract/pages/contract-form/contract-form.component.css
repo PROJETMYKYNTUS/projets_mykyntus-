@@ -26,7 +26,7 @@
   display: inline-flex;
   width: fit-content;
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--soft-blue) 18%, var(--bg-card));
   color: var(--blue-600);
   font-size: 0.78rem;
@@ -37,7 +37,7 @@
 .btn-back {
   width: fit-content;
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 
@@ -82,7 +82,7 @@
 .section-hint {
   margin: 0;
   font-size: 0.86rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .form-group {
@@ -107,18 +107,18 @@ textarea.ky-input {
 }
 
 .req {
-  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
+  color: var(--danger-text);
 }
 
 .hint {
   font-size: 0.8rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .error {
   font-size: 0.8rem;
   font-weight: 600;
-  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
+  color: var(--danger-text);
 }
 
 .employee-filters {
@@ -133,7 +133,7 @@ textarea.ky-input {
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
 }
 
 .search-input {
@@ -151,7 +151,7 @@ textarea.ky-input {
 
 .btn-clear {
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.84rem;
 }
@@ -159,13 +159,13 @@ textarea.ky-input {
 .results-meta {
   margin: 0 0 10px;
   font-size: 0.84rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .selected-employee {
   margin-bottom: 12px;
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--soft-blue) 12%, var(--bg-card));
   border: 1px solid color-mix(in srgb, var(--blue-600) 25%, var(--border-color));
   font-size: 0.9rem;
@@ -175,7 +175,7 @@ textarea.ky-input {
   display: block;
   margin-top: 4px;
   font-size: 0.82rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .employee-results {
@@ -195,7 +195,7 @@ textarea.ky-input {
     "org org";
   gap: 4px 12px;
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   border: 1px solid var(--border-color);
   background: var(--bg-card);
   text-align: left;
@@ -224,7 +224,7 @@ textarea.ky-input {
   font-size: 0.78rem;
   font-weight: 700;
   padding: 4px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-input);
   color: var(--blue-600);
 }
@@ -232,13 +232,13 @@ textarea.ky-input {
 .employee-option-org {
   grid-area: org;
   font-size: 0.8rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .empty-results {
   padding: 24px;
   text-align: center;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .type-grid {
@@ -248,7 +248,7 @@ textarea.ky-input {
 }
 
 .type-card {
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   padding: 18px 14px;
   display: flex;
   flex-direction: column;
@@ -273,37 +273,37 @@ textarea.ky-input {
 }
 
 .type-card--cdi.selected {
-  border-color: #3b82f6;
-  background: color-mix(in srgb, #3b82f6 10%, var(--bg-card));
+  border-color: var(--info);
+  background: color-mix(in srgb, var(--info) 10%, var(--bg-card));
 }
 
 .type-card--cdd.selected {
-  border-color: #f97316;
-  background: color-mix(in srgb, #f97316 10%, var(--bg-card));
+  border-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, var(--bg-card));
 }
 
 .type-card--stage.selected {
-  border-color: #8b5cf6;
-  background: color-mix(in srgb, #8b5cf6 10%, var(--bg-card));
+  border-color: var(--electric-blue);
+  background: color-mix(in srgb, var(--electric-blue) 10%, var(--bg-card));
 }
 
 .type-card--anapec.selected {
-  border-color: #14b8a6;
-  background: color-mix(in srgb, #14b8a6 10%, var(--bg-card));
+  border-color: var(--info);
+  background: color-mix(in srgb, var(--info) 10%, var(--bg-card));
 }
 
 .type-icon {
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .type-card.selected .type-icon {
   color: inherit;
 }
 
-.type-card--cdi.selected .type-icon { color: #2563eb; }
-.type-card--cdd.selected .type-icon { color: #ea580c; }
-.type-card--stage.selected .type-icon { color: #7c3aed; }
-.type-card--anapec.selected .type-icon { color: #0d9488; }
+.type-card--cdi.selected .type-icon { color: var(--info); }
+.type-card--cdd.selected .type-icon { color: var(--warning); }
+.type-card--stage.selected .type-icon { color: var(--electric-blue); }
+.type-card--anapec.selected .type-icon { color: var(--info); }
 
 .type-label {
   font-size: 0.95rem;
@@ -312,7 +312,7 @@ textarea.ky-input {
 
 .type-desc {
   font-size: 0.78rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .form-footer {

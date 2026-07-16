@@ -1,0 +1,7 @@
+
+### Probes JWT (cscript)
+
+| Domaine | Cycle | Statut | Detail |
+|---------|-------|--------|--------|
+| Auth | extract token employee | KO | token absent dans _audit_login_emp.json |
+| Auth | extract token RH | KO | token absent dans _audit_login_rh.json |

@@ -20,7 +20,7 @@ interface TimelineItem {
         <div class="card-navy w-full max-w-lg max-h-[85vh] flex flex-col border border-default shadow-xl duration-200" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
           <div class="flex items-center justify-between p-4 border-b border-default">
             <div>
-              <h3 class="text-lg font-semibold text-white">Timeline — {{ userLabel }}</h3>
+              <h3 class="text-lg font-semibold text-primary">Timeline — {{ userLabel }}</h3>
               <p class="text-xs text-muted">{{ items.length }} événement(s)</p>
             </div>
             <button type="button" (click)="close.emit()" class="p-2 rounded-lg hover:bg-input transition-colors">
@@ -71,9 +71,9 @@ export class UserTimelineModalComponent {
 
   badgeClass(action: string): string {
     const a = action.toLowerCase();
-    if (a.includes('soumis')) return 'bg-blue-500/15 text-blue-300 border-blue-500/30';
-    if (a.includes('vers')) return 'bg-violet-500/15 text-violet-300 border-violet-500/30';
-    if (a.includes('valid')) return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
-    return 'bg-slate-500/15 text-primary border-slate-500/30';
+    if (a.includes('soumis')) return 'bg-[var(--info-bg)] text-[var(--info-text)] border-[var(--info-border)]';
+    if (a.includes('vers')) return 'bg-[var(--info-bg)] text-[var(--electric-blue)] border-[var(--info-border)]';
+    if (a.includes('valid')) return 'bg-[var(--success-bg)] text-[var(--success-text)] border-[var(--success-border)]';
+    return 'bg-input text-primary border-default';
   }
 }

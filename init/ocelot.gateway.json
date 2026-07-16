@@ -101,6 +101,31 @@
     },
 
     {
+      "UpstreamPathTemplate": "/hubs/documentation/negotiate",
+      "UpstreamHttpMethod": [ "GET", "POST" ],
+      "DownstreamPathTemplate": "/hubs/documentation/negotiate",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "documentation-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/hubs/documentation",
+      "UpstreamHttpMethod": [ "GET", "POST", "CONNECT" ],
+      "DownstreamPathTemplate": "/hubs/documentation",
+      "DownstreamScheme": "ws",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "documentation-backend",
+          "Port": 8080
+        }
+      ]
+    },
+
+    {
       "UpstreamPathTemplate": "/hubs/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "CONNECT" ],
       "DownstreamPathTemplate": "/hubs/{everything}",
@@ -708,30 +733,6 @@
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "PATCH" ],
       "DownstreamPathTemplate": "/api/generate-document-ai/{everything}",
       "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "documentation-backend",
-          "Port": 8080
-        }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/hubs/documentation/negotiate",
-      "UpstreamHttpMethod": [ "GET", "POST" ],
-      "DownstreamPathTemplate": "/hubs/documentation/negotiate",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "documentation-backend",
-          "Port": 8080
-        }
-      ]
-    },
-    {
-      "UpstreamPathTemplate": "/hubs/documentation",
-      "UpstreamHttpMethod": [ "GET", "POST", "CONNECT" ],
-      "DownstreamPathTemplate": "/hubs/documentation",
-      "DownstreamScheme": "ws",
       "DownstreamHostAndPorts": [
         {
           "Host": "documentation-backend",

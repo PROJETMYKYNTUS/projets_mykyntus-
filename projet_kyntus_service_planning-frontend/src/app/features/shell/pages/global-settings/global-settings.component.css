@@ -34,7 +34,7 @@
 .ks-settings-card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 14px;
+  border-radius: var(--radius-card, 0.875rem);
   padding: 20px;
 }
 
@@ -47,9 +47,9 @@
 .ks-profile-av {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
+  border-radius: var(--radius-md, 0.5rem);
   background: linear-gradient(135deg, var(--blue-600), var(--electric-blue));
-  color: #fff;
+  color: #f1f5f9;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -98,7 +98,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-md, 0.5rem);
   border: 1px solid var(--border-color);
   background: var(--bg-primary);
   color: var(--text-muted);

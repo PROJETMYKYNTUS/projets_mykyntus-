@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Planning.API.Serialization;
 using Planning.Infrastructure.Hubs;
 using Planning.Application;
 using Planning.Infrastructure;
@@ -67,6 +68,8 @@ builder.Services.AddControllers()
     {
         opts.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        opts.JsonSerializerOptions.Converters.Add(new FlexibleDateOnlyJsonConverter());
+        opts.JsonSerializerOptions.Converters.Add(new FlexibleNullableDateOnlyJsonConverter());
         opts.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
     });
 builder.Services.AddEndpointsApiExplorer();

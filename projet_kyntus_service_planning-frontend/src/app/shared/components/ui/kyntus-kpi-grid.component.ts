@@ -62,7 +62,7 @@ export interface KyntusKpiItem {
       justify-content: space-between;
       gap: 0.75rem;
       padding: 1rem 1.25rem;
-      border-radius: 0.75rem;
+      border-radius: var(--radius-card, 0.875rem);
       border: 1px solid var(--border-color, #e2e8f0);
       border-top-width: 3px;
       background: var(--bg-card, #fff);
@@ -79,14 +79,14 @@ export interface KyntusKpiItem {
       outline: 2px solid var(--ky-accent, #3b82f6);
       outline-offset: 2px;
     }
-    .kyntus-kpi-card.accent-blue { border-top-color: #3b82f6; }
+    .kyntus-kpi-card.accent-blue { border-top-color: var(--info, #2563eb); }
     .kyntus-kpi-card.accent-neutral { border-top-color: color-mix(in srgb, var(--border-color, #e2e8f0) 85%, transparent); }
-    .kyntus-kpi-card.accent-green { border-top-color: #10b981; }
+    .kyntus-kpi-card.accent-green { border-top-color: var(--success, #16a34a); }
     .kyntus-kpi-card.accent-yellow,
-    .kyntus-kpi-card.accent-orange { border-top-color: #f59e0b; }
-    .kyntus-kpi-card.accent-red { border-top-color: #ef4444; }
-    .kyntus-kpi-card.accent-purple { border-top-color: #6366f1; }
-    .kyntus-kpi-card.accent-cyan { border-top-color: #22d3ee; }
+    .kyntus-kpi-card.accent-orange { border-top-color: var(--warning, #d97706); }
+    .kyntus-kpi-card.accent-red { border-top-color: var(--danger, #dc2626); }
+    .kyntus-kpi-card.accent-purple { border-top-color: var(--electric-blue, #1e3a8a); }
+    .kyntus-kpi-card.accent-cyan { border-top-color: var(--soft-blue, #3b82f6); }
     .kyntus-kpi-label {
       margin: 0 0 0.25rem;
       font-size: 0.6875rem;
@@ -106,19 +106,19 @@ export interface KyntusKpiItem {
     .kyntus-kpi-icon {
       width: 3rem;
       height: 3rem;
-      border-radius: 0.75rem;
+      border-radius: var(--radius-md, 0.5rem);
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
     }
     .accent-neutral { color: color-mix(in srgb, var(--text-muted, #64748b) 85%, transparent); background: color-mix(in srgb, var(--text-muted, #64748b) 10%, transparent); }
-    .accent-blue { color: #3b82f6; background: color-mix(in srgb, #3b82f6 12%, transparent); }
-    .accent-green { color: #10b981; background: color-mix(in srgb, #10b981 12%, transparent); }
-    .accent-yellow, .accent-orange { color: #f59e0b; background: color-mix(in srgb, #f59e0b 12%, transparent); }
-    .accent-red { color: #ef4444; background: color-mix(in srgb, #ef4444 12%, transparent); }
-    .accent-purple { color: #6366f1; background: color-mix(in srgb, #6366f1 12%, transparent); }
-    .accent-cyan { color: #22d3ee; background: color-mix(in srgb, #22d3ee 12%, transparent); }
+    .accent-blue { color: var(--info-text, #2563eb); background: color-mix(in srgb, var(--info, #2563eb) 12%, transparent); }
+    .accent-green { color: var(--success-text, #16a34a); background: color-mix(in srgb, var(--success, #16a34a) 12%, transparent); }
+    .accent-yellow, .accent-orange { color: var(--warning-text, #d97706); background: color-mix(in srgb, var(--warning, #d97706) 12%, transparent); }
+    .accent-red { color: var(--danger-text, #dc2626); background: color-mix(in srgb, var(--danger, #dc2626) 12%, transparent); }
+    .accent-purple { color: var(--electric-blue, #1e3a8a); background: color-mix(in srgb, var(--electric-blue, #1e3a8a) 12%, transparent); }
+    .accent-cyan { color: var(--soft-blue, #3b82f6); background: color-mix(in srgb, var(--soft-blue, #3b82f6) 12%, transparent); }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

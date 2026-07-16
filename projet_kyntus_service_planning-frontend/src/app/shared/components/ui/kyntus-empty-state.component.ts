@@ -23,15 +23,26 @@ import { LucideIconComponent } from '../../lucide-icon.component';
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      padding: 2.5rem 1.5rem;
+      padding: 4rem 1.5rem;
       text-align: center;
-      border: 1px dashed color-mix(in srgb, var(--border-default, #334155) 70%, transparent);
+      border: 1px dashed color-mix(in srgb, var(--border-color, #334155) 70%, transparent);
       border-radius: 0.75rem;
       background: color-mix(in srgb, var(--bg-card, #0f172a) 50%, transparent);
+      animation: kyntus-empty-in 0.3s var(--ease-out, ease-out) both;
+    }
+    @keyframes kyntus-empty-in {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
     :host ::ng-deep .kyntus-empty-icon {
-      width: 2.25rem;
-      height: 2.25rem;
+      width: 2.5rem;
+      height: 2.5rem;
       color: var(--text-muted, #64748b);
       opacity: 0.7;
     }

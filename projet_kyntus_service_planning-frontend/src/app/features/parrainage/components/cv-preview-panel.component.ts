@@ -77,7 +77,7 @@ import { LucideIconComponent } from '@/shared/lucide-icon.component';
       <div class="fixed inset-0 z-[70] bg-black/80 flex flex-col">
         <div class="flex items-center justify-between px-4 py-3 border-b border-default bg-app">
           <span class="text-sm text-primary">Aperçu CV — plein écran</span>
-          <button type="button" (click)="fullscreen.set(false)" class="text-sm text-muted hover:text-white">Fermer</button>
+          <button type="button" (click)="fullscreen.set(false)" class="text-sm text-muted hover:text-primary">Fermer</button>
         </div>
         @if (cvPreviewUrl(); as src) {
           <iframe title="CV plein écran" [src]="src" class="flex-1 w-full bg-white"></iframe>

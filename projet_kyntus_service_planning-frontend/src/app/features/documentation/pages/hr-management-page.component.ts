@@ -1,4 +1,4 @@
-﻿import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -15,6 +15,9 @@ import { DocumentationApiService } from '../services/documentation-api.service';
 import { DocumentationNavigationService } from '../services/documentation-navigation.service';
 import { DocIconComponent } from '../components/doc-icon/doc-icon.component';
 import { StatusBadgeComponent } from '../components/status-badge/status-badge.component';
+import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
+import { KyntusEmptyStateComponent } from '../../../shared/components/ui/kyntus-empty-state.component';
+import { KyntusErrorStateComponent } from '../../../shared/components/ui/kyntus-error-state.component';
 import { formatDocumentationUxMessage } from '../../../core/lib/documentation-ux-messages';
 import {
   cleanDocumentRequestTypeLabel,
@@ -24,7 +27,15 @@ import {
 @Component({
   standalone: true,
   selector: 'app-hr-management-page',
-  imports: [CommonModule, FormsModule, DocIconComponent, StatusBadgeComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DocIconComponent,
+    StatusBadgeComponent,
+    KyntusPageHeaderComponent,
+    KyntusEmptyStateComponent,
+    KyntusErrorStateComponent,
+  ],
   templateUrl: './hr-management-page.component.html',
 })
 export class HrManagementPageComponent implements OnInit, OnDestroy {

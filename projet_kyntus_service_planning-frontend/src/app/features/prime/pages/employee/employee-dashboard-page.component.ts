@@ -23,6 +23,7 @@ import {
 } from '../../services/prime-fiche-result.service';
 import type { PrimeResult, PrimeType } from '../../models';
 import { RoleService } from '../../state/role.service';
+import { primeChartTheme } from '../../lib/allowance-status';
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
@@ -37,8 +38,8 @@ echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
     } @else {
       <div class="prime-page-shell">
         <div>
-          <h1 class="text-3xl font-bold text-slate-100">Welcome back, {{ user().firstName }}</h1>
-          <p class="text-slate-400 mt-1">
+          <h1 class="text-3xl font-bold text-primary">Welcome back, {{ user().firstName }}</h1>
+          <p class="text-muted mt-1">
             Your personal PRIME space - read-only and focused on your results.
           </p>
         </div>
@@ -47,28 +48,28 @@ echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
           <app-prime-card className="card-navy">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-slate-400 text-sm">Total primes earned</p>
-                <p class="text-2xl font-bold text-emerald-400">{{ totalEarned() }} MAD</p>
+                <p class="text-muted text-sm">Total primes earned</p>
+                <p class="text-2xl font-bold text-[var(--success-text)]">{{ totalEarned() }} MAD</p>
               </div>
-              <app-lucide-icon [icon]="icons.wallet" className="w-5 h-5 text-emerald-300" />
+              <app-lucide-icon [icon]="icons.wallet" className="w-5 h-5 text-[var(--success-text)]" />
             </div>
           </app-prime-card>
           <app-prime-card className="card-navy">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-slate-400 text-sm">Current month primes</p>
-                <p class="text-2xl font-bold text-blue-300">{{ currentMonthEarned() }} MAD</p>
+                <p class="text-muted text-sm">Current month primes</p>
+                <p class="text-2xl font-bold text-[var(--info-text)]">{{ currentMonthEarned() }} MAD</p>
               </div>
-              <app-lucide-icon [icon]="icons.calendar" className="w-5 h-5 text-blue-300" />
+              <app-lucide-icon [icon]="icons.calendar" className="w-5 h-5 text-[var(--info-text)]" />
             </div>
           </app-prime-card>
           <app-prime-card className="card-navy">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-slate-400 text-sm">Fiches PRIME — en cours de validation</p>
-                <p class="text-2xl font-bold text-amber-300">{{ pendingFicheFlow() }}</p>
+                <p class="text-muted text-sm">Fiches PRIME — en cours de validation</p>
+                <p class="text-2xl font-bold text-[var(--warning-text)]">{{ pendingFicheFlow() }}</p>
               </div>
-              <app-lucide-icon [icon]="icons.clock" className="w-5 h-5 text-amber-300" />
+              <app-lucide-icon [icon]="icons.clock" className="w-5 h-5 text-[var(--warning-text)]" />
             </div>
           </app-prime-card>
         </div>
@@ -79,7 +80,7 @@ echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
           className="card-navy"
         >
           @if (monthlyData().length === 0) {
-            <div class="text-slate-400 py-10 text-center">No primes yet</div>
+            <div class="text-muted py-10 text-center">No primes yet</div>
           } @else {
             <div class="h-72" echarts [options]="chartOptions()"></div>
           }
@@ -87,21 +88,21 @@ echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
         <app-prime-card title="Recent primes" className="card-navy">
           @if (recentPrimes().length === 0) {
-            <div class="text-slate-400 py-8 text-center">No primes yet</div>
+            <div class="text-muted py-8 text-center">No primes yet</div>
           } @else {
             <div class="space-y-3">
               @for (prime of recentPrimes(); track prime.id) {
                 <div
-                  class="bg-navy-900/70 border border-navy-800 rounded-lg px-4 py-3 flex items-center justify-between"
+                  class="bg-card/70 border border-default rounded-lg px-4 py-3 flex items-center justify-between"
                 >
                   <div class="flex items-center gap-3">
-                    <app-lucide-icon [icon]="icons.sparkles" className="w-4 h-4 text-blue-300" />
+                    <app-lucide-icon [icon]="icons.sparkles" className="w-4 h-4 text-[var(--info-text)]" />
                     <div>
-                      <p class="text-slate-200 font-medium">{{ prime.typeName }}</p>
-                      <p class="text-slate-400 text-xs">{{ prime.period }}</p>
+                      <p class="text-primary font-medium">{{ prime.typeName }}</p>
+                      <p class="text-muted text-xs">{{ prime.period }}</p>
                     </div>
                   </div>
-                  <div class="text-emerald-400 font-semibold">{{ prime.amount }} MAD</div>
+                  <div class="text-[var(--success-text)] font-semibold">{{ prime.amount }} MAD</div>
                 </div>
               }
             </div>
@@ -172,20 +173,21 @@ export class EmployeeDashboardPageComponent {
 
   readonly chartOptions = computed<EChartsCoreOption>(() => {
     const data = this.monthlyData();
+    const c = primeChartTheme();
     return {
       grid: { left: 0, right: 0, top: 10, bottom: 0, containLabel: true },
       tooltip: { trigger: 'axis' },
       xAxis: {
         type: 'category',
         data: data.map((d) => d.month),
-        axisLine: { lineStyle: { color: '#1e293b' } },
-        axisLabel: { color: '#94a3b8' },
+        axisLine: { lineStyle: { color: c.axisLine } },
+        axisLabel: { color: c.axisLabel },
       },
       yAxis: {
         type: 'value',
-        axisLine: { lineStyle: { color: '#1e293b' } },
-        axisLabel: { color: '#94a3b8' },
-        splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+        axisLine: { lineStyle: { color: c.axisLine } },
+        axisLabel: { color: c.axisLabel },
+        splitLine: { lineStyle: { color: c.splitLine, type: 'dashed' } },
       },
       series: [
         {
@@ -193,20 +195,10 @@ export class EmployeeDashboardPageComponent {
           smooth: true,
           symbol: 'none',
           data: data.map((d) => d.amount),
-          lineStyle: { color: '#60a5fa', width: 2 },
+          lineStyle: { color: c.info, width: 2 },
           areaStyle: {
             opacity: 1,
-            color: {
-              type: 'linear',
-              x: 0,
-              y: 0,
-              x2: 0,
-              y2: 1,
-              colorStops: [
-                { offset: 0.05, color: 'rgba(96, 165, 250, 0.45)' },
-                { offset: 0.95, color: 'rgba(96, 165, 250, 0.04)' },
-              ],
-            },
+            color: c.areaGradient('--soft-blue-rgb', 0.45),
           },
         },
       ],

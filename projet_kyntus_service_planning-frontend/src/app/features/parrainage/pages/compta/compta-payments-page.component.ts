@@ -20,7 +20,7 @@ import type { Referral } from '../../models/referral.model';
           </p>
         </div>
         @if (summary(); as s) {
-          <div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-200">
+          <div class="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-2 text-sm text-[var(--success-text)]">
             {{ s.paidCount }} / {{ s.paidCount + s.readyCount }} payée(s) · {{ s.readyCount }} en attente
           </div>
         }
@@ -49,7 +49,7 @@ import type { Referral } from '../../models/referral.model';
                   <td class="px-6 py-4 text-sm text-muted">
                     {{ item.referral.candidateName }}
                     @if (item.referral.employmentCheckSummary?.blockReason) {
-                      <span class="block text-xs text-amber-400 mt-1">{{ item.referral.employmentCheckSummary?.blockReason }}</span>
+                      <span class="block text-xs text-[var(--warning-text)] mt-1">{{ item.referral.employmentCheckSummary?.blockReason }}</span>
                     }
                   </td>
                   <td class="px-6 py-4 text-sm text-muted">
@@ -73,7 +73,7 @@ import type { Referral } from '../../models/referral.model';
                       <button
                         type="button"
                         (click)="undoPayment(item.referral.id)"
-                        class="text-sm text-amber-400 hover:underline"
+                        class="text-sm text-[var(--warning-text)] hover:underline"
                         [disabled]="busyId() === item.referral.id"
                       >
                         Annuler paiement
@@ -97,7 +97,7 @@ import type { Referral } from '../../models/referral.model';
                           type="button"
                           (click)="confirmPayment(item.referral.id)"
                           [disabled]="busyId() === item.referral.id"
-                          class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                          class="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-2 text-sm font-medium text-[var(--success-text)] hover:border-[var(--success)] disabled:opacity-50"
                         >
                           Confirmer paiement
                         </button>
@@ -120,7 +120,7 @@ import type { Referral } from '../../models/referral.model';
             type="button"
             (click)="payAll()"
             [disabled]="!summary()?.readyCount || busyId() === 'all'"
-            class="rounded-lg bg-soft-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50"
+            class="ky-btn-primary px-4 py-2 text-sm disabled:opacity-50"
           >
             Tout marquer payé
           </button>
@@ -170,8 +170,8 @@ export class ComptaPaymentsPageComponent {
 
   badgeClass(r: Referral): string {
     const base = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ';
-    if (r.status === 'REWARDED') return base + 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-    if (r.paymentStatus === 'READY') return base + 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+    if (r.status === 'REWARDED') return base + 'bg-[var(--success-bg)] text-[var(--success-text)] border-[var(--success-border)]';
+    if (r.paymentStatus === 'READY') return base + 'bg-[var(--warning-bg)] text-[var(--warning-text)] border-[var(--warning-border)]';
     return base + 'bg-slate-500/10 text-muted border-slate-500/20';
   }
 

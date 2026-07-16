@@ -50,48 +50,48 @@ import {
       display: flex; align-items: center; gap: 0.65rem;
       width: 100%; text-align: left;
       padding: 0.65rem 0.75rem;
-      border-radius: 0.625rem;
-      border: 1px solid color-mix(in srgb, var(--border-default, #e5e7eb) 90%, transparent);
-      background: var(--bg-card, #fff);
+      border-radius: var(--radius-md);
+      border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
+      background: var(--bg-card);
       cursor: pointer;
       transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
     }
     .team-progress-item:hover {
-      border-color: color-mix(in srgb, #4F46E5 35%, transparent);
-      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.08);
+      border-color: color-mix(in srgb, var(--electric-blue) 35%, transparent);
+      box-shadow: 0 2px 8px color-mix(in srgb, var(--electric-blue) 8%, transparent);
     }
     .team-progress-item--active {
-      border-color: #4F46E5;
-      background: color-mix(in srgb, #4F46E5 6%, var(--bg-card, #fff));
-      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.12);
+      border-color: var(--electric-blue);
+      background: color-mix(in srgb, var(--electric-blue) 6%, var(--bg-card));
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--electric-blue) 12%, transparent);
     }
     .team-progress-item__avatar {
-      width: 2rem; height: 2rem; border-radius: 999px;
+      width: 2rem; height: 2rem; border-radius: var(--radius-pill);
       display: flex; align-items: center; justify-content: center;
       font-size: 0.6875rem; font-weight: 700;
-      background: color-mix(in srgb, #4F46E5 12%, transparent);
-      color: #4F46E5; flex-shrink: 0;
+      background: color-mix(in srgb, var(--electric-blue) 12%, transparent);
+      color: var(--electric-blue); flex-shrink: 0;
     }
     .team-progress-item__body { flex: 1; min-width: 0; }
     .team-progress-item__name {
       display: block; font-size: 0.875rem; font-weight: 600;
-      color: var(--text-primary, #111827);
+      color: var(--text-primary);
     }
     .team-progress-item__meta {
-      display: block; font-size: 0.75rem; color: var(--text-muted, #6b7280);
+      display: block; font-size: 0.75rem; color: var(--text-muted);
     }
     .allowance-badge {
       font-size: 0.625rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.04em; padding: 0.2rem 0.45rem; border-radius: 999px; flex-shrink: 0;
+      letter-spacing: 0.04em; padding: 0.2rem 0.45rem; border-radius: var(--radius-pill); flex-shrink: 0;
     }
-    .allowance-badge--pending { background: #FEF3C7; color: #B45309; }
-    .allowance-badge--draft { background: #E0E7FF; color: #4338CA; }
-    .allowance-badge--submitted { background: #DBEAFE; color: #1D4ED8; }
-    .allowance-badge--validated { background: #DCFCE7; color: #15803D; }
-    .allowance-badge--rejected { background: #FEE2E2; color: #B91C1C; }
-    .allowance-badge--none { background: #F3F4F6; color: #4B5563; }
+    .allowance-badge--pending { background: var(--warning-bg); color: var(--warning-text); }
+    .allowance-badge--draft { background: color-mix(in srgb, var(--electric-blue) 12%, var(--bg-card)); color: var(--electric-blue); }
+    .allowance-badge--submitted { background: var(--info-bg); color: var(--info-text); }
+    .allowance-badge--validated { background: var(--success-bg); color: var(--success-text); }
+    .allowance-badge--rejected { background: var(--danger-bg); color: var(--danger-text); }
+    .allowance-badge--none { background: var(--surface-3); color: var(--text-muted); }
     .team-progress-list__empty {
-      padding: 1.5rem; text-align: center; font-size: 0.875rem; color: var(--text-muted, #6b7280);
+      padding: 1.5rem; text-align: center; font-size: 0.875rem; color: var(--text-muted);
     }
   `],
 })

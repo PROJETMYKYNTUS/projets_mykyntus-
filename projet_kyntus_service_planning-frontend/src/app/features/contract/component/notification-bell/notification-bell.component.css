@@ -19,8 +19,8 @@
   right: -6px;
   min-width: 18px;
   height: 18px;
-  background: color-mix(in srgb, #f43f5e 90%, var(--blue-600));
-  border-radius: 20px;
+  background: color-mix(in srgb, var(--danger) 90%, var(--blue-600));
+  border-radius: var(--radius-card);
   font-size: 10px;
   font-weight: 700;
   color: var(--bg-card);
@@ -52,7 +52,7 @@
   top: calc(100% + 10px);
   right: 0;
   width: 360px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   z-index: 99;
   animation: slideDown 0.2s ease;
@@ -157,7 +157,7 @@
 }
 
 .ic-warn {
-  background: color-mix(in srgb, #f59e0b 15%, var(--bg-card));
+  background: color-mix(in srgb, var(--warning) 15%, var(--bg-card));
 }
 
 .ic-info {

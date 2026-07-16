@@ -19,8 +19,8 @@ import { CommonModule } from '@angular/common';
     .spinner {
       width: 40px;
       height: 40px;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #3498db;
+      border: 4px solid var(--border-color, #e2e8f0);
+      border-top: 4px solid var(--soft-blue, #3b82f6);
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }

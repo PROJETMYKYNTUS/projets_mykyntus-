@@ -687,9 +687,14 @@ export class UserFormComponent implements OnInit {
     return trimmed.length ? trimmed : null;
   }
 
+  /** DateOnly côté API Planning (`yyyy-MM-dd`) — pas d’heure ISO. */
   private toOptionalDateIso(dateStr: string): string | null {
-    if (!dateStr.trim()) return null;
-    return this.toISOString(dateStr);
+    const raw = dateStr.trim();
+    if (!raw) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return null;
+    return this.toDateInputValue(d);
   }
 
   private dateToInputValue(dateStr: string | null | undefined): string {

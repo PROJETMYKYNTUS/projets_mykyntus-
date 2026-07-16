@@ -22,16 +22,16 @@ import {
         (click)="close()"
       >
         <div
-          class="max-w-[min(96vw,1400px)] w-full max-h-[min(90vh,900px)] flex flex-col rounded-xl border border-navy-600 bg-navy-950 shadow-xl"
+          class="max-w-[min(96vw,1400px)] w-full max-h-[min(90vh,900px)] flex flex-col rounded-xl border border-default bg-input shadow-xl"
           (click)="$event.stopPropagation()"
         >
-          <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-navy-700 shrink-0">
+          <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-default shrink-0">
             <div class="min-w-0">
-              <h3 [id]="dialogTitleId" class="text-sm font-semibold text-slate-100 truncate">
+              <h3 [id]="dialogTitleId" class="text-sm font-semibold text-primary truncate">
                 {{ title() }}
               </h3>
               @if (subtitle()) {
-                <p class="text-[11px] text-slate-500 truncate mt-0.5">{{ subtitle() }}</p>
+                <p class="text-[11px] text-muted truncate mt-0.5">{{ subtitle() }}</p>
               }
             </div>
             <div class="flex items-center gap-2 shrink-0">
@@ -47,7 +47,7 @@ import {
               <button
                 type="button"
                 (click)="close()"
-                class="rounded-lg border border-navy-600 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-navy-800"
+                class="rounded-lg border border-default px-3 py-1.5 text-xs font-medium text-primary hover:bg-input"
               >
                 Fermer
               </button>
@@ -77,11 +77,11 @@ import {
               </div>
             }
             <div class="flex-1 min-h-0 overflow-auto p-3">
-              <table class="text-[11px] border-collapse border border-navy-700 text-slate-200">
+              <table class="text-[11px] border-collapse border border-default text-primary">
                 @for (row of rows(); track ri; let ri = $index) {
                   <tr>
                     @for (cell of row; track ci; let ci = $index) {
-                      <td class="border border-navy-800 px-1 py-0.5 whitespace-nowrap align-top">{{ cell }}</td>
+                      <td class="border border-default px-1 py-0.5 whitespace-nowrap align-top">{{ cell }}</td>
                     }
                   </tr>
                 }

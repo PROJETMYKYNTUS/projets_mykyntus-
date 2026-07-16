@@ -120,7 +120,7 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
             type="button"
             (click)="addRow()"
             [disabled]="!selectedServiceId() || saving() || bulkApplying()"
-            class="inline-flex items-center gap-2 rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-navy-700/40 disabled:opacity-50"
+            class="inline-flex items-center gap-2 rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-input/40 disabled:opacity-50"
           >
             <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
             Ligne
@@ -261,8 +261,8 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
             @for (e of previewEntries(); track e.serviceId) {
               <li class="bg-card">
                 <div
-                  class="flex flex-wrap items-center gap-2 px-3 py-2 hover:bg-navy-700/40 transition-colors"
-                  [class.bg-navy-700]="selectedServiceId() === e.serviceId"
+                  class="flex flex-wrap items-center gap-2 px-3 py-2 hover:bg-input/40 transition-colors"
+                  [class.bg-input]="selectedServiceId() === e.serviceId"
                 >
                   <button
                     type="button"
@@ -293,7 +293,7 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
                   <button
                     type="button"
                     (click)="selectAndEditService(e.poleId, e.celluleId, e.serviceId)"
-                    class="inline-flex items-center gap-1.5 rounded-md border border-default bg-card px-2.5 py-1 text-xs font-semibold text-primary hover:bg-navy-700/50"
+                    class="inline-flex items-center gap-1.5 rounded-md border border-default bg-card px-2.5 py-1 text-xs font-semibold text-primary hover:bg-input/50"
                     [class.border-blue-500]="selectedServiceId() === e.serviceId"
                     [class.text-blue-400]="selectedServiceId() === e.serviceId"
                     title="Charger ce service dans le formulaire"

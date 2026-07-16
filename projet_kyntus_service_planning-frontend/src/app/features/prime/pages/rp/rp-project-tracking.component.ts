@@ -18,21 +18,21 @@ import { HierarchyDrillService } from '../../state/hierarchy-drill.service';
     <div class="space-y-6">
       <div>
         <h2 class="text-2xl font-bold text-primary tracking-tight">Avancement remplissage PRIME</h2>
-        <p class="text-slate-400 mt-1">Indicateur de complétion des fiches et jalons de saisie (hors tâches externes).</p>
+        <p class="text-muted mt-1">Indicateur de complétion des fiches et jalons de saisie (hors tâches externes).</p>
       </div>
 
       <app-prime-card title="Progression par lot / période">
         <div class="space-y-4">
           @for (project of projectData(); track project.projectName) {
-            <div class="p-4 rounded-xl bg-navy-900 border border-default">
+            <div class="p-4 rounded-xl bg-card border border-default">
               <div class="flex justify-between items-center mb-2">
-                <span class="text-slate-200 font-medium">{{ project.projectName }}</span>
+                <span class="text-primary font-medium">{{ project.projectName }}</span>
                 <span class="text-cyan-300 font-semibold">{{ progressPct(project) }}%</span>
               </div>
-              <div class="h-2 rounded-full bg-navy-800 overflow-hidden">
+              <div class="h-2 rounded-full bg-input overflow-hidden">
                 <div class="h-full bg-cyan-500" [style.width.%]="progressPct(project)"></div>
               </div>
-              <p class="text-xs text-slate-400 mt-2">
+              <p class="text-xs text-muted mt-2">
                 {{ project.completedTasks }} étapes complétées sur {{ project.totalTasks }}
               </p>
             </div>

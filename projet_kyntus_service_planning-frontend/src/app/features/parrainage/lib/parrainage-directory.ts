@@ -1,30 +1,32 @@
+/** Annuaire / libellés orga contact centre (aligné init/contactcentre/roster.json). */
+
 export const MOCK_DEPARTMENTS = [
-  { id: 'dept-1', name: 'Digital & Produits' },
-  { id: 'dept-2', name: 'Ressources Humaines' },
-  { id: 'dept-3', name: 'Infrastructure & Cloud' },
+  { id: 'd1', name: "Relation client & centres d'appels — Casablanca" },
+  { id: 'd2', name: 'Support SI & pilotage qualité' },
 ];
 
 export const MOCK_PROJECTS = [
-  { id: 'proj-1', name: 'Alpha Digital', departmentId: 'dept-1' },
-  { id: 'proj-2', name: 'Beta Ops', departmentId: 'dept-2' },
-  { id: 'proj-3', name: 'Gamma Cloud', departmentId: 'dept-3' },
+  { id: 'proj-inbound', name: 'Inbound grands comptes', departmentId: 'd1' },
+  { id: 'proj-retention', name: 'Réclamations & rétention', departmentId: 'd1' },
+  { id: 'proj-acd', name: 'Supervision connectivité & ACD', departmentId: 'd2' },
+  { id: 'proj-pilotage', name: 'Pilotage performance — analyse opérationnelle', departmentId: 'd1' },
 ];
 
 export const MOCK_ORG_LABELS = {
   departments: {
-    'dept-1': 'Digital & Produits',
-    'dept-2': 'Ressources Humaines',
-    'dept-3': 'Infrastructure & Cloud',
+    d1: "Relation client & centres d'appels — Casablanca",
+    d2: 'Support SI & pilotage qualité',
   } as Record<string, string>,
   poles: {
-    'pole-1': 'Pôle Produits & Parrainage',
-    'pole-rh': 'Pôle Ressources humaines',
+    d1: "Relation client & centres d'appels — Casablanca",
+    d2: 'Support SI & pilotage qualité',
   } as Record<string, string>,
   cellules: {
-    'cell-1': 'Cellule Opérationnelle',
-    'cell-rh': 'Cellule RH',
+    p1: 'Plateforme inbound — grands comptes',
+    p2: 'Réclamations & rétention',
+    p3: 'Infrastructure télécom & réseau',
   } as Record<string, string>,
-  defaultTeam: 'Équipe MyKyntus',
+  defaultTeam: 'Équipe contact centre',
 } as const;
 
 export interface DirectoryUser {
@@ -36,37 +38,31 @@ export interface DirectoryUser {
 
 export const MOCK_USERS_BY_ROLE: Record<string, DirectoryUser[]> = {
   PILOTE: [
-    { id: 'emp-1', name: 'Jean Dupont', email: 'jean.dupont@mykyntus.com' },
-    { id: 'emp-2', name: 'Sophie Leroy', email: 'sophie.leroy@mykyntus.com' },
-    { id: 'emp-3', name: 'Thomas Bernard', email: 'thomas.bernard@mykyntus.com' },
-    { id: 'emp-4', name: 'Julie Moreau', email: 'julie.moreau@mykyntus.com' },
-    { id: 'emp-5', name: 'Karim Benali', email: 'karim.benali@mykyntus.com' },
+    { id: '11111111-1111-4111-8111-111111111103', name: 'Yasmine El Idrissi', email: 'employee@kyntus.ma', projectId: 'proj-inbound' },
+    { id: '22222222-2222-4222-8222-222222222002', name: 'Mehdi Chraibi', email: 'mehdi.chraibi@contactcentre.ma', projectId: 'proj-inbound' },
+    { id: '22222222-2222-4222-8222-222222222004', name: 'Imane Fassi', email: 'imane.fassi@contactcentre.ma', projectId: 'proj-inbound' },
+    { id: '33333333-3333-4333-8333-333333333004', name: 'Chaima Benali', email: 'chaima.benali@contactcentre.ma', projectId: 'proj-pilotage' },
+    { id: '33333333-3333-4333-8333-333333333005', name: 'Hamid Fellah', email: 'hamid.fellah@contactcentre.ma', projectId: 'proj-pilotage' },
+    { id: '33333333-3333-4333-8333-333333333006', name: 'Othmane Kabbaj', email: 'othmane.kabbaj@contactcentre.ma', projectId: 'proj-pilotage' },
   ],
   RH: [
-    { id: 'rh-1', name: 'Camille Rousseau', email: 'camille.rousseau@mykyntus.com' },
-    { id: 'rh-2', name: 'David Petit', email: 'david.petit@mykyntus.com' },
-    { id: 'rh-3', name: 'Emma Blanc', email: 'emma.blanc@mykyntus.com' },
-    { id: 'rh-4', name: 'François Noir', email: 'francois.noir@mykyntus.com' },
-    { id: 'rh-5', name: 'Gaëlle Vert', email: 'gaelle.vert@mykyntus.com' },
+    { id: '11111111-1111-4111-8111-111111111104', name: 'Latifa Mansouri', email: 'rh@kyntus.ma' },
   ],
   ADMIN: [
-    { id: 'admin-1', name: 'Administrateur démo', email: 'admin@mykyntus.com' },
-    { id: 'admin-2', name: 'Ops Nord', email: 'ops.nord@mykyntus.com' },
-    { id: 'admin-3', name: 'Ops Sud', email: 'ops.sud@mykyntus.com' },
-    { id: 'admin-4', name: 'SRE Lead', email: 'sre@mykyntus.com' },
-    { id: 'admin-5', name: 'Support L3', email: 'support.l3@mykyntus.com' },
+    { id: '11111111-1111-4111-8111-111111111108', name: 'Système Admin', email: 'admin@kyntus.ma' },
   ],
   COACH: [
-    { id: 'coach-1', name: 'Marc Lefèvre', email: 'coach@mykyntus.com' },
-    { id: 'coach-2', name: 'Laura Petit', email: 'laura.petit@mykyntus.com' },
+    { id: '11111111-1111-4111-8111-111111111106', name: 'Omar Tazi', email: 'coach@kyntus.ma', projectId: 'proj-inbound' },
+    { id: '33333333-3333-4333-8333-333333333003', name: 'Younes Elidrissi', email: 'younes.elidrissi@contactcentre.ma', projectId: 'proj-pilotage' },
   ],
   MANAGER: [
-    { id: 'mgr-1', name: 'Charlie Durand', email: 'manager@mykyntus.com', projectId: 'proj-1' },
-    { id: 'mgr-2', name: 'Pierre Girard', email: 'pierre.girard@mykyntus.com', projectId: 'proj-2' },
-    { id: 'mgr-3', name: 'Nora Said', email: 'nora.said@mykyntus.com', projectId: 'proj-3' },
+    { id: '11111111-1111-4111-8111-111111111105', name: 'Nadia Benchrif', email: 'manager@kyntus.ma', projectId: 'proj-inbound' },
+    { id: '11111111-1111-4111-8111-111111111111', name: 'Kenza Alami', email: 'superviseur@kyntus.ma', projectId: 'proj-retention' },
+    { id: '33333333-3333-4333-8333-333333333002', name: 'Salim Ouazzani', email: 'salim.ouazzani@contactcentre.ma', projectId: 'proj-pilotage' },
   ],
   RP: [
-    { id: 'rp-1', name: 'Rachid El Amrani', email: 'rp@mykyntus.com' },
-    { id: 'rp-2', name: 'Inès Karim', email: 'ines.karim@mykyntus.com' },
+    { id: '11111111-1111-4111-8111-111111111107', name: 'Ghita Benkirane', email: 'rp@kyntus.ma', projectId: 'proj-inbound' },
+    { id: '11111111-1111-4111-8111-111111111110', name: 'Hicham Benjelloun', email: 'formation@kyntus.ma', projectId: 'proj-inbound' },
+    { id: '33333333-3333-4333-8333-333333333001', name: 'Malak Souiri', email: 'malak.souiri@contactcentre.ma', projectId: 'proj-pilotage' },
   ],
 };

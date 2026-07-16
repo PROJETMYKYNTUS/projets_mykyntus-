@@ -29,11 +29,11 @@ export class KpiCardComponent {
   get accentClass(): string {
     switch (this.accent) {
       case 'green':
-        return 'border-emerald-500/40 bg-emerald-500/5';
+        return 'border-[var(--success-border)] bg-[var(--success-bg)]';
       case 'yellow':
-        return 'border-yellow-500/40 bg-yellow-500/5';
+        return 'border-[var(--warning-border)] bg-[var(--warning-bg)]';
       case 'red':
-        return 'border-red-500/40 bg-red-500/5';
+        return 'border-[var(--danger-border)] bg-[var(--danger-bg)]';
       default:
         return 'border-soft-blue/40 bg-soft-blue/5';
     }

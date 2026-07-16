@@ -21,13 +21,13 @@ import { cn } from '@/lib/utils';
   template: `
     @if (loading()) {
       <div class="flex justify-center py-8">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--soft-blue)]"></div>
       </div>
     } @else {
       <div class="space-y-6">
         <div>
           <h2 class="text-2xl font-bold text-primary tracking-tight">Validation finale</h2>
-          <p class="text-slate-400 mt-1">
+          <p class="text-muted mt-1">
             Primes deja validees par le manager, en attente de decision RP.
           </p>
         </div>
@@ -37,19 +37,19 @@ import { cn } from '@/lib/utils';
             <table class="w-full text-sm">
               <thead>
                 <tr class="border-b border-default">
-                  <th class="text-left py-3 text-slate-400 font-medium">Employe</th>
-                  <th class="text-left py-3 text-slate-400 font-medium">Projet</th>
-                  <th class="text-left py-3 text-slate-400 font-medium">Score performance</th>
-                  <th class="text-left py-3 text-slate-400 font-medium">Statut</th>
-                  <th class="text-right py-3 text-slate-400 font-medium">Actions</th>
+                  <th class="text-left py-3 text-muted font-medium">Employe</th>
+                  <th class="text-left py-3 text-muted font-medium">Projet</th>
+                  <th class="text-left py-3 text-muted font-medium">Score performance</th>
+                  <th class="text-left py-3 text-muted font-medium">Statut</th>
+                  <th class="text-right py-3 text-muted font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 @for (item of items(); track item.id) {
                   <tr class="border-b border-default/60">
-                    <td class="py-3 text-slate-200">{{ item.employeeName }}</td>
-                    <td class="py-3 text-slate-300">{{ item.projectName }}</td>
-                    <td class="py-3 text-cyan-300 font-semibold">{{ item.performanceScore }}%</td>
+                    <td class="py-3 text-primary">{{ item.employeeName }}</td>
+                    <td class="py-3 text-muted">{{ item.projectName }}</td>
+                    <td class="py-3 text-[var(--info-text)] font-semibold">{{ item.performanceScore }}%</td>
                     <td class="py-3">
                       <span [class]="statusBadgeClass(item.status)">
                         {{ item.status }}
@@ -61,7 +61,7 @@ import { cn } from '@/lib/utils';
                           <button
                             type="button"
                             (click)="onApprove(item.id)"
-                            class="p-2 rounded-md border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
+                            class="p-2 rounded-md border border-[var(--success-border)] text-[var(--success-text)] hover:bg-[var(--success-bg)]"
                             title="Approuver"
                           >
                             <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
@@ -69,7 +69,7 @@ import { cn } from '@/lib/utils';
                           <button
                             type="button"
                             (click)="onReject(item.id)"
-                            class="p-2 rounded-md border border-rose-500/40 text-rose-300 hover:bg-rose-500/10"
+                            class="p-2 rounded-md border border-[var(--danger-border)] text-[var(--danger-text)] hover:bg-[var(--danger-bg)]"
                             title="Rejeter"
                           >
                             <app-lucide-icon [icon]="icons.x" className="w-4 h-4" />
@@ -139,10 +139,10 @@ export class RpFinalValidationComponent {
     return cn(
       'inline-flex px-2.5 py-1 rounded-full text-xs font-medium',
       status === 'RP Approved'
-        ? 'bg-emerald-500/15 text-emerald-300'
+        ? 'bg-[var(--success-bg)] text-[var(--success-text)]'
         : status === 'Rejected'
-          ? 'bg-rose-500/15 text-rose-300'
-          : 'bg-amber-500/15 text-amber-300',
+          ? 'bg-[var(--danger-bg)] text-[var(--danger-text)]'
+          : 'bg-[var(--warning-bg)] text-[var(--warning-text)]',
     );
   }
 }

@@ -6,7 +6,7 @@ import type { Referral, ReferralStatus } from '../../models/referral.model';
 import {
   REFERRAL_PROCESSED_KPI_LABEL,
   REFERRAL_STATUS_LABELS,
-  REFERRAL_STATUS_STYLES_RH,
+  REFERRAL_STATUS_STYLES,
 } from '../../utils/referral-status.util';
 
 @Component({
@@ -86,7 +86,7 @@ export class RhDashboardPageComponent {
   private readonly role = inject(ParrainageRoleService);
   readonly nav = inject(ParrainageNavService);
 
-  readonly statusStyles = REFERRAL_STATUS_STYLES_RH;
+  readonly statusStyles = REFERRAL_STATUS_STYLES;
   readonly statusLabels = REFERRAL_STATUS_LABELS;
   readonly processedKpiLabel = REFERRAL_PROCESSED_KPI_LABEL;
 

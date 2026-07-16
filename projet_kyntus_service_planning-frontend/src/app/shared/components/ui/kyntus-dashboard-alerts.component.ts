@@ -44,16 +44,16 @@ import type { KyntusDashboardAlert } from './kyntus-dashboard.model';
       box-shadow: var(--ky-shadow-sm);
     }
     .kyntus-alert-card.warn {
-      border-color: color-mix(in srgb, #f59e0b 45%, var(--border-color));
-      background: color-mix(in srgb, #f59e0b 10%, var(--bg-card));
+      border-color: var(--warning-border);
+      background: var(--warning-bg);
     }
     .kyntus-alert-card.error {
-      border-color: color-mix(in srgb, #ef4444 45%, var(--border-color));
-      background: color-mix(in srgb, #ef4444 8%, var(--bg-card));
+      border-color: var(--danger-border);
+      background: var(--danger-bg);
     }
     .kyntus-alert-card.info {
-      border-color: color-mix(in srgb, #3b82f6 45%, var(--border-color));
-      background: color-mix(in srgb, #3b82f6 8%, var(--bg-card));
+      border-color: var(--info-border);
+      background: var(--info-bg);
     }
     .kyntus-alert-title {
       display: flex;

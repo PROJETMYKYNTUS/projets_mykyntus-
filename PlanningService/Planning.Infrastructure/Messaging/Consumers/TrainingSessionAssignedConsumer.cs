@@ -78,6 +78,7 @@ public sealed class TrainingSessionAssignedConsumer(
                 subServiceName = "Formation continue",
                 message,
                 weeklyPlanningId = (int?)null,
+                deepLink = "/mes-formations",
             }, context.CancellationToken);
 
         logger.LogInformation(

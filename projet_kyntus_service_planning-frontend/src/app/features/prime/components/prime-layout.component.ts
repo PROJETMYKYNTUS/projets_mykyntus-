@@ -33,7 +33,7 @@ import { DepartmentContextService } from '../services/allowance-api.service';
     @if (!isAuthorized()) {
       <app-access-denied />
     } @else if (adminNotificationsShell()) {
-      <div class="flex flex-col min-h-full bg-navy-950 overflow-hidden font-sans w-full">
+      <div class="flex flex-col min-h-full bg-app overflow-hidden font-sans w-full">
         <div class="flex-1 flex flex-col overflow-hidden w-full">
           <app-topbar />
           <main class="flex-1 min-w-0 overflow-y-auto">
@@ -42,7 +42,7 @@ import { DepartmentContextService } from '../services/allowance-api.service';
         </div>
       </div>
     } @else if (adminSettingsShell()) {
-      <div class="flex flex-col min-h-full bg-navy-950 overflow-hidden font-sans w-full">
+      <div class="flex flex-col min-h-full bg-app overflow-hidden font-sans w-full">
         <div class="flex-1 flex flex-col overflow-hidden w-full">
           <app-topbar />
           <main class="flex-1 min-w-0 overflow-y-auto">
@@ -51,7 +51,7 @@ import { DepartmentContextService } from '../services/allowance-api.service';
         </div>
       </div>
     } @else if (rpNotificationsShell()) {
-      <div class="flex flex-col min-h-full bg-navy-950 overflow-hidden font-sans w-full">
+      <div class="flex flex-col min-h-full bg-app overflow-hidden font-sans w-full">
         <div class="flex-1 flex flex-col overflow-hidden w-full">
           <app-topbar />
           <main class="flex-1 min-w-0 overflow-y-auto">
@@ -60,7 +60,7 @@ import { DepartmentContextService } from '../services/allowance-api.service';
         </div>
       </div>
     } @else if (rpSettingsShell()) {
-      <div class="flex flex-col min-h-full bg-navy-950 overflow-hidden font-sans w-full">
+      <div class="flex flex-col min-h-full bg-app overflow-hidden font-sans w-full">
         <div class="flex-1 flex flex-col overflow-hidden w-full">
           <app-topbar />
           <main class="flex-1 min-w-0 overflow-y-auto">
@@ -69,7 +69,7 @@ import { DepartmentContextService } from '../services/allowance-api.service';
         </div>
       </div>
     } @else if (auditSettingsShell()) {
-      <div class="flex flex-col min-h-full bg-navy-950 overflow-hidden font-sans w-full">
+      <div class="flex flex-col min-h-full bg-app overflow-hidden font-sans w-full">
         <div class="flex-1 flex flex-col overflow-hidden w-full">
           <app-topbar />
           <main class="flex-1 min-w-0 overflow-y-auto">
@@ -78,7 +78,7 @@ import { DepartmentContextService } from '../services/allowance-api.service';
         </div>
       </div>
     } @else if (auditNotificationsShell()) {
-      <div class="flex flex-col min-h-full bg-navy-950 overflow-hidden font-sans w-full">
+      <div class="flex flex-col min-h-full bg-app overflow-hidden font-sans w-full">
         <div class="flex-1 flex flex-col overflow-hidden w-full">
           <app-topbar />
           <main class="flex-1 min-w-0 overflow-y-auto">
@@ -87,12 +87,12 @@ import { DepartmentContextService } from '../services/allowance-api.service';
         </div>
       </div>
     } @else {
-      <div class="flex flex-col min-h-full bg-navy-950 overflow-hidden font-sans w-full">
+      <div class="flex flex-col min-h-full bg-app overflow-hidden font-sans w-full">
         <div class="flex-1 flex flex-col overflow-hidden w-full">
           <app-topbar />
           <main class="flex-1 min-w-0 overflow-y-auto">
             @if (lazyViewLoading()) {
-              <div class="p-8 text-sm text-slate-400">Chargement…</div>
+              <div class="p-8 text-sm text-muted">Chargement…</div>
             } @else if (lazyComponent()) {
               <ng-container *ngComponentOutlet="lazyComponent()" />
             }

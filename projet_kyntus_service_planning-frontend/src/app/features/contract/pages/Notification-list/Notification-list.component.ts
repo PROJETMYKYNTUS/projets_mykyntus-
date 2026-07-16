@@ -1,6 +1,6 @@
 // features/contract/pages/notification-list/notification-list.component.ts
 
-import { Component, OnInit, ViewEncapsulation, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { ContractService, ContractNotification } from '../../services/contract.service';
@@ -13,7 +13,6 @@ type FilterType = 'all' | 'unread' | 'warn' | 'mid';
   imports: [CommonModule],
   templateUrl: './Notification-list.component.html',
   styleUrls: ['./Notification-list.component.css'],
-  encapsulation: ViewEncapsulation.None
 })
 export class NotificationListComponent implements OnInit {
 

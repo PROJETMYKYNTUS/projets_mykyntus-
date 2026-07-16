@@ -74,7 +74,7 @@ function lineStatusLabel(status?: string | null): string {
               <button
                 type="button"
                 (click)="goToGlobalPool()"
-                class="text-indigo-400 hover:text-indigo-300 underline"
+                class="text-[var(--electric-blue)] hover:text-indigo-300 underline"
               >
                 Synthèse globale
               </button>.
@@ -83,7 +83,7 @@ function lineStatusLabel(status?: string | null): string {
           <button
             type="button"
             (click)="goToGlobalPool()"
-            class="shrink-0 rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-navy-800 transition-colors"
+            class="shrink-0 rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-input transition-colors"
           >
             Aller à Synthèse globale
           </button>
@@ -97,18 +97,18 @@ function lineStatusLabel(status?: string | null): string {
 
         <!-- Section A: synthèses par périmètre -->
         <app-prime-card title="Synthèses par périmètre" className="p-0">
-          <div class="px-4 py-2.5 border-b border-navy-800 flex flex-wrap items-center gap-2">
+          <div class="px-4 py-2.5 border-b border-default flex flex-wrap items-center gap-2">
             <div class="relative flex-1 min-w-[180px] max-w-xs">
               <app-lucide-icon
                 [icon]="icons.search"
-                className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"
+                className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
               />
               <input
                 type="text"
                 [ngModel]="inboxSearch()"
                 (ngModelChange)="inboxSearch.set($event)"
                 placeholder="Rechercher…"
-                class="w-full rounded-lg border border-navy-700 bg-navy-950 pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
+                class="w-full rounded-lg border border-default bg-input pl-8 pr-3 py-1.5 text-xs text-primary focus:border-indigo-500 focus:outline-none"
               />
             </div>
             <div class="flex items-center gap-1">
@@ -119,7 +119,7 @@ function lineStatusLabel(status?: string | null): string {
                   class="rounded-md px-2 py-1 text-[11px] font-medium transition-colors"
                   [class]="inboxScopeFilter() === f.key
                     ? 'bg-indigo-600 text-white'
-                    : 'bg-navy-900 text-slate-400 hover:text-slate-200'"
+                    : 'bg-card text-muted hover:text-primary'"
                 >
                   {{ f.label }}
                 </button>
@@ -129,7 +129,7 @@ function lineStatusLabel(status?: string | null): string {
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
               <thead>
-                <tr class="border-b border-navy-800 text-left text-slate-400">
+                <tr class="border-b border-default text-left text-muted">
                   <th class="py-3 px-4 font-medium">Période</th>
                   <th class="py-3 px-4 font-medium">Périmètre</th>
                   <th class="py-3 px-4 font-medium">Manager</th>
@@ -143,20 +143,20 @@ function lineStatusLabel(status?: string | null): string {
               <tbody>
                 @if (filteredInbox().length === 0) {
                   <tr>
-                    <td colspan="8" class="py-8 text-center text-slate-500">Aucune synthèse générée.</td>
+                    <td colspan="8" class="py-8 text-center text-muted">Aucune synthèse générée.</td>
                   </tr>
                 } @else {
                   @for (r of filteredInbox(); track r.scopeSynthesisId) {
                     <tr
-                      class="border-b border-navy-800/80 hover:bg-navy-900/80 cursor-pointer"
+                      class="border-b border-default hover:bg-card cursor-pointer"
                       (click)="openScope(r)"
                     >
-                      <td class="py-3 px-4 font-mono text-slate-300">{{ r.period }}</td>
+                      <td class="py-3 px-4 font-mono text-muted">{{ r.period }}</td>
                       <td class="py-3 px-4">
-                        <span class="inline-flex items-center rounded-md bg-navy-800 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-400 mr-2">
+                        <span class="inline-flex items-center rounded-md bg-input px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted mr-2">
                           {{ scopeLevelLabel(r.scopeType) }}
                         </span>
-                        <span class="text-slate-200">{{ r.scopeDisplayName }}</span>
+                        <span class="text-primary">{{ r.scopeDisplayName }}</span>
                       </td>
                       <td class="py-3 px-4">
                         <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" [class]="roleProgressClass(r.managerDecidedLines, r.totalLines)">
@@ -181,14 +181,14 @@ function lineStatusLabel(status?: string | null): string {
                             <span class="inline-flex items-center rounded-full bg-rose-500/15 px-2 py-0.5 font-semibold text-rose-300" title="Rejetées">{{ r.rejectedLines }} rej.</span>
                           }
                           @if (pendingLines(r) > 0) {
-                            <span class="inline-flex items-center rounded-full bg-slate-500/15 px-2 py-0.5 font-semibold text-slate-300" title="En attente d'une décision">{{ pendingLines(r) }} att.</span>
+                            <span class="inline-flex items-center rounded-full bg-slate-500/15 px-2 py-0.5 font-semibold text-muted" title="En attente d'une décision">{{ pendingLines(r) }} att.</span>
                           }
                         </div>
                       </td>
                       <td class="py-3 px-4">
                         <app-lucide-icon
                           [icon]="r.comptaAckAt ? icons.check : icons.clock"
-                          [className]="r.comptaAckAt ? 'w-4 h-4 text-emerald-400' : 'w-4 h-4 text-slate-600'"
+                          [className]="r.comptaAckAt ? 'w-4 h-4 text-[var(--success-text)]' : 'w-4 h-4 text-muted'"
                         />
                       </td>
                       <td class="py-3 px-4">
@@ -196,13 +196,13 @@ function lineStatusLabel(status?: string | null): string {
                           {{ paymentStateLabel(r.paymentState) }}
                         </span>
                         @if (r.approvedLines > 0) {
-                          <span class="ml-1 text-[10px] font-mono text-slate-500" title="Primes payées / validées">{{ r.paidLines }}/{{ r.approvedLines }}</span>
+                          <span class="ml-1 text-[10px] font-mono text-muted" title="Primes payées / validées">{{ r.paidLines }}/{{ r.approvedLines }}</span>
                         }
                       </td>
                       <td class="py-3 px-4 text-right" (click)="$event.stopPropagation()">
                         <div class="flex flex-wrap justify-end gap-2">
                           @if (r.hasFile && canDownloadRow(r)) {
-                            <button type="button" class="inline-flex items-center gap-1 text-xs border border-navy-600 rounded px-2 py-1 text-slate-200 hover:bg-navy-800" (click)="downloadRow(r)">
+                            <button type="button" class="inline-flex items-center gap-1 text-xs border border-default rounded px-2 py-1 text-primary hover:bg-input" (click)="downloadRow(r)">
                               <app-lucide-icon [icon]="icons.download" className="w-3.5 h-3.5" />
                               Excel
                             </button>
@@ -231,7 +231,7 @@ function lineStatusLabel(status?: string | null): string {
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div class="rounded-xl border border-default bg-card p-3">
             <div class="text-xs uppercase tracking-wider text-muted">Approbations</div>
-            <div class="mt-1 text-2xl font-bold text-emerald-400">{{ approvedCount() }}</div>
+            <div class="mt-1 text-2xl font-bold text-[var(--success-text)]">{{ approvedCount() }}</div>
           </div>
           <div class="rounded-xl border border-default bg-card p-3">
             <div class="text-xs uppercase tracking-wider text-muted">Rejets</div>
@@ -247,7 +247,7 @@ function lineStatusLabel(status?: string | null): string {
           <label class="inline-flex items-center gap-2 cursor-pointer text-primary">
             <input
               type="checkbox"
-              class="rounded border-default bg-navy-900 text-indigo-600 focus:ring-indigo-500"
+              class="rounded border-default bg-card text-indigo-600 focus:ring-indigo-500"
               [checked]="mineOnly()"
               (change)="setMineOnly($any($event.target).checked)"
             />
@@ -256,7 +256,7 @@ function lineStatusLabel(status?: string | null): string {
           <label class="inline-flex items-center gap-2 text-muted">
             Type
             <select
-              class="rounded-lg border border-default bg-navy-900 px-2 py-1 text-primary text-xs"
+              class="rounded-lg border border-default bg-card px-2 py-1 text-primary text-xs"
               [value]="actionFilter()"
               (change)="setActionFilter($any($event.target).value)"
             >
@@ -303,9 +303,9 @@ function lineStatusLabel(status?: string | null): string {
                       <td>
                         <span
                           class="text-xs font-semibold"
-                          [class.text-emerald-400]="item.action === 'Approved' || item.action === 'Paid'"
+                          [class.text-[var(--success-text)]]="item.action === 'Approved' || item.action === 'Paid'"
                           [class.text-rose-400]="item.action === 'Rejected' || item.action === 'LineRejected'"
-                          [class.text-amber-400]="item.action === 'Unpaid'"
+                          [class.text-[var(--warning-text)]]="item.action === 'Unpaid'"
                         >
                           {{ actionLabel(item.action) }}
                         </span>
@@ -335,7 +335,7 @@ function lineStatusLabel(status?: string | null): string {
                           <button
                             type="button"
                             (click)="toggleDetail(item)"
-                            class="inline-flex items-center gap-1 rounded-md border border-default px-2 py-1 text-[11px] font-medium text-muted hover:text-primary hover:bg-navy-800/50"
+                            class="inline-flex items-center gap-1 rounded-md border border-default px-2 py-1 text-[11px] font-medium text-muted hover:text-primary hover:bg-input"
                           >
                             @if (expandedLineId() === item.lineId) {
                               <app-lucide-icon [icon]="icons.chevronUp" className="w-3.5 h-3.5" />
@@ -349,7 +349,7 @@ function lineStatusLabel(status?: string | null): string {
                       </td>
                     </tr>
                     @if (item.lineId && expandedLineId() === item.lineId) {
-                      <tr class="bg-navy-950/60">
+                      <tr class="bg-input">
                         <td colspan="7" class="px-6 py-4">
                           @if (detailLoadingId() === item.lineId) {
                             <p class="text-xs text-muted">Chargement du détail…</p>
@@ -358,7 +358,7 @@ function lineStatusLabel(status?: string | null): string {
                               @for (ev of detailHistoryFor(item.lineId); track ev.id) {
                                 <div class="flex flex-wrap items-start gap-3 text-xs border-l-2 border-indigo-500/40 pl-3 py-1">
                                   <span class="font-mono text-muted whitespace-nowrap">{{ formatAt(ev.at) }}</span>
-                                  <span class="font-semibold" [class.text-emerald-400]="ev.action === 'Approved' || ev.action === 'Paid'" [class.text-rose-400]="ev.action === 'LineRejected' || ev.action === 'Unpaid'">
+                                  <span class="font-semibold" [class.text-[var(--success-text)]]="ev.action === 'Approved' || ev.action === 'Paid'" [class.text-rose-400]="ev.action === 'LineRejected' || ev.action === 'Unpaid'">
                                     {{ actionLabel(ev.action === 'LineRejected' ? 'LineRejected' : ev.action) }}
                                   </span>
                                   <span class="text-muted">{{ ev.actorDisplayName ?? ev.actorRole }}</span>
@@ -535,10 +535,10 @@ export class PrimeSynthesisTrackingPageComponent {
   }
 
   roleProgressClass(decided: number, total: number): string {
-    if (total <= 0) return 'bg-slate-500/15 text-slate-400';
+    if (total <= 0) return 'bg-slate-500/15 text-muted';
     if (decided >= total) return 'bg-emerald-500/15 text-emerald-300';
     if (decided > 0) return 'bg-amber-500/10 text-amber-300';
-    return 'bg-slate-500/15 text-slate-400';
+    return 'bg-slate-500/15 text-muted';
   }
 
   paymentStateLabel(state: 'Unpaid' | 'Partial' | 'Paid'): string {
@@ -559,7 +559,7 @@ export class PrimeSynthesisTrackingPageComponent {
       case 'Partial':
         return 'bg-amber-500/10 text-amber-300';
       default:
-        return 'bg-slate-500/15 text-slate-300';
+        return 'bg-slate-500/15 text-muted';
     }
   }
 

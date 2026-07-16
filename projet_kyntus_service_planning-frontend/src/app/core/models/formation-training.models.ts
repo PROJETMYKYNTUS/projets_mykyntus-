@@ -1,5 +1,6 @@
 export type AnimatorKind = 'Internal' | 'External';
 export type TrainingSessionStatus = 'Draft' | 'Scheduled' | 'InProgress' | 'Completed' | 'Cancelled';
+export type TrainingAttendance = 'Pending' | 'Present' | 'Absent';
 export type InitialTrainingStatus =
   | 'EnCours'
   | 'QuizASaisir'
@@ -24,6 +25,26 @@ export interface TrainingSessionDto {
   capacity: number;
   status: TrainingSessionStatus;
   assignmentCount: number;
+}
+
+export interface TrainingAssignmentDto {
+  id: string;
+  sessionId: string;
+  employeeId: string;
+  employeeName: string;
+  status: string;
+  attendance: TrainingAttendance;
+}
+
+/** Session continue où l'employé est bénéficiaire (Mes formations). */
+export interface MyAssignedTrainingSessionDto {
+  sessionId: string;
+  assignmentId: string;
+  title: string;
+  plannedStart: string;
+  plannedEnd: string;
+  status: TrainingSessionStatus;
+  attendance: TrainingAttendance;
 }
 
 export interface InitialTrainingPathDto {
@@ -55,6 +76,12 @@ export const TRAINING_SESSION_STATUS_LABELS: Record<TrainingSessionStatus, strin
   InProgress: 'En cours',
   Completed: 'Terminée',
   Cancelled: 'Annulée',
+};
+
+export const TRAINING_ATTENDANCE_LABELS: Record<TrainingAttendance, string> = {
+  Pending: 'Non pointé',
+  Present: 'Présent',
+  Absent: 'Absent',
 };
 
 /** Parcours initial encore en pipeline (hors production / rejet). */

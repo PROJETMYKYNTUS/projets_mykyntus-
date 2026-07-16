@@ -81,21 +81,21 @@ import { allowanceApiErrorMessage } from '../../lib/allowance-api-error';
     .history-page { padding: 1.25rem 1.5rem 2rem; max-width: 960px; margin: 0 auto; }
     .history-page__header { margin-bottom: 1rem; }
     .history-page__title { margin: 0; font-size: 1.25rem; font-weight: 800; }
-    .history-page__subtitle { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--text-muted, #6b7280); }
+    .history-page__subtitle { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--text-muted); }
     .history-page__filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; margin-bottom: 1rem; }
-    .history-page__filters label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--text-muted, #6b7280); }
-    .history-page__filters input { padding: 0.375rem 0.625rem; border-radius: 0.375rem; border: 1px solid var(--border-default, #d1d5db); }
-    .history-page__search { padding: 0.45rem 1rem; border: none; border-radius: 0.375rem; background: #4F46E5; color: #fff; font-weight: 600; font-size: 0.8125rem; cursor: pointer; }
-    .history-page__error { padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: 0.5rem; background: #FEE2E2; color: #B91C1C; font-size: 0.875rem; }
+    .history-page__filters label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--text-muted); }
+    .history-page__filters input { padding: 0.375rem 0.625rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); }
+    .history-page__search { padding: 0.45rem 1rem; border: none; border-radius: var(--radius-md); background-color: var(--blue-600); background-image: var(--ky-gradient); color: white; font-weight: 600; font-size: 0.8125rem; cursor: pointer; }
+    .history-page__error { padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: var(--radius-md); background: var(--danger-bg); color: var(--danger-text); font-size: 0.875rem; }
     .history-page__loading { display: flex; justify-content: center; padding: 4rem; }
-    .history-page__spinner { width: 1.75rem; height: 1.75rem; border: 3px solid rgba(79,70,229,0.2); border-top-color: #4F46E5; border-radius: 50%; animation: spin 0.6s linear infinite; }
-    .history-page__table-wrap { border: 1px solid #E5E7EB; border-radius: 0.625rem; overflow: hidden; }
+    .history-page__spinner { width: 1.75rem; height: 1.75rem; border: 3px solid color-mix(in srgb, var(--electric-blue) 20%, transparent); border-top-color: var(--electric-blue); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    .history-page__table-wrap { border: 1px solid var(--border-color); border-radius: var(--radius-card); overflow: hidden; }
     .history-page__table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-    .history-page__table th { text-align: left; padding: 0.625rem 0.875rem; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #6b7280); background: #F9FAFB; border-bottom: 1px solid #E5E7EB; }
-    .history-page__table td { padding: 0.75rem 0.875rem; border-bottom: 1px solid #F3F4F6; vertical-align: middle; }
-    .history-page__amount { font-weight: 600; color: #4F46E5; }
-    .history-page__empty { text-align: center; padding: 2rem !important; color: var(--text-muted, #6b7280); }
-    .history-page__count { font-size: 0.75rem; color: var(--text-muted, #6b7280); margin-top: 0.5rem; }
+    .history-page__table th { text-align: left; padding: 0.625rem 0.875rem; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); background: var(--bg-input); border-bottom: 1px solid var(--border-color); }
+    .history-page__table td { padding: 0.75rem 0.875rem; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+    .history-page__amount { font-weight: 600; color: var(--electric-blue); }
+    .history-page__empty { text-align: center; padding: 2rem !important; color: var(--text-muted); }
+    .history-page__count { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; }
     @keyframes spin { to { transform: rotate(360deg); } }
   `],
 })

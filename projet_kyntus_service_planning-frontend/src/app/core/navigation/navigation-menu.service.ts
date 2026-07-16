@@ -27,6 +27,7 @@ import { buildPrimeDepartmentManagerNav } from '../../features/prime/lib/prime-m
 import { ParrainageRoleService } from '../../features/parrainage/state/parrainage-role.service';
 
 import { DocumentationNavigationService } from '../../features/documentation/services/documentation-navigation.service';
+import { roleNamesMatch } from '../org/org-role-assignment';
 
 import { DepartmentContextService } from '../../features/prime/services/allowance-api.service';
 import { AllowanceInboxBadgeService } from '../../features/prime/services/allowance-inbox-badge.service';
@@ -199,9 +200,7 @@ export class NavigationMenuService {
 
     if (!roles || roles.length === 0) return true;
 
-    const r = jwtRole.trim().toLowerCase();
-
-    return roles.some((x) => x.toLowerCase() === r);
+    return roles.some((x) => roleNamesMatch(x, jwtRole));
 
   }
 

@@ -6,6 +6,7 @@ export interface KyntusToast {
   id: number;
   kind: KyntusToastKind;
   message: string;
+  durationMs: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -19,7 +20,7 @@ export class KyntusToastService {
       clearTimeout(this.hideTimer);
       this.hideTimer = null;
     }
-    const toast: KyntusToast = { id: ++this.seq, kind, message };
+    const toast: KyntusToast = { id: ++this.seq, kind, message, durationMs };
     this.active.set(toast);
     this.hideTimer = setTimeout(() => this.dismiss(), durationMs);
   }

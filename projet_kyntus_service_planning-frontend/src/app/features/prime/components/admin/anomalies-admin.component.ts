@@ -33,7 +33,7 @@ import { PrimeUiPermissionsService } from '../../services/prime-ui-permissions.s
         <button
           type="button"
           (click)="reload()"
-          class="px-4 py-2 rounded-lg border border-default bg-card text-primary text-sm font-medium hover:bg-navy-700"
+          class="px-4 py-2 rounded-lg border border-default bg-card text-primary text-sm font-medium hover:bg-input"
         >
           Rafraîchir la liste
         </button>

@@ -10,23 +10,16 @@ export const REFERRAL_STATUS_LABELS: Record<ReferralStatus, string> = {
 };
 
 export const REFERRAL_STATUS_STYLES: Record<ReferralStatus, string> = {
-  SUBMITTED: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-  PROCESSED: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
-  IN_TRAINING: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  APPROVED: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-  REJECTED: 'bg-red-500/10 text-red-500 border-red-500/20',
-  REWARDED: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+  SUBMITTED: 'ky-badge ky-badge--warning',
+  PROCESSED: 'ky-badge ky-badge--info',
+  IN_TRAINING: 'ky-badge ky-badge--warning',
+  APPROVED: 'ky-badge ky-badge--success',
+  REJECTED: 'ky-badge ky-badge--danger',
+  REWARDED: 'ky-badge ky-badge--info',
 };
 
-/** Styles for dense RH list/dashboard cards (slightly stronger contrast). */
-export const REFERRAL_STATUS_STYLES_RH: Record<ReferralStatus, string> = {
-  SUBMITTED: 'bg-blue-500/15 text-blue-300 border-blue-500/40',
-  PROCESSED: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40',
-  IN_TRAINING: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
-  APPROVED: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
-  REJECTED: 'bg-red-500/15 text-red-300 border-red-500/40',
-  REWARDED: 'bg-purple-500/15 text-purple-200 border-purple-500/40',
-};
+/** @deprecated Use REFERRAL_STATUS_STYLES — kept as alias for backward compatibility. */
+export const REFERRAL_STATUS_STYLES_RH: Record<ReferralStatus, string> = REFERRAL_STATUS_STYLES;
 
 export const REFERRAL_PROCESSED_FILTER_LABEL = 'Consulté — attente entrée';
 export const REFERRAL_PROCESSED_KPI_LABEL = 'Consultés — attente entrée';

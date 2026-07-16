@@ -191,7 +191,7 @@ export class DocGenPageComponent implements OnInit, OnDestroy {
         forkJoin({
           users: this.data.getDirectoryUsers(),
           templates: this.data.getDocumentTemplates(),
-          requests: this.api.getAllDocumentRequests().pipe(catchError(() => of([] as DocumentRequestDto[]))),
+          requests: this.api.getAllDocumentRequests(),
         }),
       ).subscribe({
         next: ({ users, templates, requests }) => {
@@ -207,12 +207,16 @@ export class DocGenPageComponent implements OnInit, OnDestroy {
           this.resetSelectionsIfInvalid();
           this.applyPreselectionFromQueryParams();
         },
-        error: () => {
+        error: (err: unknown) => {
           this.users = [];
           this.templates = [];
           this.allDocumentRequests = [];
           this.loading = false;
-          this.loadError = 'Impossible de charger l’annuaire ou les modèles (API PostgreSQL).';
+          const status = err && typeof err === 'object' && 'status' in err ? Number((err as { status: number }).status) : 0;
+          this.loadError =
+            status >= 500
+              ? `Erreur serveur (${status}) au chargement des demandes / annuaire / modèles. Vérifier documentation-backend et PostgreSQL.`
+              : 'Impossible de charger l’annuaire, les modèles ou les demandes (API PostgreSQL).';
         },
       }),
     );

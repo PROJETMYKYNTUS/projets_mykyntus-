@@ -33,7 +33,7 @@
 .week-badge {
   background: var(--navy-700);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   padding: 10px 16px;
   text-align: center;
 }
@@ -64,7 +64,7 @@
 .history-card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 24px;
+  border-radius: var(--radius-card);
   padding: 24px;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07);
 }
@@ -92,7 +92,7 @@
   background: var(--navy-700);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 6px 12px;
   font-size: 0.78rem;
   font-weight: 700;
@@ -111,7 +111,7 @@
 }
 
 .req {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .hint {
@@ -122,7 +122,7 @@
 }
 
 .hint.warn {
-  color: #b45309;
+  color: var(--warning-text);
 }
 
 .week-preview {
@@ -130,7 +130,7 @@
   margin-top: 8px;
   background: var(--bg-input);
   border: 1px solid var(--border-color);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 5px 10px;
   font-size: 0.76rem;
   color: var(--blue-600);
@@ -140,7 +140,7 @@
 .quota-preview {
   background: var(--navy-700);
   border: 1px solid var(--border-color);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   padding: 16px;
   margin-bottom: 18px;
 }
@@ -163,7 +163,7 @@
   padding: 12px 8px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
 }
 
 .quota-shift {
@@ -190,7 +190,7 @@
 
 .alert-error,
 .alert-success {
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   padding: 14px 16px;
   font-size: 0.9rem;
   font-weight: 600;
@@ -198,14 +198,14 @@
 }
 
 .alert-error {
-  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
-  border: 1px solid #fecdd3;
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
   color: var(--text-primary);
 }
 
 .alert-success {
-  background: color-mix(in srgb, #22c55e 12%, var(--bg-card));
-  border: 1px solid #bbf7d0;
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
   color: var(--text-primary);
 }
 
@@ -238,7 +238,7 @@
 .algo-info {
   background: var(--navy-700);
   border: 1px solid var(--border-color);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   padding: 16px;
 }
 
@@ -272,7 +272,7 @@
   text-align: center;
   padding: 40px 20px;
   color: var(--text-muted);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: var(--bg-input);
   border: 1px solid var(--border-color);
 }
@@ -317,8 +317,8 @@
   gap: 14px;
   padding: 16px 18px;
   background: var(--bg-input);
-  border: 1px solid #edf2f7;
-  border-radius: 18px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card);
   cursor: pointer;
   transition: all 0.22s ease;
 }
@@ -358,48 +358,48 @@
 
 .pi-arrow {
   font-size: 1rem;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .status-badge {
   padding: 7px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.78rem;
   font-weight: 700;
   border: 1px solid transparent;
 }
 
 .st-draft {
-  background: color-mix(in srgb, #f97316 12%, var(--bg-card));
+  background: var(--warning-bg);
   color: var(--text-primary);
-  border-color: color-mix(in srgb, #f97316 35%, var(--border-color));
+  border-color: var(--warning-border);
 }
 
 .st-published {
-  background: color-mix(in srgb, #22c55e 12%, var(--bg-card));
+  background: var(--success-bg);
   color: var(--text-primary);
-  border-color: color-mix(in srgb, #22c55e 30%, var(--border-color));
+  border-color: var(--success-border);
 }
 
 .st-archived {
-  background: #f1f5f9;
+  background: var(--bg-input);
   color: var(--text-muted);
-  border-color: #cbd5e1;
+  border-color: var(--border-color);
 }
 
 .btn-delete-planning {
   width: 38px;
   height: 38px;
-  border-radius: 12px;
-  border: 1px solid #fecdd3;
-  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
-  color: #dc2626;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
   font-size: 0.95rem;
   cursor: pointer;
 }
 
 .btn-delete-planning:hover {
-  background: #ffe4e6;
+  background: color-mix(in srgb, var(--danger) 20%, var(--bg-card));
 }
 
 @media (max-width: 1024px) {
@@ -415,7 +415,7 @@
 
   .gen-card,
   .history-card {
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     padding: 20px;
   }
 

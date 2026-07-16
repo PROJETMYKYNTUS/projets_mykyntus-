@@ -20,6 +20,7 @@ import { WorkflowConfigAdminComponent } from '../../components/admin/workflow-co
 import { RbacAdminComponent } from '../../components/admin/rbac-admin.component';
 import { AuditLogsAdminComponent } from '../../components/admin/audit-logs-admin.component';
 import { AnomaliesAdminComponent } from '../../components/admin/anomalies-admin.component';
+import { primeChartRgba, primeChartTheme } from '../../lib/allowance-status';
 
 echarts.use([LineChart, BarChart, PieChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
@@ -46,44 +47,44 @@ type DashboardPayload = Awaited<ReturnType<typeof AdminPrimeService.getDashboard
     } @else {
       @if (!data()) {
         <div class="p-8 flex justify-center">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--soft-blue)]"></div>
         </div>
       } @else {
         @let d = data()!;
         <div class="prime-page-shell space-y-8">
           <div>
             <h1 class="prime-page-title">Dashboard Admin Systeme</h1>
-            <p class="text-slate-400 mt-1">Supervision technique, gouvernance et controle du moteur PRIME.</p>
+            <p class="text-muted mt-1">Supervision technique, gouvernance et controle du moteur PRIME.</p>
           </div>
 
           @if (primeSection.activeAdminSection() === 'dashboard') {
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div class="card-navy p-6 rounded-2xl flex items-center gap-4">
-                <app-lucide-icon [icon]="icons.db" className="w-6 h-6 text-cyan-300" />
+                <app-lucide-icon [icon]="icons.db" className="w-6 h-6 text-[var(--info-text)]" />
                 <div>
-                  <p class="text-slate-400 text-sm">Primes generees</p>
+                  <p class="text-muted text-sm">Primes generees</p>
                   <p class="text-primary text-2xl font-bold">{{ d.kpis.totalGeneratedPrimes }}</p>
                 </div>
               </div>
               <div class="card-navy p-6 rounded-2xl flex items-center gap-4">
-                <app-lucide-icon [icon]="icons.loader" className="w-6 h-6 text-amber-300" />
+                <app-lucide-icon [icon]="icons.loader" className="w-6 h-6 text-[var(--warning-text)]" />
                 <div>
-                  <p class="text-slate-400 text-sm">Validations en cours</p>
-                  <p class="text-white text-2xl font-bold">{{ d.kpis.validationsInProgress }}</p>
+                  <p class="text-muted text-sm">Validations en cours</p>
+                  <p class="text-primary text-2xl font-bold">{{ d.kpis.validationsInProgress }}</p>
                 </div>
               </div>
               <div class="card-navy p-6 rounded-2xl flex items-center gap-4">
-                <app-lucide-icon [icon]="icons.alert" className="w-6 h-6 text-rose-300" />
+                <app-lucide-icon [icon]="icons.alert" className="w-6 h-6 text-[var(--danger-text)]" />
                 <div>
-                  <p class="text-slate-400 text-sm">Erreurs detectees</p>
-                  <p class="text-white text-2xl font-bold">{{ d.kpis.errorCount }}</p>
+                  <p class="text-muted text-sm">Erreurs detectees</p>
+                  <p class="text-primary text-2xl font-bold">{{ d.kpis.errorCount }}</p>
                 </div>
               </div>
               <div class="card-navy p-6 rounded-2xl flex items-center gap-4">
-                <app-lucide-icon [icon]="icons.clock" className="w-6 h-6 text-emerald-300" />
+                <app-lucide-icon [icon]="icons.clock" className="w-6 h-6 text-[var(--success-text)]" />
                 <div>
-                  <p class="text-slate-400 text-sm">Temps moyen traitement</p>
-                  <p class="text-white text-2xl font-bold">{{ d.kpis.avgProcessingTimeSec }}s</p>
+                  <p class="text-muted text-sm">Temps moyen traitement</p>
+                  <p class="text-primary text-2xl font-bold">{{ d.kpis.avgProcessingTimeSec }}s</p>
                 </div>
               </div>
             </div>
@@ -104,17 +105,17 @@ type DashboardPayload = Awaited<ReturnType<typeof AdminPrimeService.getDashboard
               <app-prime-card title="Alertes systeme" className="lg:col-span-2">
                 <div class="space-y-3">
                   @for (alert of d.alerts; track alert.id) {
-                    <div class="rounded-xl border border-default bg-navy-900 p-4">
+                    <div class="rounded-xl border border-default bg-card p-4">
                       <div class="flex items-center justify-between">
-                        <span class="text-slate-200 font-medium">{{ alert.type }}</span>
-                        <span class="text-xs text-slate-400">{{ alert.date }}</span>
+                        <span class="text-primary font-medium">{{ alert.type }}</span>
+                        <span class="text-xs text-muted">{{ alert.date }}</span>
                       </div>
-                      <p class="text-slate-300 mt-1">{{ alert.message }}</p>
+                      <p class="text-muted mt-1">{{ alert.message }}</p>
                       <p
                         [class]="
                           alert.severity === 'Haute'
-                            ? 'text-rose-300 text-xs mt-2'
-                            : 'text-amber-300 text-xs mt-2'
+                            ? 'text-[var(--danger-text)] text-xs mt-2'
+                            : 'text-[var(--warning-text)] text-xs mt-2'
                         "
                       >
                         Severite: {{ alert.severity }}
@@ -154,27 +155,28 @@ export class AdminDashboardComponent implements OnInit {
   readonly volumeOptions = computed(() => {
     const d = this.data();
     if (!d) return {};
+    const c = primeChartTheme();
     return {
       grid: { left: 0, right: 0, top: 10, bottom: 0, containLabel: true },
       tooltip: {
-        backgroundColor: '#0f172a',
-        borderColor: '#334155',
+        backgroundColor: c.tooltipBg,
+        borderColor: c.tooltipBorder,
         borderWidth: 1,
-        borderRadius: 8,
+        borderRadius: c.radiusMd,
       },
       xAxis: {
         type: 'category',
         data: d.charts.volumeByMonth.map((x) => x.month),
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: '#94a3b8' },
+        axisLabel: { color: c.axisLabel },
       },
       yAxis: {
         type: 'value',
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: '#94a3b8' },
-        splitLine: { lineStyle: { color: '#334155', type: 'dashed' } },
+        axisLabel: { color: c.axisLabel },
+        splitLine: { lineStyle: { color: c.splitLine, type: 'dashed' } },
       },
       series: [
         {
@@ -182,8 +184,8 @@ export class AdminDashboardComponent implements OnInit {
           data: d.charts.volumeByMonth.map((x) => x.value),
           smooth: true,
           symbol: 'none',
-          lineStyle: { color: '#22d3ee', width: 2 },
-          areaStyle: { color: '#22d3ee33' },
+          lineStyle: { color: c.info, width: 2 },
+          areaStyle: { color: primeChartRgba('--soft-blue-rgb', 0.2) },
         },
       ],
     };
@@ -192,20 +194,21 @@ export class AdminDashboardComponent implements OnInit {
   readonly validationBarOptions = computed(() => {
     const d = this.data();
     if (!d) return {};
+    const c = primeChartTheme();
     return {
       grid: { left: 0, right: 0, top: 10, bottom: 0, containLabel: true },
       tooltip: {
-        backgroundColor: '#0f172a',
-        borderColor: '#334155',
+        backgroundColor: c.tooltipBg,
+        borderColor: c.tooltipBorder,
         borderWidth: 1,
-        borderRadius: 8,
+        borderRadius: c.radiusMd,
       },
       xAxis: {
         type: 'category',
         data: d.charts.validationRate.map((x) => x.month),
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: '#94a3b8' },
+        axisLabel: { color: c.axisLabel },
       },
       yAxis: {
         type: 'value',
@@ -213,14 +216,14 @@ export class AdminDashboardComponent implements OnInit {
         max: 100,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: '#94a3b8' },
-        splitLine: { lineStyle: { color: '#334155', type: 'dashed' } },
+        axisLabel: { color: c.axisLabel },
+        splitLine: { lineStyle: { color: c.splitLine, type: 'dashed' } },
       },
       series: [
         {
           type: 'bar',
           data: d.charts.validationRate.map((x) => x.value),
-          itemStyle: { color: '#60a5fa', borderRadius: [4, 4, 0, 0] },
+          itemStyle: { color: c.info, borderRadius: c.barRadiusTop },
         },
       ],
     };
@@ -229,14 +232,15 @@ export class AdminDashboardComponent implements OnInit {
   readonly pieOptions = computed(() => {
     const d = this.data();
     if (!d) return {};
-    const colors = ['#22d3ee', '#818cf8', '#34d399'];
+    const c = primeChartTheme();
+    const colors = [c.info, c.accent, c.success];
     return {
       tooltip: {
         trigger: 'item',
-        backgroundColor: '#0f172a',
-        borderColor: '#334155',
+        backgroundColor: c.tooltipBg,
+        borderColor: c.tooltipBorder,
         borderWidth: 1,
-        borderRadius: 8,
+        borderRadius: c.radiusMd,
       },
       series: [
         {

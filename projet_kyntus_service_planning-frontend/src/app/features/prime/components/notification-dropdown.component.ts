@@ -12,8 +12,8 @@ import { I18nService } from '../state/i18n.service';
           class="absolute right-4 top-16 z-50 w-80 card-navy shadow-xl"
           (click)="$event.stopPropagation()"
         >
-        <div class="px-4 py-3 border-b border-navy-800 flex items-center justify-between">
-          <span class="text-sm font-semibold text-white">
+        <div class="px-4 py-3 border-b border-default flex items-center justify-between">
+          <span class="text-sm font-semibold text-primary">
             {{ i18n.t('topbar.notifications') }}
           </span>
           <button
@@ -26,23 +26,23 @@ import { I18nService } from '../state/i18n.service';
         </div>
         <div class="max-h-80 overflow-y-auto">
           @if (notifications.notifications().length === 0) {
-            <div class="px-4 py-6 text-sm text-slate-400 text-center">
+            <div class="px-4 py-6 text-sm text-muted text-center">
               Aucune notification
             </div>
           } @else {
-            <ul class="divide-y divide-navy-800">
+            <ul class="divide-y divide-default">
               @for (n of notifications.notifications(); track n.id) {
-                <li class="px-4 py-3 flex items-start gap-2 hover:bg-navy-800">
+                <li class="px-4 py-3 flex items-start gap-2 hover:bg-input">
                   <span
                     class="mt-1 w-2 h-2 rounded-full"
-                    [class.bg-slate-300]="n.read"
+                    [class.bg-input]="n.read"
                     [class.bg-emerald-500]="!n.read"
                   ></span>
                   <div>
-                    <p class="text-sm text-slate-200">
+                    <p class="text-sm text-primary">
                       {{ i18n.t('notifications.' + n.type) }}
                     </p>
-                    <p class="text-xs text-slate-500 mt-1">
+                    <p class="text-xs text-muted mt-1">
                       {{ n.createdAt.toLocaleString() }}
                     </p>
                     @if (!n.read) {

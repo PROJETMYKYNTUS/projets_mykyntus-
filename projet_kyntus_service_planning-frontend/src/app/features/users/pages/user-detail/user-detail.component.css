@@ -29,7 +29,7 @@
   display: inline-flex;
   width: fit-content;
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--soft-blue) 18%, var(--bg-card));
   color: var(--blue-600);
   font-size: 0.78rem;
@@ -57,7 +57,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 
@@ -74,8 +74,8 @@
 }
 
 .btn-danger {
-  color: color-mix(in srgb, #ef4444 85%, var(--text-primary));
-  border-color: color-mix(in srgb, #ef4444 35%, var(--border-color));
+  color: color-mix(in srgb, var(--danger) 85%, var(--text-primary));
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border-color));
 }
 
 .card {
@@ -84,7 +84,7 @@
 
 .state-box {
   padding: 32px 24px;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   text-align: center;
 }
 
@@ -111,7 +111,7 @@
 .avatar {
   width: 76px;
   height: 76px;
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--soft-blue) 20%, var(--bg-card));
   display: flex;
   align-items: center;
@@ -157,13 +157,13 @@
 .section-heading p {
   margin: 0;
   font-size: 0.88rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .org-breadcrumb {
   margin-bottom: 16px;
   padding: 14px 16px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--soft-blue) 10%, var(--bg-card));
   border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
   font-size: 0.95rem;
@@ -183,13 +183,13 @@
 .section-empty-hint {
   margin: 0;
   padding: 12px 4px 0;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 
 .level-badge.expertise {
-  background: color-mix(in srgb, #6366f1 12%, var(--bg-card));
-  border-color: color-mix(in srgb, #6366f1 35%, var(--border-color));
+  background: color-mix(in srgb, var(--electric-blue) 12%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--electric-blue) 35%, var(--border-color));
 }
 
 .org-grid {
@@ -197,7 +197,7 @@
 }
 
 .info-item {
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   padding: 18px;
   background: color-mix(in srgb, var(--bg-input) 55%, var(--bg-card));
   border: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
@@ -210,7 +210,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .info-value {
@@ -223,7 +223,7 @@
 }
 
 .info-value--empty {
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   font-weight: 600;
 }
 
@@ -233,7 +233,7 @@
   gap: 12px 20px;
   margin-top: 14px;
   font-size: 0.88rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .profile-quick-stats span {
@@ -248,7 +248,7 @@
   display: inline-flex;
   align-items: center;
   padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -261,25 +261,25 @@
 
 .level-badge {
   padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.82rem;
   font-weight: 800;
   border: 1px solid transparent;
 }
 
 .lv-1 {
-  background: color-mix(in srgb, #3b82f6 12%, var(--bg-card));
-  border-color: color-mix(in srgb, #3b82f6 30%, var(--border-color));
+  background: color-mix(in srgb, var(--electric-blue) 12%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--electric-blue) 30%, var(--border-color));
 }
 
 .lv-2 {
-  background: color-mix(in srgb, #f97316 12%, var(--bg-card));
-  border-color: color-mix(in srgb, #f97316 35%, var(--border-color));
+  background: color-mix(in srgb, var(--warning) 12%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--border-color));
 }
 
 .lv-3 {
-  background: color-mix(in srgb, #8b5cf6 10%, var(--bg-card));
-  border-color: color-mix(in srgb, #8b5cf6 28%, var(--border-color));
+  background: color-mix(in srgb, var(--electric-blue) 10%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--electric-blue) 28%, var(--border-color));
 }
 
 .status-indicator {
@@ -287,11 +287,12 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.82rem;
   font-weight: 700;
-  background: color-mix(in srgb, #22c55e 12%, var(--bg-card));
-  border: 1px solid color-mix(in srgb, #22c55e 30%, var(--border-color));
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: var(--success-text);
 }
 
 .status-indicator::before {
@@ -303,8 +304,9 @@
 }
 
 .status-indicator.inactive {
-  background: color-mix(in srgb, #ef4444 12%, var(--bg-card));
-  border-color: color-mix(in srgb, #ef4444 30%, var(--border-color));
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: var(--danger-text);
 }
 
 .tags-container {
@@ -317,7 +319,7 @@
   display: inline-flex;
   align-items: center;
   padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.8rem;
   font-weight: 700;
   border: 1px solid var(--border-color);
@@ -328,7 +330,7 @@
 }
 
 .tag-sub {
-  background: color-mix(in srgb, #8b5cf6 8%, var(--bg-card));
+  background: color-mix(in srgb, var(--electric-blue) 8%, var(--bg-card));
 }
 
 .rotation-timeline {
@@ -343,7 +345,7 @@
 .rotation-entry {
   position: relative;
   padding: 14px 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   background: color-mix(in srgb, var(--bg-card) 92%, var(--soft-blue) 8%);
 }
@@ -361,7 +363,7 @@
 }
 
 .rotation-entry--override {
-  border-color: color-mix(in srgb, #f59e0b 40%, var(--border-color));
+  border-color: var(--warning-border);
 }
 
 .rotation-entry-header {
@@ -375,7 +377,7 @@
 .rotation-badge {
   display: inline-flex;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -383,13 +385,13 @@
 }
 
 .rotation-badge--current {
-  background: color-mix(in srgb, #22c55e 15%, var(--bg-card));
-  color: #15803d;
+  background: var(--success-bg);
+  color: var(--success-text);
 }
 
 .rotation-badge--override {
-  background: color-mix(in srgb, #f59e0b 18%, var(--bg-card));
-  color: #b45309;
+  background: var(--warning-bg);
+  color: var(--warning-text);
 }
 
 .rotation-meta {
@@ -403,7 +405,7 @@
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   margin-bottom: 2px;
 }
 
@@ -415,7 +417,7 @@
 .rotation-reason {
   margin: 10px 0 0;
   font-size: 0.88rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   font-style: italic;
 }
 

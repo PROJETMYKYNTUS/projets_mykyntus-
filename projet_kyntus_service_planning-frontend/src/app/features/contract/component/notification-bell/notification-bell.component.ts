@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewEncapsulation, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { interval, Subscription } from 'rxjs';
@@ -15,7 +15,6 @@ export type UnifiedNotification =
   imports: [CommonModule],
   templateUrl: './notification-bell.component.html',
   styleUrls: ['./notification-bell.component.css'],
-  encapsulation: ViewEncapsulation.None
 })
 export class NotificationBellComponent implements OnInit, OnDestroy {
 

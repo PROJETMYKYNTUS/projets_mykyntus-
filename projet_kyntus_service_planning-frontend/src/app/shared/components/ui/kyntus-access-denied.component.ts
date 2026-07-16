@@ -37,27 +37,27 @@ import { LucideIconComponent } from '../../lucide-icon.component';
       width: 100%;
       text-align: center;
       padding: 2rem 1.75rem;
-      border-radius: 1rem;
-      border: 1px solid var(--border-default, #334155);
-      background: var(--bg-card, #0f172a);
-      box-shadow: 0 8px 32px color-mix(in srgb, #000 25%, transparent);
+      border-radius: var(--radius-card, 0.875rem);
+      border: 1px solid var(--border-color, #e2e8f0);
+      background: var(--bg-card, #ffffff);
+      box-shadow: var(--shadow-3, 0 12px 32px rgb(2 6 23 / 0.16));
     }
     :host ::ng-deep .kyntus-access-icon {
       width: 2.5rem;
       height: 2.5rem;
-      color: #f87171;
+      color: var(--danger-text, #b91c1c);
       margin: 0 auto 1rem;
     }
     .kyntus-access-title {
       margin: 0 0 0.5rem;
       font-size: 1.25rem;
       font-weight: 700;
-      color: var(--text-primary, #f8fafc);
+      color: var(--text-primary, #0f172a);
     }
     .kyntus-access-msg {
       margin: 0 0 1.25rem;
       font-size: 0.875rem;
-      color: var(--text-muted, #94a3b8);
+      color: var(--text-muted, #64748b);
       line-height: 1.5;
     }
     .kyntus-access-actions {
@@ -70,23 +70,24 @@ import { LucideIconComponent } from '../../lucide-icon.component';
       display: inline-flex;
       align-items: center;
       padding: 0.5rem 1rem;
-      border-radius: 0.5rem;
+      border-radius: var(--radius-md, 0.5rem);
       font-size: 0.8125rem;
       font-weight: 600;
       text-decoration: none;
       transition: background 0.15s;
     }
     .kyntus-access-btn.primary {
-      background: var(--electric-blue, #2563eb);
-      color: #fff;
+      background: var(--blue-600, #1e3a8a);
+      background-image: var(--ky-gradient, linear-gradient(135deg, #1e4fd8, #3b82f6));
+      color: #f1f5f9;
     }
     .kyntus-access-btn.primary:hover { filter: brightness(1.08); }
     .kyntus-access-btn.secondary {
-      border: 1px solid var(--border-default, #334155);
-      color: var(--text-primary, #e2e8f0);
+      border: 1px solid var(--border-color, #e2e8f0);
+      color: var(--text-primary, #0f172a);
     }
     .kyntus-access-btn.secondary:hover {
-      background: color-mix(in srgb, var(--bg-input, #1e293b) 80%, transparent);
+      background: var(--bg-input, #f1f5f9);
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,

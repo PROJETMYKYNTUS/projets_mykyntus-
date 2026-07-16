@@ -22,33 +22,33 @@ import { LucideIconComponent } from '../../lucide-icon.component';
       align-items: center;
       gap: 0.75rem;
       padding: 1.25rem 1.5rem;
-      border-radius: 0.75rem;
-      border: 1px solid color-mix(in srgb, #ef4444 40%, transparent);
-      background: color-mix(in srgb, #ef4444 8%, transparent);
+      border-radius: var(--radius-card, 0.875rem);
+      border: 1px solid var(--danger-border);
+      background: var(--danger-bg);
       text-align: center;
     }
     :host ::ng-deep .kyntus-error-icon {
       width: 1.5rem;
       height: 1.5rem;
-      color: #f87171;
+      color: var(--danger-text);
     }
     .kyntus-error-msg {
       margin: 0;
       font-size: 0.875rem;
-      color: #fecaca;
+      color: var(--danger-text);
     }
     .kyntus-error-retry {
-      border: 1px solid color-mix(in srgb, #ef4444 35%, transparent);
+      border: 1px solid var(--danger-border);
       background: transparent;
-      color: #fca5a5;
+      color: var(--danger-text);
       font-size: 0.8125rem;
-      font-weight: 500;
+      font-weight: 600;
       padding: 0.375rem 0.875rem;
-      border-radius: 0.5rem;
+      border-radius: var(--radius-md, 0.5rem);
       cursor: pointer;
     }
     .kyntus-error-retry:hover {
-      background: color-mix(in srgb, #ef4444 12%, transparent);
+      background: color-mix(in srgb, var(--danger, #dc2626) 14%, transparent);
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,

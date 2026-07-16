@@ -47,9 +47,9 @@ export interface KyntusTableColumn {
   `,
   styles: [`
     .kyntus-data-table-wrap {
-      border-radius: 0.75rem;
-      border: 1px solid var(--border-default, #1e293b);
-      background: var(--bg-card, #0f172a);
+      border-radius: var(--radius-card, 0.875rem);
+      border: 1px solid var(--border-color, #e2e8f0);
+      background: var(--bg-card, #ffffff);
       overflow: hidden;
     }
     .kyntus-table-scroll {
@@ -67,21 +67,21 @@ export interface KyntusTableColumn {
       font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
-      color: var(--text-muted, #94a3b8);
-      border-bottom: 1px solid var(--border-default, #1e293b);
-      background: color-mix(in srgb, var(--bg-card, #0f172a) 80%, #1e293b);
+      color: var(--text-muted, #64748b);
+      border-bottom: 1px solid var(--border-color, #e2e8f0);
+      background: var(--bg-input, #f1f5f9);
     }
     .kyntus-data-table td {
       padding: 0.75rem 1rem;
-      color: var(--text-primary, #f8fafc);
-      border-bottom: 1px solid var(--border-default, #1e293b);
+      color: var(--text-primary, #0f172a);
+      border-bottom: 1px solid var(--border-color, #e2e8f0);
       vertical-align: top;
     }
     .kyntus-data-table tbody tr:last-child td {
       border-bottom: none;
     }
     .kyntus-data-table tbody tr:hover td {
-      background: color-mix(in srgb, #3b82f6 4%, transparent);
+      background: color-mix(in srgb, var(--soft-blue, #3b82f6) 4%, transparent);
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,

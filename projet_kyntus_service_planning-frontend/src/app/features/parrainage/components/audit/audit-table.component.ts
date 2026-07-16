@@ -52,7 +52,7 @@ import type { JournalRow, SortKey } from '../../audit/audit-types';
               <td class="px-3 py-3"><app-action-nature-badge [action]="r.action" /></td>
               <td class="px-3 py-3 text-primary max-w-[180px] truncate" [title]="r.item">{{ r.item }}</td>
               <td class="px-3 py-3">
-                <button type="button" (click)="view.emit(r)" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-blue-500/30 bg-blue-600/15 hover:bg-blue-500/30 text-blue-200 text-xs transition-all duration-200">
+                <button type="button" (click)="view.emit(r)" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--info-border)] bg-[var(--info-bg)] hover:border-[var(--soft-blue)] text-[var(--info-text)] text-xs transition-all duration-200">
                   <app-lucide-icon [icon]="eyeIcon" className="w-3.5 h-3.5" />
                   Voir
                 </button>

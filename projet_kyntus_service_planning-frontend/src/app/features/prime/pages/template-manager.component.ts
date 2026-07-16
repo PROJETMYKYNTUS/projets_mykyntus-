@@ -59,7 +59,7 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
             <button
               type="button"
               (click)="clear()"
-              class="inline-flex items-center gap-2 rounded-lg border border-default bg-card px-4 py-2.5 text-sm font-medium text-primary hover:bg-navy-700/40"
+              class="inline-flex items-center gap-2 rounded-lg border border-default bg-card px-4 py-2.5 text-sm font-medium text-primary hover:bg-input/40"
             >
               <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
               Réinitialiser l’analyse
@@ -226,7 +226,7 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
             <table class="w-full border-collapse text-xs">
               <tbody>
                 @for (row of p.previewRows; track $index) {
-                  <tr class="border-b border-default/80 hover:bg-navy-700/20">
+                  <tr class="border-b border-default/80 hover:bg-input/20">
                     @for (cell of row.cells; track $index) {
                       <td class="max-w-[10rem] truncate border-r border-default/50 px-2 py-1.5 text-primary whitespace-nowrap">
                         {{ cell || '·' }}
@@ -321,7 +321,7 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
         } @else {
           <ul class="divide-y divide-default rounded-lg border border-default overflow-hidden">
             @for (t of stored(); track t.id) {
-              <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-navy-700/25">
+              <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-input/25">
                 <div class="min-w-0">
                   <div class="font-semibold text-primary truncate">{{ t.displayName }}</div>
                   <div class="text-xs text-muted truncate">{{ t.fileName }} · {{ formatSavedAt(t.savedAt) }}</div>

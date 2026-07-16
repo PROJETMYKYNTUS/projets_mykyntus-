@@ -1,0 +1,15 @@
+NAMES                               STATUS
+kyntus_planning_frontend            Up 22 minutes
+kyntus_auth_frontend                Up 22 minutes
+kyntus_gateway                      Up 22 minutes
+kyntus_parrainage_backend           Up 23 minutes (healthy)
+kyntus_formation_backend            Up 23 minutes
+kyntus_prime_backend                Up 23 minutes (healthy)
+kyntus_planning_backend             Up 23 minutes (healthy)
+kyntus_employee_directory_backend   Up 23 minutes (healthy)
+kyntus_documentation_backend        Up 23 minutes
+kyntus_auth_backend                 Up 23 minutes (healthy)
+kyntus_conge_backend                Up 23 minutes
+kyntus_db                           Up 6 hours (healthy)
+kyntus_rabbitmq                     Up 6 hours (healthy)
+kyntus_pgadmin                      Up 6 hours

@@ -8,9 +8,10 @@
 }
 
 .pv-validation .nav-btn {
-  border: 1px solid var(--ky-border, #e2e8f0);
-  background: #fff;
-  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: var(--radius-md, 0.5rem);
   padding: 0.5rem;
   cursor: pointer;
 }
@@ -28,13 +29,13 @@
 }
 
 .pv-validation .week-range {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 
 .pv-validation .week-hint {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .pv-validation .filters-row {
@@ -62,23 +63,23 @@
 .pv-validation .status-pill {
   display: inline-block;
   padding: 0.2rem 0.55rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill, 999px);
   font-size: 0.75rem;
   font-weight: 600;
 }
 
-.pv-validation .st-draft { background: #fef3c7; color: #92400e; }
-.pv-validation .st-published { background: #d1fae5; color: #065f46; }
-.pv-validation .st-missing { background: #e2e8f0; color: #475569; }
-.pv-validation .st-missing-cfg { background: #fee2e2; color: #991b1b; }
+.pv-validation .st-draft { background: var(--warning-bg); color: var(--warning-text); }
+.pv-validation .st-published { background: var(--success-bg); color: var(--success-text); }
+.pv-validation .st-missing { background: var(--bg-input); color: var(--text-muted); }
+.pv-validation .st-missing-cfg { background: var(--danger-bg); color: var(--danger-text); }
 
 .pv-validation .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.85rem; }
-.pv-validation .empty { text-align: center; color: #94a3b8; padding: 1.5rem; }
-.pv-validation .ok { color: #059669; font-size: 0.85rem; }
-.pv-validation .muted { color: #94a3b8; font-size: 0.85rem; }
-.pv-validation .alert-error { background: #fef2f2; color: #b91c1c; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; }
-.pv-validation .alert-success { background: #ecfdf5; color: #047857; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; }
+.pv-validation .empty { text-align: center; color: var(--text-muted); padding: 1.5rem; }
+.pv-validation .ok { color: var(--success-text); font-size: 0.85rem; }
+.pv-validation .muted { color: var(--text-muted); font-size: 0.85rem; }
+.pv-validation .alert-error { background: var(--danger-bg); color: var(--danger-text); padding: 0.75rem; border-radius: var(--radius-md, 0.5rem); margin-bottom: 0.75rem; }
+.pv-validation .alert-success { background: var(--success-bg); color: var(--success-text); padding: 0.75rem; border-radius: var(--radius-md, 0.5rem); margin-bottom: 0.75rem; }
 .pv-validation .pv-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.pv-validation .hint { color: #64748b; font-size: 0.85rem; }
+.pv-validation .hint { color: var(--text-muted); font-size: 0.85rem; }
 .pv-validation .table-wrap { overflow-x: auto; }
 .pv-validation .chk { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }

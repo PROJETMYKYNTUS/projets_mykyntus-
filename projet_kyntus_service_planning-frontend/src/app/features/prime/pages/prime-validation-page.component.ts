@@ -326,7 +326,7 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
                                 type="button"
                                 [disabled]="busyId() === item.id"
                                 (click)="approve(item.id)"
-                                class="p-1.5 text-muted hover:text-emerald-400 hover:bg-navy-800 rounded-md transition-colors border border-transparent hover:border-emerald-500/40 disabled:opacity-50"
+                                class="p-1.5 text-muted hover:text-emerald-400 hover:bg-input rounded-md transition-colors border border-transparent hover:border-emerald-500/40 disabled:opacity-50"
                                 title="Approuver"
                               >
                                 <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
@@ -335,7 +335,7 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
                                 type="button"
                                 [disabled]="busyId() === item.id"
                                 (click)="startReject(item)"
-                                class="p-1.5 text-muted hover:text-rose-400 hover:bg-navy-800 rounded-md transition-colors border border-transparent hover:border-rose-500/40 disabled:opacity-50"
+                                class="p-1.5 text-muted hover:text-rose-400 hover:bg-input rounded-md transition-colors border border-transparent hover:border-rose-500/40 disabled:opacity-50"
                                 title="Rejeter (motif obligatoire)"
                               >
                                 <app-lucide-icon [icon]="icons.x" className="w-4 h-4" />
@@ -343,7 +343,7 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
                             </div>
                             @if (rejectingFicheId() === item.id) {
                               <div
-                                class="w-full max-w-xs text-left rounded-lg border border-default bg-navy-900/80 p-3 space-y-2"
+                                class="w-full max-w-xs text-left rounded-lg border border-default bg-card p-3 space-y-2"
                               >
                                 <label
                                   class="text-[11px] text-muted"
@@ -355,7 +355,7 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
                                   [id]="'rej-reason-' + item.id"
                                   name="rejectReason"
                                   rows="3"
-                                  class="w-full text-xs bg-navy-950 border border-default rounded-lg p-2 text-primary resize-none outline-none focus:border-rose-500/50"
+                                  class="w-full text-xs bg-input border border-default rounded-lg p-2 text-primary resize-none outline-none focus:border-rose-500/50"
                                   [value]="rejectReason()"
                                   (input)="onRejectReasonInput($event)"
                                   placeholder="Obligatoire"
@@ -363,7 +363,7 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
                                 <div class="flex justify-end gap-2">
                                   <button
                                     type="button"
-                                    class="whitespace-nowrap rounded-lg border border-default px-3 py-2 text-xs font-semibold text-muted hover:bg-navy-800 disabled:opacity-50"
+                                    class="whitespace-nowrap rounded-lg border border-default px-3 py-2 text-xs font-semibold text-muted hover:bg-input disabled:opacity-50"
                                     [disabled]="busyId() === item.id"
                                     (click)="cancelReject()"
                                   >
@@ -398,7 +398,7 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
                       </td>
                     </tr>
                     @if (expandedFicheId() === item.id) {
-                      <tr class="bg-navy-950/60">
+                      <tr class="bg-input">
                         <td colspan="6" class="px-6 py-4">
                           @if (historyLoadingId() === item.id) {
                             <p class="text-xs text-muted">Chargement de l'historique…</p>
@@ -778,7 +778,7 @@ export class PrimeValidationPageComponent {
 
   historyButtonClass(ficheId: string): string {
     const base =
-      'inline-flex items-center gap-1 rounded-md border border-default px-2 py-1 text-[11px] font-medium text-muted hover:text-primary hover:bg-navy-800/50';
+      'inline-flex items-center gap-1 rounded-md border border-default px-2 py-1 text-[11px] font-medium text-muted hover:text-primary hover:bg-input/50';
     return this.expandedFicheId() === ficheId ? `${base} border-indigo-500/50` : base;
   }
 

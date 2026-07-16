@@ -105,24 +105,24 @@ const PAGE_SIZE = 8;
         @switch (auditSection.section()) {
           @case ('dashboard') {
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div class="card-navy p-4 bg-gradient-to-br from-blue-950/40 to-navy-900 border border-blue-900/40 shadow-sm hover:shadow-[0_10px_25px_rgba(37,99,235,0.18)] hover:scale-[1.02] transition-all duration-300">
-                <div class="flex items-center gap-2 text-primary"><app-lucide-icon [icon]="dbIcon" className="w-4 h-4 text-blue-300" /><p class="text-xs">Nombre total</p></div>
-                <p class="text-2xl text-white font-bold mt-2">{{ rows().length }}</p>
+              <div class="card-navy p-4 border border-[var(--info-border)] bg-[var(--info-bg)] shadow-sm hover:shadow-[var(--shadow-2)] hover:scale-[1.02] transition-all duration-300">
+                <div class="flex items-center gap-2 text-primary"><app-lucide-icon [icon]="dbIcon" className="w-4 h-4 text-[var(--soft-blue)]" /><p class="text-xs">Nombre total</p></div>
+                <p class="text-2xl text-primary font-bold mt-2">{{ rows().length }}</p>
                 <p class="text-xs text-muted">événements journal</p>
               </div>
-              <div class="card-navy p-4 bg-gradient-to-br from-emerald-950/35 to-navy-900 border border-emerald-900/40 shadow-sm hover:shadow-[0_10px_25px_rgba(16,185,129,0.16)] hover:scale-[1.02] transition-all duration-300">
-                <div class="flex items-center gap-2 text-primary"><app-lucide-icon [icon]="checkIcon" className="w-4 h-4 text-emerald-300" /><p class="text-xs">Infos (gravité)</p></div>
-                <p class="text-2xl text-white font-bold mt-2">{{ countSeverity('INFO') }}</p>
+              <div class="card-navy p-4 border border-[var(--success-border)] bg-[var(--success-bg)] shadow-sm hover:shadow-[var(--shadow-2)] hover:scale-[1.02] transition-all duration-300">
+                <div class="flex items-center gap-2 text-primary"><app-lucide-icon [icon]="checkIcon" className="w-4 h-4 text-[var(--success-text)]" /><p class="text-xs">Infos (gravité)</p></div>
+                <p class="text-2xl text-primary font-bold mt-2">{{ countSeverity('INFO') }}</p>
                 <p class="text-xs text-muted">niveau INFO</p>
               </div>
-              <div class="card-navy p-4 bg-gradient-to-br from-amber-950/35 to-navy-900 border border-amber-900/40 shadow-sm hover:shadow-[0_10px_25px_rgba(245,158,11,0.16)] hover:scale-[1.02] transition-all duration-300">
-                <div class="flex items-center gap-2 text-primary"><app-lucide-icon [icon]="clockIcon" className="w-4 h-4 text-amber-300" /><p class="text-xs">Avertissements</p></div>
-                <p class="text-2xl text-white font-bold mt-2">{{ countSeverity('WARNING') }}</p>
+              <div class="card-navy p-4 border border-[var(--warning-border)] bg-[var(--warning-bg)] shadow-sm hover:shadow-[var(--shadow-2)] hover:scale-[1.02] transition-all duration-300">
+                <div class="flex items-center gap-2 text-primary"><app-lucide-icon [icon]="clockIcon" className="w-4 h-4 text-[var(--warning-text)]" /><p class="text-xs">Avertissements</p></div>
+                <p class="text-2xl text-primary font-bold mt-2">{{ countSeverity('WARNING') }}</p>
                 <p class="text-xs text-muted">WARNING</p>
               </div>
-              <div class="card-navy p-4 bg-gradient-to-br from-rose-950/35 to-navy-900 border border-rose-900/40 shadow-sm hover:shadow-[0_10px_25px_rgba(244,63,94,0.16)] hover:scale-[1.02] transition-all duration-300">
-                <div class="flex items-center gap-2 text-primary"><app-lucide-icon [icon]="alertIcon" className="w-4 h-4 text-rose-300" /><p class="text-xs">Critiques</p></div>
-                <p class="text-2xl text-white font-bold mt-2">{{ countSeverity('CRITICAL') }}</p>
+              <div class="card-navy p-4 border border-[var(--danger-border)] bg-[var(--danger-bg)] shadow-sm hover:shadow-[var(--shadow-2)] hover:scale-[1.02] transition-all duration-300">
+                <div class="flex items-center gap-2 text-primary"><app-lucide-icon [icon]="alertIcon" className="w-4 h-4 text-[var(--danger-text)]" /><p class="text-xs">Critiques</p></div>
+                <p class="text-2xl text-primary font-bold mt-2">{{ countSeverity('CRITICAL') }}</p>
                 <p class="text-xs text-muted">CRITICAL</p>
               </div>
             </div>
@@ -161,7 +161,7 @@ const PAGE_SIZE = 8;
               <div class="flex flex-wrap gap-2 items-center">
                 <span class="text-[11px] text-muted uppercase">Action rapide :</span>
                 @for (c of actionChips; track c) {
-                  <button type="button" (click)="setFilter(actionChip, c)" [class]="'px-2.5 py-1 rounded-full text-xs border transition-colors duration-150 ' + (actionChip() === c ? 'bg-blue-600/25 border-blue-500/50 text-blue-200' : 'border-default text-muted hover:border-default')">
+                  <button type="button" (click)="setFilter(actionChip, c)" [class]="'px-2.5 py-1 rounded-full text-xs border transition-colors duration-150 ' + (actionChip() === c ? 'bg-[var(--info-bg)] border-[var(--info-border)] text-[var(--info-text)]' : 'border-default text-muted hover:border-default')">
                     {{ c }}
                   </button>
                 }
@@ -177,8 +177,8 @@ const PAGE_SIZE = 8;
                   @for (a of actionsList(); track a) { <option [value]="a">{{ a }}</option> }
                 </select>
                 <div class="flex gap-2 ml-auto">
-                  <button type="button" (click)="exportAuditExcel()" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm whitespace-nowrap transition-colors">Excel</button>
-                  <button type="button" (click)="exportAuditCsv()" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm whitespace-nowrap transition-colors">CSV</button>
+                  <button type="button" (click)="exportAuditExcel()" class="px-3 py-2 rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success-text)] text-sm whitespace-nowrap transition-colors hover:border-[var(--success)]">Excel</button>
+                  <button type="button" (click)="exportAuditCsv()" class="ky-btn-primary px-3 py-2 text-sm whitespace-nowrap">CSV</button>
                 </div>
               </div>
             </div>

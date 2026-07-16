@@ -36,7 +36,7 @@ export interface TeamMember {
               type="search"
               placeholder="Rechercher…"
               (input)="search.emit($any($event.target).value)"
-              class="w-full bg-card border border-default rounded-lg py-2 pl-10 pr-4 text-sm text-primary focus:outline-none focus:border-blue-500 transition-all"
+              class="w-full bg-card border border-default rounded-lg py-2 pl-10 pr-4 text-sm text-primary focus:outline-none focus:border-[var(--blue-500)] transition-all"
             />
           </div>
         }
@@ -59,7 +59,7 @@ export interface TeamMember {
                   <td class="px-6 py-4 text-sm text-muted">{{ m.projectName }}</td>
                   <td class="px-6 py-4 text-sm text-primary">{{ m.referralCount }}</td>
                   <td class="px-6 py-4">
-                    <span [class]="'text-sm font-medium ' + (successRate(m) >= 50 ? 'text-emerald-500' : 'text-muted')">{{ successRate(m) }}%</span>
+                    <span [class]="'text-sm font-medium ' + (successRate(m) >= 50 ? 'text-[var(--success-text)]' : 'text-muted')">{{ successRate(m) }}%</span>
                   </td>
                 </tr>
               }

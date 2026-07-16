@@ -8,23 +8,23 @@
 .equipe-chip {
   padding: 6px 14px;
   border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: 6px;
-  background: var(--surface-muted, #f1f5f9);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--bg-input, #f1f5f9);
   color: var(--text-primary, #374151);
   cursor: pointer;
   font-size: 13px;
 }
 
 .equipe-chip.active {
-  background: var(--accent, #3b82f6);
-  color: #fff;
-  border-color: var(--accent, #3b82f6);
+  background: var(--blue-600, #1e3a8a);
+  color: #f1f5f9;
+  border-color: var(--blue-600, #1e3a8a);
 }
 
 .status-published {
   font-size: 12px;
   font-weight: 600;
-  color: #059669;
+  color: var(--success-text);
 }
 
 .equipe-table-wrap {
@@ -45,7 +45,7 @@
 }
 
 .equipe-table th {
-  background: var(--surface-muted, #f8fafc);
+  background: var(--bg-input, #f8fafc);
   font-weight: 600;
 }
 
@@ -55,16 +55,17 @@
   white-space: nowrap;
 }
 
-.cell-ferie { color: #d97706; font-size: 11px; font-weight: 600; }
-.cell-conge { color: #059669; font-size: 11px; font-weight: 600; }
-.cell-shift { color: #2563eb; font-size: 11px; font-weight: 600; }
-.cell-empty { color: #cbd5e1; }
+.cell-ferie { color: var(--warning-text); font-size: 11px; font-weight: 600; }
+.cell-conge { color: var(--success-text); font-size: 11px; font-weight: 600; }
+.cell-shift { color: var(--info-text); font-size: 11px; font-weight: 600; }
+.cell-empty { color: color-mix(in srgb, var(--text-muted) 50%, transparent); }
 
 .btn-back {
   padding: 8px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-md, 0.5rem);
   border: 1px solid var(--border-color, #e2e8f0);
-  background: #fff;
+  background: var(--bg-card);
+  color: var(--text-primary);
   cursor: pointer;
 }
 
@@ -75,37 +76,37 @@
 }
 
 .equipe-error {
-  color: #b91c1c;
+  color: var(--danger-text);
 }
 
 .coverage-banner {
   margin: 0 0 12px;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-md, 0.5rem);
   font-size: 13px;
   font-weight: 600;
 }
 
 .coverage-banner.cov-ok {
-  background: #ecfdf5;
-  color: #047857;
-  border: 1px solid #a7f3d0;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
 }
 
 .coverage-banner.cov-bad {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
 }
 
 .equipe-table th.cov-ok,
 .equipe-table td.cov-ok {
-  background: rgba(16, 185, 129, 0.08);
+  background: color-mix(in srgb, var(--success, #16a34a) 8%, transparent);
 }
 
 .equipe-table th.cov-bad,
 .equipe-table td.cov-bad {
-  background: rgba(239, 68, 68, 0.1);
+  background: color-mix(in srgb, var(--danger, #dc2626) 10%, transparent);
 }
 
 .cov-chip {

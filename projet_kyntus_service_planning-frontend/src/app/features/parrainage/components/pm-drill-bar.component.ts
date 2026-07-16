@@ -21,7 +21,7 @@ const LABELS: Record<string, string> = {
         <select
           [kyntusSelectSync]="drill.drill().coachId ?? ''"
           (kyntusSelectSyncChange)="setCoachId($event)"
-          class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-primary"
+          class="bg-input border border-default rounded-lg py-2 px-3 text-sm text-primary"
         >
           <option value="">Coach</option>
           @for (n of coaches; track n.id) {
@@ -35,7 +35,7 @@ const LABELS: Record<string, string> = {
         <select
           [kyntusSelectSync]="drill.drill().managerId ?? ''"
           (kyntusSelectSyncChange)="setManagerId($event)"
-          class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-primary"
+          class="bg-input border border-default rounded-lg py-2 px-3 text-sm text-primary"
         >
           <option value="">Manager</option>
           @for (m of managers; track m.id) {
@@ -46,7 +46,7 @@ const LABELS: Record<string, string> = {
           [kyntusSelectSync]="drill.drill().coachId ?? ''"
           (kyntusSelectSyncChange)="setCoachId($event)"
           [disabled]="!drill.drill().managerId"
-          class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-primary disabled:opacity-50"
+          class="bg-input border border-default rounded-lg py-2 px-3 text-sm text-primary disabled:opacity-50"
         >
           <option value="">Coach</option>
           @for (n of coaches; track n.id) {

@@ -1,8 +1,5 @@
 .nl-admin-shell {
   display: block;
-  --nl-radius-lg: 24px;
-  --nl-radius-md: 18px;
-  --nl-radius-sm: 14px;
 }
 
 .nl-hero {
@@ -11,7 +8,7 @@
   justify-content: space-between;
   gap: 20px;
   padding: 28px;
-  border-radius: var(--nl-radius-lg);
+  border-radius: var(--radius-card);
   margin-bottom: 20px;
 }
 
@@ -20,7 +17,7 @@
   align-items: center;
   margin-bottom: 10px;
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--nl-primary-soft, color-mix(in srgb, var(--soft-blue) 18%, var(--bg-card)));
   color: var(--nl-primary-dark, var(--blue-600));
   font-size: 0.75rem;
@@ -61,7 +58,7 @@
 }
 
 .nl-tab {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 11px 16px;
   font-size: 0.84rem;
   font-weight: 700;
@@ -83,7 +80,7 @@
 
 .nl-stat-card {
   padding: 22px;
-  border-radius: var(--nl-radius-md);
+  border-radius: var(--radius-card);
 }
 
 .nl-stat-card strong {
@@ -102,7 +99,7 @@
 }
 
 .nl-panel {
-  border-radius: var(--nl-radius-lg);
+  border-radius: var(--radius-card);
   padding: 24px;
 }
 
@@ -126,7 +123,7 @@
 .nl-empty {
   padding: 28px;
   text-align: center;
-  border-radius: var(--nl-radius-md);
+  border-radius: var(--radius-card);
   border-style: dashed;
 }
 
@@ -141,7 +138,7 @@
 }
 
 .nl-card {
-  border-radius: var(--nl-radius-md);
+  border-radius: var(--radius-card);
   padding: 20px;
 }
 
@@ -177,7 +174,7 @@
   align-items: center;
   justify-content: center;
   padding: 6px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.72rem;
   font-weight: 800;
   white-space: nowrap;
@@ -216,7 +213,7 @@
 }
 
 .req {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .nl-hint {
@@ -243,7 +240,7 @@
   width: 100%;
   max-height: 220px;
   object-fit: cover;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   border: 1px solid var(--border-color);
 }
 
@@ -268,7 +265,7 @@
   width: 100%;
   max-height: 280px;
   object-fit: cover;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   margin: 12px 0;
   border: 1px solid var(--border-color);
 }
@@ -292,7 +289,7 @@
 }
 
 .nl-subpanel {
-  border-radius: var(--nl-radius-md);
+  border-radius: var(--radius-card);
   padding: 20px;
 }
 
@@ -306,7 +303,7 @@
 }
 
 .nl-campaign-card {
-  border-radius: var(--nl-radius-md);
+  border-radius: var(--radius-card);
   padding: 18px;
 }
 
@@ -331,7 +328,7 @@
 
 .nl-analytics-card,
 .nl-progress-card {
-  border-radius: var(--nl-radius-md);
+  border-radius: var(--radius-card);
   padding: 20px;
 }
 
@@ -347,7 +344,7 @@
   height: 14px;
   margin: 16px 0 14px;
   background: var(--border-color);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   overflow: hidden;
 }
 
@@ -359,7 +356,7 @@
 }
 
 .nl-btn-danger {
-  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
+  color: var(--danger-text);
 }
 
 .nl-preview {
@@ -376,7 +373,7 @@
 .nl-preview-html {
   margin-top: 12px;
   padding: 18px;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
 }
 
 .nl-preview-text {
@@ -388,7 +385,7 @@
   padding: 16px;
   white-space: pre-wrap;
   word-break: break-word;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--navy-900);
   overflow: auto;
 }
@@ -409,7 +406,7 @@
   width: min(900px, 100%);
   max-height: 88vh;
   overflow: auto;
-  border-radius: 24px;
+  border-radius: var(--radius-card);
   padding: 24px;
 }
 
@@ -428,12 +425,12 @@
   z-index: 1100;
   max-width: 360px;
   padding: 14px 18px;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   color: var(--bg-card);
 }
 
 .nl-toast.error {
-  background: color-mix(in srgb, #ef4444 75%, var(--navy-950));
+  background: color-mix(in srgb, var(--danger) 75%, var(--navy-950));
 }
 
 code {
@@ -457,7 +454,7 @@ code {
   .nl-hero,
   .nl-panel {
     padding: 20px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
   }
 
   .nl-hero,

@@ -54,7 +54,7 @@
 }
 
 .required {
-  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
+  color: color-mix(in srgb, var(--danger) 80%, var(--text-primary));
 }
 
 .hint-inline {
@@ -75,7 +75,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border-color);
   background: var(--bg-input);
   font-size: 0.88rem;
@@ -97,12 +97,12 @@
 .state-box {
   padding: 32px 20px;
   text-align: center;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
 }
 
 .state-box.error .icon-error {
   margin-bottom: 10px;
-  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
+  color: color-mix(in srgb, var(--danger) 80%, var(--text-primary));
 }
 
 .spinner {
@@ -121,13 +121,13 @@
   gap: 10px;
   margin-bottom: 16px;
   padding: 14px 16px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
 }
 
 .alert-error {
-  background: color-mix(in srgb, #ef4444 10%, var(--bg-card));
-  border: 1px solid color-mix(in srgb, #ef4444 25%, var(--border-color));
-  color: color-mix(in srgb, #ef4444 85%, var(--text-primary));
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-text);
 }
 
 .hint-block {
@@ -152,10 +152,10 @@
   display: inline-flex;
   align-items: center;
   padding: 6px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.78rem;
   font-weight: 700;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: ui-monospace, monospace;
   background: color-mix(in srgb, var(--soft-blue) 14%, var(--bg-card));
   color: var(--blue-600);
   border: 1px solid color-mix(in srgb, var(--blue-600) 20%, var(--border-color));
@@ -192,7 +192,7 @@
   justify-content: center;
   width: 38px;
   height: 38px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   background: var(--bg-card);
   cursor: pointer;
@@ -205,9 +205,9 @@
 }
 
 .btn-action.delete:hover {
-  border-color: color-mix(in srgb, #ef4444 35%, var(--border-color));
-  background: color-mix(in srgb, #ef4444 8%, var(--bg-card));
-  color: #ef4444;
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 .btn-save-row {

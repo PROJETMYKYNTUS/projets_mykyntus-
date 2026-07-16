@@ -11,18 +11,18 @@ import { enrichAccessWithBruteForce, accessTypeLabel, AccessRowView } from '../.
   imports: [LucideIconComponent, SeverityBadgeComponent],
   template: `
     <div class="space-y-4">
-      <div class="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-4 py-3 text-xs text-primary">
-        <span class="font-semibold text-emerald-300/90">Sécurité — </span>
+      <div class="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-3 text-xs text-primary">
+        <span class="font-semibold text-[var(--success-text)]">Sécurité — </span>
         Uniquement connexions réussies ou échouées et déconnexions. Aucune action métier (création dossier, suppression, etc.).
       </div>
       <div class="flex flex-wrap items-center gap-3">
         <div class="relative flex-1 min-w-[200px]">
           <app-lucide-icon [icon]="searchIcon" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
           <input [value]="q()" (input)="q.set($any($event.target).value)" placeholder="Rechercher utilisateur, IP, lieu…"
-            class="w-full bg-input border border-default rounded-lg pl-9 pr-3 py-2 text-sm text-primary transition-colors focus:border-emerald-500/40 focus:ring-1 focus:ring-emerald-500/20" />
+            class="w-full bg-input border border-default rounded-lg pl-9 pr-3 py-2 text-sm text-primary transition-colors focus:border-[var(--success-border)] focus:ring-1 focus:ring-[var(--success-border)]" />
         </div>
         @if (hasBrute()) {
-          <span class="text-xs text-amber-300 flex items-center gap-1.5">
+          <span class="text-xs text-[var(--warning-text)] flex items-center gap-1.5">
             <app-lucide-icon [icon]="shieldIcon" className="w-4 h-4 shrink-0" />
             Détection brute force (≥5 échecs / 2 min)
           </span>
@@ -51,9 +51,9 @@ import { enrichAccessWithBruteForce, accessTypeLabel, AccessRowView } from '../.
                 <td class="px-4 py-3 text-muted">{{ r.location }}</td>
                 <td class="px-4 py-3">
                   @if (r.success) {
-                    <span class="text-emerald-400 text-xs font-medium">Succès</span>
+                    <span class="text-[var(--success-text)] text-xs font-medium">Succès</span>
                   } @else {
-                    <span class="text-rose-400 text-xs font-medium">Échec</span>
+                    <span class="text-[var(--danger-text)] text-xs font-medium">Échec</span>
                   }
                 </td>
                 <td class="px-4 py-3">

@@ -33,14 +33,14 @@ const FILTER_LABELS: Record<NotificationFilter, string> = {
     <div class="max-w-4xl mx-auto space-y-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div class="flex items-center gap-3">
-          <h2 class="text-xl font-bold text-white">{{ title }}</h2>
+          <h2 class="text-xl font-bold text-primary">{{ title }}</h2>
           @if (unreadCount() > 0) {
-            <span class="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold border border-blue-500/30">
+            <span class="ky-badge ky-badge--info">
               {{ unreadCount() }} {{ unreadLabel }}
             </span>
           }
         </div>
-        <button type="button" (click)="markAllRead.emit()" class="text-sm text-muted hover:text-white transition-colors flex items-center gap-2">
+        <button type="button" (click)="markAllRead.emit()" class="text-sm text-muted hover:text-primary transition-colors flex items-center gap-2">
           <app-lucide-icon [icon]="checkIcon" className="w-4 h-4" />
           {{ markAllLabel }}
         </button>
@@ -49,7 +49,7 @@ const FILTER_LABELS: Record<NotificationFilter, string> = {
       <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
         @for (f of filters; track f) {
           <button (click)="filter.set(f)"
-            [class]="'px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ' + (filter() === f ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]' : 'bg-card text-muted hover:bg-input hover:text-primary border border-default')">
+            [class]="'px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ' + (filter() === f ? 'ky-btn-primary shadow-[var(--shadow-2)]' : 'bg-card text-muted hover:bg-input hover:text-primary border border-default')">
             {{ filterLabel(f) }}
           </button>
         }
@@ -61,24 +61,24 @@ const FILTER_LABELS: Record<NotificationFilter, string> = {
             <h3 class="text-xs font-bold text-muted uppercase tracking-widest">{{ group.group }}</h3>
             <div class="space-y-3">
               @for (n of group.items; track n.id) {
-                <div [class]="'card-navy p-4 flex items-start gap-4 group cursor-pointer ' + (!n.read ? 'border-l-2 border-l-blue-500' : '')">
+                <div [class]="'card-navy p-4 flex items-start gap-4 group cursor-pointer ' + (!n.read ? 'border-l-2 border-l-[var(--blue-500)]' : '')">
                   <div [class]="'w-10 h-10 rounded-full flex items-center justify-center shrink-0 ' + n.bgColor">
                     <app-lucide-icon [icon]="n.icon" [className]="'w-5 h-5 ' + n.iconColor" />
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="flex items-start justify-between gap-2 mb-1">
-                      <h4 [class]="'text-sm font-bold truncate ' + (!n.read ? 'text-white' : 'text-primary')">{{ n.title }}</h4>
+                      <h4 class="text-sm font-bold truncate text-primary">{{ n.title }}</h4>
                       <span class="text-xs text-muted whitespace-nowrap shrink-0">{{ n.timestamp }}</span>
                     </div>
                     <p class="text-sm text-muted line-clamp-2">{{ n.description }}</p>
                     <div class="mt-3 flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
                       @if (!n.read) {
-                        <button type="button" (click)="markRead.emit(n.id)" class="text-xs font-medium text-muted hover:text-white transition-colors">Marquer comme lu</button>
+                        <button type="button" (click)="markRead.emit(n.id)" class="text-xs font-medium text-muted hover:text-primary transition-colors">Marquer comme lu</button>
                       }
                     </div>
                   </div>
                   @if (!n.read) {
-                    <div class="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div>
+                    <div class="w-2 h-2 rounded-full bg-[var(--blue-500)] mt-2 shrink-0 shadow-[var(--shadow-2)]"></div>
                   }
                 </div>
               }
@@ -91,7 +91,7 @@ const FILTER_LABELS: Record<NotificationFilter, string> = {
             <div class="w-16 h-16 bg-card rounded-full flex items-center justify-center mx-auto mb-4">
               <app-lucide-icon [icon]="bellIcon" className="w-8 h-8 text-muted" />
             </div>
-            <h3 class="text-lg font-medium text-white mb-2">{{ emptyTitle }}</h3>
+            <h3 class="text-lg font-medium text-primary mb-2">{{ emptyTitle }}</h3>
             <p class="text-muted">{{ emptyDescription }}</p>
           </div>
         }
@@ -176,22 +176,22 @@ export function mapReferralNotificationToCenter(item: {
   const isNew = item.type === 'NEW_REFERRAL';
 
   let icon: IconNode = Bell;
-  let iconColor = 'text-purple-500';
-  let bgColor = 'bg-purple-500/10';
+  let iconColor = 'text-[var(--electric-blue)]';
+  let bgColor = 'bg-[var(--info-bg)]';
   let type: NotificationCenterItem['type'] = 'documents';
 
   if (isReject) {
     icon = XCircle;
-    iconColor = 'text-red-500';
-    bgColor = 'bg-red-500/10';
+    iconColor = 'text-[var(--danger-text)]';
+    bgColor = 'bg-[var(--danger-bg)]';
   } else if (isReward || isNew) {
     icon = isNew ? FileText : CheckCircle2;
-    iconColor = isReward ? 'text-emerald-500' : 'text-blue-500';
-    bgColor = isReward ? 'bg-emerald-500/10' : 'bg-blue-500/10';
+    iconColor = isReward ? 'text-[var(--success-text)]' : 'text-[var(--info-text)]';
+    bgColor = isReward ? 'bg-[var(--success-bg)]' : 'bg-[var(--info-bg)]';
   } else if (item.type === 'STATUS_CHANGED') {
     icon = Settings;
-    iconColor = 'text-purple-500';
-    bgColor = 'bg-purple-500/10';
+    iconColor = 'text-[var(--electric-blue)]';
+    bgColor = 'bg-[var(--info-bg)]';
     type = 'system';
   }
 

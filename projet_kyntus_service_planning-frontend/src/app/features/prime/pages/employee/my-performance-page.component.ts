@@ -18,6 +18,7 @@ import { PrimeCardComponent } from '../../components/prime-card.component';
 import { PrimeService } from '../../services/prime.service';
 import type { PrimeResult } from '../../models';
 import { RoleService } from '../../state/role.service';
+import { primeChartTheme } from '../../lib/allowance-status';
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
@@ -38,8 +39,8 @@ interface ChartPoint {
     } @else {
       <div class="prime-page-shell">
         <div>
-          <h1 class="text-3xl font-bold text-slate-100">Ma performance PRIME</h1>
-          <p class="text-slate-400 mt-1">
+          <h1 class="text-3xl font-bold text-primary">Ma performance PRIME</h1>
+          <p class="text-muted mt-1">
             Évolution de vos scores de prime et comparaison à la moyenne de votre équipe (données PRIME).
           </p>
         </div>
@@ -50,7 +51,7 @@ interface ChartPoint {
           className="card-navy"
         >
           @if (chartData().length === 0) {
-            <div class="text-slate-400 py-10 text-center">No primes yet</div>
+            <div class="text-muted py-10 text-center">No primes yet</div>
           } @else {
             <div class="h-80" echarts [options]="chartOptions()"></div>
           }
@@ -60,32 +61,32 @@ interface ChartPoint {
           <app-prime-card className="card-navy">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-slate-400 text-sm">Average score</p>
-                <p class="text-2xl font-bold text-blue-300">{{ averageScore() }}</p>
+                <p class="text-muted text-sm">Average score</p>
+                <p class="text-2xl font-bold text-[var(--info-text)]">{{ averageScore() }}</p>
               </div>
-              <app-lucide-icon [icon]="icons.gauge" className="w-5 h-5 text-blue-300" />
+              <app-lucide-icon [icon]="icons.gauge" className="w-5 h-5 text-[var(--info-text)]" />
             </div>
           </app-prime-card>
           <app-prime-card className="card-navy">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-slate-400 text-sm">Best month</p>
-                <p class="text-lg font-semibold text-emerald-400">
+                <p class="text-muted text-sm">Best month</p>
+                <p class="text-lg font-semibold text-[var(--success-text)]">
                   {{ bestMonth() ? bestMonth()!.month + ' (' + bestMonth()!.myScore + ')' : '-' }}
                 </p>
               </div>
-              <app-lucide-icon [icon]="icons.up" className="w-5 h-5 text-emerald-400" />
+              <app-lucide-icon [icon]="icons.up" className="w-5 h-5 text-[var(--success-text)]" />
             </div>
           </app-prime-card>
           <app-prime-card className="card-navy">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-slate-400 text-sm">Worst month</p>
-                <p class="text-lg font-semibold text-rose-400">
+                <p class="text-muted text-sm">Worst month</p>
+                <p class="text-lg font-semibold text-[var(--danger-text)]">
                   {{ worstMonth() ? worstMonth()!.month + ' (' + worstMonth()!.myScore + ')' : '-' }}
                 </p>
               </div>
-              <app-lucide-icon [icon]="icons.down" className="w-5 h-5 text-rose-400" />
+              <app-lucide-icon [icon]="icons.down" className="w-5 h-5 text-[var(--danger-text)]" />
             </div>
           </app-prime-card>
         </div>
@@ -151,20 +152,21 @@ export class MyPerformancePageComponent {
 
   readonly chartOptions = computed<EChartsCoreOption>(() => {
     const data = this.chartData();
+    const c = primeChartTheme();
     return {
       grid: { left: 0, right: 0, top: 10, bottom: 0, containLabel: true },
       tooltip: { trigger: 'axis' },
       xAxis: {
         type: 'category',
         data: data.map((d) => d.month),
-        axisLine: { lineStyle: { color: '#1e293b' } },
-        axisLabel: { color: '#94a3b8' },
+        axisLine: { lineStyle: { color: c.axisLine } },
+        axisLabel: { color: c.axisLabel },
       },
       yAxis: {
         type: 'value',
-        axisLine: { lineStyle: { color: '#1e293b' } },
-        axisLabel: { color: '#94a3b8' },
-        splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+        axisLine: { lineStyle: { color: c.axisLine } },
+        axisLabel: { color: c.axisLabel },
+        splitLine: { lineStyle: { color: c.splitLine, type: 'dashed' } },
       },
       series: [
         {
@@ -172,8 +174,8 @@ export class MyPerformancePageComponent {
           type: 'line',
           smooth: true,
           data: data.map((d) => d.myScore),
-          lineStyle: { color: '#60a5fa', width: 3 },
-          itemStyle: { color: '#60a5fa' },
+          lineStyle: { color: c.info, width: 3 },
+          itemStyle: { color: c.info },
           symbol: 'circle',
           symbolSize: 8,
         },
@@ -182,8 +184,8 @@ export class MyPerformancePageComponent {
           type: 'line',
           smooth: true,
           data: data.map((d) => d.teamAverage),
-          lineStyle: { color: '#a78bfa', width: 2, type: 'dashed' },
-          itemStyle: { color: '#a78bfa' },
+          lineStyle: { color: c.accent, width: 2, type: 'dashed' },
+          itemStyle: { color: c.accent },
           symbol: 'circle',
           symbolSize: 6,
         },

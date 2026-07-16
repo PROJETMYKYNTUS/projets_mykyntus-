@@ -59,7 +59,7 @@ const DEFAULT_SCOPES = ['Global', 'Pole', 'Cellule', 'Service', 'Self'] as const
           <div class="rounded-xl border border-default bg-input p-4">
             <p class="text-[11px] uppercase tracking-wider text-muted">Simulation utilisateur</p>
             <select
-              class="mt-2 w-full rounded-lg border border-default bg-card px-3 py-2 text-primary text-sm"
+              class="mt-2 w-full rounded-lg border border-default bg-input px-3 py-2 text-primary text-sm"
               [kyntusSelectSync]="simulatedUserId()"
               (kyntusSelectSyncChange)="simulatedUserId.set($event)"
             >

@@ -9,57 +9,57 @@ import { PrimeAdminService, type AuditLogDto, type AuditLogFilters } from '../..
   imports: [PrimeCardComponent, DatePipe],
   template: `
     <app-prime-card title="Supervision &amp; logs">
-      <p class="text-slate-400 text-sm mb-4">
-        Chaque changement de vue dans le module PRIME enregistre une entrée <span class="text-slate-300">PageView</span>
-        (entité <span class="text-slate-300">Route</span>). Filtrez par utilisateur, rôle ou type d’entité.
+      <p class="text-muted text-sm mb-4">
+        Chaque changement de vue dans le module PRIME enregistre une entrée <span class="text-muted">PageView</span>
+        (entité <span class="text-muted">Route</span>). Filtrez par utilisateur, rôle ou type d’entité.
       </p>
 
       <div class="flex flex-wrap gap-3 mb-4 items-end">
-        <label class="text-xs text-slate-400 flex flex-col gap-1">
+        <label class="text-xs text-muted flex flex-col gap-1">
           userId
           <input
             type="text"
-            class="rounded border border-navy-700 bg-navy-900 px-2 py-1.5 text-sm text-slate-200 w-40"
+            class="rounded border border-default bg-input px-2 py-1.5 text-sm text-primary w-40"
             [value]="filterUserId()"
             (input)="filterUserId.set($any($event.target).value)"
           />
         </label>
-        <label class="text-xs text-slate-400 flex flex-col gap-1">
+        <label class="text-xs text-muted flex flex-col gap-1">
           Rôle
           <input
             type="text"
-            class="rounded border border-navy-700 bg-navy-900 px-2 py-1.5 text-sm text-slate-200 w-32"
+            class="rounded border border-default bg-input px-2 py-1.5 text-sm text-primary w-32"
             [value]="filterRole()"
             (input)="filterRole.set($any($event.target).value)"
           />
         </label>
-        <label class="text-xs text-slate-400 flex flex-col gap-1">
+        <label class="text-xs text-muted flex flex-col gap-1">
           Action
           <input
             type="text"
-            class="rounded border border-navy-700 bg-navy-900 px-2 py-1.5 text-sm text-slate-200 w-28"
+            class="rounded border border-default bg-input px-2 py-1.5 text-sm text-primary w-28"
             placeholder="PageView"
             [value]="filterAction()"
             (input)="filterAction.set($any($event.target).value)"
           />
         </label>
-        <label class="text-xs text-slate-400 flex flex-col gap-1">
+        <label class="text-xs text-muted flex flex-col gap-1">
           Entité
           <input
             type="text"
-            class="rounded border border-navy-700 bg-navy-900 px-2 py-1.5 text-sm text-slate-200 w-28"
+            class="rounded border border-default bg-input px-2 py-1.5 text-sm text-primary w-28"
             placeholder="Route"
             [value]="filterEntityType()"
             (input)="filterEntityType.set($any($event.target).value)"
           />
         </label>
-        <label class="text-xs text-slate-400 flex flex-col gap-1">
+        <label class="text-xs text-muted flex flex-col gap-1">
           Max lignes
           <input
             type="number"
             min="1"
             max="1000"
-            class="rounded border border-navy-700 bg-navy-900 px-2 py-1.5 text-sm text-slate-200 w-24"
+            class="rounded border border-default bg-input px-2 py-1.5 text-sm text-primary w-24"
             [value]="filterTake()"
             (input)="filterTake.set(+$any($event.target).value || 300)"
           />
@@ -85,24 +85,24 @@ import { PrimeAdminService, type AuditLogDto, type AuditLogFilters } from '../..
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b border-default">
-                <th class="text-left py-3 text-slate-400">Date</th>
-                <th class="text-left py-3 text-slate-400">Utilisateur</th>
-                <th class="text-left py-3 text-slate-400">Rôle</th>
-                <th class="text-left py-3 text-slate-400">Action</th>
-                <th class="text-left py-3 text-slate-400">Entité</th>
+                <th class="text-left py-3 text-muted">Date</th>
+                <th class="text-left py-3 text-muted">Utilisateur</th>
+                <th class="text-left py-3 text-muted">Rôle</th>
+                <th class="text-left py-3 text-muted">Action</th>
+                <th class="text-left py-3 text-muted">Entité</th>
               </tr>
             </thead>
             <tbody>
               @for (log of logs(); track log.id) {
                 <tr class="border-b border-default/60">
-                  <td class="py-3 text-slate-400 whitespace-nowrap text-xs">{{ log.at | date: 'short' }}</td>
-                  <td class="py-3 text-slate-200">{{ log.userDisplayName }}</td>
-                  <td class="py-3 text-slate-300">{{ log.role }}</td>
-                  <td class="py-3 text-slate-300">{{ log.action }}</td>
-                  <td class="py-3 text-slate-400 text-xs">
+                  <td class="py-3 text-muted whitespace-nowrap text-xs">{{ log.at | date: 'short' }}</td>
+                  <td class="py-3 text-primary">{{ log.userDisplayName }}</td>
+                  <td class="py-3 text-muted">{{ log.role }}</td>
+                  <td class="py-3 text-muted">{{ log.action }}</td>
+                  <td class="py-3 text-muted text-xs">
                     {{ log.entityType }}
                     @if (log.entityId) {
-                      <span class="text-slate-500"> / {{ log.entityId }}</span>
+                      <span class="text-muted"> / {{ log.entityId }}</span>
                     }
                   </td>
                 </tr>
@@ -110,7 +110,7 @@ import { PrimeAdminService, type AuditLogDto, type AuditLogFilters } from '../..
             </tbody>
           </table>
           @if (logs().length === 0) {
-            <p class="text-slate-500 text-sm py-6 text-center">Aucune entrée pour le moment.</p>
+            <p class="text-muted text-sm py-6 text-center">Aucune entrée pour le moment.</p>
           }
         </div>
       }

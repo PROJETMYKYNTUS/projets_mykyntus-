@@ -36,9 +36,7 @@ export interface NotificationItemVm {
         <div class="flex items-center gap-3">
           <h2 class="text-xl font-bold text-primary">Notifications</h2>
           @if (unreadCount() > 0) {
-            <span
-              class="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold border border-blue-500/30"
-            >
+            <span class="ky-badge ky-badge--info">
               {{ unreadCount() }} Non lues
             </span>
           }
@@ -68,9 +66,10 @@ export interface NotificationItemVm {
             <div class="space-y-3">
               @for (notification of group[1]; track notification.id) {
                 <div
-                  class="bg-card border border-default rounded-xl p-4 flex items-start gap-4 group cursor-pointer"
-                  [class.border-l-2]="!notification.read"
-                  [class.border-l-blue-500]="!notification.read"
+                  [class]="
+                    'bg-card border border-default rounded-xl p-4 flex items-start gap-4 group cursor-pointer' +
+                    (!notification.read ? ' border-l-2 border-l-[var(--blue-500)]' : '')
+                  "
                 >
                   <div
                     class="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
@@ -99,7 +98,7 @@ export interface NotificationItemVm {
                       <div class="mt-3">
                         <button
                           type="button"
-                          class="text-xs font-medium text-slate-400 hover:text-primary transition-colors"
+                          class="text-xs font-medium text-muted hover:text-primary transition-colors"
                           (click)="markRead.emit(notification.id)"
                         >
                           Marquer comme lu
@@ -109,7 +108,7 @@ export interface NotificationItemVm {
                   </div>
                   @if (!notification.read) {
                     <div
-                      class="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0 shadow-[0_0_8px_rgba(59,130,246,0.8)]"
+                      class="w-2 h-2 rounded-full bg-[var(--blue-500)] mt-2 shrink-0 shadow-[var(--shadow-2)]"
                     ></div>
                   }
                 </div>
@@ -177,7 +176,7 @@ export class NotificationCenterComponent {
     return cn(
       'px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
       this.filter() === f
-        ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]'
+        ? 'ky-btn-primary shadow-[var(--shadow-2)]'
         : 'bg-card text-muted hover:bg-app hover:text-primary border border-default',
     );
   }
@@ -196,16 +195,26 @@ export function mapPrimeNotification(item: {
   > = {
     primeValidated: {
       kind: 'documents',
-      color: 'text-emerald-500',
-      bg: 'bg-emerald-500/10',
+      color: 'text-[var(--success-text)]',
+      bg: 'bg-[var(--success-bg)]',
       icon: CheckCircle2,
     },
-    primeRejected: { kind: 'documents', color: 'text-red-500', bg: 'bg-red-500/10', icon: XCircle },
-    newPrimeRule: { kind: 'system', color: 'text-blue-500', bg: 'bg-blue-500/10', icon: Settings },
+    primeRejected: {
+      kind: 'documents',
+      color: 'text-[var(--danger-text)]',
+      bg: 'bg-[var(--danger-bg)]',
+      icon: XCircle,
+    },
+    newPrimeRule: {
+      kind: 'system',
+      color: 'text-[var(--info-text)]',
+      bg: 'bg-[var(--info-bg)]',
+      icon: Settings,
+    },
     teamPerformanceUpdated: {
       kind: 'system',
-      color: 'text-purple-500',
-      bg: 'bg-purple-500/10',
+      color: 'text-[var(--electric-blue)]',
+      bg: 'bg-[var(--info-bg)]',
       icon: Bell,
     },
   };

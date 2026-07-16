@@ -12,14 +12,38 @@ import { persistAccessTokens, clearStoredTokens } from '../../core/session/kyntu
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div style="display:flex; flex-direction:column; justify-content:center; 
-                align-items:center; height:100vh; gap:12px; font-family:sans-serif;">
-      <div style="width:32px; height:32px; border:3px solid #e5e7eb; 
-                  border-top-color:#6366f1; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
-      <p style="color:#6b7280; font-size:14px;">Chargement en cours...</p>
-      <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+    <div class="auth-callback">
+      <div class="auth-callback-spinner"></div>
+      <p class="auth-callback-text">Chargement en cours...</p>
     </div>
-  `
+  `,
+  styles: [`
+    .auth-callback {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      gap: 12px;
+      font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      background: var(--bg-primary, #f8fafc);
+    }
+    .auth-callback-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border-color, #e5e7eb);
+      border-top-color: var(--soft-blue, #3b82f6);
+      border-radius: 50%;
+      animation: auth-callback-spin 0.8s linear infinite;
+    }
+    .auth-callback-text {
+      color: var(--text-muted, #6b7280);
+      font-size: 14px;
+    }
+    @keyframes auth-callback-spin {
+      to { transform: rotate(360deg); }
+    }
+  `],
 })
 export class AuthCallbackComponent implements OnInit {
 

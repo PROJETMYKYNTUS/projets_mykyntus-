@@ -103,13 +103,13 @@ interface PilotageCelluleGroup {
       <div class="max-w-[1600px] mx-auto space-y-5">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-100 sm:text-3xl flex items-center gap-2">
+            <h1 class="text-2xl font-bold tracking-tight text-primary sm:text-3xl flex items-center gap-2">
               <app-lucide-icon [icon]="icons.board" className="w-8 h-8 text-blue-400 shrink-0" />
               Fiches PRIME — pilotage
             </h1>
-            <p class="text-slate-400 mt-2 max-w-2xl text-sm leading-relaxed">
-              Choisissez la <strong class="text-slate-200">période</strong> : le brouillon pôle (partie commune RACC/SAV)
-              s’applique à toute la cellule. À gauche : <strong class="text-slate-200">Pôle → Cellule → Service → Pilote</strong>
+            <p class="text-muted mt-2 max-w-2xl text-sm leading-relaxed">
+              Choisissez la <strong class="text-primary">période</strong> : le brouillon pôle (partie commune RACC/SAV)
+              s’applique à toute la cellule. À gauche : <strong class="text-primary">Pôle → Cellule → Service → Pilote</strong>
               (pilotes uniquement, depuis les affectations RH). À droite : saisie du pilote sélectionné.
             </p>
           </div>
@@ -117,7 +117,7 @@ interface PilotageCelluleGroup {
             type="button"
             (click)="reload()"
             [disabled]="loading()"
-            class="inline-flex items-center gap-2 rounded-lg border border-navy-600 bg-navy-900 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 disabled:opacity-50"
+            class="inline-flex items-center gap-2 rounded-lg border border-default bg-input px-4 py-2 text-sm font-medium text-primary hover:bg-input disabled:opacity-50"
           >
             <app-lucide-icon [icon]="icons.refresh" className="w-4 h-4" />
             Actualiser
@@ -126,18 +126,18 @@ interface PilotageCelluleGroup {
 
         <div class="flex flex-wrap items-end gap-4">
           <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">Période</label>
+            <label class="block text-xs font-medium text-muted mb-1">Période</label>
             <input
               type="month"
               [value]="period()"
               (change)="onPeriodChange($event)"
-              class="rounded-lg border border-navy-600 bg-navy-900 px-3 py-2 text-sm text-slate-100"
+              class="rounded-lg border border-default bg-input px-3 py-2 text-sm text-primary"
             />
           </div>
           @if (globalTemplateHint()) {
-            <p class="text-xs text-slate-500 max-w-xl pb-1">
+            <p class="text-xs text-muted max-w-xl pb-1">
               Partie commune liée :
-              <span class="text-slate-300 font-medium">{{ globalTemplateHint() }}</span>
+              <span class="text-muted font-medium">{{ globalTemplateHint() }}</span>
             </p>
           }
         </div>
@@ -150,7 +150,7 @@ interface PilotageCelluleGroup {
 
         @if (pageNotice()) {
           <div
-            class="rounded-lg border border-emerald-500/45 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-100 flex items-start gap-2"
+            class="rounded-lg border border-emerald-500/45 bg-emerald-500/15 px-4 py-3 text-sm text-[var(--success-text)] flex items-start gap-2"
             role="status"
           >
             <app-lucide-icon [icon]="icons.check" className="w-5 h-5 shrink-0 mt-0.5" />
@@ -160,7 +160,7 @@ interface PilotageCelluleGroup {
 
         @if (showCommonPartValidationBanner()) {
           <div
-            class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
+            class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-[var(--warning-text)]"
             role="status"
           >
             {{ commonPartValidationBannerText() }}
@@ -176,50 +176,50 @@ interface PilotageCelluleGroup {
             class="flex flex-col lg:flex-row gap-6 lg:items-stretch lg:min-h-[calc(100dvh-12rem)]"
           >
             <aside
-              class="lg:w-[min(100%,380px)] shrink-0 flex flex-col rounded-xl border border-navy-700 bg-navy-900/50 overflow-hidden max-h-[52vh] lg:max-h-none"
+              class="lg:w-[min(100%,380px)] shrink-0 flex flex-col rounded-xl border border-default bg-card overflow-hidden max-h-[52vh] lg:max-h-none"
             >
               <div
-                class="px-4 py-3 border-b border-navy-700 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                class="px-4 py-3 border-b border-default text-xs font-semibold uppercase tracking-wide text-muted"
               >
                 Cellule, services et pilotes
               </div>
               <div class="overflow-y-auto flex-1 p-3 space-y-4">
                 @for (grp of pilotageTree(); track grp.celluleId) {
-                  <section class="rounded-lg border border-navy-600/80 bg-navy-950/60 overflow-hidden">
-                    <div class="flex items-center gap-2 px-3 py-2.5 bg-navy-900 border-b border-navy-700">
+                  <section class="rounded-lg border border-default bg-input overflow-hidden">
+                    <div class="flex items-center gap-2 px-3 py-2.5 bg-card border-b border-default">
                       <span [class]="cellRollupDot(grp.aggregateState)" aria-hidden="true"></span>
                       <div class="min-w-0 flex-1">
-                        <div class="text-[10px] uppercase tracking-wide text-slate-500">Cellule</div>
-                        <div class="font-semibold text-slate-100 text-sm truncate">{{ grp.celluleName }}</div>
+                        <div class="text-[10px] uppercase tracking-wide text-muted">Cellule</div>
+                        <div class="font-semibold text-primary text-sm truncate">{{ grp.celluleName }}</div>
                         @if (grp.poleName) {
-                          <div class="text-[11px] text-slate-500 truncate">Pôle : {{ grp.poleName }}</div>
+                          <div class="text-[11px] text-muted truncate">Pôle : {{ grp.poleName }}</div>
                         }
-                        <div class="text-[11px] text-slate-500 mt-0.5">
+                        <div class="text-[11px] text-muted mt-0.5">
                           {{ rollupCountsLabel(grp) }}
                         </div>
                         @if (grp.commonPartStatus) {
-                          <div class="text-[10px] text-slate-600 mt-0.5">
+                          <div class="text-[10px] text-muted mt-0.5">
                             Partie commune : {{ commonPartStatusLabel(grp.commonPartStatus) }}
                           </div>
                         }
                       </div>
-                      <span class="text-[10px] font-medium text-slate-500 shrink-0">{{
+                      <span class="text-[10px] font-medium text-muted shrink-0">{{
                         stateShortLabel(grp.aggregateState)
                       }}</span>
                     </div>
                     @for (svc of grp.services; track svc.serviceId) {
-                      <div class="border-t border-navy-800">
-                        <div class="flex items-center gap-2 px-3 py-2 bg-navy-900/50">
+                      <div class="border-t border-default">
+                        <div class="flex items-center gap-2 px-3 py-2 bg-card">
                           <span [class]="cellRollupDot(svc.serviceAggregateState)" aria-hidden="true"></span>
                           <div class="min-w-0 flex-1">
-                            <div class="text-[10px] uppercase tracking-wide text-slate-600">Service</div>
-                            <div class="font-medium text-slate-200 text-sm truncate">{{ svc.serviceName }}</div>
-                            <div class="text-[11px] text-slate-500 mt-0.5">
+                            <div class="text-[10px] uppercase tracking-wide text-muted">Service</div>
+                            <div class="font-medium text-primary text-sm truncate">{{ svc.serviceName }}</div>
+                            <div class="text-[11px] text-muted mt-0.5">
                               {{ serviceCountsLabel(svc) }}
                             </div>
                           </div>
                         </div>
-                        <ul class="divide-y divide-navy-800">
+                        <ul class="divide-y divide-default">
                           @for (emp of employeesForService(svc.serviceId); track emp.employeeId) {
                             <li class="flex items-stretch gap-0.5">
                               <button
@@ -229,23 +229,23 @@ interface PilotageCelluleGroup {
                               >
                                 <span [class]="pilotEmployeeDotClass(emp)" aria-hidden="true"></span>
                                 <span class="min-w-0 flex-1 text-left">
-                                  <span class="block text-sm font-medium text-slate-100 truncate"
+                                  <span class="block text-sm font-medium text-primary truncate"
                                     >{{ emp.firstName }} {{ emp.lastName }}</span
                                   >
-                                  <span class="block text-[11px] text-slate-500 truncate">{{ emp.email }}</span>
+                                  <span class="block text-[11px] text-muted truncate">{{ emp.email }}</span>
                                 </span>
-                                <span class="text-[10px] text-slate-500 shrink-0" [title]="pilotValidationTitle(emp)">{{
+                                <span class="text-[10px] text-muted shrink-0" [title]="pilotValidationTitle(emp)">{{
                                   pilotValidationShort(emp)
                                 }}</span>
-                                <app-lucide-icon [icon]="icons.chev" className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                                <app-lucide-icon [icon]="icons.chev" className="w-3.5 h-3.5 text-muted shrink-0" />
                               </button>
-                              <div class="flex flex-col justify-center gap-0.5 py-1 pr-1 shrink-0 border-l border-navy-800">
+                              <div class="flex flex-col justify-center gap-0.5 py-1 pr-1 shrink-0 border-l border-default">
                                 <button
                                   type="button"
                                   [title]="mergedActionsHint(emp, svc) || 'Aperçu fiche fusionnée (pôle + cellule)'"
                                   (click)="openMergedPreview($event, emp, svc)"
                                   [disabled]="!mergedActionsEnabled(emp, svc)"
-                                  class="rounded px-1.5 py-1 text-[10px] font-medium text-blue-300 hover:bg-navy-800 disabled:opacity-30 disabled:pointer-events-none"
+                                  class="rounded px-1.5 py-1 text-[10px] font-medium text-blue-300 hover:bg-input disabled:opacity-30 disabled:pointer-events-none"
                                 >
                                   <app-lucide-icon [icon]="icons.eye" className="w-4 h-4 mx-auto" />
                                 </button>
@@ -254,14 +254,14 @@ interface PilotageCelluleGroup {
                                   [title]="mergedActionsHint(emp, svc) || 'Télécharger .xlsx (une feuille)'"
                                   (click)="downloadMergedXlsx($event, emp, svc)"
                                   [disabled]="!mergedActionsEnabled(emp, svc)"
-                                  class="rounded px-1.5 py-1 text-[10px] font-medium text-emerald-300 hover:bg-navy-800 disabled:opacity-30 disabled:pointer-events-none"
+                                  class="rounded px-1.5 py-1 text-[10px] font-medium text-emerald-300 hover:bg-input disabled:opacity-30 disabled:pointer-events-none"
                                 >
                                   <app-lucide-icon [icon]="icons.download" className="w-4 h-4 mx-auto" />
                                 </button>
                               </div>
                             </li>
                           } @empty {
-                            <li class="px-3 py-3 text-xs text-slate-500">Aucun pilote sur ce service.</li>
+                            <li class="px-3 py-3 text-xs text-muted">Aucun pilote sur ce service.</li>
                           }
                         </ul>
                       </div>
@@ -269,33 +269,33 @@ interface PilotageCelluleGroup {
                   </section>
                 }
                 @if (pilotageTree().length === 0) {
-                  <p class="text-sm text-slate-500 px-2">Aucune cellule ou aucun service dans votre périmètre superviseur.</p>
+                  <p class="text-sm text-muted px-2">Aucune cellule ou aucun service dans votre périmètre superviseur.</p>
                 }
               </div>
             </aside>
 
-            <main class="flex-1 min-w-0 flex flex-col rounded-xl border border-navy-700 bg-navy-900/30 overflow-hidden">
+            <main class="flex-1 min-w-0 flex flex-col rounded-xl border border-default bg-card overflow-hidden">
               <div
-                class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-navy-700 bg-navy-900/60"
+                class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-default bg-card"
               >
                 <div class="min-w-0 flex-1 space-y-2">
-                  <h2 class="text-sm font-semibold text-slate-200">Saisie cellule</h2>
+                  <h2 class="text-sm font-semibold text-primary">Saisie cellule</h2>
                   @if (selectedPilot(); as sp) {
                     <div class="flex flex-col sm:flex-row flex-wrap gap-2 min-w-0">
                       @if (sp.poleName) {
                         <div
-                          class="min-w-[8rem] flex-1 rounded-lg border border-navy-700/80 bg-navy-900/40 px-3 py-2.5"
+                          class="min-w-[8rem] flex-1 rounded-lg border border-default bg-input px-3 py-2.5"
                         >
-                          <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Pôle</div>
-                          <div class="text-sm font-medium text-slate-100 truncate">{{ sp.poleName }}</div>
+                          <div class="text-[10px] font-semibold uppercase tracking-wide text-muted mb-1">Pôle</div>
+                          <div class="text-sm font-medium text-primary truncate">{{ sp.poleName }}</div>
                         </div>
                       }
                       <div
-                        class="flex-1 min-w-0 rounded-lg border border-slate-600/80 bg-slate-800/50 px-3 py-2.5 shadow-sm"
+                        class="flex-1 min-w-0 rounded-lg border border-default bg-input/50 px-3 py-2.5 shadow-sm"
                       >
-                        <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Cellule</div>
-                        <div class="flex items-center gap-2 text-sm font-medium text-slate-100">
-                          <app-lucide-icon [icon]="icons.grid" className="w-4 h-4 text-slate-400 shrink-0" />
+                        <div class="text-[10px] font-semibold uppercase tracking-wide text-muted mb-1">Cellule</div>
+                        <div class="flex items-center gap-2 text-sm font-medium text-primary">
+                          <app-lucide-icon [icon]="icons.grid" className="w-4 h-4 text-muted shrink-0" />
                           <span class="truncate">{{ sp.celluleName }}</span>
                         </div>
                       </div>
@@ -303,7 +303,7 @@ interface PilotageCelluleGroup {
                         class="min-w-[8rem] flex-1 rounded-lg border border-indigo-500/30 bg-indigo-950/30 px-3 py-2.5"
                       >
                         <div class="text-[10px] font-semibold uppercase tracking-wide text-indigo-300/80 mb-1">Service</div>
-                        <div class="text-sm font-medium text-slate-100 truncate">{{ sp.serviceName }}</div>
+                        <div class="text-sm font-medium text-primary truncate">{{ sp.serviceName }}</div>
                       </div>
                       <div
                         class="flex-1 min-w-0 rounded-lg border border-blue-500/35 bg-blue-950/40 px-3 py-2.5 ring-1 ring-inset ring-blue-500/25 shadow-sm"
@@ -311,24 +311,24 @@ interface PilotageCelluleGroup {
                         <div class="text-[10px] font-semibold uppercase tracking-wide text-blue-300/80 mb-1">
                           Pilote
                         </div>
-                        <div class="flex items-start gap-2 text-sm text-slate-100">
+                        <div class="flex items-start gap-2 text-sm text-primary">
                           <app-lucide-icon [icon]="icons.user" className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
                           <div class="min-w-0">
                             <div class="font-medium truncate">{{ sp.firstName }} {{ sp.lastName }}</div>
-                            <div class="text-[11px] text-slate-400 truncate">{{ sp.email }}</div>
+                            <div class="text-[11px] text-muted truncate">{{ sp.email }}</div>
                           </div>
                         </div>
                       </div>
                     </div>
                   } @else {
-                    <p class="text-xs text-slate-500">Sélectionnez un pilote dans la liste de gauche.</p>
+                    <p class="text-xs text-muted">Sélectionnez un pilote dans la liste de gauche.</p>
                   }
                 </div>
                 @if (selectedPilot()) {
                   <button
                     type="button"
                     (click)="openFullPage()"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-navy-600 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-navy-800 shrink-0"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-default px-3 py-1.5 text-xs font-medium text-muted hover:bg-input shrink-0"
                   >
                     <app-lucide-icon [icon]="icons.external" className="w-3.5 h-3.5" />
                     Plein écran
@@ -350,7 +350,7 @@ interface PilotageCelluleGroup {
                 }
                 @if (!selectedPilot()) {
                   <div
-                    class="h-full min-h-[240px] flex flex-col items-center justify-center text-center text-slate-500 text-sm px-6"
+                    class="h-full min-h-[240px] flex flex-col items-center justify-center text-center text-muted text-sm px-6"
                   >
                     <p>Les indicateurs verts, jaunes et rouges indiquent l’avancement de chaque fiche pilote.</p>
                     <p class="mt-2 text-xs">Sans brouillon pôle pour cette période, la saisie affichera une erreur : complétez d’abord la partie commune dans « Fiche PRIME — saisie ».</p>
@@ -372,17 +372,17 @@ interface PilotageCelluleGroup {
         (click)="closeMergedPreview()"
       >
         <div
-          class="max-w-[min(96vw,1400px)] w-full max-h-[min(90vh,900px)] flex flex-col rounded-xl border border-navy-600 bg-navy-950 shadow-xl"
+          class="max-w-[min(96vw,1400px)] w-full max-h-[min(90vh,900px)] flex flex-col rounded-xl border border-default bg-input shadow-xl"
           (click)="$event.stopPropagation()"
         >
-          <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-navy-700 shrink-0">
-            <h3 id="prime-pilot-preview-title" class="text-sm font-semibold text-slate-100 truncate">
+          <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-default shrink-0">
+            <h3 id="prime-pilot-preview-title" class="text-sm font-semibold text-primary truncate">
               {{ previewTitle() }}
             </h3>
             <button
               type="button"
               (click)="closeMergedPreview()"
-              class="rounded-lg border border-navy-600 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-navy-800 shrink-0"
+              class="rounded-lg border border-default px-3 py-1.5 text-xs font-medium text-primary hover:bg-input shrink-0"
             >
               Fermer
             </button>
@@ -394,7 +394,7 @@ interface PilotageCelluleGroup {
           } @else {
             @if (previewBanner()) {
               <div
-                class="mx-4 mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100 shrink-0"
+                class="mx-4 mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-[var(--warning-text)] shrink-0"
                 role="status"
               >
                 {{ previewBanner() }}
@@ -411,11 +411,11 @@ interface PilotageCelluleGroup {
               </div>
             }
             <div class="flex-1 min-h-0 overflow-auto p-3">
-              <table class="text-[11px] border-collapse border border-navy-700 text-slate-200">
+              <table class="text-[11px] border-collapse border border-default text-primary">
                 @for (row of previewRows(); track pr; let pr = $index) {
                   <tr>
                     @for (cell of row; track pc; let pc = $index) {
-                      <td class="border border-navy-800 px-1 py-0.5 whitespace-nowrap align-top">{{ cell }}</td>
+                      <td class="border border-default px-1 py-0.5 whitespace-nowrap align-top">{{ cell }}</td>
                     }
                   </tr>
                 }
@@ -667,7 +667,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
 
   pilotRowClass(employeeId: string): string {
     const base =
-      'w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-navy-800/80 ';
+      'w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-input ';
     const sel = this.selectedPilot()?.employeeId === employeeId;
     return sel ? base + 'bg-blue-600/15 ring-1 ring-inset ring-blue-500/40' : base;
   }
@@ -926,3 +926,4 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     this.nav.requestView('/prime-saisie-cellule');
   }
 }
+

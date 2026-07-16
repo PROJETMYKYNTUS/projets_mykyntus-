@@ -19,7 +19,7 @@ export interface KpiStatItem {
         <div class="card-navy p-6 flex items-center justify-between">
           <div>
             <p class="text-sm text-muted font-medium mb-1">{{ item.label }}</p>
-            <h3 class="text-3xl font-bold text-white">{{ item.value }}</h3>
+            <h3 class="text-3xl font-bold text-primary">{{ item.value }}</h3>
           </div>
           @if (item.icon) {
             <div [class]="'w-12 h-12 ' + accentClass(item.accent) + ' rounded-xl flex items-center justify-center shrink-0'">
@@ -38,16 +38,16 @@ export class KpiStatsComponent {
   accentClass(accent?: string): string {
     switch (accent) {
       case 'green':
-        return 'text-emerald-500 bg-emerald-500/10';
+        return 'text-[var(--success-text)] bg-[var(--success-bg)]';
       case 'yellow':
       case 'orange':
-        return 'text-amber-500 bg-amber-500/10';
+        return 'text-[var(--warning-text)] bg-[var(--warning-bg)]';
       case 'red':
-        return 'text-red-500 bg-red-500/10';
+        return 'text-[var(--danger-text)] bg-[var(--danger-bg)]';
       case 'purple':
-        return 'text-indigo-500 bg-indigo-500/10';
+        return 'text-[var(--electric-blue)] bg-[var(--info-bg)]';
       default:
-        return 'text-blue-500 bg-blue-500/10';
+        return 'text-[var(--info-text)] bg-[var(--info-bg)]';
     }
   }
 }

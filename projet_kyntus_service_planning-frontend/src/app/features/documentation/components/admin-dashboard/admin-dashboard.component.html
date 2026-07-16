@@ -16,7 +16,7 @@
       >
         <div>
           <p class="text-sm text-muted font-medium mb-1">{{ stat.label }}</p>
-          <h3 class="text-3xl font-bold text-white">{{ stat.value }}</h3>
+          <h3 class="text-3xl font-bold text-primary">{{ stat.value }}</h3>
         </div>
         <div class="w-12 h-12 rounded-xl flex items-center justify-center" [ngClass]="stat.bg">
           <app-doc-icon [name]="stat.icon" [klass]="'w-6 h-6 ' + stat.color"></app-doc-icon>
@@ -27,7 +27,7 @@
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
     <div class="lg:col-span-1 space-y-6">
-      <h3 class="text-lg font-semibold text-white">Configuration système</h3>
+      <h3 class="text-lg font-semibold text-primary">Configuration système</h3>
       <div class="space-y-3">
         <button
           type="button"
@@ -35,12 +35,12 @@
           class="w-full card-navy p-4 flex items-center gap-4 hover:bg-input transition-all group"
         >
           <div
-            class="w-10 h-10 bg-amber-600/10 rounded-lg flex items-center justify-center group-hover:bg-amber-600 transition-colors"
+            class="w-10 h-10 bg-[var(--warning-bg)] rounded-lg flex items-center justify-center group-hover:bg-[var(--warning)] transition-colors"
           >
-            <app-doc-icon name="layers" klass="w-5 h-5 text-amber-500 group-hover:text-white"></app-doc-icon>
+            <app-doc-icon name="layers" klass="w-5 h-5 text-[var(--warning-text)] group-hover:text-primary"></app-doc-icon>
           </div>
           <div class="text-left">
-            <p class="text-sm font-semibold text-white">Types de documents</p>
+            <p class="text-sm font-semibold text-primary">Types de documents</p>
             <p class="text-xs text-muted">Types disponibles</p>
           </div>
           <app-doc-icon name="chevron-right" klass="ml-auto w-4 h-4 text-muted"></app-doc-icon>
@@ -51,12 +51,12 @@
           class="w-full card-navy p-4 flex items-center gap-4 hover:bg-input transition-all group"
         >
           <div
-            class="w-10 h-10 bg-emerald-600/10 rounded-lg flex items-center justify-center group-hover:bg-emerald-600 transition-colors"
+            class="w-10 h-10 bg-[var(--success-bg)] rounded-lg flex items-center justify-center group-hover:bg-[var(--success)] transition-colors"
           >
-            <app-doc-icon name="lock" klass="w-5 h-5 text-emerald-500 group-hover:text-white"></app-doc-icon>
+            <app-doc-icon name="lock" klass="w-5 h-5 text-[var(--success-text)] group-hover:text-primary"></app-doc-icon>
           </div>
           <div class="text-left">
-            <p class="text-sm font-semibold text-white">Permissions</p>
+            <p class="text-sm font-semibold text-primary">Permissions</p>
             <p class="text-xs text-muted">Politiques d’accès (RBAC)</p>
           </div>
           <app-doc-icon name="chevron-right" klass="ml-auto w-4 h-4 text-muted"></app-doc-icon>
@@ -66,7 +66,7 @@
 
     <div class="lg:col-span-2 space-y-6">
       <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-white">Utilisation des modules</h3>
+        <h3 class="text-lg font-semibold text-primary">Utilisation des modules</h3>
       </div>
       <div class="card-navy p-6 space-y-6">
         <div class="flex items-center justify-between border-b border-default pb-4">
@@ -75,11 +75,11 @@
               <app-doc-icon name="file-text" klass="w-5 h-5 text-blue-500"></app-doc-icon>
             </div>
             <div>
-              <p class="text-sm font-semibold text-white">Documents générés</p>
+              <p class="text-sm font-semibold text-primary">Documents générés</p>
               <p class="text-xs text-muted">Total ce mois-ci</p>
             </div>
           </div>
-          <span class="text-xl font-bold text-white">1 245</span>
+          <span class="text-xl font-bold text-primary">1 245</span>
         </div>
         <div class="flex items-center justify-between border-b border-default pb-4">
           <div class="flex items-center gap-4">
@@ -87,11 +87,11 @@
               <app-doc-icon name="check-circle-2" klass="w-5 h-5 text-emerald-500"></app-doc-icon>
             </div>
             <div>
-              <p class="text-sm font-semibold text-white">Taux de succès API</p>
+              <p class="text-sm font-semibold text-primary">Taux de succès API</p>
               <p class="text-xs text-muted">Moyenne des points de terminaison</p>
             </div>
           </div>
-          <span class="text-xl font-bold text-white">99,8 %</span>
+          <span class="text-xl font-bold text-primary">99,8 %</span>
         </div>
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-4">
@@ -99,11 +99,11 @@
               <app-doc-icon name="hard-drive" klass="w-5 h-5 text-amber-500"></app-doc-icon>
             </div>
             <div>
-              <p class="text-sm font-semibold text-white">Stockage utilisé</p>
+              <p class="text-sm font-semibold text-primary">Stockage utilisé</p>
               <p class="text-xs text-muted">Consommation blob</p>
             </div>
           </div>
-          <span class="text-xl font-bold text-white">45,2 Go</span>
+          <span class="text-xl font-bold text-primary">45,2 Go</span>
         </div>
       </div>
     </div>

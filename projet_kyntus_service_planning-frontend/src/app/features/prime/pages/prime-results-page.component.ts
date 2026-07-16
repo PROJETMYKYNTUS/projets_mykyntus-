@@ -162,7 +162,7 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
         <app-prime-card className="p-0">
           <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
-              <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
+              <thead class="text-xs text-muted uppercase bg-card border-b border-default">
                 <tr>
                   <th class="px-6 py-3 font-medium tracking-wider">Pilote</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Périmètre</th>
@@ -177,16 +177,16 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
                   <th class="px-6 py-3 font-medium tracking-wider">Action</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-navy-800">
+              <tbody class="divide-y divide-default">
                 @if (filteredResults().length === 0) {
                   <tr>
-                    <td colspan="11" class="px-6 py-8 text-center text-slate-500">
+                    <td colspan="11" class="px-6 py-8 text-center text-muted">
                       Aucune fiche pour ces critères.
                     </td>
                   </tr>
                 } @else {
                   @for (item of filteredResults(); track item.id) {
-                    <tr class="bg-navy-900 hover:bg-navy-800 transition-colors">
+                    <tr class="bg-card hover:bg-input transition-colors">
                       <td class="px-6 py-4 whitespace-nowrap">
                         @let emp = getEmployee(item.employeeId);
                         <div class="flex items-center gap-3">
@@ -196,32 +196,32 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
                             {{ initial(emp, item.employeeId) }}
                           </div>
                           <div>
-                            <div class="font-medium text-slate-200">
+                            <div class="font-medium text-primary">
                               {{ displayName(emp, item.employeeId) }}
                             </div>
-                            <div class="text-xs text-slate-500">{{ emp?.email || '—' }}</div>
+                            <div class="text-xs text-muted">{{ emp?.email || '—' }}</div>
                           </div>
                         </div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-300">
-                        <div class="text-xs uppercase tracking-wider text-slate-500">Cellule</div>
+                      <td class="px-6 py-4 whitespace-nowrap text-muted">
+                        <div class="text-xs uppercase tracking-wider text-muted">Cellule</div>
                         <div class="font-medium">{{ item.celluleId }}</div>
-                        <div class="text-xs text-slate-500 mt-1">Service: {{ item.serviceId }}</div>
+                        <div class="text-xs text-muted mt-1">Service: {{ item.serviceId }}</div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap font-mono text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap font-mono text-primary">
                         {{ item.period }}
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-300">
+                      <td class="px-6 py-4 whitespace-nowrap text-muted">
                         <div class="min-w-[9rem]">
-                          <div class="h-2 rounded-full bg-navy-700 overflow-hidden">
+                          <div class="h-2 rounded-full bg-input overflow-hidden">
                             <div class="h-full rounded-full bg-cyan-500" [style.width.%]="workflowProgress(item.validationStatus)"></div>
                           </div>
-                          <div class="mt-1 text-xs text-slate-500">{{ workflowProgress(item.validationStatus) }}% du workflow</div>
+                          <div class="mt-1 text-xs text-muted">{{ workflowProgress(item.validationStatus) }}% du workflow</div>
                         </div>
                       </td>
-                      <td class="px-6 py-4 text-slate-300">
-                        <div class="font-medium text-slate-200">{{ nextOwnerLabel(item) }}</div>
-                        <div class="text-xs text-slate-500">{{ resultSignal(item) }}</div>
+                      <td class="px-6 py-4 text-muted">
+                        <div class="font-medium text-primary">{{ nextOwnerLabel(item) }}</div>
+                        <div class="text-xs text-muted">{{ resultSignal(item) }}</div>
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap">
                         @if (item.isReadyForValidation === true) {
@@ -229,19 +229,19 @@ const VALIDATION_STATUSES: { value: PrimeFicheValidationStatus; label: string }[
                             Oui
                           </span>
                         } @else {
-                          <span class="inline-flex px-2 py-1 rounded-md text-xs border border-slate-300 bg-slate-50 text-slate-600">
+                          <span class="inline-flex px-2 py-1 rounded-md text-xs border border-default bg-input text-muted">
                             Non
                           </span>
                         }
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         {{ formatAmount(item.primeAmount) }}
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         {{ formatAmount(item.challengeAmount) }}
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="font-semibold text-emerald-400">
+                        <div class="font-semibold text-[var(--success-text)]">
                           {{ formatAmount(item.totalAmount) }}
                         </div>
                       </td>

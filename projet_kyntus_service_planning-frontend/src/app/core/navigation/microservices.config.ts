@@ -58,7 +58,31 @@ export interface Microservice {
 const ALL_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Formateur', 'Employee', 'Superviseur'];
 const MANAGER_ROLES = ['Admin', 'RH', 'Manager'];
 const ADMIN_RH = ['Admin', 'RH'];
-const EMPLOYEE_ROLES = ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation', 'Superviseur'];
+const EMPLOYEE_ROLES = [
+  'Employee',
+  'Manager',
+  'Coach',
+  'RP',
+  'Audit',
+  'Equipe_Formation',
+  'Equipe formation',
+  'Formateur',
+  'Superviseur',
+];
+const MES_SESSIONS_ROLES = [
+  'Employee',
+  'Manager',
+  'Coach',
+  'RP',
+  'Audit',
+  'Formateur',
+  'Equipe_Formation',
+  'Equipe formation',
+  'Superviseur',
+  'Admin',
+  'RH',
+];
+const FORMATION_STAFF_ROLES = ['Admin', 'RH', 'Formateur', 'Equipe_Formation', 'Equipe formation'];
 const PLANNING_MANAGER_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'];
 
 const ICONS = {
@@ -132,10 +156,11 @@ export const MICROSERVICES: Microservice[] = [
     label: 'Formation',
     icon: ICONS.graduation,
     children: [
-      { label: 'Gestion des formations', route: '/formations', roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation'] },
+      { label: 'Gestion des formations', route: '/formations', roles: FORMATION_STAFF_ROLES },
       { label: 'Planifier formation continue', route: '/formations/planifier', roles: ['Admin', 'RH'] },
-      { label: 'Formation initiale (formateur)', route: '/formations/initiales', roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation'] },
+      { label: 'Formation initiale (formateur)', route: '/formations/initiales', roles: FORMATION_STAFF_ROLES },
       { label: 'Passage en production', route: '/formations/passage-production', roles: ['Admin', 'RH'] },
+      { label: 'Mes sessions', route: '/mes-sessions', roles: MES_SESSIONS_ROLES },
       { label: 'Mes formations', route: '/mes-formations', roles: EMPLOYEE_ROLES },
     ],
   },
@@ -154,7 +179,7 @@ export const MICROSERVICES: Microservice[] = [
     icon: ICONS.chat,
     children: [
       { label: 'Réclamations (gestion)', route: '/reclamations-admin', roles: ['RH', 'Manager', 'RP', 'Admin', 'Audit'] },
-      { label: 'Mes réclamations', route: '/reclamations', roles: ALL_ROLES },
+      { label: 'Mes réclamations', route: '/reclamations', roles: ['Employee'] },
     ],
   },
   {

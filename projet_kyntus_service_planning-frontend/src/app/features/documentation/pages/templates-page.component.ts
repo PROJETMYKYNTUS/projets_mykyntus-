@@ -24,11 +24,22 @@ import {
   DocInlineFeedbackComponent,
   DocInlineFeedbackTone,
 } from '../components/doc-inline-feedback/doc-inline-feedback.component';
+import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
+import { KyntusEmptyStateComponent } from '../../../shared/components/ui/kyntus-empty-state.component';
+import { KyntusErrorStateComponent } from '../../../shared/components/ui/kyntus-error-state.component';
 
 @Component({
   standalone: true,
   selector: 'app-templates-page',
-  imports: [CommonModule, FormsModule, DocIconComponent, DocInlineFeedbackComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DocIconComponent,
+    DocInlineFeedbackComponent,
+    KyntusPageHeaderComponent,
+    KyntusEmptyStateComponent,
+    KyntusErrorStateComponent,
+  ],
   templateUrl: './templates-page.component.html',
   styles: [`
     .template-action-row {
@@ -38,79 +49,39 @@ import {
       align-items: stretch;
     }
 
-    .template-action-button {
-      position: relative;
-      box-sizing: border-box;
-      display: inline-flex;
+    .template-action-row .ky-btn-primary,
+    .template-action-row .ky-btn-secondary,
+    .template-action-row .ky-btn-danger {
       width: 100%;
       min-width: 0;
       min-height: 2.875rem;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      padding: 0.65rem 0.85rem;
-      border-radius: 0.5rem;
-      border: 1px solid transparent;
       font-size: 0.8125rem;
-      font-weight: 600;
-      line-height: 1.3;
-      text-align: center;
       white-space: normal;
       word-break: break-word;
-      transition:
-        transform 160ms ease,
-        box-shadow 160ms ease,
-        filter 160ms ease,
-        opacity 160ms ease,
-        background-color 160ms ease,
-        border-color 160ms ease;
     }
 
-    .template-action-button:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 16px color-mix(in srgb, var(--text-primary) 25%, transparent);
-      filter: brightness(1.04);
-    }
-
-    .template-action-button:disabled {
-      pointer-events: none;
-      opacity: 0.55;
-    }
-
-    .template-action-button--icon {
+    .template-action-row .ky-btn-icon {
       min-width: 2.875rem;
       max-width: 3.25rem;
       padding-left: 0.5rem;
       padding-right: 0.5rem;
     }
 
-    .template-action-button--icon .template-action-button__label {
-      gap: 0;
-    }
-
-    .template-action-button__label {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.45rem;
+    .template-action-row .ky-btn-warning {
+      width: 100%;
       min-width: 0;
-      max-width: 100%;
+      min-height: 2.875rem;
+      font-size: 0.8125rem;
+      white-space: normal;
+      word-break: break-word;
+      background-color: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      color: var(--warning-text);
     }
 
-    .template-action-button__spinner {
-      height: 1rem;
-      width: 1rem;
-      flex: 0 0 auto;
-      border: 2px solid currentColor;
-      border-right-color: transparent;
-      border-radius: 9999px;
-      animation: template-action-spin 0.75s linear infinite;
-    }
-
-    @keyframes template-action-spin {
-      to {
-        transform: rotate(360deg);
-      }
+    .template-action-row .ky-btn-warning:hover:not(:disabled) {
+      background-color: color-mix(in srgb, var(--warning) 20%, var(--bg-card));
+      border-color: var(--warning);
     }
   `],
 })
@@ -166,6 +137,12 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.reloadTemplates();
+  }
+
+  /** Rechargement public (bouton Réessayer de l’état d’erreur). */
+  reload(): void {
+    this.error = null;
     this.reloadTemplates();
   }
 

@@ -33,7 +33,7 @@ public static class PlanningSchemaPatches
                 "UserId" integer NOT NULL,
                 "AuthUserId" integer NOT NULL,
                 "WeeklyPlanningId" integer NULL,
-                "WeekCode" character varying(32) NOT NULL DEFAULT '',
+                "WeekCode" character varying(64) NOT NULL DEFAULT '',
                 "SubServiceName" character varying(200) NOT NULL DEFAULT '',
                 "Message" text NOT NULL,
                 "IsRead" boolean NOT NULL DEFAULT false,
@@ -41,6 +41,7 @@ public static class PlanningSchemaPatches
                 "ReadAt" timestamp with time zone NULL
             );
             CREATE INDEX IF NOT EXISTS "IX_PlanningNotifications_AuthUserId" ON "PlanningNotifications" ("AuthUserId");
+            ALTER TABLE "PlanningNotifications" ALTER COLUMN "WeekCode" TYPE character varying(64);
             """,
             ct);
     }

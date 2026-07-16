@@ -116,7 +116,7 @@ export class TierEditorBlockComponent {
 
             <div class="grid sm:grid-cols-2 gap-3">
               <button type="button" (click)="setProgramMode('STANDARD')"
-                [class]="'rounded-xl border p-4 text-left transition-colors ' + (rules().activeMode === 'STANDARD' ? 'border-blue-500/50 bg-blue-600/10 ring-1 ring-blue-500/30' : 'border-default bg-input hover:border-default')">
+                [class]="'rounded-xl border p-4 text-left transition-colors ' + (rules().activeMode === 'STANDARD' ? 'border-[var(--info-border)] bg-[var(--info-bg)] ring-1 ring-[var(--info-border)]' : 'border-default bg-input hover:border-default')">
                 <span class="text-sm font-semibold text-primary">Mode STANDARD</span>
                 <p class="text-xs text-muted mt-1 leading-relaxed">Ex. une tranche : 1&nbsp;500&nbsp;DH après 6&nbsp;mois. Ajoutez d'autres tranches si besoin.</p>
               </button>
@@ -187,9 +187,9 @@ export class TierEditorBlockComponent {
 
           <div class="flex justify-end gap-3">
             @if (saved()) {
-              <span class="text-sm text-emerald-400 self-center">Enregistré</span>
+              <span class="text-sm text-[var(--success-text)] self-center">Enregistré</span>
             }
-            <button (click)="handleSave()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-lg font-medium transition-colors">Enregistrer</button>
+            <button (click)="handleSave()" class="ky-btn-primary px-6 py-2.5">Enregistrer</button>
           </div>
         </div>
 

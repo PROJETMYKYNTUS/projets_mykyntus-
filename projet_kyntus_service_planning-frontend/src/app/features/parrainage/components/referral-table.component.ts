@@ -64,21 +64,21 @@ import { ParrainageNavService } from '../state/parrainage-nav.service';
                 @if (showActions) {
                   <td class="px-6 py-4 text-right">
                     <div class="flex items-center justify-end gap-2">
-                      <button type="button" (click)="onDetails(r)" class="p-2 text-muted hover:text-blue-500 hover:bg-blue-500/10 rounded-lg text-sm font-medium">Détails</button>
+                      <button type="button" (click)="onDetails(r)" class="p-2 text-muted hover:text-[var(--soft-blue)] hover:bg-[var(--info-bg)] rounded-lg text-sm font-medium">Détails</button>
                       @if (enableValidateProcessed && r.status === 'PROCESSED' && !r.candidateEmployeeId) {
                         <button
                           type="button"
                           (click)="navigateToEmployeeForm(r.id)"
-                          class="p-2 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg text-sm font-medium"
+                          class="p-2 text-[var(--success-text)] hover:bg-[var(--success-bg)] rounded-lg text-sm font-medium"
                         >
                           Valider
                         </button>
                       }
                       @if (enableApprove && r.status === 'SUBMITTED') {
-                        <button type="button" (click)="approve.emit(r)" class="p-2 text-muted hover:text-emerald-500 text-sm">Valider</button>
+                        <button type="button" (click)="approve.emit(r)" class="p-2 text-muted hover:text-[var(--success-text)] text-sm">Valider</button>
                       }
                       @if (enableReject && r.status === 'SUBMITTED') {
-                        <button type="button" (click)="reject.emit(r)" class="p-2 text-muted hover:text-red-500 text-sm">Rejeter</button>
+                        <button type="button" (click)="reject.emit(r)" class="p-2 text-muted hover:text-[var(--danger-text)] text-sm">Rejeter</button>
                       }
                     </div>
                   </td>

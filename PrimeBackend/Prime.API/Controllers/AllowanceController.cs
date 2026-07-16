@@ -24,8 +24,9 @@ public class AllowanceController(
             Request.Headers[IPrimeRequestUserResolver.HeaderUserId].FirstOrDefault(),
             Request.Headers[IPrimeRequestUserResolver.HeaderRole].FirstOrDefault(),
             ct);
+        // 403 (pas 401) : JWT valide mais pas de fiche Prime — ne doit pas déclencher un logout côté client.
         if (resolved is null)
-            return ("", "", Unauthorized(new { error = "Utilisateur PRIME non résolu." }));
+            return ("", "", StatusCode(StatusCodes.Status403Forbidden, new { error = "Utilisateur PRIME non résolu." }));
         return (resolved.UserId, resolved.Role, null);
     }
 

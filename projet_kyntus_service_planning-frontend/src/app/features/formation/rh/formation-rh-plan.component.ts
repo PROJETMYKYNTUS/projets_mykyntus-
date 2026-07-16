@@ -258,15 +258,20 @@ export class FormationRhPlanComponent implements OnInit {
     }
   }
 
-  async setStatus(sessionId: string, status: string): Promise<void> {
-    this.busy.set(true);
-    try {
-      await this.api.patchSessionStatus(sessionId, status);
-      await this.reload();
-    } catch (e) {
-      this.error.set(e instanceof Error ? e.message : 'Échec du changement de statut');
-    } finally {
-      this.busy.set(false);
+  statusLabel(status: string): string {
+    switch (status) {
+      case 'Draft':
+        return 'Brouillon';
+      case 'Scheduled':
+        return 'Planifiée';
+      case 'InProgress':
+        return 'En cours';
+      case 'Completed':
+        return 'Terminée';
+      case 'Cancelled':
+        return 'Annulée';
+      default:
+        return status;
     }
   }
 

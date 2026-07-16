@@ -1,0 +1,184 @@
+{
+  "version": 1,
+  "description": "Roster contact centre Casablanca — source de vérité pour seeds Planning / Formation / Parrainage (pas les personas Démo).",
+  "org": {
+    "poles": [
+      { "id": "d1", "name": "Relation client & centres d'appels — Casablanca (Maroc)" },
+      { "id": "d2", "name": "Support SI & pilotage qualité" }
+    ],
+    "cellules": [
+      { "id": "p1", "poleId": "d1", "name": "Plateforme inbound — grands comptes" },
+      { "id": "p2", "poleId": "d1", "name": "Réclamations & rétention" },
+      { "id": "p3", "poleId": "d2", "name": "Infrastructure télécom & réseau" }
+    ],
+    "services": [
+      { "id": "c1", "celluleId": "p1", "name": "Agents 1er niveau (voice / chat)", "code": "c1" },
+      { "id": "c2", "celluleId": "p1", "name": "Enquêtes NPS & rappels satisfaction", "code": "c2" },
+      { "id": "c3", "celluleId": "p2", "name": "Suivi engagements & cantonnement", "code": "c3" },
+      { "id": "c4", "celluleId": "p3", "name": "Supervision connectivité & ACD", "code": "c4" }
+    ]
+  },
+  "projects": [
+    { "id": "proj-inbound", "name": "Inbound grands comptes", "celluleId": "p1", "teamId": "team-voice" },
+    { "id": "proj-retention", "name": "Réclamations & rétention", "celluleId": "p2", "teamId": "team-ret" },
+    { "id": "proj-acd", "name": "Supervision connectivité & ACD", "celluleId": "p3", "teamId": "team-si" }
+  ],
+  "employees": [
+    {
+      "primeId": "e1",
+      "firstName": "Yasmine",
+      "lastName": "El Idrissi",
+      "email": "yasmine.elidrissi@contactcentre.ma",
+      "role": "Pilote",
+      "poleId": "d1",
+      "celluleId": "p1",
+      "serviceId": "c1",
+      "guid": "11111111-1111-4111-8111-111111111103",
+      "authEmail": "employee@kyntus.ma",
+      "planningRole": "Pilote"
+    },
+    {
+      "primeId": "e2",
+      "firstName": "Mehdi",
+      "lastName": "Chraibi",
+      "email": "mehdi.chraibi@contactcentre.ma",
+      "role": "Pilote",
+      "poleId": "d1",
+      "celluleId": "p1",
+      "serviceId": "c1",
+      "guid": "22222222-2222-4222-8222-222222222002",
+      "authEmail": null,
+      "planningRole": "Pilote"
+    },
+    {
+      "primeId": "e3",
+      "firstName": "Ghita",
+      "lastName": "Benkirane",
+      "email": "ghita.benkirane@contactcentre.ma",
+      "role": "Chef de projet",
+      "poleId": "d1",
+      "celluleId": "p1",
+      "serviceId": "c1",
+      "guid": "11111111-1111-4111-8111-111111111107",
+      "authEmail": "rp@kyntus.ma",
+      "planningRole": "Chef de projet"
+    },
+    {
+      "primeId": "e4",
+      "firstName": "Imane",
+      "lastName": "Fassi",
+      "email": "imane.fassi@contactcentre.ma",
+      "role": "Pilote",
+      "poleId": "d1",
+      "celluleId": "p1",
+      "serviceId": "c1",
+      "guid": "22222222-2222-4222-8222-222222222004",
+      "authEmail": null,
+      "planningRole": "Pilote"
+    },
+    {
+      "primeId": "e5",
+      "firstName": "Latifa",
+      "lastName": "Mansouri",
+      "email": "latifa.mansouri@contactcentre.ma",
+      "role": "RH",
+      "poleId": "d2",
+      "celluleId": "p3",
+      "serviceId": "c4",
+      "guid": "11111111-1111-4111-8111-111111111104",
+      "authEmail": "rh@kyntus.ma",
+      "planningRole": "RH"
+    },
+    {
+      "primeId": "e6",
+      "firstName": "Hicham",
+      "lastName": "Benjelloun",
+      "email": "hicham.benjelloun@contactcentre.ma",
+      "role": "Chef de projet",
+      "poleId": "d1",
+      "celluleId": "p1",
+      "serviceId": "c1",
+      "guid": "11111111-1111-4111-8111-111111111110",
+      "authEmail": "formation@kyntus.ma",
+      "planningRole": "EquipeFormation"
+    },
+    {
+      "primeId": "e7",
+      "firstName": "Laila",
+      "lastName": "Zahidi",
+      "email": "laila.zahidi@contactcentre.ma",
+      "role": "Audit",
+      "poleId": "d1",
+      "celluleId": "p1",
+      "serviceId": "c1",
+      "guid": "11111111-1111-4111-8111-111111111109",
+      "authEmail": "audit@kyntus.ma",
+      "planningRole": "Audit"
+    },
+    {
+      "primeId": "e8",
+      "firstName": "Omar",
+      "lastName": "Tazi",
+      "email": "omar.tazi@contactcentre.ma",
+      "role": "Référent technique",
+      "poleId": "d1",
+      "celluleId": "p1",
+      "serviceId": "c1",
+      "guid": "11111111-1111-4111-8111-111111111106",
+      "authEmail": "coach@kyntus.ma",
+      "planningRole": "Référent technique"
+    },
+    {
+      "primeId": "e9",
+      "firstName": "Kenza",
+      "lastName": "Alami",
+      "email": "kenza.alami@contactcentre.ma",
+      "role": "Superviseur",
+      "poleId": "d1",
+      "celluleId": "p1",
+      "serviceId": "c1",
+      "guid": "11111111-1111-4111-8111-111111111111",
+      "authEmail": "superviseur@kyntus.ma",
+      "planningRole": "Superviseur"
+    },
+    {
+      "primeId": "e10",
+      "firstName": "Nadia",
+      "lastName": "Benchrif",
+      "email": "nadia.benchrif@contactcentre.ma",
+      "role": "Manager",
+      "poleId": "d1",
+      "celluleId": "p1",
+      "serviceId": "c1",
+      "guid": "11111111-1111-4111-8111-111111111105",
+      "authEmail": "manager@kyntus.ma",
+      "planningRole": "Superviseur"
+    },
+    {
+      "primeId": "e11",
+      "firstName": "Karim",
+      "lastName": "Oufkir",
+      "email": "karim.oufkir@contactcentre.ma",
+      "role": "Comptabilité",
+      "poleId": "d1",
+      "celluleId": "p1",
+      "serviceId": "c1",
+      "guid": "22222222-2222-4222-8222-222222222011",
+      "authEmail": null,
+      "planningRole": "Pilote"
+    },
+    {
+      "primeId": "e-admin",
+      "firstName": "Système",
+      "lastName": "Admin",
+      "email": "admin@contactcentre.ma",
+      "role": "Admin",
+      "poleId": "d1",
+      "celluleId": "p1",
+      "serviceId": "c1",
+      "guid": "11111111-1111-4111-8111-111111111108",
+      "authEmail": "admin@kyntus.ma",
+      "planningRole": "Admin"
+    }
+  ]
+}

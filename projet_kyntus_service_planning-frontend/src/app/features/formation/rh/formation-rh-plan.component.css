@@ -37,7 +37,7 @@
 .field-label {
   display: block;
   font-size: 0.75rem;
-  color: var(--text-muted, var(--text-secondary));
+  color: var(--text-muted);
   margin-bottom: 0.35rem;
 }
 
@@ -46,7 +46,7 @@
   margin: 0;
   padding: 1rem;
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
 }
 
 .animator-fieldset legend,
@@ -84,7 +84,7 @@
   max-height: 12rem;
   overflow: auto;
   border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
 }
 
 .employee-option {
@@ -107,7 +107,7 @@
 
 .employee-option:hover,
 .employee-option.selected {
-  background: color-mix(in srgb, var(--soft-blue, #3b82f6) 10%, var(--bg-card));
+  background: color-mix(in srgb, var(--soft-blue) 10%, var(--bg-card));
 }
 
 .employee-option-name {
@@ -117,7 +117,7 @@
 
 .employee-option-meta {
   font-size: 0.75rem;
-  color: var(--text-muted, var(--text-secondary));
+  color: var(--text-muted);
 }
 
 .selected-chip {
@@ -126,9 +126,9 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.65rem 0.85rem;
-  border-radius: 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--soft-blue, #3b82f6) 35%, var(--border-color));
-  background: color-mix(in srgb, var(--soft-blue, #3b82f6) 8%, var(--bg-card));
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--soft-blue) 35%, var(--border-color));
+  background: color-mix(in srgb, var(--soft-blue) 8%, var(--bg-card));
   margin-bottom: 0.75rem;
 }
 
@@ -139,7 +139,7 @@
 
 .selected-chip span {
   font-size: 0.75rem;
-  color: var(--text-muted, var(--text-secondary));
+  color: var(--text-muted);
 }
 
 .beneficiary-chips {
@@ -154,10 +154,10 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.35rem 0.6rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.78rem;
   border: 1px solid var(--border-color);
-  background: color-mix(in srgb, var(--bg-card) 90%, var(--soft-blue, #3b82f6));
+  background: color-mix(in srgb, var(--bg-card) 90%, var(--soft-blue));
 }
 
 .beneficiary-chip button {
@@ -188,7 +188,7 @@
 .animated-sessions li {
   font-size: 0.82rem;
   padding: 0.55rem 0.7rem;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
 }
 
@@ -222,5 +222,5 @@
 
 .capacity-hint {
   font-size: 0.75rem;
-  color: var(--text-muted, var(--text-secondary));
+  color: var(--text-muted);
 }

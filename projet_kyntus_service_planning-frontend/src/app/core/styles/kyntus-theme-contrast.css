@@ -1,25 +1,42 @@
 /**
  * Garde-fous contrast light/dark — chargé en dernier (priorité max).
  * Couvre microservices (module-*) et pages legacy dans .ks-content.
+ *
+ * ⚠ COUCHE EN EXTINCTION — ne rien ajouter ici.
+ * Chaque écran migré vers les tokens sémantiques (bg-card, text-primary,
+ * border-default / bg-surface-*, text-ink-* côté Tailwind) rend des règles
+ * de ce fichier obsolètes : les retirer au fur et à mesure.
+ * Objectif : supprimer ce fichier une fois tous les écrans legacy migrés.
  */
 
-/* ——— Mode clair : text-white sur fond clair ——— */
-body.theme-light .ks-content .text-white:not([class*='bg-blue']):not([class*='bg-indigo']):not([class*='bg-cyan']):not([class*='bg-red']):not([class*='bg-green']):not([class*='bg-amber']):not([class*='bg-emerald']):not([class*='bg-purple']):not([class*='bg-violet']):not([class*='bg-rose']):not([class*='bg-orange']):not([class*='bg-teal']):not([class*='bg-sky']):not([class*='bg-primary']):not([class*='bg-gradient']) {
+/* ——— Safety net : contrast legacy light/dark ——— */
+
+/* text-white sur fond inadapté (clair) */
+body.theme-light .ks-content .text-white:not([class*='bg-blue']):not([class*='bg-indigo']):not([class*='bg-cyan']):not([class*='bg-red']):not([class*='bg-green']):not([class*='bg-amber']):not([class*='bg-emerald']):not([class*='bg-purple']):not([class*='bg-violet']):not([class*='bg-rose']):not([class*='bg-orange']):not([class*='bg-teal']):not([class*='bg-sky']):not([class*='bg-primary']):not([class*='bg-gradient']),
+body.theme-light .ks-content header:not(.kyntus-page-header) .text-white {
   color: var(--text-primary) !important;
 }
 
-/* Slate trop pâle sur fond clair */
+/* Slate / gray legacy → tokens sémantiques */
 body.theme-light .ks-content .text-slate-300,
-body.theme-light .ks-content .text-slate-400 {
-  color: var(--text-muted) !important;
-}
-
+body.theme-light .ks-content .text-slate-400,
 body.theme-light .ks-content .text-slate-500,
-body.theme-light .ks-content .text-slate-600 {
+body.theme-light .ks-content .text-slate-600,
+body.theme-dark .ks-content .text-slate-600,
+body.theme-dark .ks-content .text-slate-700,
+body.theme-dark .ks-content .text-gray-600,
+body.theme-dark .ks-content .text-gray-700 {
   color: var(--text-muted) !important;
 }
 
-/* Fonds navy Tailwind (conçus pour dark) → surfaces claires */
+body.theme-dark .ks-content .text-slate-900,
+body.theme-dark .ks-content .text-gray-900,
+body.theme-dark .ks-content .text-slate-800,
+body.theme-dark .ks-content .text-gray-800 {
+  color: var(--text-primary) !important;
+}
+
+/* Fonds navy Tailwind (dark-only) → surfaces claires */
 body.theme-light .ks-content .bg-navy-950,
 body.theme-light .ks-content .bg-navy-950\/80 {
   background-color: var(--bg-primary) !important;
@@ -35,14 +52,10 @@ body.theme-light .ks-content .border-navy-800 {
   border-color: var(--border-color) !important;
 }
 
-/* Ne pas styler les titres de page (Prime pattern : h1 sur fond page, sans cadre) */
+/* Headers legacy (sans kyntus-page-header) */
 body.theme-light .ks-content header:not(.kyntus-page-header) {
   background-color: color-mix(in srgb, var(--bg-card) 92%, transparent) !important;
   border-color: var(--border-color) !important;
-}
-
-body.theme-light .ks-content header:not(.kyntus-page-header) .text-white {
-  color: var(--text-primary) !important;
 }
 
 /* Boutons colorés : conserver texte blanc */
@@ -65,7 +78,7 @@ body.theme-light .ks-content button[class*='bg-blue-'],
 body.theme-light .ks-content button[class*='bg-indigo-'],
 body.theme-light .ks-content a[class*='bg-blue-'],
 body.theme-light .ks-content a[class*='bg-indigo-'] {
-  color: #ffffff !important;
+  color: #f1f5f9 !important;
 }
 
 /* ——— Mode sombre : fonds/textes clairs hardcodés ——— */
@@ -76,20 +89,6 @@ body.theme-dark .ks-content .bg-white {
 body.theme-dark .ks-content .bg-gray-50,
 body.theme-dark .ks-content .bg-slate-50 {
   background-color: var(--bg-input) !important;
-}
-
-body.theme-dark .ks-content .text-slate-900,
-body.theme-dark .ks-content .text-gray-900,
-body.theme-dark .ks-content .text-slate-800,
-body.theme-dark .ks-content .text-gray-800 {
-  color: var(--text-primary) !important;
-}
-
-body.theme-dark .ks-content .text-slate-700,
-body.theme-dark .ks-content .text-gray-700,
-body.theme-dark .ks-content .text-slate-600,
-body.theme-dark .ks-content .text-gray-600 {
-  color: var(--text-muted) !important;
 }
 
 body.theme-dark .ks-content .border-gray-200,
@@ -190,13 +189,13 @@ body.theme-dark .ks-content textarea {
 }
 
 .ks-content .btn-export {
-  background: color-mix(in srgb, #22c55e 16%, var(--bg-card)) !important;
-  border: 1px solid color-mix(in srgb, #22c55e 35%, var(--border-color)) !important;
-  color: color-mix(in srgb, #16a34a 75%, var(--text-primary)) !important;
+  background: color-mix(in srgb, var(--success) 16%, var(--bg-card)) !important;
+  border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border-color)) !important;
+  color: color-mix(in srgb, var(--success) 75%, var(--text-primary)) !important;
 }
 
 .ks-content .btn-export:hover {
-  background: color-mix(in srgb, #22c55e 24%, var(--bg-card)) !important;
+  background: color-mix(in srgb, var(--success) 24%, var(--bg-card)) !important;
 }
 
 /* Boutons primaires : texte blanc garanti */
@@ -205,7 +204,7 @@ body.theme-dark .ks-content textarea {
 .ks-content .btn-import,
 .ks-content .ky-btn-primary,
 .ks-content button.btn-primary {
-  color: #ffffff !important;
+  color: #f1f5f9 !important;
 }
 
 /* Zones upload / drag-drop */
@@ -233,8 +232,8 @@ body.theme-dark .ks-content textarea {
 }
 
 .ks-content .drop-zone.has-file {
-  background: color-mix(in srgb, #22c55e 12%, var(--bg-card)) !important;
-  border-color: color-mix(in srgb, #22c55e 40%, var(--border-color)) !important;
+  background: color-mix(in srgb, var(--success) 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, var(--success) 40%, var(--border-color)) !important;
 }
 
 .ks-content .drop-formats {
@@ -318,14 +317,14 @@ body.theme-dark .ks-content textarea {
 
 .ks-content .stat-item.success,
 .ks-content .all-success {
-  background: color-mix(in srgb, #22c55e 12%, var(--bg-card)) !important;
-  border-color: color-mix(in srgb, #22c55e 30%, var(--border-color)) !important;
+  background: color-mix(in srgb, var(--success) 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, var(--success) 30%, var(--border-color)) !important;
   color: var(--text-primary) !important;
 }
 
 .ks-content .stat-item.error {
-  background: color-mix(in srgb, #ef4444 12%, var(--bg-card)) !important;
-  border-color: color-mix(in srgb, #ef4444 30%, var(--border-color)) !important;
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--border-color)) !important;
 }
 
 .ks-content .state-box,
@@ -340,14 +339,14 @@ body.theme-dark .ks-content textarea {
 
 .ks-content .state.error,
 .ks-content .state-box.error {
-  background: color-mix(in srgb, #ef4444 12%, var(--bg-card)) !important;
-  border-color: color-mix(in srgb, #ef4444 30%, var(--border-color)) !important;
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--border-color)) !important;
   color: var(--text-primary) !important;
 }
 
 .ks-content .error-list {
-  background: color-mix(in srgb, #f97316 12%, var(--bg-card)) !important;
-  border-color: color-mix(in srgb, #f97316 35%, var(--border-color)) !important;
+  background: color-mix(in srgb, var(--warning) 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--border-color)) !important;
 }
 
 .ks-content .error-list h4,
@@ -411,32 +410,32 @@ body.theme-dark .ks-content textarea {
 }
 
 .ks-content .btn-slot.slot-active {
-  background: color-mix(in srgb, #22c55e 16%, var(--bg-card)) !important;
-  border-color: color-mix(in srgb, #22c55e 40%, var(--border-color)) !important;
+  background: color-mix(in srgb, var(--success) 16%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, var(--success) 40%, var(--border-color)) !important;
   color: var(--text-primary) !important;
 }
 
 .ks-content .btn-remove {
-  background: color-mix(in srgb, #ef4444 12%, var(--bg-card)) !important;
-  border-color: color-mix(in srgb, #ef4444 35%, var(--border-color)) !important;
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border-color)) !important;
   color: var(--text-primary) !important;
 }
 
 .ks-content .warning-box {
-  background: color-mix(in srgb, #f97316 12%, var(--bg-card)) !important;
-  border-color: color-mix(in srgb, #f97316 35%, var(--border-color)) !important;
+  background: color-mix(in srgb, var(--warning) 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--border-color)) !important;
   color: var(--text-primary) !important;
 }
 
 .ks-content .alert-success {
-  background: color-mix(in srgb, #22c55e 12%, var(--bg-card)) !important;
-  border-color: color-mix(in srgb, #22c55e 30%, var(--border-color)) !important;
+  background: color-mix(in srgb, var(--success) 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, var(--success) 30%, var(--border-color)) !important;
   color: var(--text-primary) !important;
 }
 
 .ks-content .alert-error {
-  background: color-mix(in srgb, #ef4444 12%, var(--bg-card)) !important;
-  border-color: color-mix(in srgb, #ef4444 30%, var(--border-color)) !important;
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--border-color)) !important;
   color: var(--text-primary) !important;
 }
 
@@ -448,8 +447,8 @@ body.theme-dark .ks-content textarea {
 }
 
 .ks-content .count-badge.warn {
-  background: color-mix(in srgb, #f97316 14%, var(--bg-card)) !important;
-  border-color: color-mix(in srgb, #f97316 35%, var(--border-color)) !important;
+  background: color-mix(in srgb, var(--warning) 14%, var(--bg-card)) !important;
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--border-color)) !important;
   color: var(--text-primary) !important;
 }
 

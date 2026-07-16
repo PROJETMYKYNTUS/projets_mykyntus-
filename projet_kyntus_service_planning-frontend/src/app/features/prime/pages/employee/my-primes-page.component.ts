@@ -35,11 +35,11 @@ import { RoleService } from '../../state/role.service';
       <div class="prime-page-shell">
         <div class="flex items-start justify-between">
           <div>
-            <h1 class="text-3xl font-bold text-slate-100">Mes primes</h1>
-            <p class="text-slate-400 mt-1">Fiche de prime et suivi du paiement par période.</p>
+            <h1 class="text-3xl font-bold text-primary">Mes primes</h1>
+            <p class="text-muted mt-1">Fiche de prime et suivi du paiement par période.</p>
           </div>
           <div
-            class="inline-flex items-center gap-2 bg-navy-900/80 border border-navy-800 rounded-lg px-3 py-2 text-slate-300 text-sm"
+            class="inline-flex items-center gap-2 bg-card border border-default rounded-lg px-3 py-2 text-muted text-sm"
           >
             <app-lucide-icon [icon]="icons.wallet" className="w-4 h-4 text-blue-300" />
             <span>{{ user().firstName }} {{ user().lastName }}</span>
@@ -47,13 +47,13 @@ import { RoleService } from '../../state/role.service';
         </div>
 
         <app-prime-card title="Ma fiche de prime & paiement" className="p-0 card-navy">
-          <p class="px-6 pt-4 text-xs text-slate-400">
+          <p class="px-6 pt-4 text-xs text-muted">
             Votre fiche devient consultable et téléchargeable une fois validée par RH + Manager. Le suivi du paiement
             est mis à jour par la comptabilité.
           </p>
           <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
-              <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
+              <thead class="text-xs text-muted uppercase bg-card border-b border-default">
                 <tr>
                   <th class="px-6 py-3 font-medium tracking-wider">Période</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Service / Cellule</th>
@@ -63,24 +63,24 @@ import { RoleService } from '../../state/role.service';
                   <th class="px-6 py-3 font-medium tracking-wider text-right">Fiche</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-navy-800">
+              <tbody class="divide-y divide-default">
                 @if (tracking().length === 0) {
                   <tr>
-                    <td colspan="6" class="px-6 py-8 text-center text-slate-500">Aucune prime en synthèse pour le moment.</td>
+                    <td colspan="6" class="px-6 py-8 text-center text-muted">Aucune prime en synthèse pour le moment.</td>
                   </tr>
                 } @else {
                   @for (row of tracking(); track row.ficheId) {
-                    <tr class="bg-navy-900 hover:bg-navy-800 transition-colors">
-                      <td class="px-6 py-4 font-mono text-slate-200">{{ row.period }}</td>
-                      <td class="px-6 py-4 text-slate-300">
-                        <div class="text-slate-200">{{ row.serviceName }}</div>
-                        <div class="text-xs text-slate-500">{{ row.celluleName }}</div>
+                    <tr class="bg-card hover:bg-input transition-colors">
+                      <td class="px-6 py-4 font-mono text-primary">{{ row.period }}</td>
+                      <td class="px-6 py-4 text-muted">
+                        <div class="text-primary">{{ row.serviceName }}</div>
+                        <div class="text-xs text-muted">{{ row.celluleName }}</div>
                       </td>
                       <td class="px-6 py-4 text-right whitespace-nowrap">
                         @if (row.totalAmount != null) {
-                          <span class="font-semibold text-emerald-400">{{ row.totalAmount | number: '1.0-2' }} MAD</span>
+                          <span class="font-semibold text-[var(--success-text)]">{{ row.totalAmount | number: '1.0-2' }} MAD</span>
                         } @else {
-                          <span class="text-slate-500">—</span>
+                          <span class="text-muted">—</span>
                         }
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap">
@@ -94,13 +94,13 @@ import { RoleService } from '../../state/role.service';
                             <app-lucide-icon [icon]="icons.check" className="w-3.5 h-3.5" /> Payé
                           </span>
                           @if (row.paidAt) {
-                            <div class="text-[11px] text-slate-500 mt-1">{{ row.paidAt | date: 'dd/MM/yyyy' }}</div>
+                            <div class="text-[11px] text-muted mt-1">{{ row.paidAt | date: 'dd/MM/yyyy' }}</div>
                           }
                           @if (row.paymentReference) {
-                            <div class="text-[11px] text-slate-500">Réf. {{ row.paymentReference }}</div>
+                            <div class="text-[11px] text-muted">Réf. {{ row.paymentReference }}</div>
                           }
                         } @else {
-                          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-500/10 text-slate-300 border border-slate-500/30">
+                          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-[var(--info-bg)] text-muted border border-[var(--info-border)]">
                             <app-lucide-icon [icon]="icons.clock" className="w-3.5 h-3.5" /> Non payé
                           </span>
                         }
@@ -180,7 +180,7 @@ export class MyPrimesPageComponent {
       case 'PendingReview':
         return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
       default:
-        return 'bg-slate-500/10 text-slate-300 border-slate-500/30';
+        return 'bg-[var(--info-bg)] text-muted border-[var(--info-border)]';
     }
   }
 }

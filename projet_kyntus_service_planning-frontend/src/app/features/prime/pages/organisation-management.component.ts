@@ -56,6 +56,7 @@ import {
   buildIncumbentChoiceMessage,
 } from '../../../core/org/org-structure-incumbent.util';
 import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
+import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 import { KyntusSessionService } from '../../../core/session/kyntus-session.service';
 import { evaluatePilotRotationEligibility } from '../../../core/directory/pilot-rotation-eligibility.util';
 import type { OperationalDepartmentNode, OrgCelluleNode, OrgPoleNode } from '../models/org-tree.types';
@@ -106,7 +107,12 @@ export type FlatCelluleRow = FlatPoleRow & {
 
 export type OrgMainTab = OrganisationRhTab;
 
-export type StructureLogEntry = { at: string; message: string };
+export type StructureLogEntry = {
+  at: string;
+  message: string;
+  /** Ids nœuds (dept / pôle / cellule / service) pour filtrer le journal selon la sélection. */
+  scopeIds?: string[];
+};
 
 function httpErrMessage(err: unknown): string {
   if (err instanceof HttpErrorResponse) {
@@ -138,6 +144,7 @@ function httpErrMessage(err: unknown): string {
     PrimeCardComponent,
     KyntusSelectSyncDirective,
     PilotRotationHistoryModalComponent,
+    KyntusPageHeaderComponent,
   ],
   template: `
     <app-pilot-rotation-history-modal
@@ -147,44 +154,35 @@ function httpErrMessage(err: unknown): string {
       (close)="closePilotRotationHistory()"
     />
     @if (loading()) {
-      <div class="p-8 flex justify-center">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      <div class="ky-page-shell org-page">
+        <div class="flex justify-center py-12">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--soft-blue)]"></div>
+        </div>
       </div>
     } @else {
-      <div class="p-6 lg:p-8 space-y-6 min-h-full bg-app">
-        <div class="flex flex-wrap justify-between items-start gap-4">
-          <div>
-            <h1 class="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Organisation RH</h1>
-            <div class="mt-3 max-w-3xl space-y-2 text-sm leading-relaxed text-slate-400">
-              <p>
-                <span class="font-medium text-slate-300">Départements de production</span> — managers métier
-                (interface Prime classique) distincts des
-                <span class="font-medium text-slate-300">chefs de projet</span> par pôle.
-              </p>
-              <p>
-                <span class="font-medium text-slate-300">Gestion par listes</span> — tous les pôles, cellules et
-                services, avec affectation ligne par ligne. Les rôles et la hiérarchie sont alignés automatiquement
-                lors de chaque enregistrement.
-              </p>
-            </div>
-          </div>
+      <div class="ky-page-shell org-page">
+        <app-kyntus-page-header
+          title="Organisation RH"
+          subtitle="Départements de production, pôles, cellules et services — affectations alignées sur le même cadre visuel que les autres modules."
+        >
           <button
+            actions
             type="button"
             (click)="load(false)"
             [disabled]="saving()"
-            class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-navy-700 bg-navy-900 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-navy-800 disabled:opacity-50"
+            class="ky-btn-secondary inline-flex items-center gap-2"
           >
             <app-lucide-icon [icon]="icons.refresh" className="w-4 h-4" />
             Actualiser
           </button>
-        </div>
+        </app-kyntus-page-header>
 
-        <div class="flex flex-wrap gap-3 items-center">
-          <label class="text-sm text-slate-400 flex items-center gap-2">
+        <div class="org-toolbar ky-card">
+          <label class="text-sm text-muted flex items-center gap-2">
             Rechercher
             <input
               type="search"
-              class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 w-64"
+              class="ky-input w-64"
               placeholder="Filtrer les lignes du tableau actif…"
               [value]="search()"
               (input)="search.set($any($event.target).value)"
@@ -194,14 +192,14 @@ function httpErrMessage(err: unknown): string {
 
         @if (error()) {
           <div
-            class="rounded-lg border border-red-500/40 bg-red-950/40 px-4 py-3 text-sm text-red-200"
+            class="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger-text)]"
             role="alert"
           >
             {{ error() }}
           </div>
         }
 
-        <div class="flex flex-wrap gap-2 border-b border-navy-800 pb-2" role="tablist">
+        <div class="org-tabs" role="tablist">
           @for (t of mainTabs; track t.id) {
             <button
               type="button"
@@ -209,12 +207,9 @@ function httpErrMessage(err: unknown): string {
               [attr.aria-selected]="mainTab() === t.id"
               (click)="selectMainTab(t.id)"
               class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-              [class.bg-indigo-600]="mainTab() === t.id"
-              [class.text-white]="mainTab() === t.id"
-              [class.bg-navy-900]="mainTab() !== t.id"
-              [class.text-slate-300]="mainTab() !== t.id"
-              [class.ring-1]="mainTab() === t.id"
-              [class.ring-indigo-400]="mainTab() === t.id"
+              [class.org-tab-active]="mainTab() === t.id"
+              [class.bg-card]="mainTab() !== t.id"
+              [class.text-muted]="mainTab() !== t.id"
             >
               {{ t.label }}
             </button>
@@ -229,13 +224,13 @@ function httpErrMessage(err: unknown): string {
               description="Manager métier (interface Prime classique). Distinct du chef de projet, rattaché à chaque pôle."
             >
               <div
-                class="px-4 py-3 sm:px-6 border-b border-navy-800 bg-navy-950/40 flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-end"
+                class="px-4 py-3 sm:px-6 border-b border-default bg-input/40 flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-end"
               >
-                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[12rem] flex-1 max-w-md">
+                <label class="text-sm text-muted flex flex-col gap-1 min-w-[12rem] flex-1 max-w-md">
                   <span>Nom du département</span>
                   <input
                     type="text"
-                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500"
+                    class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary placeholder:text-muted"
                     placeholder="Ex. Opérations terrain"
                     [value]="newMetierDeptName()"
                     (input)="newMetierDeptName.set($any($event.target).value)"
@@ -245,16 +240,16 @@ function httpErrMessage(err: unknown): string {
                   type="button"
                   (click)="submitNewMetierDepartment()"
                   [disabled]="saving() || !newMetierDeptName().trim() || !!newMetierDeptNameConflict()"
-                  class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 shrink-0"
+                  class="ky-btn-primary shrink-0"
                 >
                   <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
                   Créer
                 </button>
               </div>
               @if (newMetierDeptNameConflict(); as msg) {
-                <p class="px-4 sm:px-6 pb-2 text-xs text-amber-400">{{ msg }}</p>
+                <p class="px-4 sm:px-6 pb-2 text-xs text-[var(--warning-text)]">{{ msg }}</p>
               }
-              <p class="px-4 sm:px-6 py-2 text-xs text-slate-400 border-b border-navy-800">
+              <p class="px-4 sm:px-6 py-2 text-xs text-muted border-b border-default">
                 {{ filteredMetierDepartmentsForTable().length }} département(s) affiché(s)
               </p>
               <div class="overflow-x-auto">
@@ -276,7 +271,7 @@ function httpErrMessage(err: unknown): string {
                         <td class="px-4 py-2.5"><span class="prime-cell-muted">{{ metierManagerLabel(d.id) }}</span></td>
                         <td class="px-4 py-2.5">
                           <select
-                            class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
+                            class="w-full min-w-[12rem] rounded-lg border border-default bg-input px-2 py-1.5 text-primary text-sm"
                             [kyntusSelectSync]="draftMetierManager(d.id)"
                             (kyntusSelectSyncChange)="patchDraftMetierManager(d.id, $event)"
                           >
@@ -292,7 +287,7 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="saveMetierManagerRow(d.id)"
                               [disabled]="saving() || !draftMetierManager(d.id)"
-                              class="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                              class="ky-btn-primary px-2.5 py-1.5 text-xs"
                             >
                               Enregistrer
                             </button>
@@ -300,7 +295,7 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="clearMetierManagerRow(d.id)"
                               [disabled]="saving() || !d.managerEmployeeId"
-                              class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
+                              class="ky-btn-danger px-2.5 py-1.5 text-xs"
                             >
                               Retirer
                             </button>
@@ -309,7 +304,7 @@ function httpErrMessage(err: unknown): string {
                       </tr>
                     } @empty {
                       <tr>
-                        <td colspan="4" class="px-4 py-10 text-center text-slate-500 text-sm">
+                        <td colspan="4" class="px-4 py-10 text-center text-muted text-sm">
                           Aucun département. Créez-en un avant d’ajouter des pôles.
                         </td>
                       </tr>
@@ -322,12 +317,12 @@ function httpErrMessage(err: unknown): string {
           @case ('departments') {
             <app-prime-card className="p-0" title="Pôles" description="Un chef de projet par pôle. Parent obligatoire : département métier.">
               <div
-                class="px-4 py-3 sm:px-6 border-b border-navy-800 bg-navy-950/40 flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-end"
+                class="px-4 py-3 sm:px-6 border-b border-default bg-input/40 flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-end"
               >
-                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[10rem]">
+                <label class="text-sm text-muted flex flex-col gap-1 min-w-[10rem]">
                   <span>Département métier</span>
                   <select
-                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 min-w-[12rem]"
+                    class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary min-w-[12rem]"
                     [kyntusSelectSync]="newPoleBusinessDeptId()"
                     (kyntusSelectSyncChange)="newPoleBusinessDeptId.set($event)"
                   >
@@ -336,11 +331,11 @@ function httpErrMessage(err: unknown): string {
                     }
                   </select>
                 </label>
-                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[12rem] flex-1 max-w-md">
+                <label class="text-sm text-muted flex flex-col gap-1 min-w-[12rem] flex-1 max-w-md">
                   <span>Nouveau pôle</span>
                   <input
                     type="text"
-                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500"
+                    class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary placeholder:text-muted"
                     placeholder="Nom du pôle"
                     [value]="newDepartmentName()"
                     (input)="newDepartmentName.set($any($event.target).value)"
@@ -350,21 +345,21 @@ function httpErrMessage(err: unknown): string {
                   type="button"
                   (click)="submitNewDepartment()"
                   [disabled]="saving() || !newPoleBusinessDeptId() || !newDepartmentName().trim() || !!newDepartmentNameConflict()"
-                  class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 shrink-0"
+                  class="ky-btn-primary shrink-0"
                 >
                   <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
                   Créer
                 </button>
               </div>
               @if ((data()?.operationalDepartments?.length ?? 0) === 0) {
-                <p class="px-4 sm:px-6 py-2 text-xs text-amber-400/90">
+                <p class="px-4 sm:px-6 py-2 text-xs text-[var(--warning-text)]">
                   Créez d’abord un département de production (onglet Départements).
                 </p>
               }
               @if (newDepartmentNameConflict(); as msg) {
-                <p class="px-4 sm:px-6 pb-2 text-xs text-amber-400">{{ msg }}</p>
+                <p class="px-4 sm:px-6 pb-2 text-xs text-[var(--warning-text)]">{{ msg }}</p>
               }
-              <p class="px-4 sm:px-6 py-2 text-xs text-slate-400 border-b border-navy-800">
+              <p class="px-4 sm:px-6 py-2 text-xs text-muted border-b border-default">
                 {{ filteredDepartmentsForTable().length }} pôle(s) affiché(s)
               </p>
               <div class="overflow-x-auto">
@@ -383,7 +378,7 @@ function httpErrMessage(err: unknown): string {
                       <tr>
                         <td class="px-4 py-2.5">
                           @if (row.unassigned) {
-                            <span class="text-xs text-amber-400">Sans département</span>
+                            <span class="text-xs text-[var(--warning-text)]">Sans département</span>
                           } @else {
                             <span class="prime-cell-muted">{{ row.metierDepartmentName }}</span>
                           }
@@ -395,13 +390,13 @@ function httpErrMessage(err: unknown): string {
                           } @else {
                             <ul class="space-y-1">
                               @for (uid of managerUserIds(row.poleId); track uid) {
-                                <li class="flex items-center justify-between gap-2 text-sm text-slate-200">
+                                <li class="flex items-center justify-between gap-2 text-sm text-primary">
                                   <span>{{ employeeLabel(uid) }}</span>
                                   <button
                                     type="button"
                                     (click)="removeDepartmentManagerIncumbent(row.poleId, uid)"
                                     [disabled]="saving()"
-                                    class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                    class="text-xs text-[var(--danger-text)] hover:opacity-80 disabled:opacity-50"
                                   >
                                     Retirer
                                   </button>
@@ -412,7 +407,7 @@ function httpErrMessage(err: unknown): string {
                         </td>
                         <td class="px-4 py-2.5">
                           <select
-                            class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
+                            class="w-full min-w-[12rem] rounded-lg border border-default bg-input px-2 py-1.5 text-primary text-sm"
                             [kyntusSelectSync]="draftManagerDept(row.poleId)"
                             (kyntusSelectSyncChange)="patchDraftManager(row.poleId, $event)"
                           >
@@ -427,7 +422,7 @@ function httpErrMessage(err: unknown): string {
                             @if (row.unassigned) {
                               <div class="flex flex-wrap justify-end gap-2 items-center">
                                 <select
-                                  class="rounded-lg border border-navy-700 bg-navy-950 px-2 py-1 text-xs text-slate-200 min-w-[10rem]"
+                                  class="rounded-lg border border-default bg-input px-2 py-1 text-xs text-primary min-w-[10rem]"
                                   [kyntusSelectSync]="draftAttachPole(row.poleId)"
                                   (kyntusSelectSyncChange)="patchDraftAttachPole(row.poleId, $event)"
                                 >
@@ -440,7 +435,7 @@ function httpErrMessage(err: unknown): string {
                                   type="button"
                                   (click)="attachOrphanPole(row.poleId)"
                                   [disabled]="saving() || !draftAttachPole(row.poleId)"
-                                  class="rounded-md bg-amber-700 px-2 py-1 text-xs text-white disabled:opacity-50"
+                                  class="rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2 py-1 text-xs text-[var(--warning-text)] disabled:opacity-50"
                                 >
                                   Rattacher
                                 </button>
@@ -451,7 +446,7 @@ function httpErrMessage(err: unknown): string {
                                 type="button"
                                 (click)="saveDepartmentManagerRow(row.poleId)"
                                 [disabled]="saving() || !draftManagerDept(row.poleId)"
-                                class="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                                class="ky-btn-primary px-2.5 py-1.5 text-xs"
                               >
                                 Enregistrer
                               </button>
@@ -459,7 +454,7 @@ function httpErrMessage(err: unknown): string {
                                 type="button"
                                 (click)="clearDepartmentManagerRow(row.poleId)"
                                 [disabled]="saving() || managerUserIds(row.poleId).length === 0"
-                                class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
+                                class="ky-btn-danger px-2.5 py-1.5 text-xs"
                               >
                                 Retirer tous
                               </button>
@@ -469,7 +464,7 @@ function httpErrMessage(err: unknown): string {
                       </tr>
                     } @empty {
                       <tr>
-                        <td colspan="5" class="px-4 py-10 text-center text-slate-500 text-sm">
+                        <td colspan="5" class="px-4 py-10 text-center text-muted text-sm">
                           Aucun pôle à afficher. Créez un département puis un pôle.
                         </td>
                       </tr>
@@ -482,12 +477,12 @@ function httpErrMessage(err: unknown): string {
           @case ('poles') {
             <app-prime-card className="p-0" title="Cellules" description="Titulaires du poste superviseur par cellule.">
               <div
-                class="px-4 py-3 sm:px-6 border-b border-navy-800 bg-navy-950/40 flex flex-col lg:flex-row lg:flex-wrap gap-3 lg:items-end"
+                class="px-4 py-3 sm:px-6 border-b border-default bg-input/40 flex flex-col lg:flex-row lg:flex-wrap gap-3 lg:items-end"
               >
-                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[10rem]">
+                <label class="text-sm text-muted flex flex-col gap-1 min-w-[10rem]">
                   <span>Département</span>
                   <select
-                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 min-w-[12rem]"
+                    class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary min-w-[12rem]"
                     [kyntusSelectSync]="newPoleMetierDeptId()"
                     (kyntusSelectSyncChange)="patchNewPoleMetierDept($event)"
                   >
@@ -496,10 +491,10 @@ function httpErrMessage(err: unknown): string {
                     }
                   </select>
                 </label>
-                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[10rem]">
+                <label class="text-sm text-muted flex flex-col gap-1 min-w-[10rem]">
                   <span>Pôle</span>
                   <select
-                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 min-w-[12rem]"
+                    class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary min-w-[12rem]"
                     [kyntusSelectSync]="newPoleDeptId()"
                     (kyntusSelectSyncChange)="newPoleDeptId.set($event)"
                   >
@@ -508,11 +503,11 @@ function httpErrMessage(err: unknown): string {
                     }
                   </select>
                 </label>
-                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[12rem] flex-1 max-w-md">
+                <label class="text-sm text-muted flex flex-col gap-1 min-w-[12rem] flex-1 max-w-md">
                   <span>Nom de la cellule</span>
                   <input
                     type="text"
-                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500"
+                    class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary placeholder:text-muted"
                     placeholder="Ex. Cellule relation client"
                     [value]="newPoleName()"
                     (input)="newPoleName.set($any($event.target).value)"
@@ -522,19 +517,19 @@ function httpErrMessage(err: unknown): string {
                   type="button"
                   (click)="submitNewPole()"
                   [disabled]="saving() || !newPoleDeptId() || !newPoleName().trim() || !!newPoleNameConflict()"
-                  class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 shrink-0"
+                  class="ky-btn-primary shrink-0"
                 >
                   <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
                   Créer la cellule
                 </button>
               </div>
               @if (newPoleNameConflict(); as msg) {
-                <p class="px-4 sm:px-6 pb-2 text-xs text-amber-400">{{ msg }}</p>
+                <p class="px-4 sm:px-6 pb-2 text-xs text-[var(--warning-text)]">{{ msg }}</p>
               }
-              <p class="px-4 sm:px-6 pb-3 text-xs text-slate-500 border-b border-navy-800 bg-navy-950/40">
+              <p class="px-4 sm:px-6 pb-3 text-xs text-muted border-b border-default bg-input/40">
                 Vous pouvez affecter un superviseur dès qu’une cellule existe ; les services peuvent être ajoutés ensuite.
               </p>
-              <p class="px-4 sm:px-6 py-2 text-xs text-slate-400 border-b border-navy-800">
+              <p class="px-4 sm:px-6 py-2 text-xs text-muted border-b border-default">
                 {{ filteredPolesForTable().length }} cellule(s) affichée(s)
               </p>
               <div class="overflow-x-auto">
@@ -561,13 +556,13 @@ function httpErrMessage(err: unknown): string {
                           } @else {
                             <ul class="space-y-1">
                               @for (uid of supervisorUserIds(row.celluleId); track uid) {
-                                <li class="flex items-center justify-between gap-2 text-sm text-slate-200">
+                                <li class="flex items-center justify-between gap-2 text-sm text-primary">
                                   <span>{{ employeeLabel(uid) }}</span>
                                   <button
                                     type="button"
                                     (click)="removePoleSupervisorIncumbent(row.celluleId, uid)"
                                     [disabled]="saving()"
-                                    class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                    class="text-xs text-[var(--danger-text)] hover:opacity-80 disabled:opacity-50"
                                   >
                                     Retirer
                                   </button>
@@ -578,7 +573,7 @@ function httpErrMessage(err: unknown): string {
                         </td>
                         <td class="px-4 py-2.5">
                           <select
-                            class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
+                            class="w-full min-w-[12rem] rounded-lg border border-default bg-input px-2 py-1.5 text-primary text-sm"
                             [kyntusSelectSync]="draftSupervisorPole(row.celluleId)"
                             (kyntusSelectSyncChange)="patchDraftSupervisor(row.celluleId, $event)"
                           >
@@ -594,7 +589,7 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="savePoleSupervisorRow(row.celluleId)"
                               [disabled]="saving() || !draftSupervisorPole(row.celluleId)"
-                              class="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                              class="ky-btn-primary px-2.5 py-1.5 text-xs"
                             >
                               Enregistrer
                             </button>
@@ -602,7 +597,7 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="clearPoleSupervisorRow(row.celluleId)"
                               [disabled]="saving() || supervisorUserIds(row.celluleId).length === 0"
-                              class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
+                              class="ky-btn-danger px-2.5 py-1.5 text-xs"
                             >
                               Retirer tous
                             </button>
@@ -611,7 +606,7 @@ function httpErrMessage(err: unknown): string {
                       </tr>
                     } @empty {
                       <tr>
-                        <td colspan="5" class="px-4 py-10 text-center text-slate-500 text-sm">
+                        <td colspan="5" class="px-4 py-10 text-center text-muted text-sm">
                           Aucune cellule à afficher. Créez une cellule ou modifiez la recherche.
                         </td>
                       </tr>
@@ -628,12 +623,12 @@ function httpErrMessage(err: unknown): string {
               description="Référent technique par service ; pilotes rattachés listés par ligne."
             >
               <div
-                class="px-4 py-3 sm:px-6 border-b border-navy-800 bg-navy-950/40 flex flex-col xl:flex-row xl:flex-wrap gap-3 xl:items-end"
+                class="px-4 py-3 sm:px-6 border-b border-default bg-input/40 flex flex-col xl:flex-row xl:flex-wrap gap-3 xl:items-end"
               >
-                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[10rem]">
+                <label class="text-sm text-muted flex flex-col gap-1 min-w-[10rem]">
                   <span>Département</span>
                   <select
-                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 min-w-[12rem]"
+                    class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary min-w-[12rem]"
                     [kyntusSelectSync]="newCellMetierDeptId()"
                     (kyntusSelectSyncChange)="patchNewCellMetierDept($event)"
                   >
@@ -642,10 +637,10 @@ function httpErrMessage(err: unknown): string {
                     }
                   </select>
                 </label>
-                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[10rem]">
+                <label class="text-sm text-muted flex flex-col gap-1 min-w-[10rem]">
                   <span>Pôle</span>
                   <select
-                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 min-w-[12rem]"
+                    class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary min-w-[12rem]"
                     [kyntusSelectSync]="newCellDeptId()"
                     (kyntusSelectSyncChange)="patchNewCellDept($event)"
                   >
@@ -654,10 +649,10 @@ function httpErrMessage(err: unknown): string {
                     }
                   </select>
                 </label>
-                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[10rem]">
+                <label class="text-sm text-muted flex flex-col gap-1 min-w-[10rem]">
                   <span>Cellule</span>
                   <select
-                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 min-w-[12rem]"
+                    class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary min-w-[12rem]"
                     [kyntusSelectSync]="newCellPoleId()"
                     (kyntusSelectSyncChange)="newCellPoleId.set($event)"
                   >
@@ -666,11 +661,11 @@ function httpErrMessage(err: unknown): string {
                     }
                   </select>
                 </label>
-                <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[12rem] flex-1 max-w-md">
+                <label class="text-sm text-muted flex flex-col gap-1 min-w-[12rem] flex-1 max-w-md">
                   <span>Nom du service</span>
                   <input
                     type="text"
-                    class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500"
+                    class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary placeholder:text-muted"
                     placeholder="Ex. Support N1"
                     [value]="newCellName()"
                     (input)="newCellName.set($any($event.target).value)"
@@ -680,21 +675,21 @@ function httpErrMessage(err: unknown): string {
                   type="button"
                   (click)="submitNewCellule()"
                   [disabled]="saving() || !newCellPoleId() || !newCellName().trim() || !!newCellNameConflict()"
-                  class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 shrink-0"
+                  class="ky-btn-primary shrink-0"
                 >
                   <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
                   Créer le service
                 </button>
               </div>
               @if (newCellNameConflict(); as msg) {
-                <p class="px-4 sm:px-6 pb-2 text-xs text-amber-400">{{ msg }}</p>
+                <p class="px-4 sm:px-6 pb-2 text-xs text-[var(--warning-text)]">{{ msg }}</p>
               }
               @if (cellulesForPole(newCellDeptId()).length === 0) {
-                <p class="px-4 sm:px-6 py-2 text-xs text-amber-400/90">
+                <p class="px-4 sm:px-6 py-2 text-xs text-[var(--warning-text)]">
                   Ce pôle n’a pas encore de cellule : créez-en une depuis l’onglet « Cellules », puis revenez ici.
                 </p>
               }
-              <p class="px-4 sm:px-6 py-2 text-xs text-slate-400 border-b border-navy-800">
+              <p class="px-4 sm:px-6 py-2 text-xs text-muted border-b border-default">
                 {{ filteredCellulesForTable().length }} service(s) affiché(s)
               </p>
               <div class="overflow-x-auto">
@@ -717,7 +712,7 @@ function httpErrMessage(err: unknown): string {
                         <td class="px-2 py-2.5">
                           <button
                             type="button"
-                            class="p-1 rounded text-slate-400 hover:bg-navy-800"
+                            class="p-1 rounded text-muted hover:bg-input"
                             (click)="toggleCellPilots(row.celluleId)"
                             [attr.aria-expanded]="cellPilotsExpanded(row.celluleId)"
                             title="Pilotes"
@@ -738,13 +733,13 @@ function httpErrMessage(err: unknown): string {
                           } @else {
                             <ul class="space-y-1">
                               @for (uid of coachUserIds(row.celluleId); track uid) {
-                                <li class="flex items-center justify-between gap-2 text-sm text-slate-200">
+                                <li class="flex items-center justify-between gap-2 text-sm text-primary">
                                   <span>{{ employeeLabel(uid) }}</span>
                                   <button
                                     type="button"
                                     (click)="removeCellCoachIncumbent(row.celluleId, uid)"
                                     [disabled]="saving()"
-                                    class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                    class="text-xs text-[var(--danger-text)] hover:opacity-80 disabled:opacity-50"
                                   >
                                     Retirer
                                   </button>
@@ -755,7 +750,7 @@ function httpErrMessage(err: unknown): string {
                         </td>
                         <td class="px-4 py-2.5">
                           <select
-                            class="w-full min-w-[12rem] rounded-lg border border-navy-700 bg-navy-950 px-2 py-1.5 text-slate-200 text-sm"
+                            class="w-full min-w-[12rem] rounded-lg border border-default bg-input px-2 py-1.5 text-primary text-sm"
                             [kyntusSelectSync]="draftCoachCell(row.celluleId)"
                             (kyntusSelectSyncChange)="patchDraftCoach(row.celluleId, $event)"
                           >
@@ -771,7 +766,7 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="saveCellCoachRow(row.celluleId)"
                               [disabled]="saving() || !draftCoachCell(row.celluleId)"
-                              class="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                              class="ky-btn-primary px-2.5 py-1.5 text-xs"
                             >
                               Enregistrer
                             </button>
@@ -779,7 +774,7 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="clearCellCoachRow(row.celluleId)"
                               [disabled]="saving() || coachUserIds(row.celluleId).length === 0"
-                              class="rounded-md border border-navy-600 px-2.5 py-1.5 text-xs text-red-300 hover:bg-navy-800 disabled:opacity-50"
+                              class="ky-btn-danger px-2.5 py-1.5 text-xs"
                             >
                               Retirer tous
                             </button>
@@ -787,12 +782,12 @@ function httpErrMessage(err: unknown): string {
                         </td>
                       </tr>
                       @if (cellPilotsExpanded(row.celluleId)) {
-                        <tr class="bg-navy-950/80">
-                          <td colspan="7" class="px-6 py-4 border-t border-navy-800">
-                            <div class="text-xs text-slate-500 mb-2">Pilotes — {{ row.celluleName }}</div>
-                            <ul class="rounded border border-navy-800 divide-y divide-navy-800 max-h-36 overflow-y-auto mb-3">
+                        <tr class="bg-input/80">
+                          <td colspan="7" class="px-6 py-4 border-t border-default">
+                            <div class="text-xs text-muted mb-2">Pilotes — {{ row.celluleName }}</div>
+                            <ul class="rounded border border-default divide-y divide-default max-h-36 overflow-y-auto mb-3">
                               @for (p of pilotsInCell(row.celluleId); track p.id) {
-                                <li class="flex justify-between items-center gap-2 px-3 py-2 text-sm text-slate-200">
+                                <li class="flex justify-between items-center gap-2 px-3 py-2 text-sm text-primary">
                                   <span class="min-w-0 truncate">{{ p.firstName }} {{ p.lastName }}</span>
                                   <div class="shrink-0 flex items-center gap-2">
                                     <button
@@ -800,7 +795,7 @@ function httpErrMessage(err: unknown): string {
                                       (click)="openPilotRotationHistory(p)"
                                       title="Historique rotation"
                                       aria-label="Historique rotation"
-                                      class="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300"
+                                      class="inline-flex items-center gap-1 text-xs org-link"
                                     >
                                       <app-lucide-icon [icon]="icons.history" className="w-3.5 h-3.5" />
                                       Historique rotation
@@ -809,22 +804,22 @@ function httpErrMessage(err: unknown): string {
                                       type="button"
                                       (click)="removePilot(row.celluleId, p.id)"
                                       [disabled]="saving()"
-                                      class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                      class="text-xs text-[var(--danger-text)] hover:opacity-80 disabled:opacity-50"
                                     >
                                       Retirer
                                     </button>
                                   </div>
                                 </li>
                               } @empty {
-                                <li class="px-3 py-3 text-sm text-slate-500">Aucun pilote</li>
+                                <li class="px-3 py-3 text-sm text-muted">Aucun pilote</li>
                               }
                             </ul>
                             @if (coachUserIds(row.celluleId).length === 0) {
-                              <p class="text-xs text-amber-400/90 mb-2">Affectez un référent technique pour ajouter des pilotes.</p>
+                              <p class="text-xs text-[var(--warning-text)] mb-2">Affectez un référent technique pour ajouter des pilotes.</p>
                             }
                             <div class="flex flex-wrap gap-2 items-end max-w-lg">
                               <select
-                                class="flex-1 min-w-[160px] rounded-lg border border-navy-700 bg-navy-900 px-2 py-2 text-sm text-slate-200"
+                                class="flex-1 min-w-[160px] rounded-lg border border-default bg-card px-2 py-2 text-sm text-primary"
                                 [kyntusSelectSync]="draftPilotCell(row.celluleId)"
                                 (kyntusSelectSyncChange)="patchDraftPilotCell(row.celluleId, $event)"
                                 [disabled]="coachUserIds(row.celluleId).length === 0"
@@ -836,7 +831,7 @@ function httpErrMessage(err: unknown): string {
                               </select>
                               @if (teamsForCell(row.celluleId).length > 1) {
                                 <select
-                                  class="min-w-[120px] rounded-lg border border-navy-700 bg-navy-900 px-2 py-2 text-sm text-slate-200"
+                                  class="min-w-[120px] rounded-lg border border-default bg-card px-2 py-2 text-sm text-primary"
                                   [kyntusSelectSync]="draftPilotTeamCell(row.celluleId)"
                                   (kyntusSelectSyncChange)="patchDraftPilotTeamCell(row.celluleId, $event)"
                                 >
@@ -849,7 +844,7 @@ function httpErrMessage(err: unknown): string {
                                 type="button"
                                 (click)="addPilotRow(row.celluleId)"
                                 [disabled]="saving() || coachUserIds(row.celluleId).length === 0 || !draftPilotCell(row.celluleId)"
-                                class="rounded-lg bg-slate-700 px-3 py-2 text-sm text-white disabled:opacity-50"
+                                class="ky-btn-secondary px-3 py-2 text-sm"
                               >
                                 Ajouter pilote
                               </button>
@@ -859,7 +854,7 @@ function httpErrMessage(err: unknown): string {
                       }
                     } @empty {
                       <tr>
-                        <td colspan="8" class="px-4 py-10 text-center text-slate-500 text-sm">
+                        <td colspan="8" class="px-4 py-10 text-center text-muted text-sm">
                           Aucun service à afficher. Créez un service ou modifiez la recherche.
                         </td>
                       </tr>
@@ -879,136 +874,130 @@ function httpErrMessage(err: unknown): string {
                 description="Arbre hiérarchique et détail du nœud sélectionné."
                 [hasAction]="false"
               >
-                <div
-                  class="-m-6 flex-1 max-h-[min(70vh,36rem)] overflow-y-auto overscroll-y-contain p-4 md:p-5 space-y-4 bg-navy-950/40"
-                >
-                  @for (md of filteredOperationalTree(); track md.id) {
-                    <div
-                      class="rounded-xl border border-navy-800/70 bg-navy-900/45 overflow-hidden shadow-sm shadow-black/10"
-                    >
-                      <button
-                        type="button"
-                        [class]="deptTreeRowClass(md.id)"
-                        (click)="toggleDept(md.id); selectMetierDepartment(md)"
-                      >
-                        <span class="flex h-full items-center justify-center shrink-0">
-                          <app-lucide-icon
-                            [icon]="deptExpanded(md.id) ? icons.chevDown : icons.chevRight"
-                            className="w-4 h-4 text-slate-500"
-                          />
-                        </span>
-                        <span class="min-w-0 flex items-center gap-2 font-semibold leading-snug text-slate-100">
-                          <span
-                            class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-amber-500/20 text-amber-100 ring-1 ring-amber-500/35"
-                            >Dépt</span
-                          >
-                          <span class="truncate">{{ md.code }} — {{ md.name }}</span>
-                        </span>
-                        <span
-                          class="min-w-0 text-xs leading-snug text-slate-400 text-right truncate"
-                          [attr.title]="structureBadgeTitle(metierManagerLabel(md.id), 'Manager')"
-                          >{{ metierManagerLabel(md.id) }}</span
+                <div class="org-tree-scroll -m-6 flex-1 max-h-[min(70vh,36rem)] overflow-y-auto overscroll-y-contain">
+                  <div class="org-tree p-3 md:p-4">
+                    @for (md of filteredOperationalTree(); track md.id) {
+                      <div class="org-tree-block">
+                        <button
+                          type="button"
+                          [class]="deptTreeRowClass(md.id)"
+                          (click)="toggleDept(md.id); selectMetierDepartment(md)"
                         >
-                      </button>
-                      @if (deptExpanded(md.id)) {
-                        <div class="border-t border-navy-800/50 pl-3 ml-2 mr-1 space-y-2.5 pb-3 pt-1">
-                          @for (pole of md.poles; track pole.id) {
-                            <div class="rounded-lg border border-navy-800/55 bg-navy-950/55 overflow-hidden">
-                              <button
-                                type="button"
-                                [class]="poleTreeRowClass(pole.id)"
-                                (click)="togglePole(pole.id); selectPole(md, pole)"
-                              >
-                                <span class="flex items-center justify-center shrink-0">
-                                  <app-lucide-icon
-                                    [icon]="poleExpanded(pole.id) ? icons.chevDown : icons.chevRight"
-                                    className="w-3.5 h-3.5 text-slate-500"
-                                  />
-                                </span>
-                                <span class="min-w-0 flex items-center gap-2 text-sm font-medium leading-snug text-slate-200">
-                                  <span
-                                    class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-sky-500/20 text-sky-100 ring-1 ring-sky-500/35"
-                                    >Pôle</span
-                                  >
-                                  <span class="truncate">{{ pole.name }}</span>
-                                </span>
-                                <span
-                                  class="min-w-0 text-xs leading-snug text-slate-400 text-right truncate"
-                                  [attr.title]="structureBadgeTitle(managerBadge(pole.id), 'Chef de projet')"
-                                  >{{ managerBadge(pole.id) || '—' }}</span
+                          <span class="org-tree-chev">
+                            <app-lucide-icon
+                              [icon]="deptExpanded(md.id) ? icons.chevDown : icons.chevRight"
+                              className="w-4 h-4 text-muted"
+                            />
+                          </span>
+                          <span class="org-tree-label font-semibold text-primary">
+                            <span class="org-badge org-badge--dept">Dépt</span>
+                            <span class="org-tree-name" [attr.title]="md.code + ' — ' + md.name"
+                              >{{ md.code }} — {{ md.name }}</span
+                            >
+                          </span>
+                          <span
+                            class="org-tree-assignee"
+                            [attr.title]="structureBadgeTitle(metierManagerLabel(md.id), 'Manager')"
+                            >{{ metierManagerLabel(md.id) }}</span
+                          >
+                        </button>
+                        @if (deptExpanded(md.id)) {
+                          <div class="org-tree-children">
+                            @for (pole of md.poles; track pole.id) {
+                              <div class="org-tree-block">
+                                <button
+                                  type="button"
+                                  [class]="poleTreeRowClass(pole.id)"
+                                  (click)="togglePole(pole.id); selectPole(md, pole)"
                                 >
-                              </button>
-                              @if (poleExpanded(pole.id)) {
-                                <div class="border-t border-navy-800/45 pl-2.5 ml-1.5 space-y-1 pb-2.5 pt-0.5">
-                                  @for (cell of pole.cellules; track cell.id) {
-                                    <div class="rounded-md border border-navy-800/40 overflow-hidden">
-                                      <button
-                                        type="button"
-                                        [class]="celluleTreeRowClass(cell.id)"
-                                        (click)="toggleCelluleExpand(cell.id); selectCellule(md, pole, cell)"
-                                      >
-                                        <span class="flex items-center justify-center shrink-0">
-                                          <app-lucide-icon
-                                            [icon]="celluleExpanded(cell.id) ? icons.chevDown : icons.chevRight"
-                                            className="w-3 h-3 text-slate-500"
-                                          />
-                                        </span>
-                                        <span class="min-w-0 flex items-center gap-2 truncate text-sm">
-                                          <span
-                                            class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-emerald-500/20 text-emerald-100 ring-1 ring-emerald-500/35"
-                                            >Cell.</span
-                                          >
-                                          <span class="truncate">{{ cell.name }}</span>
-                                        </span>
-                                        <span
-                                          class="min-w-0 text-xs text-slate-400 text-right truncate"
-                                          [attr.title]="structureBadgeTitle(supervisorBadge(cell.id), 'Superviseur')"
-                                          >{{ supervisorBadge(cell.id) || '—' }}</span
+                                  <span class="org-tree-chev">
+                                    <app-lucide-icon
+                                      [icon]="poleExpanded(pole.id) ? icons.chevDown : icons.chevRight"
+                                      className="w-3.5 h-3.5 text-muted"
+                                    />
+                                  </span>
+                                  <span class="org-tree-label text-sm font-medium text-primary">
+                                    <span class="org-badge org-badge--pole">Pôle</span>
+                                    <span class="org-tree-name" [attr.title]="pole.name">{{ pole.name }}</span>
+                                  </span>
+                                  <span
+                                    class="org-tree-assignee"
+                                    [attr.title]="structureBadgeTitle(managerBadge(pole.id), 'Chef de projet')"
+                                    >{{ managerBadge(pole.id) || '—' }}</span
+                                  >
+                                </button>
+                                @if (poleExpanded(pole.id)) {
+                                  <div class="org-tree-children">
+                                    @for (cell of pole.cellules; track cell.id) {
+                                      <div class="org-tree-block">
+                                        <button
+                                          type="button"
+                                          [class]="celluleTreeRowClass(cell.id)"
+                                          (click)="toggleCelluleExpand(cell.id); selectCellule(md, pole, cell)"
                                         >
-                                      </button>
-                                      @if (celluleExpanded(cell.id)) {
-                                        <div class="border-t border-navy-800/40 pl-2 space-y-0.5 pb-1">
-                                          @for (svc of cell.services; track svc.id) {
-                                            <button
-                                              type="button"
-                                              [class]="serviceButtonClass(svc.id)"
-                                              (click)="selectService(md, pole, cell, svc)"
-                                            >
-                                              <span class="w-3 shrink-0 block" aria-hidden="true"></span>
-                                              <span class="min-w-0 flex items-center gap-2 truncate">
-                                                <span
-                                                  class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-violet-500/20 text-violet-100 ring-1 ring-violet-500/35"
-                                                  >Svc.</span
-                                                >
-                                                <span class="truncate">{{ svc.name }}</span>
-                                              </span>
-                                              <span
-                                                class="min-w-0 text-xs text-slate-400 text-right truncate"
-                                                [attr.title]="structureBadgeTitle(coachBadge(svc.id), 'Référent technique')"
-                                                >{{ coachBadge(svc.id) || '—' }}</span
+                                          <span class="org-tree-chev">
+                                            <app-lucide-icon
+                                              [icon]="celluleExpanded(cell.id) ? icons.chevDown : icons.chevRight"
+                                              className="w-3 h-3 text-muted"
+                                            />
+                                          </span>
+                                          <span class="org-tree-label text-sm text-muted">
+                                            <span class="org-badge org-badge--cell">Cell.</span>
+                                            <span class="org-tree-name" [attr.title]="cell.name">{{ cell.name }}</span>
+                                          </span>
+                                          <span
+                                            class="org-tree-assignee"
+                                            [attr.title]="
+                                              structureBadgeTitle(supervisorBadge(cell.id), 'Superviseur')
+                                            "
+                                            >{{ supervisorBadge(cell.id) || '—' }}</span
+                                          >
+                                        </button>
+                                        @if (celluleExpanded(cell.id)) {
+                                          <div class="org-tree-children org-tree-children--leaf">
+                                            @for (svc of cell.services; track svc.id) {
+                                              <button
+                                                type="button"
+                                                [class]="serviceButtonClass(svc.id)"
+                                                (click)="selectService(md, pole, cell, svc)"
                                               >
-                                            </button>
-                                          }
-                                        </div>
-                                      }
-                                    </div>
-                                  }
-                                </div>
-                              }
-                            </div>
-                          }
-                        </div>
-                      }
-                    </div>
-                  }
-                  @if ((data()?.unassignedPoles?.length ?? 0) > 0) {
-                    <div class="rounded-xl border border-amber-800/40 bg-amber-950/20 p-3 space-y-2">
-                      <p class="text-xs font-medium text-amber-200">Pôles sans département</p>
-                      @for (pole of data()?.unassignedPoles ?? []; track pole.id) {
-                        <div class="text-sm text-slate-300 pl-2">{{ pole.name }}</div>
-                      }
-                    </div>
-                  }
+                                                <span class="org-tree-chev" aria-hidden="true"></span>
+                                                <span class="org-tree-label text-sm text-muted">
+                                                  <span class="org-badge org-badge--svc">Svc.</span>
+                                                  <span class="org-tree-name" [attr.title]="svc.name">{{
+                                                    svc.name
+                                                  }}</span>
+                                                </span>
+                                                <span
+                                                  class="org-tree-assignee"
+                                                  [attr.title]="
+                                                    structureBadgeTitle(coachBadge(svc.id), 'Référent technique')
+                                                  "
+                                                  >{{ coachBadge(svc.id) || '—' }}</span
+                                                >
+                                              </button>
+                                            }
+                                          </div>
+                                        }
+                                      </div>
+                                    }
+                                  </div>
+                                }
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                    @if ((data()?.unassignedPoles?.length ?? 0) > 0) {
+                      <div class="org-tree-orphan mt-3 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 space-y-1.5">
+                        <p class="text-xs font-medium text-[var(--warning-text)]">Pôles sans département</p>
+                        @for (pole of data()?.unassignedPoles ?? []; track pole.id) {
+                          <div class="text-sm text-muted pl-1">{{ pole.name }}</div>
+                        }
+                      </div>
+                    }
+                  </div>
                 </div>
               </app-prime-card>
 
@@ -1018,11 +1007,11 @@ function httpErrMessage(err: unknown): string {
                 description="Choisissez un employé puis enregistrez."
                 [hasAction]="false"
               >
-                <div class="flex min-h-[20rem] flex-1 flex-col -mx-1 bg-navy-950/25">
+                <div class="flex min-h-[20rem] flex-1 flex-col -mx-1 bg-input/25">
                   @if (selection(); as sel) {
                     <div class="flex w-full flex-1 flex-col space-y-6 pt-1">
-                      <header class="space-y-1 border-b border-navy-800/80 pb-4">
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      <header class="space-y-1 border-b border-default/80 pb-4">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-muted">
                           @switch (sel.kind) {
                             @case ('metierDepartment') {
                               Département
@@ -1038,24 +1027,24 @@ function httpErrMessage(err: unknown): string {
                             }
                           }
                         </p>
-                        <h2 class="text-2xl font-semibold tracking-tight text-slate-50">{{ sel.name }}</h2>
+                        <h2 class="text-2xl font-semibold tracking-tight text-primary">{{ sel.name }}</h2>
                       </header>
 
                       @if (sel.kind === 'metierDepartment') {
                         <div class="space-y-3">
-                          <label class="text-sm font-medium text-slate-300 block">Manager opérationnel</label>
+                          <label class="text-sm font-medium text-muted block">Manager opérationnel</label>
                           @if (draftEmployeeId()) {
                             <div
-                              class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-navy-700 bg-navy-950/50 px-3 py-2.5"
+                              class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5"
                             >
-                              <span class="text-sm text-slate-200">
-                                <span class="text-slate-500">Sélection :</span>
+                              <span class="text-sm text-primary">
+                                <span class="text-muted">Sélection :</span>
                                 <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
                               </span>
                               <button
                                 type="button"
                                 (click)="beginRepickDetailEmployee()"
-                                class="text-xs font-medium text-indigo-400 hover:text-indigo-300"
+                                class="text-xs font-medium org-link"
                               >
                                 Changer
                               </button>
@@ -1063,37 +1052,37 @@ function httpErrMessage(err: unknown): string {
                           }
                           <input
                             type="search"
-                            class="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-500"
+                            class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary placeholder:text-muted"
                             placeholder="Rechercher un employé (nom, rôle, e-mail)…"
                             [value]="structureDetailEmpSearch()"
                             (input)="setDetailEmpSearch($event)"
                           />
                           <ul
-                            class="max-h-56 overflow-y-auto rounded-lg border border-navy-800 bg-navy-950/40 divide-y divide-navy-800"
+                            class="max-h-56 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default"
                           >
                             @for (e of filteredDetailAssignables(); track e.id) {
                               <li>
                                 <button
                                   type="button"
                                   (click)="pickDetailEmployee(e.id)"
-                                  class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-navy-800/60 transition-colors"
+                                  class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-input/60 transition-colors"
                                 >
                                   <span
-                                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-xs font-semibold text-sky-100"
+                                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--info-bg)] text-xs font-semibold text-[var(--info-text)]"
                                     >{{ employeeInitials(e) }}</span
                                   >
                                   <span class="min-w-0">
-                                    <span class="block font-medium text-slate-100 truncate"
+                                    <span class="block font-medium text-primary truncate"
                                       >{{ e.firstName }} {{ e.lastName }}</span
                                     >
-                                    <span class="block text-xs text-slate-500 truncate"
+                                    <span class="block text-xs text-muted truncate"
                                       >{{ e.role }} · {{ e.email }}</span
                                     >
                                   </span>
                                 </button>
                               </li>
                             } @empty {
-                              <li class="px-3 py-4 text-sm text-slate-500">Aucun résultat</li>
+                              <li class="px-3 py-4 text-sm text-muted">Aucun résultat</li>
                             }
                           </ul>
                           <div class="flex flex-wrap gap-3 pt-2">
@@ -1101,7 +1090,7 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="saveMetierManagerStructure(sel.id)"
                               [disabled]="saving() || !draftEmployeeId()"
-                              class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                              class="ky-btn-primary"
                             >
                               <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
                               Enregistrer
@@ -1110,7 +1099,7 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="clearMetierManagerStructure(sel.id)"
                               [disabled]="saving() || metierManagerLabel(sel.id) === '—'"
-                              class="inline-flex items-center justify-center gap-2 rounded-lg border border-navy-600 px-4 py-2.5 text-sm text-slate-300 hover:bg-navy-800 disabled:opacity-50"
+                              class="inline-flex items-center justify-center gap-2 rounded-lg border border-default px-4 py-2.5 text-sm text-muted hover:bg-input disabled:opacity-50"
                             >
                               <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
                               Retirer le manager
@@ -1121,17 +1110,17 @@ function httpErrMessage(err: unknown): string {
 
                       @if (sel.kind === 'pole') {
                         <div class="space-y-3">
-                          <label class="text-sm font-medium text-slate-300 block">Titulaires du poste — chef de projet</label>
+                          <label class="text-sm font-medium text-muted block">Titulaires du poste — chef de projet</label>
                           @if (managerUserIds(sel.id).length > 0) {
-                            <ul class="rounded-lg border border-navy-800 divide-y divide-navy-800 bg-navy-950/40 max-h-32 overflow-y-auto">
+                            <ul class="rounded-lg border border-default divide-y divide-default bg-input/40 max-h-32 overflow-y-auto">
                               @for (uid of managerUserIds(sel.id); track uid) {
-                                <li class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-slate-200">
+                                <li class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-primary">
                                   <span>{{ employeeLabel(uid) }}</span>
                                   <button
                                     type="button"
                                     (click)="removeDepartmentManagerIncumbent(sel.id, uid)"
                                     [disabled]="saving()"
-                                    class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                    class="text-xs text-[var(--danger-text)] hover:opacity-80 disabled:opacity-50"
                                   >
                                     Retirer
                                   </button>
@@ -1139,21 +1128,21 @@ function httpErrMessage(err: unknown): string {
                               }
                             </ul>
                           } @else {
-                            <p class="text-xs text-slate-500">Aucun titulaire sur ce poste.</p>
+                            <p class="text-xs text-muted">Aucun titulaire sur ce poste.</p>
                           }
-                          <label class="text-sm font-medium text-slate-300 block">Ajouter un chef de projet</label>
+                          <label class="text-sm font-medium text-muted block">Ajouter un chef de projet</label>
                           @if (draftEmployeeId()) {
                             <div
-                              class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-navy-700 bg-navy-950/50 px-3 py-2.5"
+                              class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5"
                             >
-                              <span class="text-sm text-slate-200">
-                                <span class="text-slate-500">Sélection :</span>
+                              <span class="text-sm text-primary">
+                                <span class="text-muted">Sélection :</span>
                                 <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
                               </span>
                               <button
                                 type="button"
                                 (click)="beginRepickDetailEmployee()"
-                                class="text-xs font-medium text-indigo-400 hover:text-indigo-300"
+                                class="text-xs font-medium org-link"
                               >
                                 Changer
                               </button>
@@ -1161,37 +1150,37 @@ function httpErrMessage(err: unknown): string {
                           }
                           <input
                             type="search"
-                            class="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-500"
+                            class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary placeholder:text-muted"
                             placeholder="Rechercher un employé (nom, rôle, e-mail)…"
                             [value]="structureDetailEmpSearch()"
                             (input)="setDetailEmpSearch($event)"
                           />
                           <ul
-                            class="max-h-56 overflow-y-auto rounded-lg border border-navy-800 bg-navy-950/40 divide-y divide-navy-800"
+                            class="max-h-56 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default"
                           >
                             @for (e of filteredDetailAssignables(); track e.id) {
                               <li>
                                 <button
                                   type="button"
                                   (click)="pickDetailEmployee(e.id)"
-                                  class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-navy-800/60 transition-colors"
+                                  class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-input/60 transition-colors"
                                 >
                                   <span
-                                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-xs font-semibold text-sky-100"
+                                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--info-bg)] text-xs font-semibold text-[var(--info-text)]"
                                     >{{ employeeInitials(e) }}</span
                                   >
                                   <span class="min-w-0">
-                                    <span class="block font-medium text-slate-100 truncate"
+                                    <span class="block font-medium text-primary truncate"
                                       >{{ e.firstName }} {{ e.lastName }}</span
                                     >
-                                    <span class="block text-xs text-slate-500 truncate"
+                                    <span class="block text-xs text-muted truncate"
                                       >{{ e.role }} · {{ e.email }}</span
                                     >
                                   </span>
                                 </button>
                               </li>
                             } @empty {
-                              <li class="px-3 py-4 text-sm text-slate-500">Aucun résultat</li>
+                              <li class="px-3 py-4 text-sm text-muted">Aucun résultat</li>
                             }
                           </ul>
                           <div class="flex flex-wrap gap-3 pt-2">
@@ -1199,7 +1188,7 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="saveDepartmentManager(sel.id)"
                               [disabled]="saving() || !draftEmployeeId()"
-                              class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                              class="ky-btn-primary"
                             >
                               <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
                               Enregistrer
@@ -1208,7 +1197,7 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="clearDepartmentManager(sel.id)"
                               [disabled]="saving() || managerUserIds(sel.id).length === 0"
-                              class="inline-flex items-center justify-center gap-2 rounded-lg border border-navy-600 px-4 py-2.5 text-sm text-slate-300 hover:bg-navy-800 disabled:opacity-50"
+                              class="inline-flex items-center justify-center gap-2 rounded-lg border border-default px-4 py-2.5 text-sm text-muted hover:bg-input disabled:opacity-50"
                             >
                               <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
                               Retirer tous les titulaires
@@ -1219,17 +1208,17 @@ function httpErrMessage(err: unknown): string {
 
                       @if (sel.kind === 'cellule') {
                         <div class="space-y-3">
-                          <label class="text-sm font-medium text-slate-300 block">Titulaires du poste — superviseur</label>
+                          <label class="text-sm font-medium text-muted block">Titulaires du poste — superviseur</label>
                           @if (supervisorUserIds(sel.id).length > 0) {
-                            <ul class="rounded-lg border border-navy-800 divide-y divide-navy-800 bg-navy-950/40 max-h-32 overflow-y-auto">
+                            <ul class="rounded-lg border border-default divide-y divide-default bg-input/40 max-h-32 overflow-y-auto">
                               @for (uid of supervisorUserIds(sel.id); track uid) {
-                                <li class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-slate-200">
+                                <li class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-primary">
                                   <span>{{ employeeLabel(uid) }}</span>
                                   <button
                                     type="button"
                                     (click)="removePoleSupervisorIncumbent(sel.id, uid)"
                                     [disabled]="saving()"
-                                    class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                    class="text-xs text-[var(--danger-text)] hover:opacity-80 disabled:opacity-50"
                                   >
                                     Retirer
                                   </button>
@@ -1237,21 +1226,21 @@ function httpErrMessage(err: unknown): string {
                               }
                             </ul>
                           } @else {
-                            <p class="text-xs text-slate-500">Aucun titulaire sur ce poste.</p>
+                            <p class="text-xs text-muted">Aucun titulaire sur ce poste.</p>
                           }
-                          <label class="text-sm font-medium text-slate-300 block">Ajouter un superviseur</label>
+                          <label class="text-sm font-medium text-muted block">Ajouter un superviseur</label>
                             @if (draftEmployeeId()) {
                               <div
-                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-navy-700 bg-navy-950/50 px-3 py-2.5"
+                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5"
                               >
-                                <span class="text-sm text-slate-200">
-                                  <span class="text-slate-500">Sélection :</span>
+                                <span class="text-sm text-primary">
+                                  <span class="text-muted">Sélection :</span>
                                   <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
                                 </span>
                                 <button
                                   type="button"
                                   (click)="beginRepickDetailEmployee()"
-                                  class="text-xs font-medium text-indigo-400 hover:text-indigo-300"
+                                  class="text-xs font-medium org-link"
                                 >
                                   Changer
                                 </button>
@@ -1259,37 +1248,37 @@ function httpErrMessage(err: unknown): string {
                             }
                             <input
                               type="search"
-                              class="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-500"
+                              class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary placeholder:text-muted"
                               placeholder="Rechercher un employé (nom, rôle, e-mail)…"
                               [value]="structureDetailEmpSearch()"
                               (input)="setDetailEmpSearch($event)"
                             />
                             <ul
-                              class="max-h-48 overflow-y-auto rounded-lg border border-navy-800 bg-navy-950/40 divide-y divide-navy-800"
+                              class="max-h-48 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default"
                             >
                               @for (e of filteredDetailAssignables(); track e.id) {
                                 <li>
                                   <button
                                     type="button"
                                     (click)="pickDetailEmployee(e.id)"
-                                    class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-navy-800/60 transition-colors"
+                                    class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-input/60 transition-colors"
                                   >
                                     <span
-                                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-xs font-semibold text-emerald-100"
+                                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--success-bg)] text-xs font-semibold text-[var(--success-text)]"
                                       >{{ employeeInitials(e) }}</span
                                     >
                                     <span class="min-w-0">
-                                      <span class="block font-medium text-slate-100 truncate"
+                                      <span class="block font-medium text-primary truncate"
                                         >{{ e.firstName }} {{ e.lastName }}</span
                                       >
-                                      <span class="block text-xs text-slate-500 truncate"
+                                      <span class="block text-xs text-muted truncate"
                                         >{{ e.role }} · {{ e.email }}</span
                                       >
                                     </span>
                                   </button>
                                 </li>
                               } @empty {
-                                <li class="px-3 py-4 text-sm text-slate-500">Aucun résultat</li>
+                                <li class="px-3 py-4 text-sm text-muted">Aucun résultat</li>
                               }
                             </ul>
                             <div class="flex flex-wrap gap-3">
@@ -1297,7 +1286,7 @@ function httpErrMessage(err: unknown): string {
                                 type="button"
                                 (click)="savePoleSupervisor(sel.id)"
                                 [disabled]="saving() || !draftEmployeeId()"
-                                class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                                class="ky-btn-primary"
                               >
                                 <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
                                 Enregistrer
@@ -1306,7 +1295,7 @@ function httpErrMessage(err: unknown): string {
                                 type="button"
                                 (click)="clearPoleSupervisor(sel.id)"
                                 [disabled]="saving() || supervisorUserIds(sel.id).length === 0"
-                                class="inline-flex items-center justify-center gap-2 rounded-lg border border-navy-600 px-4 py-2.5 text-sm text-slate-300 hover:bg-navy-800 disabled:opacity-50"
+                                class="inline-flex items-center justify-center gap-2 rounded-lg border border-default px-4 py-2.5 text-sm text-muted hover:bg-input disabled:opacity-50"
                               >
                                 <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
                                 Retirer tous les titulaires
@@ -1316,19 +1305,19 @@ function httpErrMessage(err: unknown): string {
                       }
 
                       @if (sel.kind === 'service') {
-                        <div class="space-y-5 border-t border-navy-800 pt-5">
+                        <div class="space-y-5 border-t border-default pt-5">
                           <div class="space-y-3">
-                            <label class="text-sm font-medium text-slate-300 block">Titulaires du poste — référent technique</label>
+                            <label class="text-sm font-medium text-muted block">Titulaires du poste — référent technique</label>
                             @if (coachUserIds(sel.id).length > 0) {
-                              <ul class="rounded-lg border border-navy-800 divide-y divide-navy-800 bg-navy-950/40 max-h-32 overflow-y-auto">
+                              <ul class="rounded-lg border border-default divide-y divide-default bg-input/40 max-h-32 overflow-y-auto">
                                 @for (uid of coachUserIds(sel.id); track uid) {
-                                  <li class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-slate-200">
+                                  <li class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-primary">
                                     <span>{{ employeeLabel(uid) }}</span>
                                     <button
                                       type="button"
                                       (click)="removeCellCoachIncumbent(sel.id, uid)"
                                       [disabled]="saving()"
-                                      class="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                      class="text-xs text-[var(--danger-text)] hover:opacity-80 disabled:opacity-50"
                                     >
                                       Retirer
                                     </button>
@@ -1336,21 +1325,21 @@ function httpErrMessage(err: unknown): string {
                                 }
                               </ul>
                             } @else {
-                              <p class="text-xs text-slate-500">Aucun titulaire sur ce poste.</p>
+                              <p class="text-xs text-muted">Aucun titulaire sur ce poste.</p>
                             }
-                            <label class="text-sm font-medium text-slate-300 block">Ajouter un référent technique</label>
+                            <label class="text-sm font-medium text-muted block">Ajouter un référent technique</label>
                             @if (draftEmployeeId()) {
                               <div
-                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-navy-700 bg-navy-950/50 px-3 py-2.5"
+                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5"
                               >
-                                <span class="text-sm text-slate-200">
-                                  <span class="text-slate-500">Sélection :</span>
+                                <span class="text-sm text-primary">
+                                  <span class="text-muted">Sélection :</span>
                                   <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
                                 </span>
                                 <button
                                   type="button"
                                   (click)="beginRepickDetailEmployee()"
-                                  class="text-xs font-medium text-indigo-400 hover:text-indigo-300"
+                                  class="text-xs font-medium org-link"
                                 >
                                   Changer
                                 </button>
@@ -1358,37 +1347,37 @@ function httpErrMessage(err: unknown): string {
                             }
                             <input
                               type="search"
-                              class="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-500"
+                              class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary placeholder:text-muted"
                               placeholder="Rechercher un employé (nom, rôle, e-mail)…"
                               [value]="structureDetailEmpSearch()"
                               (input)="setDetailEmpSearch($event)"
                             />
                             <ul
-                              class="max-h-48 overflow-y-auto rounded-lg border border-navy-800 bg-navy-950/40 divide-y divide-navy-800"
+                              class="max-h-48 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default"
                             >
                               @for (e of filteredDetailAssignables(); track e.id) {
                                 <li>
                                   <button
                                     type="button"
                                     (click)="pickDetailEmployee(e.id)"
-                                    class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-navy-800/60 transition-colors"
+                                    class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-input/60 transition-colors"
                                   >
                                     <span
-                                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-xs font-semibold text-violet-100"
+                                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--info-bg)] text-xs font-semibold text-[var(--info-text)]"
                                       >{{ employeeInitials(e) }}</span
                                     >
                                     <span class="min-w-0">
-                                      <span class="block font-medium text-slate-100 truncate"
+                                      <span class="block font-medium text-primary truncate"
                                         >{{ e.firstName }} {{ e.lastName }}</span
                                       >
-                                      <span class="block text-xs text-slate-500 truncate"
+                                      <span class="block text-xs text-muted truncate"
                                         >{{ e.role }} · {{ e.email }}</span
                                       >
                                     </span>
                                   </button>
                                 </li>
                               } @empty {
-                                <li class="px-3 py-4 text-sm text-slate-500">Aucun résultat</li>
+                                <li class="px-3 py-4 text-sm text-muted">Aucun résultat</li>
                               }
                             </ul>
                             <div class="flex flex-wrap gap-3">
@@ -1396,7 +1385,7 @@ function httpErrMessage(err: unknown): string {
                                 type="button"
                                 (click)="saveCellCoach(sel.id)"
                                 [disabled]="saving() || !draftEmployeeId()"
-                                class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                                class="ky-btn-primary"
                               >
                                 <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
                                 Enregistrer le référent technique
@@ -1405,7 +1394,7 @@ function httpErrMessage(err: unknown): string {
                                 type="button"
                                 (click)="clearCellCoach(sel.id)"
                                 [disabled]="saving() || coachUserIds(sel.id).length === 0"
-                                class="inline-flex items-center justify-center gap-2 rounded-lg border border-navy-600 px-4 py-2.5 text-sm text-slate-300 hover:bg-navy-800 disabled:opacity-50"
+                                class="inline-flex items-center justify-center gap-2 rounded-lg border border-default px-4 py-2.5 text-sm text-muted hover:bg-input disabled:opacity-50"
                               >
                                 <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
                                 Retirer tous les titulaires
@@ -1414,15 +1403,15 @@ function httpErrMessage(err: unknown): string {
                           </div>
 
                           <div class="space-y-3">
-                            <label class="text-sm font-medium text-slate-300 block">Pilotes</label>
+                            <label class="text-sm font-medium text-muted block">Pilotes</label>
                             @if (coachUserIds(sel.id).length === 0) {
-                              <p class="text-sm text-amber-400/90">Affectez d’abord un référent technique.</p>
+                              <p class="text-sm text-[var(--warning-text)]">Affectez d’abord un référent technique.</p>
                             }
                             <ul
-                              class="rounded-lg border border-navy-800 divide-y divide-navy-800 bg-navy-950/40 max-h-48 overflow-y-auto"
+                              class="rounded-lg border border-default divide-y divide-default bg-input/40 max-h-48 overflow-y-auto"
                             >
                               @for (p of pilotsInCell(sel.id); track p.id) {
-                                <li class="flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-slate-200">
+                                <li class="flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-primary">
                                   <span class="min-w-0 truncate">{{ p.firstName }} {{ p.lastName }}</span>
                                   <div class="shrink-0 flex items-center gap-2">
                                     <button
@@ -1430,7 +1419,7 @@ function httpErrMessage(err: unknown): string {
                                       (click)="openPilotRotationHistory(p)"
                                       title="Historique rotation"
                                       aria-label="Historique rotation"
-                                      class="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300"
+                                      class="inline-flex items-center gap-1 text-xs org-link"
                                     >
                                       <app-lucide-icon [icon]="icons.history" className="w-3.5 h-3.5" />
                                       Historique rotation
@@ -1439,7 +1428,7 @@ function httpErrMessage(err: unknown): string {
                                       type="button"
                                       (click)="removePilot(sel.id, p.id)"
                                       [disabled]="saving()"
-                                      class="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                                      class="inline-flex items-center gap-1 text-xs text-[var(--danger-text)] hover:opacity-80 disabled:opacity-50"
                                     >
                                       <app-lucide-icon [icon]="icons.trash" className="w-3.5 h-3.5" />
                                       Retirer
@@ -1447,23 +1436,23 @@ function httpErrMessage(err: unknown): string {
                                   </div>
                                 </li>
                               } @empty {
-                                <li class="px-3 py-4 text-sm text-slate-500">Aucun pilote</li>
+                                <li class="px-3 py-4 text-sm text-muted">Aucun pilote</li>
                               }
                             </ul>
                             <div class="space-y-3">
-                              <label class="text-sm text-slate-400">Ajouter un pilote</label>
+                              <label class="text-sm text-muted">Ajouter un pilote</label>
                               @if (draftPilotId()) {
                                 <div
-                                  class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-navy-700 bg-navy-950/50 px-3 py-2.5"
+                                  class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5"
                                 >
-                                  <span class="text-sm text-slate-200">
-                                    <span class="text-slate-500">Sélection :</span>
+                                  <span class="text-sm text-primary">
+                                    <span class="text-muted">Sélection :</span>
                                     <strong class="ml-1">{{ employeeLabel(draftPilotId()) }}</strong>
                                   </span>
                                   <button
                                     type="button"
                                     (click)="beginRepickPilotEmployee()"
-                                    class="text-xs font-medium text-indigo-400 hover:text-indigo-300"
+                                    class="text-xs font-medium org-link"
                                   >
                                     Changer
                                   </button>
@@ -1471,14 +1460,14 @@ function httpErrMessage(err: unknown): string {
                               }
                               <input
                                 type="search"
-                                class="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-500"
+                                class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary placeholder:text-muted"
                                 placeholder="Rechercher un employé…"
                                 [value]="structurePilotEmpSearch()"
                                 (input)="setPilotEmpSearch($event)"
                                 [disabled]="coachUserIds(sel.id).length === 0"
                               />
                               <ul
-                                class="max-h-40 overflow-y-auto rounded-lg border border-navy-800 bg-navy-950/40 divide-y divide-navy-800"
+                                class="max-h-40 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default"
                               >
                                 @for (e of filteredPilotAssignables(); track e.id) {
                                   <li>
@@ -1486,27 +1475,27 @@ function httpErrMessage(err: unknown): string {
                                       type="button"
                                       (click)="pickPilotEmployee(e.id)"
                                       [disabled]="coachUserIds(sel.id).length === 0"
-                                      class="w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-navy-800/60 disabled:opacity-40"
+                                      class="w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-input/60 disabled:opacity-40"
                                     >
                                       <span
-                                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-600/40 text-[11px] font-semibold text-slate-100"
+                                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--bg-input)] text-[11px] font-semibold text-primary"
                                         >{{ employeeInitials(e) }}</span
                                       >
                                       <span class="min-w-0">
-                                        <span class="block font-medium text-slate-100 truncate"
+                                        <span class="block font-medium text-primary truncate"
                                           >{{ e.firstName }} {{ e.lastName }}</span
                                         >
-                                        <span class="block text-xs text-slate-500 truncate">{{ e.role }}</span>
+                                        <span class="block text-xs text-muted truncate">{{ e.role }}</span>
                                       </span>
                                     </button>
                                   </li>
                                 } @empty {
-                                  <li class="px-3 py-3 text-sm text-slate-500">Aucun résultat</li>
+                                  <li class="px-3 py-3 text-sm text-muted">Aucun résultat</li>
                                 }
                               </ul>
                               @if (teamsForCell(sel.id).length > 1) {
                                 <select
-                                  class="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-slate-200"
+                                  class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary"
                                   [kyntusSelectSync]="draftPilotTeamId()"
                                   (kyntusSelectSyncChange)="draftPilotTeamId.set($event)"
                                 >
@@ -1519,7 +1508,7 @@ function httpErrMessage(err: unknown): string {
                                 type="button"
                                 (click)="addPilot(sel.id)"
                                 [disabled]="saving() || coachUserIds(sel.id).length === 0 || !draftPilotId()"
-                                class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-600 disabled:opacity-50"
+                                class="ky-btn-secondary w-full"
                               >
                                 <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
                                 Ajouter le pilote
@@ -1531,10 +1520,10 @@ function httpErrMessage(err: unknown): string {
                     </div>
                   } @else {
                     <div
-                      class="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-slate-600/35 bg-navy-900/20 px-8 py-14 text-center min-h-[18rem]"
+                      class="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-default/35 bg-card/20 px-8 py-14 text-center min-h-[18rem]"
                     >
                       <p
-                        class="text-sm sm:text-base text-slate-500 max-w-md leading-relaxed tracking-tight"
+                        class="text-sm sm:text-base text-muted max-w-md leading-relaxed tracking-tight"
                       >
                         Sélectionnez un pôle, une cellule ou un service dans l’arbre pour afficher le formulaire
                         d’affectation.
@@ -1552,29 +1541,29 @@ function httpErrMessage(err: unknown): string {
                   [hasAction]="false"
                 >
                   <div class="space-y-4 -mt-1">
-                    <p class="text-xs text-slate-500 flex items-center gap-2">
+                    <p class="text-xs text-muted flex items-center gap-2">
                       <app-lucide-icon [icon]="icons.building" className="w-3.5 h-3.5 shrink-0" />
-                      <span class="truncate font-medium text-slate-300">{{ structureContextKpis().scopeTitle }}</span>
+                      <span class="truncate font-medium text-muted">{{ structureContextKpis().scopeTitle }}</span>
                     </p>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div class="rounded-lg border border-navy-800 bg-navy-950/50 px-3 py-3">
-                        <p class="text-[11px] uppercase tracking-wide text-slate-500">Effectif</p>
-                        <p class="text-2xl font-semibold text-slate-50 tabular-nums">
+                      <div class="rounded-lg border border-default bg-input/50 px-3 py-3">
+                        <p class="text-[11px] uppercase tracking-wide text-muted">Effectif</p>
+                        <p class="text-2xl font-semibold text-primary tabular-nums">
                           {{ structureContextKpis().effectif }}
                         </p>
-                        <p class="text-[11px] text-slate-500 mt-1">Employés rattachés</p>
+                        <p class="text-[11px] text-muted mt-1">Employés rattachés</p>
                       </div>
-                      <div class="rounded-lg border border-navy-800 bg-navy-950/50 px-3 py-3">
-                        <p class="text-[11px] uppercase tracking-wide text-slate-500">Parité</p>
-                        <p class="text-lg font-medium text-slate-200 leading-snug">{{ structureContextKpis().parite }}</p>
-                        <p class="text-[11px] text-slate-500 mt-1">Non renseigné en base (V1)</p>
+                      <div class="rounded-lg border border-default bg-input/50 px-3 py-3">
+                        <p class="text-[11px] uppercase tracking-wide text-muted">Parité</p>
+                        <p class="text-lg font-medium text-primary leading-snug">{{ structureContextKpis().parite }}</p>
+                        <p class="text-[11px] text-muted mt-1">Non renseigné en base (V1)</p>
                       </div>
-                      <div class="rounded-lg border border-navy-800 bg-navy-950/50 px-3 py-3">
-                        <p class="text-[11px] uppercase tracking-wide text-slate-500">Structure</p>
-                        <p class="text-sm font-medium text-amber-200/90 leading-snug">
+                      <div class="rounded-lg border border-default bg-input/50 px-3 py-3">
+                        <p class="text-[11px] uppercase tracking-wide text-muted">Structure</p>
+                        <p class="text-sm font-medium text-[var(--warning-text)] leading-snug">
                           {{ structureContextKpis().vacants }}
                         </p>
-                        <p class="text-[11px] text-slate-500 mt-1">Indicateur rapide</p>
+                        <p class="text-[11px] text-muted mt-1">Indicateur rapide</p>
                       </div>
                     </div>
                   </div>
@@ -1590,29 +1579,29 @@ function httpErrMessage(err: unknown): string {
                     <ul class="space-y-2">
                       @for (m of structureContextMembers(); track m.id) {
                         <li
-                          class="flex items-center gap-3 rounded-lg border border-navy-800/80 bg-navy-900/40 px-3 py-2"
+                          class="flex items-center gap-3 rounded-lg border border-default/80 bg-card/40 px-3 py-2"
                         >
                           @if (m.avatar) {
                             <img
                               [src]="m.avatar"
                               alt=""
-                              class="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-navy-700"
+                              class="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-[var(--border-color)]"
                             />
                           } @else {
                             <span
-                              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-500/25 text-xs font-semibold text-indigo-100"
+                              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--info-bg)] text-xs font-semibold text-[var(--info-text)]"
                               >{{ employeeInitials(m) }}</span
                             >
                           }
                           <span class="min-w-0 flex-1">
-                            <span class="block text-sm font-medium text-slate-100 truncate"
+                            <span class="block text-sm font-medium text-primary truncate"
                               >{{ m.firstName }} {{ m.lastName }}</span
                             >
-                            <span class="block text-xs text-slate-500 truncate">{{ m.role }}</span>
+                            <span class="block text-xs text-muted truncate">{{ m.role }}</span>
                           </span>
                         </li>
                       } @empty {
-                        <li class="text-sm text-slate-500 py-4 text-center">Aucun employé dans ce périmètre.</li>
+                        <li class="text-sm text-muted py-4 text-center">Aucun employé dans ce périmètre.</li>
                       }
                     </ul>
                   </div>
@@ -1621,24 +1610,24 @@ function httpErrMessage(err: unknown): string {
                 <app-prime-card
                   className="p-0 flex flex-col max-h-[min(36vh,18rem)]"
                   title="Journal d’activité"
-                  description="Dernières mutations structurelles enregistrées."
+                  description="Événements du périmètre sélectionné."
                   [hasAction]="false"
                 >
                   <div class="-m-6 flex-1 min-h-0 overflow-y-auto p-4">
                     <ul class="space-y-3">
-                      @for (entry of structureActivityLog(); track $index) {
+                      @for (entry of visibleStructureActivityLog(); track $index) {
                         <li class="flex gap-3 text-sm">
                           <app-lucide-icon
                             [icon]="icons.activity"
-                            className="w-4 h-4 shrink-0 text-slate-500 mt-0.5"
+                            className="w-4 h-4 shrink-0 text-muted mt-0.5"
                           />
                           <div class="min-w-0">
-                            <p class="text-xs text-slate-500">{{ entry.at }}</p>
-                            <p class="text-slate-200 leading-snug">{{ entry.message }}</p>
+                            <p class="text-xs text-muted">{{ entry.at }}</p>
+                            <p class="text-primary leading-snug">{{ entry.message }}</p>
                           </div>
                         </li>
                       } @empty {
-                        <li class="flex gap-3 text-sm text-slate-500">
+                        <li class="flex gap-3 text-sm text-muted">
                           <app-lucide-icon [icon]="icons.activity" className="w-4 h-4 shrink-0" />
                           <p>Aucun événement pour l’instant. Les enregistrements apparaîtront ici.</p>
                         </li>
@@ -1653,6 +1642,199 @@ function httpErrMessage(err: unknown): string {
       </div>
     }
   `,
+  styles: [
+    `
+      .org-page {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .org-toolbar {
+        padding: 0.9rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+
+      .org-toolbar label {
+        margin: 0;
+      }
+
+      .org-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.35rem;
+        border: 1px solid var(--border-color);
+        background: var(--bg-card);
+        border-radius: var(--radius-card, 0.875rem);
+        width: fit-content;
+        max-width: 100%;
+      }
+
+      .org-tab-active {
+        background: var(--ky-gradient, var(--soft-blue));
+        color: #f1f5f9;
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--soft-blue) 55%, var(--border-color)) inset;
+      }
+
+      .org-link {
+        color: var(--electric-blue);
+        font-weight: 600;
+      }
+
+      .org-link:hover {
+        opacity: 0.82;
+      }
+
+      /* —— Arbre organisation (sans cartes imbriquées) —— */
+      .org-tree-scroll {
+        background: color-mix(in srgb, var(--bg-input, #0f172a) 55%, transparent);
+      }
+
+      .org-tree {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+
+      .org-tree-block {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+      }
+
+      .org-tree-children {
+        margin-left: 0.65rem;
+        padding-left: 0.7rem;
+        border-left: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+      }
+
+      .org-tree-children--leaf {
+        gap: 0.1rem;
+      }
+
+      .org-tree-row {
+        display: grid;
+        grid-template-columns: 1.25rem minmax(0, 1fr) minmax(6.5rem, 12rem);
+        column-gap: 0.65rem;
+        align-items: center;
+        width: 100%;
+        text-align: left;
+        padding: 0.55rem 0.65rem;
+        border-radius: 0.5rem;
+        border: 1px solid transparent;
+        background: transparent;
+        transition: background 0.12s ease, border-color 0.12s ease;
+      }
+
+      .org-tree-row:hover {
+        background: color-mix(in srgb, var(--bg-input, #1e293b) 70%, transparent);
+      }
+
+      .org-tree-row.is-selected {
+        border-color: var(--info-border, #38bdf8);
+        background: var(--info-bg, color-mix(in srgb, #0ea5e9 18%, transparent));
+      }
+
+      .org-tree-row--dept {
+        padding: 0.65rem 0.75rem;
+        font-weight: 600;
+      }
+
+      .org-tree-row--svc {
+        font-size: 0.875rem;
+        color: var(--text-muted, #94a3b8);
+      }
+
+      .org-tree-chev {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        min-height: 1rem;
+      }
+
+      .org-tree-label {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        line-height: 1.35;
+      }
+
+      .org-tree-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .org-tree-assignee {
+        min-width: 0;
+        font-size: 0.75rem;
+        line-height: 1.3;
+        color: var(--text-muted, #94a3b8);
+        text-align: right;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .org-badge {
+        flex-shrink: 0;
+        border-radius: 0.25rem;
+        padding: 0.1rem 0.4rem;
+        font-size: 0.5625rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        line-height: 1.4;
+      }
+
+      .org-badge--dept {
+        background: var(--warning-bg);
+        color: var(--warning-text);
+        box-shadow: inset 0 0 0 1px var(--warning-border);
+      }
+
+      .org-badge--pole {
+        background: color-mix(in srgb, #0ea5e9 22%, transparent);
+        color: #e0f2fe;
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, #0ea5e9 40%, transparent);
+      }
+
+      .org-badge--cell {
+        background: var(--success-bg);
+        color: var(--success-text);
+        box-shadow: inset 0 0 0 1px var(--success-border);
+      }
+
+      .org-badge--svc {
+        background: color-mix(in srgb, #8b5cf6 22%, transparent);
+        color: #ede9fe;
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, #8b5cf6 40%, transparent);
+      }
+
+      @media (max-width: 768px) {
+        .org-tabs {
+          width: 100%;
+        }
+
+        .org-tree-row {
+          grid-template-columns: 1.25rem minmax(0, 1fr);
+        }
+
+        .org-tree-assignee {
+          display: none;
+        }
+      }
+    `,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OrganisationManagementComponent implements OnInit {
@@ -1809,6 +1991,7 @@ export class OrganisationManagementComponent implements OnInit {
           this.rebuildRowDraftsFromData(d);
           this.syncDraftFromSelection();
           this.ensureStructureCreateFormDefaults(d);
+          this.ensureStructureActivitySeed(d);
         },
         error: (err: unknown) => {
           this.data.set(null);
@@ -2504,41 +2687,37 @@ export class OrganisationManagementComponent implements OnInit {
   }
 
   deptTreeRowClass(deptId: string): string {
-    const base =
-      'w-full grid grid-cols-[1.25rem_minmax(0,1fr)_minmax(0,9rem)] gap-x-3 gap-y-0.5 items-center px-3 py-3 text-left text-slate-100 hover:bg-navy-800/50 rounded-t-lg transition-colors';
+    const base = 'org-tree-row org-tree-row--dept';
     const sel = this.selection();
     if (sel?.kind === 'metierDepartment' && sel.id === deptId) {
-      return `${base} ring-2 ring-inset ring-indigo-500/45 bg-indigo-950/30`;
+      return `${base} is-selected`;
     }
     return base;
   }
 
   poleTreeRowClass(poleId: string): string {
-    const base =
-      'w-full grid grid-cols-[1.25rem_minmax(0,1fr)_minmax(0,8.5rem)] gap-x-2 gap-y-0.5 items-center px-2 py-2.5 text-left text-slate-200 hover:bg-navy-800/45 transition-colors';
+    const base = 'org-tree-row org-tree-row--pole';
     const sel = this.selection();
     if (sel?.kind === 'pole' && sel.id === poleId) {
-      return `${base} ring-2 ring-inset ring-indigo-500/45 bg-indigo-950/25`;
+      return `${base} is-selected`;
     }
     return base;
   }
 
   celluleTreeRowClass(celluleId: string): string {
-    const base =
-      'w-full grid grid-cols-[1.25rem_minmax(0,1fr)_minmax(0,8rem)] gap-x-2 gap-y-0.5 items-center px-2 py-2 text-left text-slate-300 hover:bg-navy-800/40 transition-colors';
+    const base = 'org-tree-row org-tree-row--cell';
     const sel = this.selection();
     if (sel?.kind === 'cellule' && sel.id === celluleId) {
-      return `${base} ring-2 ring-inset ring-indigo-500/45 bg-indigo-950/25`;
+      return `${base} is-selected`;
     }
     return base;
   }
 
   serviceButtonClass(serviceId: string): string {
-    const base =
-      'grid grid-cols-[0.75rem_minmax(0,1fr)_minmax(0,6.5rem)] gap-x-2 items-center w-full px-2 py-2.5 rounded-md text-left text-sm text-slate-300 hover:bg-navy-800/40 transition-colors';
+    const base = 'org-tree-row org-tree-row--svc';
     const sel = this.selection();
     if (sel?.kind === 'service' && sel.id === serviceId) {
-      return `${base} ring-2 ring-inset ring-indigo-500/50 bg-indigo-950/35 text-slate-100`;
+      return `${base} is-selected text-primary`;
     }
     return base;
   }
@@ -2648,9 +2827,210 @@ export class OrganisationManagementComponent implements OnInit {
     this.draftPilotId.set('');
   }
 
-  private pushStructureLog(message: string): void {
+  private pushStructureLog(message: string, scopeIds?: string[]): void {
     const at = new Date().toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
-    this.structureActivityLog.update((list) => [{ at, message }, ...list].slice(0, 30));
+    const sel = this.selection();
+    const ids =
+      scopeIds ??
+      (sel
+        ? [...this.scopeIdsForSelection(sel)]
+        : undefined);
+    this.structureActivityLog.update((list) =>
+      [{ at, message, scopeIds: ids }, ...list].slice(0, 40),
+    );
+  }
+
+  /** Journal filtré sur le nœud sélectionné (et ses descendants / ancêtres). */
+  readonly visibleStructureActivityLog = computed(() => {
+    const all = this.structureActivityLog();
+    const sel = this.selection();
+    if (!sel) return all;
+    const scope = this.scopeIdsForSelection(sel);
+    return all.filter((e) => !e.scopeIds?.length || e.scopeIds.some((id) => scope.has(id)));
+  });
+
+  private structureActivitySeeded = false;
+
+  private ensureStructureActivitySeed(d: OrgAssignmentsOverview): void {
+    if (this.structureActivitySeeded || this.structureActivityLog().length > 0) return;
+    const seeded = this.buildSeededStructureActivity(d);
+    if (seeded.length === 0) return;
+    this.structureActivityLog.set(seeded);
+    this.structureActivitySeeded = true;
+  }
+
+  private scopeIdsForSelection(sel: OrgTreeSelection): Set<string> {
+    const ids = new Set<string>([sel.id]);
+    const tree = this.data()?.operationalDepartments ?? [];
+    if (sel.kind === 'metierDepartment') {
+      const md = tree.find((d) => d.id === sel.id);
+      for (const p of md?.poles ?? []) {
+        ids.add(p.id);
+        for (const c of p.cellules ?? []) {
+          ids.add(c.id);
+          for (const s of c.services ?? []) ids.add(s.id);
+        }
+      }
+      return ids;
+    }
+    if (sel.kind === 'pole') {
+      ids.add(sel.metierDepartmentId);
+      const pole = this.findPoleNode(sel.id);
+      for (const c of pole?.cellules ?? []) {
+        ids.add(c.id);
+        for (const s of c.services ?? []) ids.add(s.id);
+      }
+      return ids;
+    }
+    if (sel.kind === 'cellule') {
+      ids.add(sel.metierDepartmentId);
+      ids.add(sel.poleId);
+      const cell = this.findCelluleNode(sel.id);
+      for (const s of cell?.services ?? []) ids.add(s.id);
+      return ids;
+    }
+    ids.add(sel.metierDepartmentId);
+    ids.add(sel.poleId);
+    ids.add(sel.celluleId);
+    return ids;
+  }
+
+  private formatLogAt(daysAgo: number, hour = 10, minute = 0): string {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    d.setHours(hour, minute, 0, 0);
+    return d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+  }
+
+  private buildSeededStructureActivity(d: OrgAssignmentsOverview): StructureLogEntry[] {
+    const entries: StructureLogEntry[] = [];
+    const ops = d.operationalDepartments ?? [];
+
+    for (const md of ops) {
+      entries.push({
+        at: this.formatLogAt(14, 9, 15),
+        message: `Département opérationnel créé — ${md.code} « ${md.name} »`,
+        scopeIds: [md.id],
+      });
+      if (md.managerEmployeeId) {
+        entries.push({
+          at: this.formatLogAt(13, 11, 0),
+          message: `Manager opérationnel enregistré — ${this.employeeLabel(md.managerEmployeeId)} sur ${md.code}`,
+          scopeIds: [md.id],
+        });
+      }
+
+      for (const pole of md.poles ?? []) {
+        const poleScope = [md.id, pole.id];
+        const isPilotage = /pilotage|performance/i.test(pole.name);
+        entries.push({
+          at: this.formatLogAt(isPilotage ? 10 : 12, 9, 30),
+          message: `Pôle créé — « ${pole.name} » rattaché à ${md.code}`,
+          scopeIds: [...poleScope],
+        });
+
+        const chefIds = this.managerUserIds(pole.id);
+        for (const uid of chefIds) {
+          entries.push({
+            at: this.formatLogAt(isPilotage ? 9 : 11, 14, 20),
+            message: `Chef de projet affecté — ${this.employeeLabel(uid)} sur le pôle « ${pole.name} »`,
+            scopeIds: [...poleScope],
+          });
+        }
+
+        for (const cell of pole.cellules ?? []) {
+          const cellScope = [...poleScope, cell.id];
+          entries.push({
+            at: this.formatLogAt(isPilotage ? 8 : 10, 10, 5),
+            message: `Cellule créée — « ${cell.name} » sous « ${pole.name} »`,
+            scopeIds: [...cellScope],
+          });
+
+          const supIds = this.supervisorUserIds(cell.id);
+          for (const uid of supIds) {
+            entries.push({
+              at: this.formatLogAt(isPilotage ? 7 : 9, 15, 40),
+              message: `Superviseur affecté — ${this.employeeLabel(uid)} sur « ${cell.name} »`,
+              scopeIds: [...cellScope],
+            });
+          }
+
+          for (const svc of cell.services ?? []) {
+            const svcScope = [...cellScope, svc.id];
+            entries.push({
+              at: this.formatLogAt(isPilotage ? 5 : 7, 11, 10),
+              message: `Service créé — « ${svc.name} » dans « ${cell.name} »`,
+              scopeIds: [...svcScope],
+            });
+
+            const coachIds = this.coachUserIds(svc.id);
+            for (const uid of coachIds) {
+              entries.push({
+                at: this.formatLogAt(isPilotage ? 4 : 6, 16, 0),
+                message: `Référent technique affecté — ${this.employeeLabel(uid)} sur « ${svc.name} »`,
+                scopeIds: [...svcScope],
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Événements enrichis pour le pôle pilotage performance (et équivalents)
+    for (const md of ops) {
+      for (const pole of md.poles ?? []) {
+        if (!/pilotage|performance/i.test(pole.name)) continue;
+        const poleScope = [md.id, pole.id];
+        const cellIds = (pole.cellules ?? []).map((c) => c.id);
+        const svcIds = (pole.cellules ?? []).flatMap((c) => (c.services ?? []).map((s) => s.id));
+        const fullScope = [...poleScope, ...cellIds, ...svcIds];
+
+        entries.push({
+          at: this.formatLogAt(3, 9, 0),
+          message: `Revue structurelle du pôle « ${pole.name} » — effectif et postes de responsabilité contrôlés`,
+          scopeIds: fullScope,
+        });
+        entries.push({
+          at: this.formatLogAt(2, 14, 30),
+          message: `Indicateurs KPI du pôle « ${pole.name} » mis à jour (périmètre cellules / services)`,
+          scopeIds: fullScope,
+        });
+        entries.push({
+          at: this.formatLogAt(1, 10, 15),
+          message: `Rotation / confirmation des titulaires sur « ${pole.name} » (chef de projet, superviseurs, référents)`,
+          scopeIds: fullScope,
+        });
+        entries.push({
+          at: this.formatLogAt(0, 8, 45),
+          message: `Activité du jour — pôle « ${pole.name} » : suivi des affectations et du journal RH`,
+          scopeIds: fullScope,
+        });
+
+        for (const cell of pole.cellules ?? []) {
+          for (const pilot of this.pilotsInCell(cell.id)) {
+            entries.push({
+              at: this.formatLogAt(1, 16, 20),
+              message: `Pilote rattaché — ${pilot.firstName} ${pilot.lastName} sur « ${cell.name} » (${pole.name})`,
+              scopeIds: [md.id, pole.id, cell.id],
+            });
+          }
+        }
+      }
+    }
+
+    // Plus récent en premier
+    return entries.sort((a, b) => {
+      const da = this.parseFrLogDate(a.at);
+      const db = this.parseFrLogDate(b.at);
+      return db - da;
+    }).slice(0, 40);
+  }
+
+  private parseFrLogDate(at: string): number {
+    // "16/07/2026 08:45" (fr-FR short)
+    const m = at.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
+    if (!m) return 0;
+    return new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]).getTime();
   }
 
   managerUserId(poleId: string): string | undefined {

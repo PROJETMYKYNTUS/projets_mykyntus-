@@ -24,8 +24,10 @@ Prérequis : stack `docker compose up -d` (gateway, `prime-backend`, Postgres se
 
 1. **Indicateurs PRIME** : la liste déroulante reflète les **services** supervisés ; enregistrement sans 404.
 
-## 5. Validation workflow (hors UI Angular)
+## 5. Validation workflow (UI Angular)
 
-Les transitions **approve / reject / bulk** exposées par `GET|POST /api/prime/validation` ne sont **pas** branchées sur une page Angular dédiée dans ce dépôt. Les tester via **Swagger / curl / Postman** ou un outil API si besoin métier.
+Les transitions **approve / reject / bulk** sont exposées par `GET|POST /api/prime/validation` **et** branchées sur les pages Angular `prime-validation-page` / `prime-validation-history-page` (module Prime).
 
-Détails : [`prime-validation-api-scope.md`](prime-validation-api-scope.md).
+Parcours UI : module PRIME → écran validation → approve / reject / bulk → vérifier l’historique.
+
+Détails API : [`prime-validation-api-scope.md`](prime-validation-api-scope.md).

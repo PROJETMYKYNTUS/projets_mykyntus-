@@ -48,7 +48,7 @@
   align-items: center;
   gap: 20px;
   padding: 18px 20px;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
 }
 
 .label {
@@ -68,7 +68,7 @@
   justify-content: center;
   min-width: 48px;
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-weight: 700;
   font-size: 0.84rem;
   background: color-mix(in srgb, var(--soft-blue) 15%, var(--bg-card));
@@ -99,7 +99,7 @@
 .empty-state {
   padding: 22px;
   text-align: center;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
 }
 
 .table-wrapper {
@@ -114,12 +114,12 @@
 }
 
 .btn-delete {
-  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
+  color: var(--danger-text);
 }
 
 .state {
   padding: 28px;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   text-align: center;
 }
 
@@ -142,7 +142,7 @@
 @media (max-width: 640px) {
   .card {
     padding: 22px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
   }
 
   .info-row {

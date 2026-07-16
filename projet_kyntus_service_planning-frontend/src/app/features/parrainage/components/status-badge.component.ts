@@ -16,9 +16,6 @@ export class StatusBadgeComponent {
   readonly REFERRAL_STATUS_LABELS = REFERRAL_STATUS_LABELS;
 
   get classes(): string {
-    return cn(
-      'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
-      REFERRAL_STATUS_STYLES[this.status],
-    );
+    return cn(REFERRAL_STATUS_STYLES[this.status]);
   }
 }

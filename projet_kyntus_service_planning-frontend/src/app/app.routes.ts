@@ -73,7 +73,7 @@ export const routes: Routes = [
       {
         path: 'formations',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation'] },
+        data: { roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation', 'Equipe formation'] },
         loadComponent: () =>
           import('./features/formation/admin/formation-admin.component')
             .then(m => m.FormationAdminComponent),
@@ -89,7 +89,7 @@ export const routes: Routes = [
       {
         path: 'formations/initiales',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation'] },
+        data: { roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation', 'Equipe formation'] },
         loadComponent: () =>
           import('./features/formation/formateur/formation-formateur-initial.component')
             .then(m => m.FormationFormateurInitialComponent),
@@ -103,9 +103,43 @@ export const routes: Routes = [
             .then(m => m.FormationRhProdQueueComponent),
       },
       {
+        path: 'mes-sessions',
+        canActivate: [AuthGuard],
+        data: {
+          roles: [
+            'Employee',
+            'Manager',
+            'Coach',
+            'RP',
+            'Audit',
+            'Formateur',
+            'Equipe_Formation',
+            'Equipe formation',
+            'Superviseur',
+            'Admin',
+            'RH',
+          ],
+        },
+        loadComponent: () =>
+          import('./features/formation/sessions/formation-mes-sessions.component')
+            .then(m => m.FormationMesSessionsComponent),
+      },
+      {
         path: 'mes-formations',
         canActivate: [AuthGuard],
-        data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Formateur', 'Equipe_Formation', 'Superviseur'] },
+        data: {
+          roles: [
+            'Employee',
+            'Manager',
+            'Coach',
+            'RP',
+            'Audit',
+            'Formateur',
+            'Equipe_Formation',
+            'Equipe formation',
+            'Superviseur',
+          ],
+        },
         loadComponent: () =>
           import('./features/formation/employee/formation-employee.component')
             .then(m => m.FormationEmployeeComponent),

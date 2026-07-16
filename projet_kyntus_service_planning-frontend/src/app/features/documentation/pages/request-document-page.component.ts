@@ -68,13 +68,14 @@ export class RequestDocumentPageComponent implements OnInit {
     this.docTypesLoading = true;
     this.docTypesError = null;
     forkJoin({
-      types: this.api.getDocTypesForCatalog().pipe(catchError(() => of([] as DocumentTypeDto[]))),
-      templates: this.data.getDocumentTemplates().pipe(catchError(() => of([] as DocumentTemplateListItemDto[]))),
+      types: this.api.getDocTypesForCatalog(),
+      templates: this.data.getDocumentTemplates(),
     }).subscribe({
       next: ({ types, templates }) => {
         this.docTypes = (types ?? []).filter((t) => t?.id);
         this.templates = (templates ?? []).filter((t) => t?.id && t.isActive);
         this.docTypesLoading = false;
+        this.docTypesError = null;
         this.initDefaultSelection();
       },
       error: (err: unknown) => {

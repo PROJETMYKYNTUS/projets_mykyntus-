@@ -116,7 +116,7 @@ function httpErrMessage(err: unknown): string {
             type="button"
             (click)="refresh()"
             [disabled]="loading()"
-            class="inline-flex items-center gap-2 rounded-lg border border-default bg-card px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-navy-700/50 disabled:opacity-50"
+            class="inline-flex items-center gap-2 rounded-lg border border-default bg-card px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-input/50 disabled:opacity-50"
             title="Rafraîchir la liste"
           >
             <app-lucide-icon [icon]="icons.refresh" className="w-4 h-4" />
@@ -291,7 +291,7 @@ function httpErrMessage(err: unknown): string {
                           type="button"
                           (click)="onOpen(item)"
                           [disabled]="busyDraftId() === item.id"
-                          class="inline-flex items-center gap-1.5 rounded-lg border border-default bg-card px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-navy-700/50 disabled:opacity-50"
+                          class="inline-flex items-center gap-1.5 rounded-lg border border-default bg-card px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-input/50 disabled:opacity-50"
                           title="Reprendre la saisie détaillée RACC / SAV (template)"
                         >
                           <app-lucide-icon [icon]="icons.pen" className="w-3.5 h-3.5" />
@@ -364,7 +364,7 @@ function httpErrMessage(err: unknown): string {
                                     type="button"
                                     (click)="previewGlobalPoolExcel(item)"
                                     [disabled]="globalPoolActionBusy()"
-                                    class="rounded border border-default px-2 py-1 font-medium text-primary hover:bg-navy-700/40"
+                                    class="rounded border border-default px-2 py-1 font-medium text-primary hover:bg-input/40"
                                   >
                                     Aperçu
                                   </button>
@@ -372,7 +372,7 @@ function httpErrMessage(err: unknown): string {
                                     type="button"
                                     (click)="downloadGlobalPoolExcel(item)"
                                     [disabled]="globalPoolActionBusy()"
-                                    class="rounded border border-default px-2 py-1 font-medium text-primary hover:bg-navy-700/40"
+                                    class="rounded border border-default px-2 py-1 font-medium text-primary hover:bg-input/40"
                                   >
                                     Télécharger
                                   </button>
@@ -454,7 +454,7 @@ function httpErrMessage(err: unknown): string {
                                             <button
                                               type="button"
                                               (click)="downloadFinalizedFiche(t)"
-                                              class="rounded border border-default px-2 py-0.5 font-medium text-blue-300 hover:bg-navy-700/40"
+                                              class="rounded border border-default px-2 py-0.5 font-medium text-blue-300 hover:bg-input/40"
                                             >
                                               Télécharger
                                             </button>

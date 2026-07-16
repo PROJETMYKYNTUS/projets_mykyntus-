@@ -42,9 +42,9 @@ export interface KyntusFilterItem {
       gap: 0.75rem 1rem;
       padding: 0.75rem 1rem;
       margin-bottom: 1rem;
-      border-radius: 0.75rem;
-      border: 1px solid var(--border-default, #1e293b);
-      background: var(--bg-card, #0f172a);
+      border-radius: var(--radius-card, 0.875rem);
+      border: 1px solid var(--border-color, #e2e8f0);
+      background: var(--bg-card, #ffffff);
     }
     .kyntus-filter-bar-head {
       display: flex;
@@ -67,23 +67,23 @@ export interface KyntusFilterItem {
     }
     .kyntus-filter-chip {
       padding: 0.35rem 0.85rem;
-      border-radius: 9999px;
-      border: 1px solid var(--border-default, #1e293b);
+      border-radius: var(--radius-pill, 999px);
+      border: 1px solid var(--border-color, #e2e8f0);
       background: transparent;
-      color: var(--text-muted, #94a3b8);
+      color: var(--text-muted, #64748b);
       font-size: 0.75rem;
       font-weight: 500;
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s, color 0.15s;
     }
     .kyntus-filter-chip:hover {
-      border-color: color-mix(in srgb, #3b82f6 40%, transparent);
-      color: var(--text-primary, #f8fafc);
+      border-color: color-mix(in srgb, var(--soft-blue, #3b82f6) 40%, transparent);
+      color: var(--text-primary, #0f172a);
     }
     .kyntus-filter-chip.active {
-      border-color: color-mix(in srgb, #3b82f6 50%, transparent);
-      background: color-mix(in srgb, #3b82f6 15%, transparent);
-      color: #93c5fd;
+      border-color: color-mix(in srgb, var(--soft-blue, #3b82f6) 50%, transparent);
+      background: color-mix(in srgb, var(--soft-blue, #3b82f6) 15%, transparent);
+      color: var(--info-text, #1d4ed8);
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,

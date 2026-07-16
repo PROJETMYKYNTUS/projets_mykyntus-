@@ -11,7 +11,7 @@ import { RoleService } from '../../state/role.service';
   template: `
     <div class="flex flex-wrap items-center gap-2">
       <select
-        class="text-sm pl-3 pr-8 py-2 rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        class="text-sm pl-3 pr-8 py-2 rounded-lg border border-default bg-input/80 text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         [kyntusSelectSync]="hierarchy.drill().managerId ?? ''"
         (kyntusSelectSyncChange)="onManager($event)"
       >
@@ -21,7 +21,7 @@ import { RoleService } from '../../state/role.service';
         }
       </select>
       <select
-        class="text-sm pl-3 pr-8 py-2 rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+        class="text-sm pl-3 pr-8 py-2 rounded-lg border border-default bg-input/80 text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
         [disabled]="!hierarchy.drill().managerId"
         [kyntusSelectSync]="hierarchy.drill().coachId ?? ''"
         (kyntusSelectSyncChange)="hierarchy.setCoachId($event || undefined)"

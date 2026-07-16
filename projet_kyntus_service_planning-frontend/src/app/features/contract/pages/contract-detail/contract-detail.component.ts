@@ -1,6 +1,6 @@
 // features/contract/pages/contract-detail/contract-detail.component.ts
 
-import { Component, OnInit, ViewEncapsulation, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ContractService, ContractResponse } from '../../services/contract.service';
@@ -14,7 +14,6 @@ import { FileText } from 'lucide';
   imports: [CommonModule, LucideIconComponent, KyntusPageHeaderComponent],
   templateUrl: './contract-detail.component.html',
   styleUrls: ['./contract-detail.component.css'],
-  encapsulation: ViewEncapsulation.None
 })
 export class ContractDetailComponent implements OnInit {
   readonly icons = { notes: FileText };

@@ -82,7 +82,7 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
 
     .ky-confirm-box {
       width: min(100%, 440px);
-      border-radius: 24px;
+      border-radius: var(--radius-card, 0.875rem);
       overflow: hidden;
       box-shadow: 0 24px 64px color-mix(in srgb, #000 28%, transparent);
       animation: ky-confirm-in 0.18s ease-out;
@@ -109,7 +109,7 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
     .ky-confirm-icon {
       width: 44px;
       height: 44px;
-      border-radius: 14px;
+      border-radius: var(--radius-md, 0.5rem);
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -117,21 +117,21 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
     }
 
     .ky-confirm-icon--warning {
-      color: #f59e0b;
-      background: color-mix(in srgb, #f59e0b 14%, transparent);
-      border: 1px solid color-mix(in srgb, #f59e0b 28%, transparent);
+      color: var(--warning-text, #92400e);
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
     }
 
     .ky-confirm-icon--danger {
-      color: #ef4444;
-      background: color-mix(in srgb, #ef4444 12%, transparent);
-      border: 1px solid color-mix(in srgb, #ef4444 24%, transparent);
+      color: var(--danger-text, #b91c1c);
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
     }
 
     .ky-confirm-icon--default {
-      color: var(--accent-primary, #6366f1);
-      background: color-mix(in srgb, var(--accent-primary, #6366f1) 12%, transparent);
-      border: 1px solid color-mix(in srgb, var(--accent-primary, #6366f1) 24%, transparent);
+      color: var(--info-text, #1d4ed8);
+      background: var(--info-bg);
+      border: 1px solid var(--info-border);
     }
 
     .ky-confirm-title {
@@ -169,9 +169,9 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
       align-items: flex-start;
       gap: 10px;
       padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid color-mix(in srgb, var(--text-muted, #94a3b8) 22%, transparent);
-      background: color-mix(in srgb, var(--navy-900, #1e293b) 35%, transparent);
+      border-radius: var(--radius-md, 0.5rem);
+      border: 1px solid var(--border-color, #e2e8f0);
+      background: var(--bg-input, #f1f5f9);
       cursor: pointer;
       font-size: 0.92rem;
       color: var(--text-primary);
@@ -183,7 +183,7 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
       width: 16px;
       height: 16px;
       flex-shrink: 0;
-      accent-color: var(--accent-primary, #3b82f6);
+      accent-color: var(--soft-blue, #3b82f6);
       cursor: pointer;
     }
 
@@ -201,9 +201,12 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
       padding: 18px 24px 24px;
     }
 
+    /* Confirmation destructive : bouton plein rouge (contraste AA garanti sur les 2 thèmes) */
     .ky-btn-danger {
-      background: color-mix(in srgb, #ef4444 88%, #000) !important;
-      border-color: color-mix(in srgb, #ef4444 70%, transparent) !important;
+      background: var(--danger, #dc2626) !important;
+      background-image: none !important;
+      border-color: var(--danger, #dc2626) !important;
+      color: #f1f5f9 !important;
     }
 
     .ky-btn-primary:disabled,

@@ -42,11 +42,30 @@ public sealed class TrainingWorkflowService(
             PlannedStart = plannedStart,
             PlannedEnd = plannedEnd,
             Capacity = request.Capacity,
-            Status = request.Publish ? TrainingSessionStatus.Scheduled : TrainingSessionStatus.Draft,
+            Status = request.Publish
+                ? ResolveStatusFromSchedule(plannedStart, plannedEnd, DateTime.UtcNow)
+                : TrainingSessionStatus.Draft,
             CreatedByUserId = request.CreatedByUserId,
         };
         db.TrainingSessions.Add(session);
         await db.SaveChangesAsync(ct);
+
+        if (request.Publish
+            && session.AnimatorKind == AnimatorKind.Internal
+            && session.AnimatorUserId is Guid animatorId
+            && animatorId != Guid.Empty)
+        {
+            await publish.Publish(new TrainingSessionAnimatorAssignedMessage
+            {
+                SessionId = session.Id,
+                Title = session.Title,
+                PlannedStart = session.PlannedStart,
+                PlannedEnd = session.PlannedEnd,
+                AnimatorUserId = animatorId,
+                AssignedAt = DateTime.UtcNow,
+            }, ct);
+        }
+
         return ToSessionDto(session, 0);
     }
 
@@ -54,15 +73,32 @@ public sealed class TrainingWorkflowService(
     {
         var session = await db.TrainingSessions.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (session is null) return null;
-        session.Status = status;
-        session.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
+
+        // Annulation manuelle uniquement — Scheduled / InProgress / Completed suivent les horaires.
+        if (status == TrainingSessionStatus.Cancelled)
+        {
+            session.Status = TrainingSessionStatus.Cancelled;
+            session.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+        }
+        else if (session.Status != TrainingSessionStatus.Cancelled && session.Status != TrainingSessionStatus.Draft)
+        {
+            var next = ResolveStatusFromSchedule(session.PlannedStart, session.PlannedEnd, DateTime.UtcNow);
+            if (next != session.Status)
+            {
+                session.Status = next;
+                session.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(ct);
+            }
+        }
+
         var count = await db.TrainingAssignments.CountAsync(a => a.SessionId == id, ct);
         return ToSessionDto(session, count);
     }
 
     public async Task<IReadOnlyList<TrainingSessionDto>> ListSessionsAsync(CancellationToken ct)
     {
+        await SyncPublishedSessionStatusesAsync(ct);
         var sessions = await db.TrainingSessions.AsNoTracking().OrderByDescending(s => s.CreatedAt).ToListAsync(ct);
         var counts = await db.TrainingAssignments.AsNoTracking()
             .GroupBy(a => a.SessionId)
@@ -73,6 +109,7 @@ public sealed class TrainingWorkflowService(
 
     public async Task<IReadOnlyList<TrainingSessionDto>> ListAnimatedSessionsAsync(Guid animatorUserId, CancellationToken ct)
     {
+        await SyncPublishedSessionStatusesAsync(ct);
         var sessions = await db.TrainingSessions.AsNoTracking()
             .Where(s => s.AnimatorKind == AnimatorKind.Internal && s.AnimatorUserId == animatorUserId)
             .OrderByDescending(s => s.PlannedStart)
@@ -85,6 +122,30 @@ public sealed class TrainingWorkflowService(
         return sessions.Select(s => ToSessionDto(s, counts.GetValueOrDefault(s.Id))).ToList();
     }
 
+    public async Task<IReadOnlyList<MyAssignedTrainingSessionDto>> ListMyAssignedSessionsAsync(
+        Guid employeeId,
+        CancellationToken ct)
+    {
+        await SyncPublishedSessionStatusesAsync(ct);
+
+        var rows = await (
+            from a in db.TrainingAssignments.AsNoTracking()
+            join s in db.TrainingSessions.AsNoTracking() on a.SessionId equals s.Id
+            where a.EmployeeId == employeeId && s.Type == TrainingSessionType.Continue
+            orderby s.PlannedStart descending
+            select new { a, s }
+        ).ToListAsync(ct);
+
+        return rows.Select(r => new MyAssignedTrainingSessionDto(
+            r.s.Id,
+            r.a.Id,
+            r.s.Title,
+            r.s.PlannedStart,
+            r.s.PlannedEnd,
+            r.s.Status,
+            AttendanceLabel(r.a.Status))).ToList();
+    }
+
     public async Task<IReadOnlyList<TrainingAssignmentDto>> AssignEmployeesAsync(
         Guid sessionId,
         AssignTrainingEmployeesRequest request,
@@ -92,6 +153,16 @@ public sealed class TrainingWorkflowService(
     {
         var session = await db.TrainingSessions.Include(s => s.Assignments).FirstOrDefaultAsync(s => s.Id == sessionId, ct)
             ?? throw new InvalidOperationException("Session introuvable.");
+
+        if (session.Status is not TrainingSessionStatus.Draft and not TrainingSessionStatus.Cancelled)
+        {
+            var next = ResolveStatusFromSchedule(session.PlannedStart, session.PlannedEnd, DateTime.UtcNow);
+            if (next != session.Status)
+            {
+                session.Status = next;
+                session.UpdatedAt = DateTime.UtcNow;
+            }
+        }
 
         var current = session.Assignments.Count;
         var incoming = request.Employees.Count;
@@ -127,10 +198,77 @@ public sealed class TrainingWorkflowService(
             }, ct);
         }
 
-        return await db.TrainingAssignments.AsNoTracking()
+        var rows = await db.TrainingAssignments.AsNoTracking()
             .Where(a => a.SessionId == sessionId)
-            .Select(a => new TrainingAssignmentDto(a.Id, a.SessionId, a.EmployeeId, a.EmployeeName, a.Status))
+            .OrderBy(a => a.EmployeeName)
             .ToListAsync(ct);
+        return rows.Select(ToAssignmentDto).ToList();
+    }
+
+    public async Task<IReadOnlyList<TrainingAssignmentDto>> ListSessionAssignmentsAsync(
+        Guid sessionId,
+        Guid animatorUserId,
+        CancellationToken ct)
+    {
+        await SyncPublishedSessionStatusesAsync(ct);
+        var session = await RequireAnimatorContinueSessionAsync(sessionId, animatorUserId, ct);
+
+        var rows = await db.TrainingAssignments.AsNoTracking()
+            .Where(a => a.SessionId == session.Id)
+            .OrderBy(a => a.EmployeeName)
+            .ToListAsync(ct);
+        return rows.Select(ToAssignmentDto).ToList();
+    }
+
+    public async Task<TrainingAssignmentDto> MarkAttendanceAsync(
+        Guid sessionId,
+        Guid assignmentId,
+        MarkTrainingAttendanceRequest request,
+        CancellationToken ct)
+    {
+        await SyncPublishedSessionStatusesAsync(ct);
+        var session = await RequireAnimatorContinueSessionAsync(sessionId, request.AnimatorUserId, ct);
+
+        if (session.Status is TrainingSessionStatus.Draft or TrainingSessionStatus.Cancelled)
+            throw new InvalidOperationException("Impossible de pointer les présences sur une session brouillon ou annulée.");
+
+        if (session.Status is not TrainingSessionStatus.InProgress and not TrainingSessionStatus.Completed
+            and not TrainingSessionStatus.Scheduled)
+            throw new InvalidOperationException("Le pointage n’est pas autorisé pour ce statut de session.");
+
+        var attendance = (request.Attendance ?? string.Empty).Trim();
+        var nextStatus = attendance.ToLowerInvariant() switch
+        {
+            "present" or "présent" => TrainingAssignmentStatus.Completed,
+            "absent" => TrainingAssignmentStatus.Failed,
+            _ => throw new InvalidOperationException("attendance doit être Present ou Absent."),
+        };
+
+        var assignment = await db.TrainingAssignments
+            .FirstOrDefaultAsync(a => a.Id == assignmentId && a.SessionId == sessionId, ct)
+            ?? throw new InvalidOperationException("Affectation introuvable.");
+
+        assignment.Status = nextStatus;
+        assignment.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return ToAssignmentDto(assignment);
+    }
+
+    private async Task<TrainingSession> RequireAnimatorContinueSessionAsync(
+        Guid sessionId,
+        Guid animatorUserId,
+        CancellationToken ct)
+    {
+        var session = await db.TrainingSessions.FirstOrDefaultAsync(s => s.Id == sessionId, ct)
+            ?? throw new InvalidOperationException("Session introuvable.");
+
+        if (session.Type != TrainingSessionType.Continue)
+            throw new InvalidOperationException("Le suivi de présence concerne uniquement les formations continues.");
+
+        if (session.AnimatorKind != AnimatorKind.Internal || session.AnimatorUserId != animatorUserId)
+            throw new InvalidOperationException("Seul l’animateur interne de la session peut gérer les présences.");
+
+        return session;
     }
 
     public async Task<InitialTrainingPathDto> CreateInitialPathAsync(CreateInitialTrainingPathRequest request, CancellationToken ct)
@@ -351,6 +489,107 @@ public sealed class TrainingWorkflowService(
             DateTimeKind.Utc => value,
             DateTimeKind.Local => value.ToUniversalTime(),
             _ => DateTime.SpecifyKind(value, DateTimeKind.Utc),
+        };
+
+    /// <summary>
+    /// Statut dérivé des horaires : avant début = Scheduled, entre début et fin = InProgress, après fin = Completed.
+    /// </summary>
+    internal static TrainingSessionStatus ResolveStatusFromSchedule(
+        DateTime plannedStartUtc,
+        DateTime plannedEndUtc,
+        DateTime utcNow)
+    {
+        if (utcNow >= plannedEndUtc)
+            return TrainingSessionStatus.Completed;
+        if (utcNow >= plannedStartUtc)
+            return TrainingSessionStatus.InProgress;
+        return TrainingSessionStatus.Scheduled;
+    }
+
+    /// <summary>
+    /// Persiste Scheduled / InProgress / Completed selon PlannedStart / PlannedEnd.
+    /// Ignore Draft et Cancelled.
+    /// </summary>
+    private async Task SyncPublishedSessionStatusesAsync(CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        var sessions = await db.TrainingSessions
+            .Where(s => s.Status != TrainingSessionStatus.Draft && s.Status != TrainingSessionStatus.Cancelled)
+            .ToListAsync(ct);
+
+        var startedSessionIds = new List<Guid>();
+        var changed = false;
+        foreach (var session in sessions)
+        {
+            var previous = session.Status;
+            var next = ResolveStatusFromSchedule(session.PlannedStart, session.PlannedEnd, now);
+            if (next == session.Status)
+                continue;
+            session.Status = next;
+            session.UpdatedAt = now;
+            changed = true;
+            if (previous != TrainingSessionStatus.InProgress && next == TrainingSessionStatus.InProgress)
+                startedSessionIds.Add(session.Id);
+        }
+
+        if (changed)
+            await db.SaveChangesAsync(ct);
+
+        foreach (var sessionId in startedSessionIds)
+        {
+            var session = sessions.First(s => s.Id == sessionId);
+            var employeeIds = await db.TrainingAssignments.AsNoTracking()
+                .Where(a => a.SessionId == sessionId)
+                .Select(a => a.EmployeeId)
+                .Distinct()
+                .ToListAsync(ct);
+
+            foreach (var employeeId in employeeIds)
+            {
+                await publish.Publish(new TrainingSessionStartedMessage
+                {
+                    SessionId = session.Id,
+                    Title = session.Title,
+                    PlannedStart = session.PlannedStart,
+                    RecipientUserId = employeeId,
+                    RecipientRole = "Beneficiary",
+                    StartedAt = now,
+                }, ct);
+            }
+
+            if (session.AnimatorKind == AnimatorKind.Internal
+                && session.AnimatorUserId is Guid animatorId
+                && animatorId != Guid.Empty
+                && !employeeIds.Contains(animatorId))
+            {
+                await publish.Publish(new TrainingSessionStartedMessage
+                {
+                    SessionId = session.Id,
+                    Title = session.Title,
+                    PlannedStart = session.PlannedStart,
+                    RecipientUserId = animatorId,
+                    RecipientRole = "Animator",
+                    StartedAt = now,
+                }, ct);
+            }
+        }
+    }
+
+    private static TrainingAssignmentDto ToAssignmentDto(TrainingAssignment a) =>
+        new(
+            a.Id,
+            a.SessionId,
+            a.EmployeeId,
+            a.EmployeeName,
+            a.Status,
+            AttendanceLabel(a.Status));
+
+    private static string AttendanceLabel(TrainingAssignmentStatus status) =>
+        status switch
+        {
+            TrainingAssignmentStatus.Completed => "Present",
+            TrainingAssignmentStatus.Failed => "Absent",
+            _ => "Pending",
         };
 
     private static TrainingSessionDto ToSessionDto(TrainingSession session, int assignmentCount) =>

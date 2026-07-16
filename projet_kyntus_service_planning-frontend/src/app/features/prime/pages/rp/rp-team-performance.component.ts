@@ -18,7 +18,7 @@ import { HierarchyDrillService } from '../../state/hierarchy-drill.service';
     <div class="space-y-6">
       <div>
         <h2 class="text-2xl font-bold text-primary tracking-tight">Performance équipe</h2>
-        <p class="text-slate-400 mt-1">Suivi detaille des taches et objectifs par membre.</p>
+        <p class="text-muted mt-1">Suivi detaille des taches et objectifs par membre.</p>
       </div>
 
       <app-prime-card title="Membres du projet">
@@ -26,21 +26,21 @@ import { HierarchyDrillService } from '../../state/hierarchy-drill.service';
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b border-default">
-                <th class="text-left py-3 text-slate-400 font-medium">Nom</th>
-                <th class="text-left py-3 text-slate-400 font-medium">Projet</th>
-                <th class="text-left py-3 text-slate-400 font-medium">Taches completees</th>
-                <th class="text-left py-3 text-slate-400 font-medium">Objectifs atteints</th>
-                <th class="text-left py-3 text-slate-400 font-medium">Score</th>
+                <th class="text-left py-3 text-muted font-medium">Nom</th>
+                <th class="text-left py-3 text-muted font-medium">Projet</th>
+                <th class="text-left py-3 text-muted font-medium">Taches completees</th>
+                <th class="text-left py-3 text-muted font-medium">Objectifs atteints</th>
+                <th class="text-left py-3 text-muted font-medium">Score</th>
               </tr>
             </thead>
             <tbody>
               @for (row of rows(); track row.employeeId + row.projectName) {
                 <tr class="border-b border-default/60">
-                  <td class="py-3 text-slate-200">{{ row.employeeName }}</td>
-                  <td class="py-3 text-slate-300">{{ row.projectName }}</td>
-                  <td class="py-3 text-slate-200">{{ row.completedTasks }}/{{ row.totalTasks }}</td>
-                  <td class="py-3 text-slate-200">{{ row.objectivesReached }}/{{ row.totalObjectives }}</td>
-                  <td class="py-3 font-semibold text-cyan-300">{{ rowScore(row) }}%</td>
+                  <td class="py-3 text-primary">{{ row.employeeName }}</td>
+                  <td class="py-3 text-muted">{{ row.projectName }}</td>
+                  <td class="py-3 text-primary">{{ row.completedTasks }}/{{ row.totalTasks }}</td>
+                  <td class="py-3 text-primary">{{ row.objectivesReached }}/{{ row.totalObjectives }}</td>
+                  <td class="py-3 font-semibold text-[var(--info-text)]">{{ rowScore(row) }}%</td>
                 </tr>
               }
             </tbody>

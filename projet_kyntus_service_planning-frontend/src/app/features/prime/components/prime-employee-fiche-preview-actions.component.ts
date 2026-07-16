@@ -19,7 +19,7 @@ import {
         [title]="disabledHint() || 'Aperçu fiche PRIME fusionnée'"
         [disabled]="disabled() || !ficheId()?.trim()"
         (click)="openPreview($event)"
-        class="p-1.5 text-muted hover:text-blue-400 hover:bg-navy-800 rounded-md transition-colors border border-transparent hover:border-blue-500/40 disabled:opacity-30 disabled:pointer-events-none"
+        class="p-1.5 text-muted hover:text-blue-400 hover:bg-input rounded-md transition-colors border border-transparent hover:border-blue-500/40 disabled:opacity-30 disabled:pointer-events-none"
       >
         <app-lucide-icon [icon]="icons.eye" className="w-4 h-4" />
       </button>
@@ -28,7 +28,7 @@ import {
         [title]="disabledHint() || 'Télécharger fiche PRIME (.xlsx)'"
         [disabled]="disabled() || !ficheId()?.trim() || downloadBusy()"
         (click)="downloadDirect($event)"
-        class="p-1.5 text-muted hover:text-emerald-400 hover:bg-navy-800 rounded-md transition-colors border border-transparent hover:border-emerald-500/40 disabled:opacity-30 disabled:pointer-events-none"
+        class="p-1.5 text-muted hover:text-emerald-400 hover:bg-input rounded-md transition-colors border border-transparent hover:border-emerald-500/40 disabled:opacity-30 disabled:pointer-events-none"
       >
         <app-lucide-icon [icon]="icons.download" className="w-4 h-4" />
       </button>

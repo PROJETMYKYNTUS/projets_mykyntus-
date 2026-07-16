@@ -11,12 +11,13 @@ using Planning.Domain.Enums;
 namespace Planning.Infrastructure.Persistence;
 
 /// <summary>
-/// Données transactionnelles planning (semaines publiées, notifications, réclamations) pour démo Docker prod-like.
+/// Données transactionnelles planning (semaines publiées, notifications, réclamations)
+/// sur la cellule contact centre (c1) peuplée par <see cref="DockerComposePlanningDemoSeed"/>.
 /// </summary>
 internal static class DockerComposePlanningEnrichmentSeed
 {
-    private const int EnrichmentVersion = 1;
-    private const string MarkerAction = "DockerPlanningEnrichment";
+    private const int EnrichmentVersion = 2;
+    private const string MarkerAction = "DockerPlanningEnrichmentV2";
 
     internal static async Task ApplyIfEnabledAsync(
         IServiceProvider services,
@@ -37,21 +38,27 @@ internal static class DockerComposePlanningEnrichmentSeed
             return;
         }
 
-        var subId = await context.Users
-            .Where(u => u.IsActive && u.SubServiceId != null)
-            .GroupBy(u => u.SubServiceId!.Value)
-            .Select(g => new { SubId = g.Key, Count = g.Count() })
-            .OrderByDescending(x => x.Count)
-            .Select(x => x.SubId)
-            .FirstOrDefaultAsync(ct);
-
-        if (subId == 0)
+        // Préférer la cellule Prime c1 ; sinon la plus peuplée
+        var sub = await context.SubServices
+            .FirstOrDefaultAsync(s => s.PrimeServiceId == "c1" || s.Code == "c1", ct);
+        if (sub is null)
         {
-            logger.LogWarning("Planning enrichment ignoré : aucun employé rattaché à une cellule.");
-            return;
-        }
+            var subId = await context.Users
+                .Where(u => u.IsActive && u.SubServiceId != null)
+                .GroupBy(u => u.SubServiceId!.Value)
+                .Select(g => new { SubId = g.Key, Count = g.Count() })
+                .OrderByDescending(x => x.Count)
+                .Select(x => x.SubId)
+                .FirstOrDefaultAsync(ct);
 
-        var sub = await context.SubServices.FirstAsync(s => s.Id == subId, ct);
+            if (subId == 0)
+            {
+                logger.LogWarning("Planning enrichment ignoré : aucun employé rattaché à une cellule.");
+                return;
+            }
+
+            sub = await context.SubServices.FirstAsync(s => s.Id == subId, ct);
+        }
 
         var manager = await context.Users
             .Include(u => u.Role)
@@ -160,7 +167,8 @@ internal static class DockerComposePlanningEnrichmentSeed
         CancellationToken ct)
     {
         var employee = users.FirstOrDefault(u =>
-            u.Email.Equals("employee@kyntus.ma", StringComparison.OrdinalIgnoreCase))
+            u.Email.Equals("employee@kyntus.ma", StringComparison.OrdinalIgnoreCase)
+            || u.Email.Equals("yasmine.elidrissi@contactcentre.ma", StringComparison.OrdinalIgnoreCase))
             ?? users.FirstOrDefault();
         if (employee is null)
             return;
@@ -178,7 +186,7 @@ internal static class DockerComposePlanningEnrichmentSeed
             UserId = employee.Id,
             StartDate = start,
             EndDate = end,
-            Reason = "Congé annuel (démo)",
+            Reason = "Congé annuel — plateforme inbound",
             Status = CongeStatus.Approved,
             AbsenceType = AbsenceType.CongesPayes,
             CreatedAt = DateTime.UtcNow,
@@ -195,15 +203,17 @@ internal static class DockerComposePlanningEnrichmentSeed
             return;
 
         var author = users.FirstOrDefault(u =>
-            u.Email.Equals("employee@kyntus.ma", StringComparison.OrdinalIgnoreCase))
+            u.Email.Equals("employee@kyntus.ma", StringComparison.OrdinalIgnoreCase)
+            || u.Email.Equals("yasmine.elidrissi@contactcentre.ma", StringComparison.OrdinalIgnoreCase))
             ?? users[0];
 
+        var assignee = ContactCentreRoster.Employees.First(e => e.PrimeId == "e10");
         var now = DateTime.UtcNow;
         context.Reclamations.AddRange(
             new Reclamation
             {
                 Titre = "Qualité audio — plateforme inbound grands comptes",
-                Description = "Coupures intermittentes sur le softphone pendant les pics d'appels (démo).",
+                Description = "Coupures intermittentes sur le softphone pendant les pics d'appels.",
                 Type = ReclamationType.Technique,
                 Status = ReclamationStatus.Soumise,
                 Priorite = Priority.Haute,
@@ -216,22 +226,22 @@ internal static class DockerComposePlanningEnrichmentSeed
             new Reclamation
             {
                 Titre = "Délai traitement réclamations — cellule rétention",
-                Description = "Demande d'accélération du circuit validation pour offres de rétention (démo).",
+                Description = "Demande d'accélération du circuit validation pour offres de rétention.",
                 Type = ReclamationType.ServiceQualite,
                 Status = ReclamationStatus.EnCours,
                 Priorite = Priority.Normale,
                 AuteurId = author.Guid.ToString(),
                 AuteurNom = $"{author.FirstName} {author.LastName}",
                 AuteurRole = "Pilote",
-                AssigneeId = "11111111-1111-4111-8111-111111111105",
-                AssigneeNom = "Manager Démo",
+                AssigneeId = assignee.Guid.ToString(),
+                AssigneeNom = ContactCentreRoster.DisplayName(assignee),
                 CreatedAt = now.AddDays(-5),
                 UpdatedAt = now.AddDays(-1),
             },
             new Reclamation
             {
                 Titre = "Planning samedi — supervision connectivité ACD",
-                Description = "Rotation groupe samedi à rééquilibrer pour la cellule démo (démo).",
+                Description = "Rotation groupe samedi à rééquilibrer pour la cellule Agents 1er niveau.",
                 Type = ReclamationType.Administrative,
                 Status = ReclamationStatus.Soumise,
                 Priorite = Priority.Normale,

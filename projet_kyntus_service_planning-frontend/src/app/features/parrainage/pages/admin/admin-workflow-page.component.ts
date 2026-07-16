@@ -25,7 +25,7 @@ const ROLE_DETAILS: Record<string, string> = {
     } @else {
       <div class="space-y-6">
         <div class="flex items-center gap-4">
-          <div class="w-12 h-12 bg-blue-600/10 rounded-xl flex items-center justify-center text-blue-500">
+          <div class="w-12 h-12 bg-[var(--info-bg)] rounded-xl flex items-center justify-center text-[var(--soft-blue)]">
             <app-lucide-icon [icon]="gitIcon" className="w-6 h-6" />
           </div>
           <div>
@@ -52,7 +52,7 @@ const ROLE_DETAILS: Record<string, string> = {
 
             <div class="grid md:grid-cols-2 gap-4">
               <label class="text-primary text-sm">SLA global (heures)
-                <input type="number" min="0" [(ngModel)]="globalSla" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-white" />
+                <input type="number" min="0" [(ngModel)]="globalSla" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary" />
               </label>
               <label class="text-primary text-sm flex items-center gap-2 mt-7">
                 <input type="checkbox" [(ngModel)]="globalNotifications" />
@@ -77,7 +77,7 @@ const ROLE_DETAILS: Record<string, string> = {
             </div>
 
             <div class="flex justify-end">
-              <button (click)="save()" [disabled]="saving()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-60">
+              <button (click)="save()" [disabled]="saving()" class="ky-btn-primary disabled:opacity-60">
                 {{ saving() ? 'Enregistrement...' : 'Enregistrer workflow' }}
               </button>
             </div>
@@ -89,12 +89,12 @@ const ROLE_DETAILS: Record<string, string> = {
               <div class="relative card-navy max-w-xl w-full p-6 border border-default">
                 @if (panelMode() === 'config') {
                   <div class="space-y-4">
-                    <h3 class="text-white text-lg font-semibold">Modifier: {{ selectedStep()!.role }}</h3>
+                    <h3 class="text-primary text-lg font-semibold">Modifier: {{ selectedStep()!.role }}</h3>
                     <label class="text-primary text-sm">Rôle
-                      <input readonly [value]="selectedStep()!.role" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-white" />
+                      <input readonly [value]="selectedStep()!.role" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary" />
                     </label>
                     <label class="text-primary text-sm">SLA spécifique (h)
-                      <input type="number" min="0" [value]="selectedStep()!.slaHours" (input)="patchStep({ slaHours: num($any($event.target).value) })" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-white" />
+                      <input type="number" min="0" [value]="selectedStep()!.slaHours" (input)="patchStep({ slaHours: num($any($event.target).value) })" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary" />
                     </label>
                     <div class="flex flex-wrap gap-3">
                       @for (a of actions; track a) {
@@ -109,7 +109,7 @@ const ROLE_DETAILS: Record<string, string> = {
                         <input type="checkbox" [checked]="selectedStep()!.notificationEnabled" (change)="patchStep({ notificationEnabled: $any($event.target).checked })" />Notifications actives
                       </label>
                       <label class="text-primary text-sm">Type
-                        <select [value]="selectedStep()!.notificationType" (change)="patchStep({ notificationType: $any($event.target).value })" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-white">
+                        <select [value]="selectedStep()!.notificationType" (change)="patchStep({ notificationType: $any($event.target).value })" class="mt-1 w-full bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary">
                           <option value="email">Email</option>
                           <option value="in-app">InApp</option>
                         </select>
@@ -118,7 +118,7 @@ const ROLE_DETAILS: Record<string, string> = {
                   </div>
                 } @else {
                   <div class="space-y-3">
-                    <h3 class="text-white text-lg font-semibold">Détails: {{ selectedStep()!.role }}</h3>
+                    <h3 class="text-primary text-lg font-semibold">Détails: {{ selectedStep()!.role }}</h3>
                     <p class="text-primary text-sm">{{ roleDetails(selectedStep()!.role) }}</p>
                     <p class="text-muted text-sm">Hiérarchie: Pilote → Coach → Manager → RP → RH</p>
                   </div>

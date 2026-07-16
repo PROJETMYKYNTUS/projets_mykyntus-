@@ -92,10 +92,49 @@ public static class AuthDatabaseInitializer
             Console.WriteLine($"WARNING: superviseur seed skipped: {ex.Message}");
         }
 
+        try
+        {
+            RealignKnownSubjectIds(db, subjectIdResolver);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"WARNING: SubjectId realign skipped: {ex.Message}");
+        }
+
         foreach (var user in db.Users.Where(u => u.SubjectId == Guid.Empty).ToList())
             user.SubjectId = subjectIdResolver.ResolveForEmail(user.Email);
 
         db.SaveChanges();
+    }
+
+    /// <summary>Réaligne SubjectId des emails connus (ex. formateur@gmail.com → Guid formateur seed).</summary>
+    static void RealignKnownSubjectIds(AuthDbContext db, ISubjectIdResolver subjectIdResolver)
+    {
+        var emails = new[]
+        {
+            "employee@kyntus.ma", "rh@kyntus.ma", "manager@kyntus.ma", "coach@kyntus.ma",
+            "rp@kyntus.ma", "admin@kyntus.ma", "audit@kyntus.ma", "formation@kyntus.ma",
+            "formateur@gmail.com", "formateur@kyntus.ma", "superviseur@kyntus.ma",
+        };
+        var changed = 0;
+        foreach (var email in emails)
+        {
+            var expected = subjectIdResolver.ResolveForEmail(email);
+            var user = db.Users.FirstOrDefault(u => u.Email.ToLower() == email);
+            if (user is null || user.SubjectId == expected)
+                continue;
+            // Évite collision UNIQUE SubjectId
+            if (db.Users.Any(u => u.Id != user.Id && u.SubjectId == expected))
+                continue;
+            user.SubjectId = expected;
+            changed++;
+        }
+
+        if (changed > 0)
+        {
+            db.SaveChanges();
+            Console.WriteLine($"Auth SubjectId realigned ({changed}).");
+        }
     }
 
     static void EnsureSubjectIdColumn(AuthDbContext db)
@@ -119,6 +158,8 @@ public static class AuthDatabaseInitializer
             UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111108'::uuid WHERE lower("Email") = lower('admin@kyntus.ma');
             UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111109'::uuid WHERE lower("Email") = lower('audit@kyntus.ma');
             UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111110'::uuid WHERE lower("Email") = lower('formation@kyntus.ma');
+            UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111120'::uuid WHERE lower("Email") = lower('formateur@gmail.com');
+            UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111120'::uuid WHERE lower("Email") = lower('formateur@kyntus.ma');
             UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111111'::uuid WHERE lower("Email") = lower('superviseur@kyntus.ma');
             UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111101'::uuid WHERE lower("Email") = lower('yasmine.elamrani@atlas-tech-demo.dev');
             UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111102'::uuid WHERE lower("Email") = lower('fatima.alaoui@atlas-tech-demo.dev');
@@ -185,6 +226,7 @@ public static class AuthDatabaseInitializer
         SeedUser("admin", "admin@kyntus.ma", DemoPassword(configuration, "Admin"), 6, passwordHasher, subjectIdResolver),
         SeedUser("audit", "audit@kyntus.ma", DemoPassword(configuration, "Audit"), 7, passwordHasher, subjectIdResolver),
         SeedUser("equipeformation", "formation@kyntus.ma", DemoPassword(configuration, "Formation"), 8, passwordHasher, subjectIdResolver),
+        SeedUser("formateur", "formateur@gmail.com", DemoPassword(configuration, "Formation"), 8, passwordHasher, subjectIdResolver),
         SeedUser("superviseur", "superviseur@kyntus.ma", DemoPassword(configuration, "Superviseur"), 9, passwordHasher, subjectIdResolver),
     ];
 

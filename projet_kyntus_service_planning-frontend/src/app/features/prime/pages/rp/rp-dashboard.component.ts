@@ -19,6 +19,7 @@ import { RpPrimeService, type RpDashboardStats } from '../../services/rp-prime.s
 import { PrimeFicheResultService } from '../../services/prime-fiche-result.service';
 import { firstValueFrom } from 'rxjs';
 import { PrimeSectionService } from '../../state/prime-section.service';
+import { primeChartRgba, primeChartTheme } from '../../lib/allowance-status';
 import { RpDrillBarComponent } from './rp-drill-bar.component';
 import { RpTeamPerformanceComponent } from './rp-team-performance.component';
 import { RpPrimeFichesPanelComponent } from './rp-prime-fiches-panel.component';
@@ -42,14 +43,14 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
   template: `
     @if (loading() || !stats()) {
       <div class="p-8 flex justify-center items-center h-full">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--soft-blue)]"></div>
       </div>
     } @else {
       @if (stats(); as st) {
       <div class="prime-page-shell space-y-8">
         <div class="flex justify-end items-end gap-4 flex-wrap">
           <app-rp-drill-bar [rpUserId]="rpUserId()" />
-          <div class="text-sm font-medium text-slate-300 card-navy px-4 py-2 rounded-lg">
+          <div class="text-sm font-medium text-muted card-navy px-4 py-2 rounded-lg">
             {{ periodLabel() }}
           </div>
         </div>
@@ -57,38 +58,38 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
         @if (primeSection.activeRpSection() === 'dashboard') {
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div class="card-navy p-6 rounded-2xl flex items-center gap-4">
-              <div class="w-12 h-12 bg-blue-600/10 text-blue-400 rounded-xl flex items-center justify-center">
+              <div class="w-12 h-12 bg-[var(--info-bg)] text-[var(--info-text)] rounded-xl flex items-center justify-center">
                 <app-lucide-icon [icon]="icons.target" className="w-6 h-6" />
               </div>
               <div>
-                <p class="text-sm font-medium text-slate-400">Fiches PRIME — avancement pôle</p>
+                <p class="text-sm font-medium text-muted">Fiches PRIME — avancement pôle</p>
                 <p class="text-2xl font-bold text-primary">{{ st.projectProgress }}%</p>
               </div>
             </div>
             <div class="card-navy p-6 rounded-2xl flex items-center gap-4">
-              <div class="w-12 h-12 bg-cyan-500/10 text-cyan-300 rounded-xl flex items-center justify-center">
+              <div class="w-12 h-12 bg-[var(--info-bg)] text-[var(--info-text)] rounded-xl flex items-center justify-center">
                 <app-lucide-icon [icon]="icons.clipboard" className="w-6 h-6" />
               </div>
               <div>
-                <p class="text-sm font-medium text-slate-400">Fiches complétées (saisie)</p>
+                <p class="text-sm font-medium text-muted">Fiches complétées (saisie)</p>
                 <p class="text-2xl font-bold text-primary">{{ st.completedTasks }}</p>
               </div>
             </div>
             <div class="card-navy p-6 rounded-2xl flex items-center gap-4">
-              <div class="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-xl flex items-center justify-center">
+              <div class="w-12 h-12 bg-[var(--success-bg)] text-[var(--success-text)] rounded-xl flex items-center justify-center">
                 <app-lucide-icon [icon]="icons.gauge" className="w-6 h-6" />
               </div>
               <div>
-                <p class="text-sm font-medium text-slate-400">Taux validation RH (période)</p>
+                <p class="text-sm font-medium text-muted">Taux validation RH (période)</p>
                 <p class="text-2xl font-bold text-primary">{{ st.averageTeamPerformance }}%</p>
               </div>
             </div>
             <div class="card-navy p-6 rounded-2xl flex items-center gap-4">
-              <div class="w-12 h-12 bg-amber-500/10 text-amber-400 rounded-xl flex items-center justify-center">
+              <div class="w-12 h-12 bg-[var(--warning-bg)] text-[var(--warning-text)] rounded-xl flex items-center justify-center">
                 <app-lucide-icon [icon]="icons.check" className="w-6 h-6" />
               </div>
               <div>
-                <p class="text-sm font-medium text-slate-400">Validations en attente</p>
+                <p class="text-sm font-medium text-muted">Validations en attente</p>
                 <p class="text-2xl font-bold text-primary">{{ st.pendingValidations }}</p>
               </div>
             </div>
@@ -103,7 +104,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRendere
               <div class="mt-4 space-y-2">
                 @for (member of st.memberPerformance; track member.name) {
                   <div class="flex items-center justify-between text-sm">
-                    <span class="text-slate-300">{{ member.name }}</span>
+                    <span class="text-muted">{{ member.name }}</span>
                     <span [class]="statusClass(member.status)">{{ member.status }}</span>
                   </div>
                 }
@@ -141,24 +142,25 @@ export class RpDashboardComponent {
   readonly areaOptions = computed(() => {
     const st = this.stats();
     if (!st) return {};
+    const c = primeChartTheme();
     const months = st.performanceEvolution.map((x) => x.month);
     const scores = st.performanceEvolution.map((x) => x.score);
     return {
       grid: { left: 0, right: 15, top: 10, bottom: 5, containLabel: true },
       tooltip: {
         trigger: 'axis',
-        backgroundColor: '#0f172a',
-        borderColor: '#334155',
+        backgroundColor: c.tooltipBg,
+        borderColor: c.tooltipBorder,
         borderWidth: 1,
-        borderRadius: 10,
-        textStyle: { color: '#e2e8f0' },
+        borderRadius: c.radiusMd,
+        textStyle: { color: c.tooltipText },
       },
       xAxis: {
         type: 'category',
         data: months,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: '#94a3b8', fontSize: 12 },
+        axisLabel: { color: c.axisLabel, fontSize: 12 },
       },
       yAxis: {
         type: 'value',
@@ -166,8 +168,8 @@ export class RpDashboardComponent {
         max: 100,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: '#94a3b8', fontSize: 12 },
-        splitLine: { lineStyle: { type: 'dashed', color: '#334155' } },
+        axisLabel: { color: c.axisLabel, fontSize: 12 },
+        splitLine: { lineStyle: { type: 'dashed', color: c.splitLine } },
       },
       series: [
         {
@@ -175,8 +177,8 @@ export class RpDashboardComponent {
           data: scores,
           smooth: true,
           symbol: 'none',
-          lineStyle: { color: '#38bdf8', width: 3 },
-          areaStyle: { color: 'rgba(56, 189, 248, 0.25)' },
+          lineStyle: { color: c.info, width: 3 },
+          areaStyle: { color: primeChartRgba('--soft-blue-rgb', 0.25) },
         },
       ],
     };
@@ -185,17 +187,18 @@ export class RpDashboardComponent {
   readonly barOptions = computed(() => {
     const st = this.stats();
     if (!st) return {};
+    const c = primeChartTheme();
     const names = st.memberPerformance.map((m) => m.name);
     const scores = st.memberPerformance.map((m) => m.score);
     return {
       grid: { left: 15, right: 15, top: 5, bottom: 5, containLabel: true },
       tooltip: {
         trigger: 'axis',
-        backgroundColor: '#0f172a',
-        borderColor: '#334155',
+        backgroundColor: c.tooltipBg,
+        borderColor: c.tooltipBorder,
         borderWidth: 1,
-        borderRadius: 10,
-        textStyle: { color: '#e2e8f0' },
+        borderRadius: c.radiusMd,
+        textStyle: { color: c.tooltipText },
       },
       xAxis: {
         type: 'value',
@@ -203,22 +206,22 @@ export class RpDashboardComponent {
         max: 100,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: '#94a3b8', fontSize: 12 },
-        splitLine: { lineStyle: { type: 'dashed', color: '#334155' } },
+        axisLabel: { color: c.axisLabel, fontSize: 12 },
+        splitLine: { lineStyle: { type: 'dashed', color: c.splitLine } },
       },
       yAxis: {
         type: 'category',
         data: names,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: '#cbd5e1', fontSize: 12, width: 100 },
+        axisLabel: { color: c.tooltipText, fontSize: 12, width: 100 },
       },
       series: [
         {
           type: 'bar',
           data: scores,
           barWidth: 20,
-          itemStyle: { color: '#22d3ee', borderRadius: [0, 4, 4, 0] },
+          itemStyle: { color: c.info, borderRadius: c.barRadiusEnd },
         },
       ],
     };
@@ -242,8 +245,8 @@ export class RpDashboardComponent {
   }
 
   statusClass(status: string): string {
-    if (status === 'Excellent') return 'text-emerald-400';
-    if (status === 'Moyen') return 'text-amber-400';
-    return 'text-rose-400';
+    if (status === 'Excellent') return 'text-[var(--success-text)]';
+    if (status === 'Moyen') return 'text-[var(--warning-text)]';
+    return 'text-[var(--danger-text)]';
   }
 }

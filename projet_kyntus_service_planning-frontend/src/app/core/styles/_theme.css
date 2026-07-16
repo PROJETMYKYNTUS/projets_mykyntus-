@@ -41,7 +41,13 @@ body.theme-dark {
 
 .page-enter,
 .ky-page-enter {
-  animation: ky-page-enter 0.25s ease-out;
+  animation: ky-page-enter 0.25s var(--ease-out, ease-out);
+}
+
+/* Transition de route : chaque page activée par le router entre en fondu */
+.ks-content > router-outlet + * {
+  display: block;
+  animation: ky-page-enter 0.25s var(--ease-out, ease-out) both;
 }
 
 @keyframes ky-page-enter {

@@ -8,8 +8,8 @@
   </div>
 
   <app-kyntus-page-header
-    title="Réclamations (gestion)"
-    subtitle="Traitement, assignation et reporting">
+    title="Gestion des réclamations"
+    subtitle="Traitement, assignation et reporting dans le même cadre visuel que les autres modules.">
   </app-kyntus-page-header>
 
   <!-- ══ MAIN TABS ══ -->
@@ -302,22 +302,22 @@
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;flex-wrap:wrap">
+    <div class="rpa-report-grid">
       <div class="rp-detail-card">
-        <div class="rp-section-label" style="margin-bottom:14px">Par statut</div>
+        <div class="rp-section-label">Par statut</div>
         <div *ngFor="let e of getStatutEntries()" class="rpa-bar-group">
           <div class="rpa-bar-label"><span>{{ e.key }}</span><span>{{ e.val }}</span></div>
           <div class="rpa-bar-track"><div class="rpa-bar-fill" [style.width]="getBarWidth(e.val)"></div></div>
         </div>
       </div>
       <div class="rp-detail-card">
-        <div class="rp-section-label" style="margin-bottom:14px">Répartition notes</div>
+        <div class="rp-section-label">Répartition notes</div>
         <div *ngFor="let e of getNoteEntries()" class="rpa-bar-group">
           <div class="rpa-bar-label">
             <span>{{ '★'.repeat(e.key) }}</span>
             <span>{{ e.val }}</span>
           </div>
-          <div class="rpa-bar-track"><div class="rpa-bar-fill" [style.width]="getBarWidth(e.val)" style="background:#f59e0b"></div></div>
+          <div class="rpa-bar-track"><div class="rpa-bar-fill rpa-bar-fill--amber" [style.width]="getBarWidth(e.val)"></div></div>
         </div>
       </div>
     </div>
@@ -328,13 +328,20 @@
   ════════════════════════════════════════════ -->
   <ng-container *ngIf="adminView==='historique'">
     <div class="rp-list">
-      <div class="rp-detail-card" *ngFor="let item of historique" style="margin-bottom:12px;cursor:pointer" (click)="openDetail(item.id)">
-        <div class="rp-detail-header" style="margin-bottom:12px">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <strong style="font-size:14px">{{ item.titre }}</strong>
+      <div
+        class="rp-detail-card rpa-history-card"
+        *ngFor="let item of historique"
+        role="button"
+        tabindex="0"
+        (click)="openDetail(item.id)"
+        (keydown.enter)="openDetail(item.id)"
+      >
+        <div class="rp-detail-header">
+          <div class="rpa-history-title-row">
+            <strong class="rpa-history-title">{{ item.titre }}</strong>
             <span class="rp-status" [ngClass]="getStatusClass(item.status)">{{ item.status }}</span>
           </div>
-          <div class="rp-detail-meta" style="margin-top:6px">
+          <div class="rp-detail-meta">
             <span>{{ item.auteurNom }}</span>
             <span>· {{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
           </div>
@@ -347,7 +354,7 @@
               <div class="rp-timeline-meta">{{ h.effectueParNom }} · {{ h.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
             </div>
           </div>
-          <div *ngIf="(item.historique?.length ?? 0) > 3" style="font-size:12px;color:#9ca3af;padding-left:20px">
+          <div *ngIf="(item.historique?.length ?? 0) > 3" class="rpa-history-more">
             + {{ (item.historique?.length ?? 0) - 3 }} action(s) supplémentaire(s)
           </div>
         </div>

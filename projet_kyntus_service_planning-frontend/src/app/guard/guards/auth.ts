@@ -3,6 +3,7 @@ import { CanActivate, ActivatedRouteSnapshot, Router } from '@angular/router';
 import { KYNTUS_PUBLIC_URLS } from '../../config/kyntus-public-urls';
 import { KYNTUS_JWT_CLAIMS } from '../../core/session/kyntus-session.constants';
 import { clearStoredTokens, isJwtExpired, readStoredAccessToken } from '../../core/session/kyntus-auth-token.util';
+import { roleNamesMatch } from '../../core/org/org-role-assignment';
 
 @Injectable({ providedIn: 'root' })
 export class AuthGuard implements CanActivate {
@@ -20,8 +21,7 @@ export class AuthGuard implements CanActivate {
     const allowedRoles = route.data?.['roles'] as string[] | undefined;
     if (allowedRoles?.length) {
       const role = this.getRole(token);
-      const normalized = role.toLowerCase();
-      const ok = allowedRoles.some((r) => r.toLowerCase() === normalized);
+      const ok = allowedRoles.some((r) => roleNamesMatch(r, role));
       if (!ok) {
         this.router.navigate(['/unauthorized']);
         return false;

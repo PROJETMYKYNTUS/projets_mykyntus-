@@ -29,36 +29,36 @@ const download = (name: string, content: string, mime: string) => {
   template: `
     <div class="space-y-6">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="card-navy p-4 border border-blue-500/20 hover:border-blue-500/40 transition-colors">
+        <div class="card-navy p-4 border border-[var(--info-border)] hover:border-[var(--soft-blue)] transition-colors">
           <p class="text-[11px] uppercase tracking-wide text-muted">Total actions</p>
-          <p class="text-2xl font-bold text-white mt-1">{{ kpis.totalActions.toLocaleString('fr-FR') }}</p>
+          <p class="text-2xl font-bold text-primary mt-1">{{ kpis.totalActions.toLocaleString('fr-FR') }}</p>
         </div>
-        <div class="card-navy p-4 border border-rose-500/20 hover:border-rose-500/40 transition-colors">
+        <div class="card-navy p-4 border border-[var(--danger-border)] hover:border-[var(--danger)] transition-colors">
           <p class="text-[11px] uppercase tracking-wide text-muted">% actions critiques</p>
-          <p class="text-2xl font-bold text-rose-300 mt-1">{{ kpis.criticalPercent }}%</p>
+          <p class="text-2xl font-bold text-[var(--danger-text)] mt-1">{{ kpis.criticalPercent }}%</p>
         </div>
-        <div class="card-navy p-4 border border-emerald-500/20 hover:border-emerald-500/40 transition-colors">
+        <div class="card-navy p-4 border border-[var(--success-border)] hover:border-[var(--success)] transition-colors">
           <p class="text-[11px] uppercase tracking-wide text-muted">Utilisateurs actifs</p>
-          <p class="text-2xl font-bold text-emerald-200 mt-1">{{ kpis.activeUsers }}</p>
+          <p class="text-2xl font-bold text-[var(--success-text)] mt-1">{{ kpis.activeUsers }}</p>
         </div>
-        <div class="card-navy p-4 border border-amber-500/20 hover:border-amber-500/40 transition-colors">
+        <div class="card-navy p-4 border border-[var(--warning-border)] hover:border-[var(--warning)] transition-colors">
           <p class="text-[11px] uppercase tracking-wide text-muted">Anomalies détectées</p>
-          <p class="text-2xl font-bold text-amber-200 mt-1">{{ kpis.anomaliesCount }}</p>
+          <p class="text-2xl font-bold text-[var(--warning-text)] mt-1">{{ kpis.anomaliesCount }}</p>
         </div>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="card-navy p-4 border border-slate-600/30">
+        <div class="card-navy p-4 border border-default">
           <p class="text-[11px] uppercase tracking-wide text-muted">Actions / jour (moy.)</p>
-          <p class="text-2xl font-bold text-white mt-1">{{ kpis.actionsPerDay }}</p>
+          <p class="text-2xl font-bold text-primary mt-1">{{ kpis.actionsPerDay }}</p>
         </div>
-        <div class="card-navy p-4 border border-slate-600/30 sm:col-span-2">
+        <div class="card-navy p-4 border border-default sm:col-span-2">
           <p class="text-[11px] uppercase tracking-wide text-muted">Utilisateur le plus actif</p>
-          <p class="text-lg font-semibold text-emerald-200 mt-1 truncate">{{ kpis.topUser }}</p>
+          <p class="text-lg font-semibold text-[var(--success-text)] mt-1 truncate">{{ kpis.topUser }}</p>
           <p class="text-xs text-muted">{{ kpis.topUserActions }} actions</p>
         </div>
-        <div class="card-navy p-4 border border-violet-500/20 flex flex-col justify-center gap-2">
-          <button type="button" (click)="exportPdfHtml()" class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-violet-600/80 hover:bg-violet-500 text-white text-sm transition-colors">
+        <div class="card-navy p-4 border border-[var(--info-border)] flex flex-col justify-center gap-2">
+          <button type="button" (click)="exportPdfHtml()" class="ky-btn-primary inline-flex items-center justify-center gap-2 text-sm transition-colors">
             <app-lucide-icon [icon]="fileTextIcon" className="w-4 h-4" />
             Rapport PDF (HTML)
           </button>
@@ -66,7 +66,7 @@ const download = (name: string, content: string, mime: string) => {
             <app-lucide-icon [icon]="downloadIcon" className="w-4 h-4" />
             Imprimer / PDF
           </button>
-          <button type="button" (click)="exportExcel()" class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-emerald-600/50 text-emerald-200 text-sm hover:bg-emerald-950/40 transition-colors">
+          <button type="button" (click)="exportExcel()" class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-[var(--success-border)] text-[var(--success-text)] text-sm hover:bg-[var(--success-bg)] transition-colors">
             <app-lucide-icon [icon]="sheetIcon" className="w-4 h-4" />
             Excel (synthèse)
           </button>
@@ -97,7 +97,7 @@ const download = (name: string, content: string, mime: string) => {
             <div class="flex items-end gap-2 h-36">
               @for (d of activityByDay; track d.day) {
                 <div class="flex-1 flex flex-col items-center gap-1">
-                  <div class="w-full rounded-t bg-gradient-to-t from-blue-600/80 to-blue-400/40 min-h-[4px] transition-all duration-300 hover:from-blue-500/90" [style.height.%]="(d.v / maxActivity) * 100" [title]="d.v + ' événements'"></div>
+                  <div class="w-full rounded-t bg-gradient-to-t from-[var(--blue-600)] to-[var(--soft-blue)] min-h-[4px] transition-all duration-300 hover:opacity-80" [style.height.%]="(d.v / maxActivity) * 100" [title]="d.v + ' événements'"></div>
                   <span class="text-[10px] text-muted">{{ d.day }}</span>
                 </div>
               }
@@ -113,7 +113,7 @@ const download = (name: string, content: string, mime: string) => {
             <div class="flex items-center gap-3">
               <span class="w-24 text-xs text-muted">{{ r.role }}</span>
               <div class="flex-1 h-2 rounded-full bg-card overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-soft-blue to-blue-400 transition-all duration-500" [style.width.%]="r.pct"></div>
+                <div class="h-full bg-gradient-to-r from-[var(--soft-blue)] to-[var(--electric-blue)] transition-all duration-500" [style.width.%]="r.pct"></div>
               </div>
               <span class="w-10 text-xs text-muted text-right">{{ r.pct }}%</span>
             </div>

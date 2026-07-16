@@ -207,9 +207,9 @@ import {
       align-items: flex-start;
       gap: 0.15rem;
       padding: 0.5rem 0.75rem;
-      border-radius: 0.5rem;
-      border: 1px solid color-mix(in srgb, var(--border-default, #334155) 80%, transparent);
-      background: color-mix(in srgb, var(--bg-input, #0f172a) 50%, transparent);
+      border-radius: var(--radius-md);
+      border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+      background: color-mix(in srgb, var(--bg-input) 50%, transparent);
       color: inherit;
       font: inherit;
       cursor: pointer;
@@ -220,7 +220,7 @@ import {
     }
     .allowance-workflow-step__label { font-size: 0.75rem; font-weight: 600; }
     .allowance-workflow-step__count { font-size: 0.875rem; font-weight: 700; }
-    .allowance-workflow-step__sep { color: var(--text-muted, #94a3b8); font-size: 0.875rem; }
+    .allowance-workflow-step__sep { color: var(--text-muted); font-size: 0.875rem; }
   `],
 })
 export class AllowancesDashboardPageComponent implements OnInit {

@@ -4,7 +4,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   selector: 'app-access-denied',
   standalone: true,
   template: `
-    <div class="flex flex-col items-center justify-center h-full p-8 bg-navy-950 min-h-screen">
+    <div class="flex flex-col items-center justify-center h-full p-8 bg-input min-h-screen">
       <div class="max-w-md text-center bg-card rounded-2xl shadow-sm border border-default p-8">
         <h1 class="text-2xl font-bold text-primary mb-2">
           Accès au module PRIME refusé

@@ -26,13 +26,13 @@
 
         <div class="flex flex-col justify-between gap-3 md:flex-row md:items-center">
           <div>
-            <h4 class="text-white font-bold text-lg">Types configurés</h4>
+            <h4 class="text-primary font-bold text-lg">Types configurés</h4>
             <p class="text-sm text-muted mt-1">Définissez vos catégories et leurs politiques de conservation.</p>
           </div>
           <button
             type="button"
             (click)="openCreate()"
-            class="inline-flex items-center gap-2 whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-blue-500 shadow-lg shadow-blue-600/20"
+            class="ky-btn-primary inline-flex items-center gap-2 whitespace-nowrap px-4 py-2 text-sm"
           >
             <app-doc-icon name="plus-circle" klass="w-4 h-4"></app-doc-icon>
             Ajouter un type
@@ -73,7 +73,7 @@
                       [ngClass]="
                         dt.mandatory
                           ? 'bg-blue-500/10 text-blue-300 border-blue-500/20'
-                          : 'bg-slate-500/10 text-primary border-slate-500/20'
+                          : 'bg-input text-muted border-default'
                       "
                     >
                       {{ maskBoolean(dt.mandatory) }}
@@ -84,7 +84,7 @@
                       <button
                         type="button"
                         (click)="openEdit(dt)"
-                        class="inline-flex items-center justify-center rounded-lg border border-default px-3 py-2 text-primary transition-colors hover:bg-input hover:text-white"
+                        class="inline-flex items-center justify-center rounded-lg border border-default px-3 py-2 text-primary transition-colors hover:bg-input hover:text-primary"
                         title="Modifier ce type de document"
                       >
                         <app-doc-icon name="edit" klass="w-4 h-4"></app-doc-icon>
@@ -124,7 +124,7 @@
       >
         <div modalBody class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="text-sm font-semibold text-white">Nom</label>
+            <label class="text-sm font-semibold text-primary">Nom</label>
             <input
               [(ngModel)]="form.name"
               class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
@@ -134,7 +134,7 @@
             }
           </div>
           <div>
-            <label class="text-sm font-semibold text-white">Code</label>
+            <label class="text-sm font-semibold text-primary">Code</label>
             <input
               [ngModel]="form.code"
               (ngModelChange)="onCodeInput($event)"
@@ -145,7 +145,7 @@
             }
           </div>
           <div class="md:col-span-2">
-            <label class="text-sm font-semibold text-white">Description</label>
+            <label class="text-sm font-semibold text-primary">Description</label>
             <textarea
               [(ngModel)]="form.description"
               rows="3"
@@ -153,7 +153,7 @@
             ></textarea>
           </div>
           <div>
-            <label class="text-sm font-semibold text-white">Département</label>
+            <label class="text-sm font-semibold text-primary">Département</label>
             <input
               [(ngModel)]="form.department"
               class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
@@ -163,7 +163,7 @@
             }
           </div>
           <div>
-            <label class="text-sm font-semibold text-white">Durée de conservation (jours)</label>
+            <label class="text-sm font-semibold text-primary">Durée de conservation (jours)</label>
             <input
               type="number"
               min="0"
@@ -175,7 +175,7 @@
             }
           </div>
           <div>
-            <label class="text-sm font-semibold text-white">Workflow associé</label>
+            <label class="text-sm font-semibold text-primary">Workflow associé</label>
             <select
               [(ngModel)]="form.workflowId"
               class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
@@ -210,10 +210,8 @@
           <button
             type="button"
             (click)="onSubmit()"
-            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg px-6 py-3 font-bold text-white transition-all"
-            [ngClass]="
-              saving ? 'bg-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20'
-            "
+            class="ky-btn-primary inline-flex items-center justify-center gap-2 whitespace-nowrap px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            [disabled]="saving"
             [disabled]="saving"
           >
             @if (saving) {

@@ -26,14 +26,14 @@ const roleDetails: Record<string, { description: string; responsibilities: strin
     <div class="card-navy p-6 space-y-6">
       <div class="space-y-3">
         @for (step of workflow().steps; track step.id; let index = $index) {
-          <div class="flex items-center justify-between p-3 rounded-lg border border-navy-800 bg-navy-900/40">
-            <span class="text-slate-200">{{ index + 1 }}. {{ step.role }}</span>
+          <div class="flex items-center justify-between p-3 rounded-lg border border-default bg-card/40">
+            <span class="text-primary">{{ index + 1 }}. {{ step.role }}</span>
             <div class="flex gap-2 items-center">
               <button
                 type="button"
                 (click)="moveStep(index, -1)"
                 [disabled]="step.role === 'RH'"
-                class="px-2 py-1 rounded border border-navy-700 bg-navy-800 text-slate-200 hover:bg-navy-700 disabled:cursor-not-allowed disabled:border-navy-800 disabled:bg-navy-900 disabled:text-slate-500"
+                class="px-2 py-1 rounded border border-default bg-input text-primary hover:bg-input disabled:cursor-not-allowed disabled:border-default disabled:bg-card disabled:text-muted"
               >
                 ↑
               </button>
@@ -41,21 +41,21 @@ const roleDetails: Record<string, { description: string; responsibilities: strin
                 type="button"
                 (click)="moveStep(index, 1)"
                 [disabled]="step.role === 'RH'"
-                class="px-2 py-1 rounded border border-navy-700 bg-navy-800 text-slate-200 hover:bg-navy-700 disabled:cursor-not-allowed disabled:border-navy-800 disabled:bg-navy-900 disabled:text-slate-500"
+                class="px-2 py-1 rounded border border-default bg-input text-primary hover:bg-input disabled:cursor-not-allowed disabled:border-default disabled:bg-card disabled:text-muted"
               >
                 ↓
               </button>
               <button
                 type="button"
                 (click)="openConfig(step.id)"
-                class="px-2 py-1 rounded border border-navy-700 bg-navy-800 text-slate-200 hover:bg-navy-700"
+                class="px-2 py-1 rounded border border-default bg-input text-primary hover:bg-input"
               >
                 Modifier
               </button>
               <button
                 type="button"
                 (click)="openDetails(step.id)"
-                class="px-2 py-1 rounded border border-navy-700 bg-navy-800 text-slate-200 hover:bg-navy-700"
+                class="px-2 py-1 rounded border border-default bg-input text-primary hover:bg-input"
               >
                 Détails
               </button>
@@ -65,17 +65,17 @@ const roleDetails: Record<string, { description: string; responsibilities: strin
       </div>
 
       <div class="grid md:grid-cols-2 gap-4">
-        <label class="text-slate-300 text-sm"
+        <label class="text-muted text-sm"
           >SLA global (heures)
           <input
             type="number"
             min="0"
-            class="mt-1 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200"
+            class="mt-1 w-full bg-input border border-default rounded-lg p-3 text-sm text-primary"
             [value]="globalSla()"
             (input)="globalSla.set(+$any($event.target).value || 0)"
           />
         </label>
-        <label class="text-slate-300 text-sm flex items-center gap-2 mt-7">
+        <label class="text-muted text-sm flex items-center gap-2 mt-7">
           <input
             type="checkbox"
             [checked]="globalNotifications()"
@@ -85,10 +85,10 @@ const roleDetails: Record<string, { description: string; responsibilities: strin
         </label>
       </div>
 
-      <div class="border border-navy-800 rounded-xl p-4 bg-navy-900/30">
-        <h5 class="text-white font-bold">Audit & accès</h5>
+      <div class="border border-default rounded-xl p-4 bg-card/30">
+        <h5 class="text-primary font-bold">Audit & accès</h5>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-          <label class="text-sm text-slate-300 flex items-center gap-2">
+          <label class="text-sm text-muted flex items-center gap-2">
             <input
               type="checkbox"
               [checked]="workflow().auditAccess.enabled"
@@ -96,11 +96,11 @@ const roleDetails: Record<string, { description: string; responsibilities: strin
             />
             Activer Audit
           </label>
-          <label class="text-sm text-slate-300 flex items-center gap-2">
+          <label class="text-sm text-muted flex items-center gap-2">
             <input type="checkbox" checked disabled />
             Lecture seule (fixe)
           </label>
-          <label class="text-sm text-slate-300 flex items-center gap-2">
+          <label class="text-sm text-muted flex items-center gap-2">
             <input
               type="checkbox"
               [checked]="workflow().auditAccess.logs"
@@ -108,7 +108,7 @@ const roleDetails: Record<string, { description: string; responsibilities: strin
             />
             Accès logs
           </label>
-          <label class="text-sm text-slate-300 flex items-center gap-2">
+          <label class="text-sm text-muted flex items-center gap-2">
             <input
               type="checkbox"
               [checked]="workflow().auditAccess.history"
@@ -133,32 +133,32 @@ const roleDetails: Record<string, { description: string; responsibilities: strin
       @if (mode(); as m) {
         @if (selectedStep(); as sel) {
           <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <button type="button" class="absolute inset-0 bg-navy-950/80" (click)="closeModal()"></button>
-            <div class="relative card-navy max-w-xl w-full p-6 border border-navy-800">
+            <button type="button" class="absolute inset-0 bg-input/80" (click)="closeModal()"></button>
+            <div class="relative card-navy max-w-xl w-full p-6 border border-default">
               @if (m === 'config') {
                 <div class="space-y-4">
-                  <h3 class="text-white font-semibold text-lg">Modifier: {{ sel.role }}</h3>
-                  <label class="text-slate-300 text-sm"
+                  <h3 class="text-primary font-semibold text-lg">Modifier: {{ sel.role }}</h3>
+                  <label class="text-muted text-sm"
                     >Rôle
                     <input
                       readonly
                       [value]="sel.role"
-                      class="mt-1 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200"
+                      class="mt-1 w-full bg-input border border-default rounded-lg p-3 text-sm text-primary"
                     />
                   </label>
-                  <label class="text-slate-300 text-sm"
+                  <label class="text-muted text-sm"
                     >SLA spécifique
                     <input
                       type="number"
                       min="0"
-                      class="mt-1 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200"
+                      class="mt-1 w-full bg-input border border-default rounded-lg p-3 text-sm text-primary"
                       [value]="sel.slaHours"
                       (input)="updateStepSla(sel.id, +$any($event.target).value || 0)"
                     />
                   </label>
                   <div class="flex flex-wrap gap-3">
                     @for (a of workflowActions; track a) {
-                      <label class="text-sm text-slate-300 flex items-center gap-2">
+                      <label class="text-sm text-muted flex items-center gap-2">
                         <input
                           type="checkbox"
                           [checked]="sel.actions.includes(a)"
@@ -168,10 +168,10 @@ const roleDetails: Record<string, { description: string; responsibilities: strin
                       </label>
                     }
                   </div>
-                  <label class="text-slate-300 text-sm"
+                  <label class="text-muted text-sm"
                     >Type notification
                     <select
-                      class="mt-1 w-full bg-navy-800 border border-navy-700 rounded-lg p-3 text-sm text-slate-200"
+                      class="mt-1 w-full bg-input border border-default rounded-lg p-3 text-sm text-primary"
                       [value]="sel.notificationType"
                       (change)="updateNotifyType(sel.id, $any($event.target).value)"
                     >
@@ -182,11 +182,11 @@ const roleDetails: Record<string, { description: string; responsibilities: strin
                 </div>
               } @else {
                 <div class="space-y-3">
-                  <h3 class="text-white font-semibold text-lg">Détails: {{ sel.role }}</h3>
-                  <p class="text-slate-300 text-sm">
+                  <h3 class="text-primary font-semibold text-lg">Détails: {{ sel.role }}</h3>
+                  <p class="text-muted text-sm">
                     {{ roleDetails[sel.role].description }}
                   </p>
-                  <p class="text-slate-400 text-sm">Hiérarchie: Pilote → Coach → Manager → RP → RH</p>
+                  <p class="text-muted text-sm">Hiérarchie: Pilote → Coach → Manager → RP → RH</p>
                 </div>
               }
             </div>

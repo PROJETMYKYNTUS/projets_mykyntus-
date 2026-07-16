@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
     @if (notificationUi.settingsOpen()) {
       <div class="fixed inset-0 z-40 flex">
         <div
-          class="flex-1 bg-slate-900/30"
+          class="flex-1 bg-card/30"
           (click)="notificationUi.closeSettings()"
           aria-hidden="true"
         ></div>

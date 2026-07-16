@@ -32,7 +32,17 @@ if (app.Environment.IsEnvironment("Testing"))
 }
 
 if (!app.Environment.IsEnvironment("Testing"))
-    await DirectoryDatabaseInitializer.InitializeAsync(app.Services);
+{
+    try
+    {
+        await DirectoryDatabaseInitializer.InitializeAsync(app.Services);
+    }
+    catch (Exception ex)
+    {
+        var log = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DirectoryInit");
+        log.LogCritical(ex, "Directory init a levé une exception non gérée — démarrage HTTP quand même.");
+    }
+}
 
 app.Lifetime.ApplicationStarted.Register(() =>
 {

@@ -15,13 +15,13 @@ export type DocInlineFeedbackTone = 'success' | 'info' | 'warning' | 'error';
   styles: [`
     .inline-feedback {
       padding: 10px;
-      border-radius: 4px;
+      border-radius: var(--radius-md, 0.5rem);
       margin: 10px 0;
     }
-    .tone-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-    .tone-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
-    .tone-warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
-    .tone-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .tone-success { background: var(--success-bg); color: var(--success-text); border: 1px solid var(--success-border); }
+    .tone-info { background: var(--info-bg); color: var(--info-text); border: 1px solid var(--info-border); }
+    .tone-warning { background: var(--warning-bg); color: var(--warning-text); border: 1px solid var(--warning-border); }
+    .tone-error { background: var(--danger-bg); color: var(--danger-text); border: 1px solid var(--danger-border); }
   `],
 })
 export class DocInlineFeedbackComponent {

@@ -36,19 +36,21 @@
     --navy-900-rgb: 10 21 38;
     --navy-800-rgb: 17 34 64;
     --navy-700-rgb: 30 58 102;
-    --electric-blue: #00f0ff;
+    /* Accent dark : bleu lisible (l'ancien cyan néon #00f0ff fatiguait l'œil et cassait la cohérence) */
+    --electric-blue: #60a5fa;
     --soft-blue: #3b82f6;
-    --electric-blue-rgb: 0 240 255;
+    --electric-blue-rgb: 96 165 250;
     --soft-blue-rgb: 59 130 246;
     --blue-500: #3b82f6;
     --blue-600: #2563eb;
-    --slate-50: #f8fafc;
-    --slate-200: #e2e8f0;
-    --slate-300: #cbd5e1;
+    --slate-50: #e2e8f0;
+    --slate-200: #cbd5e1;
+    --slate-300: #94a3b8;
     --slate-400: #94a3b8;
     --slate-500: #64748b;
     --slate-600: #475569;
-    --white: #ffffff;
+    /* Pas de blanc pur en dark : slate doux pour textes « white » Tailwind */
+    --white: #cbd5e1;
   }
 
   body {
@@ -72,10 +74,11 @@ body.theme-dark,
   --bg-primary: #040b16;
   --bg-sidebar: #020617;
   --bg-card: #0a1526;
-  --bg-input: #0a1526;
-  --text-primary: #e5e7eb;
-  --text-muted: #9ca3af;
-  --border-color: #112240;
+  --bg-input: #0f1c30;
+  /* Pas de blanc pur (#fff) : slate doux pour limiter la fatigue visuelle */
+  --text-primary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --border-color: #1e3a5f;
 }
 
 .bg-app {
@@ -106,8 +109,47 @@ body.theme-dark,
 .prime-page-shell,
 .ky-page-shell {
   @apply p-6 lg:p-8 space-y-6 min-h-full;
-  background-color: var(--bg-primary);
+  /* Transparent : laisse visibles le fond et les washes de .ks-content */
+  background-color: transparent;
   color: var(--text-primary);
+}
+
+/* ── Signature Kyntus : typographie display sur les titres ── */
+.ky-page-title,
+.prime-page-title,
+.ks-content h1,
+.ks-content h2 {
+  font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+}
+
+/* Barre gradient sous le titre de page — marque visuelle Kyntus */
+h1.prime-page-title::after,
+h1.ky-page-title::after {
+  content: '';
+  display: block;
+  width: 44px;
+  height: 4px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: var(--ky-gradient, linear-gradient(135deg, #1e4fd8, #60a5fa));
+}
+
+/* Sélection de texte aux couleurs de la marque */
+::selection {
+  background: rgb(59 130 246 / 0.28);
+  color: inherit;
+}
+
+/* Guard dark mode : jamais de blanc pur (#fff) hors boutons colorés saturés */
+body.theme-dark .ks-content .text-white:not([class*='bg-blue']):not([class*='bg-indigo']):not([class*='bg-cyan']):not([class*='bg-red']):not([class*='bg-green']):not([class*='bg-emerald']):not([class*='bg-rose']):not([class*='bg-orange']):not([class*='bg-teal']):not([class*='bg-gradient']):not(.ky-btn-primary):not(.btn-primary):not(.prime-btn-primary),
+body.theme-dark .ks-content .text-slate-50:not([class*='bg-']) {
+  color: var(--text-primary) !important;
+}
+
+body.theme-dark .ks-content .ky-page-title,
+body.theme-dark .ks-content .prime-page-title,
+body.theme-dark .ks-content h1.ky-page-title {
+  color: var(--text-primary) !important;
 }
 
 .ky-page-note {
@@ -131,22 +173,22 @@ body.theme-dark,
 
 .ky-alert-error,
 .ks-content .alert-error {
-  background: color-mix(in srgb, #ef4444 10%, var(--bg-card));
-  border: 1px solid color-mix(in srgb, #ef4444 25%, var(--border-color));
-  color: color-mix(in srgb, #ef4444 85%, var(--text-primary));
+  background: var(--danger-bg, color-mix(in srgb, #ef4444 10%, var(--bg-card)));
+  border: 1px solid var(--danger-border, color-mix(in srgb, #ef4444 25%, var(--border-color)));
+  color: var(--danger-text, color-mix(in srgb, #ef4444 85%, var(--text-primary)));
 }
 
 .ky-alert-success,
 .ks-content .alert-success {
-  background: color-mix(in srgb, #22c55e 10%, var(--bg-card));
-  border: 1px solid color-mix(in srgb, #22c55e 25%, var(--border-color));
+  background: var(--success-bg, color-mix(in srgb, #22c55e 10%, var(--bg-card)));
+  border: 1px solid var(--success-border, color-mix(in srgb, #22c55e 25%, var(--border-color)));
   color: var(--text-primary);
 }
 
 .ky-alert-warning,
 .ks-content .alert-warning {
-  background: color-mix(in srgb, #f59e0b 10%, var(--bg-card));
-  border: 1px solid color-mix(in srgb, #f59e0b 25%, var(--border-color));
+  background: var(--warning-bg, color-mix(in srgb, #f59e0b 10%, var(--bg-card)));
+  border: 1px solid var(--warning-border, color-mix(in srgb, #f59e0b 25%, var(--border-color)));
   color: var(--text-primary);
 }
 
@@ -183,7 +225,9 @@ body.theme-dark,
 }
 
 .prime-table tbody tr:hover {
-  background-color: var(--navy-700);
+  background-color: color-mix(in srgb, var(--soft-blue) 6%, var(--navy-900));
+  /* Barre accent gauche au survol : repère de lecture signature */
+  box-shadow: inset 2px 0 0 var(--electric-blue);
 }
 
 .prime-table tbody td {
@@ -203,7 +247,7 @@ body.theme-dark,
 .prime-kpi-card {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-card, 0.875rem);
   box-shadow: 0 1px 3px color-mix(in srgb, var(--navy-950) 5%, transparent);
   @apply p-6 flex items-center gap-4;
 }
@@ -218,37 +262,56 @@ body.theme-dark,
   @apply text-2xl font-bold;
 }
 
-.prime-btn-secondary {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  @apply px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm;
-}
+/* (.prime-btn-secondary : alias de .ky-btn-secondary, défini avec la famille .ky-btn-* plus bas) */
 
-.prime-btn-secondary:hover:not(:disabled) {
-  background-color: var(--navy-700);
-}
-
-.ky-badge {
-  background-color: var(--navy-800);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-}
-
-body.theme-light .ky-badge {
-  background-color: var(--navy-700);
-}
-
+.ky-badge,
 .prime-status-badge {
   background-color: var(--navy-800);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
 }
 
+body.theme-light .ky-badge,
 body.theme-light .prime-status-badge {
   background-color: var(--navy-700);
+}
+
+/* ── Variantes sémantiques : LE système de statut unique de l'app.
+   Theme-aware via les tokens --success/warning/danger/info-* (styles.css). ── */
+.ky-badge--success,
+.prime-status-badge--success {
+  background-color: var(--success-bg);
+  border-color: var(--success-border);
+  color: var(--success-text);
+}
+
+.ky-badge--warning,
+.prime-status-badge--warning {
+  background-color: var(--warning-bg);
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+
+.ky-badge--danger,
+.prime-status-badge--danger {
+  background-color: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+}
+
+.ky-badge--info,
+.prime-status-badge--info {
+  background-color: var(--info-bg);
+  border-color: var(--info-border);
+  color: var(--info-text);
+}
+
+.ky-badge--neutral,
+.prime-status-badge--neutral {
+  background-color: var(--bg-input);
+  border-color: var(--border-color);
+  color: var(--text-muted);
 }
 
 /* En-tête de page — titre sur fond page, jamais dans un cadre blanc */
@@ -275,7 +338,7 @@ body.theme-light .prime-status-badge {
 .ky-card {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-card, 0.875rem);
   box-shadow: 0 1px 3px color-mix(in srgb, var(--navy-950) 5%, transparent);
   @apply overflow-hidden transition-colors duration-200;
 }
@@ -310,6 +373,21 @@ body.theme-light .ky-card {
   @apply p-4 flex flex-col gap-1 min-w-0;
 }
 
+/* Micro-interaction KPI : légère élévation au survol */
+.ky-kpi-card,
+.prime-kpi-card {
+  transition:
+    transform var(--duration-fast, 150ms) var(--ease-out, ease-out),
+    box-shadow var(--duration-fast, 150ms) var(--ease-out, ease-out),
+    border-color var(--duration-fast, 150ms) var(--ease-out, ease-out);
+}
+
+.ky-kpi-card:hover,
+.prime-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-2, 0 4px 12px rgb(2 6 23 / 0.08));
+}
+
 /* Grilles KPI — espacement géré par ky-page-shell */
 .ks-content .ky-page-shell .kpi-row {
   display: grid;
@@ -338,18 +416,20 @@ body.theme-light .ky-card {
 .kpi-value {
   @apply text-2xl font-bold leading-none;
   color: var(--text-primary);
+  font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+  font-variant-numeric: tabular-nums;
 }
 
 .kc-blue,
-.ky-kpi-card.kc-blue { border-left: 4px solid #3b82f6; }
+.ky-kpi-card.kc-blue { border-left: 4px solid var(--info, #2563eb); }
 .kc-green,
-.ky-kpi-card.kc-green { border-left: 4px solid #22c55e; }
+.ky-kpi-card.kc-green { border-left: 4px solid var(--success, #16a34a); }
 .kc-amber,
-.ky-kpi-card.kc-amber { border-left: 4px solid #f59e0b; }
+.ky-kpi-card.kc-amber { border-left: 4px solid var(--warning, #d97706); }
 .kc-rose,
-.ky-kpi-card.kc-rose { border-left: 4px solid #f43f5e; }
+.ky-kpi-card.kc-rose { border-left: 4px solid var(--danger, #dc2626); }
 .kc-gray,
-.ky-kpi-card.kc-gray { border-left: 4px solid #94a3b8; }
+.ky-kpi-card.kc-gray { border-left: 4px solid var(--text-muted, #94a3b8); }
 
 /* Tableaux dans carte flush */
 .ky-table-card .table-loading,
@@ -390,7 +470,8 @@ body.theme-light .ky-card {
 }
 
 .ky-stat-card {
-  @apply text-center p-4 rounded-xl border;
+  @apply text-center p-4 border;
+  border-radius: var(--radius-card, 0.875rem);
   background-color: var(--bg-card);
   border-color: var(--border-color);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--navy-950) 4%, transparent);
@@ -450,42 +531,59 @@ body.theme-light .ky-stat-card {
 
 .prime-btn-primary,
 .ky-btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  border-radius: var(--radius-md, 0.5rem);
   background-color: var(--blue-600);
+  background-image: var(--ky-gradient, linear-gradient(135deg, #1e4fd8, #3b82f6));
   border: none;
   cursor: pointer;
+  /* Off-white, jamais #fff pur */
+  color: #f1f5f9;
+  box-shadow: 0 4px 14px rgb(37 99 235 / 0.28);
+  transition:
+    box-shadow var(--duration-fast, 150ms) var(--ease-out, ease-out),
+    filter var(--duration-fast, 150ms) var(--ease-out, ease-out),
+    background-color var(--duration-fast, 150ms) var(--ease-out, ease-out);
 }
 
 .prime-btn-primary:hover:not(:disabled),
 .ky-btn-primary:hover:not(:disabled) {
   background-color: var(--blue-500);
+  filter: brightness(1.08);
+  box-shadow: 0 6px 20px rgb(37 99 235 / 0.38);
 }
 
-.ky-btn-secondary {
+.ky-btn-secondary,
+.prime-btn-secondary {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  @apply px-4 py-2 rounded-lg font-medium inline-flex items-center gap-2 transition-colors shadow-sm;
+  border-radius: var(--radius-md, 0.5rem);
+  @apply px-4 py-2 font-medium inline-flex items-center gap-2 transition-colors shadow-sm;
 }
 
-.ky-btn-secondary:hover:not(:disabled) {
+.ky-btn-secondary:hover:not(:disabled),
+.prime-btn-secondary:hover:not(:disabled) {
   background-color: var(--navy-700);
+  border-color: color-mix(in srgb, var(--soft-blue) 35%, var(--border-color));
 }
 
 .ky-btn-danger {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
-  background-color: color-mix(in srgb, #ef4444 15%, var(--bg-card));
-  border: 1px solid color-mix(in srgb, #ef4444 40%, var(--border-color));
-  color: #fca5a5;
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  border-radius: var(--radius-md, 0.5rem);
+  background-color: var(--danger-bg, color-mix(in srgb, #dc2626 12%, var(--bg-card)));
+  border: 1px solid var(--danger-border, color-mix(in srgb, #dc2626 45%, var(--border-color)));
+  color: var(--danger-text, #b91c1c);
   cursor: pointer;
 }
 
 .ky-btn-danger:hover:not(:disabled) {
-  background-color: color-mix(in srgb, #ef4444 25%, var(--bg-card));
+  background-color: color-mix(in srgb, var(--danger, #dc2626) 20%, var(--bg-card));
 }
 
 .ky-btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  border-radius: var(--radius-md, 0.5rem);
   background: transparent;
   border: none;
   color: var(--text-muted);
@@ -495,6 +593,71 @@ body.theme-light .ky-stat-card {
 .ky-btn-ghost:hover:not(:disabled) {
   background-color: var(--navy-700);
   color: var(--text-primary);
+}
+
+/* ── Micro-interactions boutons : retour tactile + focus clavier ── */
+.ky-btn-primary,
+.ky-btn-secondary,
+.ky-btn-danger,
+.ky-btn-ghost,
+.prime-btn-primary,
+.prime-btn-secondary,
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-ghost {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration: var(--duration-fast, 150ms);
+  transition-timing-function: var(--ease-out, ease-out);
+}
+
+.ky-btn-primary:active:not(:disabled),
+.ky-btn-secondary:active:not(:disabled),
+.ky-btn-danger:active:not(:disabled),
+.ky-btn-ghost:active:not(:disabled),
+.prime-btn-primary:active:not(:disabled),
+.prime-btn-secondary:active:not(:disabled),
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled),
+.btn-danger:active:not(:disabled),
+.btn-ghost:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* État chargement : spinner intégré, texte masqué, clics bloqués */
+.ky-btn-loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+.ky-btn-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid currentColor;
+  border-color: rgb(255 255 255 / 0.85) transparent rgb(255 255 255 / 0.85) rgb(255 255 255 / 0.85);
+  border-radius: 9999px;
+  animation: ky-spin 0.75s linear infinite;
+}
+
+/*
+ * ── Focus clavier standard (WCAG 2.4.7) ──
+ * !important assumé : garde-fou d'accessibilité qui doit gagner contre les
+ * `outline: none` hérités des CSS legacy. Ne s'applique qu'au clavier
+ * (:focus-visible), jamais au clic souris.
+ */
+:is(a, button, [role='button'], summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-hover, #3b82f6) !important;
+  outline-offset: 2px;
+}
+
+:is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent-hover, #3b82f6) !important;
+  outline-offset: 1px;
 }
 
 .ky-select,
@@ -516,18 +679,7 @@ body.theme-light .ky-stat-card {
   @apply block text-sm font-medium mb-1.5;
 }
 
-.ky-badge,
-.prime-status-badge {
-  background-color: var(--navy-800);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-}
-
-body.theme-light .ky-badge,
-body.theme-light .prime-status-badge {
-  background-color: var(--navy-700);
-}
+/* (définition unique de .ky-badge / .prime-status-badge : voir plus haut, avec variantes sémantiques) */
 
 .ky-table tbody {
   @apply divide-y;
@@ -539,6 +691,15 @@ body.theme-light .prime-status-badge {
   @apply py-2.5;
 }
 
+/* En-tête figé pour tables scrollables */
+.prime-table--sticky thead th,
+.ky-table--sticky thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--navy-900);
+}
+
 .ky-input {
   background-color: var(--bg-input);
   border: 1px solid var(--border-color);
@@ -548,7 +709,8 @@ body.theme-light .prime-status-badge {
 
 .ky-input:focus {
   border-color: var(--soft-blue);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--soft-blue) 40%, transparent);
+  /* Halo doux : effet "ring" premium plutôt qu'un simple trait */
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--soft-blue) 18%, transparent);
 }
 
 .ky-input::placeholder {
@@ -569,8 +731,14 @@ body.theme-light .prime-status-badge {
 .dark h3,
 .dark h4,
 .dark h5,
-.dark h6 {
-  color: #ffffff !important;
+.dark h6,
+body.theme-dark h1,
+body.theme-dark h2,
+body.theme-dark h3,
+body.theme-dark h4,
+body.theme-dark h5,
+body.theme-dark h6 {
+  color: var(--text-primary) !important;
 }
 
 :root .bg-blue-600,
@@ -598,9 +766,22 @@ body.theme-light .prime-status-badge {
 .card-navy {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-card, 0.875rem);
   box-shadow: 0 1px 3px color-mix(in srgb, var(--navy-950) 5%, transparent);
-  @apply transition-colors duration-200 overflow-hidden;
+  @apply overflow-hidden;
+  transition:
+    background-color var(--duration-base, 250ms) var(--ease-out, ease-out),
+    border-color var(--duration-base, 250ms) var(--ease-out, ease-out),
+    box-shadow var(--duration-base, 250ms) var(--ease-out, ease-out);
+}
+
+/* Liseré lumineux interne en dark : effet "verre" premium */
+body.theme-dark .card-navy,
+body.theme-dark .ky-card,
+body.theme-dark .prime-kpi-card {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.045),
+    0 8px 24px rgb(0 0 0 / 0.28);
 }
 
 body.theme-light .card-navy {
@@ -611,6 +792,15 @@ body.theme-light .card-navy {
 .dark .card-navy:hover,
 .card-navy:hover {
   border-color: color-mix(in srgb, var(--soft-blue) 35%, var(--border-color));
+  box-shadow: var(--shadow-2, 0 4px 12px rgb(2 6 23 / 0.08));
+}
+
+/* En dark, le hover conserve le liseré lumineux interne */
+body.theme-dark .card-navy:hover,
+body.theme-dark .ky-card:hover {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    0 12px 32px rgb(0 0 0 / 0.35);
 }
 
 .scrollbar-hide::-webkit-scrollbar {
@@ -674,12 +864,10 @@ body.theme-light .card-navy {
   box-sizing: border-box;
   width: min(260px, calc(100vw - 16px));
   min-width: 240px;
-  border-radius: 8px;
-  border: 1px solid rgb(30 58 102 / 0.85);
-  background: rgb(10 21 38 / 0.98);
-  box-shadow:
-    0 10px 40px rgb(0 0 0 / 0.35),
-    0 0 0 1px rgb(255 255 255 / 0.04);
+  border-radius: var(--radius-md, 0.5rem);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-3, 0 12px 32px rgb(2 6 23 / 0.16));
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -703,7 +891,7 @@ body.theme-light .card-navy {
   text-align: left;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
-  color: rgb(226 232 240);
+  color: var(--text-primary);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -711,7 +899,7 @@ body.theme-light .card-navy {
 }
 
 .doc-download-dropdown button[role='menuitem']:hover {
-  background: rgb(30 41 59 / 0.85);
+  background: var(--bg-input);
 }
 
 /* —— Pages : en-tête & champs (cohérence entreprise) —— */
@@ -725,38 +913,31 @@ body.theme-light .card-navy {
 }
 
 .doc-page-desc {
-  @apply text-sm text-slate-500 max-w-3xl mt-1;
+  @apply text-sm max-w-3xl mt-1;
+  color: var(--text-muted);
 }
 
+/* .doc-field : alias de .ky-input (même contrat visuel) */
 .doc-field {
-  @apply w-full rounded-lg border border-navy-700 bg-navy-800 px-3 py-2.5 text-sm text-slate-200 outline-none transition-colors;
-  @apply focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  @apply w-full rounded-lg px-3 py-2.5 text-sm outline-none transition-colors;
+}
+
+.doc-field:focus {
+  border-color: var(--soft-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--soft-blue) 18%, transparent);
 }
 
 .doc-field::placeholder {
-  @apply text-slate-600;
+  color: var(--text-muted);
 }
 
-/* —— Boutons : 4 familles (même rayon / typo / transitions) —— */
-.btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-colors;
-  @apply bg-blue-600 hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50;
-}
-
-.btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-navy-700 bg-navy-900 px-4 py-2.5 text-sm font-semibold text-slate-200 transition-colors;
-  @apply hover:border-navy-800 hover:bg-navy-800 disabled:cursor-not-allowed disabled:opacity-50;
-}
-
-.btn-danger {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-red-800/60 bg-red-950/30 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors;
-  @apply hover:bg-red-950/50 disabled:cursor-not-allowed disabled:opacity-50;
-}
-
-.btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition-colors;
-  @apply hover:bg-navy-800 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-50;
-}
+/* —— Boutons .btn-* : définis UNE SEULE FOIS, en version token-aware, dans
+   core/styles/kyntus-documentation.css (alias de la famille .ky-btn-*).
+   L'ancien doublon sombre (bg-navy-900 / text-slate-200) a été supprimé :
+   il cassait le mode clair et créait deux rendus selon l'ordre de cascade. —— */
 
 /* Télécharger multi-formats (native <details>, même look que le menu format) */
 .doc-download-details {
@@ -810,10 +991,10 @@ body.theme-light .card-navy {
   align-items: center;
   justify-content: center;
   padding: 0 0.75rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgb(51 65 85 / 0.85);
-  background: rgb(15 23 42 / 0.6);
-  color: rgb(148 163 184);
+  border-radius: var(--radius-md, 0.5rem);
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-muted);
   cursor: pointer;
   transition:
     background-color 0.15s ease,
@@ -822,7 +1003,7 @@ body.theme-light .card-navy {
 }
 
 .doc-date-calendar-btn:hover {
-  border-color: rgb(59 130 246 / 0.45);
-  color: rgb(147 197 253);
-  background: rgb(30 58 138 / 0.25);
+  border-color: color-mix(in srgb, var(--soft-blue) 45%, var(--border-color));
+  color: var(--soft-blue);
+  background: color-mix(in srgb, var(--soft-blue) 10%, var(--bg-input));
 }

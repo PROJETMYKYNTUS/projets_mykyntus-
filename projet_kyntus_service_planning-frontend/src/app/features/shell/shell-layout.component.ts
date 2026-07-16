@@ -20,6 +20,7 @@ import { NavigationActionsService } from '../../core/navigation/navigation-actio
 import { AuthService } from '../../core/services/auth.service';
 import { KyntusThemeService } from '../../core/theme/kyntus-theme.service';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
+import { GlobalSearchComponent } from './components/global-search.component';
 import { ShellNotificationBadgeComponent } from '../../shared/shell-controls/notification-badge.component';
 import { ShellNotificationDropdownComponent } from '../../shared/shell-controls/notification-dropdown.component';
 import { ShellSettingsPanelComponent } from '../../shared/shell-controls/settings-panel.component';
@@ -59,6 +60,7 @@ import { AuditInterfaceNavService } from '../documentation/services/audit-interf
     CommonModule,
     RouterModule,
     LucideIconComponent,
+    GlobalSearchComponent,
     ShellNotificationBadgeComponent,
     ShellNotificationDropdownComponent,
     ShellSettingsPanelComponent,
@@ -245,21 +247,9 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
 
 
-  private static readonly INTEGRATED_MODULE_IDS = ['documentation', 'prime', 'parrainage'] as const;
-
   private openGroupForUrl(url: string): void {
     const path = url.split('?')[0];
-    const activeIntegrated = ShellLayoutComponent.INTEGRATED_MODULE_IDS.find((id) =>
-      path.startsWith(`/${id}`),
-    );
-
-    if (activeIntegrated) {
-      for (const id of ShellLayoutComponent.INTEGRATED_MODULE_IDS) {
-        if (id !== activeIntegrated) {
-          this.openGroups.delete(id);
-        }
-      }
-    }
+    this.openGroups.clear();
 
     for (const g of this.groups) {
       const matchChild = g.children.some((c) => {
@@ -274,26 +264,23 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
         (g.id === 'documentation' && path.startsWith('/documentation'))
       ) {
         this.openGroups.add(g.id);
+        break; // une seule section ouverte → pas de surcharge visuelle
       }
     }
   }
 
-
-
   toggleGroup(id: string): void {
-
-    if (this.openGroups.has(id)) this.openGroups.delete(id);
-
-    else this.openGroups.add(id);
-
+    if (this.openGroups.has(id)) {
+      this.openGroups.delete(id);
+      return;
+    }
+    // Accordion : ouvrir un groupe ferme automatiquement les autres
+    this.openGroups.clear();
+    this.openGroups.add(id);
   }
 
-
-
   isOpen(id: string): boolean {
-
     return this.openGroups.has(id);
-
   }
 
 

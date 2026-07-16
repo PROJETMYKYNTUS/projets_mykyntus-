@@ -89,9 +89,9 @@ export class LoginComponent implements OnInit {
     role: response.user?.role || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
   }));
 
-  // Rediriger vers planning
+  // Rediriger vers planning (encode : les refresh tokens Base64 peuvent contenir + / =)
   window.location.href =
-    `${KYNTUS_PUBLIC_URLS.planningAuthCallback}?token=${response.accessToken}&refresh=${response.refreshToken}`;
+    `${KYNTUS_PUBLIC_URLS.planningAuthCallback}?token=${encodeURIComponent(response.accessToken)}&refresh=${encodeURIComponent(response.refreshToken)}`;
 },
       error: (error: any) => {
         console.error('Erreur de connexion', error);

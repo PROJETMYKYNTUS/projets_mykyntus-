@@ -43,3 +43,29 @@ public record TrainingSessionAssignedMessage
     public string EmployeeName { get; init; } = string.Empty;
     public DateTime AssignedAt { get; init; } = DateTime.UtcNow;
 }
+
+/// <summary>
+/// Publié par Formation lorsqu'un animateur interne est désigné sur une session continue publiée.
+/// </summary>
+public record TrainingSessionAnimatorAssignedMessage
+{
+    public Guid SessionId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public DateTime PlannedStart { get; init; }
+    public DateTime PlannedEnd { get; init; }
+    public Guid AnimatorUserId { get; init; }
+    public DateTime AssignedAt { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Publié par Formation lorsqu'une session continue passe en InProgress (démarrage horaire).
+/// </summary>
+public record TrainingSessionStartedMessage
+{
+    public Guid SessionId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public DateTime PlannedStart { get; init; }
+    public Guid RecipientUserId { get; init; }
+    public string RecipientRole { get; init; } = "Beneficiary"; // Beneficiary | Animator
+    public DateTime StartedAt { get; init; } = DateTime.UtcNow;
+}

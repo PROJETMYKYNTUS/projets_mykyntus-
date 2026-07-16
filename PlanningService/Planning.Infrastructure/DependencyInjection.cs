@@ -101,6 +101,8 @@ public static class DependencyInjection
                 x.AddConsumer<InitialTrainingRejectedConsumer>();
                 x.AddConsumer<InitialTrainingCompletedConsumer>();
                 x.AddConsumer<TrainingSessionAssignedConsumer>();
+                x.AddConsumer<TrainingSessionAnimatorAssignedConsumer>();
+                x.AddConsumer<TrainingSessionStartedConsumer>();
 
                 x.UsingRabbitMq((ctx, cfg) =>
                 {
@@ -128,6 +130,10 @@ public static class DependencyInjection
                         e.ConfigureConsumer<InitialTrainingCompletedConsumer>(ctx));
                     cfg.ReceiveEndpoint("planning-training-session-assigned", e =>
                         e.ConfigureConsumer<TrainingSessionAssignedConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-training-session-animator", e =>
+                        e.ConfigureConsumer<TrainingSessionAnimatorAssignedConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-training-session-started", e =>
+                        e.ConfigureConsumer<TrainingSessionStartedConsumer>(ctx));
 
                     cfg.ConfigureEndpoints(ctx);
                 });

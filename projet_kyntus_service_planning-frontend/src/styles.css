@@ -1,5 +1,5 @@
 /* You can add global styles to this file, and also import other style files */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* Fonts : chargées via <link> dans index.html (preconnect + display=swap) */
 @import './app/core/styles/_animations.css';
 
 /* ── Tokens globaux de la plateforme unifiée (style aligné Prime/Kyntus) ── */
@@ -13,6 +13,100 @@
   --ky-text-1: var(--text-primary, #0e1623);
   --ky-text-2: var(--text-muted, #3d526e);
   --ky-text-3: var(--text-muted, #7a8fa8);
+
+  /* ── Design system : typographie ── */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* ── Design system : gradient de marque ── */
+  --ky-gradient: linear-gradient(135deg, #1e4fd8 0%, #3b82f6 55%, #60a5fa 100%);
+  --ky-gradient-soft: linear-gradient(135deg, rgb(30 79 216 / 0.14), rgb(96 165 250 / 0.06));
+
+  /* ── Design system : motion ── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+
+  /* ── Design system : rayons ──
+     Contrat : boutons/inputs = --radius-md, cartes/modales = --radius-card,
+     pilules/badges/avatars = --radius-pill. Aucune autre valeur. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-card: 0.875rem;
+  --radius-pill: 999px;
+
+  /* ── Design system : élévations ── */
+  --shadow-1: 0 1px 2px rgb(2 6 23 / 0.06);
+  --shadow-2: 0 4px 12px rgb(2 6 23 / 0.08);
+  --shadow-3: 0 12px 32px rgb(2 6 23 / 0.16);
+
+  /* ── Design system : z-index ── */
+  --z-dropdown: 50;
+  --z-modal: 100;
+  --z-toast: 150;
+
+  /* ── Design system : couleurs d'état (WCAG AA sur surfaces claires et sombres) ── */
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --info: #2563eb;
+}
+
+/*
+ * Déclinaisons d'état theme-aware : texte lisible + surface teintée + bordure.
+ * En light : texte foncé sur teinte pastel. En dark : texte clair sur teinte sombre.
+ * À utiliser pour badges, alertes, KPI, boutons sémantiques — jamais de hex local.
+ */
+body,
+body.theme-light {
+  --success-text: #166534;
+  --warning-text: #92400e;
+  --danger-text: #b91c1c;
+  --info-text: #1d4ed8;
+  --success-bg: color-mix(in srgb, var(--success) 12%, var(--bg-card, #ffffff));
+  --warning-bg: color-mix(in srgb, var(--warning) 12%, var(--bg-card, #ffffff));
+  --danger-bg: color-mix(in srgb, var(--danger) 10%, var(--bg-card, #ffffff));
+  --info-bg: color-mix(in srgb, var(--info) 10%, var(--bg-card, #ffffff));
+  --success-border: color-mix(in srgb, var(--success) 35%, var(--border-color, #e2e8f0));
+  --warning-border: color-mix(in srgb, var(--warning) 35%, var(--border-color, #e2e8f0));
+  --danger-border: color-mix(in srgb, var(--danger) 35%, var(--border-color, #e2e8f0));
+  --info-border: color-mix(in srgb, var(--info) 35%, var(--border-color, #e2e8f0));
+}
+
+body.theme-dark {
+  --success-text: #86efac;
+  --warning-text: #fcd34d;
+  --danger-text: #fca5a5;
+  --info-text: #93c5fd;
+  --success-bg: color-mix(in srgb, var(--success) 16%, var(--bg-card, #0a1526));
+  --warning-bg: color-mix(in srgb, var(--warning) 16%, var(--bg-card, #0a1526));
+  --danger-bg: color-mix(in srgb, var(--danger) 14%, var(--bg-card, #0a1526));
+  --info-bg: color-mix(in srgb, var(--info) 14%, var(--bg-card, #0a1526));
+  --success-border: color-mix(in srgb, var(--success) 40%, var(--border-color, #1e3a5f));
+  --warning-border: color-mix(in srgb, var(--warning) 40%, var(--border-color, #1e3a5f));
+  --danger-border: color-mix(in srgb, var(--danger) 40%, var(--border-color, #1e3a5f));
+  --info-border: color-mix(in srgb, var(--info) 40%, var(--border-color, #1e3a5f));
+}
+
+/*
+ * Alias sémantiques — résolus sur <body> pour suivre theme-light / theme-dark.
+ * Utilisés par Tailwind (bg-surface-2, text-ink-1, border-line…) et le CSS custom.
+ */
+body {
+  --surface-1: var(--bg-primary, #f8fafc);
+  --surface-2: var(--bg-card, #ffffff);
+  --surface-3: var(--bg-input, #f1f5f9);
+  --ink-1: var(--text-primary, #0f172a);
+  --ink-2: var(--text-muted, #64748b);
+  --ink-3: color-mix(in srgb, var(--text-muted, #64748b) 65%, transparent);
+  --border-1: var(--border-color, #e2e8f0);
+  --border-2: color-mix(in srgb, var(--border-color, #e2e8f0) 55%, transparent);
+  --accent: var(--blue-600, #1e3a8a);
+  --accent-hover: var(--blue-500, #3b82f6);
 }
 
 body.theme-light {
@@ -38,6 +132,6 @@ body {
 }
 
 body {
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans, 'Inter', ui-sans-serif, system-ui, sans-serif);
   transition: background-color 0.2s ease, color 0.2s ease;
 }

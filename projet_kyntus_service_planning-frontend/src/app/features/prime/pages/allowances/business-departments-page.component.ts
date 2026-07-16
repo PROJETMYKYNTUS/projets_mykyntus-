@@ -13,6 +13,7 @@ import { firstValueFrom } from 'rxjs';
 import { Building2, Check, Plus, RefreshCw, Trash2, Users } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { PrimeCardComponent } from '../../components/prime-card.component';
+import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import {
   employeesForOrgAssignmentSelect,
 } from '../../lib/prime-select-options';
@@ -49,35 +50,31 @@ type PageTab = 'list' | 'assignments';
 @Component({
   selector: 'app-business-departments-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent, PrimeCardComponent],
+  imports: [CommonModule, FormsModule, LucideIconComponent, PrimeCardComponent, KyntusPageHeaderComponent],
   template: `
-    <div class="p-6 lg:p-8 space-y-6 min-h-full bg-app">
-      <div class="flex flex-wrap justify-between items-start gap-4">
-        <div>
-          <h1 class="text-2xl sm:text-3xl font-bold text-slate-100 tracking-tight">Départements métier</h1>
-          <p class="mt-2 max-w-3xl text-sm text-slate-400 leading-relaxed">
-            Départements <span class="font-medium text-slate-300">Support</span> — équipes plates sans pôle /
-            cellule / service. Manager direct, primes Allowances. L’organisation de production (pôles) reste
-            dans <span class="font-medium text-slate-300">Organisation RH</span>.
-          </p>
-        </div>
+    <div class="ky-page-shell dept-page">
+      <app-kyntus-page-header
+        title="Départements métier"
+        subtitle="Organisation support : équipes plates sans pôle, cellule ou service. Même structure, même rythme visuel que les autres modules."
+      >
         <button
+          actions
           type="button"
           (click)="reload()"
           [disabled]="saving()"
-          class="inline-flex items-center gap-2 rounded-lg border border-navy-700 bg-navy-900 px-4 py-2 text-sm text-slate-200 hover:bg-navy-800 disabled:opacity-50"
+          class="ky-btn-secondary inline-flex items-center gap-2"
         >
           <app-lucide-icon [icon]="icons.refresh" className="w-4 h-4" />
           Actualiser
         </button>
-      </div>
+      </app-kyntus-page-header>
 
-      <div class="flex flex-wrap gap-3 items-center">
-        <label class="text-sm text-slate-400 flex items-center gap-2">
+      <div class="dept-toolbar ky-card">
+        <label class="text-sm text-muted flex items-center gap-2">
           Rechercher
           <input
             type="search"
-            class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200 w-64"
+            class="rounded-lg border border-default bg-input px-3 py-2 text-sm text-primary w-64"
             placeholder="Filtrer les départements…"
             [value]="search()"
             (input)="search.set($any($event.target).value)"
@@ -88,18 +85,14 @@ type PageTab = 'list' | 'assignments';
       @if (flash()) {
         <div
           class="rounded-lg border px-4 py-3 text-sm"
-          [class.border-emerald-500/40]="flashOk()"
-          [class.bg-emerald-950/30]="flashOk()"
-          [class.text-emerald-200]="flashOk()"
-          [class.border-red-500/40]="!flashOk()"
-          [class.bg-red-950/30]="!flashOk()"
-          [class.text-red-200]="!flashOk()"
+          [class.dept-flash--ok]="flashOk()"
+          [class.dept-flash--err]="!flashOk()"
         >
           {{ flash() }}
         </div>
       }
 
-      <div class="flex flex-wrap gap-2 border-b border-navy-800 pb-2" role="tablist">
+      <div class="flex flex-wrap gap-2 border-b border-default pb-2" role="tablist">
         @for (t of pageTabs; track t.id) {
           <button
             type="button"
@@ -107,10 +100,9 @@ type PageTab = 'list' | 'assignments';
             [attr.aria-selected]="activeTab() === t.id"
             (click)="activeTab.set(t.id)"
             class="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-            [class.bg-indigo-600]="activeTab() === t.id"
-            [class.text-white]="activeTab() === t.id"
-            [class.bg-navy-900]="activeTab() !== t.id"
-            [class.text-slate-300]="activeTab() !== t.id"
+            [class.dept-tab--active]="activeTab() === t.id"
+            [class.bg-card]="activeTab() !== t.id"
+            [class.text-muted]="activeTab() !== t.id"
           >
             {{ t.label }}
           </button>
@@ -118,27 +110,27 @@ type PageTab = 'list' | 'assignments';
       </div>
 
       @if (loading()) {
-        <p class="text-slate-400 text-sm">Chargement…</p>
+        <p class="text-muted text-sm">Chargement…</p>
       } @else if (activeTab() === 'list') {
         <app-prime-card className="p-0" title="Créer un département Support" description="Équipe plate — code, nom, puis affectations dans l’onglet suivant.">
-          <div class="px-4 sm:px-6 py-4 space-y-4 border-b border-navy-800">
-            <p class="text-xs text-slate-400 rounded-lg border border-violet-500/25 bg-violet-950/20 px-3 py-2">
-              Type fixe : <span class="font-medium text-violet-200">Support (équipe plate)</span> — manager → N-1 directs, module Allowances.
+          <div class="px-4 sm:px-6 py-4 space-y-4 border-b border-default">
+            <p class="text-xs text-muted rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-2">
+              Type fixe : <span class="font-medium text-[var(--info-text)]">Support (équipe plate)</span> — manager → N-1 directs, module Allowances.
             </p>
             <div class="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-end">
-              <label class="text-sm text-slate-400 flex flex-col gap-1 min-w-[8rem]">
+              <label class="text-sm text-muted flex flex-col gap-1 min-w-[8rem]">
                 Code
-                <input class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200" placeholder="IT" [value]="formCode()" (input)="formCode.set($any($event.target).value)" />
+                <input class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary" placeholder="IT" [value]="formCode()" (input)="formCode.set($any($event.target).value)" />
               </label>
-              <label class="text-sm text-slate-400 flex flex-col gap-1 flex-1 min-w-[12rem]">
+              <label class="text-sm text-muted flex flex-col gap-1 flex-1 min-w-[12rem]">
                 Nom
-                <input class="rounded-lg border border-navy-700 bg-navy-900 px-3 py-2 text-sm text-slate-200" placeholder="Informatique" [value]="formName()" (input)="formName.set($any($event.target).value)" />
+                <input class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary" placeholder="Informatique" [value]="formName()" (input)="formName.set($any($event.target).value)" />
               </label>
               <button
                 type="button"
                 (click)="create()"
                 [disabled]="saving() || !canCreate()"
-                class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                class="ky-btn-primary inline-flex items-center gap-2 text-sm font-medium disabled:opacity-50"
               >
                 <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
                 Créer
@@ -150,7 +142,7 @@ type PageTab = 'list' | 'assignments';
         <app-prime-card className="p-0 mt-4" title="Départements enregistrés" [hasAction]="false">
           <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
-              <thead class="text-xs uppercase text-slate-500 border-b border-navy-800 bg-navy-950/50">
+              <thead class="text-xs uppercase text-muted border-b border-default bg-input/50">
                 <tr>
                   <th class="px-4 py-3">Code</th>
                   <th class="px-4 py-3">Nom</th>
@@ -160,25 +152,25 @@ type PageTab = 'list' | 'assignments';
                   <th class="px-4 py-3"></th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-navy-800">
+              <tbody class="divide-y divide-default">
                 @for (d of filteredDepartments(); track d.id) {
-                  <tr class="hover:bg-navy-900/40">
-                    <td class="px-4 py-3 font-mono text-slate-300">{{ d.code }}</td>
-                    <td class="px-4 py-3 text-slate-100">{{ d.name }}</td>
+                  <tr class="hover:bg-card/40">
+                    <td class="px-4 py-3 font-mono text-muted">{{ d.code }}</td>
+                    <td class="px-4 py-3 text-primary">{{ d.name }}</td>
                     <td class="px-4 py-3">
-                      <span class="inline-flex rounded-full px-2 py-0.5 text-xs bg-violet-500/15 text-violet-200">
+                      <span class="ky-badge ky-badge--info">
                         Support
                       </span>
                     </td>
-                    <td class="px-4 py-3 text-slate-400">{{ employeeLabel(d.managerEmployeeId) }}</td>
-                    <td class="px-4 py-3 text-slate-300 tabular-nums">{{ teamCount(d) }}</td>
+                    <td class="px-4 py-3 text-muted">{{ employeeLabel(d.managerEmployeeId) }}</td>
+                    <td class="px-4 py-3 text-muted tabular-nums">{{ teamCount(d) }}</td>
                     <td class="px-4 py-3 text-right">
-                      <button type="button" class="text-xs text-indigo-400 hover:text-indigo-300" (click)="openAssignments(d.id)">Affecter</button>
+                      <button type="button" class="text-xs text-[var(--electric-blue)] hover:opacity-80" (click)="openAssignments(d.id)">Affecter</button>
                     </td>
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="6" class="px-4 py-8 text-center text-slate-500">Aucun département. Créez-en un ci-dessus.</td>
+                    <td colspan="6" class="px-4 py-8 text-center text-muted">Aucun département. Créez-en un ci-dessus.</td>
                   </tr>
                 }
               </tbody>
@@ -195,26 +187,26 @@ type PageTab = 'list' | 'assignments';
             description="Sélectionnez un département dans la liste."
             [hasAction]="false"
           >
-            <ul class="divide-y divide-navy-800 max-h-[min(70vh,32rem)] overflow-y-auto -m-6 mt-0">
+            <ul class="divide-y divide-default max-h-[min(70vh,32rem)] overflow-y-auto -m-6 mt-0">
               @for (d of filteredDepartments(); track d.id) {
                 <li>
                   <button
                     type="button"
                     (click)="selectDepartment(d)"
-                    class="w-full text-left px-4 py-3 hover:bg-navy-800/50 transition-colors"
-                    [class.bg-indigo-950/40]="selectedId() === d.id"
+                    class="w-full text-left px-4 py-3 hover:bg-input/50 transition-colors"
+                    [class.dept-item--selected]="selectedId() === d.id"
                   >
                     <div class="flex items-center gap-2 min-w-0">
                       <span
-                        class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-violet-500/20 text-violet-100"
+                        class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-[var(--info-bg)] text-[var(--info-text)]"
                       >Support</span>
-                      <span class="min-w-0 truncate font-medium text-slate-100">{{ d.name }}</span>
+                      <span class="min-w-0 truncate font-medium text-primary">{{ d.name }}</span>
                     </div>
-                    <p class="text-xs text-slate-500 mt-1 truncate">{{ d.code }} · {{ teamCount(d) }} membre(s) · {{ employeeLabel(d.managerEmployeeId) }}</p>
+                    <p class="text-xs text-muted mt-1 truncate">{{ d.code }} · {{ teamCount(d) }} membre(s) · {{ employeeLabel(d.managerEmployeeId) }}</p>
                   </button>
                 </li>
               } @empty {
-                <li class="px-4 py-6 text-sm text-slate-500">Aucun département.</li>
+                <li class="px-4 py-6 text-sm text-muted">Aucun département.</li>
               }
             </ul>
           </app-prime-card>
@@ -227,63 +219,63 @@ type PageTab = 'list' | 'assignments';
           >
             <div class="flex min-h-[20rem] flex-1 flex-col p-4 sm:p-6">
               @if (selectedDept(); as dept) {
-                <header class="space-y-1 border-b border-navy-800/80 pb-4 mb-6">
-                  <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Support — équipe plate</p>
-                  <h2 class="text-2xl font-semibold tracking-tight text-slate-50">{{ dept.name }}</h2>
+                <header class="space-y-1 border-b border-default/80 pb-4 mb-6">
+                  <p class="text-xs font-semibold uppercase tracking-wider text-muted">Support — équipe plate</p>
+                  <h2 class="text-2xl font-semibold tracking-tight text-primary">{{ dept.name }}</h2>
                 </header>
 
                 <div class="space-y-3">
-                  <label class="text-sm font-medium text-slate-300 block">Manager du département</label>
+                  <label class="text-sm font-medium text-muted block">Manager du département</label>
                   @if (draftEmployeeId()) {
-                    <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-navy-700 bg-navy-950/50 px-3 py-2.5">
-                      <span class="text-sm text-slate-200">
-                        <span class="text-slate-500">Sélection :</span>
+                    <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5">
+                      <span class="text-sm text-primary">
+                        <span class="text-muted">Sélection :</span>
                         <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
                       </span>
-                      <button type="button" (click)="beginRepickDetailEmployee()" class="text-xs font-medium text-indigo-400 hover:text-indigo-300">Changer</button>
+                      <button type="button" (click)="beginRepickDetailEmployee()" class="text-xs font-medium text-[var(--electric-blue)] hover:opacity-80">Changer</button>
                     </div>
                   }
                   <input
                     type="search"
-                    class="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-500"
+                    class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary placeholder:text-muted"
                     placeholder="Rechercher un employé (nom, rôle, e-mail)…"
                     [value]="detailEmpSearch()"
                     (input)="detailEmpSearch.set($any($event.target).value)"
                   />
-                  <ul class="max-h-56 overflow-y-auto rounded-lg border border-navy-800 bg-navy-950/40 divide-y divide-navy-800">
+                  <ul class="max-h-56 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default">
                     @for (e of filteredDetailAssignables(); track e.id) {
                       <li>
-                        <button type="button" (click)="pickDetailEmployee(e.id)" class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-navy-800/60 transition-colors">
-                          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-xs font-semibold text-sky-100">{{ employeeInitials(e) }}</span>
+                        <button type="button" (click)="pickDetailEmployee(e.id)" class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-input/60 transition-colors">
+                          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--info-bg)] text-xs font-semibold text-[var(--info-text)]">{{ employeeInitials(e) }}</span>
                           <span class="min-w-0">
-                            <span class="block font-medium text-slate-100 truncate">{{ e.firstName }} {{ e.lastName }}</span>
-                            <span class="block text-xs text-slate-500 truncate">{{ e.role }}@if (employeeOrgHint(e.id); as hint) { · {{ hint }} }</span>
+                            <span class="block font-medium text-primary truncate">{{ e.firstName }} {{ e.lastName }}</span>
+                            <span class="block text-xs text-muted truncate">{{ e.role }}@if (employeeOrgHint(e.id); as hint) { · {{ hint }} }</span>
                           </span>
                         </button>
                       </li>
                     } @empty {
-                      <li class="px-3 py-4 text-sm text-slate-500">Aucun résultat</li>
+                      <li class="px-3 py-4 text-sm text-muted">Aucun résultat</li>
                     }
                   </ul>
                   <div class="flex flex-wrap gap-3 pt-2">
-                    <button type="button" (click)="saveManager(dept.id)" [disabled]="saving() || !draftEmployeeId()" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50">
+                    <button type="button" (click)="saveManager(dept.id)" [disabled]="saving() || !draftEmployeeId()" class="ky-btn-primary inline-flex items-center justify-center gap-2 text-sm font-medium disabled:opacity-50">
                       <app-lucide-icon [icon]="icons.check" className="w-4 h-4" /> Enregistrer
                     </button>
-                    <button type="button" (click)="clearManager(dept.id)" [disabled]="saving() || !dept.managerEmployeeId" class="inline-flex items-center justify-center gap-2 rounded-lg border border-navy-600 px-4 py-2.5 text-sm text-slate-300 hover:bg-navy-800 disabled:opacity-50">
+                    <button type="button" (click)="clearManager(dept.id)" [disabled]="saving() || !dept.managerEmployeeId" class="inline-flex items-center justify-center gap-2 rounded-lg border border-default px-4 py-2.5 text-sm text-muted hover:bg-input disabled:opacity-50">
                       <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" /> Retirer le manager
                     </button>
                   </div>
                 </div>
 
-                <div class="space-y-3 mt-8 pt-6 border-t border-navy-800">
-                  <label class="text-sm font-medium text-slate-300 block">Collaborateurs</label>
+                <div class="space-y-3 mt-8 pt-6 border-t border-default">
+                  <label class="text-sm font-medium text-muted block">Collaborateurs</label>
                     @if (!dept.managerEmployeeId) {
-                      <p class="text-sm text-amber-400/90">Affectez d’abord un manager.</p>
+                      <p class="text-sm text-[var(--warning-text)]">Affectez d’abord un manager.</p>
                     }
                     @if (draftMemberId()) {
-                      <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-navy-700 bg-navy-950/50 px-3 py-2.5">
-                        <span class="text-sm text-slate-200">
-                          <span class="text-slate-500">Sélection :</span>
+                      <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5">
+                        <span class="text-sm text-primary">
+                          <span class="text-muted">Sélection :</span>
                           <strong class="ml-1">{{ employeeLabel(draftMemberId()) }}</strong>
                         </span>
                         <button type="button" (click)="draftMemberId.set('')" class="text-xs font-medium text-indigo-400 hover:text-indigo-300">Changer</button>
@@ -291,34 +283,34 @@ type PageTab = 'list' | 'assignments';
                     }
                     <input
                       type="search"
-                      class="w-full rounded-lg border border-navy-700 bg-navy-900 px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-500"
+                      class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary placeholder:text-muted"
                       placeholder="Rechercher un employé…"
                       [value]="memberSearch()"
                       (input)="memberSearch.set($any($event.target).value)"
                       [disabled]="!dept.managerEmployeeId"
                     />
-                    <ul class="max-h-40 overflow-y-auto rounded-lg border border-navy-800 bg-navy-950/40 divide-y divide-navy-800">
+                    <ul class="max-h-40 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default">
                       @for (e of filteredMemberCandidates(); track e.id) {
                         <li>
-                          <button type="button" (click)="pickMemberEmployee(e.id)" [disabled]="!dept.managerEmployeeId" class="w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-navy-800/60 disabled:opacity-40">
-                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-600/40 text-[11px] font-semibold text-slate-100">{{ employeeInitials(e) }}</span>
+                          <button type="button" (click)="pickMemberEmployee(e.id)" [disabled]="!dept.managerEmployeeId" class="w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-input/60 disabled:opacity-40">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-input/40 text-[11px] font-semibold text-primary">{{ employeeInitials(e) }}</span>
                             <span class="min-w-0">
-                              <span class="block font-medium text-slate-100 truncate">{{ e.firstName }} {{ e.lastName }}</span>
-                              <span class="block text-xs text-slate-500 truncate">{{ e.role }}@if (employeeOrgHint(e.id); as hint) { · {{ hint }} }</span>
+                              <span class="block font-medium text-primary truncate">{{ e.firstName }} {{ e.lastName }}</span>
+                              <span class="block text-xs text-muted truncate">{{ e.role }}@if (employeeOrgHint(e.id); as hint) { · {{ hint }} }</span>
                             </span>
                           </button>
                         </li>
                       } @empty {
-                        <li class="px-3 py-3 text-sm text-slate-500">Aucun résultat</li>
+                        <li class="px-3 py-3 text-sm text-muted">Aucun résultat</li>
                       }
                     </ul>
-                    <button type="button" (click)="addSelectedMember(dept)" [disabled]="saving() || !dept.managerEmployeeId || !draftMemberId()" class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-600 disabled:opacity-50">
+                    <button type="button" (click)="addSelectedMember(dept)" [disabled]="saving() || !dept.managerEmployeeId || !draftMemberId()" class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-input px-4 py-2.5 text-sm font-medium text-primary hover:bg-input disabled:opacity-50">
                       <app-lucide-icon [icon]="icons.check" className="w-4 h-4" /> Ajouter à l’équipe
                     </button>
                   </div>
               } @else {
-                <div class="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-slate-600/35 bg-navy-900/20 px-8 py-14 text-center min-h-[18rem]">
-                  <p class="text-sm text-slate-500 max-w-md leading-relaxed">Sélectionnez un département dans la liste pour afficher le formulaire d’affectation.</p>
+                <div class="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-default/35 bg-card/20 px-8 py-14 text-center min-h-[18rem]">
+                  <p class="text-sm text-muted max-w-md leading-relaxed">Sélectionnez un département dans la liste pour afficher le formulaire d’affectation.</p>
                 </div>
               }
             </div>
@@ -329,13 +321,13 @@ type PageTab = 'list' | 'assignments';
               @if (selectedDept(); as dept) {
                 <div class="space-y-4 p-4 sm:p-6 -mt-1">
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div class="rounded-lg border border-navy-800 bg-navy-950/50 px-3 py-3">
-                      <p class="text-[11px] uppercase tracking-wide text-slate-500">Effectif</p>
-                      <p class="text-2xl font-semibold text-slate-50 tabular-nums">{{ teamMembers().length }}</p>
+                    <div class="rounded-lg border border-default bg-input/50 px-3 py-3">
+                      <p class="text-[11px] uppercase tracking-wide text-muted">Effectif</p>
+                      <p class="text-2xl font-semibold text-primary tabular-nums">{{ teamMembers().length }}</p>
                     </div>
-                    <div class="rounded-lg border border-navy-800 bg-navy-950/50 px-3 py-3">
-                      <p class="text-[11px] uppercase tracking-wide text-slate-500">Manager</p>
-                      <p class="text-sm font-medium text-slate-200 truncate">{{ employeeLabel(dept.managerEmployeeId) }}</p>
+                    <div class="rounded-lg border border-default bg-input/50 px-3 py-3">
+                      <p class="text-[11px] uppercase tracking-wide text-muted">Manager</p>
+                      <p class="text-sm font-medium text-primary truncate">{{ employeeLabel(dept.managerEmployeeId) }}</p>
                     </div>
                   </div>
                 </div>
@@ -346,18 +338,18 @@ type PageTab = 'list' | 'assignments';
               <div class="-m-6 flex-1 min-h-0 overflow-y-auto p-4">
                 <ul class="space-y-2">
                   @for (m of teamMembers(); track m.id) {
-                    <li class="flex items-center gap-3 rounded-lg border border-navy-800/80 bg-navy-900/40 px-3 py-2">
+                    <li class="flex items-center gap-3 rounded-lg border border-default/80 bg-card/40 px-3 py-2">
                       <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-500/25 text-xs font-semibold text-indigo-100">{{ memberInitials(m) }}</span>
                       <span class="min-w-0 flex-1">
-                        <span class="block text-sm font-medium text-slate-100 truncate">{{ m.firstName }} {{ m.lastName }}</span>
-                        <span class="block text-xs text-slate-500 truncate">{{ m.role }}</span>
+                        <span class="block text-sm font-medium text-primary truncate">{{ m.firstName }} {{ m.lastName }}</span>
+                        <span class="block text-xs text-muted truncate">{{ m.role }}</span>
                       </span>
                       @if (m.id !== selectedDept()?.managerEmployeeId) {
                         <button type="button" (click)="removeFromTeam(m)" [disabled]="saving()" class="shrink-0 text-xs text-red-400 hover:text-red-300 disabled:opacity-50">Retirer</button>
                       }
                     </li>
                   } @empty {
-                    <li class="text-sm text-slate-500 py-4 text-center">Aucun employé dans ce périmètre.</li>
+                    <li class="text-sm text-muted py-4 text-center">Aucun employé dans ce périmètre.</li>
                   }
                 </ul>
               </div>
@@ -367,6 +359,42 @@ type PageTab = 'list' | 'assignments';
       }
     </div>
   `,
+  styles: [
+    `
+      .dept-page {
+        display: grid;
+        gap: 1rem;
+      }
+      .dept-toolbar {
+        padding: 0.9rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .dept-toolbar label {
+        margin: 0;
+      }
+      .dept-tab--active {
+        background: var(--ky-gradient, var(--soft-blue));
+        color: #f1f5f9;
+        box-shadow: 0 0 0 1px var(--soft-blue) inset;
+      }
+      .dept-flash--ok {
+        border-color: var(--success-border);
+        background: var(--success-bg);
+        color: var(--success-text);
+      }
+      .dept-flash--err {
+        border-color: var(--danger-border);
+        background: var(--danger-bg);
+        color: var(--danger-text);
+      }
+      .dept-page :is(.ky-btn-primary, .ky-btn-secondary) {
+        white-space: nowrap;
+      }
+    `,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BusinessDepartmentsPageComponent implements OnInit {

@@ -18,9 +18,22 @@ function authHeaders(): Record<string, string> {
   return bearerAuthHeader(token);
 }
 
+async function isPrimeUserUnresolved(res: Response): Promise<boolean> {
+  try {
+    const clone = res.clone();
+    const text = (await clone.text()).toLowerCase();
+    return text.includes('utilisateur prime non résolu');
+  } catch {
+    return false;
+  }
+}
+
 async function fetchWithAuth(input: string, init: RequestInit): Promise<Response> {
   const first = await fetch(input, init);
   if (first.status !== 401) return first;
+
+  // JWT OK mais employé absent de Prime : erreur métier, pas une session morte.
+  if (await isPrimeUserUnresolved(first)) return first;
 
   if (!readStoredRefreshToken()) {
     redirectToAuthLogin();
@@ -37,7 +50,12 @@ async function fetchWithAuth(input: string, init: RequestInit): Promise<Response
     ...(init.headers as Record<string, string> | undefined),
     ...bearerAuthHeader(refreshed),
   };
-  return fetch(input, { ...init, headers: retryHeaders });
+  const retry = await fetch(input, { ...init, headers: retryHeaders });
+  if (retry.status === 401 && (await isPrimeUserUnresolved(retry))) return retry;
+  if (retry.status === 401) {
+    redirectToAuthLogin();
+  }
+  return retry;
 }
 
 export const PRIME_API_BASE =

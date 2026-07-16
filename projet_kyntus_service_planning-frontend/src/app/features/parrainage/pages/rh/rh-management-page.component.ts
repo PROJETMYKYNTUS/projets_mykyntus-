@@ -7,7 +7,7 @@ import { ParrainageNavService, type ParrainageRhManagementFilter } from '../../s
 import type { Referral, ReferralStatus } from '../../models/referral.model';
 import {
   REFERRAL_STATUS_LABELS,
-  REFERRAL_STATUS_STYLES_RH,
+  REFERRAL_STATUS_STYLES,
 } from '../../utils/referral-status.util';
 
 const FILTER_OPTIONS = [
@@ -34,7 +34,7 @@ type RhFilter = ParrainageRhManagementFilter;
     <section class="flex-1 min-w-0">
       <div class="space-y-6">
         @if (unauthorized) {
-          <div class="card-navy p-10 text-center text-red-200 text-sm">
+          <div class="card-navy p-10 text-center text-[var(--danger-text)] text-sm">
             Accès refusé. Réservé à la RH.
           </div>
         }
@@ -102,7 +102,7 @@ type RhFilter = ParrainageRhManagementFilter;
                         @if (r.status === 'PROCESSED' && !r.candidateEmployeeId) {
                           <button
                             type="button"
-                            class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 mr-2"
+                            class="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-1.5 text-xs font-medium text-[var(--success-text)] hover:border-[var(--success)] mr-2"
                             (click)="validateAndCreateEmployee(r.id)"
                           >
                             Valider
@@ -135,7 +135,7 @@ export class RhManagementPageComponent {
   private readonly router = inject(Router);
   readonly nav = inject(ParrainageNavService);
 
-  readonly statusStyles = REFERRAL_STATUS_STYLES_RH;
+  readonly statusStyles = REFERRAL_STATUS_STYLES;
   readonly statusLabels = REFERRAL_STATUS_LABELS;
 
   readonly filterOptions = FILTER_OPTIONS;

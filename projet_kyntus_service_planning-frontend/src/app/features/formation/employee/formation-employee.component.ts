@@ -1,26 +1,15 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import {
-  Calendar,
-  Check,
-  Clock,
-  GraduationCap,
-  Inbox,
-  Loader2,
-  Search,
-  User,
-} from 'lucide';
-import { FormationService } from '../../../core/services/formation.service';
+import { Inbox, Loader2 } from 'lucide';
 import { FormationTrainingService } from '../../../core/services/formation-training.service';
 import {
-  FormationDto,
-  StatutFormation,
-  StatutFormationLabels,
-} from '../../../core/models/formation.models';
-import {
   INITIAL_TRAINING_STATUS_LABELS,
+  TRAINING_ATTENDANCE_LABELS,
+  TRAINING_SESSION_STATUS_LABELS,
   type InitialTrainingPathDto,
+  type MyAssignedTrainingSessionDto,
+  type TrainingAttendance,
+  type TrainingSessionStatus,
 } from '../../../core/models/formation-training.models';
 import { LucideIconComponent } from '../../../shared/lucide-icon.component';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
@@ -28,45 +17,32 @@ import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-
 @Component({
   selector: 'app-formation-employee',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent],
+  imports: [CommonModule, LucideIconComponent, KyntusPageHeaderComponent],
   templateUrl: './formation-employee.component.html',
   styleUrls: ['./formation-employee.component.css'],
 })
 export class FormationEmployeeComponent implements OnInit {
   readonly icons = {
-    graduation: GraduationCap,
-    check: Check,
-    search: Search,
     inbox: Inbox,
     loader: Loader2,
-    user: User,
-    calendar: Calendar,
-    clock: Clock,
   };
 
-  formations: FormationDto[] = [];
-  filteredFormations: FormationDto[] = [];
   initialPaths: InitialTrainingPathDto[] = [];
+  assignedSessions: MyAssignedTrainingSessionDto[] = [];
   initialStatusLabels = INITIAL_TRAINING_STATUS_LABELS;
+  sessionStatusLabels = TRAINING_SESSION_STATUS_LABELS;
+  attendanceLabels = TRAINING_ATTENDANCE_LABELS;
   loading = false;
-  searchTerm = '';
-  toast = { show: false, message: '', type: 'success' as 'success' | 'error' };
-  statutLabels = StatutFormationLabels;
-  StatutFormation = StatutFormation;
 
   userId = '';
-  userName = '';
-  inscritFormations = new Set<string>();
 
   constructor(
-    private svc: FormationService,
     private trainingApi: FormationTrainingService,
     private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-    this.userName = user?.username || 'Employé';
 
     const rawId = user?.id;
     if (typeof rawId === 'string' && rawId.includes('-')) {
@@ -78,123 +54,51 @@ export class FormationEmployeeComponent implements OnInit {
       this.userId = `00000000-0000-0000-0000-${padded}`;
     }
 
-    this.loadFormations();
-    void this.loadInitialPaths();
+    void this.reload();
+  }
+
+  get isEmpty(): boolean {
+    return !this.loading && this.initialPaths.length === 0 && this.assignedSessions.length === 0;
+  }
+
+  private async reload(): Promise<void> {
+    this.loading = true;
+    this.cdr.detectChanges();
+    await Promise.all([this.loadInitialPaths(), this.loadAssignedSessions()]);
+    this.loading = false;
+    this.cdr.detectChanges();
   }
 
   private async loadInitialPaths(): Promise<void> {
-    if (!this.userId?.includes('-')) return;
+    if (!this.userId?.includes('-')) {
+      this.initialPaths = [];
+      return;
+    }
     try {
       this.initialPaths = await this.trainingApi.listInitialByEmployee(this.userId);
     } catch {
       this.initialPaths = [];
     }
-    this.cdr.detectChanges();
   }
 
-  get stats() {
-    const list = this.formations;
-    const placesRestantes = list.reduce(
-      (sum, f) => sum + Math.max(0, f.capaciteMax - f.nombreInscrits),
-      0,
-    );
-    return {
-      disponibles: list.length,
-      inscrit: this.inscritFormations.size,
-      places: placesRestantes,
-    };
-  }
-
-  loadFormations(): void {
-    this.loading = true;
-    this.cdr.detectChanges();
-    this.svc.getAll(StatutFormation.Validee).subscribe({
-      next: (data) => {
-        this.formations = data;
-        this.applyFilters();
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
-    });
-  }
-
-  applyFilters(): void {
-    const q = this.searchTerm.trim().toLowerCase();
-    this.filteredFormations = q
-      ? this.formations.filter(
-          (f) =>
-            f.titre.toLowerCase().includes(q) ||
-            f.formateur.toLowerCase().includes(q) ||
-            f.description.toLowerCase().includes(q),
-        )
-      : [...this.formations];
-    this.cdr.detectChanges();
-  }
-
-  clearFilters(): void {
-    this.searchTerm = '';
-    this.applyFilters();
-  }
-
-  inscrire(f: FormationDto): void {
-    if (!this.userId) {
-      this.showToast('Utilisateur non identifié.', 'error');
+  private async loadAssignedSessions(): Promise<void> {
+    if (!this.userId?.includes('-')) {
+      this.assignedSessions = [];
       return;
     }
-    if (this.inscritFormations.has(f.id)) return;
-
-    this.svc
-      .inscrire(f.id, {
-        formationId: f.id,
-        employeId: this.userId,
-        nomEmploye: this.userName,
-      })
-      .subscribe({
-        next: () => {
-          this.inscritFormations.add(f.id);
-          this.showToast('Inscription réussie !', 'success');
-          this.loadFormations();
-        },
-        error: (err) => {
-          const msg =
-            err?.error?.errors?.['$.employeId']?.[0] ||
-            err?.error?.error ||
-            "Erreur lors de l'inscription.";
-          this.showToast(msg, 'error');
-        },
-      });
+    try {
+      this.assignedSessions = await this.trainingApi.listMyAssignedSessions(this.userId);
+    } catch {
+      this.assignedSessions = [];
+    }
   }
 
-  estComplet(f: FormationDto): boolean {
-    return f.nombreInscrits >= f.capaciteMax;
+  sessionStatusLabel(status: TrainingSessionStatus | string): string {
+    return this.sessionStatusLabels[status as TrainingSessionStatus] ?? String(status);
   }
 
-  estInscrit(f: FormationDto): boolean {
-    return this.inscritFormations.has(f.id);
-  }
-
-  getStatutClass(statut: StatutFormation): string {
-    const map: Record<number, string> = {
-      0: 'badge-draft',
-      1: 'badge-pending',
-      2: 'badge-valid',
-      3: 'badge-active',
-      4: 'badge-done',
-      5: 'badge-cancel',
-    };
-    return map[statut] || '';
-  }
-
-  showToast(message: string, type: 'success' | 'error'): void {
-    this.toast = { show: true, message, type };
-    this.cdr.detectChanges();
-    setTimeout(() => {
-      this.toast.show = false;
-      this.cdr.detectChanges();
-    }, 4000);
+  attendanceLabel(attendance: TrainingAttendance | string): string {
+    const key = (attendance || 'Pending') as TrainingAttendance;
+    return this.attendanceLabels[key] ?? String(attendance);
   }
 }

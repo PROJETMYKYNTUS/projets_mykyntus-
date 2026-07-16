@@ -12,16 +12,19 @@ export function cleanDocumentRequestTypeLabel(raw: string | null | undefined): s
     s = s.slice(0, pipeIdx).trim();
   }
 
+  /* Alternation (not [-:…] character class): Tailwind content scan treats
+     `[prop:value]` as an arbitrary CSS property and would emit invalid `-: –—;`. */
+  const sepBeforeSuffix = /\s*(?:-|:|\u2013|\u2014)\s*/;
   s = s
     .replace(/\s*\([^)]*mod[eè]le[^)]*\)/gi, '')
     .replace(/\s*\([^)]*template[^)]*\)/gi, '')
     .replace(/\s*\([^)]*code[^)]*\)/gi, '')
-    .replace(/\s*[-:–—]\s*mod[eè]le.*$/gi, '')
-    .replace(/\s*[-:–—]\s*template.*$/gi, '')
+    .replace(new RegExp(sepBeforeSuffix.source + 'mod[eè]le.*$', 'gi'), '')
+    .replace(new RegExp(sepBeforeSuffix.source + 'template.*$', 'gi'), '')
     .replace(/\s*\(mod[eè]le.*?\)/gi, '')
     .trim();
 
-  s = s.replace(/\s*[–—]\s*[A-Z0-9][A-Z0-9_\-.]{2,}\s*$/i, '').trim();
+  s = s.replace(/\s*(?:\u2013|\u2014)\s*[A-Z0-9][A-Z0-9_\-.]{2,}\s*$/i, '').trim();
   /* Code modèle en suffixe avec tiret ASCII (ex. « Attestation - ATTESTATION_SALAIRE_1 »). */
   s = s.replace(/\s+-\s+[A-Z0-9][A-Z0-9_\-.]{2,}\s*$/i, '').trim();
 

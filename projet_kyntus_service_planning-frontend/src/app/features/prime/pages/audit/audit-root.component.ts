@@ -170,8 +170,8 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
   template: `
     <div class="prime-page-shell">
       <div>
-        <h1 class="text-3xl font-bold text-white tracking-tight">{{ title() }}</h1>
-        <p class="text-slate-400 mt-1">
+        <h1 class="text-3xl font-bold text-primary tracking-tight">{{ title() }}</h1>
+        <p class="text-muted mt-1">
           Tableau structuré avec filtres hiérarchiques, tri, pagination et fiche dans le panneau
           latéral.
         </p>
@@ -482,7 +482,7 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
               type="button"
               [disabled]="safePage() <= 1"
               (click)="prevPage()"
-              class="px-3 py-1.5 rounded-md border border-default bg-card text-slate-200 hover:bg-navy-800 disabled:cursor-not-allowed disabled:bg-navy-900/80 disabled:text-slate-500"
+              class="px-3 py-1.5 rounded-md border border-default bg-card text-primary hover:bg-input disabled:cursor-not-allowed disabled:bg-card/80 disabled:text-muted"
             >
               Précédent
             </button>
@@ -490,7 +490,7 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
               type="button"
               [disabled]="safePage() >= totalPages()"
               (click)="nextPage()"
-              class="px-3 py-1.5 rounded-md border border-default bg-card text-slate-200 hover:bg-navy-800 disabled:cursor-not-allowed disabled:bg-navy-900/80 disabled:text-slate-500"
+              class="px-3 py-1.5 rounded-md border border-default bg-card text-primary hover:bg-input disabled:cursor-not-allowed disabled:bg-card/80 disabled:text-muted"
             >
               Suivant
             </button>
@@ -593,7 +593,7 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
       }
 
       @if (selected(); as sel) {
-        <div class="fixed inset-0 z-50 flex justify-end bg-navy-950/55">
+        <div class="fixed inset-0 z-50 flex justify-end bg-input/55">
           <div
             class="w-full max-w-md h-full bg-card border-l border-default p-5 space-y-4 transition-transform duration-300"
             [class.translate-x-0]="drawerOpen()"
@@ -676,7 +676,7 @@ function mapAuditLogToJournalRow(d: AuditLogDto): JournalRow {
       }
 
       @if (timelineUser(); as tu) {
-        <div class="fixed inset-0 z-40 bg-navy-950/60 flex items-center justify-center p-4">
+        <div class="fixed inset-0 z-40 bg-input flex items-center justify-center p-4">
           <div class="w-full max-w-2xl bg-card border border-default rounded-xl p-4">
             <div class="flex items-center justify-between">
               <h4 class="text-primary font-semibold inline-flex items-center gap-2">

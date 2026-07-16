@@ -3,18 +3,72 @@ import { KyntusSessionService } from '../../../core/session/kyntus-session.servi
 import { mapJwtRoleToParrainageRole } from '../../../core/session/kyntus-role-ui.config';
 import type { ParrainageRole, ParrainageUser } from '../models/referral.model';
 
-const DEMO_ORG = { departmentId: 'dept-1', poleId: 'pole-1', celluleId: 'cell-1' } as const;
-const RH_ORG = { departmentId: 'dept-2', poleId: 'pole-rh', celluleId: 'cell-rh' } as const;
+/** Orga contact centre (Prime d1 / p1) — miroir init/contactcentre/roster.json */
+const CC_ORG = { departmentId: 'd1', poleId: 'd1', celluleId: 'p1' } as const;
+const RH_ORG = { departmentId: 'd2', poleId: 'd2', celluleId: 'p3' } as const;
 
+/** IDs = Auth SubjectId (alignés seeds Parrainage / Planning / Formation). */
 const DEMO_USERS: Record<ParrainageRole, ParrainageUser> = {
-  PILOTE: { id: 'kyntus-employee', name: 'Employé Démo', email: 'employee@kyntus.ma', role: 'PILOTE', parentId: 'kyntus-coach', ...DEMO_ORG },
-  COACH: { id: 'kyntus-coach', name: 'Coach Démo', email: 'coach@kyntus.ma', role: 'COACH', parentId: 'kyntus-manager', ...DEMO_ORG },
-  MANAGER: { id: 'kyntus-manager', name: 'Manager Démo', email: 'manager@kyntus.ma', role: 'MANAGER', parentId: 'kyntus-rp', projectId: 'proj-1', ...DEMO_ORG },
-  RP: { id: 'kyntus-rp', name: 'Rp Démo', email: 'rp@kyntus.ma', role: 'RP', ...DEMO_ORG },
-  RH: { id: 'kyntus-rh', name: 'Rh Démo', email: 'rh@kyntus.ma', role: 'RH', ...RH_ORG },
-  COMPTA: { id: 'compta-1', name: 'Sonia Benali', email: 'compta@mykyntus.com', role: 'COMPTA', ...RH_ORG },
-  ADMIN: { id: 'kyntus-admin', name: 'Admin Démo', email: 'admin@kyntus.ma', role: 'ADMIN', ...DEMO_ORG },
-  AUDIT: { id: 'kyntus-audit', name: 'Audit Démo', email: 'audit@kyntus.ma', role: 'AUDIT', ...DEMO_ORG },
+  PILOTE: {
+    id: '11111111-1111-4111-8111-111111111103',
+    name: 'Yasmine El Idrissi',
+    email: 'employee@kyntus.ma',
+    role: 'PILOTE',
+    parentId: '11111111-1111-4111-8111-111111111106',
+    ...CC_ORG,
+  },
+  COACH: {
+    id: '11111111-1111-4111-8111-111111111106',
+    name: 'Omar Tazi',
+    email: 'coach@kyntus.ma',
+    role: 'COACH',
+    parentId: '11111111-1111-4111-8111-111111111105',
+    ...CC_ORG,
+  },
+  MANAGER: {
+    id: '11111111-1111-4111-8111-111111111105',
+    name: 'Nadia Benchrif',
+    email: 'manager@kyntus.ma',
+    role: 'MANAGER',
+    parentId: '11111111-1111-4111-8111-111111111107',
+    projectId: 'proj-inbound',
+    ...CC_ORG,
+  },
+  RP: {
+    id: '11111111-1111-4111-8111-111111111107',
+    name: 'Ghita Benkirane',
+    email: 'rp@kyntus.ma',
+    role: 'RP',
+    ...CC_ORG,
+  },
+  RH: {
+    id: '11111111-1111-4111-8111-111111111104',
+    name: 'Latifa Mansouri',
+    email: 'rh@kyntus.ma',
+    role: 'RH',
+    ...RH_ORG,
+  },
+  COMPTA: {
+    id: '22222222-2222-4222-8222-222222222011',
+    name: 'Karim Oufkir',
+    email: 'karim.oufkir@contactcentre.ma',
+    role: 'COMPTA',
+    ...RH_ORG,
+  },
+  ADMIN: {
+    id: '11111111-1111-4111-8111-111111111108',
+    name: 'Système Admin',
+    email: 'admin@kyntus.ma',
+    role: 'ADMIN',
+    ...CC_ORG,
+  },
+  AUDIT: {
+    id: '11111111-1111-4111-8111-111111111109',
+    name: 'Laila Zahidi',
+    email: 'audit@kyntus.ma',
+    role: 'AUDIT',
+    ...CC_ORG,
+  },
 };
 
 @Injectable({ providedIn: 'root' })

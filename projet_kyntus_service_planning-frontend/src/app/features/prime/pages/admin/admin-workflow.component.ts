@@ -28,7 +28,7 @@ import { LucideIconComponent } from '@/shared/lucide-icon.component';
           </div>
           <div>
             <h3 class="text-xl font-bold text-primary">Configuration du workflow</h3>
-            <p class="text-sm text-slate-500">Pilote → Coach → Manager → RP → RH</p>
+            <p class="text-sm text-muted">Pilote → Coach → Manager → RP → RH</p>
           </div>
         </div>
         <app-workflow-admin

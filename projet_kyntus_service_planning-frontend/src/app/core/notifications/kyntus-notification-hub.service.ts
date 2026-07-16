@@ -4,6 +4,7 @@ import { firstValueFrom, interval } from 'rxjs';
 import {
   NotificationService,
   planningNotificationId,
+  resolveFormationDeepLink,
   type NewsletterNotification,
   type PlanningNotification,
 } from '../services/notification.service';
@@ -291,13 +292,25 @@ export class KyntusNotificationHubService {
     jwtRole: string,
   ): KyntusNotificationAction {
     if (src === 'formation') {
-      return { route: '/mes-formations' };
+      return { route: resolveFormationDeepLink(n.weekCode ?? '', n.deepLink) };
     }
     if (src === 'planning') {
-      if (n.weeklyPlanningId) {
-        return { route: `/planning/view/${n.weeklyPlanningId}` };
+      // Les employés n'ont pas accès à /planning (vue manager) — uniquement /mes-plannings.
+      if (n.deepLink?.startsWith('/')) {
+        return { route: n.deepLink };
       }
-      return { route: '/planning' };
+      const r = jwtRole.trim().toLowerCase();
+      const canOpenManagerPlanning = [
+        'admin', 'rh', 'manager', 'coach', 'rp', 'pilote', 'audit',
+        'equipe_formation', 'equipe formation', 'formateur',
+      ].includes(r);
+      if (canOpenManagerPlanning) {
+        if (n.weeklyPlanningId) {
+          return { route: `/planning/view/${n.weeklyPlanningId}` };
+        }
+        return { route: '/planning' };
+      }
+      return { route: '/mes-plannings' };
     }
     const r = jwtRole.trim().toLowerCase();
     const managerLike = ['manager', 'rh', 'admin', 'rp', 'coach', 'superviseur', 'audit'].includes(r);
@@ -447,7 +460,7 @@ export class KyntusNotificationHubService {
       this.congeItems.update((list) => list.map((n) => (n.id === id ? { ...n, read: true } : n)));
       return;
     }
-    if (id.startsWith('planning-') || id.startsWith('reclamation-') || id.startsWith('proposition-')) {
+    if (id.startsWith('planning-') || id.startsWith('reclamation-') || id.startsWith('proposition-') || id.startsWith('formation-')) {
       this.planningNotif.markOneRead(id);
     }
   }

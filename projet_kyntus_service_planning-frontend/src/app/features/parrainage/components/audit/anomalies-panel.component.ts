@@ -15,10 +15,10 @@ import { ANOMALIES_DEMO, type AnomalyRow } from '../../audit/audit-demo-data';
       </p>
       <div class="grid gap-3">
         @for (a of anomalies; track a.id) {
-          <div class="card-navy p-4 border border-rose-900/30 bg-rose-950/10 flex flex-col md:flex-row md:items-center md:justify-between gap-3 hover:border-rose-800/50 transition-colors duration-200">
+          <div class="card-navy p-4 border border-[var(--danger-border)] bg-[var(--danger-bg)] flex flex-col md:flex-row md:items-center md:justify-between gap-3 hover:border-[var(--danger)] transition-colors duration-200">
             <div class="space-y-1">
               <div class="flex items-center gap-2 flex-wrap">
-                <app-lucide-icon [icon]="alertIcon" className="w-4 h-4 text-rose-400 shrink-0" />
+                <app-lucide-icon [icon]="alertIcon" className="w-4 h-4 text-[var(--danger-text)] shrink-0" />
                 <span class="font-semibold text-primary">{{ a.title }}</span>
                 <app-severity-badge [level]="a.severityUi" />
                 <span [class]="'px-2 py-0.5 text-[10px] font-bold rounded border ' + priorityClass(a.priority)">{{ a.priority }}</span>
@@ -34,7 +34,7 @@ import { ANOMALIES_DEMO, type AnomalyRow } from '../../audit/audit-demo-data';
                   Timeline
                 </button>
               }
-              <button type="button" (click)="investigate.emit(a)" class="px-4 py-2 rounded-lg border border-blue-500/40 bg-blue-600/15 text-blue-200 text-sm hover:bg-blue-600/25 transition-colors">
+              <button type="button" (click)="investigate.emit(a)" class="px-4 py-2 rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info-text)] text-sm hover:border-[var(--soft-blue)] transition-colors">
                 Investiguer
               </button>
             </div>
@@ -54,8 +54,8 @@ export class AnomaliesPanelComponent {
   readonly gitIcon = GitBranch;
 
   priorityClass(p: AnomalyRow['priority']): string {
-    if (p === 'P1') return 'bg-rose-600/25 text-rose-200 border-rose-500/50';
-    if (p === 'P2') return 'bg-amber-500/20 text-amber-200 border-amber-500/40';
-    return 'bg-slate-600/30 text-primary border-slate-500/40';
+    if (p === 'P1') return 'bg-[var(--danger-bg)] text-[var(--danger-text)] border-[var(--danger-border)]';
+    if (p === 'P2') return 'bg-[var(--warning-bg)] text-[var(--warning-text)] border-[var(--warning-border)]';
+    return 'bg-input text-primary border-default';
   }
 }

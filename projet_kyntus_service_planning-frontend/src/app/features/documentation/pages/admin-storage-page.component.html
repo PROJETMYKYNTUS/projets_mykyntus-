@@ -26,7 +26,7 @@
 
         <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           <div>
-            <h4 class="text-white font-bold text-lg">{{ draft.storageType }} storage</h4>
+            <h4 class="text-primary font-bold text-lg">{{ draft.storageType }} storage</h4>
             <p class="text-sm text-muted mt-1">Les secrets sont stockés côté service, affichés masqués en UI.</p>
           </div>
           <div class="flex gap-3 flex-wrap">
@@ -34,10 +34,7 @@
               type="button"
               (click)="onSave()"
               [disabled]="saving"
-              class="px-6 py-3 rounded-lg font-bold text-white transition-all"
-              [ngClass]="
-                saving ? 'bg-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20'
-              "
+              class="ky-btn-primary px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {{ saving ? 'Sauvegarde…' : 'Sauvegarder' }}
             </button>
@@ -55,7 +52,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="space-y-4">
             <div>
-              <label class="text-sm font-semibold text-white">Type de stockage</label>
+              <label class="text-sm font-semibold text-primary">Type de stockage</label>
               <select
                 [ngModel]="draft.storageType"
                 (ngModelChange)="onStorageTypeChange($event)"
@@ -68,7 +65,7 @@
             </div>
 
             <div>
-              <label class="text-sm font-semibold text-white">URL API</label>
+              <label class="text-sm font-semibold text-primary">URL API</label>
               <input
                 [(ngModel)]="draft.apiUrl"
                 class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
@@ -79,7 +76,7 @@
             </div>
 
             <div>
-              <label class="text-sm font-semibold text-white">Nom du bucket</label>
+              <label class="text-sm font-semibold text-primary">Nom du bucket</label>
               <input
                 [(ngModel)]="draft.bucketName"
                 [disabled]="draft.storageType !== 'Cloud'"
@@ -91,7 +88,7 @@
             </div>
 
             <div>
-              <label class="text-sm font-semibold text-white">Région</label>
+              <label class="text-sm font-semibold text-primary">Région</label>
               <input
                 [(ngModel)]="draft.region"
                 [disabled]="draft.storageType !== 'Cloud'"
@@ -105,7 +102,7 @@
 
           <div class="space-y-4">
             <div class="border border-default rounded-xl p-4 bg-input/30">
-              <h4 class="text-sm font-bold text-white">Clé d’accès</h4>
+              <h4 class="text-sm font-bold text-primary">Clé d’accès</h4>
               <p class="text-xs text-muted mt-1">Affichage masqué en UI. Pour remplacer le secret, saisissez une nouvelle valeur.</p>
 
               <div class="mt-4 flex items-center justify-between gap-4">
@@ -123,7 +120,7 @@
               </div>
 
               <div class="mt-4">
-                <label class="text-sm font-semibold text-white">Nouveau secret (optionnel)</label>
+                <label class="text-sm font-semibold text-primary">Nouveau secret (optionnel)</label>
                 <input
                   type="password"
                   [(ngModel)]="accessKeyInput"
@@ -135,7 +132,7 @@
             </div>
 
             <div class="border border-default rounded-xl p-4">
-              <h4 class="text-sm font-bold text-white mb-3">Options</h4>
+              <h4 class="text-sm font-bold text-primary mb-3">Options</h4>
               <div class="space-y-3">
                 <app-admin-toggle
                   [checked]="draft.backupEnabled"

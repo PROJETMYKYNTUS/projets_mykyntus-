@@ -287,7 +287,7 @@ public class AppDbContext : DbContext
         {
             e.ToTable("PlanningNotifications");
             e.HasKey(x => x.Id);
-            e.Property(x => x.WeekCode).HasMaxLength(32);
+            e.Property(x => x.WeekCode).HasMaxLength(64);
             e.Property(x => x.SubServiceName).HasMaxLength(200);
             e.HasIndex(x => x.AuthUserId);
         });

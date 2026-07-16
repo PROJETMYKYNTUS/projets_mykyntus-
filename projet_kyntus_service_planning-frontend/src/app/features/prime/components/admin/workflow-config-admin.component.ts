@@ -22,41 +22,41 @@ import { formatWorkflowPipeline, rechainWorkflowSteps } from '../../lib/workflow
         } @else if (error()) {
           <p class="text-rose-400 text-sm">{{ error() }}</p>
         } @else {
-          <p class="text-slate-400 text-sm mb-4">
-            Workflow <span class="text-slate-300">fiches</span> :
-            <span class="text-slate-300">Référent technique</span> →
-            <span class="text-slate-300">Superviseur</span> →
-            <span class="text-slate-300">Chef de projet</span>.
+          <p class="text-muted text-sm mb-4">
+            Workflow <span class="text-muted">fiches</span> :
+            <span class="text-muted">Référent technique</span> →
+            <span class="text-muted">Superviseur</span> →
+            <span class="text-muted">Chef de projet</span>.
             RH / Manager / Comptabilité valident le fichier synthèse globale. Après ↑↓, recalcul
-            <span class="text-slate-300">De → Vers</span> depuis
-            <span class="text-slate-300">Pending</span>, puis
-            <span class="text-slate-300">Enregistrer le workflow</span>.
+            <span class="text-muted">De → Vers</span> depuis
+            <span class="text-muted">Pending</span>, puis
+            <span class="text-muted">Enregistrer le workflow</span>.
           </p>
           @if (pipelinePreview()) {
-            <p class="text-slate-300 text-sm mb-4 font-mono">{{ pipelinePreview() }}</p>
+            <p class="text-muted text-sm mb-4 font-mono">{{ pipelinePreview() }}</p>
           }
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
               <thead>
                 <tr class="border-b border-default">
-                  <th class="text-left py-3 text-slate-400">Ordre</th>
-                  <th class="text-left py-3 text-slate-400">#</th>
-                  <th class="text-left py-3 text-slate-400">Rôle valideur</th>
-                  <th class="text-left py-3 text-slate-400">De → Vers</th>
-                  <th class="text-left py-3 text-slate-400">SLA (h)</th>
-                  <th class="text-left py-3 text-slate-400">Actif</th>
+                  <th class="text-left py-3 text-muted">Ordre</th>
+                  <th class="text-left py-3 text-muted">#</th>
+                  <th class="text-left py-3 text-muted">Rôle valideur</th>
+                  <th class="text-left py-3 text-muted">De → Vers</th>
+                  <th class="text-left py-3 text-muted">SLA (h)</th>
+                  <th class="text-left py-3 text-muted">Actif</th>
                 </tr>
               </thead>
               <tbody>
                 @for (s of sortedSteps(); track s.id; let idx = $index) {
                   <tr class="border-b border-default/60">
-                    <td class="py-3 text-slate-400">
+                    <td class="py-3 text-muted">
                       <div class="flex gap-1">
                         <button
                           type="button"
                           [disabled]="idx === 0"
                           (click)="moveStep(idx, -1)"
-                          class="px-2 py-0.5 rounded border border-navy-700 text-xs text-slate-200 hover:bg-navy-800 disabled:opacity-30"
+                          class="px-2 py-0.5 rounded border border-default text-xs text-primary hover:bg-input disabled:opacity-30"
                         >
                           ↑
                         </button>
@@ -64,30 +64,30 @@ import { formatWorkflowPipeline, rechainWorkflowSteps } from '../../lib/workflow
                           type="button"
                           [disabled]="idx === sortedSteps().length - 1"
                           (click)="moveStep(idx, 1)"
-                          class="px-2 py-0.5 rounded border border-navy-700 text-xs text-slate-200 hover:bg-navy-800 disabled:opacity-30"
+                          class="px-2 py-0.5 rounded border border-default text-xs text-primary hover:bg-input disabled:opacity-30"
                         >
                           ↓
                         </button>
                       </div>
                     </td>
-                    <td class="py-3 text-slate-300">{{ s.sortOrder }}</td>
-                    <td class="py-3 text-slate-200">{{ s.approverRole }}</td>
-                    <td class="py-3 text-slate-400 text-xs max-w-md">
-                      <span class="text-slate-300">{{ s.fromStatus }}</span>
+                    <td class="py-3 text-muted">{{ s.sortOrder }}</td>
+                    <td class="py-3 text-primary">{{ s.approverRole }}</td>
+                    <td class="py-3 text-muted text-xs max-w-md">
+                      <span class="text-muted">{{ s.fromStatus }}</span>
                       <span class="mx-1">→</span>
-                      <span class="text-slate-300">{{ s.toStatus }}</span>
+                      <span class="text-muted">{{ s.toStatus }}</span>
                     </td>
                     <td class="py-3">
                       <input
                         type="number"
                         min="0"
-                        class="w-20 bg-navy-800 border border-navy-700 rounded px-2 py-1 text-slate-200 text-sm"
+                        class="w-20 bg-input border border-default rounded px-2 py-1 text-primary text-sm"
                         [value]="draftSla()[s.id] !== undefined ? draftSla()[s.id]! : s.slaHours"
                         (input)="patchSla(s.id, +$any($event.target).value)"
                       />
                     </td>
                     <td class="py-3">
-                      <label class="inline-flex items-center gap-2 text-slate-300 text-sm cursor-pointer">
+                      <label class="inline-flex items-center gap-2 text-muted text-sm cursor-pointer">
                         <input type="checkbox" [checked]="s.isActive" (change)="toggleActive(s.id)" />
                         Actif
                       </label>
@@ -114,24 +114,24 @@ import { formatWorkflowPipeline, rechainWorkflowSteps } from '../../lib/workflow
         @if (global()) {
           @let g = globalDraft();
           <div class="grid md:grid-cols-2 gap-4">
-            <label class="text-slate-300 text-sm flex items-center gap-2">
+            <label class="text-muted text-sm flex items-center gap-2">
               <input type="checkbox" [checked]="g.notificationsEnabled" (change)="patchGlobal({ notificationsEnabled: $any($event.target).checked })" />
               Notifications activées
             </label>
-            <label class="text-slate-300 text-sm flex items-center gap-2">
+            <label class="text-muted text-sm flex items-center gap-2">
               <input type="checkbox" [checked]="g.allowBulkApprove" (change)="patchGlobal({ allowBulkApprove: $any($event.target).checked })" />
               Approbation groupée
             </label>
-            <label class="text-slate-300 text-sm flex items-center gap-2">
+            <label class="text-muted text-sm flex items-center gap-2">
               <input type="checkbox" [checked]="g.requireRejectReason" (change)="patchGlobal({ requireRejectReason: $any($event.target).checked })" />
               Motif de rejet obligatoire
             </label>
-            <label class="text-slate-300 text-sm">
+            <label class="text-muted text-sm">
               SLA global (h)
               <input
                 type="number"
                 min="0"
-                class="mt-1 w-full bg-navy-800 border border-navy-700 rounded-lg p-2 text-slate-200 text-sm"
+                class="mt-1 w-full bg-input border border-default rounded-lg p-2 text-primary text-sm"
                 [value]="g.globalSlaHours"
                 (input)="patchGlobal({ globalSlaHours: +$any($event.target).value || 0 })"
               />

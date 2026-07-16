@@ -16,7 +16,7 @@
       >
         <div>
           <p class="text-sm text-muted font-medium mb-1">{{ stat.label }}</p>
-          <h3 class="text-3xl font-bold text-white">{{ stat.value }}</h3>
+          <h3 class="text-3xl font-bold text-primary">{{ stat.value }}</h3>
         </div>
         <div class="w-12 h-12 rounded-xl flex items-center justify-center" [ngClass]="stat.bg">
           <app-doc-icon [name]="stat.icon" [klass]="'w-6 h-6 ' + stat.color"></app-doc-icon>
@@ -27,7 +27,7 @@
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
     <div class="lg:col-span-1 space-y-6">
-      <h3 class="text-lg font-semibold text-white">Actions rapides</h3>
+      <h3 class="text-lg font-semibold text-primary">Actions rapides</h3>
       <div class="space-y-3">
         <button
           type="button"
@@ -35,12 +35,12 @@
           class="w-full card-navy p-4 flex items-center gap-4 hover:bg-input transition-all group"
         >
           <div
-            class="w-10 h-10 bg-blue-600/10 rounded-lg flex items-center justify-center group-hover:bg-blue-600 transition-colors"
+            class="w-10 h-10 bg-[var(--info-bg)] rounded-lg flex items-center justify-center group-hover:bg-[var(--soft-blue)] transition-colors"
           >
-            <app-doc-icon name="plus-circle" klass="w-5 h-5 text-blue-500 group-hover:text-white"></app-doc-icon>
+            <app-doc-icon name="plus-circle" klass="w-5 h-5 text-[var(--soft-blue)] group-hover:text-primary"></app-doc-icon>
           </div>
           <div class="text-left">
-            <p class="text-sm font-semibold text-white">Demander un document</p>
+            <p class="text-sm font-semibold text-primary">Demander un document</p>
             <p class="text-xs text-muted">Nouvelle demande RH</p>
           </div>
           <app-doc-icon name="chevron-right" klass="ml-auto w-4 h-4 text-muted"></app-doc-icon>
@@ -51,12 +51,12 @@
           class="w-full card-navy p-4 flex items-center gap-4 hover:bg-input transition-all group"
         >
           <div
-            class="w-10 h-10 bg-emerald-600/10 rounded-lg flex items-center justify-center group-hover:bg-emerald-600 transition-colors"
+            class="w-10 h-10 bg-[var(--success-bg)] rounded-lg flex items-center justify-center group-hover:bg-[var(--success)] transition-colors"
           >
-            <app-doc-icon name="file-text" klass="w-5 h-5 text-emerald-500 group-hover:text-white"></app-doc-icon>
+            <app-doc-icon name="file-text" klass="w-5 h-5 text-[var(--success-text)] group-hover:text-primary"></app-doc-icon>
           </div>
           <div class="text-left">
-            <p class="text-sm font-semibold text-white">Mes documents</p>
+            <p class="text-sm font-semibold text-primary">Mes documents</p>
             <p class="text-xs text-muted">Accéder aux fichiers générés</p>
           </div>
           <app-doc-icon name="chevron-right" klass="ml-auto w-4 h-4 text-muted"></app-doc-icon>
@@ -66,7 +66,7 @@
 
     <div class="lg:col-span-2 space-y-6">
       <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-white">Demandes récentes</h3>
+        <h3 class="text-lg font-semibold text-primary">Demandes récentes</h3>
         <button
           type="button"
           (click)="goTracking()"

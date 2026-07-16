@@ -15,17 +15,20 @@ export type AllowanceStatus = (typeof ALLOWANCE_STATUSES)[keyof typeof ALLOWANCE
 export type AllowanceStatusViewer = 'manager' | 'stakeholder';
 
 const STATUS_META: Record<string, { label: string; managerLabel?: string; badgeClass: string }> = {
-  Draft: { label: 'Brouillon', badgeClass: 'bg-slate-600/40 text-slate-300' },
-  Submitted: { label: 'Soumis', badgeClass: 'bg-amber-500/20 text-amber-300' },
+  Draft: { label: 'Brouillon', badgeClass: 'bg-[var(--surface-3)] text-[var(--text-muted)]' },
+  Submitted: { label: 'Soumis', badgeClass: 'bg-[var(--warning-bg)] text-[var(--warning-text)]' },
   ManagerApproved: {
     label: 'En attente validation RH',
     managerLabel: 'Soumis au RH',
-    badgeClass: 'bg-blue-500/20 text-blue-300',
+    badgeClass: 'bg-[var(--info-bg)] text-[var(--info-text)]',
   },
-  RhApproved: { label: 'Validé RH', badgeClass: 'bg-indigo-500/20 text-indigo-300' },
-  ComptaApproved: { label: 'Validé compta', badgeClass: 'bg-violet-500/20 text-violet-300' },
-  Paid: { label: 'Payé', badgeClass: 'bg-emerald-500/20 text-emerald-300' },
-  Rejected: { label: 'Rejeté', badgeClass: 'bg-rose-500/20 text-rose-300' },
+  RhApproved: { label: 'Validé RH', badgeClass: 'bg-[var(--info-bg)] text-[var(--info-text)]' },
+  ComptaApproved: {
+    label: 'Validé compta',
+    badgeClass: 'bg-[color-mix(in_srgb,var(--electric-blue)_14%,var(--bg-card))] text-[var(--electric-blue)]',
+  },
+  Paid: { label: 'Payé', badgeClass: 'bg-[var(--success-bg)] text-[var(--success-text)]' },
+  Rejected: { label: 'Rejeté', badgeClass: 'bg-[var(--danger-bg)] text-[var(--danger-text)]' },
 };
 
 export function allowanceStatusLabel(status: string, viewer: AllowanceStatusViewer = 'stakeholder'): string {
@@ -36,7 +39,51 @@ export function allowanceStatusLabel(status: string, viewer: AllowanceStatusView
 }
 
 export function allowanceStatusBadgeClass(status: string): string {
-  return STATUS_META[status]?.badgeClass ?? 'bg-slate-600/40 text-slate-300';
+  return STATUS_META[status]?.badgeClass ?? 'bg-[var(--surface-3)] text-[var(--text-muted)]';
+}
+
+/** Resolve a theme CSS custom property from document.body (ECharts canvas styling). */
+export function primeCssToken(name: string, fallback = ''): string {
+  if (typeof document === 'undefined') return fallback;
+  const value = getComputedStyle(document.body).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+export function primeChartRgba(rgbVar: string, alpha: number): string {
+  const rgb = primeCssToken(rgbVar);
+  return rgb ? `rgba(${rgb}, ${alpha})` : '';
+}
+
+export function primeChartTheme() {
+  const t = primeCssToken;
+  const accent = t('--electric-blue');
+  const info = t('--soft-blue') || t('--info');
+  const success = t('--success');
+  return {
+    tooltipBg: t('--bg-card'),
+    tooltipBorder: t('--border-color'),
+    tooltipText: t('--text-primary'),
+    axisLabel: t('--text-muted'),
+    splitLine: t('--border-color'),
+    axisLine: t('--border-color'),
+    accent,
+    info,
+    success,
+    radiusMd: 8,
+    barRadiusEnd: [0, 4, 4, 0] as [number, number, number, number],
+    barRadiusTop: [4, 4, 0, 0] as [number, number, number, number],
+    areaGradient: (rgbVar: string, topAlpha = 0.3) => ({
+      type: 'linear' as const,
+      x: 0,
+      y: 0,
+      x2: 0,
+      y2: 1,
+      colorStops: [
+        { offset: 0.05, color: primeChartRgba(rgbVar, topAlpha) },
+        { offset: 0.95, color: primeChartRgba(rgbVar, 0) },
+      ],
+    }),
+  };
 }
 
 export function allowanceSourceLabel(source: string): string {

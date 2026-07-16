@@ -1,5 +1,7 @@
 /* Animations globales Kyntus — utilitaires partagés */
 
+/* ══════════════ Rotations / pulsations ══════════════ */
+
 @keyframes ky-spin {
   to {
     transform: rotate(360deg);
@@ -24,6 +26,35 @@
   animation: ky-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+@keyframes ky-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.ky-blink {
+  animation: ky-blink 1.5s ease-in-out infinite;
+}
+
+/* ══════════════ Entrées (pages, cartes, modals) ══════════════ */
+
+@keyframes ky-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.ky-fade-in {
+  animation: ky-fade-in var(--duration-base, 250ms) var(--ease-out, ease-out) both;
+}
+
 @keyframes ky-fade-up {
   from {
     opacity: 0;
@@ -36,7 +67,7 @@
 }
 
 .ky-fade-up {
-  animation: ky-fade-up 0.35s ease-out forwards;
+  animation: ky-fade-up 0.35s var(--ease-out, ease-out) both;
 }
 
 .ky-fade-up-delay-1 {
@@ -61,7 +92,7 @@
 }
 
 .ky-pop-in {
-  animation: ky-pop-in 0.2s ease-out;
+  animation: ky-pop-in 0.2s var(--ease-out, ease-out);
 }
 
 @keyframes ky-slide-down {
@@ -76,19 +107,137 @@
 }
 
 .ky-slide-down {
-  animation: ky-slide-down 0.2s ease-out;
+  animation: ky-slide-down 0.2s var(--ease-out, ease-out);
 }
 
-@keyframes ky-blink {
-  0%,
-  100% {
+/* Stagger : les enfants directs entrent en cascade (KPI, listes, grilles) */
+.ky-stagger > * {
+  animation: ky-fade-up 0.35s var(--ease-out, ease-out) both;
+}
+
+.ky-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.ky-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.ky-stagger > *:nth-child(3) { animation-delay: 80ms; }
+.ky-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.ky-stagger > *:nth-child(5) { animation-delay: 160ms; }
+.ky-stagger > *:nth-child(6) { animation-delay: 200ms; }
+.ky-stagger > *:nth-child(7) { animation-delay: 240ms; }
+.ky-stagger > *:nth-child(8) { animation-delay: 280ms; }
+.ky-stagger > *:nth-child(n + 9) { animation-delay: 320ms; }
+
+/* ══════════════ Skeletons (états de chargement) ══════════════ */
+
+@keyframes ky-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.ky-skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md, 0.5rem);
+  background: linear-gradient(
+    100deg,
+    var(--surface-3, #f1f5f9) 40%,
+    color-mix(in srgb, var(--ink-2, #64748b) 12%, var(--surface-3, #f1f5f9)) 50%,
+    var(--surface-3, #f1f5f9) 60%
+  );
+  background-size: 200% 100%;
+  animation: ky-shimmer 1.4s ease-in-out infinite;
+  color: transparent;
+  user-select: none;
+  pointer-events: none;
+}
+
+.ky-skeleton-text {
+  height: 0.875rem;
+}
+
+.ky-skeleton-title {
+  height: 1.25rem;
+  width: 40%;
+}
+
+/* ══════════════ Micro-interactions ══════════════ */
+
+/* Carte survolable : élévation + accent discret */
+.ky-hover-lift {
+  transition:
+    transform var(--duration-fast, 150ms) var(--ease-out, ease-out),
+    box-shadow var(--duration-fast, 150ms) var(--ease-out, ease-out),
+    border-color var(--duration-fast, 150ms) var(--ease-out, ease-out);
+}
+
+.ky-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-2, 0 4px 12px rgb(2 6 23 / 0.08));
+}
+
+/* Retour tactile sur clic (boutons, cartes actionnables) */
+.ky-press {
+  transition: transform var(--duration-fast, 150ms) var(--ease-out, ease-out);
+}
+
+.ky-press:active {
+  transform: scale(0.98);
+}
+
+/* ══════════════ Toasts ══════════════ */
+
+@keyframes ky-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
     opacity: 1;
-  }
-  50% {
-    opacity: 0.4;
+    transform: translateX(0);
   }
 }
 
-.ky-blink {
-  animation: ky-blink 1.5s ease-in-out infinite;
+.ky-toast-in {
+  animation: ky-toast-in 0.25s var(--ease-out, ease-out) both;
+}
+
+@keyframes ky-toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+
+.ky-toast-out {
+  animation: ky-toast-out 0.2s ease-in forwards;
+}
+
+/* Barre de progression auto-dismiss (durée pilotée par --toast-duration) */
+@keyframes ky-toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.ky-toast-progress {
+  transform-origin: left;
+  animation: ky-toast-progress var(--toast-duration, 4s) linear forwards;
+}
+
+/* ══════════════ Accessibilité : reduced motion ══════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

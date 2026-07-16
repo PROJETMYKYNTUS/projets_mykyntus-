@@ -1,6 +1,6 @@
-﻿// features/users/pages/user-import/user-import.component.ts
+// features/users/pages/user-import/user-import.component.ts
 
-import { Component, ViewEncapsulation, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../../environments/environment';
@@ -18,7 +18,6 @@ interface ImportResult {
   imports: [CommonModule],
   templateUrl: './user-import.component.html',
   styleUrls: ['./user-import.component.css'],
-  encapsulation: ViewEncapsulation.None
 })
 export class UserImportComponent {
 

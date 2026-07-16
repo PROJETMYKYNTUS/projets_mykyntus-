@@ -9,6 +9,11 @@
   --soft-blue: #3b82f6;
   --blue-600: #1e3a8a;
   --text-on-accent: #ffffff;
+
+  /* Typographie & marque (alignées SPA Kyntus) */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --ky-gradient: linear-gradient(135deg, #1e4fd8 0%, #3b82f6 55%, #60a5fa 100%);
 }
 
 html.dark {
@@ -16,7 +21,8 @@ html.dark {
   --navy-900: #0a1526;
   --navy-800: #112240;
   --navy-700: #1e3a66;
-  --electric-blue: #00f0ff;
+  /* Bleu lisible : l'ancien cyan néon #00f0ff fatiguait l'œil et cassait la cohérence */
+  --electric-blue: #60a5fa;
   --soft-blue: #3b82f6;
   --blue-600: #2563eb;
 }

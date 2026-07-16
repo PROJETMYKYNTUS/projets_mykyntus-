@@ -90,7 +90,7 @@ export interface CellSaisieSaveResult {
       @if (!embedded()) {
         <header class="space-y-2">
           <h2 class="text-xl font-bold text-primary flex items-center gap-2">
-            <app-lucide-icon [icon]="icons.sheet" className="w-7 h-7 text-blue-600 shrink-0" />
+            <app-lucide-icon [icon]="icons.sheet" className="w-7 h-7 text-[var(--info-text)] shrink-0" />
             Saisie — partie cellule
           </h2>
           <p class="text-sm text-muted max-w-prose leading-relaxed">
@@ -109,8 +109,8 @@ export interface CellSaisieSaveResult {
       @if (schemaBanner()) {
         <div
           [class]="bannerIsInfo()
-            ? 'rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-100'
-            : 'rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100'"
+            ? 'rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-3 text-sm text-[var(--success-text)]'
+            : 'rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3 text-sm text-[var(--warning-text)]'"
           role="status"
         >
           {{ schemaBanner() }}
@@ -119,7 +119,7 @@ export interface CellSaisieSaveResult {
 
       @if (runWarnings().length) {
         <div
-          class="rounded-lg border border-slate-600/60 bg-slate-800/40 px-4 py-3 text-xs text-slate-200 space-y-1"
+          class="rounded-lg border border-default bg-input/40 px-4 py-3 text-xs text-primary space-y-1"
           role="status"
         >
           @for (w of runWarnings(); track w) {
@@ -129,7 +129,7 @@ export interface CellSaisieSaveResult {
       }
 
       @if (loadError()) {
-        <div class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-primary" role="alert">
+        <div class="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger-text)]" role="alert">
           {{ loadError() }}
         </div>
       } @else if (loading()) {
@@ -142,7 +142,7 @@ export interface CellSaisieSaveResult {
           <button
             type="button"
             (click)="goIndicators()"
-            class="rounded-lg border border-blue-500/50 bg-blue-600/15 px-4 py-2 text-sm font-semibold text-blue-700 dark:text-blue-300"
+            class="rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] px-4 py-2 text-sm font-semibold text-[var(--info-text)]"
           >
             Ouvrir la configuration indicateurs
           </button>
@@ -186,7 +186,7 @@ export interface CellSaisieSaveResult {
 
           @for (run of runs(); track run.indicator.id) {
             <div
-              class="rounded-xl border border-default bg-card p-4 sm:p-5 shadow-sm space-y-4 hover:border-blue-500/30 transition-colors"
+              class="rounded-xl border border-default bg-card p-4 sm:p-5 shadow-sm space-y-4 hover:border-[var(--info-border)] transition-colors"
             >
               <div class="flex flex-wrap items-baseline justify-between gap-2">
                 <div class="min-w-0">
@@ -203,7 +203,7 @@ export interface CellSaisieSaveResult {
                   </h4>
                   <div class="flex flex-col gap-4">
                     <div
-                      class="space-y-3 rounded-lg border border-blue-500/35 bg-blue-600/10 p-4 dark:bg-blue-500/15"
+                      class="space-y-3 rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] p-4"
                     >
                       <h5 class="text-xs font-semibold uppercase tracking-wide text-primary">Prime (Secteur)</h5>
                       <div [class]="kpiGridClass">
@@ -232,7 +232,7 @@ export interface CellSaisieSaveResult {
                       </div>
                     </div>
                     <div
-                      class="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 dark:bg-amber-500/15"
+                      class="space-y-3 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4"
                     >
                       <h5 class="text-xs font-semibold uppercase tracking-wide text-primary">Challenge (Secteur)</h5>
                       <div [class]="kpiGridClass">
@@ -262,7 +262,7 @@ export interface CellSaisieSaveResult {
                     </div>
                     @if (s.customKpis?.length) {
                       <div
-                        class="space-y-3 rounded-lg border border-violet-500/40 bg-violet-500/10 p-4 dark:bg-violet-900/20"
+                        class="space-y-3 rounded-lg border border-[var(--electric-blue)]/40 bg-[var(--info-bg)] p-4"
                       >
                         <h5 class="text-xs font-semibold uppercase tracking-wide text-primary">
                           {{ customBandHeading(s) }}
@@ -296,7 +296,7 @@ export interface CellSaisieSaveResult {
 
         @if (saveBanner()) {
           <div
-            class="rounded-lg border border-emerald-500/45 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-100 flex items-start gap-2"
+            class="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-3 text-sm text-[var(--success-text)] flex items-start gap-2"
             role="status"
           >
             <app-lucide-icon [icon]="icons.check" className="w-5 h-5 shrink-0 mt-0.5" />
@@ -305,7 +305,7 @@ export interface CellSaisieSaveResult {
         }
         @if (saveError()) {
           <div
-            class="rounded-lg border border-rose-500/45 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-200"
+            class="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger-text)]"
             role="alert"
           >
             {{ saveError() }}

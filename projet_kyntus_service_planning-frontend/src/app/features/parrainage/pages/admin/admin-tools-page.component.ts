@@ -48,14 +48,14 @@ const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = (
 
         @if (anomalies().duplicateCandidates.length > 0 || anomalies().suspiciousEmails.length > 0) {
           <div class="card-navy border-amber-500/40 bg-amber-500/5 p-4">
-            <div class="flex items-center gap-2 text-amber-200 font-semibold text-sm mb-2">
+            <div class="flex items-center gap-2 text-[var(--warning-text)] font-semibold text-sm mb-2">
               <app-lucide-icon [icon]="alertIcon" className="w-4 h-4" />
               Anomalies détectées
             </div>
             <ul class="text-sm text-primary space-y-1 list-disc list-inside">
               @for (d of anomalies().duplicateCandidates; track d.email) {
                 <li>
-                  Candidat en doublon (même e-mail) : <span class="font-mono text-amber-100">{{ d.email }}</span> —
+                  Candidat en doublon (même e-mail) : <span class="font-mono text-[var(--warning-text)]">{{ d.email }}</span> —
                   {{ d.referrals.length }} dossiers
                 </li>
               }
@@ -97,10 +97,10 @@ const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = (
                         <button type="button" title="Afficher le JSON" class="p-2 rounded-lg text-muted hover:bg-input hover:text-blue-400" (click)="selectedJson.set(r)">
                           <app-lucide-icon [icon]="bugIcon" className="w-4 h-4" />
                         </button>
-                        <button type="button" title="Forcer la validation" class="p-2 rounded-lg text-muted hover:bg-emerald-500/10 hover:text-emerald-400" (click)="forceApprove(r.id)">
+                        <button type="button" title="Forcer la validation" class="p-2 rounded-lg text-muted hover:bg-[var(--success-bg)] hover:text-[var(--success-text)]" (click)="forceApprove(r.id)">
                           <app-lucide-icon [icon]="checkIcon" className="w-4 h-4" />
                         </button>
-                        <button type="button" title="Forcer le refus" class="p-2 rounded-lg text-muted hover:bg-red-500/10 hover:text-red-400" (click)="forceReject(r.id)">
+                        <button type="button" title="Forcer le refus" class="p-2 rounded-lg text-muted hover:bg-[var(--danger-bg)] hover:text-[var(--danger-text)]" (click)="forceReject(r.id)">
                           <app-lucide-icon [icon]="xIcon" className="w-4 h-4" />
                         </button>
                         <button type="button" title="Éditer" class="p-2 rounded-lg text-muted hover:bg-blue-500/10 hover:text-blue-400" (click)="openEdit(r)">
@@ -126,7 +126,7 @@ const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = (
                 {{ tabLabel(t) }}
               </button>
             }
-            <button type="button" (click)="copyExport()" class="ml-auto px-4 py-3 text-sm text-muted hover:text-white flex items-center gap-1">
+            <button type="button" (click)="copyExport()" class="ml-auto px-4 py-3 text-sm text-muted hover:text-primary flex items-center gap-1">
               <app-lucide-icon [icon]="copyIcon" className="w-4 h-4" />
               Copier export complet
             </button>
@@ -140,13 +140,13 @@ const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = (
           <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="editOpen.set(null)"></button>
             <div class="relative card-navy max-w-lg w-full p-6 border border-default shadow-2xl z-[61]">
-              <h3 class="text-lg font-semibold text-white mb-4">Édition manuelle — {{ editOpen()!.id }}</h3>
+              <h3 class="text-lg font-semibold text-primary mb-4">Édition manuelle — {{ editOpen()!.id }}</h3>
               <div class="grid gap-3">
                 @for (f of editFields; track f[0]) {
                   <div>
                     <label class="text-xs font-bold text-muted uppercase">{{ f[1] }}</label>
                     <input
-                      class="w-full mt-1 bg-input border border-default rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                      class="w-full mt-1 bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary focus:border-[var(--soft-blue)] focus:ring-1 focus:ring-[var(--info-border)]"
                       [value]="draftValue(f[0])"
                       (input)="setDraft(f[0], $any($event.target).value)"
                     />
@@ -155,7 +155,7 @@ const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = (
                 <div>
                   <label class="text-xs font-bold text-muted uppercase">Statut</label>
                   <select
-                    class="w-full mt-1 bg-input border border-default rounded-lg px-3 py-2 text-sm text-white"
+                    class="w-full mt-1 bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary"
                     [value]="editDraft().status ?? editOpen()!.status"
                     (change)="setDraft('status', $any($event.target).value)"
                   >
@@ -168,7 +168,7 @@ const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = (
                   <label class="text-xs font-bold text-muted uppercase">Montant récompense (€)</label>
                   <input
                     type="number"
-                    class="w-full mt-1 bg-input border border-default rounded-lg px-3 py-2 text-sm text-white"
+                    class="w-full mt-1 bg-input border border-default rounded-lg px-3 py-2 text-sm text-primary"
                     [value]="editDraft().rewardAmount ?? 0"
                     (input)="setDraft('rewardAmount', $any($event.target).value)"
                   />
@@ -176,7 +176,7 @@ const STATUS_OPTIONS: ReadonlyArray<[ReferralStatus, string]> = (
               </div>
               <div class="flex justify-end gap-2 mt-6">
                 <button type="button" class="px-4 py-2 rounded-lg border border-default text-primary hover:bg-input" (click)="editOpen.set(null)">Annuler</button>
-                <button type="button" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500" (click)="saveEdit()">Enregistrer</button>
+                <button type="button" class="ky-btn-primary px-4 py-2" (click)="saveEdit()">Enregistrer</button>
               </div>
             </div>
           </div>

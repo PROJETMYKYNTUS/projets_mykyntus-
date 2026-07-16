@@ -1,11 +1,11 @@
 <div class="mx-auto max-w-3xl space-y-6">
   <div class="card-navy p-8 md:p-10">
     <div class="mb-10 flex items-start gap-4">
-      <div class="w-12 h-12 bg-blue-600/10 rounded-xl flex items-center justify-center">
+      <div class="w-12 h-12 bg-[var(--info-bg)] rounded-xl flex items-center justify-center">
         <app-doc-icon name="plus-circle" klass="w-6 h-6 text-blue-500"></app-doc-icon>
       </div>
       <div>
-        <h2 class="text-xl font-bold text-white">Demander un document</h2>
+        <h2 class="text-xl font-bold text-primary">Demander un document</h2>
         <p class="mt-1 text-sm leading-6 text-muted">
           Sélectionnez un ou plusieurs
           <span class="text-primary">modèles RH</span> / types du catalogue. Les données du collaborateur sont reprises
@@ -18,7 +18,7 @@
       <p class="text-sm text-muted mb-4">Chargement des modèles et types…</p>
     }
     @if (docTypesError) {
-      <p class="text-sm text-amber-400 mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+      <p class="text-sm text-[var(--warning-text)] mb-4 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2">
         {{ docTypesError }}
       </p>
     }
@@ -33,7 +33,7 @@
       </p>
     }
     @if (submitSuccess) {
-      <p class="text-sm text-emerald-400 mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+      <p class="text-sm text-[var(--success-text)] mb-4 rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-2">
         @if (submitSuccessCount === 1) {
           Votre demande a bien été enregistrée.
         } @else {
@@ -46,7 +46,7 @@
         }
         @if (submitPartialFailures.length) {
           <br />
-          <span class="text-amber-300">Certaines demandes ont échoué.</span>
+          <span class="text-[var(--warning-text)]">Certaines demandes ont échoué.</span>
         }
       </p>
     }
@@ -164,11 +164,11 @@
         <button
           type="submit"
           [disabled]="submitting || docTypesLoading"
-          class="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-3 font-bold text-white transition-all disabled:cursor-not-allowed disabled:opacity-60"
-          [ngClass]="submitSuccess ? 'bg-emerald-600' : 'bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20'"
+          class="ky-btn-primary inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-3 font-bold disabled:cursor-not-allowed disabled:opacity-60"
+          [ngClass]="submitSuccess ? 'border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success-text)] shadow-none' : ''"
         >
           @if (submitting) {
-            <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" aria-hidden="true"></span>
+            <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
             <span>Envoi en cours...</span>
           } @else if (submitSuccess) {
             <app-doc-icon name="check-circle-2" klass="w-5 h-5"></app-doc-icon>
@@ -190,16 +190,16 @@
 
   <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
     <div class="card-navy p-4 flex items-start gap-3">
-      <app-doc-icon name="clock" klass="w-5 h-5 text-amber-500 mt-0.5"></app-doc-icon>
+      <app-doc-icon name="clock" klass="w-5 h-5 text-[var(--warning-text)] mt-0.5"></app-doc-icon>
       <div>
-        <p class="text-sm font-semibold text-white">Délai de traitement</p>
+        <p class="text-sm font-semibold text-primary">Délai de traitement</p>
         <p class="text-xs text-muted">Les demandes standard sont traitées sous 2 à 3 jours ouvrés.</p>
       </div>
     </div>
     <div class="card-navy p-4 flex items-start gap-3">
       <app-doc-icon name="shield-check" klass="w-5 h-5 text-blue-500 mt-0.5"></app-doc-icon>
       <div>
-        <p class="text-sm font-semibold text-white">Données pour la génération</p>
+        <p class="text-sm font-semibold text-primary">Données pour la génération</p>
         <p class="text-xs text-muted">
           Plus de formulaire à remplir côté pilote : l’identité et le périmètre viennent de la base ; la RH complète au besoin.
         </p>

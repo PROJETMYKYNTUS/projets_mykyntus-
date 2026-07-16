@@ -112,6 +112,24 @@ public static class PlanningStartup
             Console.WriteLine($"⚠️ Planning enrichment ignoré: {ex.Message}");
         }
 
+        try
+        {
+            await DockerComposePilotageEnrichmentSeed.ApplyIfEnabledAsync(services, configuration);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Planning pilotage enrichment ignoré: {ex.Message}");
+        }
+
+        try
+        {
+            await DockerComposeFormationNotificationsSeed.ApplyIfEnabledAsync(services, configuration);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Notifications formation seed ignoré: {ex.Message}");
+        }
+
         using (var scope = services.CreateScope())
         {
             if (configuration.GetValue("Directory:EnablePlanningBootstrap", false))

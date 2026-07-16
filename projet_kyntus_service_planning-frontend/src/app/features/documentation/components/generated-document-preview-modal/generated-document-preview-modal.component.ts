@@ -67,7 +67,7 @@ import { DocIconComponent } from '../doc-icon/doc-icon.component';
             </div>
           </div>
 
-          <div class="relative min-h-[60vh] flex-1 bg-navy-950">
+          <div class="relative min-h-[60vh] flex-1 bg-app">
             @if (loading) {
               <div class="absolute inset-0 flex items-center justify-center text-sm text-muted">
                 Chargement de l’aperçu…
@@ -80,7 +80,7 @@ import { DocIconComponent } from '../doc-icon/doc-icon.component';
             } @else if (previewKind === 'pdf' && pdfSafeUrl) {
               <iframe class="h-full min-h-[60vh] w-full border-0" title="Aperçu PDF" [src]="pdfSafeUrl"></iframe>
             } @else if (previewKind === 'docx' && docxHtml) {
-              <div class="h-full max-h-[70vh] overflow-auto bg-white p-6 text-slate-900" [innerHTML]="docxHtml"></div>
+              <div class="h-full max-h-[70vh] overflow-auto bg-card p-6 text-primary border border-default" [innerHTML]="docxHtml"></div>
             } @else {
               <div class="absolute inset-0 flex items-center justify-center text-sm text-muted">
                 Aperçu indisponible pour ce format.

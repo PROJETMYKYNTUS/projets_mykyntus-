@@ -106,10 +106,10 @@ import type { GlobalActionItem } from '../../../core/dashboard/global-dashboard.
       outline-offset: 1px;
     }
     .kyntus-action-row.warn {
-      border-color: color-mix(in srgb, #f59e0b 35%, transparent);
+      border-color: var(--warning-border);
     }
     .kyntus-action-row.error {
-      border-color: color-mix(in srgb, #ef4444 35%, transparent);
+      border-color: var(--danger-border);
     }
     .kyntus-action-row-main { min-width: 0; flex: 1; }
     .kyntus-action-row-top {
@@ -129,9 +129,9 @@ import type { GlobalActionItem } from '../../../core/dashboard/global-dashboard.
       font-size: 0.625rem;
       font-weight: 700;
       padding: 0.1rem 0.4rem;
-      border-radius: 9999px;
-      background: color-mix(in srgb, #f59e0b 18%, var(--bg-card));
-      color: color-mix(in srgb, #d97706 80%, var(--text-primary));
+      border-radius: var(--radius-pill, 999px);
+      background: var(--warning-bg);
+      color: var(--warning-text);
     }
     .kyntus-action-label {
       margin: 0;

@@ -1,6 +1,5 @@
 using EmployeeDirectory.Application.Abstractions;
 using EmployeeDirectory.Domain.Entities;
-using EmployeeDirectory.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,28 +16,72 @@ public static class DirectoryDatabaseInitializer
         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         var log = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DirectoryInit");
 
-        const int maxRetries = 30;
+        try
+        {
+            await EnsureDatabaseReadyAsync(db, log, ct);
+        }
+        catch (Exception ex)
+        {
+            // Ne jamais bloquer le listen HTTP : sinon Compose marque le service unhealthy
+            // et bloque planning / gateway. Les endpoints métier échoueront jusqu'à réparation DB.
+            log.LogCritical(ex,
+                "Employee Directory : base indisponible au démarrage — l'API démarre quand même (health OK).");
+            return;
+        }
+
+        await RunBestEffortAsync(log, "bootstrap pilotes projetés", () =>
+            scope.ServiceProvider.GetRequiredService<IPilotRotationTenureService>()
+                .BootstrapProjectedPilotsAsync(ct));
+        await RunBestEffortAsync(log, "IAM permissions", () => SeedIamPermissionsAsync(db, ct));
+        await RunBestEffortAsync(log, "demo département OP-001", () =>
+            DockerComposeDirectoryDemoSeed.ApplyIfEnabledAsync(configuration, db, ct));
+        await RunBestEffortAsync(log, "seed pilotage performance", () =>
+            DockerComposePilotagePerformanceSeed.ApplyIfEnabledAsync(configuration, db, log, ct));
+
+        log.LogInformation("Employee Directory database ready.");
+    }
+
+    private static async Task EnsureDatabaseReadyAsync(
+        DirectoryDbContext db,
+        ILogger log,
+        CancellationToken ct)
+    {
+        const int maxRetries = 20;
+        Exception? last = null;
         for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
             try
             {
                 await db.Database.EnsureCreatedAsync(ct);
                 await DirectorySchemaPatches.ApplyAsync(db, ct);
-                await scope.ServiceProvider.GetRequiredService<IPilotRotationTenureService>()
-                    .BootstrapProjectedPilotsAsync(ct);
-                await SeedIamPermissionsAsync(db, ct);
-                await DockerComposeDirectoryDemoSeed.ApplyIfEnabledAsync(configuration, db, ct);
-                log.LogInformation("Employee Directory database ready.");
                 return;
             }
             catch (Exception ex) when (attempt < maxRetries)
             {
+                last = ex;
                 log.LogWarning(ex, "Waiting for directory DB... attempt {Attempt}/{MaxRetries}", attempt, maxRetries);
-                await Task.Delay(TimeSpan.FromSeconds(3), ct);
+                await Task.Delay(TimeSpan.FromSeconds(2), ct);
+            }
+            catch (Exception ex)
+            {
+                last = ex;
             }
         }
 
-        throw new InvalidOperationException("Employee Directory database initialization failed after retries.");
+        throw new InvalidOperationException(
+            "Employee Directory database initialization failed after retries.", last);
+    }
+
+    private static async Task RunBestEffortAsync(ILogger log, string step, Func<Task> action)
+    {
+        try
+        {
+            await action();
+        }
+        catch (Exception ex)
+        {
+            log.LogError(ex, "Employee Directory : étape « {Step} » en échec (service démarre quand même).", step);
+        }
     }
 
     private static async Task SeedIamPermissionsAsync(DirectoryDbContext db, CancellationToken ct)

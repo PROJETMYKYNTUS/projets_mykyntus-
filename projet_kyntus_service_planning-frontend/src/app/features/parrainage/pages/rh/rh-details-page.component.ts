@@ -11,7 +11,7 @@ import { ParrainageRoleService } from '../../state/parrainage-role.service';
 import type { ReferralStatus } from '../../models/referral.model';
 import {
   REFERRAL_STATUS_LABELS,
-  REFERRAL_STATUS_STYLES_RH,
+  REFERRAL_STATUS_STYLES,
   referralHistoryActionLabel,
 } from '../../utils/referral-status.util';
 
@@ -61,13 +61,13 @@ type ToastType = 'success' | 'error' | 'info';
         @if (referral(); as ref) {
           <div class="space-y-6">
             @if (unauthorized) {
-              <div class="card-navy p-5 border-red-500/30 text-red-200">
+              <div class="card-navy p-5 border-[var(--danger-border)] text-[var(--danger-text)]">
                 Accès refusé. Seule la RH peut valider des dossiers.
               </div>
             }
 
             @if (ruleLabel()) {
-              <div class="card-navy p-4 border border-cyan-500/20 bg-cyan-500/5 text-sm text-cyan-100">
+              <div class="card-navy p-4 border border-[var(--info-border)] bg-[var(--info-bg)] text-sm text-[var(--info-text)]">
                 Règle appliquée : {{ ruleLabel() }}
               </div>
             }
@@ -169,7 +169,7 @@ type ToastType = 'success' | 'error' | 'info';
             </div>
 
             @if (ref.status === 'PROCESSED') {
-              <div class="card-navy p-4 border border-emerald-500/20 bg-emerald-500/5 text-sm text-emerald-100 space-y-3">
+              <div class="card-navy p-4 border border-[var(--success-border)] bg-[var(--success-bg)] text-sm text-[var(--success-text)] space-y-3">
                 <p>
                   Candidature consultée par la RH — validez l'entrée en créant le compte employé.
                   L'enregistrement du formulaire validera automatiquement le dossier parrainage.
@@ -178,16 +178,16 @@ type ToastType = 'success' | 'error' | 'info';
                   <button
                     type="button"
                     (click)="validateAndCreateEmployee(ref.id)"
-                    class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+                    class="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-2 text-sm font-medium text-[var(--success-text)] hover:border-[var(--success)]"
                   >
                     Valider et créer l'employé
                   </button>
                 } @else {
-                  <p class="text-xs text-emerald-200">Employé lié : {{ ref.candidateEmployeeId }}</p>
+                  <p class="text-xs text-[var(--success-text)]">Employé lié : {{ ref.candidateEmployeeId }}</p>
                   <button
                     type="button"
                     (click)="validateAndCreateEmployee(ref.id)"
-                    class="rounded-lg border border-emerald-500/50 px-4 py-2 text-sm font-medium text-emerald-100 hover:bg-emerald-500/10"
+                    class="rounded-lg border border-[var(--success-border)] px-4 py-2 text-sm font-medium text-[var(--success-text)] hover:bg-[var(--success-bg)]"
                   >
                     Reprendre / finaliser
                   </button>
@@ -196,7 +196,7 @@ type ToastType = 'success' | 'error' | 'info';
             }
 
             @if (ref.status === 'IN_TRAINING') {
-              <div class="card-navy p-4 border border-amber-500/20 bg-amber-500/5 text-sm text-amber-100">
+              <div class="card-navy p-4 border border-[var(--warning-border)] bg-[var(--warning-bg)] text-sm text-[var(--warning-text)]">
                 En cours de formation — la période minimum de prime n'est pas encore comptée.
                 @if (ref.candidateStartDate) {
                   <span class="block mt-1">Début formation : {{ ref.candidateStartDate }}</span>
@@ -205,14 +205,14 @@ type ToastType = 'success' | 'error' | 'info';
                   <span class="block mt-1">Fin prévue : {{ ref.trainingEndDate }}</span>
                 }
                 @if (ref.trainingEndNotifiedAt) {
-                  <span class="block mt-1 text-amber-200">Fin de formation atteinte — confirmez le passage en production ou prolongez la formation.</span>
+                  <span class="block mt-1 text-[var(--warning-text)]">Fin de formation atteinte — confirmez le passage en production ou prolongez la formation.</span>
                 }
                 Montant engagé : {{ ref.rewardAmount }} DH.
               </div>
             }
 
             @if (ref.status === 'APPROVED' || ref.status === 'REWARDED') {
-              <div class="card-navy p-4 border border-emerald-500/20 bg-emerald-500/5 text-sm text-emerald-100">
+              <div class="card-navy p-4 border border-[var(--success-border)] bg-[var(--success-bg)] text-sm text-[var(--success-text)]">
                 @if (ref.status === 'APPROVED') {
                   Période d'ancienneté jusqu'au {{ formatDate(ref.eligibleForPaymentAt) }} —
                   montant engagé {{ ref.rewardAmount }} DH.
@@ -223,7 +223,7 @@ type ToastType = 'success' | 'error' | 'info';
                     <span class="block mt-1 text-primary">En attente de la fin de la période minimum.</span>
                   }
                   @if (ref.paymentStatus === 'AWAITING_RH') {
-                    <span class="block mt-1 text-amber-200">
+                    <span class="block mt-1 text-[var(--warning-text)]">
                       Période écoulée — confirmez que le candidat est toujours en poste avant transmission à la comptabilité.
                     </span>
                     @if (ref.employmentCheckSummary) {
@@ -236,7 +236,7 @@ type ToastType = 'success' | 'error' | 'info';
                     }
                   }
                   @if (ref.paymentStatus === 'READY') {
-                    <span class="block mt-1 text-amber-200">Éligibilité confirmée — en attente du service comptabilité.</span>
+                    <span class="block mt-1 text-[var(--warning-text)]">Éligibilité confirmée — en attente du service comptabilité.</span>
                   }
                 } @else {
                   Prime versée le {{ formatDate(ref.paidAt) }} ({{ ref.rewardAmount }} DH).
@@ -248,7 +248,7 @@ type ToastType = 'success' | 'error' | 'info';
               <div class="flex items-center justify-between gap-3">
                 <h2 class="text-sm font-semibold text-primary">Décision</h2>
                 @if (ref.status === 'REJECTED') {
-                  <span class="text-xs text-red-300 inline-flex items-center gap-2">
+                  <span class="text-xs text-[var(--danger-text)] inline-flex items-center gap-2">
                     <app-lucide-icon [icon]="alertIcon" className="h-3.5 w-3.5" />
                     Rejeté
                   </span>
@@ -257,7 +257,7 @@ type ToastType = 'success' | 'error' | 'info';
 
               <div class="flex flex-wrap gap-3">
                 @if (referral()?.status === 'SUBMITTED' && !hasCv()) {
-                  <p class="w-full text-xs text-amber-300">
+                  <p class="w-full text-xs text-[var(--warning-text)]">
                     CV candidat manquant — le pilote doit joindre un CV avant le traitement RH.
                   </p>
                 }
@@ -266,7 +266,7 @@ type ToastType = 'success' | 'error' | 'info';
                     type="button"
                     (click)="handleProcessClick()"
                     [disabled]="busy() || unauthorized"
-                    class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+                    class="rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] px-4 py-2 text-sm font-medium text-[var(--info-text)] hover:border-[var(--soft-blue)] disabled:opacity-50"
                   >
                     Marquer comme consulté
                   </button>
@@ -276,13 +276,13 @@ type ToastType = 'success' | 'error' | 'info';
                     type="button"
                     (click)="handleConfirmProductionClick()"
                     [disabled]="busy() || unauthorized"
-                    class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                    class="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-2 text-sm font-medium text-[var(--success-text)] hover:border-[var(--success)] disabled:opacity-50"
                   >
                     Confirmer passage en production
                   </button>
                 }
                 @if (productionAutoConfirmed()) {
-                  <span class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+                  <span class="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success-text)]">
                     Passage en production confirmé automatiquement (Formation)
                   </span>
                 }
@@ -291,7 +291,7 @@ type ToastType = 'success' | 'error' | 'info';
                     type="button"
                     (click)="handleExtendTrainingClick()"
                     [disabled]="busy() || unauthorized"
-                    class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+                    class="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-2 text-sm font-medium text-[var(--warning-text)] hover:border-[var(--warning)] disabled:opacity-50"
                   >
                     Prolonger la formation
                   </button>
@@ -301,7 +301,7 @@ type ToastType = 'success' | 'error' | 'info';
                     type="button"
                     (click)="handleConfirmEligibilityClick()"
                     [disabled]="busy() || unauthorized"
-                    class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+                    class="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-2 text-sm font-medium text-[var(--warning-text)] hover:border-[var(--warning)] disabled:opacity-50"
                   >
                     Confirmer l'éligibilité
                   </button>
@@ -311,7 +311,7 @@ type ToastType = 'success' | 'error' | 'info';
                     type="button"
                     (click)="handleEarlyDepartureClick()"
                     [disabled]="busy() || unauthorized"
-                    class="rounded-lg border border-orange-500/50 px-4 py-2 text-sm font-medium text-orange-200 hover:bg-orange-500/10 disabled:opacity-50"
+                    class="rounded-lg border border-[var(--warning-border)] px-4 py-2 text-sm font-medium text-[var(--warning-text)] hover:bg-[var(--warning-bg)] disabled:opacity-50"
                   >
                     Recrue partie (avant période min.)
                   </button>
@@ -320,7 +320,7 @@ type ToastType = 'success' | 'error' | 'info';
                   type="button"
                   (click)="handleRejectClick()"
                   [disabled]="!canReject() || busy() || unauthorized"
-                  class="rounded-lg border border-red-500/50 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-50 disabled:hover:bg-transparent"
+                  class="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger-text)] hover:bg-[var(--danger-bg)] disabled:opacity-50 disabled:hover:bg-transparent"
                 >
                   Rejeter
                 </button>
@@ -345,7 +345,7 @@ type ToastType = 'success' | 'error' | 'info';
                     type="button"
                     (click)="confirmOpen.set('process')"
                     [disabled]="busy() || unauthorized"
-                    class="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+                    class="rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] px-4 py-2 text-sm font-medium text-[var(--info-text)] hover:border-[var(--soft-blue)] disabled:opacity-50"
                   >
                     Confirmer le traitement
                   </button>
@@ -381,7 +381,7 @@ type ToastType = 'success' | 'error' | 'info';
                     type="button"
                     (click)="confirmOpen.set('confirm-production')"
                     [disabled]="busy() || unauthorized"
-                    class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                    class="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-2 text-sm font-medium text-[var(--success-text)] hover:border-[var(--success)] disabled:opacity-50"
                   >
                     Confirmer le passage en production
                   </button>
@@ -417,7 +417,7 @@ type ToastType = 'success' | 'error' | 'info';
                     type="button"
                     (click)="confirmOpen.set('extend-training')"
                     [disabled]="busy() || unauthorized"
-                    class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+                    class="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-2 text-sm font-medium text-[var(--warning-text)] hover:border-[var(--warning)] disabled:opacity-50"
                   >
                     Prolonger la formation
                   </button>
@@ -443,7 +443,7 @@ type ToastType = 'success' | 'error' | 'info';
                     type="button"
                     (click)="confirmOpen.set('confirm-eligibility')"
                     [disabled]="busy() || unauthorized"
-                    class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+                    class="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-2 text-sm font-medium text-[var(--warning-text)] hover:border-[var(--warning)] disabled:opacity-50"
                   >
                     Confirmer et transmettre à la compta
                   </button>
@@ -480,7 +480,7 @@ type ToastType = 'success' | 'error' | 'info';
                     type="button"
                     (click)="confirmOpen.set('early-departure')"
                     [disabled]="busy() || unauthorized || !earlyDepartureDate"
-                    class="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
+                    class="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-2 text-sm font-medium text-[var(--warning-text)] hover:border-[var(--warning)] disabled:opacity-50"
                   >
                     Confirmer le départ anticipé
                   </button>
@@ -503,7 +503,7 @@ type ToastType = 'success' | 'error' | 'info';
                     type="button"
                     (click)="confirmOpen.set('reject')"
                     [disabled]="busy() || unauthorized"
-                    class="rounded-lg border border-red-500/50 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                    class="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger-text)] hover:bg-[var(--danger-bg)] disabled:opacity-50"
                   >
                     Rejeter
                   </button>
@@ -539,7 +539,7 @@ type ToastType = 'success' | 'error' | 'info';
             <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
               Annuler
             </button>
-            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-cyan-600 hover:bg-cyan-500 text-white" [disabled]="busy()">
+            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium border border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info-text)] hover:border-[var(--soft-blue)]" [disabled]="busy()">
               @if (busy()) {
                 <span class="inline-flex items-center gap-2">
                   <app-lucide-icon [icon]="loaderIcon" className="h-4 w-4 animate-spin" />
@@ -572,7 +572,7 @@ type ToastType = 'success' | 'error' | 'info';
             <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
               Annuler
             </button>
-            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white" [disabled]="busy()">
+            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium border border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning-text)] hover:border-[var(--warning)]" [disabled]="busy()">
               @if (busy()) {
                 <span class="inline-flex items-center gap-2">
                   <app-lucide-icon [icon]="loaderIcon" className="h-4 w-4 animate-spin" />
@@ -605,7 +605,7 @@ type ToastType = 'success' | 'error' | 'info';
             <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
               Annuler
             </button>
-            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white" [disabled]="busy()">
+            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success-text)] hover:border-[var(--success)]" [disabled]="busy()">
               @if (busy()) {
                 <span class="inline-flex items-center gap-2">
                   <app-lucide-icon [icon]="loaderIcon" className="h-4 w-4 animate-spin" />
@@ -638,7 +638,7 @@ type ToastType = 'success' | 'error' | 'info';
             <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
               Annuler
             </button>
-            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white" [disabled]="busy()">
+            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium border border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning-text)] hover:border-[var(--warning)]" [disabled]="busy()">
               @if (busy()) {
                 <span class="inline-flex items-center gap-2">
                   <app-lucide-icon [icon]="loaderIcon" className="h-4 w-4 animate-spin" />
@@ -668,7 +668,7 @@ type ToastType = 'success' | 'error' | 'info';
             <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
               Annuler
             </button>
-            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white" [disabled]="busy()">
+            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium ky-btn-danger" [disabled]="busy()">
               @if (busy()) {
                 <span class="inline-flex items-center gap-2">
                   <app-lucide-icon [icon]="loaderIcon" className="h-4 w-4 animate-spin" />
@@ -701,7 +701,7 @@ type ToastType = 'success' | 'error' | 'info';
             <button type="button" (click)="confirmOpen.set(null)" class="rounded-lg border border-default px-4 py-2 text-sm text-primary hover:bg-input/80" [disabled]="busy()">
               Annuler
             </button>
-            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium bg-orange-600 hover:bg-orange-500 text-white" [disabled]="busy()">
+            <button type="button" (click)="handleConfirm()" class="rounded-lg px-4 py-2 text-sm font-medium border border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning-text)] hover:border-[var(--warning)]" [disabled]="busy()">
               @if (busy()) {
                 <span class="inline-flex items-center gap-2">
                   <app-lucide-icon [icon]="loaderIcon" className="h-4 w-4 animate-spin" />
@@ -727,7 +727,7 @@ export class RhDetailsPageComponent {
 
   readonly String = String;
 
-  readonly statusStyles = REFERRAL_STATUS_STYLES_RH;
+  readonly statusStyles = REFERRAL_STATUS_STYLES;
   readonly statusLabels = REFERRAL_STATUS_LABELS;
   readonly alertIcon = AlertTriangle;
   readonly loaderIcon = Loader2;

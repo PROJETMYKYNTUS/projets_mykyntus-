@@ -89,12 +89,12 @@ import type { ModuleHealthStatus } from '../../../core/dashboard/global-dashboar
       height: 0.5rem;
       border-radius: 9999px;
       margin-top: 0.35rem;
-      background: #64748b;
+      background: var(--text-muted, #64748b);
     }
-    .kyntus-health-dot.ok { background: #22c55e; }
-    .kyntus-health-dot.warn { background: #f59e0b; }
-    .kyntus-health-dot.error { background: #ef4444; }
-    .kyntus-health-dot.neutral { background: #64748b; }
+    .kyntus-health-dot.ok { background: var(--success, #16a34a); }
+    .kyntus-health-dot.warn { background: var(--warning, #d97706); }
+    .kyntus-health-dot.error { background: var(--danger, #dc2626); }
+    .kyntus-health-dot.neutral { background: var(--text-muted, #64748b); }
     .kyntus-health-body { min-width: 0; }
     .kyntus-health-label {
       margin: 0;

@@ -187,23 +187,24 @@ interface AllowanceKpi {
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
-    .allowance-requests-page { --allowance-primary: #4F46E5; --allowance-success: #22C55E; --allowance-danger: #EF4444; }
+    .allowance-requests-page { --allowance-primary: var(--electric-blue); --allowance-success: var(--success); --allowance-danger: var(--danger); }
     .allowance-cta {
       display: inline-flex;
       align-items: center;
       gap: 0.375rem;
       padding: 0.625rem 1.25rem;
       border: none;
-      border-radius: 0.5rem;
-      background: var(--allowance-primary);
-      color: #fff;
+      border-radius: var(--radius-md);
+      background-color: var(--blue-600);
+      background-image: var(--ky-gradient);
+      color: white;
       font-size: 0.875rem;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+      box-shadow: 0 4px 14px color-mix(in srgb, var(--allowance-primary) 35%, transparent);
       transition: transform 0.1s, box-shadow 0.15s;
     }
-    .allowance-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45); }
+    .allowance-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 20px color-mix(in srgb, var(--allowance-primary) 45%, transparent); }
     .allowance-toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -216,13 +217,13 @@ interface AllowanceKpi {
       align-items: center;
       gap: 0.5rem;
       font-size: 0.8125rem;
-      color: var(--text-muted, #6b7280);
+      color: var(--text-muted);
     }
     .allowance-toolbar__period input {
       padding: 0.375rem 0.625rem;
-      border-radius: 0.375rem;
-      border: 1px solid var(--border-default, #d1d5db);
-      background: var(--bg-input, #fff);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      background: var(--bg-input);
       font-size: 0.875rem;
     }
     .allowance-toolbar__link {
@@ -236,7 +237,7 @@ interface AllowanceKpi {
     }
     .allowance-toolbar__chip {
       padding: 0.25rem 0.625rem;
-      border-radius: 999px;
+      border-radius: var(--radius-pill);
       font-size: 0.75rem;
       border: 1px solid var(--allowance-primary);
       background: color-mix(in srgb, var(--allowance-primary) 10%, transparent);
@@ -256,22 +257,22 @@ interface AllowanceKpi {
       align-items: flex-start;
       gap: 0.125rem;
       padding: 1rem 1.125rem;
-      border-radius: 0.75rem;
-      border: 1px solid color-mix(in srgb, var(--border-default, #e5e7eb) 90%, transparent);
-      background: var(--bg-card, #fff);
+      border-radius: var(--radius-card);
+      border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
+      background: var(--bg-card);
       cursor: pointer;
       text-align: left;
       transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
     }
     .allowance-kpi:hover:not(:disabled) {
       border-color: color-mix(in srgb, var(--allowance-primary) 40%, transparent);
-      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.08);
+      box-shadow: 0 4px 12px color-mix(in srgb, var(--allowance-primary) 8%, transparent);
       transform: translateY(-1px);
     }
     .allowance-kpi:disabled { cursor: default; opacity: 0.85; }
-    .allowance-kpi--active { border-color: var(--allowance-primary); box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15); }
+    .allowance-kpi--active { border-color: var(--allowance-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--allowance-primary) 15%, transparent); }
     .allowance-kpi__value { font-size: 1.75rem; font-weight: 800; line-height: 1; }
-    .allowance-kpi__label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted, #6b7280); text-transform: uppercase; letter-spacing: 0.04em; }
+    .allowance-kpi__label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
     .allowance-team-bar {
       display: flex;
       flex-wrap: wrap;
@@ -279,45 +280,45 @@ interface AllowanceKpi {
       gap: 0.625rem;
       margin-bottom: 1rem;
       padding: 0.75rem 1rem;
-      border-radius: 0.625rem;
-      background: color-mix(in srgb, var(--allowance-primary) 5%, var(--bg-card, #fff));
+      border-radius: var(--radius-md);
+      background: color-mix(in srgb, var(--allowance-primary) 5%, var(--bg-card));
       border: 1px solid color-mix(in srgb, var(--allowance-primary) 12%, transparent);
     }
-    .allowance-team-bar__label { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #6b7280); }
+    .allowance-team-bar__label { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
     .allowance-team-bar__chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
     .allowance-team-chip {
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
       padding: 0.375rem 0.75rem;
-      border-radius: 999px;
-      border: 1px solid var(--border-default, #e5e7eb);
-      background: var(--bg-card, #fff);
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
       font-size: 0.8125rem;
       cursor: pointer;
       transition: border-color 0.12s, box-shadow 0.12s;
     }
     .allowance-team-chip:hover {
       border-color: var(--allowance-primary);
-      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.12);
+      box-shadow: 0 2px 8px color-mix(in srgb, var(--allowance-primary) 12%, transparent);
     }
     .allowance-team-chip__action { font-weight: 700; color: var(--allowance-primary); font-size: 0.75rem; }
     .allowance-advanced {
       margin-bottom: 1rem;
-      border-radius: 0.5rem;
-      border: 1px dashed var(--border-default, #d1d5db);
+      border-radius: var(--radius-md);
+      border: 1px dashed var(--border-color);
       padding: 0.5rem 0.875rem;
       font-size: 0.8125rem;
-      color: var(--text-muted, #6b7280);
+      color: var(--text-muted);
     }
-    .allowance-advanced summary { cursor: pointer; font-weight: 600; color: var(--text-primary, #374151); }
+    .allowance-advanced summary { cursor: pointer; font-weight: 600; color: var(--text-primary); }
     .allowance-advanced__body { padding-top: 0.625rem; }
     .allowance-advanced__row { display: flex; gap: 0.5rem; margin-top: 0.5rem; align-items: center; }
     .allowance-btn-secondary {
       padding: 0.375rem 0.875rem;
-      border-radius: 0.375rem;
-      border: 1px solid var(--border-default, #d1d5db);
-      background: var(--bg-card, #fff);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
       font-size: 0.8125rem;
       font-weight: 600;
       cursor: pointer;
@@ -331,38 +332,38 @@ interface AllowanceKpi {
       align-items: center;
       gap: 0.75rem;
       padding: 3rem;
-      color: var(--text-muted, #9ca3af);
+      color: var(--text-muted);
       font-size: 0.875rem;
     }
     .allowance-spinner {
       width: 1rem;
       height: 1rem;
-      border: 2px solid rgba(79, 70, 229, 0.2);
+      border: 2px solid color-mix(in srgb, var(--allowance-primary) 20%, transparent);
       border-top-color: var(--allowance-primary);
       border-radius: 50%;
       animation: allowance-spin 0.6s linear infinite;
     }
     .allowance-spinner--lg { width: 1.75rem; height: 1.75rem; border-width: 3px; }
-    .allowance-spinner--dark { border-color: rgba(0,0,0,0.1); border-top-color: #374151; width: 0.875rem; height: 0.875rem; }
+    .allowance-spinner--dark { border-color: color-mix(in srgb, var(--text-primary) 10%, transparent); border-top-color: var(--text-primary); width: 0.875rem; height: 0.875rem; }
     .allowance-modal-backdrop {
       position: fixed; inset: 0; z-index: 55;
-      background: rgba(15, 23, 42, 0.45);
+      background: color-mix(in srgb, var(--bg-primary) 55%, transparent);
       backdrop-filter: blur(4px);
       display: flex; align-items: center; justify-content: center; padding: 1rem;
     }
     .allowance-detail-modal {
       width: 100%; max-width: 24rem;
-      background: var(--bg-card, #fff);
-      border-radius: 1rem;
+      background: var(--bg-card);
+      border-radius: var(--radius-card);
       padding: 1.25rem;
-      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);
+      box-shadow: var(--shadow-3);
     }
     .allowance-detail-modal__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
     .allowance-detail-modal__header h2 { margin: 0; font-size: 1rem; font-weight: 700; }
     .allowance-detail-modal__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.875rem; }
     .allowance-detail-modal__full { grid-column: 1 / -1; }
-    .allowance-detail-modal__grid dt { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #9ca3af); margin-bottom: 0.125rem; }
-    .allowance-detail-modal__grid dd { margin: 0; font-weight: 600; color: var(--text-primary, #111827); }
+    .allowance-detail-modal__grid dt { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 0.125rem; }
+    .allowance-detail-modal__grid dd { margin: 0; font-weight: 600; color: var(--text-primary); }
     .allowance-detail-modal__amount { color: var(--allowance-primary) !important; font-size: 1.125rem !important; }
     @keyframes allowance-spin { to { transform: rotate(360deg); } }
   `],
@@ -433,9 +434,9 @@ export class AllowancesRequestsPageComponent implements OnInit {
     const validated = rows.filter((r) => validatedStatuses.includes(r.status)).length;
     const rejected = rows.filter((r) => r.status === ALLOWANCE_STATUSES.Rejected).length;
     return [
-      { label: 'En attente', count: pending, color: '#F59E0B', filterStatus: 'pending' },
-      { label: 'Validées', count: validated, color: '#22C55E', filterStatus: 'validated' },
-      { label: 'Refusées', count: rejected, color: '#EF4444', filterStatus: 'rejected' },
+      { label: 'En attente', count: pending, color: 'var(--warning-text)', filterStatus: 'pending' },
+      { label: 'Validées', count: validated, color: 'var(--success-text)', filterStatus: 'validated' },
+      { label: 'Refusées', count: rejected, color: 'var(--danger-text)', filterStatus: 'rejected' },
     ];
   });
 

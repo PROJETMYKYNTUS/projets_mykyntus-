@@ -36,7 +36,7 @@ export class RpDashboardComponent implements OnInit, OnDestroy {
   evolutionData: Array<{ name: string; requests: number }> = [];
   typeData: Array<{ name: string; value: number }> = [];
 
-  readonly COLORS = ['#3b82f6', '#10b981', '#6366f1', '#f59e0b'];
+  readonly COLORS = ['var(--soft-blue)', 'var(--success)', 'var(--info)', 'var(--warning)'];
 
   constructor(
     private readonly hierarchy: DocumentationHierarchyDrillService,

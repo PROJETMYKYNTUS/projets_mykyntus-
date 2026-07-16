@@ -1,0 +1,4 @@
+104:      "UpstreamPathTemplate": "/hubs/documentation/negotiate",
+106:      "DownstreamPathTemplate": "/hubs/documentation/negotiate",
+116:      "UpstreamPathTemplate": "/hubs/documentation",
+118:      "DownstreamPathTemplate": "/hubs/documentation",

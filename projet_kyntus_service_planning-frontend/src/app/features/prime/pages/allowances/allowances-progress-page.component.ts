@@ -86,25 +86,25 @@ import { sortMembersByPriority } from '../../lib/allowance-treatment-status';
     .progress-page { padding: 1.25rem 1.5rem 2rem; max-width: 720px; margin: 0 auto; }
     .progress-page__header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
     .progress-page__title { margin: 0; font-size: 1.25rem; font-weight: 800; }
-    .progress-page__subtitle { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--text-muted, #6b7280); }
-    .progress-page__period { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; color: var(--text-muted, #6b7280); }
-    .progress-page__period input { padding: 0.375rem 0.625rem; border-radius: 0.375rem; border: 1px solid var(--border-default, #d1d5db); }
-    .progress-page__error { padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: 0.5rem; background: #FEE2E2; color: #B91C1C; font-size: 0.875rem; }
+    .progress-page__subtitle { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--text-muted); }
+    .progress-page__period { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; color: var(--text-muted); }
+    .progress-page__period input { padding: 0.375rem 0.625rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); }
+    .progress-page__error { padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: var(--radius-md); background: var(--danger-bg); color: var(--danger-text); font-size: 0.875rem; }
     .progress-page__loading { display: flex; justify-content: center; padding: 4rem; }
-    .progress-page__spinner { width: 1.75rem; height: 1.75rem; border: 3px solid rgba(79,70,229,0.2); border-top-color: #4F46E5; border-radius: 50%; animation: spin 0.6s linear infinite; }
+    .progress-page__spinner { width: 1.75rem; height: 1.75rem; border: 3px solid color-mix(in srgb, var(--electric-blue) 20%, transparent); border-top-color: var(--electric-blue); border-radius: 50%; animation: spin 0.6s linear infinite; }
     .progress-page__summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
     @media (max-width: 600px) { .progress-page__summary { grid-template-columns: repeat(2, 1fr); } }
-    .progress-page__stat { padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #E5E7EB; text-align: center; }
-    .progress-page__stat-value { display: block; font-size: 1.25rem; font-weight: 800; color: #4F46E5; }
-    .progress-page__stat-label { font-size: 0.6875rem; text-transform: uppercase; color: var(--text-muted, #6b7280); }
-    .progress-page__stat--warn .progress-page__stat-value { color: #D97706; }
-    .progress-page__stat--draft .progress-page__stat-value { color: #4338CA; }
+    .progress-page__stat { padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: center; }
+    .progress-page__stat-value { display: block; font-size: 1.25rem; font-weight: 800; color: var(--electric-blue); }
+    .progress-page__stat-label { font-size: 0.6875rem; text-transform: uppercase; color: var(--text-muted); }
+    .progress-page__stat--warn .progress-page__stat-value { color: var(--warning-text); }
+    .progress-page__stat--draft .progress-page__stat-value { color: var(--electric-blue); }
     .progress-page__bar-wrap { margin-bottom: 1.25rem; }
-    .progress-page__bar { height: 0.625rem; border-radius: 999px; background: #E5E7EB; overflow: hidden; }
-    .progress-page__bar-fill { height: 100%; background: #4F46E5; transition: width 0.3s; }
-    .progress-page__bar-label { display: block; font-size: 0.75rem; color: var(--text-muted, #6b7280); margin-top: 0.35rem; }
+    .progress-page__bar { height: 0.625rem; border-radius: var(--radius-pill); background: var(--bg-input); overflow: hidden; }
+    .progress-page__bar-fill { height: 100%; background: var(--ky-gradient); transition: width 0.3s; }
+    .progress-page__bar-label { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; }
     .progress-page__list { margin-bottom: 1rem; }
-    .progress-page__cta { width: 100%; padding: 0.625rem; border: none; border-radius: 0.5rem; background: #4F46E5; color: #fff; font-weight: 700; cursor: pointer; }
+    .progress-page__cta { width: 100%; padding: 0.625rem; border: none; border-radius: var(--radius-md); background-color: var(--blue-600); background-image: var(--ky-gradient); color: white; font-weight: 700; cursor: pointer; }
     @keyframes spin { to { transform: rotate(360deg); } }
   `],
 })

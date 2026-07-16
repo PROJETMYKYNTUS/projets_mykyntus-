@@ -5,42 +5,20 @@ using Planning.Domain.Entities;
 namespace Planning.Infrastructure.Persistence;
 
 /// <summary>
-/// Référentiel planning minimal pour un clone + Docker (KYNTUS_PLANNING_DEMO_SEED=true), aligné sur les comptes AuthService.
+/// Référentiel planning Docker : org contact centre (miroir Prime) + employés e1–e11
+/// alignés Auth SubjectId. Flag KYNTUS_PLANNING_DEMO_SEED=true.
 /// </summary>
 internal static class DockerComposePlanningDemoSeed
 {
-    /// <summary>GUID employé alignés sur Auth SubjectId / documentation (init/demo).</summary>
-    private static readonly IReadOnlyDictionary<string, Guid> StableEmployeeGuids =
-        new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["employee@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111103"),
-            ["rh@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111104"),
-            ["manager@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111105"),
-            ["coach@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111106"),
-            ["rp@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111107"),
-            ["admin@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111108"),
-            ["audit@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111109"),
-            ["formation@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111110"),
-            ["superviseur@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111111"),
-        };
-
     internal static async Task ApplyIfEnabledAsync(IConfiguration configuration, AppDbContext context)
     {
         if (!string.Equals(configuration["KYNTUS_PLANNING_DEMO_SEED"], "true", StringComparison.OrdinalIgnoreCase))
             return;
 
         await EnsureDemoRolesAsync(context);
-        await EnsureDemoOrgAsync(context);
+        var (subC1, _) = await EnsureContactCentreOrgAsync(context);
 
-        var sub = await context.SubServices.OrderBy(s => s.Id).FirstAsync();
-        var roleEmployee = await context.Roles.FirstAsync(r => r.Name == "Pilote");
-        var roleRh = await context.Roles.FirstAsync(r => r.Name == "RH");
-        var roleManager = await context.Roles.FirstAsync(r => r.Name == "Superviseur");
-        var roleCoach = await context.Roles.FirstAsync(r => r.Name == "Référent technique");
-        var roleRp = await context.Roles.FirstAsync(r => r.Name == "Chef de projet");
-        var roleAdmin = await context.Roles.FirstAsync(r => r.Name == "Admin");
-        var roleAudit = await context.Roles.FirstAsync(r => r.Name == "Audit");
-        var roleFormation = await context.Roles.FirstAsync(r => r.Name == "EquipeFormation");
+        var roleByName = await context.Roles.ToDictionaryAsync(r => r.Name, r => r.Id);
 
         var pwd = BCrypt.Net.BCrypt.HashPassword(
             configuration["DemoSeed:PlanningDemoPassword"]
@@ -48,64 +26,140 @@ internal static class DockerComposePlanningDemoSeed
                 "DemoSeed:PlanningDemoPassword requis lorsque KYNTUS_PLANNING_DEMO_SEED=true."));
         var hire = DateTime.UtcNow.AddMonths(-6);
 
-        await UpsertDemoUserAsync(context, "Employé", "Démo", "employee@kyntus.ma", roleEmployee.Id, sub.Id, pwd, hire);
-        await UpsertDemoUserAsync(context, "Rh", "Démo", "rh@kyntus.ma", roleRh.Id, null, pwd, hire);
-        await UpsertDemoUserAsync(context, "Manager", "Démo", "manager@kyntus.ma", roleManager.Id, sub.Id, pwd, hire);
-        await UpsertDemoUserAsync(context, "Coach", "Démo", "coach@kyntus.ma", roleCoach.Id, sub.Id, pwd, hire);
-        await UpsertDemoUserAsync(context, "Rp", "Démo", "rp@kyntus.ma", roleRp.Id, sub.Id, pwd, hire);
-        await UpsertDemoUserAsync(context, "Admin", "Démo", "admin@kyntus.ma", roleAdmin.Id, sub.Id, pwd, hire);
-        await UpsertDemoUserAsync(context, "Audit", "Démo", "audit@kyntus.ma", roleAudit.Id, sub.Id, pwd, hire);
-        await UpsertDemoUserAsync(context, "Formation", "Démo", "formation@kyntus.ma", roleFormation.Id, sub.Id, pwd, hire);
-        await UpsertDemoUserAsync(context, "Superviseur", "Démo", "superviseur@kyntus.ma", roleManager.Id, sub.Id, pwd, hire);
-        await UpsertDemoUserAsync(context, "Yasmine", "El Amrani", "yasmine.elamrani@atlas-tech-demo.dev", roleEmployee.Id, sub.Id, pwd, hire);
-        await UpsertDemoUserAsync(context, "Fatima", "Alaoui", "fatima.alaoui@atlas-tech-demo.dev", roleRh.Id, null, pwd, hire);
+        foreach (var emp in ContactCentreRoster.Employees)
+        {
+            if (!roleByName.TryGetValue(emp.PlanningRole, out var roleId))
+                roleId = roleByName["Pilote"];
+
+            // RH hors cellule opérationnelle ; les autres sur c1 (sauf e5 déjà RH)
+            int? subId = emp.PlanningRole is "RH" ? null : subC1.Id;
+
+            var email = ContactCentreRoster.PlanningLoginEmail(emp);
+            await UpsertUserAsync(
+                context,
+                emp.FirstName,
+                emp.LastName,
+                email,
+                emp.Guid,
+                roleId,
+                subId,
+                pwd,
+                hire);
+        }
 
         await context.SaveChangesAsync();
     }
 
-    private static async Task EnsureDemoOrgAsync(AppDbContext context)
+    /// <summary>
+    /// Crée ou migre l'org Planning vers le miroir Prime (d1/p1/c1 + c2).
+    /// </summary>
+    private static async Task<(SubService Primary, SubService Secondary)> EnsureContactCentreOrgAsync(
+        AppDbContext context)
     {
-        if (!await context.Floors.AnyAsync())
+        var floor = await context.Floors
+            .FirstOrDefaultAsync(f => f.PrimePoleId == "d1");
+        if (floor is null)
         {
-            context.Floors.Add(new Floor
+            floor = await context.Floors.OrderBy(f => f.Id).FirstOrDefaultAsync();
+            if (floor is null)
             {
-                Name = "Siège démo",
-                FloorNumber = 1,
-                Description = "Données Docker compose",
-            });
-            await context.SaveChangesAsync();
+                floor = new Floor
+                {
+                    Name = "Relation client & centres d'appels — Casablanca (Maroc)",
+                    FloorNumber = 1,
+                    Description = "Pôle contact centre (Prime d1)",
+                    PrimePoleId = "d1",
+                };
+                context.Floors.Add(floor);
+                await context.SaveChangesAsync();
+            }
+            else
+            {
+                floor.Name = "Relation client & centres d'appels — Casablanca (Maroc)";
+                floor.Description = "Pôle contact centre (Prime d1)";
+                floor.PrimePoleId = "d1";
+                await context.SaveChangesAsync();
+            }
         }
 
-        var floor = await context.Floors.OrderBy(f => f.Id).FirstAsync();
-        if (!await context.Services.AnyAsync())
+        var service = await context.Services
+            .FirstOrDefaultAsync(s => s.PrimeCelluleId == "p1" || s.Code == "p1" || s.Code == "ATLAS-DEMO");
+        if (service is null)
         {
-            context.Services.Add(new Service
+            service = new Service
             {
                 FloorId = floor.Id,
-                Name = "Service démo Atlas",
-                Code = "ATLAS-DEMO",
-            });
+                Name = "Plateforme inbound — grands comptes",
+                Code = "p1",
+                PrimeCelluleId = "p1",
+            };
+            context.Services.Add(service);
+            await context.SaveChangesAsync();
+        }
+        else
+        {
+            service.FloorId = floor.Id;
+            service.Name = "Plateforme inbound — grands comptes";
+            service.Code = "p1";
+            service.PrimeCelluleId = "p1";
             await context.SaveChangesAsync();
         }
 
-        var service = await context.Services.OrderBy(s => s.Id).FirstAsync();
-        if (!await context.SubServices.AnyAsync())
+        var subC1 = await context.SubServices
+            .FirstOrDefaultAsync(s => s.PrimeServiceId == "c1" || s.Code == "c1" || s.Code == "CELL-DEMO");
+        if (subC1 is null)
         {
-            context.SubServices.Add(new SubService
+            subC1 = new SubService
             {
                 ServiceId = service.Id,
-                Name = "Cellule démo",
-                Code = "CELL-DEMO",
-            });
+                Name = "Agents 1er niveau (voice / chat)",
+                Code = "c1",
+                PrimeServiceId = "c1",
+            };
+            context.SubServices.Add(subC1);
             await context.SaveChangesAsync();
         }
+        else
+        {
+            subC1.ServiceId = service.Id;
+            subC1.Name = "Agents 1er niveau (voice / chat)";
+            subC1.Code = "c1";
+            subC1.PrimeServiceId = "c1";
+            await context.SaveChangesAsync();
+        }
+
+        var subC2 = await context.SubServices
+            .FirstOrDefaultAsync(s => s.PrimeServiceId == "c2" || s.Code == "c2");
+        if (subC2 is null)
+        {
+            subC2 = new SubService
+            {
+                ServiceId = service.Id,
+                Name = "Enquêtes NPS & rappels satisfaction",
+                Code = "c2",
+                PrimeServiceId = "c2",
+            };
+            context.SubServices.Add(subC2);
+            await context.SaveChangesAsync();
+        }
+        else
+        {
+            subC2.ServiceId = service.Id;
+            subC2.Name = "Enquêtes NPS & rappels satisfaction";
+            subC2.Code = "c2";
+            subC2.PrimeServiceId = "c2";
+            await context.SaveChangesAsync();
+        }
+
+        return (subC1, subC2);
     }
 
-    private static async Task UpsertDemoUserAsync(
+    private static async Task UpsertUserAsync(
         AppDbContext context,
         string first,
         string last,
         string email,
+        Guid stableGuid,
         int roleId,
         int? subId,
         string passwordHash,
@@ -113,48 +167,48 @@ internal static class DockerComposePlanningDemoSeed
     {
         var needle = email.Trim().ToLowerInvariant();
         var row = await context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == needle);
-        if (StableEmployeeGuids.TryGetValue(email, out var stableGuid))
-        {
-            if (row is null)
-            {
-                context.Users.Add(new User
-                {
-                    Guid = stableGuid,
-                    FirstName = first,
-                    LastName = last,
-                    Email = email,
-                    RoleId = roleId,
-                    SubServiceId = subId,
-                    PasswordHash = passwordHash,
-                    HireDate = hire,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow,
-                });
-                return;
-            }
 
-            if (row.Guid != stableGuid)
-                row.Guid = stableGuid;
-            if (!row.IsActive)
-                row.IsActive = true;
+        // Si un autre user a déjà ce Guid (ex. ancien email démo), le réaligner
+        var byGuid = await context.Users.FirstOrDefaultAsync(u => u.Guid == stableGuid);
+        if (byGuid is not null && (row is null || byGuid.Id != row.Id))
+        {
+            byGuid.FirstName = first;
+            byGuid.LastName = last;
+            byGuid.Email = email;
+            byGuid.RoleId = roleId;
+            byGuid.SubServiceId = subId;
+            byGuid.IsActive = true;
+            if (string.IsNullOrWhiteSpace(byGuid.PasswordHash))
+                byGuid.PasswordHash = passwordHash;
             return;
         }
 
-        if (row is not null)
-            return;
-
-        context.Users.Add(new User
+        if (row is null)
         {
-            FirstName = first,
-            LastName = last,
-            Email = email,
-            RoleId = roleId,
-            SubServiceId = subId,
-            PasswordHash = passwordHash,
-            HireDate = hire,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-        });
+            context.Users.Add(new User
+            {
+                Guid = stableGuid,
+                FirstName = first,
+                LastName = last,
+                Email = email,
+                RoleId = roleId,
+                SubServiceId = subId,
+                PasswordHash = passwordHash,
+                HireDate = hire,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+            });
+            return;
+        }
+
+        row.Guid = stableGuid;
+        row.FirstName = first;
+        row.LastName = last;
+        row.RoleId = roleId;
+        row.SubServiceId = subId;
+        row.IsActive = true;
+        if (string.IsNullOrWhiteSpace(row.PasswordHash))
+            row.PasswordHash = passwordHash;
     }
 
     private static async Task EnsureDemoRolesAsync(AppDbContext context)

@@ -53,19 +53,19 @@ label {
 }
 
 label span {
-  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
+  color: var(--danger-text);
 }
 
 .input-error {
   font-size: 0.84rem;
   font-weight: 500;
-  color: color-mix(in srgb, #ef4444 80%, var(--text-primary));
+  color: var(--danger-text);
 }
 
 .alert.error {
   margin-bottom: 18px;
   padding: 14px 16px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
 }
 
 .form-actions {
@@ -77,7 +77,7 @@ label span {
 
 .state {
   padding: 24px;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   text-align: center;
 }
 
@@ -100,7 +100,7 @@ label span {
 @media (max-width: 640px) {
   .card {
     padding: 22px;
-    border-radius: 18px;
+    border-radius: var(--radius-card);
   }
 
   .form-actions {

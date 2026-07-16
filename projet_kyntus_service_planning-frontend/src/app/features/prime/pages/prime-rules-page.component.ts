@@ -48,7 +48,7 @@ import type { Department, PrimeRule, PrimeType } from '../models';
         <app-prime-card className="p-0">
           <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
-              <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
+              <thead class="text-xs text-muted uppercase bg-card border-b border-default">
                 <tr>
                   <th class="px-6 py-3 font-medium tracking-wider">Prime Type</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Scope</th>
@@ -58,51 +58,51 @@ import type { Department, PrimeRule, PrimeType } from '../models';
                   <th class="px-6 py-3 font-medium tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-navy-800">
+              <tbody class="divide-y divide-default">
                 @if (filteredRules().length === 0) {
                   <tr>
-                    <td colspan="6" class="px-6 py-8 text-center text-slate-500">
+                    <td colspan="6" class="px-6 py-8 text-center text-muted">
                       No data available
                     </td>
                   </tr>
                 } @else {
                   @for (item of filteredRules(); track item.id) {
-                    <tr class="bg-navy-900 hover:bg-navy-800 transition-colors">
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                    <tr class="bg-card hover:bg-input transition-colors">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         <div class="font-medium text-primary flex items-center gap-2">
                           <app-lucide-icon [icon]="icons.settings" className="w-4 h-4 text-blue-500" />
                           {{ getTypeName(item.primeTypeId) }}
                         </div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         <div class="text-sm">
                           <span class="text-muted">Dept:</span> {{ getDeptName(item.departmentId) }}
                         </div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         <div
                           class="font-mono text-xs bg-card px-2 py-1 rounded text-primary inline-block border border-default"
                         >
                           IF {{ item.conditionField }} {{ item.conditionType }} {{ item.targetValue }}
                         </div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         <div class="font-medium text-emerald-500">
                           {{ item.amount }} {{ item.calculationMethod === 'Percentage' ? '%' : 'MAD' }}
                         </div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">{{ item.period }}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200 text-right">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">{{ item.period }}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-primary text-right">
                         <div class="flex items-center justify-end gap-2">
                           <button
                             type="button"
-                            class="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                            class="p-1.5 text-muted hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
                           >
                             <app-lucide-icon [icon]="icons.edit" className="w-4 h-4" />
                           </button>
                           <button
                             type="button"
-                            class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                            class="p-1.5 text-muted hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
                           >
                             <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
                           </button>

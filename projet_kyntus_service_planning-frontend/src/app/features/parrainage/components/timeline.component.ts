@@ -54,9 +54,9 @@ export class TimelineComponent {
   }
 
   iconColor(item: TimelineItem): string {
-    if (this.isReject(item)) return 'text-red-400 bg-red-500/10 border-red-500/40';
+    if (this.isReject(item)) return 'text-[var(--danger-text)] bg-[var(--danger-bg)] border-[var(--danger-border)]';
     return item.status === 'done'
-      ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/40'
-      : 'text-yellow-400 bg-yellow-500/10 border-yellow-500/40';
+      ? 'text-[var(--success-text)] bg-[var(--success-bg)] border-[var(--success-border)]'
+      : 'text-[var(--warning-text)] bg-[var(--warning-bg)] border-[var(--warning-border)]';
   }
 }

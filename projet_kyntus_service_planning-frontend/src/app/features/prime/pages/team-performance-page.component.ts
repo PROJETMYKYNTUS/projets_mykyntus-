@@ -21,6 +21,7 @@ import {
 } from '../components/prime-filter-bar.component';
 import type { Employee, Role } from '../models';
 import { RoleService } from '../state/role.service';
+import { primeChartTheme } from '../lib/allowance-status';
 import {
   PrimeFicheResultService,
   type EmployeePrimeServiceFicheValidationDto,
@@ -44,7 +45,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, LegendCompone
   template: `
     @if (loading()) {
       <div class="p-8 flex justify-center">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--electric-blue)]"></div>
       </div>
     } @else {
       <div class="prime-page-shell">
@@ -59,7 +60,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, LegendCompone
 
         @if (errorMessage()) {
           <app-prime-card>
-            <div class="p-4 text-rose-600 text-sm">{{ errorMessage() }}</div>
+            <div class="p-4 text-[var(--danger-text)] text-sm">{{ errorMessage() }}</div>
           </app-prime-card>
         }
 
@@ -68,7 +69,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, LegendCompone
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div class="prime-kpi-card">
             <div
-              class="w-12 h-12 bg-indigo-500/15 text-indigo-400 rounded-xl flex items-center justify-center"
+              class="w-12 h-12 bg-[var(--info-bg)] text-[var(--electric-blue)] rounded-xl flex items-center justify-center"
             >
               <app-lucide-icon [icon]="icons.users" className="w-6 h-6" />
             </div>
@@ -79,7 +80,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, LegendCompone
           </div>
           <div class="prime-kpi-card">
             <div
-              class="w-12 h-12 bg-emerald-500/15 text-emerald-400 rounded-xl flex items-center justify-center"
+              class="w-12 h-12 bg-[var(--success-bg)] text-[var(--success-text)] rounded-xl flex items-center justify-center"
             >
               <app-lucide-icon [icon]="icons.award" className="w-6 h-6" />
             </div>
@@ -90,7 +91,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, LegendCompone
           </div>
           <div class="prime-kpi-card">
             <div
-              class="w-12 h-12 bg-amber-500/15 text-amber-400 rounded-xl flex items-center justify-center"
+              class="w-12 h-12 bg-[var(--warning-bg)] text-[var(--warning-text)] rounded-xl flex items-center justify-center"
             >
               <app-lucide-icon [icon]="icons.trending" className="w-6 h-6" />
             </div>
@@ -104,7 +105,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, LegendCompone
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div class="rounded-xl border border-default bg-card p-4">
             <p class="text-xs uppercase tracking-wider text-muted">Taux rejet</p>
-            <p class="mt-1 text-2xl font-bold text-rose-400">{{ rejectionRate() }}%</p>
+            <p class="mt-1 text-2xl font-bold text-[var(--danger-text)]">{{ rejectionRate() }}%</p>
           </div>
           <div class="rounded-xl border border-default bg-card p-4">
             <p class="text-xs uppercase tracking-wider text-muted">Montant moyen / pilote</p>
@@ -149,7 +150,7 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, LegendCompone
         <app-prime-card title="Détail par pilote" className="p-0">
           <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
-              <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
+              <thead class="text-xs text-muted uppercase bg-card border-b border-default">
                 <tr>
                   <th class="px-6 py-3 font-medium tracking-wider">Pilote</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Service</th>
@@ -161,47 +162,47 @@ echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, LegendCompone
                   <th class="px-6 py-3 font-medium tracking-wider">Statut</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-navy-800">
+              <tbody class="divide-y divide-default">
                 @if (scopedResults().length === 0) {
                   <tr>
-                    <td colspan="8" class="px-6 py-8 text-center text-slate-500">
+                    <td colspan="8" class="px-6 py-8 text-center text-muted">
                       Aucune fiche dans votre périmètre pour cette période.
                     </td>
                   </tr>
                 } @else {
                   @for (item of scopedResults(); track item.id) {
-                    <tr class="bg-navy-900 hover:bg-navy-800 transition-colors">
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                    <tr class="bg-card hover:bg-input transition-colors">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         @let emp = getEmployee(item.employeeId);
                         <div class="flex items-center gap-3">
                           <div
-                            class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs"
+                            class="w-8 h-8 rounded-full bg-[var(--info-bg)] text-[var(--electric-blue)] flex items-center justify-center font-bold text-xs"
                           >
                             {{ emp?.firstName?.charAt(0) }}{{ emp?.lastName?.charAt(0) }}
                           </div>
-                          <div class="font-medium text-slate-200">
+                          <div class="font-medium text-primary">
                             {{ emp?.firstName }} {{ emp?.lastName }}
                           </div>
                         </div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-300">{{ item.serviceId }}</td>
-                      <td class="px-6 py-4 whitespace-nowrap font-mono text-slate-200">{{ item.period }}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-muted">{{ item.serviceId }}</td>
+                      <td class="px-6 py-4 whitespace-nowrap font-mono text-primary">{{ item.period }}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         {{ formatAmount(item.primeAmount) }}
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         {{ formatAmount(item.challengeAmount) }}
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
-                        <div class="font-semibold text-emerald-400">{{ formatAmount(item.totalAmount) }}</div>
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
+                        <div class="font-semibold text-[var(--success-text)]">{{ formatAmount(item.totalAmount) }}</div>
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap">
                         @if (item.isReadyForValidation === true) {
-                          <span class="inline-flex px-2 py-1 rounded-md text-xs border border-emerald-300 bg-emerald-50 text-emerald-700">
+                          <span class="inline-flex px-2 py-1 rounded-md text-xs border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success-text)]">
                             Oui
                           </span>
                         } @else {
-                          <span class="inline-flex px-2 py-1 rounded-md text-xs border border-slate-300 bg-slate-50 text-slate-600">
+                          <span class="inline-flex px-2 py-1 rounded-md text-xs border border-default bg-input text-muted">
                             Non
                           </span>
                         }
@@ -357,12 +358,13 @@ export class TeamPerformancePageComponent {
 
   readonly workflowChartOptions = computed<EChartsCoreOption>(() => {
     const data = this.workflowBreakdown();
+    const c = primeChartTheme();
     return {
       tooltip: { trigger: 'axis' },
       grid: { left: 24, right: 12, top: 24, bottom: 72, containLabel: true },
       xAxis: { type: 'category', data: data.map((x) => x.label), axisLabel: { rotate: 30 } },
       yAxis: { type: 'value' },
-      series: [{ type: 'bar', data: data.map((x) => x.count), itemStyle: { color: '#22d3ee' } }],
+      series: [{ type: 'bar', data: data.map((x) => x.count), itemStyle: { color: c.info } }],
     };
   });
 
@@ -486,10 +488,10 @@ export class TeamPerformancePageComponent {
 
   statusBadgeClass(status: string): string {
     const base = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ';
-    if (status === 'RH Approved') return base + 'bg-emerald-100 text-emerald-800';
-    if (status === 'Rejected') return base + 'bg-rose-100 text-rose-800';
-    if (status === 'Pending') return base + 'bg-amber-100 text-amber-800';
-    return base + 'bg-sky-100 text-sky-800';
+    if (status === 'RH Approved') return base + 'bg-[var(--success-bg)] text-[var(--success-text)]';
+    if (status === 'Rejected') return base + 'bg-[var(--danger-bg)] text-[var(--danger-text)]';
+    if (status === 'Pending') return base + 'bg-[var(--warning-bg)] text-[var(--warning-text)]';
+    return base + 'bg-[var(--info-bg)] text-[var(--info-text)]';
   }
 
   statusLabel(status: string): string {

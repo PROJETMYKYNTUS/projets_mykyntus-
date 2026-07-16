@@ -75,7 +75,7 @@ import { PrimeModalComponent } from './prime-modal.component';
       display: flex;
       flex-direction: column;
       gap: 12px;
-      border-left: 2px solid color-mix(in srgb, #6366f1 35%, var(--border-color, #334155));
+      border-left: 2px solid color-mix(in srgb, var(--electric-blue) 35%, var(--border-color));
       margin-left: 8px;
       padding-left: 18px;
     }
@@ -83,9 +83,9 @@ import { PrimeModalComponent } from './prime-modal.component';
     .prh-entry {
       position: relative;
       padding: 14px 16px;
-      border-radius: 12px;
-      border: 1px solid var(--border-color, #334155);
-      background: color-mix(in srgb, var(--bg-card, #1e293b) 92%, #6366f1 8%);
+      border-radius: var(--radius-card);
+      border: 1px solid var(--border-color);
+      background: color-mix(in srgb, var(--bg-card) 92%, var(--electric-blue) 8%);
     }
 
     .prh-entry::before {
@@ -96,12 +96,12 @@ import { PrimeModalComponent } from './prime-modal.component';
       width: 10px;
       height: 10px;
       border-radius: 50%;
-      background: #6366f1;
-      border: 2px solid var(--bg-card, #1e293b);
+      background: var(--electric-blue);
+      border: 2px solid var(--bg-card);
     }
 
     .prh-entry--override {
-      border-color: color-mix(in srgb, #f59e0b 40%, var(--border-color, #334155));
+      border-color: color-mix(in srgb, var(--warning) 40%, var(--border-color));
     }
 
     .prh-entry-header {
@@ -115,19 +115,19 @@ import { PrimeModalComponent } from './prime-modal.component';
     .prh-badge {
       display: inline-flex;
       padding: 2px 8px;
-      border-radius: 999px;
+      border-radius: var(--radius-pill);
       font-size: 0.7rem;
       font-weight: 600;
     }
 
     .prh-badge--current {
-      color: #86efac;
-      background: color-mix(in srgb, #22c55e 16%, transparent);
+      color: var(--success-text);
+      background: color-mix(in srgb, var(--success) 16%, transparent);
     }
 
     .prh-badge--override {
-      color: #fcd34d;
-      background: color-mix(in srgb, #f59e0b 16%, transparent);
+      color: var(--warning-text);
+      background: color-mix(in srgb, var(--warning) 16%, transparent);
     }
 
     .prh-meta {
@@ -142,19 +142,19 @@ import { PrimeModalComponent } from './prime-modal.component';
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      color: var(--text-muted, #94a3b8);
+      color: var(--text-muted);
     }
 
     .prh-meta dd {
       margin: 2px 0 0;
       font-size: 0.875rem;
-      color: var(--text-primary, #e2e8f0);
+      color: var(--text-primary);
     }
 
     .prh-reason {
       margin: 10px 0 0;
       font-size: 0.8rem;
-      color: var(--text-muted, #94a3b8);
+      color: var(--text-muted);
       line-height: 1.4;
     }
   `,

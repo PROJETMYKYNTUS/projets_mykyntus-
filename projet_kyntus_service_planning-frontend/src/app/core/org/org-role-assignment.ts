@@ -10,6 +10,11 @@ function normalizeRoleToken(name: string): string {
     .replace(/[_\s-]+/g, '');
 }
 
+/** Compare rôles en ignorant casse, accents, espaces / underscores (ex. Equipe_Formation ≈ Equipe formation). */
+export function roleNamesMatch(a: string, b: string): boolean {
+  return normalizeRoleToken(a) === normalizeRoleToken(b);
+}
+
 export function isChefDeProjetRole(roleName: string): boolean {
   const r = normalizeRoleToken(roleName);
   return r === 'rp' || r === 'chefdeprojet';

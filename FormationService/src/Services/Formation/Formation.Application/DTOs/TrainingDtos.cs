@@ -24,7 +24,18 @@ public sealed record TrainingAssignmentDto(
     Guid SessionId,
     Guid EmployeeId,
     string EmployeeName,
-    TrainingAssignmentStatus Status);
+    TrainingAssignmentStatus Status,
+    string Attendance);
+
+/// <summary>Session continue où l'employé est bénéficiaire (Mes formations).</summary>
+public sealed record MyAssignedTrainingSessionDto(
+    Guid SessionId,
+    Guid AssignmentId,
+    string Title,
+    DateTime PlannedStart,
+    DateTime PlannedEnd,
+    TrainingSessionStatus Status,
+    string Attendance);
 
 public sealed record InitialTrainingPathDto(
     Guid Id,
@@ -38,6 +49,13 @@ public sealed record InitialTrainingPathDto(
     DateTime? RhValidatedAt,
     string? RejectedBy,
     string? RejectReason);
+
+public sealed class MarkTrainingAttendanceRequest
+{
+    /// <summary>Present | Absent</summary>
+    public string Attendance { get; set; } = string.Empty;
+    public Guid AnimatorUserId { get; set; }
+}
 
 public sealed class CreateTrainingSessionRequest
 {

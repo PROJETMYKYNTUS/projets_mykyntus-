@@ -33,8 +33,8 @@
   </div>
 
   <app-kyntus-page-header
-    title="Mes réclamations"
-    subtitle="Soumettez et suivez vos demandes">
+    title="Réclamations & propositions"
+    subtitle="Soumettez, suivez et évaluez vos demandes dans une interface unifiée.">
     <div actions>
       <button type="button" class="ky-btn-primary btn-add" (click)="subView='new'" *ngIf="subView==='list'">
         Nouvelle demande
@@ -206,7 +206,7 @@
       </div>
 
       <div class="rp-form-actions">
-        <button class="rp-btn-ghost ky-btn-secondary" (click)="subView='list'">Annuler</button>
+            <button class="rp-btn-ghost ky-btn-secondary" (click)="subView='list'">Annuler</button>
         <button class="ky-btn-primary" (click)="submitRec()"
                 [disabled]="submitting || !newRec.titre.trim() || !newRec.description.trim()">
           <span *ngIf="submitting" class="rp-spinner-sm"></span>

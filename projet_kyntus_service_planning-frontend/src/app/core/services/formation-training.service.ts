@@ -3,6 +3,9 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import type {
   InitialTrainingPathDto,
+  MyAssignedTrainingSessionDto,
+  TrainingAssignmentDto,
+  TrainingAttendance,
   TrainingSessionDto,
 } from '../models/formation-training.models';
 
@@ -22,6 +25,40 @@ export class FormationTrainingService {
         params: { animatorUserId },
       }),
     );
+  }
+
+  listMyAssignedSessions(employeeId: string): Promise<MyAssignedTrainingSessionDto[]> {
+    return firstValueFrom(
+      this.http.get<MyAssignedTrainingSessionDto[]>(`${PREFIX}/sessions/my-assigned`, {
+        params: { employeeId },
+      }),
+    );
+  }
+
+  listSessionAssignments(sessionId: string, animatorUserId: string): Promise<TrainingAssignmentDto[]> {
+    return firstValueFrom(
+      this.http.get<TrainingAssignmentDto[]>(`${PREFIX}/sessions/${sessionId}/assignments`, {
+        params: { animatorUserId },
+      }),
+    ).catch((err) => {
+      throw new Error(err?.error?.error || err?.message || 'Échec du chargement des bénéficiaires');
+    });
+  }
+
+  markAttendance(
+    sessionId: string,
+    assignmentId: string,
+    attendance: Extract<TrainingAttendance, 'Present' | 'Absent'>,
+    animatorUserId: string,
+  ): Promise<TrainingAssignmentDto> {
+    return firstValueFrom(
+      this.http.patch<TrainingAssignmentDto>(
+        `${PREFIX}/sessions/${sessionId}/assignments/${assignmentId}/attendance`,
+        { attendance, animatorUserId },
+      ),
+    ).catch((err) => {
+      throw new Error(err?.error?.error || err?.message || 'Échec du pointage');
+    });
   }
 
   createSession(body: Record<string, unknown>): Promise<TrainingSessionDto> {

@@ -75,7 +75,7 @@ function actionLabel(action: string): string {
           <button
             type="button"
             (click)="goToValidation()"
-            class="shrink-0 rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-navy-800 transition-colors"
+            class="shrink-0 rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-input transition-colors"
           >
             Aller à Validation
           </button>
@@ -106,7 +106,7 @@ function actionLabel(action: string): string {
           <label class="inline-flex items-center gap-2 cursor-pointer text-primary">
             <input
               type="checkbox"
-              class="rounded border-default bg-navy-900 text-indigo-600 focus:ring-indigo-500"
+              class="rounded border-default bg-card text-indigo-600 focus:ring-indigo-500"
               [checked]="mineOnly()"
               (change)="setMineOnly($any($event.target).checked)"
             />
@@ -115,7 +115,7 @@ function actionLabel(action: string): string {
           <label class="inline-flex items-center gap-2 text-muted">
             Type
             <select
-              class="rounded-lg border border-default bg-navy-900 px-2 py-1 text-primary text-xs"
+              class="rounded-lg border border-default bg-card px-2 py-1 text-primary text-xs"
               [value]="actionFilter()"
               (change)="setActionFilter($any($event.target).value)"
             >
@@ -161,7 +161,7 @@ function actionLabel(action: string): string {
                         } @else if (item.phase === 'GlobalPool') {
                           <span class="text-violet-400">Synthèse</span>
                         } @else {
-                          <span class="text-slate-400">Fiche</span>
+                          <span class="text-muted">Fiche</span>
                         }
                       </td>
                       <td>
@@ -209,7 +209,7 @@ function actionLabel(action: string): string {
                         <button
                           type="button"
                           (click)="toggleDetail(item)"
-                          class="inline-flex items-center gap-1 rounded-md border border-default px-2 py-1 text-[11px] font-medium text-muted hover:text-primary hover:bg-navy-800/50"
+                          class="inline-flex items-center gap-1 rounded-md border border-default px-2 py-1 text-[11px] font-medium text-muted hover:text-primary hover:bg-input/50"
                         >
                           @if (expandedFicheId() === item.ficheId) {
                             <app-lucide-icon [icon]="icons.chevronUp" className="w-3.5 h-3.5" />
@@ -222,7 +222,7 @@ function actionLabel(action: string): string {
                       </td>
                     </tr>
                     @if (expandedFicheId() === item.ficheId) {
-                      <tr class="bg-navy-950/60">
+                      <tr class="bg-input">
                         <td colspan="8" class="px-6 py-4">
                           @if (detailLoadingId() === item.ficheId) {
                             <p class="text-xs text-muted">Chargement du détail…</p>

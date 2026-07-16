@@ -42,7 +42,7 @@ import { cn } from '@/lib/utils';
         <app-prime-card className="p-0">
           <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
-              <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
+              <thead class="text-xs text-muted uppercase bg-card border-b border-default">
                 <tr>
                   <th class="px-6 py-3 font-medium tracking-wider">Name</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Category</th>
@@ -51,36 +51,36 @@ import { cn } from '@/lib/utils';
                   <th class="px-6 py-3 font-medium tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-navy-800">
+              <tbody class="divide-y divide-default">
                 @if (filteredTypes().length === 0) {
                   <tr>
-                    <td colspan="5" class="px-6 py-8 text-center text-slate-500">
+                    <td colspan="5" class="px-6 py-8 text-center text-muted">
                       No data available
                     </td>
                   </tr>
                 } @else {
                   @for (item of filteredTypes(); track item.id) {
-                    <tr class="bg-navy-900 hover:bg-navy-800 transition-colors">
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                    <tr class="bg-card hover:bg-input transition-colors">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         <div>
                           <div class="font-medium text-primary">{{ item.name }}</div>
                           <div class="text-xs text-muted mt-0.5">{{ item.description }}</div>
                         </div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         <span
                           class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-card border border-default text-primary"
                         >
                           {{ item.type }}
                         </span>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         {{ getDeptName(item.departmentId ?? item.poleId) }}
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         <span [class]="statusBadgeClass(item.status)">{{ item.status }}</span>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200 text-right">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary text-right">
                         <div class="flex items-center justify-end gap-2">
                           <button
                             type="button"

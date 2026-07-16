@@ -12,7 +12,7 @@ import type { OperationalDepartmentNode } from '../models/org-tree.types';
   template: `
     @if (loading()) {
       <div class="p-8 flex justify-center">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--soft-blue)]"></div>
       </div>
     } @else {
       <div class="prime-page-shell">
@@ -38,11 +38,11 @@ import type { OperationalDepartmentNode } from '../models/org-tree.types';
               <div class="space-y-4">
                 @for (dept of operationalDepartments(); track dept.id) {
                   <div
-                    class="p-4 border border-default rounded-xl hover:border-indigo-500/40 hover:bg-navy-800/60 transition-colors cursor-pointer"
+                    class="p-4 border border-default rounded-xl hover:border-[var(--electric-blue)]/40 hover:bg-input/60 transition-colors cursor-pointer"
                   >
                     <div class="flex items-center gap-3">
                       <div
-                        class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center"
+                        class="w-10 h-10 bg-[var(--info-bg)] text-[var(--electric-blue)] rounded-lg flex items-center justify-center"
                       >
                         <app-lucide-icon [icon]="icons.building" className="w-5 h-5" />
                       </div>
@@ -55,7 +55,7 @@ import type { OperationalDepartmentNode } from '../models/org-tree.types';
                 }
                 <button
                   type="button"
-                  class="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-medium hover:border-indigo-400 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2"
+                  class="w-full py-3 border-2 border-dashed border-default rounded-xl text-muted font-medium hover:border-[var(--electric-blue)] hover:text-[var(--electric-blue)] transition-colors flex items-center justify-center gap-2"
                 >
                   <app-lucide-icon [icon]="icons.building" className="w-4 h-4" />
                   Add Department
@@ -68,15 +68,15 @@ import type { OperationalDepartmentNode } from '../models/org-tree.types';
             <app-prime-card title="Structure Details" description="Département de production">
               <div class="space-y-6">
                 @for (pole of firstOperationalDeptPoles(); track pole.id) {
-                  <div class="bg-navy-900 rounded-xl p-5 border border-default">
+                  <div class="bg-card rounded-xl p-5 border border-default">
                     <div class="flex items-center justify-between mb-4">
                       <div class="flex items-center gap-2">
-                        <app-lucide-icon [icon]="icons.tree" className="w-5 h-5 text-indigo-500" />
+                        <app-lucide-icon [icon]="icons.tree" className="w-5 h-5 text-[var(--electric-blue)]" />
                         <h3 class="text-lg font-semibold text-primary">{{ pole.name }}</h3>
                       </div>
                       <button
                         type="button"
-                        class="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                        class="text-sm font-medium text-[var(--electric-blue)] hover:opacity-80"
                       >
                         Edit Pôle
                       </button>
@@ -88,16 +88,16 @@ import type { OperationalDepartmentNode } from '../models/org-tree.types';
                           <div class="flex items-center gap-2 mb-3">
                             <app-lucide-icon
                               [icon]="icons.network"
-                              className="w-4 h-4 text-emerald-500"
+                              className="w-4 h-4 text-[var(--success-text)]"
                             />
                             <h4 class="font-medium text-primary">{{ cell.name }}</h4>
                           </div>
-                          <div class="space-y-2 pl-6 border-l-2 border-slate-100">
+                          <div class="space-y-2 pl-6 border-l-2 border-default">
                             @for (svc of cell.services; track svc.id) {
-                              <div class="flex items-center gap-2 text-sm text-slate-600">
+                              <div class="flex items-center gap-2 text-sm text-muted">
                                 <app-lucide-icon
                                   [icon]="icons.users"
-                                  className="w-3.5 h-3.5 text-slate-400"
+                                  className="w-3.5 h-3.5 text-muted"
                                 />
                                 {{ svc.name }}
                               </div>

@@ -46,7 +46,7 @@ import { DepartmentContextService } from '../services/allowance-api.service';
         <app-prime-card className="p-0">
           <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
-              <thead class="text-xs text-slate-400 uppercase bg-navy-900 border-b border-navy-800">
+              <thead class="text-xs text-muted uppercase bg-card border-b border-default">
                 <tr>
                   <th class="px-6 py-3 font-medium tracking-wider">Date Processed</th>
                   <th class="px-6 py-3 font-medium tracking-wider">Employee</th>
@@ -56,38 +56,38 @@ import { DepartmentContextService } from '../services/allowance-api.service';
                   <th class="px-6 py-3 font-medium tracking-wider">Processed By</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-navy-800">
+              <tbody class="divide-y divide-default">
                 @if (filteredResults().length === 0) {
                   <tr>
-                    <td colspan="6" class="px-6 py-8 text-center text-slate-500">
+                    <td colspan="6" class="px-6 py-8 text-center text-muted">
                       No data available
                     </td>
                   </tr>
                 } @else {
                   @for (item of filteredResults(); track item.id) {
-                    <tr class="bg-navy-900 hover:bg-navy-800 transition-colors">
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                    <tr class="bg-card hover:bg-input transition-colors">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         <div class="text-sm text-muted flex items-center gap-2">
                           <app-lucide-icon [icon]="icons.file" className="w-4 h-4 text-muted" />
                           {{ item.date }}
                         </div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         @let emp = getEmployee(item.employeeId);
                         <div class="font-medium text-primary">
                           {{ emp?.firstName }} {{ emp?.lastName }}
                         </div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         <div class="text-sm text-primary">{{ getType(item.primeTypeId)?.name }}</div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         <div class="font-semibold text-primary">{{ item.amount }} MAD</div>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         <span [class]="statusBadgeClass(item.status)">{{ item.status }}</span>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-slate-200">
+                      <td class="px-6 py-4 whitespace-nowrap text-primary">
                         @let approver = getApprover(item.approvedBy);
                         <div class="text-sm text-muted">
                           {{ approver ? approver.firstName + ' ' + approver.lastName : 'System' }}

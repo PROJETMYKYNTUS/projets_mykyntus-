@@ -9,7 +9,7 @@ export interface OrgNode extends Organization {
   parentId?: string;
 }
 
-const DEFAULT_ORG: Organization = { departementId: 'dept-1', poleId: 'pole-1', celluleId: 'cell-1' };
+const DEFAULT_ORG: Organization = { departementId: 'd1', poleId: 'd1', celluleId: 'p1' };
 
 /** Nœuds hiérarchie — alimentés par GET /api/parrainage/org/nodes (sync Planning/Prime). */
 let orgNodesCache: OrgNode[] = [];

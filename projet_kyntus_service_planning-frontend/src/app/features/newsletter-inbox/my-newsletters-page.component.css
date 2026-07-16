@@ -16,7 +16,7 @@
   width: fit-content;
   margin-bottom: 8px;
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--soft-blue) 18%, var(--bg-card));
   color: var(--blue-600);
   font-size: 0.78rem;
@@ -47,7 +47,7 @@
 }
 
 .unread-count {
-  color: #b45309;
+  color: var(--warning-text);
 }
 
 .kpi-row {
@@ -59,7 +59,7 @@
 
 .kpi-card {
   padding: 14px 16px;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -80,9 +80,9 @@
   color: var(--text-primary);
 }
 
-.kc-blue { border-left: 4px solid #3b82f6; }
-.kc-green { border-left: 4px solid #22c55e; }
-.kc-amber { border-left: 4px solid #f59e0b; }
+.kc-blue { border-left: 4px solid var(--info); }
+.kc-green { border-left: 4px solid var(--success); }
+.kc-amber { border-left: 4px solid var(--warning); }
 
 .filters-panel {
   padding: 12px 14px;
@@ -105,7 +105,7 @@
   max-width: 360px;
   padding: 0 12px;
   height: 40px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   background: var(--bg-input);
 }
@@ -169,7 +169,7 @@
 .inbox-thumb {
   width: 56px;
   height: 56px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   flex-shrink: 0;
   background: var(--bg-input);
@@ -234,7 +234,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-input);
   border: 1px solid var(--border-color);
   font-size: 0.72rem;
@@ -242,9 +242,9 @@
 }
 
 .status-badge.status-new {
-  background: color-mix(in srgb, #f59e0b 14%, var(--bg-card));
-  border-color: color-mix(in srgb, #f59e0b 35%, var(--border-color));
-  color: #92400e;
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+  color: var(--warning-text);
 }
 
 .detail-card {
@@ -277,7 +277,7 @@
   width: 100%;
   max-height: 320px;
   object-fit: cover;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   margin-bottom: 20px;
   border: 1px solid var(--border-color);
 }

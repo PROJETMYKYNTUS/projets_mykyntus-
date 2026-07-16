@@ -1,0 +1,2 @@
+129:      "UpstreamPathTemplate": "/hubs/{everything}",
+131:      "DownstreamPathTemplate": "/hubs/{everything}",

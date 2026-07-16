@@ -15,6 +15,8 @@ export interface PlanningNotification {
   type?: 'planning' | 'reclamation' | 'proposition' | 'formation';
   icon?: string;
   weeklyPlanningId?: number;
+  /** Route SPA optionnelle (formation continue animateur / bénéficiaire). */
+  deepLink?: string;
 }
 
 export interface NewsletterNotification {
@@ -42,6 +44,16 @@ function resolvePlanningNotifType(weekCode: string, subServiceName?: string): Pl
   if ((weekCode ?? '').toUpperCase().startsWith('FORMATION-')) return 'formation';
   if ((subServiceName ?? '').toLowerCase().includes('formation')) return 'formation';
   return 'planning';
+}
+
+/** Deep-link formation depuis le weekCode persisté (sans champ deepLink côté API). */
+export function resolveFormationDeepLink(weekCode: string, deepLink?: string | null): string {
+  if (deepLink && deepLink.startsWith('/')) return deepLink;
+  const code = (weekCode ?? '').toUpperCase();
+  if (code.startsWith('TRAINING-ANIM-') || code.startsWith('TRAINING-START-ANIM-')) {
+    return '/mes-sessions';
+  }
+  return '/mes-formations';
 }
 
 export interface ReclamationNotif {
@@ -165,6 +177,10 @@ export class NotificationService {
             type: resolvePlanningNotifType(r.weekCode ?? '', r.subServiceName),
             icon: resolvePlanningNotifType(r.weekCode ?? '', r.subServiceName) === 'formation' ? 'book' : 'calendar',
             weeklyPlanningId: r.weeklyPlanningId,
+            deepLink:
+              resolvePlanningNotifType(r.weekCode ?? '', r.subServiceName) === 'formation'
+                ? resolveFormationDeepLink(r.weekCode ?? '')
+                : undefined,
           }));
           // Fusion avec les notifs déjà présentes (temps réel), en évitant les doublons backend.
           const existingIds = new Set(
@@ -212,7 +228,13 @@ private connectPlanningHub(): void {
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
     .build();
 
-    this.connection.on('PlanningPublished', (data: { weekCode: string; subServiceName: string; message: string; weeklyPlanningId?: number }) => {
+    this.connection.on('PlanningPublished', (data: {
+      weekCode: string;
+      subServiceName: string;
+      message: string;
+      weeklyPlanningId?: number;
+      deepLink?: string;
+    }) => {
       const type = resolvePlanningNotifType(data.weekCode ?? '', data.subServiceName);
       this.pushNotification({
         weekCode:       data.weekCode,
@@ -223,6 +245,9 @@ private connectPlanningHub(): void {
         type,
         icon:           type === 'formation' ? 'book' : 'calendar',
         weeklyPlanningId: data.weeklyPlanningId,
+        deepLink: type === 'formation'
+          ? resolveFormationDeepLink(data.weekCode ?? '', data.deepLink)
+          : data.deepLink,
       });
     });
 

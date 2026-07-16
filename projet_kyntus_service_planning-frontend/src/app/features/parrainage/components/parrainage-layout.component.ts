@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
-import { ParrainageHeaderComponent } from './parrainage-header.component';
 import { PmDrillBarComponent } from './pm-drill-bar.component';
 import { UiPreferencesService } from '../services/ui-preferences.service';
 import { ParrainageStoreService } from '../services/parrainage-store.service';
@@ -32,7 +31,6 @@ import { GlobalSettingsPageComponent } from '../pages/shared/global-settings-pag
   selector: 'app-parrainage-layout',
   standalone: true,
   imports: [
-    ParrainageHeaderComponent,
     PmDrillBarComponent,
     PiloteDashboardPageComponent,
     PiloteSubmitPageComponent,
@@ -59,13 +57,12 @@ import { GlobalSettingsPageComponent } from '../pages/shared/global-settings-pag
   ],
   template: `
     <div class="min-h-full flex flex-col bg-app text-primary w-full">
-      <app-parrainage-header />
       <div class="flex-1 flex flex-col prime-page-shell space-y-6" [class.!p-4]="compact()">
         @if (store.loading()) {
           <div class="card-navy p-6 text-center text-sm text-muted">Chargement des données…</div>
         }
         @if (store.error()) {
-          <div class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-sm text-rose-200 mb-4">
+          <div class="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-2 text-sm text-[var(--danger-text)] mb-4">
             {{ store.error() }}
           </div>
         }

@@ -31,7 +31,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="space-y-4">
             <div>
-              <label class="text-sm font-semibold text-white">Nom du système documentaire</label>
+              <label class="text-sm font-semibold text-primary">Nom du système documentaire</label>
               <input
                 [ngModel]="draft.systemName"
                 (ngModelChange)="patchDraft({ systemName: $event })"
@@ -44,7 +44,7 @@
 
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="text-sm font-semibold text-white">Langue par défaut</label>
+                <label class="text-sm font-semibold text-primary">Langue par défaut</label>
                 <select
                   [ngModel]="draft.defaultLanguage"
                   (ngModelChange)="patchDraft({ defaultLanguage: $event })"
@@ -55,7 +55,7 @@
                 </select>
               </div>
               <div>
-                <label class="text-sm font-semibold text-white">Fuseau horaire</label>
+                <label class="text-sm font-semibold text-primary">Fuseau horaire</label>
                 <select
                   [ngModel]="draft.defaultTimezone"
                   (ngModelChange)="patchDraft({ defaultTimezone: $event })"
@@ -69,7 +69,7 @@
 
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="text-sm font-semibold text-white">Taille max (MB)</label>
+                <label class="text-sm font-semibold text-primary">Taille max (MB)</label>
                 <input
                   type="number"
                   min="1"
@@ -82,7 +82,7 @@
                 }
               </div>
               <div>
-                <label class="text-sm font-semibold text-white">Types autorisés</label>
+                <label class="text-sm font-semibold text-primary">Types autorisés</label>
                 <input
                   [(ngModel)]="allowedTypesText"
                   placeholder="pdf, docx, png"
@@ -97,7 +97,7 @@
 
           <div class="space-y-4">
             <div class="border border-default rounded-xl p-4">
-              <h4 class="text-sm font-bold text-white mb-3">Règles métier</h4>
+              <h4 class="text-sm font-bold text-primary mb-3">Règles métier</h4>
               <div class="space-y-3">
                 <app-admin-toggle
                   [checked]="draft.versioningEnabled"
@@ -105,7 +105,7 @@
                   label="Activer le versioning"
                 ></app-admin-toggle>
                 <div>
-                  <label class="text-sm font-semibold text-white">Durée d’archivage automatique (jours)</label>
+                  <label class="text-sm font-semibold text-primary">Durée d’archivage automatique (jours)</label>
                   <input
                     type="number"
                     min="0"
@@ -130,7 +130,7 @@
                 ></app-admin-toggle>
                 @if (draft.autoNumberingEnabled) {
                   <div>
-                    <label class="text-sm font-semibold text-white">Motif de numérotation</label>
+                    <label class="text-sm font-semibold text-primary">Motif de numérotation</label>
                     <input
                       [ngModel]="draft.numberingPattern"
                       (ngModelChange)="patchDraft({ numberingPattern: $event })"
@@ -145,7 +145,7 @@
             </div>
 
             <div class="border border-default rounded-xl p-4">
-              <h4 class="text-sm font-bold text-white mb-3">Sécurité & notifications</h4>
+              <h4 class="text-sm font-bold text-primary mb-3">Sécurité & notifications</h4>
               <div class="space-y-3">
                 <app-admin-toggle
                   [checked]="draft.security.encryptionEnabled"
@@ -196,10 +196,8 @@
               type="button"
               (click)="onSave()"
               [disabled]="saving"
-              class="px-6 py-3 rounded-lg font-bold text-white transition-all"
-              [ngClass]="
-                saving ? 'bg-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20'
-              "
+              class="ky-btn-primary px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              [disabled]="saving"
             >
               {{ saving ? 'Sauvegarde…' : 'Sauvegarder' }}
             </button>

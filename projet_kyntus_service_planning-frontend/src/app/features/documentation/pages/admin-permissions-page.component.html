@@ -18,7 +18,7 @@
         <button
           type="button"
           (click)="retryLoad()"
-          class="px-6 py-3 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-500"
+          class="ky-btn-primary px-6 py-3"
         >
           Réessayer
         </button>
@@ -44,7 +44,7 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label class="text-sm font-semibold text-white">Filtrer par type</label>
+            <label class="text-sm font-semibold text-primary">Filtrer par type</label>
             <select
               [(ngModel)]="selectedDocType"
               class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
@@ -56,7 +56,7 @@
             </select>
           </div>
           <div>
-            <label class="text-sm font-semibold text-white">Filtrer par département</label>
+            <label class="text-sm font-semibold text-primary">Filtrer par département</label>
             <select
               [(ngModel)]="selectedDepartment"
               class="mt-2 w-full bg-card border border-default rounded-lg p-3 text-sm text-primary outline-none focus:border-blue-500"
@@ -73,10 +73,8 @@
                 type="button"
                 (click)="onSave()"
                 [disabled]="saving"
-                class="px-6 py-3 rounded-lg font-bold text-white transition-all"
-                [ngClass]="
-                  saving ? 'bg-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20'
-                "
+                class="ky-btn-primary px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                [disabled]="saving"
               >
                 {{ saving ? 'Sauvegarde…' : 'Sauvegarder' }}
               </button>
@@ -96,9 +94,9 @@
           <div class="px-4 py-3 bg-card/30 flex items-center justify-between gap-3">
             <p class="text-sm text-primary">
               Règles actives:
-              <span class="text-white font-semibold">{{ filterSummaryDocType() }}</span>
+              <span class="text-primary font-semibold">{{ filterSummaryDocType() }}</span>
               •
-              <span class="text-white font-semibold">{{ filterSummaryDept() }}</span>
+              <span class="text-primary font-semibold">{{ filterSummaryDept() }}</span>
             </p>
             <div class="text-xs text-muted">
               Modifiez les cases à cocher puis cliquez sur <span class="text-primary font-semibold">Sauvegarder</span>.

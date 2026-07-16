@@ -87,7 +87,7 @@ import type { AllowanceTeamMemberDto, AllowanceTypeDto } from '../../services/al
       position: fixed;
       inset: 0;
       z-index: 60;
-      background: rgba(15, 23, 42, 0.45);
+      background: color-mix(in srgb, var(--navy-950) 45%, transparent);
       backdrop-filter: blur(4px);
       display: flex;
       align-items: center;
@@ -98,10 +98,10 @@ import type { AllowanceTeamMemberDto, AllowanceTypeDto } from '../../services/al
     .allowance-modal {
       width: 100%;
       max-width: 28rem;
-      background: var(--bg-card, #fff);
-      border: 1px solid color-mix(in srgb, var(--border-default, #e5e7eb) 90%, transparent);
-      border-radius: 1rem;
-      box-shadow: 0 25px 50px -12px rgba(79, 70, 229, 0.18);
+      background: var(--bg-card);
+      border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
+      border-radius: var(--radius-card, 0.875rem);
+      box-shadow: var(--shadow-3);
       overflow: hidden;
       animation: allowance-slide-up 0.2s ease-out;
     }
@@ -110,17 +110,17 @@ import type { AllowanceTeamMemberDto, AllowanceTypeDto } from '../../services/al
       justify-content: space-between;
       gap: 1rem;
       padding: 1.25rem 1.25rem 0.75rem;
-      border-bottom: 1px solid color-mix(in srgb, var(--border-default, #e5e7eb) 70%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
     }
     .allowance-modal__title {
       font-size: 1.125rem;
       font-weight: 700;
-      color: var(--text-primary, #111827);
+      color: var(--text-primary);
       margin: 0;
     }
     .allowance-modal__hint {
       font-size: 0.75rem;
-      color: var(--text-muted, #6b7280);
+      color: var(--text-muted);
       margin: 0.25rem 0 0;
     }
     .allowance-modal__close {
@@ -128,41 +128,41 @@ import type { AllowanceTeamMemberDto, AllowanceTypeDto } from '../../services/al
       background: transparent;
       font-size: 1.5rem;
       line-height: 1;
-      color: var(--text-muted, #9ca3af);
+      color: var(--text-muted);
       cursor: pointer;
       padding: 0.125rem 0.375rem;
-      border-radius: 0.375rem;
+      border-radius: var(--radius-md, 0.5rem);
     }
-    .allowance-modal__close:hover { background: color-mix(in srgb, var(--border-default, #e5e7eb) 50%, transparent); }
+    .allowance-modal__close:hover { background: color-mix(in srgb, var(--border-color) 50%, transparent); }
     .allowance-modal__form { padding: 1rem 1.25rem 1.25rem; display: flex; flex-direction: column; gap: 0.875rem; }
     .allowance-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
     @media (max-width: 480px) { .allowance-field-row { grid-template-columns: 1fr; } }
     .allowance-field { display: flex; flex-direction: column; gap: 0.35rem; }
-    .allowance-field--readonly { padding: 0.5rem 0.75rem; background: color-mix(in srgb, #4F46E5 6%, var(--bg-card, #fff)); border-radius: 0.5rem; }
-    .allowance-field__label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted, #6b7280); text-transform: uppercase; letter-spacing: 0.03em; }
-    .allowance-field__value { font-size: 0.9375rem; font-weight: 600; color: var(--text-primary, #111827); }
+    .allowance-field--readonly { padding: 0.5rem 0.75rem; background: color-mix(in srgb, var(--electric-blue) 6%, var(--bg-card)); border-radius: var(--radius-md, 0.5rem); }
+    .allowance-field__label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    .allowance-field__value { font-size: 0.9375rem; font-weight: 600; color: var(--text-primary); }
     .allowance-field__input {
       width: 100%;
       padding: 0.625rem 0.75rem;
-      border-radius: 0.5rem;
-      border: 1px solid var(--border-default, #d1d5db);
-      background: var(--bg-input, #fff);
-      color: var(--text-primary, #111827);
+      border-radius: var(--radius-md, 0.5rem);
+      border: 1px solid var(--border-color);
+      background: var(--bg-input);
+      color: var(--text-primary);
       font-size: 0.9375rem;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
     .allowance-field__input:focus {
       outline: none;
-      border-color: #4F46E5;
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+      border-color: var(--electric-blue);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--electric-blue) 15%, transparent);
     }
     .allowance-field__input--amount { font-size: 1.125rem; font-weight: 600; }
     .allowance-field__input--textarea { resize: vertical; min-height: 4.5rem; }
     .allowance-modal__error {
       padding: 0.625rem 0.75rem;
-      border-radius: 0.5rem;
-      background: color-mix(in srgb, #EF4444 12%, transparent);
-      color: #EF4444;
+      border-radius: var(--radius-md, 0.5rem);
+      background: var(--danger-bg);
+      color: var(--danger-text);
       font-size: 0.8125rem;
     }
     .allowance-modal__footer {
@@ -176,7 +176,7 @@ import type { AllowanceTeamMemberDto, AllowanceTypeDto } from '../../services/al
       align-items: center;
       gap: 0.375rem;
       padding: 0.625rem 1rem;
-      border-radius: 0.5rem;
+      border-radius: var(--radius-md, 0.5rem);
       font-size: 0.875rem;
       font-weight: 600;
       cursor: pointer;
@@ -186,21 +186,21 @@ import type { AllowanceTeamMemberDto, AllowanceTypeDto } from '../../services/al
     .allowance-btn:hover:not(:disabled) { transform: translateY(-1px); }
     .allowance-btn:disabled { opacity: 0.65; cursor: not-allowed; }
     .allowance-btn--primary {
-      background: #4F46E5;
-      color: #fff;
-      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+      background: var(--ky-gradient);
+      color: white;
+      box-shadow: var(--shadow-2);
     }
-    .allowance-btn--primary:hover:not(:disabled) { box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45); }
+    .allowance-btn--primary:hover:not(:disabled) { box-shadow: var(--shadow-3); }
     .allowance-btn--ghost {
       background: transparent;
-      color: var(--text-muted, #6b7280);
-      border: 1px solid var(--border-default, #d1d5db);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
     }
     .allowance-spinner {
       width: 0.875rem;
       height: 0.875rem;
-      border: 2px solid rgba(255,255,255,0.35);
-      border-top-color: #fff;
+      border: 2px solid color-mix(in srgb, white 35%, transparent);
+      border-top-color: white;
       border-radius: 50%;
       animation: allowance-spin 0.6s linear infinite;
     }

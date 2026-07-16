@@ -176,7 +176,7 @@ import { toPreviewStoredTemplate, type StoredPrimeTemplate } from '../models/pri
       <app-prime-card title="Fichier" description="Excel (.xlsx) modèle rempli ou CSV plat (.csv).">
         <div class="flex flex-col gap-3">
           <label
-            class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-default bg-card/40 px-4 py-6 text-sm text-muted hover:bg-navy-700/30"
+            class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-default bg-card/40 px-4 py-6 text-sm text-muted hover:bg-input/30"
           >
             <app-lucide-icon [icon]="icons.upload" className="w-5 h-5 text-primary" />
             <span>{{ fileName() || 'Choisir un fichier .xlsx ou .csv' }}</span>
@@ -243,7 +243,7 @@ import { toPreviewStoredTemplate, type StoredPrimeTemplate } from '../models/pri
           <button
             type="button"
             (click)="nav.requestView('/prime-fiches-pilotes')"
-            class="rounded-lg border border-default px-4 py-2 text-sm font-medium text-primary hover:bg-navy-700/40"
+            class="rounded-lg border border-default px-4 py-2 text-sm font-medium text-primary hover:bg-input/40"
           >
             Aller au pilotage
           </button>

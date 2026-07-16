@@ -177,20 +177,21 @@
           <div>
             <strong>{{ s.title }}</strong>
             — {{ s.assignmentCount }}/{{ s.capacity }} ({{ fillRate(s) }} %)
-            <span class="text-muted">({{ s.status }})</span>
+            <span class="text-muted">({{ statusLabel(s.status) }})</span>
             <div class="text-muted text-xs mt-1">
               {{ formatSessionDate(s.plannedStart) }} → {{ formatSessionDate(s.plannedEnd) }}
             </div>
           </div>
           <div class="session-actions">
             <button type="button" class="ky-btn-secondary text-xs" (click)="openAssign(s.id)">Affecter</button>
-            <button type="button" class="ky-btn-secondary text-xs" (click)="setStatus(s.id, 'InProgress')">Démarrer</button>
-            <button type="button" class="ky-btn-secondary text-xs" (click)="setStatus(s.id, 'Completed')">Terminer</button>
           </div>
         </div>
       } @empty {
         <p class="text-muted text-sm">Aucune session.</p>
       }
+      <p class="text-muted text-xs mt-2">
+        Statut automatique selon les horaires : avant début = Planifiée, pendant = En cours, après fin = Terminée.
+      </p>
       @if (assignMsg()) {
         <p class="text-sm mt-2 text-emerald-300">{{ assignMsg() }}</p>
       }

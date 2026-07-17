@@ -6,30 +6,72 @@ import { Observable, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 
-export interface ShiftConfig {
-  shiftId:       number;
-  shiftLabel:    string;
-  startTime:     string;
-  requiredCount: number;
-  percentage:    number;
-}
-
 export interface CoverageDayShift {
   date: string;
   day: string;
   shiftConfigId: number;
   shiftLabel: string;
+  shiftKind?: string;
   requiredCount: number;
   assignedCount: number;
   minPresencePercent: number;
   presencePercent: number;
   isUnderstaffed: boolean;
+  hasLevelBalanceAnomaly?: boolean;
+}
+
+export interface PlanningAnomaly {
+  code: string;
+  severity: string;
+  date: string;
+  day: string;
+  shiftConfigId: number;
+  shiftLabel: string;
+  message: string;
+  isForced?: boolean;
+}
+
+export interface DaySynthesisShift {
+  shiftConfigId: number;
+  shiftLabel: string;
+  shiftKind: string;
+  assignedCount: number;
+  requiredCount: number;
+  delta: number;
+  beginnerCount?: number;
+  seniorCount?: number;
+  isUnderstaffed: boolean;
+  hasLevelBalanceAnomaly: boolean;
+}
+
+export interface DaySynthesis {
+  date: string;
+  day: string;
+  shifts: DaySynthesisShift[];
+  leaveCount: number;
+  holidayCount: number;
+  presentCount?: number;
+  saturdayBeginners?: number;
+  saturdaySeniors?: number;
+  hasAnyAnomaly: boolean;
 }
 
 export interface CoverageReport {
   hasUnderstaffing: boolean;
+  hasLevelBalanceAnomaly?: boolean;
   warnings: string[];
+  levelBalanceAnomalies?: PlanningAnomaly[];
   items: CoverageDayShift[];
+  daySynthesis?: DaySynthesis[];
+}
+
+export interface ShiftConfig {
+  shiftId:       number;
+  shiftLabel:    string;
+  startTime:     string;
+  shiftKind?:    string;
+  requiredCount: number;
+  percentage:    number;
 }
 
 export interface SaturdayYtd {
@@ -438,6 +480,31 @@ export class PlanningService {
 
   saveSaturdayHistory(dto: SetSaturdayHistoryDto): Observable<any> {
     return this.http.post(`${this.base}/saturday-history`, dto);
+  }
+
+  // ── Demandes de changement (RH) ───────────────────
+  getChangeRequests(status?: string, weekCode?: string): Observable<any[]> {
+    const params: string[] = [];
+    if (status) params.push(`status=${encodeURIComponent(status)}`);
+    if (weekCode) params.push(`weekCode=${encodeURIComponent(weekCode)}`);
+    const qs = params.length ? `?${params.join('&')}` : '';
+    return this.http.get<any[]>(`${this.base}/change-requests${qs}`);
+  }
+
+  getChangeRequestStats(weekCode?: string): Observable<any[]> {
+    const qs = weekCode ? `?weekCode=${encodeURIComponent(weekCode)}` : '';
+    return this.http.get<any[]>(`${this.base}/change-requests/stats-by-employee${qs}`);
+  }
+
+  approveChangeRequest(id: number, authUserId: number): Observable<any> {
+    return this.http.post(`${this.base}/change-requests/${id}/approve?authUserId=${authUserId}`, {});
+  }
+
+  rejectChangeRequest(id: number, authUserId: number, reason?: string): Observable<any> {
+    return this.http.post(
+      `${this.base}/change-requests/${id}/reject?authUserId=${authUserId}`,
+      { reason: reason || null },
+    );
   }
 
   // ── Commentaires ──────────────────────────────────

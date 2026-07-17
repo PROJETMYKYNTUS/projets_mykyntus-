@@ -151,6 +151,19 @@ public class PlanningService : IPlanningService
             });
         }
 
+        LevelBalanceEvaluator.ApplyShiftKindsFromStartTimes(configs);
+
+        // Override explicite si fourni dans le DTO
+        for (int i = 0; i < configs.Count; i++)
+        {
+            var kindRaw = dto.Shifts[i].ShiftKind;
+            if (!string.IsNullOrWhiteSpace(kindRaw)
+                && Enum.TryParse<ShiftKind>(kindRaw, ignoreCase: true, out var parsed))
+            {
+                configs[i].ShiftKind = parsed;
+            }
+        }
+
         _context.SubServiceShiftConfigs.AddRange(configs);
         await _context.SaveChangesAsync();
 
@@ -321,11 +334,22 @@ public class PlanningService : IPlanningService
                 Percentage = t.Percentage,
                 MinPresencePercent = t.MinPresencePercent,
                 DisplayOrder = t.DisplayOrder,
+                ShiftKind = t.ShiftKind,
                 CreatedAt = DateTime.UtcNow
             });
         }
 
         await _context.SaveChangesAsync();
+
+        // Rétro-compat : templates sans ShiftKind → déduire depuis StartTime
+        var snapshot = await _context.SubServiceShiftConfigs
+            .Where(c => c.SubServiceId == subServiceId && !c.IsTemplate && c.WeekCode == weekCode)
+            .ToListAsync();
+        if (snapshot.All(c => c.ShiftKind == ShiftKind.Standard) && snapshot.Count > 0)
+        {
+            LevelBalanceEvaluator.ApplyShiftKindsFromStartTimes(snapshot);
+            await _context.SaveChangesAsync();
+        }
     }
 
     // ----------------------------------------------------
@@ -609,6 +633,15 @@ public class PlanningService : IPlanningService
             }
         }
 
+        var usersById = employees.ToDictionary(e => e.Id);
+        LevelBalanceRepairer.Repair(assignments, shiftConfigs, usersById, employees, planning);
+
+        saturdayWorkers = assignments
+            .Where(a => a.IsSaturday && a.SubServiceShiftConfigId != null && !a.IsOnLeave && !a.IsHoliday)
+            .Select(a => a.UserId)
+            .Distinct()
+            .ToList();
+
         await SaveSaturdayHistoryAsync(new SetSaturdayHistoryDto(
             dto.SubServiceId,
             dto.WeekCode,
@@ -620,7 +653,7 @@ public class PlanningService : IPlanningService
 
         _context.ShiftAssignments.AddRange(assignments);
 
-        // -- PAUSES (uniquement jours normaux travaill�s) --
+        // -- PAUSES (uniquement jours normaux travaillés) --
         var workDayAssignments = assignments
             .Where(a => !a.IsSaturday && !a.IsOnLeave && !a.IsHoliday
                      && a.SubServiceShiftConfigId != null)
@@ -636,6 +669,8 @@ public class PlanningService : IPlanningService
             .ToList();
         if (saturdayWorkAssignments.Any())
             AssignBreakTimesFromConfig(saturdayWorkAssignments, shiftConfigs, employees.Count);
+
+        // Anomalies éventuelles (cas forcés) exposées via CoverageReport — pas de blocage.
 
         await _context.SaveChangesAsync();
 
@@ -1116,6 +1151,8 @@ public class PlanningService : IPlanningService
             throw new InvalidOperationException(
                 "Consultation obligatoire avant validation. Ouvrez d'abord le planning.");
 
+        // Anomalies niveau : warning coverage uniquement — ne bloque pas la publication.
+
         planning.Status = PlanningStatus.Published;
         planning.ValidatedBy = validatorId;
         await _context.SaveChangesAsync();
@@ -1373,6 +1410,7 @@ public class PlanningService : IPlanningService
                 ShiftId = c.Id,
                 ShiftLabel = c.Label,
                 StartTime = c.StartTime.ToString("HH:mm"),
+                ShiftKind = c.ShiftKind.ToString(),
                 RequiredCount = c.RequiredCount,
                 Percentage = totalRequired > 0
                     ? Math.Round((decimal)c.RequiredCount / totalRequired * 100, 1)
@@ -1380,7 +1418,12 @@ public class PlanningService : IPlanningService
             }).ToList();
         }
 
-        var coverage = BuildCoverageReport(planning, subConfigs);
+        var usersForCoverage = planning.ShiftAssignments
+            .Select(a => a.User)
+            .Where(u => u != null)
+            .GroupBy(u => u!.Id)
+            .ToDictionary(g => g.Key, g => g.First()!);
+        var coverage = BuildCoverageReport(planning, subConfigs, usersForCoverage);
 
         return new WeeklyPlanningResponseDto
         {
@@ -1828,17 +1871,66 @@ public class PlanningService : IPlanningService
 
     private static CoverageReportDto BuildCoverageReport(
         WeeklyPlanning planning,
-        List<SubServiceShiftConfig> shiftConfigs)
+        List<SubServiceShiftConfig> shiftConfigs,
+        IReadOnlyDictionary<int, User>? usersById = null)
     {
         var report = new CoverageReportDto();
         if (shiftConfigs.Count == 0)
             return report;
 
-        var dayNames = new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday" };
-        for (var i = 0; i < 5; i++)
+        usersById ??= planning.ShiftAssignments
+            .Where(a => a.User != null)
+            .GroupBy(a => a.UserId)
+            .ToDictionary(g => g.Key, g => g.First().User);
+
+        var levelAnomalies = LevelBalanceEvaluator.Evaluate(
+            planning.ShiftAssignments, shiftConfigs, usersById, usersById?.Values.ToList());
+        report.LevelBalanceAnomalies = levelAnomalies;
+        report.HasLevelBalanceAnomaly = levelAnomalies.Count > 0;
+        foreach (var a in levelAnomalies)
+            report.Warnings.Add(a.Message);
+
+        var anomalyKeys = levelAnomalies
+            .Select(a => (a.Date, a.ShiftConfigId))
+            .ToHashSet();
+        var anomalyDates = levelAnomalies.Select(a => a.Date).ToHashSet();
+
+        var dayNames = new[]
+        {
+            "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
+        };
+
+        for (var i = 0; i < 6; i++)
         {
             var date = planning.WeekStartDate.AddDays(i);
             var dayName = dayNames[i];
+            var daySynth = new DaySynthesisDto { Date = date, Day = dayName };
+
+            daySynth.LeaveCount = planning.ShiftAssignments.Count(a =>
+                a.AssignedDate == date && a.IsOnLeave);
+            daySynth.HolidayCount = planning.ShiftAssignments.Count(a =>
+                a.AssignedDate == date && a.IsHoliday);
+
+            var dayPresent = planning.ShiftAssignments
+                .Where(a =>
+                    a.AssignedDate == date
+                    && a.SubServiceShiftConfigId != null
+                    && !a.IsOnLeave
+                    && !a.IsHoliday)
+                .ToList();
+            daySynth.PresentCount = dayPresent.Count;
+
+            if (i == 5)
+            {
+                daySynth.SaturdayBeginners = dayPresent.Count(a =>
+                    usersById != null
+                    && usersById.TryGetValue(a.UserId, out var u)
+                    && u.Level == 1);
+                daySynth.SaturdaySeniors = dayPresent.Count(a =>
+                    usersById != null
+                    && usersById.TryGetValue(a.UserId, out var u)
+                    && u.Level >= 2);
+            }
 
             foreach (var cfg in shiftConfigs.OrderBy(c => c.DisplayOrder))
             {
@@ -1851,20 +1943,26 @@ public class PlanningService : IPlanningService
                     .ToList();
 
                 var assigned = dayAssignments.Count;
+                var beginnerCount = dayAssignments.Count(a =>
+                    usersById != null
+                    && usersById.TryGetValue(a.UserId, out var u)
+                    && u.Level == 1);
+                var seniorCount = dayAssignments.Count(a =>
+                    usersById != null
+                    && usersById.TryGetValue(a.UserId, out var u)
+                    && u.Level >= 2);
+
                 var staffingPct = cfg.RequiredCount > 0
                     ? Math.Round((decimal)assigned / cfg.RequiredCount * 100, 1)
                     : 100m;
 
-                // Sous-effectif = quota non atteint
-                var understaffed = cfg.RequiredCount > 0 && assigned < cfg.RequiredCount;
+                var understaffed = i < 5 && cfg.RequiredCount > 0 && assigned < cfg.RequiredCount;
 
-                // Présence min = contrainte pauses (par shift) — aligné sur l'algo de génération
                 var minPresence = cfg.MinPresencePercent <= 0 ? 70 : Math.Clamp(cfg.MinPresencePercent, 50, 100);
                 var presenceIssue = false;
-                if (assigned > 1)
+                if (assigned > 1 && i < 5)
                 {
                     var maxBreakAllowed = (int)Math.Floor(assigned * (100 - minPresence) / 100.0);
-                    // Petits effectifs : floor(2×0.3)=0 serait impossible → au moins 1 pause autorisée
                     if (maxBreakAllowed == 0)
                         maxBreakAllowed = 1;
                     presenceIssue = dayAssignments
@@ -1873,18 +1971,41 @@ public class PlanningService : IPlanningService
                         .Any(g => g.Count() > maxBreakAllowed);
                 }
 
+                var hasLevel = anomalyKeys.Contains((date, cfg.Id))
+                               || (i == 5 && anomalyDates.Contains(date));
+                var isUnder = understaffed || presenceIssue;
+
                 report.Items.Add(new CoverageDayShiftDto
                 {
                     Date = date,
                     Day = dayName,
                     ShiftConfigId = cfg.Id,
                     ShiftLabel = cfg.Label,
+                    ShiftKind = cfg.ShiftKind.ToString(),
                     RequiredCount = cfg.RequiredCount,
                     AssignedCount = assigned,
                     MinPresencePercent = minPresence,
                     PresencePercent = staffingPct,
-                    IsUnderstaffed = understaffed || presenceIssue,
+                    IsUnderstaffed = isUnder,
+                    HasLevelBalanceAnomaly = hasLevel,
                 });
+
+                daySynth.Shifts.Add(new DaySynthesisShiftDto
+                {
+                    ShiftConfigId = cfg.Id,
+                    ShiftLabel = cfg.Label,
+                    ShiftKind = cfg.ShiftKind.ToString(),
+                    AssignedCount = assigned,
+                    RequiredCount = cfg.RequiredCount,
+                    Delta = assigned - cfg.RequiredCount,
+                    BeginnerCount = beginnerCount,
+                    SeniorCount = seniorCount,
+                    IsUnderstaffed = isUnder,
+                    HasLevelBalanceAnomaly = hasLevel
+                });
+
+                if (isUnder || hasLevel)
+                    daySynth.HasAnyAnomaly = true;
 
                 if (understaffed)
                 {
@@ -1899,6 +2020,8 @@ public class PlanningService : IPlanningService
                         $"{dayName} {date:dd/MM} — {cfg.Label}: trop de pauses simultanées (présence min {minPresence} %)");
                 }
             }
+
+            report.DaySynthesis.Add(daySynth);
         }
 
         return report;
@@ -2006,7 +2129,8 @@ public class PlanningService : IPlanningService
             RequiredCount = c.RequiredCount,
             Percentage = c.Percentage,
             MinPresencePercent = c.MinPresencePercent,
-            DisplayOrder = c.DisplayOrder
+            DisplayOrder = c.DisplayOrder,
+            ShiftKind = c.ShiftKind.ToString()
         };
 
     private List<int> GetEmployeeWeekRotation(

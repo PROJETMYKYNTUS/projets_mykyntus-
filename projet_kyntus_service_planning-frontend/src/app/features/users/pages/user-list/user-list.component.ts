@@ -8,7 +8,7 @@ import { UserService } from '../../services/user.service';
 import { User } from '../../users-module';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
-import { AlertTriangle, Eye, History, Pencil, Search, Trash2 } from 'lucide';
+import { AlertTriangle, Award, Eye, History, Pencil, Search, Trash2 } from 'lucide';
 import type { Department } from '../../../prime/models';
 import type { OrgAssignmentsOverview } from '../../../prime/services/prime-org-api.service';
 import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
@@ -55,6 +55,7 @@ export class UserListComponent implements OnInit {
     trash: Trash2,
     search: Search,
     history: History,
+    level: Award,
   };
   readonly orgCellLabel = orgCellLabel;
   readonly orgDepartmentLabel = orgDepartmentLabel;
@@ -74,6 +75,12 @@ export class UserListComponent implements OnInit {
   rotationHistoryOpen = false;
   rotationHistoryEmployeeId = '';
   rotationHistoryEmployeeName = '';
+
+  levelModalOpen = false;
+  levelModalUser: User | null = null;
+  levelDraft: 1 | 2 | 3 = 1;
+  levelSaving = false;
+  levelError = '';
 
   constructor(
     private userService: UserService,
@@ -107,9 +114,7 @@ export class UserListComponent implements OnInit {
         this.filteredUsers = users;
         this.directoryEmployees = directoryEmployees ?? [];
         this.businessDepartments = businessDepartments ?? [];
-        const departments = overview?.departments?.length
-          ? overview.departments
-          : [];
+        const departments = overview?.departments?.length ? overview.departments : [];
         this.rebuildPerimeters(users, departments, overview, subServices ?? []);
         this.loading = false;
         this.cdr.detectChanges();
@@ -187,6 +192,42 @@ export class UserListComponent implements OnInit {
     this.rotationHistoryOpen = false;
     this.rotationHistoryEmployeeId = '';
     this.rotationHistoryEmployeeName = '';
+  }
+
+  openLevelModal(user: User, event?: Event): void {
+    event?.stopPropagation();
+    this.levelModalUser = user;
+    this.levelDraft = (user.level === 2 || user.level === 3 ? user.level : 1) as 1 | 2 | 3;
+    this.levelError = '';
+    this.levelModalOpen = true;
+  }
+
+  closeLevelModal(): void {
+    this.levelModalOpen = false;
+    this.levelModalUser = null;
+    this.levelError = '';
+  }
+
+  saveContractLevel(): void {
+    if (!this.levelModalUser) return;
+    this.levelSaving = true;
+    this.levelError = '';
+    this.userService.patchContractualLevel(this.levelModalUser.id, this.levelDraft).subscribe({
+      next: (updated) => {
+        this.users = this.users.map((u) =>
+          u.id === updated.id ? { ...u, level: updated.level } : u,
+        );
+        this.onSearch();
+        this.levelSaving = false;
+        this.closeLevelModal();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.levelSaving = false;
+        this.levelError = err?.error?.message ?? 'Échec de la mise à jour du niveau.';
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   deleteUser(id: number): void {

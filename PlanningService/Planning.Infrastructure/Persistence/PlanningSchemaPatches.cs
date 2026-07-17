@@ -204,4 +204,48 @@ public static class PlanningSchemaPatches
             """,
             ct);
     }
+
+    /// <summary>Colonne ShiftKind sur SubServiceShiftConfigs (idempotent).</summary>
+    public static async Task EnsureShiftKindColumnAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE "SubServiceShiftConfigs" ADD COLUMN IF NOT EXISTS "ShiftKind" integer NOT NULL DEFAULT 0;
+            """,
+            ct);
+    }
+
+    /// <summary>Table PlanningChangeRequests (idempotent).</summary>
+    public static async Task EnsurePlanningChangeRequestsTableAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "PlanningChangeRequests" (
+                "Id" serial PRIMARY KEY,
+                "WeekCode" character varying(16) NOT NULL,
+                "RequesterUserId" integer NOT NULL,
+                "CurrentAssignmentId" integer NOT NULL,
+                "Reason" character varying(1000) NOT NULL,
+                "ProposedSwapUserId" integer NULL,
+                "Status" integer NOT NULL DEFAULT 0,
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT now(),
+                "ProcessedByUserId" integer NULL,
+                "ProcessedAt" timestamp with time zone NULL,
+                "RejectionReason" character varying(1000) NULL,
+                CONSTRAINT "FK_PlanningChangeRequests_Users_Requester"
+                    FOREIGN KEY ("RequesterUserId") REFERENCES "Users" ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_PlanningChangeRequests_ShiftAssignments"
+                    FOREIGN KEY ("CurrentAssignmentId") REFERENCES "ShiftAssignments" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_PlanningChangeRequests_Users_Proposed"
+                    FOREIGN KEY ("ProposedSwapUserId") REFERENCES "Users" ("Id") ON DELETE SET NULL,
+                CONSTRAINT "FK_PlanningChangeRequests_Users_Processed"
+                    FOREIGN KEY ("ProcessedByUserId") REFERENCES "Users" ("Id") ON DELETE SET NULL
+            );
+            CREATE INDEX IF NOT EXISTS "IX_PlanningChangeRequests_Requester_WeekCode"
+              ON "PlanningChangeRequests" ("RequesterUserId", "WeekCode");
+            CREATE INDEX IF NOT EXISTS "IX_PlanningChangeRequests_Status_WeekCode"
+              ON "PlanningChangeRequests" ("Status", "WeekCode");
+            """,
+            ct);
+    }
 }

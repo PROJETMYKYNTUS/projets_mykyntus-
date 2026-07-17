@@ -45,6 +45,12 @@ const routes: Routes = [
       import('./pages/planning-equipe/planning-equipe.component')
         .then(m => m.PlanningEquipeComponent),
   },
+  {
+    path: 'change-requests',
+    loadComponent: () =>
+      import('./pages/planning-change-requests/planning-change-requests.component')
+        .then(m => m.PlanningChangeRequestsComponent),
+  },
 ];
 
 @NgModule({

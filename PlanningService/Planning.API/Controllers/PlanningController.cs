@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Planning.Application.DTOs.Planning;
 using Planning.Application.Abstractions;
+using Planning.Application.Exceptions;
 
 namespace Planning.API.Controllers;
 
@@ -211,6 +212,10 @@ public class PlanningController(IPlanningService planningService, IUserService u
             var result = await _planningService.GeneratePlanningFromConfigAsync(dto);
             return Ok(result);
         }
+        catch (PlanningValidationException ex)
+        {
+            return BadRequest(new { message = ex.Message, anomalies = ex.Anomalies });
+        }
         catch (Exception ex)
         {
             return BadRequest(new { message = ex.Message });
@@ -229,6 +234,10 @@ public class PlanningController(IPlanningService planningService, IUserService u
         {
             var result = await _planningService.PublishPlanningAsync(id, validatorId);
             return Ok(result);
+        }
+        catch (PlanningValidationException ex)
+        {
+            return BadRequest(new { message = ex.Message, anomalies = ex.Anomalies });
         }
         catch (InvalidOperationException ex)
         {

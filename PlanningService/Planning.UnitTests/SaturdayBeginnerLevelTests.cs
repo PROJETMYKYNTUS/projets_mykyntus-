@@ -52,7 +52,10 @@ public class SaturdayBeginnerLevelTests
         await SeedBaseAsync(db);
         db.Users.AddRange(
             MakeUser(1, "b1@test.ma", level: 1),
-            MakeUser(2, "b2@test.ma", level: 1));
+            MakeUser(2, "b2@test.ma", level: 1),
+            // Confirmés pour satisfaire l'équilibre des niveaux (Opening/Closing/samedi)
+            MakeUser(3, "c1@test.ma", level: 2),
+            MakeUser(4, "c2@test.ma", level: 2));
         await db.SaveChangesAsync();
 
         var svc = CreateService(db);
@@ -61,8 +64,8 @@ public class SaturdayBeginnerLevelTests
             SubServiceId = 1,
             Shifts =
             [
-                new ShiftConfigItemDto { Label = "8h", StartTime = "08:00", WorkHours = 8, RequiredCount = 1, DisplayOrder = 1 },
-                new ShiftConfigItemDto { Label = "10h", StartTime = "10:00", WorkHours = 8, RequiredCount = 1, DisplayOrder = 2 },
+                new ShiftConfigItemDto { Label = "8h", StartTime = "08:00", WorkHours = 8, RequiredCount = 2, DisplayOrder = 1 },
+                new ShiftConfigItemDto { Label = "10h", StartTime = "10:00", WorkHours = 8, RequiredCount = 2, DisplayOrder = 2 },
             ]
         });
 
@@ -72,7 +75,7 @@ public class SaturdayBeginnerLevelTests
             SubServiceId = 1,
             WeekCode = "2026-W30",
             WeekStartDate = monday,
-            TotalEffectif = 2
+            TotalEffectif = 4
         });
 
         var result = await svc.GeneratePlanningFromConfigAsync(new GeneratePlanningFromConfigDto
@@ -86,11 +89,11 @@ public class SaturdayBeginnerLevelTests
             .Where(a => a.WeeklyPlanningId == result.Id && a.IsSaturday && !a.IsOnLeave && !a.IsHoliday)
             .ToListAsync();
 
-        Assert.Equal(2, sat.Count);
-        Assert.All(sat, a => Assert.True(a.IsHalfDaySaturday));
-        Assert.All(sat, a => Assert.True(a.IsNewEmployee));
-        Assert.Contains(sat, a => a.SaturdaySlot == 1);
-        Assert.Contains(sat, a => a.SaturdaySlot == 2);
+        Assert.Contains(sat, a => a.UserId == 1 && a.IsHalfDaySaturday);
+        Assert.Contains(sat, a => a.UserId == 2 && a.IsHalfDaySaturday);
+        Assert.All(sat.Where(a => a.UserId is 1 or 2), a => Assert.True(a.IsNewEmployee));
+        Assert.Contains(sat.Where(a => a.UserId is 1 or 2), a => a.SaturdaySlot == 1);
+        Assert.Contains(sat.Where(a => a.UserId is 1 or 2), a => a.SaturdaySlot == 2);
     }
 
     [Fact]
@@ -99,20 +102,30 @@ public class SaturdayBeginnerLevelTests
         await using var db = CreateDb();
         await SeedBaseAsync(db);
 
-        // Un débutant + un confirmé ; historique dit que le confirmé a déjà travaillé la semaine précédente
+        // Un débutant + deux confirmés ; conf#2 a déjà travaillé la semaine précédente
         db.Users.AddRange(
             MakeUser(1, "beg@test.ma", level: 1),
-            MakeUser(2, "conf@test.ma", level: 2));
+            MakeUser(2, "conf@test.ma", level: 2),
+            MakeUser(3, "conf2@test.ma", level: 2));
         db.SaturdayGroups.AddRange(
             new SaturdayGroup { UserId = 1, GroupNumber = 1 },
-            new SaturdayGroup { UserId = 2, GroupNumber = 1 });
-        db.SaturdayHistories.Add(new SaturdayHistory
-        {
-            UserId = 2,
-            SubServiceId = 1,
-            WeekCode = "2026-W29",
-            WorkedSaturday = true
-        });
+            new SaturdayGroup { UserId = 2, GroupNumber = 1 },
+            new SaturdayGroup { UserId = 3, GroupNumber = 1 });
+        db.SaturdayHistories.AddRange(
+            new SaturdayHistory
+            {
+                UserId = 2,
+                SubServiceId = 1,
+                WeekCode = "2026-W29",
+                WorkedSaturday = true
+            },
+            new SaturdayHistory
+            {
+                UserId = 3,
+                SubServiceId = 1,
+                WeekCode = "2026-W29",
+                WorkedSaturday = false
+            });
         await db.SaveChangesAsync();
 
         var svc = CreateService(db);
@@ -121,7 +134,7 @@ public class SaturdayBeginnerLevelTests
             SubServiceId = 1,
             Shifts =
             [
-                new ShiftConfigItemDto { Label = "8h", StartTime = "08:00", WorkHours = 8, RequiredCount = 1, DisplayOrder = 1 },
+                new ShiftConfigItemDto { Label = "8h", StartTime = "08:00", WorkHours = 8, RequiredCount = 2, DisplayOrder = 1 },
                 new ShiftConfigItemDto { Label = "10h", StartTime = "10:00", WorkHours = 8, RequiredCount = 1, DisplayOrder = 2 },
             ]
         });
@@ -132,7 +145,7 @@ public class SaturdayBeginnerLevelTests
             SubServiceId = 1,
             WeekCode = "2026-W30",
             WeekStartDate = monday,
-            TotalEffectif = 2
+            TotalEffectif = 3
         });
 
         await svc.GeneratePlanningFromConfigAsync(new GeneratePlanningFromConfigDto
@@ -149,6 +162,7 @@ public class SaturdayBeginnerLevelTests
 
         Assert.Contains(sat, a => a.UserId == 1 && a.IsHalfDaySaturday);
         Assert.DoesNotContain(sat, a => a.UserId == 2);
+        Assert.Contains(sat, a => a.UserId == 3);
     }
 
     [Fact]

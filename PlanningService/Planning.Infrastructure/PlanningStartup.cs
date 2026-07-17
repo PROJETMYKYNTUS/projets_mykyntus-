@@ -30,6 +30,8 @@ public static class PlanningStartup
                     await PlanningSchemaPatches.EnsureEmailPersonnelColumnAsync(db);
                     await PlanningSchemaPatches.EnsureCongeSourceDemandeIdColumnAsync(db);
                     await PlanningSchemaPatches.EnsureShiftTemplateAndValidationSchemaAsync(db);
+                    await PlanningSchemaPatches.EnsureShiftKindColumnAsync(db);
+                    await PlanningSchemaPatches.EnsurePlanningChangeRequestsTableAsync(db);
                     Console.WriteLine("✅ Migrations appliquées avec succès.");
                     break;
                 }

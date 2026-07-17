@@ -1,0 +1,89 @@
+<div class="ky-page-shell">
+  <app-kyntus-page-header
+    title="Demandes de changement"
+    subtitle="Suivi RH — approve / reject et compteurs par employé">
+  </app-kyntus-page-header>
+
+  <div class="pcr-toast" *ngIf="toast">{{ toast }}</div>
+  <div class="pcr-error" *ngIf="error">{{ error }}</div>
+
+  <div class="pcr-filters gen-card">
+    <label>
+      Statut
+      <select [(ngModel)]="filterStatus" (change)="reload()">
+        <option value="">Tous</option>
+        <option value="Pending">En attente</option>
+        <option value="Approved">Approuvée</option>
+        <option value="Rejected">Rejetée</option>
+        <option value="Cancelled">Annulée</option>
+      </select>
+    </label>
+    <label>
+      Semaine
+      <input type="text" [(ngModel)]="filterWeek" placeholder="ex. 2026-W30" (keyup.enter)="reload()" />
+    </label>
+    <button type="button" class="ky-btn-secondary" (click)="reload()">Filtrer</button>
+  </div>
+
+  <div class="gen-card" *ngIf="stats.length">
+    <h3>Compteurs par employé</h3>
+    <table class="pcr-table">
+      <thead>
+        <tr><th>Employé</th><th>Total</th><th>Pending</th><th>Approuvées</th><th>Rejetées</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let s of stats">
+          <td>{{ s.fullName }}</td>
+          <td>{{ s.totalRequests }}</td>
+          <td>{{ s.pendingCount }}</td>
+          <td>{{ s.approvedCount }}</td>
+          <td>{{ s.rejectedCount }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="gen-card">
+    <h3>Liste des demandes</h3>
+    <p *ngIf="loading">Chargement…</p>
+    <table class="pcr-table" *ngIf="!loading">
+      <thead>
+        <tr>
+          <th>Semaine</th>
+          <th>Demandeur</th>
+          <th>Jour / Shift</th>
+          <th>Switch</th>
+          <th>Motif</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of requests">
+          <td>{{ r.weekCode }}</td>
+          <td>{{ r.requesterName }}</td>
+          <td>{{ r.assignmentDate | date:'dd/MM' }} — {{ r.shiftLabel }}</td>
+          <td>{{ r.proposedSwapUserName || '—' }}</td>
+          <td>{{ r.reason }}</td>
+          <td>{{ statusLabel(r.status) }}</td>
+          <td class="pcr-actions" *ngIf="r.status === 'Pending'">
+            <button type="button" class="pcr-approve" (click)="approve(r.id)">Approuver</button>
+            <button type="button" class="pcr-reject" (click)="openReject(r.id)">Rejeter</button>
+          </td>
+          <td *ngIf="r.status !== 'Pending'">—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pcr-modal-backdrop" *ngIf="rejectId !== null">
+    <div class="pcr-modal">
+      <h3>Rejeter la demande</h3>
+      <textarea [(ngModel)]="rejectReason" rows="3" placeholder="Motif (optionnel)"></textarea>
+      <div class="pcr-modal-actions">
+        <button type="button" (click)="rejectId = null">Annuler</button>
+        <button type="button" class="pcr-reject" (click)="confirmReject()">Confirmer</button>
+      </div>
+    </div>
+  </div>
+</div>

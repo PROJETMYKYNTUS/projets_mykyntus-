@@ -34,6 +34,7 @@ public class AppDbContext : DbContext
     public DbSet<SubServiceShiftConfig> SubServiceShiftConfigs { get; set; } = null!;
     public DbSet<PlanningConsultation> PlanningConsultations { get; set; } = null!;
     public DbSet<PlanningAutoGenerateSettings> PlanningAutoGenerateSettings { get; set; } = null!;
+    public DbSet<PlanningChangeRequest> PlanningChangeRequests { get; set; } = null!;
     public DbSet<Reclamation> Reclamations { get; set; } = null!;
     public DbSet<ReclamationHistorique> ReclamationHistoriques { get; set; } = null!;
     public DbSet<Proposition> Propositions { get; set; } = null!;
@@ -197,6 +198,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Label).IsRequired().HasMaxLength(50);
             entity.Property(e => e.WeekCode).HasMaxLength(10);
             entity.Property(e => e.Percentage).HasPrecision(5, 2);
+            entity.Property(e => e.ShiftKind).HasConversion<int>();
             entity.Ignore(e => e.EndTime);
             entity.HasOne(e => e.SubService)
                   .WithMany()
@@ -234,6 +236,32 @@ public class AppDbContext : DbContext
             entity.Property(e => e.TimeZone).HasMaxLength(64);
             entity.Property(e => e.Target).HasMaxLength(32);
             entity.Property(e => e.LastRunWeekCode).HasMaxLength(16);
+        });
+
+        modelBuilder.Entity<PlanningChangeRequest>(entity =>
+        {
+            entity.Property(e => e.WeekCode).IsRequired().HasMaxLength(16);
+            entity.Property(e => e.Reason).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.RejectionReason).HasMaxLength(1000);
+            entity.Property(e => e.Status).HasConversion<int>();
+            entity.HasIndex(e => new { e.RequesterUserId, e.WeekCode });
+            entity.HasIndex(e => new { e.Status, e.WeekCode });
+            entity.HasOne(e => e.Requester)
+                .WithMany()
+                .HasForeignKey(e => e.RequesterUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.CurrentAssignment)
+                .WithMany()
+                .HasForeignKey(e => e.CurrentAssignmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.ProposedSwapUser)
+                .WithMany()
+                .HasForeignKey(e => e.ProposedSwapUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.ProcessedBy)
+                .WithMany()
+                .HasForeignKey(e => e.ProcessedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // ── PlanningComment ──

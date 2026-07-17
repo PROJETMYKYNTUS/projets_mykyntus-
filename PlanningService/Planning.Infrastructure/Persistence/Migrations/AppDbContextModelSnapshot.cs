@@ -969,6 +969,9 @@ namespace Planning.Infrastructure.Persistence.Migrations
                     b.Property<int>("RequiredCount")
                         .HasColumnType("integer");
 
+                    b.Property<int>("ShiftKind")
+                        .HasColumnType("integer");
+
                     b.Property<TimeOnly>("StartTime")
                         .HasColumnType("time without time zone");
 

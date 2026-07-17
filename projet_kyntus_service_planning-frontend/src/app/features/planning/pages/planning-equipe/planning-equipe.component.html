@@ -37,12 +37,16 @@
       </div>
 
       <div class="coverage-banner cov-bad"
+           *ngIf="hasLevelBalanceAnomaly">
+        À noter : débutant(s) seul(s) sur un créneau du plateau (absences / effectif).
+      </div>
+      <div class="coverage-banner cov-bad"
            *ngIf="selectedEquipePlanning.coverageReport?.hasUnderstaffing">
         Sous-effectif détecté sur cette semaine
         ({{ selectedEquipePlanning.coverageReport!.warnings.length }} alerte(s)).
       </div>
       <div class="coverage-banner cov-ok"
-           *ngIf="selectedEquipePlanning.coverageReport && !selectedEquipePlanning.coverageReport.hasUnderstaffing">
+           *ngIf="selectedEquipePlanning.coverageReport && !selectedEquipePlanning.coverageReport.hasUnderstaffing && !hasLevelBalanceAnomaly">
         Couverture OK vs effectifs requis.
       </div>
 

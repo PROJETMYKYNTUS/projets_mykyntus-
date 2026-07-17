@@ -200,7 +200,10 @@ selectedHolidayShiftId      = 0;
 
     const under = this.planning.coverageReport?.hasUnderstaffing;
     if (under) {
-      const details = (this.planning.coverageReport?.warnings ?? []).slice(0, 5).join('\n');
+      const details = (this.planning.coverageReport?.warnings ?? [])
+        .filter(w => !w.includes('débutant'))
+        .slice(0, 5)
+        .join('\n');
       const ok = confirm(
         `Points de couverture à vérifier.\n\n${details}\n\nValider quand même ?`,
       );
@@ -273,7 +276,74 @@ selectedHolidayShiftId      = 0;
   }
 
   get coveragePresenceWarnings(): string[] {
-    return this.coverageWarnings.filter((w) => !w.includes('(quota)'));
+    return this.coverageWarnings.filter(
+      (w) => !w.includes('(quota)') && !w.includes('débutant'),
+    );
+  }
+
+  get levelBalanceAnomalies(): { message: string }[] {
+    return this.planning?.coverageReport?.levelBalanceAnomalies ?? [];
+  }
+
+  get hasLevelBalanceAnomaly(): boolean {
+    return !!this.planning?.coverageReport?.hasLevelBalanceAnomaly;
+  }
+
+  daySynthesisFor(day: string) {
+    return this.planning?.coverageReport?.daySynthesis?.find(d => d.day === day) ?? null;
+  }
+
+  dayMixChips(day: string): { label: string; bad: boolean }[] {
+    const syn = this.daySynthesisFor(day);
+    if (!syn?.shifts?.length) return [];
+    return syn.shifts
+      .filter((s) => (s.assignedCount ?? 0) > 0)
+      .map((s) => {
+        const d = s.beginnerCount ?? 0;
+        const c = s.seniorCount ?? 0;
+        return {
+          label: `${s.shiftLabel} ${d}/${c}`,
+          bad: d > 0 && c === 0,
+        };
+      });
+  }
+
+  saturdayMixChip(day: string): { label: string; bad: boolean } | null {
+    if (day !== 'Saturday') return null;
+    const syn = this.daySynthesisFor(day);
+    if (!syn) return null;
+    const d = syn.saturdayBeginners ?? 0;
+    const c = syn.saturdaySeniors ?? 0;
+    if (d + c === 0) return null;
+    return { label: `Sam ${d}/${c}`, bad: d > 0 && c === 0 };
+  }
+
+  dayDeltaChips(day: string): { label: string; delta: number }[] {
+    const syn = this.daySynthesisFor(day);
+    if (!syn?.shifts?.length || day === 'Saturday') return [];
+    return syn.shifts
+      .filter((s) => (s.delta ?? 0) !== 0)
+      .map((s) => ({
+        label: `${s.shiftLabel} ${s.delta > 0 ? '+' : ''}${s.delta}`,
+        delta: s.delta,
+      }));
+  }
+
+  daySynthTooltip(day: string): string {
+    const parts = [
+      ...this.dayMixChips(day).map((c) => c.label),
+      ...this.dayDeltaChips(day).map((d) => d.label),
+    ];
+    const sam = this.saturdayMixChip(day);
+    if (sam) parts.unshift(sam.label);
+    const syn = this.daySynthesisFor(day);
+    if (syn?.leaveCount) parts.unshift(`${syn.leaveCount} absence(s)`);
+    return parts.join(' · ');
+  }
+
+  dayHasLevelAnomaly(day: string): boolean {
+    const syn = this.daySynthesisFor(day);
+    return !!syn?.hasAnyAnomaly && !!syn.shifts?.some(s => s.hasLevelBalanceAnomaly);
   }
 
   getAssignment(employee: EmployeePlanning, day: string): DayAssignment | null {

@@ -70,8 +70,51 @@ public class WeeklyPlanningResponseDto
 public class CoverageReportDto
 {
     public bool HasUnderstaffing { get; set; }
+    public bool HasLevelBalanceAnomaly { get; set; }
     public List<string> Warnings { get; set; } = new();
+    public List<PlanningAnomalyDto> LevelBalanceAnomalies { get; set; } = new();
     public List<CoverageDayShiftDto> Items { get; set; } = new();
+    public List<DaySynthesisDto> DaySynthesis { get; set; } = new();
+}
+
+public class PlanningAnomalyDto
+{
+    public string Code { get; set; } = "LEVEL_BALANCE";
+    public string Severity { get; set; } = "Warning";
+    public DateOnly Date { get; set; }
+    public string Day { get; set; } = string.Empty;
+    public int ShiftConfigId { get; set; }
+    public string ShiftLabel { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    /// <summary>True si aucun Confirmé/Expert présentable ce jour (congés / effectif).</summary>
+    public bool IsForced { get; set; }
+}
+
+public class DaySynthesisDto
+{
+    public DateOnly Date { get; set; }
+    public string Day { get; set; } = string.Empty;
+    public List<DaySynthesisShiftDto> Shifts { get; set; } = new();
+    public int LeaveCount { get; set; }
+    public int HolidayCount { get; set; }
+    public int PresentCount { get; set; }
+    public int SaturdayBeginners { get; set; }
+    public int SaturdaySeniors { get; set; }
+    public bool HasAnyAnomaly { get; set; }
+}
+
+public class DaySynthesisShiftDto
+{
+    public int ShiftConfigId { get; set; }
+    public string ShiftLabel { get; set; } = string.Empty;
+    public string ShiftKind { get; set; } = "Standard";
+    public int AssignedCount { get; set; }
+    public int RequiredCount { get; set; }
+    public int Delta { get; set; }
+    public int BeginnerCount { get; set; }
+    public int SeniorCount { get; set; }
+    public bool IsUnderstaffed { get; set; }
+    public bool HasLevelBalanceAnomaly { get; set; }
 }
 
 public class CoverageDayShiftDto
@@ -80,11 +123,13 @@ public class CoverageDayShiftDto
     public string Day { get; set; } = string.Empty;
     public int ShiftConfigId { get; set; }
     public string ShiftLabel { get; set; } = string.Empty;
+    public string ShiftKind { get; set; } = "Standard";
     public int RequiredCount { get; set; }
     public int AssignedCount { get; set; }
     public int MinPresencePercent { get; set; }
     public decimal PresencePercent { get; set; }
     public bool IsUnderstaffed { get; set; }
+    public bool HasLevelBalanceAnomaly { get; set; }
 }
 
 public record SaturdayYtdDto(
@@ -111,6 +156,7 @@ public class ShiftConfigResponseDto
     public int ShiftId { get; set; }
     public string ShiftLabel { get; set; } = string.Empty;
     public string StartTime { get; set; } = string.Empty;
+    public string ShiftKind { get; set; } = "Standard";
     public int RequiredCount { get; set; }
     public decimal Percentage { get; set; }
 }
@@ -179,6 +225,8 @@ public class ShiftConfigItemDto
     public int RequiredCount { get; set; }
     public int MinPresencePercent { get; set; } = 70;
     public int DisplayOrder { get; set; }
+    /// <summary>Optionnel — sinon déduit (StartTime min=Opening, max=Closing).</summary>
+    public string? ShiftKind { get; set; }
 }
 
 // -- Réponse après sauvegarde config --
@@ -196,6 +244,7 @@ public class ShiftConfigResponseNewDto
     public decimal Percentage { get; set; }
     public int MinPresencePercent { get; set; }
     public int DisplayOrder { get; set; }
+    public string ShiftKind { get; set; } = "Standard";
 }
 
 // -- Statut modèle shift par service (vue arbre RH) --

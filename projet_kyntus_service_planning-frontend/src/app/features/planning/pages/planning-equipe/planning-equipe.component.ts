@@ -71,7 +71,9 @@ export class PlanningEquipeComponent implements OnInit {
   }
 
   dayCoverageClass(day: string): string {
+    const syn = this.daySynthesisFor(day);
     const items = this.coverageForDay(day);
+    if (syn?.hasAnyAnomaly || items.some(i => i.hasLevelBalanceAnomaly)) return 'cov-bad';
     if (items.length === 0) return '';
     if (items.some(i => i.isUnderstaffed)) return 'cov-bad';
     return 'cov-ok';
@@ -84,11 +86,37 @@ export class PlanningEquipeComponent implements OnInit {
   }
 
   dayCoverageLabel(day: string): string {
+    const syn = this.daySynthesisFor(day);
+    if (syn?.shifts?.length) {
+      const parts: string[] = [];
+      if (syn.leaveCount) parts.push(`${syn.leaveCount} abs`);
+      if (day === 'Saturday') {
+        const d = syn.saturdayBeginners ?? 0;
+        const c = syn.saturdaySeniors ?? 0;
+        if (d + c > 0) parts.push(`Sam ${d}/${c}`);
+      } else {
+        for (const s of syn.shifts) {
+          if ((s.assignedCount ?? 0) <= 0) continue;
+          parts.push(`${s.shiftLabel} ${s.beginnerCount ?? 0}/${s.seniorCount ?? 0}`);
+          if ((s.delta ?? 0) !== 0) parts.push(`${s.shiftLabel} ${s.delta > 0 ? '+' : ''}${s.delta}`);
+        }
+      }
+      if (syn.shifts.some(s => s.hasLevelBalanceAnomaly)) parts.push('niveau');
+      return parts.join(' · ');
+    }
     const items = this.coverageForDay(day);
     if (items.length === 0) return '';
     const assigned = items.reduce((s, i) => s + i.assignedCount, 0);
     const required = items.reduce((s, i) => s + i.requiredCount, 0);
     return `${assigned}/${required}`;
+  }
+
+  daySynthesisFor(day: string) {
+    return this.selectedEquipePlanning?.coverageReport?.daySynthesis?.find(d => d.day === day) ?? null;
+  }
+
+  get hasLevelBalanceAnomaly(): boolean {
+    return !!this.selectedEquipePlanning?.coverageReport?.hasLevelBalanceAnomaly;
   }
 
   goBack(): void {

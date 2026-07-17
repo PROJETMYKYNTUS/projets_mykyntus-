@@ -1,3 +1,5 @@
+using Planning.Domain.Enums;
+
 namespace Planning.Domain.Entities;
 
 public class SubServiceShiftConfig
@@ -19,6 +21,9 @@ public class SubServiceShiftConfig
     public string Label { get; set; } = string.Empty;
     public TimeOnly StartTime { get; set; }
     public int WorkHours { get; set; } = 8;
+
+    /// <summary>Opening / Closing / Standard — déduit du StartTime à la sauvegarde.</summary>
+    public ShiftKind ShiftKind { get; set; } = ShiftKind.Standard;
 
     // -- Pause déjeuner --------------------------------
     public TimeOnly BreakRangeStart { get; set; }

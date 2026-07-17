@@ -92,6 +92,22 @@
       {{ error }}
     </div>
 
+    <div class="alert alert-warn coverage-panel" *ngIf="hasLevelBalanceAnomaly">
+      <button type="button" class="coverage-toggle" (click)="coverageOpen = !coverageOpen">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div class="coverage-toggle-text">
+          <strong>Équilibre des niveaux</strong>
+          <span>À noter (absences / effectif) : débutant seul sur un créneau du plateau — n’empêche pas de valider.</span>
+        </div>
+        <span class="coverage-chev">{{ coverageOpen ? '▴' : '▾' }}</span>
+      </button>
+      <div class="coverage-body" *ngIf="coverageOpen">
+        <ul>
+          <li *ngFor="let a of levelBalanceAnomalies">{{ a.message }}</li>
+        </ul>
+      </div>
+    </div>
+
     <div class="alert alert-warn coverage-panel" *ngIf="planning.coverageReport?.hasUnderstaffing">
       <button type="button" class="coverage-toggle" (click)="coverageOpen = !coverageOpen">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -110,7 +126,7 @@
           <strong>Pauses</strong> : trop de pauses au même créneau par rapport à la présence min du shift.
         </p>
         <ul>
-          <li *ngFor="let w of coverageWarnings">{{ w }}</li>
+          <li *ngFor="let w of coverageQuotaWarnings.concat(coveragePresenceWarnings)">{{ w }}</li>
         </ul>
       </div>
     </div>
@@ -171,11 +187,28 @@
                   Employé
                 </div>
               </th>
-              <th *ngFor="let day of days" [class.th-saturday]="day === 'Saturday'">
+              <th *ngFor="let day of days"
+                  [class.th-saturday]="day === 'Saturday'"
+                  [class.th-anomaly]="dayHasLevelAnomaly(day) || daySynthesisFor(day)?.hasAnyAnomaly">
                 <div class="th-day-inner">
                   <span class="th-day-name">{{ dayLabels[day] }}</span>
                   <span class="th-day-date" *ngIf="planning.weekStartDate">
                     {{ getDateForDay(planning.weekStartDate, day) }}
+                  </span>
+                  <span class="th-day-meta" *ngIf="daySynthesisFor(day) as syn" [title]="daySynthTooltip(day)">
+                    <span *ngIf="syn.leaveCount" class="syn-leave">{{ syn.leaveCount }} abs</span>
+                    <ng-container *ngIf="day !== 'Saturday'">
+                      <span *ngFor="let chip of dayMixChips(day)" class="syn-mix" [class.syn-mix-bad]="chip.bad">
+                        {{ chip.label }}
+                      </span>
+                    </ng-container>
+                    <span *ngIf="day === 'Saturday' && saturdayMixChip(day) as sam" class="syn-mix" [class.syn-mix-bad]="sam.bad">
+                      {{ sam.label }}
+                    </span>
+                    <span *ngFor="let d of dayDeltaChips(day)" class="syn-delta" [class.syn-delta-neg]="d.delta < 0">
+                      {{ d.label }}
+                    </span>
+                    <span *ngIf="dayHasLevelAnomaly(day)" class="syn-level">Niveau</span>
                   </span>
                 </div>
               </th>

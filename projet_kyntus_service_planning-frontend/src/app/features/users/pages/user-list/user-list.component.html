@@ -125,6 +125,15 @@
                       <span class="btn-detail-label">Détails</span>
                     </button>
                     <button
+                      class="btn-action level"
+                      type="button"
+                      title="Modifier le niveau contractuel"
+                      (click)="openLevelModal(user, $event)"
+                    >
+                      <app-lucide-icon [icon]="icons.level" className="w-4 h-4" />
+                      <span class="btn-detail-label">Niveau</span>
+                    </button>
+                    <button
                       class="btn-action view btn-detail"
                       type="button"
                       title="Historique rotation"
@@ -149,4 +158,38 @@
       </div>
     }
   </div>
+
+  @if (levelModalOpen && levelModalUser) {
+    <div class="level-modal-backdrop" (click)="closeLevelModal()">
+      <div class="level-modal" (click)="$event.stopPropagation()">
+        <h3>Niveau contractuel</h3>
+        <p class="level-modal-sub">
+          {{ levelModalUser.lastName }} {{ levelModalUser.firstName }}
+        </p>
+        <div class="level-modal-choices">
+          <button type="button" class="level-choice" [class.active]="levelDraft === 1" (click)="levelDraft = 1">
+            <strong>Débutant</strong>
+            <span>Prise de poste / montée en compétence</span>
+          </button>
+          <button type="button" class="level-choice" [class.active]="levelDraft === 2" (click)="levelDraft = 2">
+            <strong>Confirmé</strong>
+            <span>Autonome sur les tâches courantes</span>
+          </button>
+          <button type="button" class="level-choice" [class.active]="levelDraft === 3" (click)="levelDraft = 3">
+            <strong>Expert</strong>
+            <span>Référent métier ou opérationnel</span>
+          </button>
+        </div>
+        @if (levelError) {
+          <p class="level-modal-error">{{ levelError }}</p>
+        }
+        <div class="level-modal-actions">
+          <button type="button" class="ky-btn-secondary" (click)="closeLevelModal()">Annuler</button>
+          <button type="button" class="ky-btn-primary" [disabled]="levelSaving" (click)="saveContractLevel()">
+            {{ levelSaving ? 'Enregistrement…' : 'Enregistrer' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
 </div>

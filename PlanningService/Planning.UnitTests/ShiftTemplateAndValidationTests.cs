@@ -71,6 +71,7 @@ public class ShiftTemplateAndValidationTests
         Assert.Single(templates);
         Assert.Equal("Unique", templates[0].Label);
         Assert.Null(templates[0].WeekCode);
+        Assert.Equal(ShiftKind.Opening, templates[0].ShiftKind);
     }
 
     [Fact]

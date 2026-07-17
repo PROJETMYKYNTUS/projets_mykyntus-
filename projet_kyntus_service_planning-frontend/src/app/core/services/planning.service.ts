@@ -46,6 +46,41 @@ getMyCurrentPlanning(userId: number): Observable<any> {
     );
   }
 
+  // ── Demandes de changement ─────────────────
+  createChangeRequest(authUserId: number, dto: {
+    currentAssignmentId: number;
+    reason: string;
+    proposedSwapUserId?: number | null;
+  }): Observable<any> {
+    return this.http.post(
+      `${this.api}/planning/change-requests?authUserId=${authUserId}`,
+      dto,
+      { headers: this.getHeaders() }
+    );
+  }
+
+  getMyChangeRequests(authUserId: number): Observable<any[]> {
+    return this.http.get<any[]>(
+      `${this.api}/planning/change-requests/my?authUserId=${authUserId}`,
+      { headers: this.getHeaders() }
+    );
+  }
+
+  getSwapCandidates(assignmentId: number, authUserId: number): Observable<any[]> {
+    return this.http.get<any[]>(
+      `${this.api}/planning/change-requests/swap-candidates?assignmentId=${assignmentId}&authUserId=${authUserId}`,
+      { headers: this.getHeaders() }
+    );
+  }
+
+  cancelChangeRequest(id: number, authUserId: number): Observable<any> {
+    return this.http.post(
+      `${this.api}/planning/change-requests/${id}/cancel?authUserId=${authUserId}`,
+      {},
+      { headers: this.getHeaders() }
+    );
+  }
+
   // ── Admin ─────────────────────────────────
   generatePlanning(dto: any): Observable<any> {
     return this.http.post(

@@ -68,12 +68,6 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
     primeRoles: ['Manager', 'Chef de projet', 'Superviseur', 'Coach', 'Référent technique'],
   },
   {
-    label: 'Périmètre superviseur',
-    route: PRIME_ROUTE,
-    primePath: '/superviseur/scope',
-    primeRoles: ['Superviseur'],
-  },
-  {
     label: 'Périmètre chef de projet',
     route: PRIME_ROUTE,
     primePath: '/chef-projet/scope',

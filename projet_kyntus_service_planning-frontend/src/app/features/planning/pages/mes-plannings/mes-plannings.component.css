@@ -92,3 +92,92 @@
 }
 .mp-history-item summary::-webkit-details-marker { display: none; }
 .mp-history-item[open] summary { margin-bottom: 6px; }
+
+.mp-change-btn {
+  margin-top: 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: #1d4ed8;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+.mp-toast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 50;
+  background: #065f46;
+  color: #fff;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+}
+.mp-req-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.mp-req-table th,
+.mp-req-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+}
+.mp-status { font-weight: 700; font-size: 0.75rem; }
+.mp-status[data-status='Pending'] { color: #b45309; }
+.mp-status[data-status='Approved'] { color: #15803d; }
+.mp-status[data-status='Rejected'] { color: #b91c1c; }
+.mp-link {
+  background: none;
+  border: none;
+  color: #1d4ed8;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.mp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+.mp-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  width: min(420px, 92vw);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+.mp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 12px 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.mp-field textarea,
+.mp-field select {
+  font-weight: 400;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px;
+}
+.mp-modal-error { color: #b91c1c; font-size: 0.82rem; }
+.mp-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.mp-btn-primary,
+.mp-btn-secondary {
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.mp-btn-primary { background: #0f172a; color: #fff; }
+.mp-btn-secondary { background: #f1f5f9; color: #0f172a; }
+.req { color: #b91c1c; }

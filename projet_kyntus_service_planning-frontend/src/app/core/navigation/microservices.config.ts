@@ -135,6 +135,20 @@ export const MICROSERVICES: Microservice[] = [
     ],
   },
   {
+    id: 'perimetre',
+    label: 'Périmètre',
+    icon: ICONS.users,
+    roles: ['Superviseur'],
+    children: [
+      {
+        label: 'Périmètre superviseur',
+        route: '/prime',
+        primePath: '/superviseur/scope',
+        roles: ['Superviseur'],
+      },
+    ],
+  },
+  {
     id: 'planning',
     label: 'Planification',
     // Le groupe est ouvert à tous les rôles employés ; la restriction réelle
@@ -146,6 +160,7 @@ export const MICROSERVICES: Microservice[] = [
       // Masqué temporairement — génération manuelle legacy (« Algorithme intelligent… »)
       // { label: 'Plannings', route: '/planning', roles: PLANNING_MANAGER_ROLES },
       { label: 'Validation plannings', route: '/planning/validation', roles: ['Admin', 'RH'] },
+      { label: 'Demandes changement', route: '/planning/change-requests', roles: ['Admin', 'RH'] },
       { label: 'Planning Équipe', route: '/planning/equipe', roles: ['Manager', 'Coach'] },
       { label: 'Configuration Shifts', route: '/planning/shift-config', roles: PLANNING_MANAGER_ROLES },
       { label: 'Historique Samedis', route: '/planning/saturday-history', roles: PLANNING_MANAGER_ROLES },

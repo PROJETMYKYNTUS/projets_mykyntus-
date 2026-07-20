@@ -135,6 +135,10 @@ public record CreateEmployeeRequest(
     Guid? ReferentTechniqueId = null,
     EmployeeHrProfileDto? HrProfile = null);
 
+public record BulkCreateEmployeesRequest(IReadOnlyList<CreateEmployeeRequest> Items);
+
+public record BulkCreateEmployeeResult(string Email, bool Success, Guid? EmployeeId, string? Error);
+
 public record UpdateEmployeeRequest(
     string FirstName,
     string LastName,

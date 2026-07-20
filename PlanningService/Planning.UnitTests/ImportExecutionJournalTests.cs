@@ -131,12 +131,22 @@ public class ImportExecutionJournalTests
         public Task<UserDto?> GetUserByIdAsync(int id) => Task.FromResult<UserDto?>(null);
         public Task<UserDto> CreateUserAsync(CreateUserDto dto) => throw new NotImplementedException();
         public Task<UserDto> CreateUserFromImportAsync(CreateUserFromImportDto dto) => throw new NotImplementedException();
+        public Task<IReadOnlyList<ImportChunkCreateResultDto>> CreateUsersFromImportChunkAsync(
+            IReadOnlyList<ImportChunkCreateItemDto> items,
+            CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<ImportChunkCreateResultDto>>(Array.Empty<ImportChunkCreateResultDto>());
         public Task<UserDto?> UpdateUserAsync(int id, UpdateUserDto dto) => throw new NotImplementedException();
         public Task<bool> DeleteUserAsync(int id) => throw new NotImplementedException();
         public Task SyncMissingAuthUsersAsync() => Task.CompletedTask;
         public Task<UserDto?> GetUserByAuthIdAsync(int authUserId) => Task.FromResult<UserDto?>(null);
         public Task<UserDto?> GetUserByEmailAsync(string email) => Task.FromResult<UserDto?>(null);
         public Task<UserDto?> GetOrLinkUserForAuthAsync(int authUserId, string? email) => Task.FromResult<UserDto?>(null);
+        public Task<UserDto?> GetOrEnsureUserForAuthAsync(
+            int authUserId,
+            string? email,
+            string? authRole,
+            Guid? subjectId,
+            CancellationToken ct = default) => Task.FromResult<UserDto?>(null);
         public Task<bool> IsEmailUniqueAsync(string email, int? excludeId = null) => Task.FromResult(true);
         public Task SyncAllEmployesToCongeAsync() => Task.CompletedTask;
         public Task<List<UserDto>> GetManagersBySubServiceAsync(int subServiceId, CancellationToken ct = default) =>
@@ -189,6 +199,8 @@ public class ImportExecutionJournalTests
         }
 
         public Task<string> CreatePoleAsync(string name, Guid businessDepartmentId, CancellationToken ct = default) =>
+            throw new NotImplementedException();
+        public Task<Guid> CreateOperationalDepartmentAsync(string? code, string name, CancellationToken ct = default) =>
             throw new NotImplementedException();
         public Task<IReadOnlyList<DirectoryOperationalDepartmentJson>> GetOperationalDepartmentsAsync(CancellationToken ct = default) =>
             throw new NotImplementedException();

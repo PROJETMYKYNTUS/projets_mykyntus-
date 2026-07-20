@@ -17,3 +17,16 @@ public class RegisterFromPlanningResponseDto
     public string Email { get; set; } = string.Empty;
     public Guid SubjectId { get; set; }
 }
+
+public class RegisterFromPlanningBatchDto
+{
+    public List<RegisterFromPlanningDto> Items { get; set; } = [];
+}
+
+public class RegisterFromPlanningBatchItemResultDto
+{
+    public string Email { get; set; } = string.Empty;
+    public bool Success { get; set; }
+    public int? AuthUserId { get; set; }
+    public string? Message { get; set; }
+}

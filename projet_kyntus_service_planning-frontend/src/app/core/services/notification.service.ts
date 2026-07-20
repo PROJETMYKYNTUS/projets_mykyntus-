@@ -46,6 +46,10 @@ function resolvePlanningNotifType(weekCode: string, subServiceName?: string): Pl
   return 'planning';
 }
 
+function planningContentKey(n: Pick<PlanningNotification, 'weekCode' | 'weeklyPlanningId' | 'message'>): string {
+  return `${n.weekCode ?? ''}|${n.weeklyPlanningId ?? ''}|${n.message ?? ''}`;
+}
+
 /** Deep-link formation depuis le weekCode persisté (sans champ deepLink côté API). */
 export function resolveFormationDeepLink(weekCode: string, deepLink?: string | null): string {
   if (deepLink && deepLink.startsWith('/')) return deepLink;
@@ -167,31 +171,26 @@ export class NotificationService {
       .get<any[]>(`${environment.apiUrl}/planning/notifications?userId=${authUserId}`)
       .subscribe({
         next: (rows) => {
-          const persisted: PlanningNotification[] = (rows || []).map((r) => ({
-            id: r.id,
-            weekCode: r.weekCode,
-            subServiceName: r.subServiceName,
-            message: r.message,
-            receivedAt: new Date(r.createdAt),
-            read: r.isRead,
-            type: resolvePlanningNotifType(r.weekCode ?? '', r.subServiceName),
-            icon: resolvePlanningNotifType(r.weekCode ?? '', r.subServiceName) === 'formation' ? 'book' : 'calendar',
-            weeklyPlanningId: r.weeklyPlanningId,
-            deepLink:
-              resolvePlanningNotifType(r.weekCode ?? '', r.subServiceName) === 'formation'
-                ? resolveFormationDeepLink(r.weekCode ?? '')
-                : undefined,
-          }));
-          // Fusion avec les notifs déjà présentes (temps réel), en évitant les doublons backend.
-          const existingIds = new Set(
-            this.notificationsSubject.value.filter((n) => n.id != null).map((n) => n.id),
-          );
-          const toAdd = persisted.filter((n) => !existingIds.has(n.id));
-          if (toAdd.length === 0) return;
-          const merged = [...this.notificationsSubject.value, ...toAdd]
-            .sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
-          this.notificationsSubject.next(merged);
-          this.updateUnreadCount();
+          const persisted: PlanningNotification[] = (rows || []).map((r) => {
+            const type = resolvePlanningNotifType(r.weekCode ?? '', r.subServiceName);
+            return {
+              id: r.id,
+              weekCode: r.weekCode,
+              subServiceName: r.subServiceName,
+              message: r.message,
+              receivedAt: new Date(r.createdAt),
+              read: r.isRead,
+              type,
+              icon: type === 'formation' ? 'book' : 'calendar',
+              weeklyPlanningId: r.weeklyPlanningId,
+              deepLink:
+                r.deepLink
+                ?? (type === 'formation'
+                  ? resolveFormationDeepLink(r.weekCode ?? '')
+                  : undefined),
+            };
+          });
+          this.mergePlanningNotifications(persisted);
         },
         error: () => {},
       });
@@ -229,19 +228,23 @@ private connectPlanningHub(): void {
     .build();
 
     this.connection.on('PlanningPublished', (data: {
+      id?: number;
       weekCode: string;
       subServiceName: string;
       message: string;
       weeklyPlanningId?: number;
       deepLink?: string;
+      createdAt?: string;
+      isRead?: boolean;
     }) => {
       const type = resolvePlanningNotifType(data.weekCode ?? '', data.subServiceName);
       this.pushNotification({
+        id:             data.id,
         weekCode:       data.weekCode,
         subServiceName: data.subServiceName,
         message:        data.message,
-        receivedAt:     new Date(),
-        read:           false,
+        receivedAt:     data.createdAt ? new Date(data.createdAt) : new Date(),
+        read:           !!data.isRead,
         type,
         icon:           type === 'formation' ? 'book' : 'calendar',
         weeklyPlanningId: data.weeklyPlanningId,
@@ -255,6 +258,7 @@ private connectPlanningHub(): void {
       console.log('🔄 Planning Hub reconnecté — re-join groupe');
       try {
         await this.connection.invoke('JoinUserGroup', authUserId);
+        this.loadPersistedPlanningNotifications(authUserId);
         console.log('✅ Planning Hub — groupe user re-rejoint:', authUserId);
       } catch (err) {
         console.error('❌ Planning Hub re-join échoué:', err);
@@ -395,8 +399,39 @@ private connectReclamationHub(userId: number, isManager: boolean): void {
   }
 
   private pushNotification(notification: PlanningNotification): void {
-    const current = this.notificationsSubject.value;
-    this.notificationsSubject.next([notification, ...current]);
+    this.mergePlanningNotifications([notification]);
+  }
+
+  /** Fusionne sans doublons : même id, ou même contenu (weekCode + planningId + message). */
+  private mergePlanningNotifications(incoming: PlanningNotification[]): void {
+    if (!incoming.length) return;
+    const current = [...this.notificationsSubject.value];
+
+    for (const n of incoming) {
+      const byId = n.id != null ? current.findIndex((x) => x.id === n.id) : -1;
+      if (byId >= 0) {
+        current[byId] = { ...current[byId], ...n, id: n.id ?? current[byId].id };
+        continue;
+      }
+
+      const key = planningContentKey(n);
+      const byContent = current.findIndex(
+        (x) => x.id == null && planningContentKey(x) === key,
+      );
+      if (byContent >= 0) {
+        // Enrichit la ligne live avec l'id persisté
+        current[byContent] = { ...current[byContent], ...n };
+        continue;
+      }
+
+      const already = current.some(
+        (x) => (n.id != null && x.id === n.id) || planningContentKey(x) === key,
+      );
+      if (!already) current.unshift(n);
+    }
+
+    current.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+    this.notificationsSubject.next(current);
     this.updateUnreadCount();
   }
 

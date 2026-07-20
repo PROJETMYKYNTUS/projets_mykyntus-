@@ -1,5 +1,3 @@
-import { isPrimeDemoMockEnabled } from '../mock-data/prime-demo-config';
-import { isPrimeDemoEmptyPayload, resolvePrimeDemoGet } from '../mock-data/prime-demo-resolver';
 import {
   bearerAuthHeader,
   isJwtExpired,
@@ -30,6 +28,8 @@ async function isPrimeUserUnresolved(res: Response): Promise<boolean> {
 
 async function fetchWithAuth(input: string, init: RequestInit): Promise<Response> {
   const first = await fetch(input, init);
+  // 403 métier : JWT OK mais fiche Prime absente — ne pas tenter de refresh/logout.
+  if (first.status === 403 && (await isPrimeUserUnresolved(first))) return first;
   if (first.status !== 401) return first;
 
   // JWT OK mais employé absent de Prime : erreur métier, pas une session morte.
@@ -61,32 +61,14 @@ async function fetchWithAuth(input: string, init: RequestInit): Promise<Response
 export const PRIME_API_BASE =
   (import.meta as unknown as { env?: { VITE_PRIME_API_BASE_URL?: string } }).env?.VITE_PRIME_API_BASE_URL ?? '';
 
-function applyDemoFallback<T>(path: string, data: T): T {
-  if (!isPrimeDemoMockEnabled()) return data;
-  if (!path.includes('/api/prime') && !path.includes('/api/rp')) return data;
-  const mock = resolvePrimeDemoGet(path, 'GET');
-  if (mock === undefined) return data;
-  if (isPrimeDemoEmptyPayload(data)) return mock as T;
-  return data;
-}
-
 export async function primeApiGet<T>(path: string): Promise<T> {
   const full = `${PRIME_API_BASE}${path}`;
-  try {
-    const res = await fetchWithAuth(full, { credentials: 'include', headers: authHeaders() });
-    if (!res.ok) {
-      const mock = isPrimeDemoMockEnabled() ? resolvePrimeDemoGet(path, 'GET') : undefined;
-      if (mock !== undefined) return mock as T;
-      const t = await res.text();
-      throw new Error(t || `HTTP ${res.status}`);
-    }
-    const data = (await res.json()) as T;
-    return applyDemoFallback(path, data);
-  } catch (e) {
-    const mock = isPrimeDemoMockEnabled() ? resolvePrimeDemoGet(path, 'GET') : undefined;
-    if (mock !== undefined) return mock as T;
-    throw e;
+  const res = await fetchWithAuth(full, { credentials: 'include', headers: authHeaders() });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || `HTTP ${res.status}`);
   }
+  return (await res.json()) as T;
 }
 
 export async function primeApiPut<T>(path: string, body: unknown): Promise<T> {

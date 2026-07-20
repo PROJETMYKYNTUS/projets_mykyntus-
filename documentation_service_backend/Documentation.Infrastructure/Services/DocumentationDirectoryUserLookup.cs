@@ -18,8 +18,7 @@ public sealed class DocumentationDirectoryUserLookup(
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
     private readonly bool _autoProvisionDirectoryFromJwt =
         configuration.GetValue("Documentation:AutoProvisionDirectoryFromJwt", false)
-        || configuration.GetValue("Documentation:AllowHeaderContextFallback", false)
-        || configuration.GetValue("Documentation:DemoDataSeed", false);
+        || configuration.GetValue("Documentation:AllowHeaderContextFallback", false);
 
     public async Task<DirectoryUser?> ResolveAsync(
         ClaimsPrincipal principal,

@@ -1,13 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Prime.Infrastructure.Services;
 
 namespace Prime.Infrastructure.Persistence;
 
 public sealed class PrimeDatabaseInitializer(
     IServiceScopeFactory scopeFactory,
-    IConfiguration configuration,
-    IHostEnvironment environment,
     ILogger<PrimeDatabaseInitializer> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -62,7 +58,6 @@ public sealed class PrimeDatabaseInitializer(
         try
         {
             await PrimeSchemaPatches.EnsureAllowanceTrackSchemaAsync(db, cancellationToken);
-            await AllowanceDbSeeder.SeedAsync(db, cancellationToken);
             logger.LogInformation("PRIME : schéma Allowances appliqué.");
         }
         catch (Exception ex)
@@ -72,75 +67,7 @@ public sealed class PrimeDatabaseInitializer(
         }
 
         await EnsurePrimeMetierTablesExistAsync(db, cancellationToken);
-
-        var submission = scope.ServiceProvider.GetService<PrimeFicheValidationSubmissionService>();
-        if (submission is not null)
-        {
-            try
-            {
-                await PrimeValidationDemoRepair.ApplyAsync(db, submission, logger, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "PRIME : repair validation (sync) ignoré — nouvel essai via POST reconcile-ready.");
-            }
-        }
-
-        // Seed / enrichissement en arrière-plan : ne bloque pas Kestrel (évite 502 gateway pendant l’enrichissement).
-        _ = Task.Run(
-            async () =>
-            {
-                try
-                {
-                    await RunSeedAndHydrateAsync(cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "PRIME : échec seed / enrichissement / hydrate (arrière-plan).");
-                }
-            },
-            cancellationToken);
-    }
-
-    private async Task RunSeedAndHydrateAsync(CancellationToken cancellationToken)
-    {
-        using var scope = scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<PrimeDbContext>();
-
-        await PrimeDbSeeder.EnsureOperationalFicheWorkflowOnlyAsync(db, cancellationToken: cancellationToken);
-        await PrimeDbSeeder.SeedMissingManagerComptableRbacAsync(db, cancellationToken);
-        await PrimeDbSeeder.SeedMissingReferentTechnicalValidateRbacAsync(db, cancellationToken);
-        if (!await db.Poles.AnyAsync(cancellationToken))
-        {
-            var seedDemo = configuration.GetValue("Prime:SeedDemoData", true);
-            logger.LogInformation("PRIME : seed initial (SeedDemoData={SeedDemo})…", seedDemo);
-            await PrimeDbSeeder.SeedAsync(db, seedDemo, cancellationToken);
-        }
-
-        await PrimeDbSeeder.EnsureKyntusAuthAlignedEmployeesAsync(db, cancellationToken);
-
-        var enrichDemo = configuration.GetValue("Prime:EnrichDemoData", environment.IsDevelopment());
-        logger.LogInformation(
-            "PRIME : EnrichDemoData={EnrichDemo} (env={Environment})",
-            enrichDemo,
-            environment.EnvironmentName);
-
-        if (enrichDemo)
-        {
-            var markerApplied = await PrimeDbEnrichmentSeeder.IsVersionAppliedAsync(db, cancellationToken);
-            var hasData = await PrimeDbEnrichmentSeeder.HasEnrichmentDataAsync(db, cancellationToken);
-            var forceRepair = markerApplied && !hasData;
-            if (forceRepair)
-                logger.LogWarning("PRIME : marqueur enrichissement présent mais données absentes — réparation automatique.");
-
-            await PrimeDbEnrichmentSeeder.EnrichAsync(db, forceRepair, cancellationToken, logger);
-        }
-
-        var submission = scope.ServiceProvider.GetService<PrimeFicheValidationSubmissionService>();
-        if (submission is not null)
-            await PrimeValidationDemoRepair.ApplyAsync(db, submission, logger, cancellationToken);
-
-        logger.LogInformation("PRIME : base prête.");
+        logger.LogInformation("PRIME : base prête (sans seed démo).");
     }
 
     /// <summary>

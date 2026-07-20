@@ -1,5 +1,4 @@
 using Formation.Application.Commands.CreateFormation;
-using Formation.Domain.Entities;
 using Formation.Infrastructure.Messaging;
 using Formation.Infrastructure.Persistence;
 using Formation.Infrastructure.Repositories;
@@ -109,34 +108,6 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
-    if (!isTesting
-        && string.Equals(app.Configuration["KYNTUS_FORMATION_DEMO_SEED"], "true", StringComparison.OrdinalIgnoreCase)
-        && !await db.Formations.AnyAsync())
-    {
-        var demo = FormationEntity.Create(
-            "Formation d'accueil (démo Docker)",
-            "Jeu de données inséré automatiquement après git clone (KYNTUS_FORMATION_DEMO_SEED).",
-            "Formateur démo",
-            DateTime.UtcNow.AddDays(7),
-            DateTime.UtcNow.AddDays(9),
-            25,
-            0);
-        db.Formations.Add(demo);
-        await db.SaveChangesAsync();
-    }
-
-    if (!isTesting)
-    {
-        var enrichLog = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Formation.EnrichmentSeed");
-        try
-        {
-            await DockerComposeFormationEnrichmentSeed.ApplyIfEnabledAsync(app.Configuration, db, enrichLog);
-        }
-        catch (Exception ex)
-        {
-            enrichLog.LogError(ex, "Formation enrichment échoué (non bloquant).");
-        }
-    }
 }
 
 app.Run();

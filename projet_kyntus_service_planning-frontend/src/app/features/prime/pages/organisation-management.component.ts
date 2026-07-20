@@ -865,17 +865,15 @@ function httpErrMessage(err: unknown): string {
             </app-prime-card>
           }
           @case ('structure') {
-            <div
-              class="w-full grid grid-cols-1 xl:grid-cols-3 gap-6 xl:gap-8 items-stretch xl:items-start"
-            >
+            <div class="org-structure w-full grid grid-cols-1 xl:grid-cols-3 gap-4 items-stretch xl:items-start">
               <app-prime-card
-                className="min-w-0 p-0 flex flex-col xl:min-h-[28rem] shadow-md shadow-black/20"
+                className="min-w-0 p-0 flex flex-col xl:min-h-[28rem]"
                 title="Vue structure"
                 description="Arbre hiérarchique et détail du nœud sélectionné."
                 [hasAction]="false"
               >
-                <div class="org-tree-scroll -m-6 flex-1 max-h-[min(70vh,36rem)] overflow-y-auto overscroll-y-contain">
-                  <div class="org-tree p-3 md:p-4">
+                <div class="org-tree-scroll flex-1 max-h-[min(70vh,36rem)] overflow-y-auto overscroll-y-contain">
+                  <div class="org-tree p-3 sm:p-4">
                     @for (md of filteredOperationalTree(); track md.id) {
                       <div class="org-tree-block">
                         <button
@@ -1002,15 +1000,15 @@ function httpErrMessage(err: unknown): string {
               </app-prime-card>
 
               <app-prime-card
-                className="min-w-0 flex flex-col xl:min-h-[28rem] shadow-md shadow-black/20"
+                className="min-w-0 p-0 flex flex-col xl:min-h-[28rem]"
                 title="Détail du nœud"
                 description="Choisissez un employé puis enregistrez."
                 [hasAction]="false"
               >
-                <div class="flex min-h-[20rem] flex-1 flex-col -mx-1 bg-input/25">
+                <div class="flex min-h-[20rem] flex-1 flex-col px-4 py-4 sm:px-6 sm:py-5">
                   @if (selection(); as sel) {
-                    <div class="flex w-full flex-1 flex-col space-y-6 pt-1">
-                      <header class="space-y-1 border-b border-default/80 pb-4">
+                    <div class="flex w-full flex-1 flex-col gap-4">
+                      <header class="space-y-1 border-b border-default pb-3">
                         <p class="text-xs font-semibold uppercase tracking-wider text-muted">
                           @switch (sel.kind) {
                             @case ('metierDepartment') {
@@ -1027,7 +1025,7 @@ function httpErrMessage(err: unknown): string {
                             }
                           }
                         </p>
-                        <h2 class="text-2xl font-semibold tracking-tight text-primary">{{ sel.name }}</h2>
+                        <h2 class="text-lg font-semibold tracking-tight text-primary">{{ sel.name }}</h2>
                       </header>
 
                       @if (sel.kind === 'metierDepartment') {
@@ -1052,7 +1050,7 @@ function httpErrMessage(err: unknown): string {
                           }
                           <input
                             type="search"
-                            class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary placeholder:text-muted"
+                            class="ky-input w-full"
                             placeholder="Rechercher un employé (nom, rôle, e-mail)…"
                             [value]="structureDetailEmpSearch()"
                             (input)="setDetailEmpSearch($event)"
@@ -1150,7 +1148,7 @@ function httpErrMessage(err: unknown): string {
                           }
                           <input
                             type="search"
-                            class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary placeholder:text-muted"
+                            class="ky-input w-full"
                             placeholder="Rechercher un employé (nom, rôle, e-mail)…"
                             [value]="structureDetailEmpSearch()"
                             (input)="setDetailEmpSearch($event)"
@@ -1248,7 +1246,7 @@ function httpErrMessage(err: unknown): string {
                             }
                             <input
                               type="search"
-                              class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary placeholder:text-muted"
+                              class="ky-input w-full"
                               placeholder="Rechercher un employé (nom, rôle, e-mail)…"
                               [value]="structureDetailEmpSearch()"
                               (input)="setDetailEmpSearch($event)"
@@ -1347,7 +1345,7 @@ function httpErrMessage(err: unknown): string {
                             }
                             <input
                               type="search"
-                              class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary placeholder:text-muted"
+                              class="ky-input w-full"
                               placeholder="Rechercher un employé (nom, rôle, e-mail)…"
                               [value]="structureDetailEmpSearch()"
                               (input)="setDetailEmpSearch($event)"
@@ -1460,7 +1458,7 @@ function httpErrMessage(err: unknown): string {
                               }
                               <input
                                 type="search"
-                                class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary placeholder:text-muted"
+                                class="ky-input w-full"
                                 placeholder="Rechercher un employé…"
                                 [value]="structurePilotEmpSearch()"
                                 (input)="setPilotEmpSearch($event)"
@@ -1495,7 +1493,7 @@ function httpErrMessage(err: unknown): string {
                               </ul>
                               @if (teamsForCell(sel.id).length > 1) {
                                 <select
-                                  class="w-full rounded-lg border border-default bg-card px-3 py-2.5 text-sm text-primary"
+                                  class="ky-input w-full"
                                   [kyntusSelectSync]="draftPilotTeamId()"
                                   (kyntusSelectSyncChange)="draftPilotTeamId.set($event)"
                                 >
@@ -1520,11 +1518,9 @@ function httpErrMessage(err: unknown): string {
                     </div>
                   } @else {
                     <div
-                      class="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-default/35 bg-card/20 px-8 py-14 text-center min-h-[18rem]"
+                      class="flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-default px-4 py-10 text-center min-h-[16rem]"
                     >
-                      <p
-                        class="text-sm sm:text-base text-muted max-w-md leading-relaxed tracking-tight"
-                      >
+                      <p class="text-sm text-muted max-w-sm leading-relaxed">
                         Sélectionnez un pôle, une cellule ou un service dans l’arbre pour afficher le formulaire
                         d’affectation.
                       </p>
@@ -1533,14 +1529,14 @@ function httpErrMessage(err: unknown): string {
                 </div>
               </app-prime-card>
 
-              <div class="min-w-0 space-y-4 xl:space-y-5 flex flex-col">
+              <div class="min-w-0 flex flex-col gap-4">
                 <app-prime-card
                   className="p-0"
                   title="Indicateurs"
                   description="Périmètre du nœud sélectionné."
                   [hasAction]="false"
                 >
-                  <div class="space-y-4 -mt-1">
+                  <div class="space-y-3 px-4 py-4 sm:px-6">
                     <p class="text-xs text-muted flex items-center gap-2">
                       <app-lucide-icon [icon]="icons.building" className="w-3.5 h-3.5 shrink-0" />
                       <span class="truncate font-medium text-muted">{{ structureContextKpis().scopeTitle }}</span>
@@ -1575,11 +1571,11 @@ function httpErrMessage(err: unknown): string {
                   description="Membres du périmètre sélectionné."
                   [hasAction]="false"
                 >
-                  <div class="-m-6 flex-1 min-h-0 overflow-y-auto p-4">
+                  <div class="flex-1 min-h-0 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
                     <ul class="space-y-2">
                       @for (m of structureContextMembers(); track m.id) {
                         <li
-                          class="flex items-center gap-3 rounded-lg border border-default/80 bg-card/40 px-3 py-2"
+                          class="flex items-center gap-3 rounded-lg border border-default bg-input/40 px-3 py-2"
                         >
                           @if (m.avatar) {
                             <img
@@ -1613,7 +1609,7 @@ function httpErrMessage(err: unknown): string {
                   description="Événements du périmètre sélectionné."
                   [hasAction]="false"
                 >
-                  <div class="-m-6 flex-1 min-h-0 overflow-y-auto p-4">
+                  <div class="flex-1 min-h-0 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
                     <ul class="space-y-3">
                       @for (entry of visibleStructureActivityLog(); track $index) {
                         <li class="flex gap-3 text-sm">
@@ -1646,11 +1642,11 @@ function httpErrMessage(err: unknown): string {
     `
       .org-page {
         display: grid;
-        gap: 1rem;
+        gap: 1.5rem;
       }
 
       .org-toolbar {
-        padding: 0.9rem 1rem;
+        padding: 0.75rem 1rem;
         display: flex;
         align-items: center;
         gap: 0.75rem;
@@ -1690,28 +1686,29 @@ function httpErrMessage(err: unknown): string {
 
       /* —— Arbre organisation (sans cartes imbriquées) —— */
       .org-tree-scroll {
-        background: color-mix(in srgb, var(--bg-input, #0f172a) 55%, transparent);
+        background: color-mix(in srgb, var(--bg-input, #0f172a) 40%, transparent);
+        border-top: 1px solid var(--border-color);
       }
 
       .org-tree {
         display: flex;
         flex-direction: column;
-        gap: 0.35rem;
+        gap: 0.25rem;
       }
 
       .org-tree-block {
         display: flex;
         flex-direction: column;
-        gap: 0.2rem;
+        gap: 0.15rem;
       }
 
       .org-tree-children {
-        margin-left: 0.65rem;
-        padding-left: 0.7rem;
+        margin-left: 0.5rem;
+        padding-left: 0.55rem;
         border-left: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
         display: flex;
         flex-direction: column;
-        gap: 0.2rem;
+        gap: 0.15rem;
       }
 
       .org-tree-children--leaf {
@@ -1721,11 +1718,11 @@ function httpErrMessage(err: unknown): string {
       .org-tree-row {
         display: grid;
         grid-template-columns: 1.25rem minmax(0, 1fr) minmax(6.5rem, 12rem);
-        column-gap: 0.65rem;
+        column-gap: 0.5rem;
         align-items: center;
         width: 100%;
         text-align: left;
-        padding: 0.55rem 0.65rem;
+        padding: 0.45rem 0.55rem;
         border-radius: 0.5rem;
         border: 1px solid transparent;
         background: transparent;
@@ -1742,7 +1739,7 @@ function httpErrMessage(err: unknown): string {
       }
 
       .org-tree-row--dept {
-        padding: 0.65rem 0.75rem;
+        padding: 0.55rem 0.65rem;
         font-weight: 600;
       }
 
@@ -1763,7 +1760,7 @@ function httpErrMessage(err: unknown): string {
         min-width: 0;
         display: flex;
         align-items: center;
-        gap: 0.45rem;
+        gap: 0.4rem;
         line-height: 1.35;
       }
 
@@ -1788,7 +1785,7 @@ function httpErrMessage(err: unknown): string {
       .org-badge {
         flex-shrink: 0;
         border-radius: 0.25rem;
-        padding: 0.1rem 0.4rem;
+        padding: 0.1rem 0.35rem;
         font-size: 0.5625rem;
         font-weight: 700;
         letter-spacing: 0.04em;

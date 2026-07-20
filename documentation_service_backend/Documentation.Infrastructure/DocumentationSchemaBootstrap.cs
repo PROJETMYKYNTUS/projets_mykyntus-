@@ -41,17 +41,18 @@ internal static class DocumentationSchemaBootstrap
     {
         try
         {
-            if (await FunctionExistsAsync(db, cancellationToken).ConfigureAwait(false))
+            if (!await FunctionExistsAsync(db, cancellationToken).ConfigureAwait(false))
+            {
+                await db.Database.ExecuteSqlRawAsync(NextDocumentRequestNumberSql, cancellationToken)
+                    .ConfigureAwait(false);
+                logger.LogInformation(
+                    "Documentation schema bootstrap — fonction documentation.next_document_request_number créée.");
+            }
+            else
             {
                 logger.LogInformation(
-                    "Documentation schema bootstrap — documentation.next_document_request_number déjà présente (skip).");
-                return;
+                    "Documentation schema bootstrap — documentation.next_document_request_number déjà présente.");
             }
-
-            await db.Database.ExecuteSqlRawAsync(NextDocumentRequestNumberSql, cancellationToken)
-                .ConfigureAwait(false);
-            logger.LogInformation(
-                "Documentation schema bootstrap — fonction documentation.next_document_request_number créée.");
         }
         catch (PostgresException pgEx) when (pgEx.SqlState is "42501")
         {
@@ -59,12 +60,13 @@ internal static class DocumentationSchemaBootstrap
             {
                 logger.LogWarning(
                     "Documentation schema bootstrap — fonction REQ déjà provisionnée (droits CREATE insuffisants, ignoré).");
-                return;
             }
-
-            logger.LogError(
-                pgEx,
-                "Documentation schema bootstrap — fonction REQ absente et création refusée (42501). Exécutez init/sql/documentation_004_next_document_request_number.sql en superuser.");
+            else
+            {
+                logger.LogError(
+                    pgEx,
+                    "Documentation schema bootstrap — fonction REQ absente et création refusée (42501). Exécutez init/sql/documentation_004_next_document_request_number.sql en superuser.");
+            }
         }
         catch (Exception ex)
         {
@@ -75,6 +77,44 @@ internal static class DocumentationSchemaBootstrap
 
         await ApplyPerformanceIndexesAsync(db, logger, cancellationToken).ConfigureAwait(false);
         await ApplyDirectoryUsersHrProfileColumnsAsync(db, logger, cancellationToken).ConfigureAwait(false);
+        await EnsureDefaultOrganisationUnitsAsync(db, logger, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Unités org minimales pour le provisionnement JWT / sync (évite FK 23503 sur directory_users).
+    /// </summary>
+    internal static async Task EnsureDefaultOrganisationUnitsAsync(
+        DocumentationDbContext db,
+        ILogger logger,
+        CancellationToken cancellationToken = default,
+        string tenantId = "atlas-tech-demo")
+    {
+        // IDs alignés avec Documentation:Sync:DefaultPoleId / DefaultCelluleId / DefaultDepartementId.
+        const string sql =
+            """
+            INSERT INTO documentation.organisation_units
+              (id, tenant_id, parent_id, unit_type, code, name, created_at, updated_at)
+            VALUES
+              ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01', {0}, NULL,
+               'pole', 'DEFAULT-POLE', 'Pôle par défaut', NOW(), NOW()),
+              ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02', {0}, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
+               'cellule', 'DEFAULT-CELLULE', 'Cellule par défaut', NOW(), NOW()),
+              ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa03', {0}, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02',
+               'departement', 'DEFAULT-DEPT', 'Département par défaut', NOW(), NOW())
+            ON CONFLICT (id) DO NOTHING;
+            """;
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(sql, [tenantId], cancellationToken).ConfigureAwait(false);
+            logger.LogInformation(
+                "Documentation schema bootstrap — unités organisationnelles par défaut vérifiées (tenant={Tenant}).",
+                tenantId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Documentation schema bootstrap — unités org par défaut non appliquées.");
+        }
     }
 
     internal static async Task ApplyDirectoryUsersHrProfileColumnsAsync(

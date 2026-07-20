@@ -271,7 +271,19 @@ export const routes: Routes = [
       {
         path: 'mes-plannings',
         canActivate: [AuthGuard],
-        data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation', 'Superviseur'] },
+        data: {
+          roles: [
+            'Employee',
+            'Pilote',
+            'Manager',
+            'Coach',
+            'Référent technique',
+            'RP',
+            'Audit',
+            'Equipe_Formation',
+            'Superviseur',
+          ],
+        },
         loadComponent: () =>
           import('./features/planning/pages/mes-plannings/mes-plannings.component')
             .then(m => m.MesPlanningsComponent),
@@ -279,7 +291,21 @@ export const routes: Routes = [
       {
         path: 'planning',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'] },
+        data: {
+          roles: [
+            'Admin',
+            'RH',
+            'Manager',
+            'Coach',
+            'Référent technique',
+            'RP',
+            'Pilote',
+            'Audit',
+            'Equipe_Formation',
+            'Superviseur',
+            'Employee',
+          ],
+        },
         loadChildren: () =>
           import('./features/planning/planning-routing-module')
             .then(m => m.PlanningRoutingModule),

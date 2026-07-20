@@ -38,6 +38,13 @@ public sealed class DocumentationJwtDirectoryProvisioner(
         var (prenom, nom) = ResolveNames(principal, email);
         var now = DateTimeOffset.UtcNow;
 
+        var poleId = ParseGuid(configuration["Documentation:Sync:DefaultPoleId"], "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01");
+        var celluleId = ParseGuid(configuration["Documentation:Sync:DefaultCelluleId"], "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02");
+        var departementId = ParseGuid(configuration["Documentation:Sync:DefaultDepartementId"], "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa03");
+
+        // Sans unités org, l'insert directory_users échoue en FK 23503 → HTTP 500 sur /users/me et document-requests.
+        await EnsureDefaultOrganisationUnitsAsync(tenantId, poleId, celluleId, departementId, now, ct);
+
         var row = new DirectoryUser
         {
             Id = userId,
@@ -46,21 +53,83 @@ public sealed class DocumentationJwtDirectoryProvisioner(
             Nom = nom,
             Email = email,
             Role = appRole,
-            PoleId = ParseGuid(configuration["Documentation:Sync:DefaultPoleId"], "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01"),
-            CelluleId = ParseGuid(configuration["Documentation:Sync:DefaultCelluleId"], "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02"),
-            DepartementId = ParseGuid(configuration["Documentation:Sync:DefaultDepartementId"], "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa03"),
+            PoleId = poleId,
+            CelluleId = celluleId,
+            DepartementId = departementId,
             CreatedAt = now,
             UpdatedAt = now,
         };
 
-        db.DirectoryUsers.Add(row);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            db.DirectoryUsers.Add(row);
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Échec auto-provision annuaire documentation pour {Email} — nouvel essai lecture.",
+                email);
+            db.ChangeTracker.Clear();
+            return await db.DirectoryUsers
+                .FirstOrDefaultAsync(u => u.TenantId == tenantId && u.Email.ToLower() == email, ct);
+        }
+
         logger.LogInformation(
             "Annuaire documentation auto-provisionné depuis JWT : {Email} rôle={Role} id={Id}",
             email,
             appRole,
             userId);
         return row;
+    }
+
+    /// <summary>
+    /// Garantit les 3 unités org par défaut (pôle → cellule → département) utilisées par le provisionnement JWT.
+    /// </summary>
+    private async Task EnsureDefaultOrganisationUnitsAsync(
+        string tenantId,
+        Guid poleId,
+        Guid celluleId,
+        Guid departementId,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        await EnsureOrgUnitAsync(tenantId, poleId, null, "pole", "DEFAULT-POLE", "Pôle par défaut", now, ct);
+        await EnsureOrgUnitAsync(tenantId, celluleId, poleId, "cellule", "DEFAULT-CELLULE", "Cellule par défaut", now, ct);
+        await EnsureOrgUnitAsync(tenantId, departementId, celluleId, "departement", "DEFAULT-DEPT", "Département par défaut", now, ct);
+
+        if (db.ChangeTracker.HasChanges())
+            await db.SaveChangesAsync(ct);
+    }
+
+    private async Task EnsureOrgUnitAsync(
+        string tenantId,
+        Guid id,
+        Guid? parentId,
+        string unitType,
+        string code,
+        string name,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var exists = await db.OrganisationUnits
+            .IgnoreQueryFilters()
+            .AnyAsync(u => u.Id == id, ct);
+        if (exists)
+            return;
+
+        db.OrganisationUnits.Add(new OrganisationUnit
+        {
+            Id = id,
+            TenantId = tenantId,
+            ParentId = parentId,
+            UnitType = unitType,
+            Code = code,
+            Name = name,
+            CreatedAt = now,
+            UpdatedAt = now,
+        });
     }
 
     private static (string Prenom, string Nom) ResolveNames(ClaimsPrincipal principal, string email)

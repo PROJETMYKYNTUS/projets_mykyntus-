@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Planning.Application.Abstractions;
 using Planning.Application.DTOs.Planning;
 using Planning.Domain.Entities;
 using Planning.Domain.Enums;
+using Planning.Infrastructure.Hubs;
 using Planning.Infrastructure.Persistence;
 
 namespace Planning.Infrastructure.Services;
@@ -10,11 +12,14 @@ namespace Planning.Infrastructure.Services;
 public class PlanningChangeRequestService : IPlanningChangeRequestService
 {
     private readonly AppDbContext _context;
+    private readonly IHubContext<PlanningHub> _hubContext;
     private const string CasablancaTz = "Africa/Casablanca";
+    private const string ChangeRequestSubService = "Demande de changement";
 
-    public PlanningChangeRequestService(AppDbContext context)
+    public PlanningChangeRequestService(AppDbContext context, IHubContext<PlanningHub> hubContext)
     {
         _context = context;
+        _hubContext = hubContext;
     }
 
     public async Task<PlanningChangeRequestDto> CreateAsync(
@@ -59,6 +64,15 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
 
         _context.PlanningChangeRequests.Add(entity);
         await _context.SaveChangesAsync();
+
+        var requesterName = $"{assignment.User.FirstName} {assignment.User.LastName}".Trim();
+        if (string.IsNullOrWhiteSpace(requesterName))
+            requesterName = assignment.User.Email ?? $"#{requesterUserId}";
+
+        await NotifyRhAdminsAsync(
+            entity.WeekCode,
+            $"Nouvelle demande de changement — {requesterName} ({entity.WeekCode})",
+            "/planning/change-requests");
 
         return await MapAsync(entity.Id)
             ?? throw new InvalidOperationException("Erreur création demande.");
@@ -246,6 +260,13 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
         request.ProcessedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        await NotifyUserAsync(
+            request.RequesterUserId,
+            request.WeekCode,
+            $"Votre demande de changement ({request.WeekCode}) a été approuvée.",
+            "/mes-plannings");
+
         return await MapAsync(id) ?? throw new InvalidOperationException("Erreur approve.");
     }
 
@@ -264,6 +285,17 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
         request.RejectionReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
 
         await _context.SaveChangesAsync();
+
+        var rejectMsg = string.IsNullOrWhiteSpace(request.RejectionReason)
+            ? $"Votre demande de changement ({request.WeekCode}) a été refusée."
+            : $"Votre demande de changement ({request.WeekCode}) a été refusée : {request.RejectionReason}";
+
+        await NotifyUserAsync(
+            request.RequesterUserId,
+            request.WeekCode,
+            rejectMsg,
+            "/mes-plannings");
+
         return await MapAsync(id) ?? throw new InvalidOperationException("Erreur reject.");
     }
 
@@ -286,21 +318,85 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
     }
 
     /// <summary>
-    /// Deadline : mercredi 23:59 Africa/Casablanca de la semaine précédant la semaine du planning.
+    /// Deadline : mercredi 23:59 Africa/Casablanca de la semaine du planning (lundi = weekStart).
+    /// Permet à l’employé de demander un changement après publication, jusqu’au mercredi inclus.
     /// </summary>
     public static void EnsureCreationDeadline(DateOnly weekStartDate, DateTime? utcNow = null)
     {
         var tz = ResolveCasablancaTimeZone();
         var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(utcNow ?? DateTime.UtcNow, tz);
 
-        // Semaine précédente = weekStart - 7 jours ; mercredi = +2 jours depuis lundi
-        var prevWeekMonday = weekStartDate.AddDays(-7);
-        var deadlineLocal = prevWeekMonday.AddDays(2).ToDateTime(new TimeOnly(23, 59, 59));
+        // Mercredi de la semaine du planning = weekStart (lundi) + 2 jours
+        var deadlineLocal = weekStartDate.AddDays(2).ToDateTime(new TimeOnly(23, 59, 59));
 
         if (nowLocal > deadlineLocal)
             throw new InvalidOperationException(
                 "Délai dépassé : les demandes de changement doivent être créées au plus tard " +
-                "le mercredi 23:59 (Casablanca) de la semaine précédant le planning.");
+                "le mercredi 23:59 (Casablanca) de la semaine du planning.");
+    }
+
+    private async Task NotifyRhAdminsAsync(string weekCode, string message, string deepLink)
+    {
+        var recipients = await _context.Users
+            .AsNoTracking()
+            .Include(u => u.Role)
+            .Where(u => u.IsActive
+                        && u.AuthUserId != null
+                        && u.Role != null
+                        && (u.Role.Name == "RH" || u.Role.Name == "Admin"))
+            .Select(u => new { u.Id, AuthUserId = u.AuthUserId!.Value })
+            .ToListAsync();
+
+        foreach (var r in recipients)
+            await PersistAndPushAsync(r.Id, r.AuthUserId, weekCode, message, deepLink);
+    }
+
+    private async Task NotifyUserAsync(int planningUserId, string weekCode, string message, string deepLink)
+    {
+        var user = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.Id == planningUserId && u.AuthUserId != null)
+            .Select(u => new { u.Id, AuthUserId = u.AuthUserId!.Value })
+            .FirstOrDefaultAsync();
+
+        if (user is null) return;
+        await PersistAndPushAsync(user.Id, user.AuthUserId, weekCode, message, deepLink);
+    }
+
+    private async Task PersistAndPushAsync(
+        int userId,
+        int authUserId,
+        string weekCode,
+        string message,
+        string deepLink)
+    {
+        var notif = new PlanningNotification
+        {
+            UserId = userId,
+            AuthUserId = authUserId,
+            WeeklyPlanningId = null,
+            WeekCode = weekCode,
+            SubServiceName = ChangeRequestSubService,
+            Message = message,
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.PlanningNotifications.Add(notif);
+        await _context.SaveChangesAsync();
+
+        await _hubContext.Clients
+            .Group($"user_{authUserId}")
+            .SendAsync("PlanningPublished", new
+            {
+                id = notif.Id,
+                weekCode = notif.WeekCode,
+                subServiceName = notif.SubServiceName,
+                message = notif.Message,
+                weeklyPlanningId = (int?)null,
+                deepLink,
+                createdAt = notif.CreatedAt,
+                isRead = false
+            });
     }
 
     private static TimeZoneInfo ResolveCasablancaTimeZone()

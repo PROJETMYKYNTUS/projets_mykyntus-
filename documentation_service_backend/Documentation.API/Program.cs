@@ -97,23 +97,6 @@ if (!isTesting && app.Configuration.GetValue("Documentation:ApplyPostSchemaObjec
     }
 }
 
-if (!isTesting && app.Configuration.GetValue("Documentation:DemoDataSeed", false))
-{
-    await using var demoSeedScope = app.Services.CreateAsyncScope();
-    var demoDb = demoSeedScope.ServiceProvider.GetRequiredService<DocumentationDbContext>();
-    var demoLog = demoSeedScope.ServiceProvider.GetRequiredService<ILoggerFactory>()
-        .CreateLogger("Documentation.DemoDataSeed");
-    await DockerDocumentationDemoDataSeed.ApplyIfEnabledAsync(app.Configuration, demoDb, demoLog);
-    try
-    {
-        await DockerDocumentationEnrichmentSeed.ApplyIfEnabledAsync(app.Configuration, demoDb, demoLog);
-    }
-    catch (Exception ex)
-    {
-        demoLog.LogError(ex, "Documentation enrichment échoué (non bloquant).");
-    }
-}
-
 app.UseMiddleware<UnhandledExceptionMiddleware>();
 app.UseCors("devCors");
 app.UseAuthentication();

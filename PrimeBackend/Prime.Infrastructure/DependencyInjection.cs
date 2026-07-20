@@ -79,6 +79,7 @@ public static class DependencyInjection
             services.AddScoped<IAllowanceQueryAppService, AllowanceQueryAppService>();
             services.AddScoped<IAllowanceOperationsAppService, AllowanceOperationsAppService>();
             services.AddScoped<IPrimeOrgAssignmentsAppService, PrimeOrgAssignmentsAppService>();
+            services.AddScoped<PrimeJwtEmployeeProvisioner>();
             services.AddScoped<IPrimeRequestUserResolver, PrimeRequestUserResolver>();
             services.AddScoped<GlobalPoolWorkflowService>();
             services.AddScoped<PrimeGlobalSynthesisReadinessService>();

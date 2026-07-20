@@ -29,6 +29,8 @@ export interface ReferralMatchInput {
   firstName: string;
   lastName: string;
   email?: string;
+  /** Emails additionnels (ex. personnel + interne) pour booster le score. */
+  emails?: Array<string | null | undefined>;
 }
 
 function normalize(value: string): string {
@@ -145,10 +147,16 @@ function scoreReferral(input: ReferralMatchInput, referral: Referral): number {
     scoreAlignedTokens(input, referral.candidateName),
   );
 
-  const emailA = normalize(input.email ?? '');
-  const emailB = normalize(referral.candidateEmail ?? '');
-  if (emailA && emailB && emailA === emailB) {
-    best = Math.min(1, Math.max(best, 0.8) + 0.1);
+  const candidateEmail = normalize(referral.candidateEmail ?? '');
+  const emails = [
+    input.email,
+    ...(input.emails ?? []),
+  ]
+    .map((e) => normalize(e ?? ''))
+    .filter(Boolean);
+
+  if (candidateEmail && emails.includes(candidateEmail)) {
+    best = Math.min(1, Math.max(best, 0.8) + 0.15);
   }
   return best;
 }
@@ -193,12 +201,34 @@ function scoreReferralAgainstQuery(query: string, referral: Referral): number {
   return best;
 }
 
+/**
+ * Si le RH colle « Nom Prénom » dans un seul champ, reconstitue first/last.
+ * Convention dossier : souvent « Nom Prénom » (1er token = nom de famille).
+ */
+export function coerceIdentityInput(input: ReferralMatchInput): ReferralMatchInput {
+  let first = (input.firstName ?? '').trim();
+  let last = (input.lastName ?? '').trim();
+
+  if (first.length < REFERRAL_MATCH_MIN_NAME_LENGTH && last.split(/\s+/).filter(Boolean).length >= 2) {
+    const parts = last.split(/\s+/).filter(Boolean);
+    last = parts[0];
+    first = parts.slice(1).join(' ');
+  } else if (last.length < REFERRAL_MATCH_MIN_NAME_LENGTH && first.split(/\s+/).filter(Boolean).length >= 2) {
+    const parts = first.split(/\s+/).filter(Boolean);
+    last = parts[0];
+    first = parts.slice(1).join(' ');
+  }
+
+  return { ...input, firstName: first, lastName: last };
+}
+
 export function matchReferralCandidates(
   input: ReferralMatchInput,
   referrals: Referral[],
 ): ReferralMatchResult {
-  const first = input.firstName.trim();
-  const last = input.lastName.trim();
+  const coerced = coerceIdentityInput(input);
+  const first = coerced.firstName.trim();
+  const last = coerced.lastName.trim();
   if (
     first.length < REFERRAL_MATCH_MIN_NAME_LENGTH ||
     last.length < REFERRAL_MATCH_MIN_NAME_LENGTH
@@ -207,7 +237,7 @@ export function matchReferralCandidates(
   }
 
   const scored = referrals
-    .map((referral) => ({ referral, score: scoreReferral(input, referral) }))
+    .map((referral) => ({ referral, score: scoreReferral(coerced, referral) }))
     .filter((item) => item.score >= REFERRAL_MATCH_ALERT_THRESHOLD)
     .sort((a, b) => b.score - a.score);
 

@@ -25,6 +25,12 @@
           <span class="mp-badge mp-badge-current">Semaine courante</span>
           <h3>{{ current.weekCode }}</h3>
           <p class="mp-sub">{{ current.subServiceName }} · début {{ current.weekStartDate | date:'dd/MM/yyyy' }}</p>
+          <p class="mp-deadline-ok" *ngIf="!changeDeadlinePassed && changeDeadlineLabel">
+            Demandes de changement possibles jusqu’au {{ changeDeadlineLabel }}.
+          </p>
+          <p class="mp-deadline-passed" *ngIf="changeDeadlinePassed">
+            Délai dépassé : les demandes de changement se ferment le mercredi 23:59 de la semaine du planning.
+          </p>
         </div>
       </div>
       <div class="mp-week-grid">
@@ -45,7 +51,7 @@
       </div>
     </section>
 
-    <section class="mp-card" *ngIf="myRequests.length > 0">
+    <section class="mp-card" id="mes-demandes" *ngIf="myRequests.length > 0">
       <h4 class="mp-history-title">Mes demandes de changement</h4>
       <table class="mp-req-table">
         <thead>

@@ -343,6 +343,10 @@ public class AppDbContext : DbContext
                 .WithOne(l => l.Job)
                 .HasForeignKey(l => l.JobId)
                 .OnDelete(DeleteBehavior.Cascade);
+            e.Property(j => j.FileContent).HasColumnType("bytea");
+            e.Property(j => j.ContentType).HasMaxLength(128);
+            e.Property(j => j.Status).HasMaxLength(32);
+            e.Property(j => j.ErrorMessage).HasMaxLength(2000);
         });
 
         modelBuilder.Entity<EmployeeImportJobLine>(e =>
@@ -353,6 +357,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EmployeeImportSession>(e =>
         {
             e.HasIndex(s => s.ExpiresAt);
+            e.Property(s => s.FileContent).HasColumnType("bytea");
+            e.Property(s => s.ContentType).HasMaxLength(128);
         });
 
         modelBuilder.Entity<UserHrProfile>(e =>

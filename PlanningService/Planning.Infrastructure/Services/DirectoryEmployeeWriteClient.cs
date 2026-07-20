@@ -14,6 +14,14 @@ public sealed record DirectoryEmployeeCreateResult(
     string? ErrorMessage = null,
     bool Retryable = true);
 
+public sealed record DirectoryEmployeeBulkCreateItem(
+    string FirstName,
+    string LastName,
+    string Email,
+    string Role,
+    string? PrimeServiceId,
+    DateTime HireDate);
+
 public interface IDirectoryEmployeeWriteClient
 {
     Task<DirectoryEmployeeCreateResult> TryCreateEmployeeAsync(
@@ -23,6 +31,10 @@ public interface IDirectoryEmployeeWriteClient
         string role,
         string? primeServiceId,
         DateTime hireDate,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<DirectoryEmployeeCreateResult>> TryCreateEmployeesBulkAsync(
+        IReadOnlyList<DirectoryEmployeeBulkCreateItem> items,
         CancellationToken ct = default);
 
     Task<bool> IsEmailUsedInDirectoryAsync(string email, Guid? excludeEmployeeId = null, CancellationToken ct = default);
@@ -95,6 +107,109 @@ public sealed class DirectoryEmployeeWriteClient(
             $"create {email}",
             new DirectoryEmployeeCreateResult(Guid.Empty, false),
             ct);
+
+    public async Task<IReadOnlyList<DirectoryEmployeeCreateResult>> TryCreateEmployeesBulkAsync(
+        IReadOnlyList<DirectoryEmployeeBulkCreateItem> items,
+        CancellationToken ct = default)
+    {
+        if (items.Count == 0)
+            return Array.Empty<DirectoryEmployeeCreateResult>();
+
+        var bulkPayload = items.Select(item => new
+        {
+            employeeId = (Guid?)null,
+            firstName = item.FirstName,
+            lastName = item.LastName,
+            email = item.Email,
+            role = item.Role,
+            serviceId = item.PrimeServiceId,
+            parentId = (Guid?)null,
+            hireDate = item.HireDate,
+        }).ToList();
+
+        try
+        {
+            var client = CreateClient();
+            using var request = new HttpRequestMessage(HttpMethod.Post, "api/directory/employees/bulk")
+            {
+                Content = JsonContent.Create(new { items = bulkPayload }),
+            };
+            AttachAuth(request);
+
+            var response = await client.SendAsync(request, ct);
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                logger.LogInformation("Directory bulk endpoint absent (404), repli créations individuelles parallèles.");
+                return await CreateEmployeesIndividuallyParallelAsync(items, ct);
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                var errorMessage = TryParseDirectoryError(body) ?? "Bulk create Directory échoué.";
+                logger.LogWarning("Directory bulk échec {Status}: {Body}", response.StatusCode, body);
+                return items.Select(item => new DirectoryEmployeeCreateResult(
+                    Guid.Empty,
+                    false,
+                    errorMessage,
+                    IsRetryableStatus(response.StatusCode))).ToList();
+            }
+
+            var bulkResults = await response.Content.ReadFromJsonAsync<List<DirectoryBulkCreateJson>>(cancellationToken: ct);
+            if (bulkResults is null || bulkResults.Count != items.Count)
+            {
+                logger.LogWarning("Directory bulk réponse invalide (count={Count}, attendu={Expected}).",
+                    bulkResults?.Count ?? 0, items.Count);
+                return await CreateEmployeesIndividuallyParallelAsync(items, ct);
+            }
+
+            return bulkResults.Select(r =>
+            {
+                var employeeId = r.EmployeeId.HasValue && r.EmployeeId.Value != Guid.Empty
+                    ? r.EmployeeId.Value
+                    : Guid.Empty;
+                return new DirectoryEmployeeCreateResult(
+                    employeeId,
+                    r.Success,
+                    r.Error,
+                    Retryable: !r.Success && string.IsNullOrWhiteSpace(r.Error));
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Directory bulk exception, repli créations individuelles parallèles.");
+            return await CreateEmployeesIndividuallyParallelAsync(items, ct);
+        }
+    }
+
+    private async Task<IReadOnlyList<DirectoryEmployeeCreateResult>> CreateEmployeesIndividuallyParallelAsync(
+        IReadOnlyList<DirectoryEmployeeBulkCreateItem> items,
+        CancellationToken ct)
+    {
+        const int maxParallelism = 6;
+        using var gate = new SemaphoreSlim(maxParallelism, maxParallelism);
+        var tasks = items.Select(async item =>
+        {
+            await gate.WaitAsync(ct);
+            try
+            {
+                return await TryCreateEmployeeAsync(
+                    item.FirstName,
+                    item.LastName,
+                    item.Email,
+                    item.Role,
+                    item.PrimeServiceId,
+                    item.HireDate,
+                    ct);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        });
+
+        return await Task.WhenAll(tasks);
+    }
 
     public Task<bool> IsEmailUsedInDirectoryAsync(string email, Guid? excludeEmployeeId = null, CancellationToken ct = default) =>
         ExecuteWithRetriesAsync(
@@ -295,7 +410,8 @@ public sealed class DirectoryEmployeeWriteClient(
 
     private void AttachAuth(HttpRequestMessage request)
     {
-        var authHeader = httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
+        var authHeader = DirectoryHttpAuthContext.AuthorizationHeader.Value
+            ?? httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
         if (!string.IsNullOrWhiteSpace(authHeader))
             request.Headers.Authorization = AuthenticationHeaderValue.Parse(authHeader);
     }
@@ -303,6 +419,14 @@ public sealed class DirectoryEmployeeWriteClient(
     private sealed class DirectoryEmployeeJson
     {
         public string Id { get; set; } = "";
+    }
+
+    private sealed class DirectoryBulkCreateJson
+    {
+        public string Email { get; set; } = "";
+        public bool Success { get; set; }
+        public Guid? EmployeeId { get; set; }
+        public string? Error { get; set; }
     }
 
     private sealed class DirectoryEmailCheckJson

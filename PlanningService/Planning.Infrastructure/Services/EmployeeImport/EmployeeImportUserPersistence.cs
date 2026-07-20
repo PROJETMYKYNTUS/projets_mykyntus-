@@ -1,9 +1,13 @@
+using Microsoft.EntityFrameworkCore;
 using Planning.Application.DTOs;
 using Planning.Application.Abstractions;
+using Planning.Infrastructure.Persistence;
 
 namespace Planning.Infrastructure.Services.EmployeeImport;
 
-public sealed class EmployeeImportUserPersistence(IUserService userService) : IEmployeeImportUserPersistence
+public sealed class EmployeeImportUserPersistence(
+    IUserService userService,
+    AppDbContext db) : IEmployeeImportUserPersistence
 {
     public async Task<EmployeeImportUserResult> CreateFromImportAsync(
         CreateUserFromImportDto dto,
@@ -15,8 +19,25 @@ public sealed class EmployeeImportUserPersistence(IUserService userService) : IE
 
     public async Task<EmployeeImportUserResult?> GetByIdAsync(int userId, CancellationToken ct = default)
     {
-        var user = await userService.GetUserByIdAsync(userId);
-        return user is null ? null : ToResult(user);
+        // Lean : pas de GetUserByIdAsync (évite LoadOrgNameContext / GET Directory all employees).
+        var user = await db.Users.AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => new EmployeeImportUserResult
+            {
+                Id = u.Id,
+                Guid = u.Guid,
+                RoleId = u.RoleId,
+                SubServiceId = u.SubServiceId,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                Email = u.Email,
+                HireDate = u.HireDate,
+                IsActive = u.IsActive,
+                Level = u.Level,
+                AuthUserId = u.AuthUserId,
+            })
+            .FirstOrDefaultAsync(ct);
+        return user;
     }
 
     public async Task<EmployeeImportUserResult?> UpdateAsync(

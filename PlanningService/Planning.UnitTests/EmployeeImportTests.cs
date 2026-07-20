@@ -16,6 +16,9 @@ public class EmployeeImportColumnMatcherTests
     [InlineData("Role", "role")]
     [InlineData("Pôle", "pole")]
     [InlineData("Cellule", "cellule")]
+    [InlineData("Département", "operationalDepartment")]
+    [InlineData("Department", "operationalDepartment")]
+    [InlineData("Département de production", "operationalDepartment")]
     public void MatchHeaders_maps_org_columns(string header, string expectedField)
     {
         var fields = EmployeeImportFieldRegistry.DefaultFields
@@ -24,6 +27,18 @@ public class EmployeeImportColumnMatcherTests
 
         var result = _matcher.MatchHeaders([header], fields);
         Assert.Equal(expectedField, result[0].SuggestedFieldKey);
+    }
+
+    [Fact]
+    public void MatchHeaders_department_does_not_map_to_pole()
+    {
+        var fields = EmployeeImportFieldRegistry.DefaultFields
+            .Select(f => new FieldMatchTarget(f.FieldKey, f.Label, f.Aliases))
+            .ToList();
+
+        var result = _matcher.MatchHeaders(["Département", "Pôle"], fields);
+        Assert.Equal("operationalDepartment", result[0].SuggestedFieldKey);
+        Assert.Equal("pole", result[1].SuggestedFieldKey);
     }
 
     [Fact]
@@ -233,6 +248,42 @@ public class EmployeeImportFuzzyMatcherTests
         Assert.Equal("Satisfaction client", resolution.Service);
         var serviceHint = resolution.Hints.Single(h => h.FieldKey == "service");
         Assert.Equal("high", serviceHint.Confidence);
+    }
+
+    [Fact]
+    public void OrgNameNormalizer_does_not_strip_department_prefix_from_pole()
+    {
+        Assert.Equal(
+            "departement support",
+            EmployeeImportOrgNameNormalizer.StripLevelPrefix("Département Support", "pole"));
+        Assert.Equal(
+            "support",
+            EmployeeImportOrgNameNormalizer.StripLevelPrefix("Pôle Support", "pole"));
+        Assert.Equal(
+            "support",
+            EmployeeImportOrgNameNormalizer.StripLevelPrefix("Étage Support", "pole"));
+    }
+
+    [Fact]
+    public void OrgFuzzyMatcher_department_labeled_pole_does_not_match_plain_pole_name()
+    {
+        var snapshot = new EmployeeImportOrgSnapshot
+        {
+            Rows =
+            [
+                new OrgHierarchyRow(1, "Equipe", 1, "Cellule", 1, "Support")
+            ]
+        };
+
+        var resolution = EmployeeImportOrgFuzzyMatcher.ResolveOrgNames(
+            snapshot, "Département Support", null, null);
+
+        Assert.Contains(resolution.Hints, h =>
+            h.FieldKey == "pole" && h.IsNewName);
+        Assert.DoesNotContain(resolution.Hints, h =>
+            h.FieldKey == "pole"
+            && string.Equals(h.MatchedValue, "Support", StringComparison.OrdinalIgnoreCase)
+            && !h.IsNewName);
     }
 
     [Fact]

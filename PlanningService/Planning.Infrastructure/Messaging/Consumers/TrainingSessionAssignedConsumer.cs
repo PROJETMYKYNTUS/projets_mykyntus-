@@ -45,28 +45,32 @@ public sealed class TrainingSessionAssignedConsumer(
             return;
         }
 
-        var weekCode = $"FORMATION-{msg.SessionId:N}";
+        var weekCode = $"TRAIN-{msg.SessionId:N}";
         var startLabel = msg.PlannedStart.ToLocalTime().ToString("g");
         var message = string.IsNullOrWhiteSpace(msg.Title)
             ? $"Vous êtes inscrit à une formation continue (début {startLabel})."
             : $"Vous êtes inscrit à la formation « {msg.Title.Trim()} » (début {startLabel}).";
+        const string deepLink = "/mes-formations";
+        const string subServiceName = "Formation continue";
 
-        var exists = await db.PlanningNotifications.AnyAsync(
+        var notif = await db.PlanningNotifications.FirstOrDefaultAsync(
             n => n.AuthUserId == user.AuthUserId.Value && n.WeekCode == weekCode && n.UserId == user.Id,
             context.CancellationToken);
-        if (!exists)
+
+        if (notif is null)
         {
-            db.PlanningNotifications.Add(new PlanningNotification
+            notif = new PlanningNotification
             {
                 UserId = user.Id,
                 AuthUserId = user.AuthUserId.Value,
                 WeeklyPlanningId = null,
                 WeekCode = weekCode,
-                SubServiceName = "Formation continue",
+                SubServiceName = subServiceName,
                 Message = message,
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow,
-            });
+            };
+            db.PlanningNotifications.Add(notif);
             await db.SaveChangesAsync(context.CancellationToken);
         }
 
@@ -74,11 +78,14 @@ public sealed class TrainingSessionAssignedConsumer(
             .Group($"user_{user.AuthUserId}")
             .SendAsync("PlanningPublished", new
             {
+                id = notif.Id,
                 weekCode,
-                subServiceName = "Formation continue",
+                subServiceName,
                 message,
                 weeklyPlanningId = (int?)null,
-                deepLink = "/mes-formations",
+                deepLink,
+                createdAt = notif.CreatedAt,
+                isRead = notif.IsRead,
             }, context.CancellationToken);
 
         logger.LogInformation(

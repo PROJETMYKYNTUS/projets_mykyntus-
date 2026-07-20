@@ -113,7 +113,23 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
   executing = false;
 
+  executeProgressLabel: string | null = null;
+
+  executeProcessedLignes = 0;
+
+  executeTotalLignes = 0;
+
+  private executePollSub: { unsubscribe(): void } | null = null;
+
+  private lastOrgRevalidatedMappingsKey: string | null = null;
+
   revalidatingOrg = false;
+  orgAlertsExpanded = false;
+
+  get executeProgressPercent(): number {
+    if (!this.executeTotalLignes) return 0;
+    return Math.min(100, (this.executeProcessedLignes / this.executeTotalLignes) * 100);
+  }
 
   analyzeError: string | null = null;
 
@@ -126,6 +142,12 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
   previewExtraFieldKeys: string[] = [];
 
   previewLoading = false;
+
+  previewSkip = 0;
+
+  previewPageSize = 50;
+
+  previewTotalRows = 0;
 
   mappings: EmployeeImportMappingItem[] = [];
 
@@ -161,9 +183,8 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
 
   ngOnDestroy(): void {
-
+    this.stopExecutePolling();
     this.persistDraft();
-
   }
 
 
@@ -275,6 +296,16 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
   downloadTemplate(): void {
 
     this.importSvc.triggerTemplateDownload();
+
+  }
+
+
+
+  downloadSourceFile(job: EmployeeImportJobSummary): void {
+
+    if (!job.hasSourceFile) return;
+
+    this.importSvc.downloadSourceFile(job.id, job.fileName);
 
   }
 
@@ -569,14 +600,54 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
     if (!this.confirmMappingWarnings()) return;
     if (!this.analyzeResult) return;
 
+    this.previewSkip = 0;
+    this.loadPreviewPage();
+  }
+
+  previewRangeLabel(): string {
+    if (!this.previewTotalRows) {
+      return '';
+    }
+    const from = this.previewSkip + 1;
+    const to = Math.min(this.previewSkip + this.previewRows.length, this.previewTotalRows);
+    return `Lignes ${from}–${to} sur ${this.previewTotalRows}`;
+  }
+
+  canPreviewPrev(): boolean {
+    return this.previewSkip > 0 && !this.previewLoading;
+  }
+
+  canPreviewNext(): boolean {
+    return this.previewSkip + this.previewRows.length < this.previewTotalRows && !this.previewLoading;
+  }
+
+  previewPrevPage(): void {
+    if (!this.canPreviewPrev()) return;
+    this.previewSkip = Math.max(0, this.previewSkip - this.previewPageSize);
+    this.loadPreviewPage(false);
+  }
+
+  previewNextPage(): void {
+    if (!this.canPreviewNext()) return;
+    this.previewSkip += this.previewPageSize;
+    this.loadPreviewPage(false);
+  }
+
+  private loadPreviewPage(navigateToStep = true): void {
+    if (!this.analyzeResult) return;
+
     this.previewLoading = true;
     this.importSvc.preview({
       importSessionId: this.analyzeResult.importSessionId,
       mappings: this.mappings,
+      skip: this.previewSkip,
+      take: this.previewPageSize,
     }).subscribe({
       next: (result) => {
         this.previewRows = result.previewRows;
         this.previewExtraFieldKeys = result.extraFieldKeys ?? [];
+        this.previewTotalRows = result.totalRows ?? this.analyzeResult!.totalRows;
+        this.previewSkip = result.skip ?? this.previewSkip;
         if (result.activeFields?.length && this.analyzeResult) {
           this.analyzeResult = {
             ...this.analyzeResult,
@@ -585,7 +656,9 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
           this.syncResolvedMappingsFromPreview(result.activeFields);
         }
         this.previewLoading = false;
-        this.goToStep('preview');
+        if (navigateToStep) {
+          this.goToStep('preview');
+        }
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -627,8 +700,22 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const mappingsKey = this.orgMappingsFingerprint();
+    if (
+      this.lastOrgRevalidatedMappingsKey === mappingsKey &&
+      (this.analyzeResult.resolvedRows?.length || this.analyzeResult.pendingOrgCreations?.length || this.analyzeResult.orgLineIssues?.length)
+    ) {
+      this.initOrgStepState();
+      this.furthestStepIndex = Math.max(this.furthestStepIndex, this.stepIndexFor('org'));
+      this.currentStep = 'org';
+      this.persistDraft();
+      this.cdr.detectChanges();
+      return;
+    }
+
     this.revalidatingOrg = true;
     this.orgRevalidateError = null;
+    this.orgAlertsExpanded = false;
     this.importSvc.revalidateOrg({
       importSessionId: this.analyzeResult.importSessionId,
       mappings: this.mappings,
@@ -640,6 +727,7 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
           resolvedRows: result.resolvedRows ?? [],
           orgLineIssues: result.orgLineIssues ?? [],
         };
+        this.lastOrgRevalidatedMappingsKey = mappingsKey;
         this.initOrgStepState();
         this.revalidatingOrg = false;
         this.furthestStepIndex = Math.max(this.furthestStepIndex, this.stepIndexFor('org'));
@@ -728,10 +816,18 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
   }
 
   private initOrgStepState(): void {
-    this.approvedOrgCreations = (this.analyzeResult?.pendingOrgCreations ?? []).map((p) => ({
-      ...p,
-      approved: p.approved ?? true,
-    }));
+    const order: Record<string, number> = {
+      operationalDepartment: 0,
+      pole: 1,
+      cellule: 2,
+      service: 3,
+    };
+    this.approvedOrgCreations = (this.analyzeResult?.pendingOrgCreations ?? [])
+      .map((p) => ({
+        ...p,
+        approved: p.approved ?? true,
+      }))
+      .sort((a, b) => (order[a.type] ?? 99) - (order[b.type] ?? 99));
     this.acceptedFuzzyMatches = this.fuzzyMatchesNeedingApproval();
   }
 
@@ -760,10 +856,13 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
   }
 
   executeImport(): void {
-
     if (!this.analyzeResult) return;
 
     this.executing = true;
+    this.executeProcessedLignes = 0;
+    this.executeTotalLignes = this.analyzeResult.totalRows;
+    this.executeProgressLabel = `Démarrage de l'import… 0 / ${this.executeTotalLignes}`;
+    this.stopExecutePolling();
 
     this.importSvc.execute({
       importSessionId: this.analyzeResult.importSessionId,
@@ -772,25 +871,22 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
       approvedOrgCreations: this.approvedOrgCreations.filter((p) => p.approved),
       acceptedFuzzyMatches: this.acceptedFuzzyMatches,
     }).subscribe({
-
       next: (result) => {
-
-        this.report = result;
-
-        this.executing = false;
-
-        this.host?.onImportCompleted?.();
-
-        clearEmployeeImportWizardDraft();
-
-        this.goToStep('report');
-
+        this.executeTotalLignes = result.totalLignes || this.executeTotalLignes;
+        this.executeProcessedLignes = result.processedLignes ?? 0;
+        if ((result.status ?? '').toLowerCase() === 'running') {
+          this.executeProgressLabel =
+            `Import en cours… ${this.executeProcessedLignes} / ${this.executeTotalLignes}`;
+          this.cdr.detectChanges();
+          this.pollExecuteJob(result.importJobId);
+          return;
+        }
+        this.finishExecuteSuccess(result);
       },
-
       error: (err) => {
-
         this.executing = false;
-
+        this.executeProgressLabel = null;
+        this.executeProcessedLignes = 0;
         if (err?.status === 504) {
           alert(
             'Le serveur a mis trop de temps à répondre (504). L\'import peut encore être en cours côté serveur.\n\n' +
@@ -805,13 +901,76 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
           : err?.error?.message ?? err?.message ?? 'Import échoué.';
         const alreadyWrapped = detail.includes("L'import a échoué");
         alert(alreadyWrapped ? detail : `Aucune modification n'a été appliquée.\n\n${detail}`);
-
         this.cdr.detectChanges();
-
       },
-
     });
+  }
 
+  private orgMappingsFingerprint(): string {
+    return this.mappings
+      .filter((m) => m.fieldKey === 'pole' || m.fieldKey === 'cellule' || m.fieldKey === 'service' || m.fieldKey === 'operationalDepartment')
+      .map((m) => `${m.columnIndex}:${m.fieldKey}`)
+      .sort()
+      .join('|');
+  }
+
+  private pollExecuteJob(jobId: string): void {
+    this.stopExecutePolling();
+    const tick = () => {
+      this.executePollSub = this.importSvc.getJob(jobId).subscribe({
+        next: (job) => {
+          const processed = job.processedLignes ?? 0;
+          const total = job.totalLignes || this.executeTotalLignes || 1;
+          const status = (job.status ?? '').toLowerCase();
+          this.executeProcessedLignes = processed;
+          this.executeTotalLignes = total;
+          this.executeProgressLabel = `Import en cours… ${processed} / ${total}`;
+          this.cdr.detectChanges();
+
+          if (status === 'completed') {
+            this.stopExecutePolling();
+            this.finishExecuteSuccess(job);
+            return;
+          }
+          if (status === 'failed') {
+            this.stopExecutePolling();
+            this.report = {
+              ...job,
+              status: 'Failed',
+              crees: 0,
+              misAJour: 0,
+            };
+            this.executing = false;
+            this.executeProgressLabel = null;
+            this.goToStep('report');
+            this.cdr.detectChanges();
+            return;
+          }
+          window.setTimeout(tick, 2000);
+        },
+        error: () => {
+          window.setTimeout(tick, 3000);
+        },
+      });
+    };
+    tick();
+  }
+
+  private stopExecutePolling(): void {
+    this.executePollSub?.unsubscribe();
+    this.executePollSub = null;
+  }
+
+  private finishExecuteSuccess(result: EmployeeImportReport): void {
+    this.report = result;
+    this.executing = false;
+    this.executeProgressLabel = null;
+    this.executeProcessedLignes = result.processedLignes ?? result.totalLignes;
+    this.executeTotalLignes = result.totalLignes;
+    this.host?.onImportCompleted?.();
+    clearEmployeeImportWizardDraft();
+    this.goToStep('report');
+    this.cdr.detectChanges();
   }
 
 
@@ -880,12 +1039,15 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
   }
 
   goToStep(step: EmployeeImportWizardStep, viaStepper = false): void {
+    if (this.executing && step !== 'confirm') {
+      return;
+    }
     if (viaStepper && step === 'org') {
       this.goToOrg();
       return;
     }
     if (viaStepper && !this.canNavigateToStep(step)) return;
-    if (step === 'report' && !this.report) return;
+    if (step === 'report' && (!this.report || this.executing)) return;
     if (step !== 'file' && step !== 'config' && !this.analyzeResult) return;
 
     const targetIdx = this.stepIndexFor(step);
@@ -907,6 +1069,7 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
   }
 
   canNavigateToStep(step: EmployeeImportWizardStep): boolean {
+    if (this.executing) return step === 'confirm';
     if (step === 'report') return !!this.report;
     if (step === 'file') return true;
     if (!this.analyzeResult) return false;

@@ -42,6 +42,34 @@ public static class EmployeeImportOperationalDeptResolver
         return null;
     }
 
+    /// <summary>
+    /// Décompose une valeur fichier (ex. « OP-001 », « OP-001 - Contact centre ») en code + nom
+    /// pour la création Directory.
+    /// </summary>
+    public static (string? Code, string Name) ParseCodeAndName(string raw)
+    {
+        var trimmed = raw.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return (null, string.Empty);
+
+        var match = System.Text.RegularExpressions.Regex.Match(
+            trimmed,
+            @"^(?<code>OP[\s\-]?\d+)\s*[-–:]?\s*(?<name>.*)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        if (!match.Success)
+            return (null, trimmed);
+
+        var codeRaw = match.Groups["code"].Value.Trim();
+        var code = System.Text.RegularExpressions.Regex.Replace(
+            codeRaw,
+            @"^(OP)[\s\-]?(\d+)$",
+            "OP-$2",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase).ToUpperInvariant();
+        var namePart = match.Groups["name"].Value.Trim();
+        return (code, string.IsNullOrWhiteSpace(namePart) ? code : namePart);
+    }
+
     /// <summary>Seuil d'acceptation de la correspondance tolérante (aligné sur la détection d'en-têtes).</summary>
     private const double ToleranceThreshold = 0.75;
 

@@ -721,9 +721,7 @@
 }
 
 .syn-leave,
-.syn-level,
-.syn-mix,
-.syn-delta {
+.syn-chip {
   font-size: 0.55rem;
   font-weight: 700;
   padding: 1px 5px;
@@ -735,27 +733,17 @@
   color: #1d4ed8;
 }
 
-.syn-mix {
+.syn-chip {
   background: rgba(15, 23, 42, 0.06);
   color: var(--pv-text-2, #334155);
 }
 
-.syn-mix-bad {
-  background: rgba(220, 38, 38, 0.12);
-  color: #b91c1c;
-}
-
-.syn-delta {
+.syn-chip-warn {
   background: rgba(245, 158, 11, 0.14);
   color: #b45309;
 }
 
-.syn-delta-neg {
-  background: rgba(220, 38, 38, 0.1);
-  color: #b91c1c;
-}
-
-.syn-level {
+.syn-chip-danger {
   background: rgba(220, 38, 38, 0.12);
   color: #b91c1c;
 }
@@ -877,16 +865,6 @@
 .lvl-3 {
   background: var(--danger-bg);
   color: var(--text-primary);
-}
-
-.new-badge {
-  font-size: 0.6rem;
-  font-weight: 800;
-  padding: 2px 7px;
-  border-radius: var(--radius-pill);
-  background: var(--warning-bg);
-  color: var(--text-primary);
-  border: 1px solid var(--warning-border);
 }
 
 .emp-actions {

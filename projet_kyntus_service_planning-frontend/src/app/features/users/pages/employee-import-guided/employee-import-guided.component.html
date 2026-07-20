@@ -76,7 +76,19 @@
       <tbody>
         <tr *ngFor="let job of history">
           <td>{{ formatDate(job.startedAt) }}</td>
-          <td>{{ job.fileName }}</td>
+          <td>
+            <span class="file-cell">
+              <span class="file-name" [title]="job.fileName">{{ job.fileName }}</span>
+              <button
+                type="button"
+                class="link-btn"
+                *ngIf="job.hasSourceFile"
+                title="Télécharger le fichier source"
+                (click)="downloadSourceFile(job)">
+                Télécharger
+              </button>
+            </span>
+          </td>
           <td>{{ job.totalLignes }}</td>
           <td>{{ job.crees }}</td>
           <td>{{ job.misAJour }}</td>
@@ -238,7 +250,11 @@
   <!-- Preview -->
   <div class="ky-card" *ngIf="currentStep === 'preview' && analyzeResult">
     <h2 class="ky-card-title">3. Prévisualisation</h2>
-    <p class="hint">Échantillon des premières lignes après mapping (confiance rôle/org dans l'étape Organisation)</p>
+    <p class="hint">
+      Aperçu paginé après mapping — l'import traitera les
+      <strong>{{ analyzeResult.totalRows }}</strong> lignes du fichier, pas seulement cette page.
+    </p>
+    <p class="hint" *ngIf="previewRangeLabel()">{{ previewRangeLabel() }}</p>
     <div class="preview-scroll">
       <table class="mapping-table compact">
         <thead>
@@ -253,7 +269,14 @@
         </tbody>
       </table>
     </div>
-    <div class="actions-row">
+    <div class="actions-row preview-pager">
+      <button type="button" class="ky-btn-secondary" [disabled]="!canPreviewPrev()" (click)="previewPrevPage()">
+        Précédent
+      </button>
+      <button type="button" class="ky-btn-secondary" [disabled]="!canPreviewNext()" (click)="previewNextPage()">
+        Suivant
+      </button>
+      <span class="hint preview-pager__spacer"></span>
       <button type="button" class="ky-btn-secondary" (click)="goToStep('mapping')">Retour</button>
       <button type="button" class="ky-btn-primary" (click)="goToOrg()">Organisation</button>
     </div>
@@ -276,8 +299,17 @@
     </div>
 
     <div class="mapping-validation" *ngIf="orgWarnings().length">
-      <p class="validation-title">Alertes</p>
-      <p *ngFor="let issue of orgWarnings()" class="alert-item">{{ issue.message }} (ligne {{ issue.lineNumber }})</p>
+      <button
+        type="button"
+        class="validation-title-toggle"
+        (click)="orgAlertsExpanded = !orgAlertsExpanded"
+        [attr.aria-expanded]="orgAlertsExpanded">
+        <span>Alertes ({{ orgWarnings().length }})</span>
+        <span class="validation-chevron" [class.is-open]="orgAlertsExpanded">▸</span>
+      </button>
+      <div *ngIf="orgAlertsExpanded">
+        <p *ngFor="let issue of orgWarnings()" class="alert-item">{{ issue.message }} (ligne {{ issue.lineNumber }})</p>
+      </div>
     </div>
 
     <div *ngIf="fuzzyMatchesNeedingApproval().length" class="org-section">
@@ -344,27 +376,49 @@
   <!-- Confirm -->
   <div class="ky-card" *ngIf="currentStep === 'confirm' && analyzeResult">
     <h2 class="ky-card-title">5. Confirmation</h2>
-    <ul class="confirm-list">
-      <li><strong>Fichier :</strong> {{ analyzeResult.fileName }}</li>
-      <li><strong>Lignes :</strong> {{ analyzeResult.totalRows }}</li>
-      <li><strong>Colonnes mappées :</strong> {{ mappedColumnCount() }}</li>
-      <li *ngIf="pendingOrgCount()"><strong>Organisations à créer :</strong> {{ pendingOrgCount() }}</li>
-      <li *ngIf="acceptedFuzzyMatches.length"><strong>Correspondances floues acceptées :</strong> {{ acceptedFuzzyMatches.length }}</li>
-    </ul>
-    <p class="hint">
-      Règles : email = identifiant unique · cellule vide = pas d'écrasement · mot de passe optionnel (défaut système).
-    </p>
-    <div class="actions-row">
-      <button type="button" class="ky-btn-secondary" (click)="goToStep('org')">Retour</button>
-      <button type="button" class="ky-btn-primary" [disabled]="executing" (click)="executeImport()">
-        {{ executing ? 'Import en cours…' : 'Lancer l\'import' }}
-      </button>
+
+    <div class="import-running" *ngIf="executing">
+      <div class="import-spinner" aria-hidden="true"></div>
+      <p class="import-running__title">Import en cours</p>
+      <p class="import-running__label">{{ executeProgressLabel || 'Préparation…' }}</p>
+      <div class="import-progress" *ngIf="executeTotalLignes > 0">
+        <div
+          class="import-progress__bar"
+          [style.width.%]="executeProgressPercent"
+        ></div>
+      </div>
+      <p class="hint import-running__hint">
+        Ne fermez pas cette page. Si le compteur reste à 0 longtemps, vérifiez que planning-backend tourne (job d'import).
+      </p>
     </div>
+
+    <ng-container *ngIf="!executing">
+      <ul class="confirm-list">
+        <li><strong>Fichier :</strong> {{ analyzeResult.fileName }}</li>
+        <li><strong>Lignes :</strong> {{ analyzeResult.totalRows }}</li>
+        <li><strong>Colonnes mappées :</strong> {{ mappedColumnCount() }}</li>
+        <li *ngIf="pendingOrgCount()"><strong>Organisations à créer :</strong> {{ pendingOrgCount() }}</li>
+        <li *ngIf="acceptedFuzzyMatches.length"><strong>Correspondances floues acceptées :</strong> {{ acceptedFuzzyMatches.length }}</li>
+      </ul>
+      <p class="hint">
+        Règles : email = identifiant unique · cellule vide = pas d'écrasement · mot de passe optionnel (défaut système).
+      </p>
+      <div class="actions-row">
+        <button type="button" class="ky-btn-secondary" (click)="goToStep('org')">Retour</button>
+        <button type="button" class="ky-btn-primary" (click)="executeImport()">
+          Lancer l'import
+        </button>
+      </div>
+    </ng-container>
   </div>
 
-  <!-- Report -->
-  <div class="ky-card" *ngIf="currentStep === 'report' && report">
+  <!-- Report (uniquement après fin d'import) -->
+  <div class="ky-card" *ngIf="currentStep === 'report' && report && !executing">
     <h2 class="ky-card-title">6. Rapport d'import</h2>
+    <div class="ky-alert ky-alert-error" *ngIf="(report.status || '').toLowerCase() === 'failed'" style="margin-bottom: 1rem;">
+      <strong>Import annulé</strong> — aucune donnée conservée.
+      <div *ngIf="report.errorMessage">{{ report.errorMessage }}</div>
+    </div>
     <div class="ky-stat-grid">
       <div class="ky-stat-card">
         <span class="ky-stat-value">{{ report.totalLignes }}</span>

@@ -17,13 +17,14 @@ export class AllowanceInboxBadgeService {
   }
 
   private async doRefresh(role: string): Promise<void> {
+    // Inbox RH uniquement — sans fiche Prime (JWT non projeté) le backend répondait 403.
     if (role !== 'RH') {
       this.count.set(0);
       return;
     }
     try {
       const rows = await this.api.inbox();
-      this.count.set(rows.length);
+      this.count.set(Array.isArray(rows) ? rows.length : 0);
     } catch {
       this.count.set(0);
     }

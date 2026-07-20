@@ -282,6 +282,12 @@ public class EmployeeImportPreviewRequest
 
     public List<EmployeeImportMappingItemDto> Mappings { get; set; } = new();
 
+    /// <summary>Index 0-based de la première ligne à inclure dans l'aperçu.</summary>
+    public int Skip { get; set; }
+
+    /// <summary>Nombre de lignes d'aperçu (défaut 50, max 200).</summary>
+    public int Take { get; set; } = 50;
+
 }
 
 
@@ -295,6 +301,12 @@ public class EmployeeImportPreviewResponse
     public List<string> ExtraFieldKeys { get; set; } = new();
 
     public List<EmployeeImportFieldConfigDto> ActiveFields { get; set; } = new();
+
+    public int TotalRows { get; set; }
+
+    public int Skip { get; set; }
+
+    public int Take { get; set; }
 
 }
 
@@ -355,6 +367,13 @@ public class EmployeeImportReportDto
 
     public int TotalLignes { get; set; }
 
+    public int ProcessedLignes { get; set; }
+
+    /// <summary>Running | Completed | Failed</summary>
+    public string Status { get; set; } = "Completed";
+
+    public string? ErrorMessage { get; set; }
+
     public int Crees { get; set; }
 
     public int MisAJour { get; set; }
@@ -383,7 +402,13 @@ public class EmployeeImportJobSummaryDto
 
     public string FileName { get; set; } = string.Empty;
 
+    public bool HasSourceFile { get; set; }
+
     public int TotalLignes { get; set; }
+
+    public int ProcessedLignes { get; set; }
+
+    public string Status { get; set; } = "Completed";
 
     public int Crees { get; set; }
 
@@ -415,6 +440,24 @@ public class CreateUserFromImportDto : CreateUserDto
 
     public bool? IsNewEmployee { get; set; }
 
+}
+
+/// <summary>Création Planning après Directory bulk (import chunk).</summary>
+public sealed class ImportChunkCreateItemDto
+{
+    public CreateUserFromImportDto Dto { get; set; } = null!;
+    public Guid DirectoryEmployeeId { get; set; }
+    public string RoleName { get; set; } = string.Empty;
+}
+
+public sealed class ImportChunkCreateResultDto
+{
+    public string Email { get; set; } = string.Empty;
+    public bool Success { get; set; }
+    public int? PlanningUserId { get; set; }
+    public Guid? EmployeeGuid { get; set; }
+    public int? AuthUserId { get; set; }
+    public string? ErrorMessage { get; set; }
 }
 
 

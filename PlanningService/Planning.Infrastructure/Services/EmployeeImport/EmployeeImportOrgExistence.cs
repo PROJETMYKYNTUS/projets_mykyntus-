@@ -32,6 +32,7 @@ public static class EmployeeImportOrgExistence
     public static bool AlreadyExists(PendingOrgCreationDto item, EmployeeImportOrgSnapshot snapshot) =>
         item.Type switch
         {
+            "operationalDepartment" => false, // résolu côté Directory au provisionnement
             "pole" => !string.IsNullOrWhiteSpace(item.Pole) && PoleExists(snapshot, item.Pole),
             "cellule" => !string.IsNullOrWhiteSpace(item.Pole) && !string.IsNullOrWhiteSpace(item.Cellule)
                 && CelluleExists(snapshot, item.Pole, item.Cellule),
@@ -89,6 +90,7 @@ public static class EmployeeImportOrgExistence
     public static string FormatCreationLabel(PendingOrgCreationDto item) =>
         item.Type switch
         {
+            "operationalDepartment" => $"département:{item.OperationalDepartment}",
             "pole" => $"pôle:{item.Pole}",
             "cellule" => $"cellule:{item.Pole}|{item.Cellule}",
             "service" => $"service:{item.Pole}|{item.Cellule}|{item.Service}",

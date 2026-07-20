@@ -54,10 +54,36 @@
 .badge-cancel  { background: var(--bg-input); color: var(--text-muted); border: 1px solid var(--border-color); }
 .cm-btn-detail { background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-md); padding: 6px 12px; cursor: pointer; font-size: 13px; font-weight: 600; transition: background .15s ease, border-color .15s ease; }
 .cm-btn-detail:hover { border-color: color-mix(in srgb, var(--soft-blue) 40%, var(--border-color)); }
-.cm-btn-valid  { background: var(--success); color: var(--bg-input); border: 1px solid var(--success-text); border-radius: var(--radius-md); padding: 6px 12px; cursor: pointer; font-size: 13px; font-weight: 600; transition: filter .15s ease; }
-.cm-btn-refuse { background: var(--danger); color: var(--bg-input); border: 1px solid var(--danger-text); border-radius: var(--radius-md); padding: 6px 12px; cursor: pointer; font-size: 13px; font-weight: 600; transition: filter .15s ease; }
-.cm-btn-valid:hover  { filter: brightness(1.08); }
-.cm-btn-refuse:hover { filter: brightness(1.08); }
+.cm-btn-valid  {
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background .15s ease, border-color .15s ease;
+}
+.cm-btn-refuse {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background .15s ease, border-color .15s ease;
+}
+.cm-btn-valid:hover  {
+  background: color-mix(in srgb, var(--success) 22%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--success) 50%, var(--border-color));
+}
+.cm-btn-refuse:hover {
+  background: color-mix(in srgb, var(--danger) 22%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--border-color));
+}
 .cm-modal-overlay { position: fixed; inset: 0; background: color-mix(in srgb, var(--text-primary) 40%, transparent); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .cm-modal { background: var(--bg-card); border-radius: var(--radius-card); width: 100%; max-width: 480px; box-shadow: var(--shadow-3); overflow: hidden; }
 .cm-modal-detail { max-width: 560px; }
@@ -75,7 +101,43 @@
 .cm-detail-item { display: flex; flex-direction: column; gap: 4px; }
 .cm-detail-item.full { grid-column: 1 / -1; }
 .cm-detail-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
-.cm-btn-refuse-confirm { padding: 9px 20px; background: var(--danger); color: var(--bg-input); border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 500; cursor: pointer; }
-.cm-btn-valid-modal { padding: 9px 16px; background: var(--success); color: var(--bg-input); border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 500; cursor: pointer; }
-.cm-btn-refuse-modal { padding: 9px 16px; background: var(--danger); color: var(--bg-input); border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 500; cursor: pointer; }
+.cm-btn-refuse-confirm {
+  padding: 9px 20px;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cm-btn-refuse-confirm:hover {
+  background: color-mix(in srgb, var(--danger) 22%, var(--bg-card));
+}
+.cm-btn-valid-modal {
+  padding: 9px 16px;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cm-btn-valid-modal:hover {
+  background: color-mix(in srgb, var(--success) 22%, var(--bg-card));
+}
+.cm-btn-refuse-modal {
+  padding: 9px 16px;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cm-btn-refuse-modal:hover {
+  background: color-mix(in srgb, var(--danger) 22%, var(--bg-card));
+}
 @media (max-width: 768px) { .cm-stats-grid { grid-template-columns: repeat(2, 1fr); } .cm-filters { flex-direction: column; } .cm-header { flex-direction: column; align-items: flex-start; gap: 12px; } .cm-detail-grid { grid-template-columns: 1fr; } }

@@ -10,7 +10,8 @@ namespace Prime.Infrastructure.Services;
 public sealed class PrimeRequestUserResolver(
     PrimeDbContext db,
     IHttpContextAccessor httpContextAccessor,
-    IHostEnvironment hostEnvironment) : IPrimeRequestUserResolver
+    IHostEnvironment hostEnvironment,
+    PrimeJwtEmployeeProvisioner jwtProvisioner) : IPrimeRequestUserResolver
 {
     public async Task<PrimeResolvedUser?> TryResolveAsync(HttpRequest request, string? bodyUserId, string? bodyRole, CancellationToken ct = default)
     {
@@ -146,6 +147,13 @@ public sealed class PrimeRequestUserResolver(
         }
 
         if (emp is null)
+        {
+            emp = await jwtProvisioner.TryProvisionAsync(principal, ct);
+            if (emp is not null)
+                emp = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == emp.Id, ct);
+        }
+
+        if (emp is null)
             return null;
 
         var roleRaw = !string.IsNullOrWhiteSpace(preferredRole)
@@ -171,6 +179,13 @@ public sealed class PrimeRequestUserResolver(
         var needle = email.Trim().ToLowerInvariant();
         var emp = await db.Employees.AsNoTracking()
             .FirstOrDefaultAsync(e => e.Email.ToLower() == needle, ct);
+        if (emp is null)
+        {
+            emp = await jwtProvisioner.TryProvisionAsync(principal, ct);
+            if (emp is not null)
+                emp = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == emp.Id, ct);
+        }
+
         if (emp is null)
             return null;
 

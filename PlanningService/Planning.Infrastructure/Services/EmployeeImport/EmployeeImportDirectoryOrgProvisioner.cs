@@ -38,6 +38,9 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
         {
             switch (item.Type)
             {
+                case "operationalDepartment":
+                    await EnsureOperationalDepartmentAsync(item, created, ct);
+                    break;
                 case "pole":
                     await EnsureDirectoryPoleAsync(item, created, snapshot, ct);
                     break;
@@ -63,6 +66,53 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
 
         logger.LogInformation("Provision org Directory import : {Count} opération(s)", created.Count);
         return created;
+    }
+
+    private async Task EnsureOperationalDepartmentAsync(
+        PendingOrgCreationDto item,
+        List<OrgNodeCreatedReportDto> created,
+        CancellationToken ct)
+    {
+        var raw = item.OperationalDepartment?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(raw))
+            return;
+
+        var departments = _operationalDepartments ?? await directoryOrg.GetOperationalDepartmentsAsync(ct);
+        _operationalDepartments = departments;
+
+        if (EmployeeImportOperationalDeptResolver.ResolveBusinessDepartmentId(raw, departments) is not null)
+            return;
+
+        var (code, name) = EmployeeImportOperationalDeptResolver.ParseCodeAndName(raw);
+        if (string.IsNullOrWhiteSpace(name))
+            name = raw;
+
+        Guid id;
+        try
+        {
+            id = await directoryOrg.CreateOperationalDepartmentAsync(code, name, ct);
+        }
+        catch (InvalidOperationException) when (!string.IsNullOrWhiteSpace(code))
+        {
+            // Course / déjà créé : recharger et vérifier.
+            _operationalDepartments = await directoryOrg.GetOperationalDepartmentsAsync(ct);
+            if (EmployeeImportOperationalDeptResolver.ResolveBusinessDepartmentId(raw, _operationalDepartments) is Guid existing)
+            {
+                id = existing;
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        _operationalDepartments = await directoryOrg.GetOperationalDepartmentsAsync(ct);
+        created.Add(new OrgNodeCreatedReportDto
+        {
+            NodeType = "operationalDepartment",
+            Name = raw,
+            DirectoryNodeId = id.ToString("D"),
+        });
     }
 
     private async Task EnsureDirectoryPoleAsync(
@@ -97,11 +147,11 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
             var departments = _operationalDepartments ?? await directoryOrg.GetOperationalDepartmentsAsync(ct);
             var cause = string.IsNullOrWhiteSpace(item.OperationalDepartment)
                 ? "la colonne « Département de production » est vide pour ce pôle"
-                : $"la valeur « {item.OperationalDepartment} » ne correspond à aucun département de production existant";
+                : $"la valeur « {item.OperationalDepartment} » ne correspond à aucun département de production " +
+                  "(acceptez la création proposée à l'étape Organisation, ou créez-le avant l'import)";
             var hint = departments.Count == 0
-                ? "Aucun département de production n'existe : créez-en un dans « Organisation » (ex. OP-001) avant l'import."
-                : "Départements disponibles : " + string.Join(", ", departments.Select(d => $"{d.Code} - {d.Name}"))
-                  + ". Reprenez l'une de ces valeurs dans le fichier, ou créez le département dans « Organisation » (l'import ne crée pas de département de production).";
+                ? "Aucun département de production n'existe encore."
+                : "Départements disponibles : " + string.Join(", ", departments.Select(d => $"{d.Code} - {d.Name}")) + ".";
             throw new InvalidOperationException(
                 $"Impossible de créer le pôle « {poleName} » : {cause}. {hint}");
         }
@@ -332,6 +382,9 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
     {
         switch (item.Type)
         {
+            case "operationalDepartment":
+                // Vérifié via Directory au moment de EnsureOperationalDepartmentAsync (liste rechargée).
+                break;
             case "pole":
                 orgResolver.EnsurePoleExists(snapshot, item.Pole);
                 break;
@@ -351,9 +404,10 @@ public sealed class EmployeeImportDirectoryOrgProvisioner(
 
     private static int OrgOrder(string type) => type switch
     {
-        "pole" => 0,
-        "cellule" => 1,
-        "service" => 2,
+        "operationalDepartment" => 0,
+        "pole" => 1,
+        "cellule" => 2,
+        "service" => 3,
         _ => 99
     };
 

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Planning.Application.Abstractions.EmployeeImport;
 using Planning.Application.DTOs;
 
 namespace Planning.Infrastructure.Services.EmployeeImport;
@@ -15,7 +16,10 @@ public partial class EmployeeImportService
             {
                 Id = j.Id,
                 FileName = j.FileName,
+                HasSourceFile = j.FileContent != null,
                 TotalLignes = j.TotalLignes,
+                ProcessedLignes = j.ProcessedLignes,
+                Status = j.Status,
                 Crees = j.Crees,
                 MisAJour = j.MisAJour,
                 Ignores = j.Ignores,
@@ -41,6 +45,11 @@ public partial class EmployeeImportService
         {
             ImportJobId = job.Id,
             TotalLignes = job.TotalLignes,
+            ProcessedLignes = job.ProcessedLignes,
+            Status = string.IsNullOrWhiteSpace(job.Status)
+                ? (job.CompletedAt.HasValue ? "Completed" : "Running")
+                : job.Status,
+            ErrorMessage = job.ErrorMessage,
             Crees = job.Crees,
             MisAJour = job.MisAJour,
             Ignores = job.Ignores,
@@ -57,5 +66,19 @@ public partial class EmployeeImportService
                 })
                 .ToList()
         };
+    }
+
+    private async Task<EmployeeImportSourceFile?> GetJobSourceFileInternalAsync(Guid jobId, CancellationToken ct = default)
+    {
+        var job = await _db.EmployeeImportJobs
+            .AsNoTracking()
+            .Where(j => j.Id == jobId)
+            .Select(j => new { j.FileName, j.FileContent, j.ContentType })
+            .FirstOrDefaultAsync(ct);
+
+        if (job?.FileContent is null || job.FileContent.Length == 0)
+            return null;
+
+        return new EmployeeImportSourceFile(job.FileName, job.FileContent, job.ContentType);
     }
 }

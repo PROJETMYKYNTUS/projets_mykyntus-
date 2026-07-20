@@ -144,7 +144,7 @@ public class EmployeeImportOrgGapAnalyzer(IEmployeeImportOrgResolver orgResolver
                         Email = email,
                         Severity = "error",
                         Message =
-                            $"Département de production requis pour créer le pôle « {creation.Pole} » — mappez la colonne ou utilisez un pôle existant."
+                            $"Département de production requis pour créer le pôle « {creation.Pole} » — mappez la colonne (il sera proposé à la création s'il n'existe pas)."
                     });
                 }
 

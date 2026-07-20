@@ -58,21 +58,27 @@ export interface Microservice {
 const ALL_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Formateur', 'Employee', 'Superviseur'];
 const MANAGER_ROLES = ['Admin', 'RH', 'Manager'];
 const ADMIN_RH = ['Admin', 'RH'];
-const EMPLOYEE_ROLES = [
+/** Rôles qui demandent un changement comme le Pilote (Mes plannings). */
+const PLANNING_SELF_SERVICE_ROLES = [
   'Employee',
-  'Manager',
+  'Pilote',
   'Coach',
+  'Référent technique',
+  'Superviseur',
+  'Manager',
   'RP',
   'Audit',
   'Equipe_Formation',
   'Equipe formation',
   'Formateur',
-  'Superviseur',
 ];
+const EMPLOYEE_ROLES = PLANNING_SELF_SERVICE_ROLES;
 const MES_SESSIONS_ROLES = [
   'Employee',
+  'Pilote',
   'Manager',
   'Coach',
+  'Référent technique',
   'RP',
   'Audit',
   'Formateur',
@@ -83,7 +89,7 @@ const MES_SESSIONS_ROLES = [
   'RH',
 ];
 const FORMATION_STAFF_ROLES = ['Admin', 'RH', 'Formateur', 'Equipe_Formation', 'Equipe formation'];
-const PLANNING_MANAGER_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'];
+const PLANNING_MANAGER_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'Référent technique', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'];
 
 const ICONS = {
   grid: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -156,14 +162,15 @@ export const MICROSERVICES: Microservice[] = [
     icon: ICONS.calendar,
     roles: ALL_ROLES,
     children: [
-      { label: 'Mes plannings', route: '/mes-plannings', roles: EMPLOYEE_ROLES },
+      { label: 'Mes plannings', route: '/mes-plannings', roles: PLANNING_SELF_SERVICE_ROLES },
+      { label: 'Demandes de changement', route: '/mes-plannings', roles: PLANNING_SELF_SERVICE_ROLES },
       // Masqué temporairement — génération manuelle legacy (« Algorithme intelligent… »)
       // { label: 'Plannings', route: '/planning', roles: PLANNING_MANAGER_ROLES },
       { label: 'Validation plannings', route: '/planning/validation', roles: ['Admin', 'RH'] },
-      { label: 'Demandes changement', route: '/planning/change-requests', roles: ['Admin', 'RH'] },
-      { label: 'Planning Équipe', route: '/planning/equipe', roles: ['Manager', 'Coach'] },
-      { label: 'Configuration Shifts', route: '/planning/shift-config', roles: PLANNING_MANAGER_ROLES },
-      { label: 'Historique Samedis', route: '/planning/saturday-history', roles: PLANNING_MANAGER_ROLES },
+      { label: 'Gestion des demandes', route: '/planning/change-requests', roles: ADMIN_RH },
+      { label: 'Planning Équipe', route: '/planning/equipe', roles: ['Manager', 'Coach', 'Référent technique', 'Superviseur'] },
+      { label: 'Configuration Shifts', route: '/planning/shift-config', roles: ADMIN_RH },
+      { label: 'Historique Samedis', route: '/planning/saturday-history', roles: ADMIN_RH },
     ],
   },
   {

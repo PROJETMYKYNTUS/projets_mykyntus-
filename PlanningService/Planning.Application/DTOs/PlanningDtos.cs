@@ -191,7 +191,7 @@ public class MyPlanningDto
     public List<DayAssignmentDto> Days { get; set; } = new();
 }
 
-// -- Notification de publication de planning (persist�e) --
+// -- Notification de publication de planning (persistée) --
 public class PlanningNotificationDto
 {
     public int Id { get; set; }
@@ -201,6 +201,8 @@ public class PlanningNotificationDto
     public string Message { get; set; } = string.Empty;
     public bool IsRead { get; set; }
     public DateTime CreatedAt { get; set; }
+    /// <summary>Route SPA pour le clic (dérivée du type de notification).</summary>
+    public string? DeepLink { get; set; }
 }
 
 // -- Sauvegarder la config shifts (template si WeekCode vide) --

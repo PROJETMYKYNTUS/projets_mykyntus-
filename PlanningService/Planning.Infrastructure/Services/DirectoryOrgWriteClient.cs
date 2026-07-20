@@ -7,6 +7,7 @@ namespace Planning.Infrastructure.Services;
 public interface IDirectoryOrgWriteClient
 {
     Task<string> CreatePoleAsync(string name, Guid businessDepartmentId, CancellationToken ct = default);
+    Task<Guid> CreateOperationalDepartmentAsync(string? code, string name, CancellationToken ct = default);
     Task<IReadOnlyList<DirectoryOperationalDepartmentJson>> GetOperationalDepartmentsAsync(CancellationToken ct = default);
     Task<IReadOnlyDictionary<Guid, string>> GetEmployeeOperationalBusinessDepartmentIdsAsync(CancellationToken ct = default);
     Task<string> CreateCelluleAsync(string poleDirectoryId, string name, CancellationToken ct = default);
@@ -33,6 +34,40 @@ public sealed class DirectoryOrgWriteClient(
             name = name.Trim(),
             businessDepartmentId,
         }, ct);
+
+    public async Task<Guid> CreateOperationalDepartmentAsync(string? code, string name, CancellationToken ct = default)
+    {
+        var client = CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/directory/business-departments")
+        {
+            Content = JsonContent.Create(new
+            {
+                code = string.IsNullOrWhiteSpace(code) ? null : code.Trim(),
+                name = name.Trim(),
+                kind = "Operational",
+            }),
+        };
+        AttachAuth(request);
+
+        var response = await client.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(ct);
+            logger.LogWarning(
+                "Directory operational department create failed {Status}: {Body}",
+                response.StatusCode,
+                err);
+            var detail = string.IsNullOrWhiteSpace(err) ? string.Empty : $" {err.Trim()}";
+            throw new InvalidOperationException(
+                $"Création du département de production échouée ({response.StatusCode}).{detail}");
+        }
+
+        var created = await response.Content.ReadFromJsonAsync<DirectoryOperationalDepartmentJson>(cancellationToken: ct);
+        if (created is null || !Guid.TryParse(created.Id, out var id))
+            throw new InvalidOperationException("Réponse Directory invalide après création du département de production.");
+
+        return id;
+    }
 
     public async Task<IReadOnlyList<DirectoryOperationalDepartmentJson>> GetOperationalDepartmentsAsync(
         CancellationToken ct = default)
@@ -196,7 +231,8 @@ public sealed class DirectoryOrgWriteClient(
 
     private void AttachAuth(HttpRequestMessage request)
     {
-        var authHeader = httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
+        var authHeader = DirectoryHttpAuthContext.AuthorizationHeader.Value
+            ?? httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
         if (!string.IsNullOrWhiteSpace(authHeader))
             request.Headers.Authorization = AuthenticationHeaderValue.Parse(authHeader);
     }

@@ -6,8 +6,8 @@ import type {
   AdminSystemAlert,
   AdminSystemKpi,
   AdminWorkflowConfig,
-} from '../mock-data/admin';
-import { WORKFLOW_ACTIONS, WORKFLOW_STEP_ROLES } from '../mock-data/admin';
+} from '../models/admin.models';
+import { WORKFLOW_ACTIONS, WORKFLOW_STEP_ROLES } from '../models/admin.models';
 import type { WorkflowStepConfigDto, WorkflowGlobalConfigDto } from './prime-admin.service';
 import { primeApiGet, primeApiPut } from './prime-http';
 

@@ -1168,35 +1168,46 @@ public class PlanningService : IPlanningService
             .ToListAsync();
 
         var message = $"Votre planning {planning.WeekCode} est disponible !";
+        var subServiceName = planning.SubService.Name;
+        const string deepLink = "/mes-plannings";
+        var created = new List<PlanningNotification>();
 
         foreach (var user in users)
         {
-            // 1. Persistance : la notification reste visible même hors-ligne.
-            _context.PlanningNotifications.Add(new PlanningNotification
+            var notif = new PlanningNotification
             {
                 UserId = user.Id,
                 AuthUserId = user.AuthUserId!.Value,
                 WeeklyPlanningId = planning.Id,
                 WeekCode = planning.WeekCode,
-                SubServiceName = planning.SubService.Name,
+                SubServiceName = subServiceName,
                 Message = message,
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow
-            });
-
-            // 2. Push temps réel SignalR.
-            await _hubContext.Clients
-                .Group($"user_{user.AuthUserId}")
-                .SendAsync("PlanningPublished", new
-                {
-                    weekCode = planning.WeekCode,
-                    subServiceName = planning.SubService.Name,
-                    message,
-                    weeklyPlanningId = planning.Id
-                });
+            };
+            _context.PlanningNotifications.Add(notif);
+            created.Add(notif);
         }
 
+        // Persister d'abord pour disposer des Id avant le push SignalR
         await _context.SaveChangesAsync();
+
+        foreach (var notif in created)
+        {
+            await _hubContext.Clients
+                .Group($"user_{notif.AuthUserId}")
+                .SendAsync("PlanningPublished", new
+                {
+                    id = notif.Id,
+                    weekCode = notif.WeekCode,
+                    subServiceName = notif.SubServiceName,
+                    message = notif.Message,
+                    weeklyPlanningId = notif.WeeklyPlanningId,
+                    deepLink,
+                    createdAt = notif.CreatedAt,
+                    isRead = false
+                });
+        }
 
         return await GetPlanningByIdAsync(planning.Id)
             ?? throw new Exception("Erreur publication planning.");
@@ -1312,21 +1323,48 @@ public class PlanningService : IPlanningService
     // ----------------------------------------------------
     public async Task<IEnumerable<PlanningNotificationDto>> GetMyNotificationsAsync(int authUserId)
     {
-        return await _context.PlanningNotifications
+        var rows = await _context.PlanningNotifications
             .Where(n => n.AuthUserId == authUserId)
             .OrderByDescending(n => n.CreatedAt)
             .Take(50)
-            .Select(n => new PlanningNotificationDto
-            {
-                Id = n.Id,
-                WeeklyPlanningId = n.WeeklyPlanningId,
-                WeekCode = n.WeekCode,
-                SubServiceName = n.SubServiceName,
-                Message = n.Message,
-                IsRead = n.IsRead,
-                CreatedAt = n.CreatedAt
-            })
             .ToListAsync();
+
+        return rows.Select(n => new PlanningNotificationDto
+        {
+            Id = n.Id,
+            WeeklyPlanningId = n.WeeklyPlanningId,
+            WeekCode = n.WeekCode,
+            SubServiceName = n.SubServiceName,
+            Message = n.Message,
+            IsRead = n.IsRead,
+            CreatedAt = n.CreatedAt,
+            DeepLink = ResolveNotificationDeepLink(n.WeekCode, n.SubServiceName, n.Message)
+        });
+    }
+
+    /// <summary>Route SPA dérivée du type de notification (planning / formation / demande).</summary>
+    public static string ResolveNotificationDeepLink(string weekCode, string subServiceName, string message)
+    {
+        var sub = (subServiceName ?? string.Empty).Trim();
+        var code = (weekCode ?? string.Empty).ToUpperInvariant();
+
+        if (sub.Contains("Demande", StringComparison.OrdinalIgnoreCase))
+        {
+            if ((message ?? string.Empty).Contains("Nouvelle demande", StringComparison.OrdinalIgnoreCase))
+                return "/planning/change-requests";
+            return "/mes-plannings";
+        }
+
+        if (code.StartsWith("TRAINING-ANIM-", StringComparison.Ordinal)
+            || code.StartsWith("TRAINING-START-ANIM-", StringComparison.Ordinal))
+            return "/mes-sessions";
+
+        if (code.StartsWith("TRAIN-", StringComparison.Ordinal)
+            || code.StartsWith("TRAINING-", StringComparison.Ordinal)
+            || sub.Contains("Formation", StringComparison.OrdinalIgnoreCase))
+            return "/mes-formations";
+
+        return "/mes-plannings";
     }
 
     public async Task MarkNotificationReadAsync(int id, int authUserId)

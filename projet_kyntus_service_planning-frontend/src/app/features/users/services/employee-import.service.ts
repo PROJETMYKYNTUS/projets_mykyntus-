@@ -113,12 +113,17 @@ export interface EmployeeImportMappingItem {
 export interface EmployeeImportPreviewRequest {
   importSessionId: string;
   mappings: EmployeeImportMappingItem[];
+  skip?: number;
+  take?: number;
 }
 
 export interface EmployeeImportPreviewResponse {
   previewRows: Record<string, string | null>[];
   extraFieldKeys: string[];
   activeFields?: EmployeeImportFieldConfig[];
+  totalRows?: number;
+  skip?: number;
+  take?: number;
 }
 
 export interface EmployeeImportExecuteRequest {
@@ -150,6 +155,9 @@ export interface EmployeeImportRowResult {
 export interface EmployeeImportReport {
   importJobId: string;
   totalLignes: number;
+  processedLignes?: number;
+  status?: 'Running' | 'Completed' | 'Failed' | string;
+  errorMessage?: string | null;
   crees: number;
   misAJour: number;
   ignores: number;
@@ -162,7 +170,10 @@ export interface EmployeeImportReport {
 export interface EmployeeImportJobSummary {
   id: string;
   fileName: string;
+  hasSourceFile?: boolean;
   totalLignes: number;
+  processedLignes?: number;
+  status?: string;
   crees: number;
   misAJour: number;
   ignores: number;
@@ -226,6 +237,13 @@ export class EmployeeImportService {
     this.http.get(`${this.base}/history/${jobId}/errors.csv`, { responseType: 'blob' }).subscribe({
       next: (blob) => triggerBlobDownload(blob, `import_erreurs_${jobId}.csv`),
       error: () => alert('Impossible de télécharger le fichier des erreurs.'),
+    });
+  }
+
+  downloadSourceFile(jobId: string, fileName: string): void {
+    this.http.get(`${this.base}/history/${jobId}/file`, { responseType: 'blob' }).subscribe({
+      next: (blob) => triggerBlobDownload(blob, fileName || `import_${jobId}.xlsx`),
+      error: () => alert('Fichier source indisponible pour cet import.'),
     });
   }
 }

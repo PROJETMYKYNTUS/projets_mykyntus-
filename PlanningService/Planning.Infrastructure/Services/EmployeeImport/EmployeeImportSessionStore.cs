@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Planning.Application.Abstractions.EmployeeImport;
 using Planning.Infrastructure.Persistence;
 using Planning.Domain.Entities;
 
@@ -7,9 +8,15 @@ namespace Planning.Infrastructure.Services.EmployeeImport;
 
 public interface IEmployeeImportSessionStore
 {
-    Task<Guid> SaveAsync(string fileName, ParsedImportFile parsed, CancellationToken ct = default);
+    Task<Guid> SaveAsync(
+        string fileName,
+        ParsedImportFile parsed,
+        byte[]? fileContent = null,
+        string? contentType = null,
+        CancellationToken ct = default);
     Task<ParsedImportFile?> GetAsync(Guid sessionId, CancellationToken ct = default);
     Task<string?> GetFileNameAsync(Guid sessionId, CancellationToken ct = default);
+    Task<EmployeeImportSourceFile?> GetSourceFileAsync(Guid sessionId, CancellationToken ct = default);
 }
 
 public class EmployeeImportSessionStore(AppDbContext db) : IEmployeeImportSessionStore
@@ -17,7 +24,12 @@ public class EmployeeImportSessionStore(AppDbContext db) : IEmployeeImportSessio
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private static readonly TimeSpan SessionTtl = TimeSpan.FromHours(1);
 
-    public async Task<Guid> SaveAsync(string fileName, ParsedImportFile parsed, CancellationToken ct = default)
+    public async Task<Guid> SaveAsync(
+        string fileName,
+        ParsedImportFile parsed,
+        byte[]? fileContent = null,
+        string? contentType = null,
+        CancellationToken ct = default)
     {
         await PurgeExpiredAsync(ct);
 
@@ -25,6 +37,8 @@ public class EmployeeImportSessionStore(AppDbContext db) : IEmployeeImportSessio
         {
             Id = Guid.NewGuid(),
             FileName = fileName,
+            FileContent = fileContent,
+            ContentType = contentType,
             HeadersJson = JsonSerializer.Serialize(parsed.Headers, JsonOpts),
             RowsJson = JsonSerializer.Serialize(parsed.Rows, JsonOpts),
             CreatedAt = DateTime.UtcNow,
@@ -57,6 +71,20 @@ public class EmployeeImportSessionStore(AppDbContext db) : IEmployeeImportSessio
             .Where(s => s.Id == sessionId && s.ExpiresAt > DateTime.UtcNow)
             .Select(s => s.FileName)
             .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<EmployeeImportSourceFile?> GetSourceFileAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        var session = await db.EmployeeImportSessions
+            .AsNoTracking()
+            .Where(s => s.Id == sessionId && s.ExpiresAt > DateTime.UtcNow)
+            .Select(s => new { s.FileName, s.FileContent, s.ContentType })
+            .FirstOrDefaultAsync(ct);
+
+        if (session?.FileContent is null || session.FileContent.Length == 0)
+            return null;
+
+        return new EmployeeImportSourceFile(session.FileName, session.FileContent, session.ContentType);
     }
 
     private async Task PurgeExpiredAsync(CancellationToken ct)

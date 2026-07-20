@@ -13,7 +13,7 @@ import { ParrainageRoleService } from '../../state/parrainage-role.service';
 import { AuditSectionService } from '../../state/audit-section.service';
 import { enrichAuditRowFromId, getAuditOrgTree } from '../../lib/audit-org-ui';
 import type { JournalRow, SortKey, SeverityLevel } from '../../audit/audit-types';
-import type { AnomalyRow } from '../../audit/audit-demo-data';
+import type { AnomalyRow } from '../../audit/audit.models';
 
 const ORG = getAuditOrgTree();
 const ROLE_FILTER_OPTIONS = ['Tous', 'RP', 'Manager', 'Coach', 'Pilote'] as const;
@@ -352,15 +352,9 @@ export class AdminAuditPageComponent {
   readonly safePage = computed(() => Math.min(this.page(), this.totalPages()));
   readonly pagedRows = computed(() => this.filteredRows().slice((this.safePage() - 1) * PAGE_SIZE, this.safePage() * PAGE_SIZE));
 
-  private readonly fallbackRows: JournalRow[] = [
-    enrichJournal({ id: 'mock-1', datetime: '2026-03-27 08:10', employee: 'Audit Bot', action: 'Création', item: 'Parrainage Martin / Leila', status: 'En attente', ...enrichAuditRowFromId('mock-1') }, 'mock-1', false),
-    enrichJournal({ id: 'mock-2', datetime: '2026-03-27 09:55', employee: 'RH Parrainage', action: 'Validation', item: 'Prime parrainage T2', status: 'Validé', ...enrichAuditRowFromId('mock-2') }, 'mock-2', false),
-    enrichJournal({ id: 'mock-3', datetime: '2026-03-27 10:33', employee: 'Comptable', action: 'Suppression', item: 'Dossier doublon #P-44', status: 'Rejeté', ...enrichAuditRowFromId('mock-3') }, 'mock-3', false),
-  ];
-
-  readonly visibleRows = computed(() => (this.pagedRows().length > 0 ? this.pagedRows() : this.fallbackRows));
+  readonly visibleRows = computed(() => this.pagedRows());
   readonly hasNoData = computed(() => this.rows().length === 0);
-  readonly isMockDisplay = computed(() => this.pagedRows().length === 0);
+  readonly isMockDisplay = computed(() => false);
 
   setFilter<T>(sig: { set: (v: T) => void }, value: T): void {
     sig.set(value);

@@ -2,8 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/c
 import { Search, Shield } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { SeverityBadgeComponent } from './audit-badges.component';
-import { ACCESS_LOG_DEMO } from '../../audit/audit-demo-data';
 import { enrichAccessWithBruteForce, accessTypeLabel, AccessRowView } from '../../audit/audit-access-utils';
+import type { AccessLogRow } from '../../audit/audit.models';
 
 @Component({
   selector: 'app-access-history-table',
@@ -79,7 +79,7 @@ export class AccessHistoryTableComponent {
   readonly shieldIcon = Shield;
 
   readonly q = signal('');
-  private readonly rows = enrichAccessWithBruteForce(ACCESS_LOG_DEMO);
+  private readonly rows = enrichAccessWithBruteForce([] as AccessLogRow[]);
 
   readonly filtered = computed(() => {
     const qq = this.q().trim().toLowerCase();

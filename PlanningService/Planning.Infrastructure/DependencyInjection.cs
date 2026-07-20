@@ -75,6 +75,8 @@ public static class DependencyInjection
         services.AddScoped<IImportExecutionJournal, ImportExecutionJournal>();
         services.AddScoped<IEmployeeImportService, EmployeeImportService>();
         services.AddScoped<IEmployeeImportUserPersistence, EmployeeImportUserPersistence>();
+        services.AddSingleton<IEmployeeImportExecuteQueue, EmployeeImportExecuteQueue>();
+        services.AddHostedService<EmployeeImportExecuteHostedService>();
         services.AddSingleton<EmployeeImportFileParser>();
         services.AddSingleton<EmployeeImportColumnMatcher>();
         services.AddScoped<EmployeeImportTemplateBuilder>();

@@ -42,23 +42,27 @@ public sealed class TrainingSessionAnimatorAssignedConsumer(
         var message = string.IsNullOrWhiteSpace(msg.Title)
             ? $"Vous êtes animateur d'une formation continue (début {startLabel})."
             : $"Vous êtes animateur de la formation « {msg.Title.Trim()} » (début {startLabel}).";
+        const string deepLink = "/mes-sessions";
+        const string subServiceName = "Formation continue";
 
-        var exists = await db.PlanningNotifications.AnyAsync(
+        var notif = await db.PlanningNotifications.FirstOrDefaultAsync(
             n => n.AuthUserId == user.AuthUserId.Value && n.WeekCode == weekCode && n.UserId == user.Id,
             context.CancellationToken);
-        if (!exists)
+
+        if (notif is null)
         {
-            db.PlanningNotifications.Add(new PlanningNotification
+            notif = new PlanningNotification
             {
                 UserId = user.Id,
                 AuthUserId = user.AuthUserId.Value,
                 WeeklyPlanningId = null,
                 WeekCode = weekCode,
-                SubServiceName = "Formation continue",
+                SubServiceName = subServiceName,
                 Message = message,
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow,
-            });
+            };
+            db.PlanningNotifications.Add(notif);
             await db.SaveChangesAsync(context.CancellationToken);
         }
 
@@ -66,11 +70,14 @@ public sealed class TrainingSessionAnimatorAssignedConsumer(
             .Group($"user_{user.AuthUserId}")
             .SendAsync("PlanningPublished", new
             {
+                id = notif.Id,
                 weekCode,
-                subServiceName = "Formation continue",
+                subServiceName,
                 message,
                 weeklyPlanningId = (int?)null,
-                deepLink = "/mes-sessions",
+                deepLink,
+                createdAt = notif.CreatedAt,
+                isRead = notif.IsRead,
             }, context.CancellationToken);
 
         logger.LogInformation(

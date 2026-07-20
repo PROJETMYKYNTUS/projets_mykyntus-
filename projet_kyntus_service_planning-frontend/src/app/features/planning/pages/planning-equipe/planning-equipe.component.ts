@@ -87,28 +87,43 @@ export class PlanningEquipeComponent implements OnInit {
 
   dayCoverageLabel(day: string): string {
     const syn = this.daySynthesisFor(day);
-    if (syn?.shifts?.length) {
+    if (syn) {
       const parts: string[] = [];
       if (syn.leaveCount) parts.push(`${syn.leaveCount} abs`);
+
       if (day === 'Saturday') {
         const d = syn.saturdayBeginners ?? 0;
         const c = syn.saturdaySeniors ?? 0;
-        if (d + c > 0) parts.push(`Sam ${d}/${c}`);
-      } else {
+        if (d > 0 && c === 0) parts.push('Débutant seul · samedi');
+      } else if (syn.shifts?.length) {
         for (const s of syn.shifts) {
-          if ((s.assignedCount ?? 0) <= 0) continue;
-          parts.push(`${s.shiftLabel} ${s.beginnerCount ?? 0}/${s.seniorCount ?? 0}`);
-          if ((s.delta ?? 0) !== 0) parts.push(`${s.shiftLabel} ${s.delta > 0 ? '+' : ''}${s.delta}`);
+          const delta = s.delta ?? 0;
+          if (delta < 0) parts.push(`Manque ${Math.abs(delta)} · ${s.shiftLabel}`);
+          else if (delta > 0) parts.push(`Excédent ${delta} · ${s.shiftLabel}`);
+          if (s.hasLevelBalanceAnomaly) {
+            parts.push(`Débutant seul · ${this.shiftKindContext(s.shiftKind)}`);
+          }
         }
       }
-      if (syn.shifts.some(s => s.hasLevelBalanceAnomaly)) parts.push('niveau');
-      return parts.join(' · ');
+
+      if (parts.length) return parts.join(' · ');
     }
     const items = this.coverageForDay(day);
     if (items.length === 0) return '';
     const assigned = items.reduce((s, i) => s + i.assignedCount, 0);
     const required = items.reduce((s, i) => s + i.requiredCount, 0);
     return `${assigned}/${required}`;
+  }
+
+  private shiftKindContext(kind?: string): string {
+    switch ((kind ?? '').toLowerCase()) {
+      case 'opening':
+        return 'ouverture';
+      case 'closing':
+        return 'fermeture';
+      default:
+        return 'milieu';
+    }
   }
 
   daySynthesisFor(day: string) {

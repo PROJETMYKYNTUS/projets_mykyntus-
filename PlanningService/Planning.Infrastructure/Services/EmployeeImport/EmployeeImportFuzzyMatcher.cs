@@ -6,6 +6,11 @@ public static class EmployeeImportFuzzyMatcher
     public const double MediumThreshold = 0.85;
     public const double SafeInclusionScore = 0.95;
 
+    private static readonly HashSet<string> OperationalDepartmentTokens = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "departement", "department"
+    };
+
     public static double Score(string? left, string? right)
     {
         var a = EmployeeImportColumnMatcher.Normalize(left ?? string.Empty);
@@ -23,6 +28,11 @@ public static class EmployeeImportFuzzyMatcher
 
         if (a == b)
             return 1.0;
+
+        // Pôle et Département sont des entités distinctes : ne pas assimiler
+        // « Département Support » à un pôle nommé « Support » via inclusion de tokens.
+        if (IsPoleVsDepartmentTokenMismatch(fieldKey, a, b))
+            return ScoreNormalized(a, b, allowInclusionShortcuts: false);
 
         if (IsSafeInclusion(a, b))
             return SafeInclusionScore;
@@ -85,7 +95,7 @@ public static class EmployeeImportFuzzyMatcher
         return best;
     }
 
-    private static double ScoreNormalized(string a, string b)
+    private static double ScoreNormalized(string a, string b, bool allowInclusionShortcuts = true)
     {
         if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
             return 0;
@@ -93,15 +103,26 @@ public static class EmployeeImportFuzzyMatcher
         if (a == b)
             return 1.0;
 
-        if (IsSafeInclusion(a, b))
+        if (allowInclusionShortcuts && IsSafeInclusion(a, b))
             return SafeInclusionScore;
 
-        if (a.Contains(b, StringComparison.Ordinal) || b.Contains(a, StringComparison.Ordinal))
+        if (allowInclusionShortcuts &&
+            (a.Contains(b, StringComparison.Ordinal) || b.Contains(a, StringComparison.Ordinal)))
             return 0.88;
 
         var distance = LevenshteinDistance(a, b);
         var maxLen = Math.Max(a.Length, b.Length);
         return maxLen == 0 ? 0 : 1.0 - (double)distance / maxLen;
+    }
+
+    private static bool IsPoleVsDepartmentTokenMismatch(string fieldKey, string a, string b)
+    {
+        if (!string.Equals(fieldKey, "pole", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var aHasDept = EmployeeImportOrgNameNormalizer.TokenSet(a).Overlaps(OperationalDepartmentTokens);
+        var bHasDept = EmployeeImportOrgNameNormalizer.TokenSet(b).Overlaps(OperationalDepartmentTokens);
+        return aHasDept != bHasDept;
     }
 
     private static bool IsSafeInclusion(string a, string b)

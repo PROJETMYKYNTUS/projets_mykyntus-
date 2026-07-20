@@ -58,6 +58,19 @@ public class DirectoryEmployeesController(IMediator mediator) : ControllerBase
         }
     }
 
+    [HttpPost("employees/bulk")]
+    public async Task<ActionResult<IReadOnlyList<BulkCreateEmployeeResult>>> BulkCreate(
+        [FromBody] BulkCreateEmployeesRequest body,
+        CancellationToken ct)
+    {
+        if (body.Items is null || body.Items.Count == 0)
+            return BadRequest(new { error = "items requis." });
+
+        var changedBy = User.GetSubjectId();
+        var results = await mediator.Send(new BulkCreateEmployeesCommand(body, changedBy), ct);
+        return Ok(results);
+    }
+
     [HttpPut("employees/{id:guid}")]
     public async Task<ActionResult<EmployeeDto>> Update(Guid id, [FromBody] UpdateEmployeeRequest body, CancellationToken ct)
     {

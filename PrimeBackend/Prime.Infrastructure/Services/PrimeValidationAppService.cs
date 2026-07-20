@@ -503,11 +503,11 @@ public sealed class PrimeValidationAppService(
         }
     }
 
-    private async Task<PrimeValidationDemoRepair.Result> RunValidationRepairAsync(CancellationToken ct) =>
-        await PrimeValidationDemoRepair.ApplyAsync(db, submission, logger, ct);
+    private async Task<PrimeValidationReconcile.Result> RunValidationRepairAsync(CancellationToken ct) =>
+        await PrimeValidationReconcile.ApplyAsync(db, submission, logger, ct);
 
-    private async Task<PrimeValidationDemoRepair.Result> RunValidationReconcileOnlyAsync(CancellationToken ct) =>
-        await PrimeValidationDemoRepair.ReconcileOnlyAsync(db, submission, logger, ct);
+    private async Task<PrimeValidationReconcile.Result> RunValidationReconcileOnlyAsync(CancellationToken ct) =>
+        await PrimeValidationReconcile.ReconcileOnlyAsync(db, submission, logger, ct);
 
     private async Task<List<EmployeePrimeServiceFiche>> FilterItemsByValidationRbacAsync(
         List<EmployeePrimeServiceFiche> items,

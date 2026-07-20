@@ -13,15 +13,15 @@ export class KyntusSessionService {
   getToken(): string | null {
     const token = readStoredAccessToken();
     if (!token) return null;
-    if (isJwtExpired(token)) {
-      this.clearAuthStorage();
-      return null;
-    }
+    // Access expiré : ne pas effacer le refresh — l’interceptor pourra renouveler.
+    if (isJwtExpired(token)) return null;
     return token;
   }
 
   isAuthenticated(): boolean {
-    return !!this.getToken();
+    if (this.getToken()) return true;
+    // Access expiré mais refresh encore présent → session renouvelable.
+    return !!this.getRefreshToken();
   }
 
   persistSession(accessToken: string, refreshToken?: string | null): void {
@@ -99,7 +99,7 @@ export class KyntusSessionService {
   }
 
   private getJwtPayload(): Record<string, unknown> {
-    const token = this.getToken();
+    const token = readStoredAccessToken();
     if (!token) return {};
     try {
       const part = token.split('.')[1];

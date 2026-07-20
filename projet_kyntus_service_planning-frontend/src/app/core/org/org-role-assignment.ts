@@ -10,9 +10,18 @@ function normalizeRoleToken(name: string): string {
     .replace(/[_\s-]+/g, '');
 }
 
-/** Compare rôles en ignorant casse, accents, espaces / underscores (ex. Equipe_Formation ≈ Equipe formation). */
+/** Compare rôles en ignorant casse, accents, espaces / underscores (ex. Equipe_Formation ≈ Equipe formation).
+ *  Alias métier : Coach ≈ Référent technique ; RP ≈ Chef de projet.
+ *  Employee et Pilote restent distincts (menus / ACL). */
 export function roleNamesMatch(a: string, b: string): boolean {
-  return normalizeRoleToken(a) === normalizeRoleToken(b);
+  return canonicalizeRole(a) === canonicalizeRole(b);
+}
+
+function canonicalizeRole(name: string): string {
+  const r = normalizeRoleToken(name);
+  if (r === 'referentechnique' || r === 'referenttechnique') return 'coach';
+  if (r === 'chefdeprojet') return 'rp';
+  return r;
 }
 
 export function isChefDeProjetRole(roleName: string): boolean {

@@ -94,42 +94,6 @@ services:
     networks:
       - microservices-network
 
-  # One-shot : insère 2 utilisateurs atlas-tech-demo dans auth_db."Users" après migrations auth-backend.
-  auth-atlas-doc-users-seed:
-    image: postgres:16-alpine
-    container_name: kyntus_seed_auth_atlas_doc_users
-    restart: "no"
-    environment:
-      PGPASSWORD: ${KYNTUS_POSTGRES_PASSWORD:?Définir KYNTUS_POSTGRES_PASSWORD dans .env}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      auth-backend:
-        condition: service_healthy
-    volumes:
-      - ./init/sql/auth_insert_atlas_doc_users.sql:/seed.sql:ro
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        set -e
-        until pg_isready -h postgres -p 5432 -U postgres -q; do sleep 2; done
-        i=0
-        while [ "$$i" -lt 90 ]; do
-          roles_ready=$$(psql -h postgres -U postgres -d auth_db -tAc "SELECT COUNT(*) FROM \"Roles\" WHERE \"Name\" IN ('Employee','RH')" 2>/dev/null | tr -d '[:space:]')
-          users_table=$$(psql -h postgres -U postgres -d auth_db -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='Users'" 2>/dev/null | tr -d '[:space:]')
-          if [ "$$users_table" = "1" ] && [ "$$roles_ready" = "2" ]; then
-            psql -h postgres -U postgres -d auth_db -v ON_ERROR_STOP=1 -f /seed.sql
-            echo "init: auth_insert_atlas_doc_users.sql applied"
-            exit 0
-          fi
-          i=$$((i + 1))
-          sleep 2
-        done
-        echo "init: timeout waiting for auth Roles + Users table" >&2
-        exit 1
-    networks:
-      - microservices-network
-
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: kyntus_rabbitmq
@@ -171,9 +135,6 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      KYNTUS_PLANNING_DEMO_SEED: "true"
-      KYNTUS_DEMO_ENRICHMENT: "true"
-      DemoSeed__PlanningDemoPassword: ${KYNTUS_PLANNING_DEMO_PASSWORD:-Azerty@123}
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_PLANNING:?Définir KYNTUS_CONN_PLANNING dans .env}
       Directory__BaseUrl: http://employee-directory-backend:8080/
       Directory__WriteMaster: "true"
@@ -186,8 +147,9 @@ services:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 18
-      start_period: 180s
+      # Migrations + seed seulement avant /health ; marge pour rebuild lent sous Windows.
+      retries: 30
+      start_period: 300s
     depends_on:
       postgres:
         condition: service_healthy
@@ -205,8 +167,6 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      KYNTUS_FORMATION_DEMO_SEED: "true"
-      KYNTUS_DEMO_ENRICHMENT: "true"
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_FORMATION:?Définir KYNTUS_CONN_FORMATION dans .env}
       RabbitMQ__Host: rabbitmq
       RabbitMQ__Username: ${RABBITMQ_USER:-guest}
@@ -234,8 +194,6 @@ services:
       # Crée le schéma documentation + tables au premier démarrage (init.sql ne contient pas le DDL métier).
       Documentation__ApplyBootstrapSchema: "true"
       Documentation__AllowHeaderContextFallback: "true"
-      Documentation__DemoDataSeed: "true"
-      KYNTUS_DEMO_ENRICHMENT: "true"
       Documentation__DefaultTenantId: "atlas-tech-demo"
       DocumentationDb__Password: ${KYNTUS_DOCUMENTATION_DB_PASSWORD:?Définir KYNTUS_DOCUMENTATION_DB_PASSWORD dans .env}
       ConnectionStrings__Documentation: ${KYNTUS_CONN_DOCUMENTATION:?Définir KYNTUS_CONN_DOCUMENTATION dans .env}
@@ -260,8 +218,6 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      KYNTUS_CONGE_DEMO_SEED: "true"
-      KYNTUS_DEMO_ENRICHMENT: "true"
       ConnectionStrings__CongeDb: ${KYNTUS_CONN_CONGE:?Définir KYNTUS_CONN_CONGE dans .env}
       <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:
@@ -310,10 +266,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_PRIME:?Définir KYNTUS_CONN_PRIME dans .env}
-      Prime__SeedDemoData: "true"
-      Prime__EnrichDemoData: "true"
-      Prime__AllowDemoSeedEndpoint: "true"
       Planning__BaseUrl: http://planning-backend:8080/
+      Prime__AutoProvisionEmployeeFromJwt: "true"
       <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:
       - "8550:8080"
@@ -346,7 +300,6 @@ services:
       Prime__BaseUrl: http://prime-backend:8080/
       Planning__BaseUrl: http://planning-backend:8080/
       Directory__EnablePrimeBootstrap: "false"
-      KYNTUS_DIRECTORY_DEMO_SEED: "true"
       <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:
       - "8565:8080"
@@ -440,10 +393,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_PARRAINAGE:?Définir KYNTUS_CONN_PARRAINAGE dans .env}
-      # Seed 15 parrainages + règles si tables vides (EF Migrate au démarrage).
-      Parrainage__SeedDemoData: "true"
-      # POST /api/parrainage/dev/seed (outil dev, calqué Prime).
-      Parrainage__AllowDemoSeedEndpoint: "true"
+      # Uploads CV (volume dédié).
       Parrainage__UploadPath: "/app/uploads/cv"
       Planning__BaseUrl: http://planning-backend:8080/
       <<: [*kyntus-jwt, *kyntus-rabbitmq]
@@ -483,8 +433,6 @@ services:
     volumes:
       - ./init/ocelot.gateway.json:/app/ocelot.json:ro
     depends_on:
-      auth-atlas-doc-users-seed:
-        condition: service_completed_successfully
       auth-backend:
         condition: service_healthy
       planning-backend:

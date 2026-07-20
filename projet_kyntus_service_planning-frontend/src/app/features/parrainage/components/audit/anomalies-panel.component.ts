@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Output } from '@angul
 import { AlertTriangle, GitBranch } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { SeverityBadgeComponent } from './audit-badges.component';
-import { ANOMALIES_DEMO, type AnomalyRow } from '../../audit/audit-demo-data';
+import type { AnomalyRow } from '../../audit/audit.models';
 
 @Component({
   selector: 'app-anomalies-panel',
@@ -11,9 +11,12 @@ import { ANOMALIES_DEMO, type AnomalyRow } from '../../audit/audit-demo-data';
   template: `
     <div class="space-y-4">
       <p class="text-xs text-muted">
-        Détection automatique : suppressions massives, géolocalisation, plages horaires. Les cas ci-dessous sont des exemples démo.
+        Détection automatique : suppressions massives, géolocalisation, plages horaires.
       </p>
       <div class="grid gap-3">
+        @if (anomalies.length === 0) {
+          <p class="text-sm text-muted py-6 text-center">Aucune anomalie détectée.</p>
+        }
         @for (a of anomalies; track a.id) {
           <div class="card-navy p-4 border border-[var(--danger-border)] bg-[var(--danger-bg)] flex flex-col md:flex-row md:items-center md:justify-between gap-3 hover:border-[var(--danger)] transition-colors duration-200">
             <div class="space-y-1">
@@ -49,7 +52,7 @@ export class AnomaliesPanelComponent {
   @Output() investigate = new EventEmitter<AnomalyRow>();
   @Output() openTimeline = new EventEmitter<AnomalyRow>();
 
-  readonly anomalies = ANOMALIES_DEMO;
+  readonly anomalies: AnomalyRow[] = [];
   readonly alertIcon = AlertTriangle;
   readonly gitIcon = GitBranch;
 

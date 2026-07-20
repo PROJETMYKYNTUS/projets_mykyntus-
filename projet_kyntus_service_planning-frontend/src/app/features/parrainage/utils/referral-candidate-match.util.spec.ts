@@ -24,6 +24,8 @@ function referral(partial: Partial<Referral> & Pick<Referral, 'id' | 'candidateN
     status: partial.status ?? 'SUBMITTED',
     paymentStatus: 'NOT_ELIGIBLE',
     createdAt: new Date(),
+    candidateEmployeeId: partial.candidateEmployeeId,
+    rewardAmount: partial.rewardAmount ?? 0,
   };
 }
 
@@ -84,10 +86,45 @@ describe('matchReferralCandidates', () => {
     expect(result.alertMatches.map((m) => m.referral.id)).not.toContain('ref-2');
   });
 
+  it('boosts score when personal email matches the referral', () => {
+    const referrals = [referral({ id: 'ref-1', candidateName: 'Dupont Jean', candidateEmail: 'jean.perso@gmail.com' })];
+    const result = matchReferralCandidates(
+      {
+        firstName: 'Jean',
+        lastName: 'Dupont',
+        email: 'autre@entreprise.ma',
+        emails: ['jean.perso@gmail.com', 'autre@entreprise.ma'],
+      },
+      referrals,
+    );
+    expect(result.best?.referral.id).toBe('ref-1');
+    expect(result.best?.score).toBeGreaterThanOrEqual(REFERRAL_MATCH_PRESELECT_THRESHOLD);
+  });
+
   it('requires both first and last name before matching', () => {
     const referrals = [referral({ id: 'ref-1', candidateName: 'Dupont Jean' })];
     expect(matchReferralCandidates({ firstName: 'Jean', lastName: '' }, referrals).alertMatches).toEqual([]);
     expect(matchReferralCandidates({ firstName: '', lastName: 'Dupont' }, referrals).alertMatches).toEqual([]);
+  });
+
+  it('matches when the full name is pasted into lastName only', () => {
+    const referrals = [referral({ id: 'ref-1', candidateName: 'Dupont Jean' })];
+    const result = matchReferralCandidates({ firstName: '', lastName: 'Dupont Jean' }, referrals);
+    expect(result.best?.referral.id).toBe('ref-1');
+    expect(result.alertMatches.length).toBe(1);
+  });
+
+  it('still alerts when the dossier is already linked to an employee', () => {
+    const referrals = [
+      referral({
+        id: 'ref-1',
+        candidateName: 'Benali Karim',
+        candidateEmployeeId: 'emp-99',
+      }),
+    ];
+    const result = matchReferralCandidates({ firstName: 'Karim', lastName: 'Benali' }, referrals);
+    expect(result.alertMatches.length).toBe(1);
+    expect(result.best?.referral.candidateEmployeeId).toBe('emp-99');
   });
 });
 

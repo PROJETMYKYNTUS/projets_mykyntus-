@@ -9,12 +9,30 @@ public interface IUserService
     Task<UserDto?> GetUserByIdAsync(int id);
     Task<UserDto> CreateUserAsync(CreateUserDto dto);
     Task<UserDto> CreateUserFromImportAsync(CreateUserFromImportDto dto);
+
+    /// <summary>
+    /// Insert Planning + Auth batch pour un chunk déjà créé dans Directory (sans check-email Directory).
+    /// </summary>
+    Task<IReadOnlyList<ImportChunkCreateResultDto>> CreateUsersFromImportChunkAsync(
+        IReadOnlyList<ImportChunkCreateItemDto> items,
+        CancellationToken ct = default);
+
     Task<UserDto?> UpdateUserAsync(int id, UpdateUserDto dto);
     Task<bool> DeleteUserAsync(int id);
     Task SyncMissingAuthUsersAsync();
     Task<UserDto?> GetUserByAuthIdAsync(int authUserId);
     Task<UserDto?> GetUserByEmailAsync(string email);
     Task<UserDto?> GetOrLinkUserForAuthAsync(int authUserId, string? email);
+    /// <summary>
+    /// Résout l'employé Planning lié au JWT Auth ; crée une fiche minimale si absente
+    /// (ex. compte RH seed Auth sans seed Planning).
+    /// </summary>
+    Task<UserDto?> GetOrEnsureUserForAuthAsync(
+        int authUserId,
+        string? email,
+        string? authRole,
+        Guid? subjectId,
+        CancellationToken ct = default);
     Task<bool> IsEmailUniqueAsync(string email, int? excludeId = null);
     Task SyncAllEmployesToCongeAsync();
     Task<List<UserDto>> GetManagersBySubServiceAsync(int subServiceId, CancellationToken ct = default);

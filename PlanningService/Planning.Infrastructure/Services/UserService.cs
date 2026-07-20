@@ -15,6 +15,8 @@ namespace Planning.Infrastructure.Services;
 file record AuthRegisterResult(int Id, string Email, Guid SubjectId);
 public class UserService : IUserService
 {
+    private sealed record AuthBatchSyncItem(User User, string? DefaultPassword);
+    private sealed record AuthBatchSyncResult(string Email, bool Success, int? AuthUserId, string? Message);
     private readonly AppDbContext _context;
     private readonly IEmployePublisher _employePublisher;
     private readonly HttpClient _httpClient;
@@ -178,14 +180,463 @@ public class UserService : IUserService
 
     public async Task<UserDto> CreateUserFromImportAsync(CreateUserFromImportDto dto)
     {
-        if (!await IsEmailUniqueAsync(dto.Email))
-            throw new InvalidOperationException($"L'adresse email « {dto.Email.Trim()} » est déjà utilisée.");
+        // Import : unicité locale uniquement (évite GET check-email Directory × N).
+        var email = dto.Email.Trim();
+        var existsLocal = await _context.Users.AnyAsync(u => u.Email.ToLower() == email.ToLower());
+        if (existsLocal)
+            throw new InvalidOperationException($"L'adresse email « {email} » est déjà utilisée.");
 
         if (!IsDirectoryWriteMaster())
             throw new InvalidOperationException(
                 "L'import guidé requiert Directory__WriteMaster=true pour garantir la synchronisation plateforme.");
 
         return await CreateUserDirectoryFirstAsync(dto, ResolveImportPassword(dto.Password), requireAuthSuccess: true);
+    }
+
+    public async Task<IReadOnlyList<ImportChunkCreateResultDto>> CreateUsersFromImportChunkAsync(
+        IReadOnlyList<ImportChunkCreateItemDto> items,
+        CancellationToken ct = default)
+    {
+        if (items.Count == 0)
+            return Array.Empty<ImportChunkCreateResultDto>();
+
+        if (!IsDirectoryWriteMaster())
+            throw new InvalidOperationException(
+                "L'import guidé requiert Directory__WriteMaster=true pour garantir la synchronisation plateforme.");
+
+        var results = new List<ImportChunkCreateResultDto>(items.Count);
+        var usersToInsert = new List<(User User, CreateUserFromImportDto Dto, string Password)>();
+
+        var emailKeys = items
+            .Select(i => i.Dto.Email.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var existingEmails = (await _context.Users.AsNoTracking()
+                .Where(u => emailKeys.Contains(u.Email.ToLower()))
+                .Select(u => u.Email.ToLower())
+                .ToListAsync(ct))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Hash BCrypt en parallèle (CPU-bound) avant les écritures DB.
+        var passwordByIndex = new string[items.Count];
+        var hashByIndex = new string[items.Count];
+        Parallel.For(0, items.Count, i =>
+        {
+            var password = ResolveImportPassword(items[i].Dto.Password);
+            passwordByIndex[i] = password;
+            hashByIndex[i] = BCrypt.Net.BCrypt.HashPassword(password);
+        });
+
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            var email = item.Dto.Email.Trim().ToLowerInvariant();
+            if (existingEmails.Contains(email) || item.DirectoryEmployeeId == Guid.Empty)
+            {
+                results.Add(new ImportChunkCreateResultDto
+                {
+                    Email = email,
+                    Success = false,
+                    ErrorMessage = item.DirectoryEmployeeId == Guid.Empty
+                        ? "Identifiant Directory manquant."
+                        : $"L'adresse email « {email} » est déjà utilisée.",
+                });
+                continue;
+            }
+
+            existingEmails.Add(email);
+            var password = passwordByIndex[i];
+            var isActive = item.Dto.IsActiveOnImport ?? true;
+            var user = new User
+            {
+                Guid = item.DirectoryEmployeeId,
+                RoleId = item.Dto.RoleId,
+                SubServiceId = item.Dto.SubServiceId,
+                FirstName = item.Dto.FirstName,
+                LastName = item.Dto.LastName,
+                Email = item.Dto.Email.Trim(),
+                HireDate = item.Dto.HireDate,
+                Level = item.Dto.Level,
+                PasswordHash = hashByIndex[i],
+                IsActive = isActive,
+                CreatedAt = DateTime.UtcNow,
+            };
+            usersToInsert.Add((user, item.Dto, password));
+        }
+
+        if (usersToInsert.Count == 0)
+            return results;
+
+        var insertedUsers = await PersistImportUsersHandlingConflictsAsync(usersToInsert, results, ct);
+        if (insertedUsers.Count == 0)
+            return results;
+
+        var roleIds = insertedUsers.Select(u => u.User.RoleId).Distinct().ToList();
+        var rolesById = await _context.Roles
+            .Where(r => roleIds.Contains(r.Id))
+            .ToDictionaryAsync(r => r.Id, ct);
+        foreach (var (user, _, _) in insertedUsers)
+        {
+            if (rolesById.TryGetValue(user.RoleId, out var role))
+                _context.Entry(user).Reference(u => u.Role).CurrentValue = role;
+        }
+
+        var authItems = insertedUsers
+            .Select(u => new AuthBatchSyncItem(u.User, u.Password))
+            .ToList();
+        var authResults = await SyncToAuthServiceBatchAsync(authItems, linkSubjectsInParallel: true, ct);
+
+        var saturdayAssignments = new List<(int UserId, int SubServiceId)>();
+
+        foreach (var (user, dto, _) in insertedUsers)
+        {
+            var auth = authResults.FirstOrDefault(r =>
+                string.Equals(r.Email, user.Email, StringComparison.OrdinalIgnoreCase));
+
+            if (auth is not { Success: true, AuthUserId: not null })
+            {
+                if (user.AuthUserId is null && user.CreatedAt >= DateTime.UtcNow.AddMinutes(-10))
+                    await RollbackImportUserAsync(user);
+
+                results.Add(new ImportChunkCreateResultDto
+                {
+                    Email = user.Email.ToLowerInvariant(),
+                    Success = false,
+                    ErrorMessage = auth?.Message
+                        ?? "La synchronisation Auth a échoué. L'employé n'a pas été conservé.",
+                });
+                continue;
+            }
+
+            try
+            {
+                if (dto.CustomFields is { Count: > 0 })
+                    await _fieldService.UpsertCustomFieldsAsync(user.Id, dto.CustomFields, isCreate: true);
+
+                if (NeedsLocalHrUpsertOnImport(dto))
+                {
+                    await UpsertLocalHrProfileAsync(
+                        user.Id, dto.ChefDeProjetId, dto.SuperviseurId, dto.ReferentTechniqueId,
+                        dto.HrProfile, dto.NiveauExpertiseMetier);
+                }
+
+                var needsHrDirectorySync = dto.ChefDeProjetId.HasValue
+                    || dto.SuperviseurId.HasValue
+                    || dto.ReferentTechniqueId.HasValue
+                    || dto.NiveauExpertiseMetier is not null
+                    || dto.HrProfile is { EnFormation: true };
+                if (needsHrDirectorySync)
+                    await _directoryEmployeeWrite.TryUpdateEmployeeAsync(user, ct);
+
+                await PublishEmployeCreatedForUserAsync(user, dto.SubServiceId, skipRemoteSupervisorLookup: true);
+
+                if (user.SubServiceId is int subId)
+                    saturdayAssignments.Add((user.Id, subId));
+
+                results.Add(new ImportChunkCreateResultDto
+                {
+                    Email = user.Email.ToLowerInvariant(),
+                    Success = true,
+                    PlanningUserId = user.Id,
+                    EmployeeGuid = user.Guid,
+                    AuthUserId = user.AuthUserId,
+                });
+            }
+            catch (Exception ex)
+            {
+                DetachPendingHrProfile(user.Id);
+                results.Add(new ImportChunkCreateResultDto
+                {
+                    Email = user.Email.ToLowerInvariant(),
+                    Success = false,
+                    ErrorMessage = ex.Message,
+                });
+            }
+        }
+
+        if (saturdayAssignments.Count > 0)
+            await EnsureBalancedSaturdayGroupsBatchAsync(saturdayAssignments, ct);
+
+        try
+        {
+            await _context.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            _logger.LogWarning(ex, "Conflit unique en fin de chunk import — résultats partiels conservés.");
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Insert Planning en batch (1 SaveChanges). Repli un-par-un seulement si course
+    /// avec DirectoryEmployeeProjectionConsumer (IX_Users_Email / Guid).
+    /// </summary>
+    private async Task<List<(User User, CreateUserFromImportDto Dto, string Password)>> PersistImportUsersHandlingConflictsAsync(
+        List<(User User, CreateUserFromImportDto Dto, string Password)> usersToInsert,
+        List<ImportChunkCreateResultDto> results,
+        CancellationToken ct)
+    {
+        var guids = usersToInsert.Select(u => u.User.Guid).ToList();
+        var emails = usersToInsert
+            .Select(u => u.User.Email.Trim().ToLowerInvariant())
+            .ToList();
+
+        var existingRows = await _context.Users
+            .Where(u => guids.Contains(u.Guid) || emails.Contains(u.Email.ToLower()))
+            .ToListAsync(ct);
+
+        var byGuid = existingRows.ToDictionary(u => u.Guid);
+        var byEmail = existingRows
+            .GroupBy(u => u.Email.Trim().ToLowerInvariant())
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var inserted = new List<(User User, CreateUserFromImportDto Dto, string Password)>();
+        var toAdd = new List<(User User, CreateUserFromImportDto Dto, string Password)>();
+        var adoptedDirty = false;
+
+        foreach (var (user, dto, password) in usersToInsert)
+        {
+            var emailKey = user.Email.Trim().ToLowerInvariant();
+
+            if (byGuid.TryGetValue(user.Guid, out var existingByGuid))
+            {
+                existingByGuid.FirstName = user.FirstName;
+                existingByGuid.LastName = user.LastName;
+                existingByGuid.RoleId = user.RoleId;
+                existingByGuid.SubServiceId = user.SubServiceId;
+                existingByGuid.HireDate = user.HireDate;
+                existingByGuid.Level = user.Level;
+                existingByGuid.IsActive = user.IsActive;
+                if (string.IsNullOrWhiteSpace(existingByGuid.PasswordHash))
+                    existingByGuid.PasswordHash = user.PasswordHash;
+                adoptedDirty = true;
+                inserted.Add((existingByGuid, dto, password));
+                continue;
+            }
+
+            if (byEmail.TryGetValue(emailKey, out _))
+            {
+                results.Add(new ImportChunkCreateResultDto
+                {
+                    Email = emailKey,
+                    Success = false,
+                    ErrorMessage =
+                        $"L'adresse email « {emailKey} » est déjà utilisée (conflit IX_Users_Email).",
+                });
+                continue;
+            }
+
+            toAdd.Add((user, dto, password));
+        }
+
+        if (adoptedDirty)
+            await _context.SaveChangesAsync(ct);
+
+        if (toAdd.Count == 0)
+            return inserted;
+
+        foreach (var (user, _, _) in toAdd)
+            _context.Users.Add(user);
+
+        try
+        {
+            await _context.SaveChangesAsync(ct);
+            inserted.AddRange(toAdd);
+            return inserted;
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            _logger.LogWarning(
+                ex,
+                "Conflit unique sur insert batch import ({Count}) — repli un-par-un.",
+                toAdd.Count);
+
+            foreach (var entry in _context.ChangeTracker.Entries<User>().ToList())
+            {
+                if (entry.State is EntityState.Added or EntityState.Modified)
+                    entry.State = EntityState.Detached;
+            }
+
+            // Les adopés déjà sauvegardés restent dans inserted ; on rejoue seulement toAdd.
+            var oneByOne = await PersistImportUsersOneByOneAsync(toAdd, results, ct);
+            inserted.AddRange(oneByOne);
+            return inserted;
+        }
+    }
+
+    private async Task<List<(User User, CreateUserFromImportDto Dto, string Password)>> PersistImportUsersOneByOneAsync(
+        List<(User User, CreateUserFromImportDto Dto, string Password)> usersToInsert,
+        List<ImportChunkCreateResultDto> results,
+        CancellationToken ct)
+    {
+        var inserted = new List<(User User, CreateUserFromImportDto Dto, string Password)>();
+
+        foreach (var (user, dto, password) in usersToInsert)
+        {
+            var emailKey = user.Email.Trim().ToLowerInvariant();
+
+            var existing = await _context.Users
+                .FirstOrDefaultAsync(
+                    u => u.Guid == user.Guid || u.Email.ToLower() == emailKey,
+                    ct);
+
+            if (existing is not null)
+            {
+                if (existing.Guid == user.Guid)
+                {
+                    existing.FirstName = user.FirstName;
+                    existing.LastName = user.LastName;
+                    existing.RoleId = user.RoleId;
+                    existing.SubServiceId = user.SubServiceId;
+                    existing.HireDate = user.HireDate;
+                    existing.Level = user.Level;
+                    existing.IsActive = user.IsActive;
+                    if (string.IsNullOrWhiteSpace(existing.PasswordHash))
+                        existing.PasswordHash = user.PasswordHash;
+                    await _context.SaveChangesAsync(ct);
+                    inserted.Add((existing, dto, password));
+                    continue;
+                }
+
+                results.Add(new ImportChunkCreateResultDto
+                {
+                    Email = emailKey,
+                    Success = false,
+                    ErrorMessage =
+                        $"L'adresse email « {emailKey} » est déjà utilisée (conflit IX_Users_Email).",
+                });
+                continue;
+            }
+
+            _context.Users.Add(user);
+            try
+            {
+                await _context.SaveChangesAsync(ct);
+                inserted.Add((user, dto, password));
+            }
+            catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+            {
+                _context.Entry(user).State = EntityState.Detached;
+
+                existing = await _context.Users
+                    .FirstOrDefaultAsync(
+                        u => u.Guid == user.Guid || u.Email.ToLower() == emailKey,
+                        ct);
+
+                if (existing is not null && existing.Guid == user.Guid)
+                {
+                    inserted.Add((existing, dto, password));
+                    _logger.LogInformation(
+                        "User {Email} adopté après conflit IX_Users_Email (projection Directory).",
+                        emailKey);
+                }
+                else
+                {
+                    results.Add(new ImportChunkCreateResultDto
+                    {
+                        Email = emailKey,
+                        Success = false,
+                        ErrorMessage =
+                            $"L'adresse email « {emailKey} » est déjà utilisée (conflit IX_Users_Email).",
+                    });
+                }
+            }
+        }
+
+        return inserted;
+    }
+
+    private async Task EnsureBalancedSaturdayGroupsBatchAsync(
+        IReadOnlyList<(int UserId, int SubServiceId)> assignments,
+        CancellationToken ct)
+    {
+        if (assignments.Count == 0)
+            return;
+
+        var userIds = assignments.Select(a => a.UserId).ToList();
+        var already = (await _context.SaturdayGroups.AsNoTracking()
+                .Where(sg => userIds.Contains(sg.UserId))
+                .Select(sg => sg.UserId)
+                .ToListAsync(ct))
+            .ToHashSet();
+
+        var pending = assignments.Where(a => !already.Contains(a.UserId)).ToList();
+        if (pending.Count == 0)
+            return;
+
+        foreach (var group in pending.GroupBy(a => a.SubServiceId))
+        {
+            var subServiceId = group.Key;
+            var peerUserIds = await _context.Users.AsNoTracking()
+                .Where(u => u.SubServiceId == subServiceId && u.IsActive)
+                .Select(u => u.Id)
+                .ToListAsync(ct);
+
+            var counts = await _context.SaturdayGroups.AsNoTracking()
+                .Where(sg => peerUserIds.Contains(sg.UserId))
+                .GroupBy(sg => sg.GroupNumber)
+                .Select(g => new { GroupNumber = g.Key, Count = g.Count() })
+                .ToListAsync(ct);
+
+            var group1Count = counts.FirstOrDefault(c => c.GroupNumber == 1)?.Count ?? 0;
+            var group2Count = counts.FirstOrDefault(c => c.GroupNumber == 2)?.Count ?? 0;
+
+            foreach (var (userId, _) in group)
+            {
+                var groupNumber = group1Count <= group2Count ? 1 : 2;
+                if (groupNumber == 1) group1Count++;
+                else group2Count++;
+
+                _context.SaturdayGroups.Add(new SaturdayGroup
+                {
+                    UserId = userId,
+                    GroupNumber = groupNumber,
+                    IsNewEmployee = false,
+                    ManagerOverride = false,
+                    AssignedAt = DateTime.UtcNow,
+                    AssignedBy = 0,
+                });
+            }
+        }
+
+        await _context.SaveChangesAsync(ct);
+    }
+
+    private static bool NeedsLocalHrUpsertOnImport(CreateUserFromImportDto dto)
+    {
+        if (dto.ChefDeProjetId.HasValue
+            || dto.SuperviseurId.HasValue
+            || dto.ReferentTechniqueId.HasValue
+            || dto.NiveauExpertiseMetier is not null)
+            return true;
+
+        var p = dto.HrProfile;
+        if (p is null) return false;
+
+        return p.EnFormation
+            || p.DateNaissance.HasValue
+            || p.DateDebutFormation.HasValue
+            || p.DateFinFormationPrevue.HasValue
+            || p.DateEntree.HasValue
+            || p.DateSortie.HasValue
+            || !string.IsNullOrWhiteSpace(p.Cin)
+            || !string.IsNullOrWhiteSpace(p.Telephone1)
+            || !string.IsNullOrWhiteSpace(p.EmailPersonnel)
+            || !string.IsNullOrWhiteSpace(p.Adresse)
+            || !string.IsNullOrWhiteSpace(p.VilleNaissance)
+            || !string.IsNullOrWhiteSpace(p.Nationalite)
+            || !string.IsNullOrWhiteSpace(p.Rib)
+            || !string.IsNullOrWhiteSpace(p.ImmatriculationInterne)
+            || !string.IsNullOrWhiteSpace(p.ImmatriculationCnss);
+    }
+
+    private void DetachPendingHrProfile(int userId)
+    {
+        var tracked = _context.UserHrProfiles.Local.FirstOrDefault(p => p.UserId == userId);
+        if (tracked is not null)
+            _context.Entry(tracked).State = EntityState.Detached;
     }
 
     private async Task<UserDto> CreateUserDirectoryFirstAsync(
@@ -292,16 +743,25 @@ public class UserService : IUserService
 
         await _fieldService.UpsertCustomFieldsAsync(user.Id, dto.CustomFields, isCreate: true);
         await UpsertLocalHrProfileAsync(user.Id, dto.ChefDeProjetId, dto.SuperviseurId, dto.ReferentTechniqueId, dto.HrProfile, dto.NiveauExpertiseMetier);
-        await _directoryEmployeeWrite.TryUpdateEmployeeAsync(user);
 
-        await PublishEmployeCreatedForUserAsync(user, dto.SubServiceId);
+        // Un seul write Directory supplémentaire seulement si mentors / formation à pousser.
+        var needsHrDirectorySync = dto.ChefDeProjetId.HasValue
+            || dto.SuperviseurId.HasValue
+            || dto.ReferentTechniqueId.HasValue
+            || dto.NiveauExpertiseMetier is not null
+            || dto.HrProfile is { EnFormation: true };
+        if (needsHrDirectorySync)
+            await _directoryEmployeeWrite.TryUpdateEmployeeAsync(user);
+
+        await PublishEmployeCreatedForUserAsync(user, dto.SubServiceId, skipRemoteSupervisorLookup: true);
         await _context.SaveChangesAsync();
 
         if (user.SubServiceId is int subId)
             await EnsureBalancedSaturdayGroupAsync(user.Id, subId);
 
-        return await GetUserByIdAsync(user.Id)
-            ?? throw new Exception("Erreur création utilisateur.");
+        // Import hot path : pas de GetUserById / LoadOrgNameContext (GET all employees Directory).
+        var hrProfile = await _context.UserHrProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == user.Id);
+        return ToDto(user, null, EmptyOrgNameContext, hrProfile);
     }
 
     private async Task SyncToAuthServiceAsync(User user, string? defaultPassword = null)
@@ -355,6 +815,108 @@ public class UserService : IUserService
         _logger.LogError("Sync Auth échouée après {Max} tentatives pour {Email}",
             maxRetries, user.Email);
     }
+
+    private async Task<IReadOnlyList<AuthBatchSyncResult>> SyncToAuthServiceBatchAsync(
+        IReadOnlyList<AuthBatchSyncItem> items,
+        bool linkSubjectsInParallel = false,
+        CancellationToken ct = default)
+    {
+        if (items.Count == 0)
+            return Array.Empty<AuthBatchSyncResult>();
+
+        var maxRetries = 3;
+
+        for (var attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                var payload = new
+                {
+                    Items = items.Select(i => new
+                    {
+                        Email = i.User.Email,
+                        DefaultPassword = ResolveImportPassword(i.DefaultPassword),
+                        RoleName = i.User.Role?.Name,
+                        EmployeeId = i.User.Guid,
+                    }).ToList(),
+                };
+
+                var response = await _httpClient.PostAsJsonAsync(
+                    "api/auth/register-from-planning-batch",
+                    payload,
+                    ct);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var results = await response.Content
+                        .ReadFromJsonAsync<List<AuthBatchSyncResult>>(cancellationToken: ct);
+
+                    if (results is not null)
+                    {
+                        var toLink = new List<User>();
+                        foreach (var item in items)
+                        {
+                            var match = results.FirstOrDefault(r =>
+                                string.Equals(r.Email, item.User.Email, StringComparison.OrdinalIgnoreCase));
+                            if (match is { Success: true, AuthUserId: not null })
+                            {
+                                item.User.AuthUserId = match.AuthUserId;
+                                toLink.Add(item.User);
+                            }
+                        }
+
+                        await _context.SaveChangesAsync(ct);
+
+                        if (toLink.Count > 0)
+                        {
+                            if (linkSubjectsInParallel)
+                            {
+                                await Parallel.ForEachAsync(
+                                    toLink,
+                                    new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct },
+                                    async (user, token) =>
+                                    {
+                                        await _directoryEmployeeWrite.TryLinkAuthSubjectAsync(
+                                            user.Guid, user.Guid, token);
+                                    });
+                            }
+                            else
+                            {
+                                foreach (var user in toLink)
+                                    await _directoryEmployeeWrite.TryLinkAuthSubjectAsync(user.Guid, user.Guid, ct);
+                            }
+                        }
+
+                        foreach (var r in results.Where(r => r.Success && r.AuthUserId.HasValue))
+                            _logger.LogInformation("AuthUserId={Id} lié à {Email}", r.AuthUserId, r.Email);
+
+                        return results;
+                    }
+                }
+
+                var body = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("Tentative {Attempt} batch sync Auth → {Status} : {Body}",
+                    attempt, response.StatusCode, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Tentative {Attempt}/{Max} batch sync Auth", attempt, maxRetries);
+            }
+
+            if (attempt < maxRetries)
+                await Task.Delay(TimeSpan.FromSeconds(attempt * 2), ct);
+        }
+
+        _logger.LogError(
+            "Batch sync Auth échouée après {Max} tentatives pour {Count} utilisateurs",
+            maxRetries,
+            items.Count);
+
+        return items
+            .Select(i => new AuthBatchSyncResult(i.User.Email, false, null, "Batch sync Auth échouée"))
+            .ToList();
+    }
+
     public async Task SyncAllEmployesToCongeAsync()
     {
         var users = await _context.Users
@@ -415,7 +977,10 @@ public class UserService : IUserService
         if (user.SubServiceId is int subId)
             await EnsureBalancedSaturdayGroupAsync(user.Id, subId);
 
-        return await GetUserByIdAsync(id);
+        // Évite LoadOrgNameContext (GET Directory complet) sur le chemin import / update fréquent.
+        var hrProfile = await _context.UserHrProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == id);
+        var custom = await _fieldService.LoadCustomFieldsForUsersAsync([id]);
+        return ToDto(user, custom.GetValueOrDefault(id), EmptyOrgNameContext, hrProfile);
     }
 
     public async Task<bool> DeleteUserAsync(int id)
@@ -671,9 +1236,145 @@ public class UserService : IUserService
             ?? await GetUserByEmailAsync(email);
     }
 
-    private async Task PublishEmployeCreatedForUserAsync(User user, int? subServiceId)
+    public async Task<UserDto?> GetOrEnsureUserForAuthAsync(
+        int authUserId,
+        string? email,
+        string? authRole,
+        Guid? subjectId,
+        CancellationToken ct = default)
     {
-        var ctx = await BuildEmployePublishContextAsync(user, subServiceId);
+        var linked = await GetOrLinkUserForAuthAsync(authUserId, email);
+        if (linked is not null)
+            return linked;
+
+        if (authUserId <= 0 || string.IsNullOrWhiteSpace(email))
+            return null;
+
+        return await CreateStubUserFromAuthAsync(authUserId, email.Trim(), authRole, subjectId, ct);
+    }
+
+    private async Task<UserDto?> CreateStubUserFromAuthAsync(
+        int authUserId,
+        string email,
+        string? authRole,
+        Guid? subjectId,
+        CancellationToken ct)
+    {
+        var needle = email.ToLowerInvariant();
+        var existingByEmail = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == needle, ct);
+        if (existingByEmail is not null)
+        {
+            if (existingByEmail.AuthUserId != authUserId)
+            {
+                existingByEmail.AuthUserId = authUserId;
+                await _context.SaveChangesAsync(ct);
+            }
+            return await GetUserByAuthIdAsync(authUserId) ?? await GetUserByEmailAsync(email);
+        }
+
+        var roleName = NormalizeAuthRoleToPlanningRole(authRole);
+        var role = await _context.Roles.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Name.ToLower() == roleName.ToLower(), ct)
+            ?? await _context.Roles.AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Name.ToLower() == KyntusRoleNames.Pilote.ToLower(), ct);
+        if (role is null)
+        {
+            _logger.LogError("Impossible de provisionner {Email} : aucun rôle Planning « {Role} ».", email, roleName);
+            return null;
+        }
+
+        var (firstName, lastName) = SplitNameFromEmail(email);
+        var guid = subjectId is { } g && g != Guid.Empty ? g : Guid.NewGuid();
+        var user = new User
+        {
+            Guid = guid,
+            AuthUserId = authUserId,
+            RoleId = role.Id,
+            FirstName = firstName,
+            LastName = lastName,
+            Email = email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            HireDate = DateTime.UtcNow.Date,
+            Level = 1,
+        };
+
+        _context.Users.Add(user);
+        try
+        {
+            await _context.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogWarning(ex, "Conflit création stub Planning pour {Email} — relecture.", email);
+            _context.ChangeTracker.Clear();
+            return await GetOrLinkUserForAuthAsync(authUserId, email);
+        }
+
+        await _context.Entry(user).Reference(u => u.Role).LoadAsync(ct);
+        try
+        {
+            await PublishEmployeCreatedForUserAsync(user, subServiceId: null, skipRemoteSupervisorLookup: true);
+            await _context.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Stub Planning créé pour {Email} mais publish EmployeCreated a échoué.", email);
+        }
+
+        _ = await _directoryEmployeeEnsure.TryEnsureFromPlanningAsync(user);
+
+        _logger.LogInformation(
+            "Fiche Planning auto-provisionnée depuis Auth JWT : {Email} authId={AuthId} role={Role} planningId={Id}",
+            email,
+            authUserId,
+            role.Name,
+            user.Id);
+
+        return await GetUserByIdAsync(user.Id);
+    }
+
+    private static string NormalizeAuthRoleToPlanningRole(string? authRole)
+    {
+        if (string.IsNullOrWhiteSpace(authRole))
+            return "Employee";
+        var r = authRole.Trim().ToLowerInvariant().Replace('_', ' ');
+        return r switch
+        {
+            "admin" => "Admin",
+            "rh" => "RH",
+            "manager" => "Manager",
+            "coach" or "referent technique" => KyntusRoleNames.ReferentTechnique,
+            "rp" or "chef de projet" => KyntusRoleNames.ChefDeProjet,
+            "audit" => "Audit",
+            "superviseur" => KyntusRoleNames.Superviseur,
+            "pilote" => KyntusRoleNames.Pilote,
+            "employee" or "user" => KyntusRoleNames.Pilote,
+            "equipe formation" or "equipeformation" => "EquipeFormation",
+            _ => authRole.Trim(),
+        };
+    }
+
+    private static (string FirstName, string LastName) SplitNameFromEmail(string email)
+    {
+        var local = email.Split('@')[0];
+        var parts = local.Split('.', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        static string Cap(string s) =>
+            string.IsNullOrWhiteSpace(s) ? "User" : char.ToUpperInvariant(s[0]) + s[1..].ToLowerInvariant();
+        if (parts.Length >= 2)
+            return (Cap(parts[0]), Cap(parts[1]));
+        return (Cap(local), "Auth");
+    }
+
+    private async Task PublishEmployeCreatedForUserAsync(
+        User user,
+        int? subServiceId,
+        bool skipRemoteSupervisorLookup = false)
+    {
+        var ctx = await BuildEmployePublishContextAsync(user, subServiceId, skipRemoteSupervisorLookup);
         await _employePublisher.PublishEmployeCreatedAsync(
             employeId: user.Guid,
             nom: user.LastName,
@@ -692,7 +1393,7 @@ public class UserService : IUserService
 
     private async Task PublishEmployeUpdatedForUserAsync(User user, int? subServiceId)
     {
-        var ctx = await BuildEmployePublishContextAsync(user, subServiceId);
+        var ctx = await BuildEmployePublishContextAsync(user, subServiceId, skipRemoteSupervisorLookup: false);
         await _employePublisher.PublishEmployeUpdatedAsync(
             employeId: user.Guid,
             nom: user.LastName,
@@ -707,10 +1408,16 @@ public class UserService : IUserService
             supervisorId: ctx.SupervisorId);
     }
 
-    private async Task<EmployePublishContext> BuildEmployePublishContextAsync(User user, int? subServiceId)
+    private async Task<EmployePublishContext> BuildEmployePublishContextAsync(
+        User user,
+        int? subServiceId,
+        bool skipRemoteSupervisorLookup)
     {
         if (!subServiceId.HasValue)
         {
+            if (skipRemoteSupervisorLookup)
+                return new EmployePublishContext(Guid.Empty, Guid.Empty, string.Empty, null, null);
+
             var parentOnly = await _directoryHierarchy.ResolveSupervisorIdAsync(user.Guid);
             return new EmployePublishContext(parentOnly, Guid.Empty, string.Empty, null, null);
         }
@@ -722,20 +1429,24 @@ public class UserService : IUserService
         if (subService == null)
             return new EmployePublishContext(Guid.Empty, Guid.Empty, string.Empty, subServiceId, null);
 
-        var supervisorId = await _directoryHierarchy.ResolveSupervisorIdAsync(user.Guid);
-        if (supervisorId == Guid.Empty)
+        Guid supervisorId = Guid.Empty;
+        if (!skipRemoteSupervisorLookup)
         {
-            var legacySupervisor = await _context.UserSubServices
-                .AsNoTracking()
-                .Include(us => us.User)
-                    .ThenInclude(u => u.Role)
-                .Where(us => us.SubServiceId == subServiceId.Value
-                          && us.User.Role != null
-                          && (us.User.Role.Name == KyntusRoleNames.Superviseur
-                              || us.User.Role.Name == KyntusRoleNames.Manager))
-                .Select(us => us.User)
-                .FirstOrDefaultAsync();
-            supervisorId = legacySupervisor?.Guid ?? Guid.Empty;
+            supervisorId = await _directoryHierarchy.ResolveSupervisorIdAsync(user.Guid);
+            if (supervisorId == Guid.Empty)
+            {
+                var legacySupervisor = await _context.UserSubServices
+                    .AsNoTracking()
+                    .Include(us => us.User)
+                        .ThenInclude(u => u.Role)
+                    .Where(us => us.SubServiceId == subServiceId.Value
+                              && us.User.Role != null
+                              && (us.User.Role.Name == KyntusRoleNames.Superviseur
+                                  || us.User.Role.Name == KyntusRoleNames.Manager))
+                    .Select(us => us.User)
+                    .FirstOrDefaultAsync();
+                supervisorId = legacySupervisor?.Guid ?? Guid.Empty;
+            }
         }
 
         return new EmployePublishContext(
@@ -757,6 +1468,8 @@ public class UserService : IUserService
         Dictionary<string, string> PoleIdToDeptName,
         Dictionary<string, string> DeptIdToName,
         Dictionary<Guid, string> EmployeeOperationalDeptId);
+
+    private static readonly OrgNameContext EmptyOrgNameContext = new(new(), new(), new());
 
     private async Task<OrgNameContext> LoadOrgNameContextAsync()
     {
@@ -882,13 +1595,58 @@ public class UserService : IUserService
             && !niveauExpertiseMetier.HasValue)
             return;
 
-        var profile = await _context.UserHrProfiles.FirstOrDefaultAsync(p => p.UserId == userId);
+        var profile = _context.UserHrProfiles.Local.FirstOrDefault(p => p.UserId == userId)
+            ?? await _context.UserHrProfiles.FirstOrDefaultAsync(p => p.UserId == userId);
+
+        var inserted = false;
         if (profile is null)
         {
             profile = new UserHrProfile { UserId = userId };
             _context.UserHrProfiles.Add(profile);
+            inserted = true;
         }
 
+        ApplyHrProfileFields(
+            profile,
+            chefDeProjetId,
+            superviseurId,
+            referentTechniqueId,
+            dto,
+            niveauExpertiseMetier);
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (inserted && IsUniqueConstraintViolation(ex))
+        {
+            // Course avec DirectoryEmployee*ProjectionConsumer : le profil a été créé en parallèle.
+            _context.Entry(profile).State = EntityState.Detached;
+            profile = await _context.UserHrProfiles.FirstOrDefaultAsync(p => p.UserId == userId)
+                ?? throw new InvalidOperationException(
+                    $"Profil RH concurrent introuvable après conflit pour UserId={userId}.");
+            ApplyHrProfileFields(
+                profile,
+                chefDeProjetId,
+                superviseurId,
+                referentTechniqueId,
+                dto,
+                niveauExpertiseMetier);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation(
+                "Profil RH {UserId} récupéré après conflit de clé (projection Directory concurrente).",
+                userId);
+        }
+    }
+
+    private static void ApplyHrProfileFields(
+        UserHrProfile profile,
+        Guid? chefDeProjetId,
+        Guid? superviseurId,
+        Guid? referentTechniqueId,
+        UserHrProfileDto? dto,
+        int? niveauExpertiseMetier)
+    {
         if (chefDeProjetId.HasValue) profile.ChefDeProjetId = chefDeProjetId;
         if (superviseurId.HasValue) profile.SuperviseurId = superviseurId;
         if (referentTechniqueId.HasValue) profile.ReferentTechniqueId = referentTechniqueId;
@@ -927,7 +1685,20 @@ public class UserService : IUserService
         }
 
         profile.UpdatedAt = DateTimeOffset.UtcNow;
-        await _context.SaveChangesAsync();
+    }
+
+    private static bool IsUniqueConstraintViolation(DbUpdateException ex)
+    {
+        for (var inner = ex.InnerException; inner is not null; inner = inner.InnerException)
+        {
+            var message = inner.Message ?? string.Empty;
+            if (message.Contains("23505", StringComparison.Ordinal)
+                || message.Contains("unique constraint", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     public async Task<UserDto?> UpdateContractualLevelAsync(

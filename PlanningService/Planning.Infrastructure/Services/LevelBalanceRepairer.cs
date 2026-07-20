@@ -5,6 +5,7 @@ namespace Planning.Infrastructure.Services;
 
 /// <summary>
 /// Redistribue les Confirmés/Experts pour qu'aucun débutant ne reste seul sur un créneau Lun–Ven.
+/// Si aucun senior n'est disponible : déplace les débutants seuls d'Opening/Closing vers Standard (milieu).
 /// Samedi : l'alternance ON/OFF des Confirmés/Experts n'est jamais cassée.
 /// </summary>
 public static class LevelBalanceRepairer
@@ -30,6 +31,7 @@ public static class LevelBalanceRepairer
         IReadOnlyList<SubServiceShiftConfig> shiftConfigs,
         IReadOnlyDictionary<int, User> usersById)
     {
+        var configsById = shiftConfigs.ToDictionary(c => c.Id);
         var orderedConfigs = shiftConfigs
             .OrderBy(c => c.ShiftKind == ShiftKind.Opening ? 0
                 : c.ShiftKind == ShiftKind.Closing ? 1 : 2)
@@ -66,14 +68,30 @@ public static class LevelBalanceRepairer
                 foreach (var (cfg, group) in deficient)
                 {
                     // 1) Swap si le donneur garde ≥ 1 senior (reçoit le débutant)
-                    if (TrySwapWithDonor(assignments, usersById, date, cfg.Id, group))
+                    if (TrySwapWithDonor(assignments, usersById, configsById, date, cfg.Id, group))
                     {
                         fixedOne = true;
                         break;
                     }
 
                     // 2) Sinon déplacer un senior vers le créneau déficitaire (sans échanger)
-                    if (TryMoveSeniorToDeficient(assignments, usersById, date, cfg.Id))
+                    if (TryMoveSeniorToDeficient(assignments, usersById, configsById, date, cfg.Id))
+                    {
+                        fixedOne = true;
+                        break;
+                    }
+                }
+
+                if (fixedOne) continue;
+
+                // 3) Pas assez de seniors : débutant seul en extrémité → déplacer vers le milieu
+                foreach (var (cfg, group) in deficient)
+                {
+                    if (cfg.ShiftKind is not (ShiftKind.Opening or ShiftKind.Closing))
+                        continue;
+
+                    if (TryMoveAloneBeginnerToMiddle(
+                            assignments, shiftConfigs, usersById, date, cfg.Id, group))
                     {
                         fixedOne = true;
                         break;
@@ -88,6 +106,7 @@ public static class LevelBalanceRepairer
     private static bool TrySwapWithDonor(
         List<ShiftAssignment> assignments,
         IReadOnlyDictionary<int, User> usersById,
+        IReadOnlyDictionary<int, SubServiceShiftConfig> configsById,
         DateOnly date,
         int deficientShiftId,
         List<ShiftAssignment> deficientGroup)
@@ -96,7 +115,7 @@ public static class LevelBalanceRepairer
             LevelBalanceEvaluator.IsBeginner(usersById, a.UserId));
         if (beginner == null) return false;
 
-        var donor = FindSwapDonor(assignments, usersById, date, deficientShiftId);
+        var donor = FindSwapDonor(assignments, usersById, configsById, date, deficientShiftId);
         if (donor == null) return false;
 
         (beginner.SubServiceShiftConfigId, donor.SubServiceShiftConfigId) =
@@ -104,26 +123,35 @@ public static class LevelBalanceRepairer
         return true;
     }
 
-    /// <summary>Donneur avec ≥ 2 seniors (après swap, ≥ 1 senior reste avec le débutant reçu).</summary>
+    /// <summary>
+    /// Donneur avec ≥ 2 seniors (après swap, ≥ 1 senior reste avec le débutant reçu).
+    /// Préfère un donneur Standard pour que le débutant atterrisse au milieu.
+    /// </summary>
     private static ShiftAssignment? FindSwapDonor(
         List<ShiftAssignment> assignments,
         IReadOnlyDictionary<int, User> usersById,
+        IReadOnlyDictionary<int, SubServiceShiftConfig> configsById,
         DateOnly date,
         int deficientShiftId)
     {
         ShiftAssignment? best = null;
-        var bestScore = -1;
+        var bestScore = int.MinValue;
 
         foreach (var g in WorkingByShift(assignments, date, deficientShiftId))
         {
             var seniors = g.Where(a => LevelBalanceEvaluator.IsSenior(usersById, a.UserId)).ToList();
             if (seniors.Count < 2) continue;
 
+            var isStandard = configsById.TryGetValue(g.Key, out var cfg)
+                             && cfg.ShiftKind == ShiftKind.Standard;
+            // Score : priorité Standard, puis plus de seniors surplus
+            var score = (isStandard ? 1000 : 0) + seniors.Count;
+
             foreach (var senior in seniors)
             {
-                if (seniors.Count > bestScore)
+                if (score > bestScore)
                 {
-                    bestScore = seniors.Count;
+                    bestScore = score;
                     best = senior;
                 }
             }
@@ -135,9 +163,13 @@ public static class LevelBalanceRepairer
     private static bool TryMoveSeniorToDeficient(
         List<ShiftAssignment> assignments,
         IReadOnlyDictionary<int, User> usersById,
+        IReadOnlyDictionary<int, SubServiceShiftConfig> configsById,
         DateOnly date,
         int deficientShiftId)
     {
+        ShiftAssignment? best = null;
+        var bestScore = int.MinValue;
+
         foreach (var g in WorkingByShift(assignments, date, deficientShiftId))
         {
             var seniors = g.Where(a => LevelBalanceEvaluator.IsSenior(usersById, a.UserId)).ToList();
@@ -149,12 +181,79 @@ public static class LevelBalanceRepairer
                 // Ne pas laisser des débutants seuls sur le créneau donneur
                 if (beginners > 0 && seniorsLeft < 1) continue;
 
-                senior.SubServiceShiftConfigId = deficientShiftId;
-                return true;
+                var isStandard = configsById.TryGetValue(g.Key, out var cfg)
+                                 && cfg.ShiftKind == ShiftKind.Standard;
+                // Préférer prendre un senior d'un créneau non-Standard (ou surplus) pour garder le milieu couvert
+                var score = (isStandard ? 0 : 100) + seniors.Count;
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best = senior;
+                }
             }
         }
 
-        return false;
+        if (best == null) return false;
+        best.SubServiceShiftConfigId = deficientShiftId;
+        return true;
+    }
+
+    /// <summary>
+    /// Déplace un débutant seul d'Opening/Closing vers un créneau Standard (milieu).
+    /// Préférence métier : mieux seul au plateau qu'en ouverture/fermeture.
+    /// </summary>
+    private static bool TryMoveAloneBeginnerToMiddle(
+        List<ShiftAssignment> assignments,
+        IReadOnlyList<SubServiceShiftConfig> shiftConfigs,
+        IReadOnlyDictionary<int, User> usersById,
+        DateOnly date,
+        int deficientShiftId,
+        List<ShiftAssignment> deficientGroup)
+    {
+        var beginner = deficientGroup.FirstOrDefault(a =>
+            LevelBalanceEvaluator.IsBeginner(usersById, a.UserId));
+        if (beginner == null) return false;
+
+        var middleTarget = PickMiddleTarget(assignments, shiftConfigs, date, deficientShiftId);
+        if (middleTarget == null) return false;
+
+        beginner.SubServiceShiftConfigId = middleTarget.Id;
+        return true;
+    }
+
+    /// <summary>
+    /// Choisit un Standard cible : déjà peuplé si possible, sinon premier par StartTime / DisplayOrder.
+    /// </summary>
+    private static SubServiceShiftConfig? PickMiddleTarget(
+        List<ShiftAssignment> assignments,
+        IReadOnlyList<SubServiceShiftConfig> shiftConfigs,
+        DateOnly date,
+        int excludeShiftId)
+    {
+        var standards = shiftConfigs
+            .Where(c => c.ShiftKind == ShiftKind.Standard && c.Id != excludeShiftId)
+            .OrderBy(c => c.StartTime)
+            .ThenBy(c => c.DisplayOrder)
+            .ToList();
+
+        if (standards.Count == 0) return null;
+
+        var populated = standards
+            .Select(c => (
+                Cfg: c,
+                Count: assignments.Count(a =>
+                    a.AssignedDate == date
+                    && a.SubServiceShiftConfigId == c.Id
+                    && !a.IsOnLeave
+                    && !a.IsHoliday)))
+            .Where(x => x.Count > 0)
+            .OrderByDescending(x => x.Count)
+            .ThenBy(x => x.Cfg.StartTime)
+            .ThenBy(x => x.Cfg.DisplayOrder)
+            .Select(x => x.Cfg)
+            .FirstOrDefault();
+
+        return populated ?? standards[0];
     }
 
     private static IEnumerable<IGrouping<int, ShiftAssignment>> WorkingByShift(

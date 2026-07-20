@@ -74,19 +74,19 @@ public class UsersController(
     }
 
     [HttpGet("me")]
-    public async Task<ActionResult<UserDto>> GetMe()
+    public async Task<ActionResult<UserDto>> GetMe(CancellationToken ct)
     {
         var authUserId = User.GetAuthUserId();
         var email = User.GetEmail()?.Trim();
         if (authUserId is null or <= 0 && string.IsNullOrWhiteSpace(email))
             return Unauthorized(new { message = "Authentification requise." });
 
-        var user = authUserId is > 0
-            ? await userService.GetOrLinkUserForAuthAsync(authUserId.Value, email)
-            : null;
-        user ??= !string.IsNullOrWhiteSpace(email)
-            ? await userService.GetUserByEmailAsync(email)
-            : null;
+        var user = await userService.GetOrEnsureUserForAuthAsync(
+            authUserId ?? 0,
+            email,
+            User.GetAuthRole(),
+            User.GetSubjectId(),
+            ct);
 
         if (user is null)
             return NotFound(new { message = "Utilisateur introuvable." });
@@ -94,10 +94,15 @@ public class UsersController(
     }
 
     [HttpGet("by-auth/{authUserId:int}")]
-    public async Task<ActionResult<UserDto>> GetByAuthId(int authUserId)
+    public async Task<ActionResult<UserDto>> GetByAuthId(int authUserId, CancellationToken ct)
     {
         var email = User.GetEmail()?.Trim();
-        var user = await userService.GetOrLinkUserForAuthAsync(authUserId, email);
+        var user = await userService.GetOrEnsureUserForAuthAsync(
+            authUserId,
+            email,
+            User.GetAuthRole(),
+            User.GetSubjectId(),
+            ct);
         if (user == null)
             return NotFound(new { message = "Utilisateur introuvable." });
         return Ok(user);

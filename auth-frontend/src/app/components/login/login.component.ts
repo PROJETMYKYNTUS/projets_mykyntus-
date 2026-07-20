@@ -81,9 +81,14 @@ export class LoginComponent implements OnInit {
   localStorage.setItem('refresh_token', response.refreshToken);
   localStorage.setItem('token_type', response.tokenType);
 
-  // ✅ Stocker user AVEC l'id
+  // Stocker user AVEC authUserId (int Auth) + subjectId (GUID)
+  const authUserIdRaw = nameIdentifier != null ? parseInt(String(nameIdentifier), 10) : NaN;
+  const authUserId = Number.isFinite(authUserIdRaw) && authUserIdRaw > 0 ? authUserIdRaw : 0;
+
   localStorage.setItem('user', JSON.stringify({
     id: userId,
+    authUserId,
+    subjectId: userId,
     username: response.user?.username || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'],
     email: response.user?.email || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'],
     role: response.user?.role || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']

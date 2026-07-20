@@ -3,6 +3,8 @@ using Planning.Application.DTOs;
 
 namespace Planning.Application.Abstractions.EmployeeImport;
 
+public sealed record EmployeeImportSourceFile(string FileName, byte[] Content, string? ContentType);
+
 public interface IEmployeeImportService
 {
     Task<EmployeeImportAnalyzeResponse> AnalyzeAsync(IFormFile file, CancellationToken ct = default);
@@ -18,6 +20,7 @@ public interface IEmployeeImportService
         CancellationToken ct = default);
     Task<List<EmployeeImportJobSummaryDto>> GetHistoryAsync(int take = 50, CancellationToken ct = default);
     Task<EmployeeImportReportDto?> GetJobReportAsync(Guid jobId, CancellationToken ct = default);
+    Task<EmployeeImportSourceFile?> GetJobSourceFileAsync(Guid jobId, CancellationToken ct = default);
     Task<byte[]> BuildTemplateAsync(CancellationToken ct = default);
 }
 

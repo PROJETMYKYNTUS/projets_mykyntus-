@@ -48,6 +48,34 @@ interface SwapCandidate {
   shiftLabel: string;
 }
 
+/** Mercredi 23:59 (jour local) de la semaine du planning — aligné backend Casablanca. */
+function changeRequestDeadlineLocal(weekStartDate: string): Date | null {
+  const start = parseDateOnly(weekStartDate);
+  if (!start) return null;
+  const deadline = new Date(start);
+  deadline.setDate(deadline.getDate() + 2);
+  deadline.setHours(23, 59, 59, 999);
+  return deadline;
+}
+
+function parseDateOnly(value: string): Date | null {
+  if (!value) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
+  if (m) {
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function apiMessage(err: unknown): string {
+  const e = err as { error?: { message?: string } | string; message?: string };
+  if (typeof e?.error === 'string' && e.error.trim()) return e.error;
+  if (e?.error && typeof e.error === 'object' && e.error.message) return e.error.message;
+  if (typeof e?.message === 'string' && e.message.trim()) return e.message;
+  return '';
+}
+
 @Component({
   selector: 'app-mes-plannings',
   standalone: true,
@@ -63,6 +91,8 @@ export class MesPlanningsComponent implements OnInit {
   errorMsg = '';
   toast = '';
   authUserId = 0;
+  changeDeadlinePassed = false;
+  changeDeadlineLabel = '';
 
   showModal = false;
   saving = false;
@@ -88,16 +118,30 @@ export class MesPlanningsComponent implements OnInit {
     this.authUserId = authUserId;
 
     this.planningSvc.getMyCurrentPlanning(authUserId).subscribe({
-      next: (p) => { this.current = p ?? null; this.loading = false; this.cdr.detectChanges(); },
-      error: () => { this.current = null; this.loading = false; this.cdr.detectChanges(); },
+      next: (p) => {
+        this.current = this.normalizePlanning(p);
+        this.refreshDeadlineState();
+        this.loading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.current = null;
+        this.loading = false;
+        this.cdr.detectChanges();
+      },
     });
 
     this.planningSvc.getMyHistory(authUserId).subscribe({
       next: (list) => {
-        this.history = Array.isArray(list) ? list : [];
+        this.history = Array.isArray(list)
+          ? list.map((p) => this.normalizePlanning(p)!).filter(Boolean)
+          : [];
         this.cdr.detectChanges();
       },
-      error: () => { this.history = []; this.cdr.detectChanges(); },
+      error: () => {
+        this.history = [];
+        this.cdr.detectChanges();
+      },
     });
 
     this.loadMyRequests();
@@ -109,7 +153,10 @@ export class MesPlanningsComponent implements OnInit {
         this.myRequests = Array.isArray(list) ? list : [];
         this.cdr.detectChanges();
       },
-      error: () => { this.myRequests = []; this.cdr.detectChanges(); },
+      error: () => {
+        this.myRequests = [];
+        this.cdr.detectChanges();
+      },
     });
   }
 
@@ -133,7 +180,14 @@ export class MesPlanningsComponent implements OnInit {
   }
 
   canRequestChange(d: DayAssignment): boolean {
-    return !!d.assignmentId && !d.isOnLeave && !d.isHoliday && !!d.shiftLabel && d.shiftLabel !== '—';
+    return (
+      !!d.assignmentId &&
+      !d.isOnLeave &&
+      !d.isHoliday &&
+      !!d.shiftLabel &&
+      d.shiftLabel !== '—' &&
+      !this.changeDeadlinePassed
+    );
   }
 
   openChangeModal(d: DayAssignment): void {
@@ -146,11 +200,17 @@ export class MesPlanningsComponent implements OnInit {
     this.showModal = true;
     this.planningSvc.getSwapCandidates(d.assignmentId, this.authUserId).subscribe({
       next: (list) => {
-        this.candidates = Array.isArray(list) ? list : [];
+        this.candidates = (Array.isArray(list) ? list : []).map((c) => ({
+          userId: Number(c.userId ?? c.UserId ?? 0),
+          fullName: String(c.fullName ?? c.FullName ?? ''),
+          level: Number(c.level ?? c.Level ?? 0),
+          assignmentId: Number(c.assignmentId ?? c.AssignmentId ?? 0),
+          shiftLabel: String(c.shiftLabel ?? c.ShiftLabel ?? ''),
+        }));
         this.cdr.detectChanges();
       },
       error: (err) => {
-        this.modalError = err.error?.message ?? 'Impossible de charger les candidats.';
+        this.modalError = apiMessage(err) || 'Impossible de charger les candidats.';
         this.cdr.detectChanges();
       },
     });
@@ -168,25 +228,30 @@ export class MesPlanningsComponent implements OnInit {
     }
     this.saving = true;
     this.modalError = '';
-    this.planningSvc.createChangeRequest(this.authUserId, {
-      currentAssignmentId: this.selectedDay.assignmentId,
-      reason: this.reason.trim(),
-      proposedSwapUserId: this.proposedSwapUserId || null,
-    }).subscribe({
-      next: () => {
-        this.saving = false;
-        this.showModal = false;
-        this.toast = 'Demande envoyée.';
-        this.loadMyRequests();
-        this.cdr.detectChanges();
-        setTimeout(() => { this.toast = ''; this.cdr.detectChanges(); }, 3000);
-      },
-      error: (err) => {
-        this.saving = false;
-        this.modalError = err.error?.message ?? 'Échec de la demande.';
-        this.cdr.detectChanges();
-      },
-    });
+    this.planningSvc
+      .createChangeRequest(this.authUserId, {
+        currentAssignmentId: this.selectedDay.assignmentId,
+        reason: this.reason.trim(),
+        proposedSwapUserId: this.proposedSwapUserId || null,
+      })
+      .subscribe({
+        next: () => {
+          this.saving = false;
+          this.showModal = false;
+          this.toast = 'Demande envoyée.';
+          this.loadMyRequests();
+          this.cdr.detectChanges();
+          setTimeout(() => {
+            this.toast = '';
+            this.cdr.detectChanges();
+          }, 3000);
+        },
+        error: (err) => {
+          this.saving = false;
+          this.modalError = apiMessage(err) || 'Échec de la demande.';
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   cancelRequest(id: number): void {
@@ -194,7 +259,7 @@ export class MesPlanningsComponent implements OnInit {
     this.planningSvc.cancelChangeRequest(id, this.authUserId).subscribe({
       next: () => this.loadMyRequests(),
       error: (err) => {
-        this.toast = err.error?.message ?? 'Annulation impossible.';
+        this.toast = apiMessage(err) || 'Annulation impossible.';
         this.cdr.detectChanges();
       },
     });
@@ -208,5 +273,59 @@ export class MesPlanningsComponent implements OnInit {
       Cancelled: 'Annulée',
     };
     return map[status] ?? status;
+  }
+
+  private refreshDeadlineState(): void {
+    const deadline = this.current
+      ? changeRequestDeadlineLocal(this.current.weekStartDate)
+      : null;
+    if (!deadline) {
+      this.changeDeadlinePassed = false;
+      this.changeDeadlineLabel = '';
+      return;
+    }
+    this.changeDeadlinePassed = Date.now() > deadline.getTime();
+    this.changeDeadlineLabel = deadline.toLocaleString('fr-FR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  private normalizePlanning(raw: unknown): MyPlanning | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const p = raw as Record<string, unknown>;
+    const daysRaw = p['days'] ?? p['Days'];
+    const days = Array.isArray(daysRaw)
+      ? daysRaw.map((d) => this.normalizeDay(d))
+      : [];
+    return {
+      weekCode: String(p['weekCode'] ?? p['WeekCode'] ?? ''),
+      weekStartDate: String(p['weekStartDate'] ?? p['WeekStartDate'] ?? ''),
+      subServiceName: String(p['subServiceName'] ?? p['SubServiceName'] ?? ''),
+      days,
+    };
+  }
+
+  private normalizeDay(raw: unknown): DayAssignment {
+    const d = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+    const id = Number(d['assignmentId'] ?? d['AssignmentId'] ?? 0);
+    return {
+      assignmentId: id > 0 ? id : undefined,
+      day: String(d['day'] ?? d['Day'] ?? ''),
+      assignedDate: String(d['assignedDate'] ?? d['AssignedDate'] ?? ''),
+      shiftLabel: String(d['shiftLabel'] ?? d['ShiftLabel'] ?? ''),
+      startTime: String(d['startTime'] ?? d['StartTime'] ?? ''),
+      endTime: String(d['endTime'] ?? d['EndTime'] ?? ''),
+      breakTime: (d['breakTime'] ?? d['BreakTime'] ?? null) as string | null,
+      isSaturday: Boolean(d['isSaturday'] ?? d['IsSaturday']),
+      isOnLeave: Boolean(d['isOnLeave'] ?? d['IsOnLeave']),
+      isHoliday: Boolean(d['isHoliday'] ?? d['IsHoliday']),
+      holidayName: String(d['holidayName'] ?? d['HolidayName'] ?? ''),
+      absenceType: (d['absenceType'] ?? d['AbsenceType'] ?? null) as string | null,
+      slotLabel: String(d['slotLabel'] ?? d['SlotLabel'] ?? ''),
+    };
   }
 }

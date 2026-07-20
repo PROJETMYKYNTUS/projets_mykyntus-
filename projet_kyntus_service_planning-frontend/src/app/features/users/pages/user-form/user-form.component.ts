@@ -219,6 +219,8 @@ export class UserFormComponent implements OnInit {
 
   selectedReferralId = '';
   linkableReferrals: Referral[] = [];
+  /** Pool pour l'alerte de matching (dossiers sans employé lié). */
+  matchableReferrals: Referral[] = [];
   selectedReferral: Referral | null = null;
   referralRewardAmount = 0;
   referralLoading = false;
@@ -1118,6 +1120,27 @@ export class UserFormComponent implements OnInit {
     return (this.referralMatchBanner?.alertMatches ?? []).slice(0, 3);
   }
 
+  isReferralLinkable(referral: Referral): boolean {
+    return (
+      !referral.candidateEmployeeId &&
+      (referral.status === 'SUBMITTED' || referral.status === 'PROCESSED')
+    );
+  }
+
+  isReferralAlreadyLinked(referral: Referral): boolean {
+    return !!referral.candidateEmployeeId?.trim();
+  }
+
+  onLastNameChange(value: string): void {
+    this.form.lastName = value ?? '';
+    this.onIdentityFieldChange();
+  }
+
+  onFirstNameChange(value: string): void {
+    this.form.firstName = value ?? '';
+    this.onIdentityFieldChange();
+  }
+
   get wizardRecapReferral(): string {
     if (!this.selectedReferral) return '—';
     const status = this.referralStatusLabels[this.selectedReferral.status] ?? this.selectedReferral.status;
@@ -1138,12 +1161,21 @@ export class UserFormComponent implements OnInit {
 
   async loadLinkableReferrals(): Promise<void> {
     if (this.isEditMode) return;
-    try {
-      this.linkableReferrals = await this.parrainageApi.getLinkableReferrals();
-      this.cdr.detectChanges();
-    } catch {
-      this.linkableReferrals = [];
+    // Isoler les erreurs : un endpoint en échec ne doit pas vider tout le pool.
+    const [linkable, all] = await Promise.all([
+      this.parrainageApi.getLinkableReferrals().catch(() => [] as Referral[]),
+      this.parrainageApi.getReferrals().catch(() => [] as Referral[]),
+    ]);
+    this.linkableReferrals = linkable;
+    // Alerte sur tout dossier connu (lié ou non) — le RH doit être informé du doublon.
+    const byId = new Map<string, Referral>();
+    for (const r of [...all, ...linkable]) {
+      if (r?.id) byId.set(r.id, r);
     }
+    this.matchableReferrals = byId.size > 0 ? [...byId.values()] : linkable;
+    this.cdr.detectChanges();
+    // Rejouer le match si le RH a déjà saisi le nom pendant le chargement.
+    this.scheduleReferralMatch();
   }
 
   onReferralSearchChange(query: string): void {
@@ -1160,20 +1192,37 @@ export class UserFormComponent implements OnInit {
   private scheduleReferralMatch(): void {
     if (this.isEditMode || this.referralLockedFromUrl) return;
     if (this.referralMatchTimer) clearTimeout(this.referralMatchTimer);
-    this.referralMatchTimer = setTimeout(() => this.runReferralMatch(), 400);
+    this.referralMatchTimer = setTimeout(() => this.runReferralMatch(), 250);
   }
 
   private runReferralMatch(): void {
-    const firstName = this.form.firstName.trim();
-    const lastName = this.form.lastName.trim();
-    if (firstName.length < 2 || lastName.length < 2) {
+    const firstName = (this.form.firstName ?? '').trim();
+    const lastName = (this.form.lastName ?? '').trim();
+    const hasPair =
+      firstName.length >= 2 && lastName.length >= 2;
+    const hasFullInOneField =
+      (firstName.length < 2 && lastName.split(/\s+/).filter(Boolean).length >= 2) ||
+      (lastName.length < 2 && firstName.split(/\s+/).filter(Boolean).length >= 2);
+    if (!hasPair && !hasFullInOneField) {
+      this.referralMatchResult = null;
+      this.cdr.detectChanges();
+      return;
+    }
+    const pool =
+      this.matchableReferrals.length > 0 ? this.matchableReferrals : this.linkableReferrals;
+    if (pool.length === 0) {
       this.referralMatchResult = null;
       this.cdr.detectChanges();
       return;
     }
     this.referralMatchResult = matchReferralCandidates(
-      { firstName, lastName, email: this.form.email },
-      this.linkableReferrals,
+      {
+        firstName,
+        lastName,
+        email: this.hrProfile.emailPersonnel?.trim() || this.form.email,
+        emails: [this.hrProfile.emailPersonnel, this.form.email],
+      },
+      pool,
     );
     // Pas de liaison silencieuse : le RH confirme via l'alerte.
     this.cdr.detectChanges();
@@ -2405,12 +2454,25 @@ export class UserFormComponent implements OnInit {
             ),
           );
         }),
+        switchMap(({ user, referralResult }) =>
+          this.saveContract$(user.id).pipe(
+            map(() => ({ user, referralResult })),
+            catchError((err) =>
+              throwError(
+                () =>
+                  new Error(
+                    formatHttpErrorMessage(err, 'Employé créé mais échec de l’enregistrement du contrat.'),
+                  ),
+              ),
+            ),
+          ),
+        ),
       ).subscribe({
         next: ({ user, referralResult }) => {
           this.createdUserId = user.id;
           let message = this.hrProfile.enFormation
             ? 'Employé créé — le contrat pourra être défini après la formation.'
-            : 'Employé créé avec succès.';
+            : 'Employé et contrat enregistrés avec succès.';
           if (referralResult) {
             const statusLabel =
               referralResult.status === 'IN_TRAINING'

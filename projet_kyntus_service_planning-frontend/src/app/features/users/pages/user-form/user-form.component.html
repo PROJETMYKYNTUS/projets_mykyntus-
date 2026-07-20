@@ -84,16 +84,14 @@
 
           @if (showCreateSuccess) {
             <section class="form-section create-success-panel">
-              <h2>Employé créé</h2>
+              <h2>Employé enregistré</h2>
               <p>{{ createSuccessMessage }}</p>
               <div class="form-actions">
-                @if (!hrProfile.enFormation) {
-                  <button type="button" class="btn btn-primary ky-btn-primary" (click)="goToNewContract()">
-                    Suivant — Contrat
-                  </button>
-                }
-                <button type="button" class="btn btn-outline ky-btn-secondary" (click)="viewCreatedUser()">
+                <button type="button" class="btn btn-primary ky-btn-primary" (click)="viewCreatedUser()">
                   Voir la fiche
+                </button>
+                <button type="button" class="btn btn-outline ky-btn-secondary" (click)="goBack()">
+                  Retour à la liste
                 </button>
               </div>
             </section>
@@ -200,45 +198,6 @@
                       }
                     </div>
                   }
-                  @if (referralMatchBanner; as match) {
-                    <div class="alert alert-info referral-match-banner">
-                      @if (match.ambiguous || referralMatchChoices.length > 1) {
-                        <p>
-                          <strong>Plusieurs dossiers parrainage possibles</strong> —
-                          ce candidat pourrait correspondre à l’un des dossiers ci-dessous. Confirmez pour préremplir.
-                        </p>
-                      } @else if (match.best) {
-                        <p>
-                          <strong>Possible dossier de parrainage</strong> —
-                          le nom saisi ressemble à
-                          <em>{{ match.best.referral.candidateName }}</em>
-                          (Parrain : {{ match.best.referral.referrerName }},
-                          {{ referralStatusLabels[match.best.referral.status] }}).
-                        </p>
-                      }
-                      <ul class="referral-match-choices">
-                        @for (choice of referralMatchChoices; track choice.referral.id) {
-                          <li>
-                            <span>
-                              {{ choice.referral.candidateName }} —
-                              {{ choice.referral.position }}
-                              ({{ referralStatusLabels[choice.referral.status] }})
-                            </span>
-                            <button
-                              type="button"
-                              class="btn btn-outline ky-btn-secondary referral-match-confirm"
-                              (click)="confirmReferralSuggestion(choice.referral.id)"
-                            >
-                              Confirmer ce dossier
-                            </button>
-                          </li>
-                        }
-                      </ul>
-                      <button type="button" class="btn btn-link referral-match-dismiss" (click)="dismissReferralMatch()">
-                        Ce n’est pas un parrainage
-                      </button>
-                    </div>
-                  }
                 }
               </div>
             }
@@ -257,7 +216,7 @@
 
                 <label for="lastName">Nom <span class="required">*</span></label>
 
-                <input class="ky-input" id="lastName" name="lastName" type="text" [(ngModel)]="form.lastName" (ngModelChange)="onIdentityFieldChange()" placeholder="Nom de famille" />
+                <input class="ky-input" id="lastName" name="lastName" type="text" [ngModel]="form.lastName" (ngModelChange)="onLastNameChange($event)" placeholder="Nom de famille" />
 
               </div>
 
@@ -265,9 +224,57 @@
 
                 <label for="firstName">Prénom <span class="required">*</span></label>
 
-                <input class="ky-input" id="firstName" name="firstName" type="text" [(ngModel)]="form.firstName" (ngModelChange)="onIdentityFieldChange()" placeholder="Prénom" />
+                <input class="ky-input" id="firstName" name="firstName" type="text" [ngModel]="form.firstName" (ngModelChange)="onFirstNameChange($event)" placeholder="Prénom" />
 
               </div>
+
+              @if (!referralLockedFromUrl && referralMatchBanner; as match) {
+                <div class="form-group form-group--full">
+                  <div class="alert alert-warning referral-match-banner" role="status">
+                    @if (match.ambiguous || referralMatchChoices.length > 1) {
+                      <p>
+                        <strong>Plusieurs dossiers parrainage possibles</strong> —
+                        le nom saisi pourrait correspondre à l’un des dossiers ci-dessous.
+                      </p>
+                    } @else if (match.best) {
+                      <p>
+                        <strong>Possible dossier de parrainage</strong> —
+                        le nom saisi ressemble à
+                        <em>{{ match.best.referral.candidateName }}</em>
+                        (Parrain : {{ match.best.referral.referrerName }},
+                        {{ referralStatusLabels[match.best.referral.status] }}).
+                      </p>
+                    }
+                    <ul class="referral-match-choices">
+                      @for (choice of referralMatchChoices; track choice.referral.id) {
+                        <li>
+                          <span>
+                            {{ choice.referral.candidateName }} —
+                            {{ choice.referral.position }}
+                            ({{ referralStatusLabels[choice.referral.status] }})
+                          </span>
+                          @if (isReferralAlreadyLinked(choice.referral)) {
+                            <span class="hint">Déjà lié à un employé.</span>
+                          } @else if (isReferralLinkable(choice.referral)) {
+                            <button
+                              type="button"
+                              class="btn btn-outline ky-btn-secondary referral-match-confirm"
+                              (click)="confirmReferralSuggestion(choice.referral.id)"
+                            >
+                              Confirmer ce dossier
+                            </button>
+                          } @else {
+                            <span class="hint">Dossier non liaisonnable (statut actuel).</span>
+                          }
+                        </li>
+                      }
+                    </ul>
+                    <button type="button" class="btn btn-link referral-match-dismiss" (click)="dismissReferralMatch()">
+                      Ce n’est pas un parrainage
+                    </button>
+                  </div>
+                </div>
+              }
 
               <div class="form-group">
 
@@ -301,6 +308,7 @@
                   name="emailPersonnel"
                   type="email"
                   [(ngModel)]="hrProfile.emailPersonnel"
+                  (ngModelChange)="onIdentityFieldChange()"
                   placeholder="exemple@gmail.com"
                   (blur)="checkPersonalEmail()"
                 />

@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Planning.Application.Abstractions;
 using Planning.Application.Abstractions.EmployeeImport;
 using Planning.Infrastructure.Persistence;
+using Planning.Infrastructure.Services;
 using Planning.Application.DTOs;
 using Planning.Domain.Entities;
 
@@ -10,7 +13,14 @@ namespace Planning.Infrastructure.Services.EmployeeImport;
 
 public interface IEmployeeImportExecutor
 {
-    Task<EmployeeImportReportDto> ExecuteAsync(
+    /// <summary>Crée le job Running et retourne immédiatement (traitement via ExecuteJobAsync).</summary>
+    Task<EmployeeImportReportDto> StartAsync(
+        EmployeeImportExecuteRequest request,
+        string? startedByEmail,
+        CancellationToken ct = default);
+
+    Task ExecuteJobAsync(
+        Guid jobId,
         EmployeeImportExecuteRequest request,
         string? startedByEmail,
         CancellationToken ct = default);
@@ -20,19 +30,25 @@ public class EmployeeImportExecutor(
     AppDbContext db,
     IEmployeeImportUserPersistence userPersistence,
     IUserService userService,
+    IDirectoryEmployeeWriteClient directoryEmployeeWrite,
     IContractService contractService,
     IEmployeeImportSessionStore sessionStore,
     IEmployeeImportConfigService configService,
     IEmployeeFieldService fieldService,
     IEmployeeImportOrgResolver orgResolver,
     IEmployeeImportOrgProvisioner orgProvisioner,
-    IEmployeeImportStructureAssignmentService structureAssignment,
     IImportExecutionJournal journal,
     IPlanningOrgMirrorService orgMirror,
     IFormationInitialTrainingClient formationInitialTraining,
-    IHttpContextAccessor httpContextAccessor) : IEmployeeImportExecutor
+    IHttpContextAccessor httpContextAccessor,
+    IServiceScopeFactory scopeFactory,
+    ILogger<EmployeeImportExecutor> logger) : IEmployeeImportExecutor
 {
-    public async Task<EmployeeImportReportDto> ExecuteAsync(
+    private const int ChunkSize = 100;
+    private const int ProgressPersistEvery = 50;
+    private const int MaxParallelism = 8;
+
+    public async Task<EmployeeImportReportDto> StartAsync(
         EmployeeImportExecuteRequest request,
         string? startedByEmail,
         CancellationToken ct = default)
@@ -40,22 +56,75 @@ public class EmployeeImportExecutor(
         var parsed = await sessionStore.GetAsync(request.ImportSessionId, ct)
             ?? throw new InvalidOperationException("Session d'import expirée ou introuvable. Re-analysez le fichier.");
 
+        var fileName = await sessionStore.GetFileNameAsync(request.ImportSessionId, ct) ?? "import";
+        var sourceFile = await sessionStore.GetSourceFileAsync(request.ImportSessionId, ct);
+
+        var job = new EmployeeImportJob
+        {
+            Id = Guid.NewGuid(),
+            FileName = sourceFile?.FileName ?? fileName,
+            FileContent = sourceFile?.Content,
+            ContentType = sourceFile?.ContentType,
+            TotalLignes = parsed.Rows.Count,
+            ProcessedLignes = 0,
+            Status = "Running",
+            StartedByEmail = startedByEmail,
+            StartedAt = DateTime.UtcNow
+        };
+        db.EmployeeImportJobs.Add(job);
+        await db.SaveChangesAsync(ct);
+
+        return new EmployeeImportReportDto
+        {
+            ImportJobId = job.Id,
+            TotalLignes = job.TotalLignes,
+            ProcessedLignes = 0,
+            Status = "Running",
+            CompletedAt = default,
+        };
+    }
+
+    public async Task ExecuteJobAsync(
+        Guid jobId,
+        EmployeeImportExecuteRequest request,
+        string? startedByEmail,
+        CancellationToken ct = default)
+    {
+        var job = await db.EmployeeImportJobs.FirstOrDefaultAsync(j => j.Id == jobId, ct)
+            ?? throw new InvalidOperationException($"Job d'import {jobId} introuvable.");
+
+        job.Status = "Running";
+        job.StartedByEmail ??= startedByEmail;
+        await db.SaveChangesAsync(ct);
+
+        var parsed = await sessionStore.GetAsync(request.ImportSessionId, ct)
+            ?? throw new InvalidOperationException("Session d'import expirée ou introuvable. Re-analysez le fichier.");
+
+        logger.LogInformation(
+            "Import employé job {JobId} démarré — {Total} ligne(s), fichier session {SessionId}",
+            jobId,
+            parsed.Rows.Count,
+            request.ImportSessionId);
+
         var resolvedMappings = await fieldService.ResolveImportMappingsAsync(
             request.Mappings, parsed.Headers, ct);
 
-        var fileName = await sessionStore.GetFileNameAsync(request.ImportSessionId, ct) ?? "import";
         var activeFields = (await configService.GetConfigAsync(ct)).Where(f => f.IsEnabled).ToList();
         var columnToField = EmployeeImportMappingHelper.BuildColumnMap(resolvedMappings, activeFields);
         var orgSnapshot = await orgResolver.LoadSnapshotAsync(ct);
 
         ValidateStructuralPreconditions(parsed, columnToField, request, orgSnapshot);
 
-        var auth = httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
+        var auth = DirectoryHttpAuthContext.AuthorizationHeader.Value
+            ?? httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
         var directoryOverview = await orgMirror.GetDirectoryOverviewAsync(
             string.IsNullOrWhiteSpace(auth) ? null : auth, ct);
 
         if (request.ApprovedOrgCreations.Count > 0)
             EmployeeImportOrgExistence.ValidateNoDuplicateCreations(request.ApprovedOrgCreations, orgSnapshot);
+
+        // Evite les « ignore » fantômes : données laissées par un job Failed / Completed partiel.
+        await PurgeIncompleteImportCreatesAsync(parsed, columnToField, ct);
 
         var committed = false;
         try
@@ -77,176 +146,285 @@ public class EmployeeImportExecutor(
                     journal.RecordOrgCreated(node);
             }
 
-            var job = new EmployeeImportJob
-            {
-                Id = Guid.NewGuid(),
-                FileName = fileName,
-                TotalLignes = parsed.Rows.Count,
-                StartedByEmail = startedByEmail,
-                StartedAt = DateTime.UtcNow
-            };
-            db.EmployeeImportJobs.Add(job);
-
             var report = new EmployeeImportReportDto
             {
                 ImportJobId = job.Id,
                 TotalLignes = parsed.Rows.Count,
-                CompletedAt = DateTime.UtcNow,
+                Status = "Running",
+                CompletedAt = default,
                 OrgNodesCreated = orgNodesCreated,
                 OrgNodesSkipped = orgNodesSkipped
             };
 
-            for (var i = 0; i < parsed.Rows.Count; i++)
+            var authHeader = auth;
+            for (var chunkStart = 0; chunkStart < parsed.Rows.Count; chunkStart += ChunkSize)
             {
-                var lineNumber = i + 2;
-                var row = parsed.Rows[i];
-                if (IsEmptyRow(row))
+                var chunkEnd = Math.Min(chunkStart + ChunkSize, parsed.Rows.Count);
+                var pendingCreates = new List<PendingImportCreate>();
+                var pendingAssigns = new List<PendingStructureAssign>();
+
+                for (var i = chunkStart; i < chunkEnd; i++)
                 {
-                    AddLine(job, report, lineNumber, null, "ignore", "Ligne vide.");
-                    continue;
-                }
-
-                var mapped = EmployeeImportRowMapper.MapRow(row, columnToField);
-                if (!mapped.TryGetValue("email", out var emailRaw) || string.IsNullOrWhiteSpace(emailRaw))
-                {
-                    AddLine(job, report, lineNumber, null, "ignore", "Identifiant email manquant.");
-                    continue;
-                }
-
-                var email = emailRaw.Trim().ToLowerInvariant();
-
-                try
-                {
-                    var effectiveMapped = ApplyOrgResolution(
-                        mapped, orgSnapshot, lineNumber, request.AcceptedFuzzyMatches);
-                    var roleResult = EmployeeImportRoleResolver.Resolve(effectiveMapped.GetValueOrDefault("role"), orgSnapshot.Roles);
-                    if (roleResult.ErrorMessage is not null)
-                        throw new InvalidOperationException(roleResult.ErrorMessage);
-
-                    ValidateOrgForRole(effectiveMapped, roleResult, orgSnapshot);
-
-                    var existing = await db.Users
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
-
-                    if (existing is null)
+                    var lineNumber = i + 2;
+                    var row = parsed.Rows[i];
+                    if (IsEmptyRow(row))
                     {
-                        var created = await CreateAsync(
-                            effectiveMapped, email, orgSnapshot, roleResult, activeFields, directoryOverview, ct);
-                        journal.RecordUserCreated(created.Id, created.Guid, created.AuthUserId);
-
-                        try
-                        {
-                            await UpsertCustomFieldsForUserAsync(
-                                created.Id, effectiveMapped, activeFields, isCreate: true, ct);
-                            await structureAssignment.ApplyIfNeededAsync(
-                                created.Guid,
-                                roleResult.CanonicalRoleName,
-                                effectiveMapped,
-                                orgSnapshot,
-                                ct);
-                            await UpsertContractForUserAsync(created.Id, effectiveMapped, created.HireDate, ct);
-                            await TryEnsureInitialTrainingPathAsync(
-                                created.Guid,
-                                $"{created.FirstName} {created.LastName}".Trim(),
-                                effectiveMapped,
-                                created.HireDate,
-                                ct);
-                            AddLine(job, report, lineNumber, email, "create", "Employé créé.");
-                        }
-                        catch (Exception lineEx)
-                        {
-                            await journal.RollbackLastUserChangeAsync(ct);
-                            AddLine(job, report, lineNumber, email, "error", lineEx.Message);
-                        }
+                        AddLine(job, report, lineNumber, null, "ignore", "Ligne vide.");
+                        continue;
                     }
-                    else
+
+                    var mapped = EmployeeImportRowMapper.MapRow(row, columnToField);
+                    if (!mapped.TryGetValue("email", out var emailRaw) || string.IsNullOrWhiteSpace(emailRaw))
                     {
-                        var fullUser = await userService.GetUserByIdAsync(existing.Id);
-                        var customBefore = await fieldService.LoadCustomFieldsForUsersAsync([existing.Id], ct);
-                        var previousCustom = customBefore.GetValueOrDefault(existing.Id)
-                            ?? new Dictionary<string, string?>();
+                        AddLine(job, report, lineNumber, null, "ignore", "Identifiant email manquant.");
+                        continue;
+                    }
 
-                        var previousState = fullUser is not null
-                            ? EmployeeImportHrProfileMapper.MapToUpdateDto(fullUser)
-                            : BuildUpdateSnapshot(existing);
+                    var email = emailRaw.Trim().ToLowerInvariant();
 
-                        var (updated, contractChanged) = await UpdateAsync(
-                            existing.Id, effectiveMapped, email, orgSnapshot, roleResult, activeFields, fullUser,
-                            directoryOverview, ct);
+                    try
+                    {
+                        var effectiveMapped = ApplyOrgResolution(
+                            mapped, orgSnapshot, lineNumber, request.AcceptedFuzzyMatches);
+                        var roleResult = EmployeeImportRoleResolver.Resolve(
+                            effectiveMapped.GetValueOrDefault("role"), orgSnapshot.Roles);
+                        if (roleResult.ErrorMessage is not null)
+                            throw new InvalidOperationException(roleResult.ErrorMessage);
 
-                        var customChanged = await UpsertCustomFieldsForUserAsync(
-                            existing.Id, effectiveMapped, activeFields, isCreate: false, ct);
+                        ValidateOrgForRole(effectiveMapped, roleResult, orgSnapshot);
 
-                        if (updated is not null || customChanged || contractChanged)
+                        var existing = await db.Users
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
+
+                        if (existing is null)
                         {
-                            if (updated is not null)
-                            {
-                                journal.RecordUserUpdated(existing.Id, previousState, previousCustomFields: previousCustom);
-
-                                try
-                                {
-                                    await structureAssignment.ApplyIfNeededAsync(
-                                        updated.Guid,
-                                        roleResult.CanonicalRoleName,
-                                        effectiveMapped,
-                                        orgSnapshot,
-                                        ct);
-                                    await TryEnsureInitialTrainingPathAsync(
-                                        updated.Guid,
-                                        $"{updated.FirstName} {updated.LastName}".Trim(),
-                                        effectiveMapped,
-                                        updated.HireDate,
-                                        ct);
-                                    AddLine(job, report, lineNumber, email, "update", "Employé mis à jour.");
-                                }
-                                catch (Exception lineEx)
-                                {
-                                    await journal.RollbackLastUserChangeAsync(ct);
-                                    AddLine(job, report, lineNumber, email, "error", lineEx.Message);
-                                }
-                            }
-                            else if (contractChanged)
-                            {
-                                AddLine(job, report, lineNumber, email, "update", "Employé mis à jour.");
-                            }
+                            var prepared = await TryPrepareCreateAsync(
+                                effectiveMapped, email, orgSnapshot, roleResult, activeFields,
+                                directoryOverview, i, lineNumber, ct);
+                            if (prepared is not null)
+                                pendingCreates.Add(prepared);
                             else
-                            {
-                                AddLine(job, report, lineNumber, email, "update", "Employé mis à jour.");
-                            }
+                                AddLine(job, report, lineNumber, email, "error", "Préparation création échouée.");
                         }
                         else
                         {
-                            AddLine(job, report, lineNumber, email, "ignore", "Employé déjà présent — données identiques, aucune modification.");
+                            await ProcessUpdateRowAsync(
+                                job, report, existing, effectiveMapped, email, orgSnapshot, roleResult,
+                                activeFields, directoryOverview, authHeader, pendingAssigns, lineNumber, ct);
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        AddLine(job, report, lineNumber, email, "error", ex.Message);
+                    }
                 }
-                catch (Exception ex)
+
+                if (pendingCreates.Count > 0)
                 {
-                    AddLine(job, report, lineNumber, email, "error", ex.Message);
+                    await ProcessCreateChunkAsync(
+                        job, report, pendingCreates, orgSnapshot, authHeader, pendingAssigns, activeFields, ct);
                 }
+
+                if (pendingAssigns.Count > 0)
+                    await ApplyStructureAssignmentsParallelAsync(pendingAssigns, orgSnapshot, authHeader, job, report, ct);
+
+                await PersistProgressIfNeededAsync(job, report, chunkEnd, force: true, ct);
             }
 
             job.Crees = report.Crees;
             job.MisAJour = report.MisAJour;
             job.Ignores = report.Ignores;
             job.Erreurs = report.Erreurs;
+            job.ProcessedLignes = parsed.Rows.Count;
+            job.Status = "Completed";
             job.CompletedAt = DateTime.UtcNow;
+            job.ErrorMessage = null;
+            report.Status = "Completed";
+            report.ProcessedLignes = job.ProcessedLignes;
             report.CompletedAt = job.CompletedAt.Value;
 
             await db.SaveChangesAsync(ct);
             journal.Commit();
             committed = true;
-            return report;
         }
         catch (Exception ex) when (!committed)
         {
+            // Pas de rapport Completed → annuler toutes les modifs de cet import.
             await journal.CompensateAsync(ct);
-            var detail = ex.InnerException?.Message ?? ex.Message;
-            throw new InvalidOperationException(
-                $"L'import a échoué avant la génération du rapport. Aucune modification n'a été appliquée. Détail : {detail}",
-                ex);
+            job.Status = "Failed";
+            job.Crees = 0;
+            job.MisAJour = 0;
+            job.ErrorMessage =
+                $"L'import a échoué avant la génération du rapport. Toutes les modifications ont été annulées. Détail : {ex.InnerException?.Message ?? ex.Message}";
+            job.CompletedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            throw new InvalidOperationException(job.ErrorMessage, ex);
         }
+    }
+
+    /// <summary>
+    /// Supprime les employés créés par un import Failed (jamais arrivé au rapport)
+    /// pour les emails du fichier courant — sinon le ré-import les marque à tort en « ignore ».
+    /// </summary>
+    private async Task PurgeIncompleteImportCreatesAsync(
+        ParsedImportFile parsed,
+        IReadOnlyDictionary<int, string> columnToField,
+        CancellationToken ct)
+    {
+        var emailsInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in parsed.Rows)
+        {
+            if (IsEmptyRow(row))
+                continue;
+            var mapped = EmployeeImportRowMapper.MapRow(row, columnToField);
+            if (mapped.TryGetValue("email", out var emailRaw) && !string.IsNullOrWhiteSpace(emailRaw))
+                emailsInFile.Add(emailRaw.Trim().ToLowerInvariant());
+        }
+
+        if (emailsInFile.Count == 0)
+            return;
+
+        var hasFailedCreates = await db.EmployeeImportJobLines.AsNoTracking()
+            .AnyAsync(l => l.Action == "create" && l.Job.Status == "Failed", ct);
+
+        List<string> toPurge = [];
+        if (hasFailedCreates)
+        {
+            var orphanEmails = await (
+                from line in db.EmployeeImportJobLines.AsNoTracking()
+                join j in db.EmployeeImportJobs.AsNoTracking() on line.JobId equals j.Id
+                where line.Action == "create"
+                      && line.Email != null
+                      && j.Status == "Failed"
+                select line.Email!
+            ).Distinct().ToListAsync(ct);
+
+            toPurge = orphanEmails
+                .Select(e => e.Trim().ToLowerInvariant())
+                .Where(emailsInFile.Contains)
+                .Distinct()
+                .ToList();
+        }
+
+        if (toPurge.Count > 0)
+        {
+            logger.LogWarning(
+                "Purge pré-import : {Count} employé(s) issus d'imports Failed seront annulés avant ré-exécution.",
+                toPurge.Count);
+
+            foreach (var email in toPurge)
+            {
+                var user = await db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
+                if (user is null)
+                    continue;
+
+                try
+                {
+                    await userService.RollbackImportCreatedUserAsync(user.Id, ct);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Purge pré-import échouée pour {Email}", email);
+                }
+            }
+        }
+
+        // Comptes Planning sans Auth = création interrompue avant rapport Completed.
+        var emailList = emailsInFile.ToList();
+        var incompleteAuthUsers = await db.Users
+            .Where(u => u.AuthUserId == null && emailList.Contains(u.Email.ToLower()))
+            .Select(u => new { u.Id, u.Email })
+            .ToListAsync(ct);
+
+        foreach (var u in incompleteAuthUsers)
+        {
+            try
+            {
+                await userService.RollbackImportCreatedUserAsync(u.Id, ct);
+                logger.LogWarning("Purge pré-import (sans Auth) : {Email}", u.Email);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Purge pré-import (sans Auth) échouée pour {Email}", u.Email);
+            }
+        }
+    }
+
+    private async Task PersistProgressIfNeededAsync(
+        EmployeeImportJob job,
+        EmployeeImportReportDto report,
+        int processedCount,
+        bool force,
+        CancellationToken ct)
+    {
+        if (!force && processedCount % ProgressPersistEvery != 0)
+            return;
+
+        job.ProcessedLignes = processedCount;
+        job.Crees = report.Crees;
+        job.MisAJour = report.MisAJour;
+        job.Ignores = report.Ignores;
+        job.Erreurs = report.Erreurs;
+        report.ProcessedLignes = processedCount;
+        await db.SaveChangesAsync(ct);
+    }
+
+    private async Task<UserDto?> LoadLeanUserSnapshotAsync(int userId, CancellationToken ct)
+    {
+        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (user is null) return null;
+
+        var hr = await db.UserHrProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == userId, ct);
+        return new UserDto
+        {
+            Id = user.Id,
+            Guid = user.Guid,
+            RoleId = user.RoleId,
+            SubServiceId = user.SubServiceId,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Email = user.Email,
+            HireDate = user.HireDate,
+            IsActive = user.IsActive,
+            Level = user.Level,
+            AuthUserId = user.AuthUserId,
+            ChefDeProjetId = hr?.ChefDeProjetId,
+            SuperviseurId = hr?.SuperviseurId,
+            ReferentTechniqueId = hr?.ReferentTechniqueId,
+            NiveauExpertiseMetier = hr?.NiveauExpertiseMetier,
+            HrProfile = hr is null ? null : new UserHrProfileDto
+            {
+                DateNaissance = hr.DateNaissance,
+                VilleNaissance = hr.VilleNaissance,
+                Nationalite = hr.Nationalite,
+                NumeroCarteAutoentrepreneur = hr.NumeroCarteAutoentrepreneur,
+                Sexe = hr.Sexe,
+                SituationFamiliale = hr.SituationFamiliale,
+                NombreEnfants = hr.NombreEnfants,
+                Cin = hr.Cin,
+                Adresse = hr.Adresse,
+                EmailPersonnel = hr.EmailPersonnel,
+                Telephone1 = hr.Telephone1,
+                TelephoneUrgence = hr.TelephoneUrgence,
+                RelationUrgence = hr.RelationUrgence,
+                Rib = hr.Rib,
+                ImmatriculationInterne = hr.ImmatriculationInterne,
+                ImmatriculationCnss = hr.ImmatriculationCnss,
+                DateEntree = hr.DateEntree,
+                DateEmbauche = hr.DateEmbauche,
+                DateAnciennete = hr.DateAnciennete,
+                DateSortie = hr.DateSortie,
+                DateEvolutionPoste = hr.DateEvolutionPoste,
+                AncienPoste = hr.AncienPoste,
+                AncienService = hr.AncienService,
+                NiveauScolaire = hr.NiveauScolaire,
+                IntitulesEtudes = hr.IntitulesEtudes,
+                EnFormation = hr.EnFormation,
+                DateDebutFormation = hr.DateDebutFormation,
+                DateFinFormationPrevue = hr.DateFinFormationPrevue,
+            },
+        };
     }
 
     private static void ValidateStructuralPreconditions(
@@ -337,13 +515,38 @@ public class EmployeeImportExecutor(
             IsActive = existing.IsActive,
         };
 
-    private async Task<EmployeeImportUserResult> CreateAsync(
+    private sealed class PendingImportCreate
+    {
+        public required int RowIndex { get; init; }
+        public required int LineNumber { get; init; }
+        public required string Email { get; init; }
+        public required CreateUserFromImportDto Dto { get; init; }
+        public required string RoleName { get; init; }
+        public required string CanonicalRoleName { get; init; }
+        public required Dictionary<string, string?> Mapped { get; init; }
+        public string? PrimeServiceId { get; init; }
+    }
+
+    private sealed class PendingStructureAssign
+    {
+        public required Guid EmployeeGuid { get; init; }
+        public required string CanonicalRoleName { get; init; }
+        public required Dictionary<string, string?> Mapped { get; init; }
+        public required int LineNumber { get; init; }
+        public required string Email { get; init; }
+        public required string ActionOnSuccess { get; init; }
+        public int? PlanningUserIdForJournal { get; init; }
+    }
+
+    private async Task<PendingImportCreate?> TryPrepareCreateAsync(
         Dictionary<string, string?> mapped,
         string email,
         EmployeeImportOrgSnapshot orgSnapshot,
         RoleResolveResult roleResult,
         List<EmployeeImportFieldConfigDto> activeFields,
         EmployeeImportOrgOverview? directoryOverview,
+        int rowIndex,
+        int lineNumber,
         CancellationToken ct)
     {
         ValidateRequiredOnCreate(mapped, activeFields);
@@ -357,9 +560,23 @@ public class EmployeeImportExecutor(
             ? orgResolver.ResolveSubServiceId(orgSnapshot, mapped)
             : null;
 
+        string? primeServiceId = null;
+        if (subServiceId.HasValue)
+        {
+            primeServiceId = await db.SubServices.AsNoTracking()
+                .Where(ss => ss.Id == subServiceId.Value)
+                .Select(ss => ss.PrimeServiceId)
+                .FirstOrDefaultAsync(ct);
+        }
+
         var hireDate = ResolveHireDate(mapped);
         var hrBuild = EmployeeImportHrProfileMapper.BuildForCreate(mapped, hireDate);
-        var mentors = await ResolveMentorsAsync(mapped, roleResult.CanonicalRoleName, directoryOverview, ct);
+        var mentors = await ResolveMentorsAsync(
+            mapped, roleResult.CanonicalRoleName ?? string.Empty, directoryOverview, ct);
+
+        var roleName = orgSnapshot.Roles.FirstOrDefault(r => r.Id == roleId)?.Name
+            ?? roleResult.CanonicalRoleName
+            ?? "Employé";
 
         var dto = new CreateUserFromImportDto
         {
@@ -382,7 +599,315 @@ public class EmployeeImportExecutor(
             ReferentTechniqueId = mentors.Referent,
         };
 
-        return await userPersistence.CreateFromImportAsync(dto, ct);
+        return new PendingImportCreate
+        {
+            RowIndex = rowIndex,
+            LineNumber = lineNumber,
+            Email = email,
+            Dto = dto,
+            RoleName = roleName,
+            CanonicalRoleName = roleResult.CanonicalRoleName ?? string.Empty,
+            Mapped = mapped,
+            PrimeServiceId = primeServiceId,
+        };
+    }
+
+    private async Task ProcessCreateChunkAsync(
+        EmployeeImportJob job,
+        EmployeeImportReportDto report,
+        List<PendingImportCreate> pendingCreates,
+        EmployeeImportOrgSnapshot orgSnapshot,
+        string? authHeader,
+        List<PendingStructureAssign> pendingAssigns,
+        List<EmployeeImportFieldConfigDto> activeFieldsForCustom,
+        CancellationToken ct)
+    {
+        DirectoryHttpAuthContext.AuthorizationHeader.Value = authHeader;
+
+        // Doublons email dans le même chunk → erreur isolée, pas de plantage job.
+        var uniqueCreates = new List<PendingImportCreate>();
+        var seenEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pending in pendingCreates)
+        {
+            if (!seenEmails.Add(pending.Email))
+            {
+                AddLine(job, report, pending.LineNumber, pending.Email, "error",
+                    "Email en double dans le fichier (même chunk).");
+                continue;
+            }
+
+            uniqueCreates.Add(pending);
+        }
+
+        if (uniqueCreates.Count == 0)
+            return;
+
+        var bulkItems = uniqueCreates.Select(p => new DirectoryEmployeeBulkCreateItem(
+            p.Dto.FirstName,
+            p.Dto.LastName,
+            p.Dto.Email,
+            p.RoleName,
+            p.PrimeServiceId,
+            p.Dto.HireDate)).ToList();
+
+        logger.LogInformation(
+            "Import chunk Directory bulk : {Count} création(s)",
+            bulkItems.Count);
+
+        var bulkResults = await directoryEmployeeWrite.TryCreateEmployeesBulkAsync(bulkItems, ct);
+        if (bulkResults.Count != uniqueCreates.Count)
+        {
+            foreach (var p in uniqueCreates)
+                AddLine(job, report, p.LineNumber, p.Email, "error", "Réponse Directory bulk invalide.");
+            return;
+        }
+
+        var chunkItems = new List<ImportChunkCreateItemDto>();
+        var preparedByEmail = new Dictionary<string, PendingImportCreate>(StringComparer.OrdinalIgnoreCase);
+        var directoryGuidsByEmail = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+
+        for (var i = 0; i < uniqueCreates.Count; i++)
+        {
+            var pending = uniqueCreates[i];
+            var dir = bulkResults[i];
+            if (!dir.Success || dir.EmployeeId == Guid.Empty)
+            {
+                AddLine(job, report, pending.LineNumber, pending.Email, "error",
+                    dir.ErrorMessage ?? "Création Directory échouée.");
+                continue;
+            }
+
+            preparedByEmail[pending.Email] = pending;
+            directoryGuidsByEmail[pending.Email] = dir.EmployeeId;
+            chunkItems.Add(new ImportChunkCreateItemDto
+            {
+                Dto = pending.Dto,
+                DirectoryEmployeeId = dir.EmployeeId,
+                RoleName = pending.RoleName,
+            });
+        }
+
+        if (chunkItems.Count == 0)
+            return;
+
+        IReadOnlyList<ImportChunkCreateResultDto> chunkResults;
+        try
+        {
+            chunkResults = await userService.CreateUsersFromImportChunkAsync(chunkItems, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "CreateUsersFromImportChunkAsync a échoué pour {Count} lignes", chunkItems.Count);
+            foreach (var pending in preparedByEmail.Values)
+            {
+                if (directoryGuidsByEmail.TryGetValue(pending.Email, out var dirGuid))
+                    await directoryEmployeeWrite.TryDeleteEmployeeAsync(dirGuid, ct);
+
+                AddLine(job, report, pending.LineNumber, pending.Email, "error",
+                    ex.InnerException?.Message ?? ex.Message);
+            }
+
+            return;
+        }
+
+        var succeededEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var result in chunkResults)
+        {
+            if (!preparedByEmail.TryGetValue(result.Email, out var pending))
+                continue;
+
+            if (!result.Success || result.PlanningUserId is null || result.EmployeeGuid is null)
+            {
+                if (directoryGuidsByEmail.TryGetValue(pending.Email, out var dirGuid))
+                    await directoryEmployeeWrite.TryDeleteEmployeeAsync(dirGuid, ct);
+
+                AddLine(job, report, pending.LineNumber, pending.Email, "error",
+                    result.ErrorMessage ?? "Création Planning/Auth échouée.");
+                continue;
+            }
+
+            succeededEmails.Add(result.Email);
+            journal.RecordUserCreated(result.PlanningUserId.Value, result.EmployeeGuid.Value, result.AuthUserId);
+
+            try
+            {
+                await UpsertCustomFieldsForUserAsync(
+                    result.PlanningUserId.Value, pending.Mapped, activeFieldsForCustom, isCreate: true, ct);
+
+                await UpsertContractForUserAsync(
+                    result.PlanningUserId.Value, pending.Mapped, pending.Dto.HireDate, ct);
+                await TryEnsureInitialTrainingPathAsync(
+                    result.EmployeeGuid.Value,
+                    $"{pending.Dto.FirstName} {pending.Dto.LastName}".Trim(),
+                    pending.Mapped,
+                    pending.Dto.HireDate,
+                    ct);
+
+                pendingAssigns.Add(new PendingStructureAssign
+                {
+                    EmployeeGuid = result.EmployeeGuid.Value,
+                    CanonicalRoleName = pending.CanonicalRoleName,
+                    Mapped = pending.Mapped,
+                    LineNumber = pending.LineNumber,
+                    Email = pending.Email,
+                    ActionOnSuccess = "create",
+                    PlanningUserIdForJournal = result.PlanningUserId,
+                });
+            }
+            catch (Exception lineEx)
+            {
+                await journal.RollbackLastUserChangeAsync(ct);
+                AddLine(job, report, pending.LineNumber, pending.Email, "error", lineEx.Message);
+            }
+        }
+
+        // Directory créés mais absents des résultats Planning → orphelins à supprimer.
+        foreach (var (email, dirGuid) in directoryGuidsByEmail)
+        {
+            if (succeededEmails.Contains(email))
+                continue;
+            if (chunkResults.Any(r =>
+                    string.Equals(r.Email, email, StringComparison.OrdinalIgnoreCase)))
+                continue; // déjà traité (échec Planning ci-dessus)
+            await directoryEmployeeWrite.TryDeleteEmployeeAsync(dirGuid, ct);
+            if (preparedByEmail.TryGetValue(email, out var pending))
+            {
+                AddLine(job, report, pending.LineNumber, pending.Email, "error",
+                    "Création Planning/Auth sans résultat — employé Directory annulé.");
+            }
+        }
+    }
+
+    private async Task ProcessUpdateRowAsync(
+        EmployeeImportJob job,
+        EmployeeImportReportDto report,
+        User existing,
+        Dictionary<string, string?> effectiveMapped,
+        string email,
+        EmployeeImportOrgSnapshot orgSnapshot,
+        RoleResolveResult roleResult,
+        List<EmployeeImportFieldConfigDto> activeFields,
+        EmployeeImportOrgOverview? directoryOverview,
+        string? authHeader,
+        List<PendingStructureAssign> pendingAssigns,
+        int lineNumber,
+        CancellationToken ct)
+    {
+        var leanSnapshot = await LoadLeanUserSnapshotAsync(existing.Id, ct);
+        var customBefore = await fieldService.LoadCustomFieldsForUsersAsync([existing.Id], ct);
+        var previousCustom = customBefore.GetValueOrDefault(existing.Id)
+            ?? new Dictionary<string, string?>();
+
+        var previousState = leanSnapshot is not null
+            ? EmployeeImportHrProfileMapper.MapToUpdateDto(leanSnapshot)
+            : BuildUpdateSnapshot(existing);
+
+        var (updated, contractChanged) = await UpdateAsync(
+            existing.Id, effectiveMapped, email, orgSnapshot, roleResult, activeFields, leanSnapshot,
+            directoryOverview, ct);
+
+        var customChanged = await UpsertCustomFieldsForUserAsync(
+            existing.Id, effectiveMapped, activeFields, isCreate: false, ct);
+
+        if (updated is not null || customChanged || contractChanged)
+        {
+            if (updated is not null)
+            {
+                journal.RecordUserUpdated(existing.Id, previousState, previousCustomFields: previousCustom);
+
+                try
+                {
+                    await TryEnsureInitialTrainingPathAsync(
+                        updated.Guid,
+                        $"{updated.FirstName} {updated.LastName}".Trim(),
+                        effectiveMapped,
+                        updated.HireDate,
+                        ct);
+
+                    pendingAssigns.Add(new PendingStructureAssign
+                    {
+                        EmployeeGuid = updated.Guid,
+                        CanonicalRoleName = roleResult.CanonicalRoleName ?? string.Empty,
+                        Mapped = effectiveMapped,
+                        LineNumber = lineNumber,
+                        Email = email,
+                        ActionOnSuccess = "update",
+                        PlanningUserIdForJournal = existing.Id,
+                    });
+                }
+                catch (Exception lineEx)
+                {
+                    await journal.RollbackLastUserChangeAsync(ct);
+                    AddLine(job, report, lineNumber, email, "error", lineEx.Message);
+                }
+            }
+            else
+            {
+                AddLine(job, report, lineNumber, email, "update", "Employé mis à jour.");
+            }
+        }
+        else
+        {
+            AddLine(job, report, lineNumber, email, "ignore",
+                "Employé déjà présent — données identiques, aucune modification.");
+        }
+    }
+
+    private async Task ApplyStructureAssignmentsParallelAsync(
+        List<PendingStructureAssign> pendingAssigns,
+        EmployeeImportOrgSnapshot orgSnapshot,
+        string? authHeader,
+        EmployeeImportJob job,
+        EmployeeImportReportDto report,
+        CancellationToken ct)
+    {
+        var failures = new System.Collections.Concurrent.ConcurrentDictionary<int, string>();
+
+        await Parallel.ForEachAsync(
+            pendingAssigns,
+            new ParallelOptions { MaxDegreeOfParallelism = MaxParallelism, CancellationToken = ct },
+            async (item, token) =>
+            {
+                DirectoryHttpAuthContext.AuthorizationHeader.Value = authHeader;
+                try
+                {
+                    await using var scope = scopeFactory.CreateAsyncScope();
+                    var assign = scope.ServiceProvider.GetRequiredService<IEmployeeImportStructureAssignmentService>();
+                    await assign.ApplyIfNeededAsync(
+                        item.EmployeeGuid,
+                        item.CanonicalRoleName,
+                        item.Mapped,
+                        orgSnapshot,
+                        token);
+                }
+                catch (Exception ex)
+                {
+                    failures[item.LineNumber] = ex.Message;
+                }
+            });
+
+        foreach (var item in pendingAssigns)
+        {
+            if (failures.TryGetValue(item.LineNumber, out var message))
+            {
+                if (item.PlanningUserIdForJournal.HasValue
+                    && string.Equals(item.ActionOnSuccess, "create", StringComparison.OrdinalIgnoreCase))
+                {
+                    await userService.RollbackImportCreatedUserAsync(item.PlanningUserIdForJournal.Value, ct);
+                }
+                else if (item.PlanningUserIdForJournal.HasValue)
+                {
+                    await journal.RollbackLastUserChangeAsync(ct);
+                }
+
+                AddLine(job, report, item.LineNumber, item.Email, "error", message);
+            }
+            else
+            {
+                AddLine(job, report, item.LineNumber, item.Email, item.ActionOnSuccess,
+                    item.ActionOnSuccess == "create" ? "Employé créé." : "Employé mis à jour.");
+            }
+        }
     }
 
     private async Task<(EmployeeImportUserResult? User, bool ContractChanged)> UpdateAsync(
@@ -399,7 +924,7 @@ public class EmployeeImportExecutor(
         var existing = await userPersistence.GetByIdAsync(userId, ct)
             ?? throw new InvalidOperationException("Employé introuvable.");
 
-        fullUser ??= await userService.GetUserByIdAsync(userId);
+        fullUser ??= await LoadLeanUserSnapshotAsync(userId, ct);
 
         var hasOrgColumns = mapped.ContainsKey("pole") || mapped.ContainsKey("cellule") ||
                             mapped.ContainsKey("service") || mapped.ContainsKey("subService");
@@ -432,7 +957,8 @@ public class EmployeeImportExecutor(
             fullUser?.ReferentTechniqueId,
             hireDate);
 
-        var mentors = await ResolveMentorsAsync(mapped, roleResult.CanonicalRoleName, directoryOverview, ct);
+        var mentors = await ResolveMentorsAsync(
+            mapped, roleResult.CanonicalRoleName, directoryOverview, ct);
         var chefId = mapped.ContainsKey("chefDeProjetName") ? mentors.Chef : fullUser?.ChefDeProjetId;
         var superviseurId = mapped.ContainsKey("superviseurName") ? mentors.Superviseur : fullUser?.SuperviseurId;
         var referentId = mapped.ContainsKey("referentTechniqueName") ? mentors.Referent : fullUser?.ReferentTechniqueId;

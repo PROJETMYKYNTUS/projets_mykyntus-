@@ -216,9 +216,151 @@ public class LevelBalanceTests
             assignments, [cfgStd, cfgClose], users, users.Values.ToList(), planning);
 
         Assert.Empty(LevelBalanceEvaluator.Evaluate(assignments, [cfgStd, cfgClose], users));
-        Assert.Equal(1, assignments.Count(a => a.SubServiceShiftConfigId == 1));
+        Assert.Equal(2, assignments.Count(a => a.SubServiceShiftConfigId == 1));
         Assert.Contains(assignments, a => a.UserId == 2 && a.SubServiceShiftConfigId == 1);
         Assert.Contains(assignments, a => a.UserId == 1 && a.SubServiceShiftConfigId == 1);
+    }
+
+    [Fact]
+    public void Repair_moves_alone_beginner_from_opening_to_middle_when_no_senior()
+    {
+        var monday = new DateOnly(2026, 7, 20);
+        var cfgOpen = new SubServiceShiftConfig
+        {
+            Id = 1, Label = "8h", StartTime = new TimeOnly(8, 0), ShiftKind = ShiftKind.Opening, DisplayOrder = 1
+        };
+        var cfgStd = new SubServiceShiftConfig
+        {
+            Id = 2, Label = "9h", StartTime = new TimeOnly(9, 0), ShiftKind = ShiftKind.Standard, DisplayOrder = 2
+        };
+        var cfgClose = new SubServiceShiftConfig
+        {
+            Id = 3, Label = "11h", StartTime = new TimeOnly(11, 0), ShiftKind = ShiftKind.Closing, DisplayOrder = 3
+        };
+        var users = new Dictionary<int, User>
+        {
+            [1] = MakeUser(1, "b@t.ma", 1),
+        };
+        var planning = new WeeklyPlanning { Id = 10, WeekStartDate = monday, SubServiceId = 1 };
+        var assignments = new List<ShiftAssignment>
+        {
+            new()
+            {
+                WeeklyPlanningId = 10, UserId = 1, AssignedDate = monday,
+                SubServiceShiftConfigId = 1, IsOnLeave = false, IsHoliday = false
+            },
+        };
+
+        LevelBalanceRepairer.Repair(
+            assignments, [cfgOpen, cfgStd, cfgClose], users, users.Values.ToList(), planning);
+
+        Assert.Equal(2, assignments[0].SubServiceShiftConfigId);
+        var anomalies = LevelBalanceEvaluator.Evaluate(
+            assignments, [cfgOpen, cfgStd, cfgClose], users, users.Values.ToList());
+        Assert.Single(anomalies);
+        Assert.Equal(2, anomalies[0].ShiftConfigId);
+        Assert.Contains("plateau", anomalies[0].Message);
+    }
+
+    [Fact]
+    public void Repair_moves_alone_beginner_from_closing_to_middle_when_no_senior()
+    {
+        var monday = new DateOnly(2026, 7, 20);
+        var cfgOpen = new SubServiceShiftConfig
+        {
+            Id = 1, Label = "8h", StartTime = new TimeOnly(8, 0), ShiftKind = ShiftKind.Opening, DisplayOrder = 1
+        };
+        var cfgStd = new SubServiceShiftConfig
+        {
+            Id = 2, Label = "9h", StartTime = new TimeOnly(9, 0), ShiftKind = ShiftKind.Standard, DisplayOrder = 2
+        };
+        var cfgClose = new SubServiceShiftConfig
+        {
+            Id = 3, Label = "11h", StartTime = new TimeOnly(11, 0), ShiftKind = ShiftKind.Closing, DisplayOrder = 3
+        };
+        var users = new Dictionary<int, User>
+        {
+            [1] = MakeUser(1, "b@t.ma", 1),
+        };
+        var planning = new WeeklyPlanning { Id = 10, WeekStartDate = monday, SubServiceId = 1 };
+        var assignments = new List<ShiftAssignment>
+        {
+            new()
+            {
+                WeeklyPlanningId = 10, UserId = 1, AssignedDate = monday,
+                SubServiceShiftConfigId = 3, IsOnLeave = false, IsHoliday = false
+            },
+        };
+
+        LevelBalanceRepairer.Repair(
+            assignments, [cfgOpen, cfgStd, cfgClose], users, users.Values.ToList(), planning);
+
+        Assert.Equal(2, assignments[0].SubServiceShiftConfigId);
+    }
+
+    [Fact]
+    public void Repair_prefers_standard_donor_when_swapping_to_fix_opening()
+    {
+        var monday = new DateOnly(2026, 7, 20);
+        var cfgOpen = new SubServiceShiftConfig
+        {
+            Id = 1, Label = "8h", StartTime = new TimeOnly(8, 0), ShiftKind = ShiftKind.Opening, DisplayOrder = 1
+        };
+        var cfgStd = new SubServiceShiftConfig
+        {
+            Id = 2, Label = "9h", StartTime = new TimeOnly(9, 0), ShiftKind = ShiftKind.Standard, DisplayOrder = 2
+        };
+        var cfgClose = new SubServiceShiftConfig
+        {
+            Id = 3, Label = "11h", StartTime = new TimeOnly(11, 0), ShiftKind = ShiftKind.Closing, DisplayOrder = 3
+        };
+        var users = new Dictionary<int, User>
+        {
+            [1] = MakeUser(1, "b@t.ma", 1),
+            [2] = MakeUser(2, "c1@t.ma", 2),
+            [3] = MakeUser(3, "c2@t.ma", 2),
+            [4] = MakeUser(4, "c3@t.ma", 2),
+            [5] = MakeUser(5, "c4@t.ma", 2),
+        };
+        var planning = new WeeklyPlanning { Id = 10, WeekStartDate = monday, SubServiceId = 1 };
+        // Débutant seul en ouverture ; 2 seniors au milieu ; 2 seniors en fermeture
+        var assignments = new List<ShiftAssignment>
+        {
+            new()
+            {
+                WeeklyPlanningId = 10, UserId = 1, AssignedDate = monday,
+                SubServiceShiftConfigId = 1, IsOnLeave = false, IsHoliday = false
+            },
+            new()
+            {
+                WeeklyPlanningId = 10, UserId = 2, AssignedDate = monday,
+                SubServiceShiftConfigId = 2, IsOnLeave = false, IsHoliday = false
+            },
+            new()
+            {
+                WeeklyPlanningId = 10, UserId = 3, AssignedDate = monday,
+                SubServiceShiftConfigId = 2, IsOnLeave = false, IsHoliday = false
+            },
+            new()
+            {
+                WeeklyPlanningId = 10, UserId = 4, AssignedDate = monday,
+                SubServiceShiftConfigId = 3, IsOnLeave = false, IsHoliday = false
+            },
+            new()
+            {
+                WeeklyPlanningId = 10, UserId = 5, AssignedDate = monday,
+                SubServiceShiftConfigId = 3, IsOnLeave = false, IsHoliday = false
+            },
+        };
+
+        LevelBalanceRepairer.Repair(
+            assignments, [cfgOpen, cfgStd, cfgClose], users, users.Values.ToList(), planning);
+
+        Assert.Empty(LevelBalanceEvaluator.Evaluate(assignments, [cfgOpen, cfgStd, cfgClose], users));
+        // Le débutant doit atterrir au milieu (donneur Standard préféré)
+        Assert.Equal(2, assignments.First(a => a.UserId == 1).SubServiceShiftConfigId);
+        // Un senior du milieu part en ouverture
+        Assert.Contains(assignments, a => a.UserId is 2 or 3 && a.SubServiceShiftConfigId == 1);
     }
 
     [Fact]
@@ -341,7 +483,11 @@ public class LevelBalanceTests
         });
 
         Assert.NotNull(result);
-        Assert.False(result.CoverageReport!.HasLevelBalanceAnomaly);
+        // Lun–Ven : le repairer doit coller Confirmé + débutant. Le samedi peut rester en anomalie
+        // si le Confirmé est Off (alternance ON/OFF jamais forcée).
+        Assert.DoesNotContain(
+            result.CoverageReport!.LevelBalanceAnomalies,
+            a => !string.Equals(a.Day, "Saturday", StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(result.CoverageReport.DaySynthesis);
         Assert.True(result.CoverageReport.DaySynthesis.Count >= 6);
         Assert.Contains(result.CoverageReport.DaySynthesis[0].Shifts, s => s.BeginnerCount + s.SeniorCount > 0);
@@ -432,7 +578,7 @@ public class LevelBalanceTests
 
         await svc.RecordConsultationAsync(generated.Id, 3);
         var published = await svc.PublishPlanningAsync(generated.Id, 3);
-        Assert.Equal(PlanningStatus.Published, published.Status);
+        Assert.Equal(PlanningStatus.Published.ToString(), published.Status);
     }
 
     private sealed class FakePlanningHubContext : IHubContext<PlanningHub>

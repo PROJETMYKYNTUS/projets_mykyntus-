@@ -1,6 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { PlanningService } from '../../services/planning.service';
 import { KyntusSessionService } from '../../../../core/session/kyntus-session.service';
@@ -28,9 +29,16 @@ export class PlanningChangeRequestsComponent implements OnInit {
     private planning: PlanningService,
     private session: KyntusSessionService,
     private cdr: ChangeDetectorRef,
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
+    const role = this.session.getRole();
+    if (role !== 'Admin' && role !== 'RH') {
+      // Coach / Superviseur / Pilote → même interface self-service que le Pilote
+      void this.router.navigate(['/mes-plannings']);
+      return;
+    }
     this.authUserId = this.session.getAuthUserId() ?? 0;
     this.reload();
   }

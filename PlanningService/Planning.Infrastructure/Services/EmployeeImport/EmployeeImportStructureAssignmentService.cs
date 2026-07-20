@@ -20,6 +20,10 @@ public sealed class EmployeeImportStructureAssignmentService(
     IEmployeeImportOrgResolver orgResolver,
     ILogger<EmployeeImportStructureAssignmentService> logger) : IEmployeeImportStructureAssignmentService
 {
+    private List<FloorCacheRow>? _floorsCache;
+    private List<ServiceCacheRow>? _servicesCache;
+    private Dictionary<int, string?>? _subServicePrimeCache;
+
     public async Task ApplyIfNeededAsync(
         Guid employeeGuid,
         string canonicalRoleName,
@@ -108,12 +112,8 @@ public sealed class EmployeeImportStructureAssignmentService(
         if (!subServiceId.HasValue)
             return false;
 
-        var primeServiceId = await db.SubServices.AsNoTracking()
-            .Where(s => s.Id == subServiceId.Value)
-            .Select(s => s.PrimeServiceId)
-            .FirstOrDefaultAsync(ct);
-
-        if (string.IsNullOrWhiteSpace(primeServiceId))
+        var primeCache = await EnsureSubServicePrimeCacheAsync(ct);
+        if (!primeCache.TryGetValue(subServiceId.Value, out var primeServiceId) || string.IsNullOrWhiteSpace(primeServiceId))
         {
             logger.LogWarning("PrimeServiceId introuvable pour SubService {Id}", subServiceId);
             return false;
@@ -124,8 +124,8 @@ public sealed class EmployeeImportStructureAssignmentService(
 
     private async Task<string?> ResolvePoleDirectoryIdAsync(string poleName, CancellationToken ct)
     {
+        var floors = await EnsureFloorsCacheAsync(ct);
         var normalized = EmployeeImportColumnMatcher.Normalize(poleName);
-        var floors = await db.Floors.AsNoTracking().ToListAsync(ct);
         return floors
             .FirstOrDefault(f => EmployeeImportColumnMatcher.Normalize(f.Name) == normalized)
             ?.PrimePoleId;
@@ -133,18 +133,49 @@ public sealed class EmployeeImportStructureAssignmentService(
 
     private async Task<string?> ResolveCelluleDirectoryIdAsync(string poleName, string celluleName, CancellationToken ct)
     {
+        var services = await EnsureServicesCacheAsync(ct);
         var poleNormalized = EmployeeImportColumnMatcher.Normalize(poleName);
         var cellNormalized = EmployeeImportColumnMatcher.Normalize(celluleName);
 
-        var services = await db.Services.AsNoTracking()
-            .Include(s => s.Floor)
-            .ToListAsync(ct);
-
         return services
             .FirstOrDefault(s =>
-                s.Floor is not null
-                && EmployeeImportColumnMatcher.Normalize(s.Floor.Name) == poleNormalized
+                EmployeeImportColumnMatcher.Normalize(s.FloorName) == poleNormalized
                 && EmployeeImportColumnMatcher.Normalize(s.Name) == cellNormalized)
             ?.PrimeCelluleId;
     }
+
+    private async Task<List<FloorCacheRow>> EnsureFloorsCacheAsync(CancellationToken ct)
+    {
+        if (_floorsCache is not null)
+            return _floorsCache;
+
+        _floorsCache = await db.Floors.AsNoTracking()
+            .Select(f => new FloorCacheRow(f.Name, f.PrimePoleId))
+            .ToListAsync(ct);
+        return _floorsCache;
+    }
+
+    private async Task<List<ServiceCacheRow>> EnsureServicesCacheAsync(CancellationToken ct)
+    {
+        if (_servicesCache is not null)
+            return _servicesCache;
+
+        _servicesCache = await db.Services.AsNoTracking()
+            .Select(s => new ServiceCacheRow(s.Name, s.Floor!.Name, s.PrimeCelluleId))
+            .ToListAsync(ct);
+        return _servicesCache;
+    }
+
+    private async Task<Dictionary<int, string?>> EnsureSubServicePrimeCacheAsync(CancellationToken ct)
+    {
+        if (_subServicePrimeCache is not null)
+            return _subServicePrimeCache;
+
+        _subServicePrimeCache = await db.SubServices.AsNoTracking()
+            .ToDictionaryAsync(s => s.Id, s => s.PrimeServiceId, ct);
+        return _subServicePrimeCache;
+    }
+
+    private sealed record FloorCacheRow(string Name, string? PrimePoleId);
+    private sealed record ServiceCacheRow(string Name, string FloorName, string? PrimeCelluleId);
 }

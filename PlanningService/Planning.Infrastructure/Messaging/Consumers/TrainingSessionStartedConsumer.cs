@@ -45,39 +45,44 @@ public sealed class TrainingSessionStartedConsumer(
         var message = string.Equals(msg.RecipientRole, "Animator", StringComparison.OrdinalIgnoreCase)
             ? $"La formation {title} a démarré — ouvrez l’appel des présences."
             : $"La formation {title} a démarré.";
+        var deepLink = string.Equals(msg.RecipientRole, "Animator", StringComparison.OrdinalIgnoreCase)
+            ? "/mes-sessions"
+            : "/mes-formations";
+        const string subServiceName = "Formation continue";
 
-        var exists = await db.PlanningNotifications.AnyAsync(
+        var notif = await db.PlanningNotifications.FirstOrDefaultAsync(
             n => n.AuthUserId == user.AuthUserId.Value && n.WeekCode == weekCode && n.UserId == user.Id,
             context.CancellationToken);
-        if (!exists)
+
+        if (notif is null)
         {
-            db.PlanningNotifications.Add(new PlanningNotification
+            notif = new PlanningNotification
             {
                 UserId = user.Id,
                 AuthUserId = user.AuthUserId.Value,
                 WeeklyPlanningId = null,
                 WeekCode = weekCode,
-                SubServiceName = "Formation continue",
+                SubServiceName = subServiceName,
                 Message = message,
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow,
-            });
+            };
+            db.PlanningNotifications.Add(notif);
             await db.SaveChangesAsync(context.CancellationToken);
         }
-
-        var deepLink = string.Equals(msg.RecipientRole, "Animator", StringComparison.OrdinalIgnoreCase)
-            ? "/mes-sessions"
-            : "/mes-formations";
 
         await hubContext.Clients
             .Group($"user_{user.AuthUserId}")
             .SendAsync("PlanningPublished", new
             {
+                id = notif.Id,
                 weekCode,
-                subServiceName = "Formation continue",
+                subServiceName,
                 message,
                 weeklyPlanningId = (int?)null,
                 deepLink,
+                createdAt = notif.CreatedAt,
+                isRead = notif.IsRead,
             }, context.CancellationToken);
 
         logger.LogInformation(

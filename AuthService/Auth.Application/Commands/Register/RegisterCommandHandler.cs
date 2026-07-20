@@ -56,6 +56,9 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthRespo
         await _userRepository.CreateAsync(user, ct);
         user.Role = role;
 
-        return AuthResponseMapper.ToDto(user, _jwtService.GenerateAccessToken(user));
+        return AuthResponseMapper.ToDto(
+            user,
+            _jwtService.GenerateAccessToken(user),
+            _jwtService.AccessTokenExpiresInSeconds);
     }
 }

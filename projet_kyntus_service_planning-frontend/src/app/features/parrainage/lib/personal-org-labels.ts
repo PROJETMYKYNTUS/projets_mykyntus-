@@ -1,5 +1,4 @@
 import type { ParrainageUser } from '../models/referral.model';
-import { MOCK_ORG_LABELS } from './parrainage-directory';
 
 export interface PersonalOrgLabels {
   employeeName: string;
@@ -19,14 +18,11 @@ export function getParrainagePersonalOrgLabels(user: ParrainageUser | null): Per
   if (!user) {
     return { employeeName: '—', departement: '—', pole: '—', cellule: '—', equipe: '—' };
   }
-  const dep = user.departmentId ? MOCK_ORG_LABELS.departments[user.departmentId] : undefined;
-  const pol = user.poleId ? MOCK_ORG_LABELS.poles[user.poleId] : undefined;
-  const cell = user.celluleId ? MOCK_ORG_LABELS.cellules[user.celluleId] : undefined;
   return {
     employeeName: user.name,
-    departement: dep ?? '—',
-    pole: pol ?? '—',
-    cellule: cell ?? '—',
-    equipe: MOCK_ORG_LABELS.defaultTeam,
+    departement: '—',
+    pole: '—',
+    cellule: '—',
+    equipe: '—',
   };
 }

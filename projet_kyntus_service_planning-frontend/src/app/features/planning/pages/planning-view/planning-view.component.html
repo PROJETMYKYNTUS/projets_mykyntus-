@@ -49,8 +49,7 @@
     <div class="pv-decision-bar" *ngIf="planning.status === 'Draft' && canValidate">
       <div class="pv-decision-copy">
         <strong>Aperçu brouillon</strong>
-        <span *ngIf="!hasConsulted || consulting">Consultation en cours — Valider s’active après ouverture…</span>
-        <span *ngIf="hasConsulted && !consulting">Contrôlez la grille, puis validez ou régénérez.</span>
+        <span>Contrôlez la grille, puis validez ou régénérez.</span>
       </div>
       <div class="pv-decision-actions">
         <button type="button"
@@ -68,7 +67,7 @@
         </button>
         <button type="button"
                 class="btn-validate-lg"
-                [disabled]="publishing || regenerating || !hasConsulted || consulting"
+                [disabled]="publishing || regenerating"
                 (click)="publishPlanning()">
           <ng-container *ngIf="!publishing">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -197,18 +196,12 @@
                   </span>
                   <span class="th-day-meta" *ngIf="daySynthesisFor(day) as syn" [title]="daySynthTooltip(day)">
                     <span *ngIf="syn.leaveCount" class="syn-leave">{{ syn.leaveCount }} abs</span>
-                    <ng-container *ngIf="day !== 'Saturday'">
-                      <span *ngFor="let chip of dayMixChips(day)" class="syn-mix" [class.syn-mix-bad]="chip.bad">
-                        {{ chip.label }}
-                      </span>
-                    </ng-container>
-                    <span *ngIf="day === 'Saturday' && saturdayMixChip(day) as sam" class="syn-mix" [class.syn-mix-bad]="sam.bad">
-                      {{ sam.label }}
+                    <span *ngFor="let chip of dayDecisionChips(day)"
+                          class="syn-chip"
+                          [class.syn-chip-warn]="chip.kind === 'surplus'"
+                          [class.syn-chip-danger]="chip.kind === 'shortage' || chip.kind === 'alone'">
+                      {{ chip.label }}
                     </span>
-                    <span *ngFor="let d of dayDeltaChips(day)" class="syn-delta" [class.syn-delta-neg]="d.delta < 0">
-                      {{ d.label }}
-                    </span>
-                    <span *ngIf="dayHasLevelAnomaly(day)" class="syn-level">Niveau</span>
                   </span>
                 </div>
               </th>
@@ -230,7 +223,6 @@
                     <div class="emp-name-row">
                       <span class="emp-name">{{ emp.fullName }}</span>
                       <span class="lvl-badge lvl-{{ emp.level }}">{{ contractLevelLabel(emp.level) }}</span>
-                      <span class="new-badge" *ngIf="emp.isNewEmployee" title="Niveau Débutant — samedis en demi-journée">Débutant</span>
                     </div>
                     <!-- Actions commentaire -->
                     <div class="emp-actions" *ngIf="planning!.status === 'Draft'">

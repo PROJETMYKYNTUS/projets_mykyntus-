@@ -248,4 +248,26 @@ public static class PlanningSchemaPatches
             """,
             ct);
     }
+
+    public static async Task EnsureEmployeeImportSourceFileColumnsAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE "EmployeeImportSessions"
+              ADD COLUMN IF NOT EXISTS "FileContent" bytea NULL;
+            ALTER TABLE "EmployeeImportSessions"
+              ADD COLUMN IF NOT EXISTS "ContentType" character varying(128) NULL;
+            ALTER TABLE "EmployeeImportJobs"
+              ADD COLUMN IF NOT EXISTS "FileContent" bytea NULL;
+            ALTER TABLE "EmployeeImportJobs"
+              ADD COLUMN IF NOT EXISTS "ContentType" character varying(128) NULL;
+            ALTER TABLE "EmployeeImportJobs"
+              ADD COLUMN IF NOT EXISTS "ProcessedLignes" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "EmployeeImportJobs"
+              ADD COLUMN IF NOT EXISTS "Status" character varying(32) NOT NULL DEFAULT 'Completed';
+            ALTER TABLE "EmployeeImportJobs"
+              ADD COLUMN IF NOT EXISTS "ErrorMessage" text NULL;
+            """,
+            ct);
+    }
 }

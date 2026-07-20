@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { GitBranch } from 'lucide';
 import { AdminPrimeService } from '../../services/admin-prime.service';
-import type { AdminWorkflowConfig } from '../../mock-data/admin';
+import type { AdminWorkflowConfig } from '../../models/admin.models';
 import { WorkflowAdminComponent } from '../../components/admin/workflow-admin.component';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 

@@ -154,6 +154,23 @@ public class EmployeeImportController(IEmployeeImportService importService, IEmp
         return report is null ? NotFound() : Ok(report);
     }
 
+    [HttpGet("history/{jobId:guid}/file")]
+    public async Task<IActionResult> DownloadSourceFile(Guid jobId, CancellationToken ct)
+    {
+        var denied = DenyUnlessHrOrAdmin();
+        if (denied is not null) return denied;
+
+        var file = await importService.GetJobSourceFileAsync(jobId, ct);
+        if (file is null)
+            return NotFound("Fichier source indisponible pour cet import.");
+
+        var contentType = string.IsNullOrWhiteSpace(file.ContentType)
+            ? "application/octet-stream"
+            : file.ContentType;
+
+        return File(file.Content, contentType, file.FileName);
+    }
+
     [HttpGet("history/{jobId:guid}/errors.csv")]
     public async Task<IActionResult> ExportErrors(Guid jobId, CancellationToken ct)
     {

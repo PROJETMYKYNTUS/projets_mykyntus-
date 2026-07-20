@@ -15,14 +15,16 @@ import {
   DocumentationIdentityService,
   documentationIdentityInitFactory,
 } from './core/services/documentation-identity.service';
-import { parrainageDemoInterceptor } from './features/parrainage/interceptors/parrainage-demo.interceptor';
 import { parrainageIdentityInterceptor } from './features/parrainage/interceptors/parrainage-identity.interceptor';
-import { primeDemoInterceptor } from './features/prime/interceptors/prime-demo.interceptor';
 import { primeIdentityInterceptor } from './features/prime/interceptors/prime-identity.interceptor';
 import {
   KyntusNotificationInitService,
   kyntusNotificationInitFactory,
 } from './core/notifications/kyntus-notification-init.service';
+import {
+  KyntusIdleLogoutService,
+  kyntusIdleLogoutInitFactory,
+} from './core/session/kyntus-idle-logout.service';
 import { EMPLOYEE_IMPORT_HOST } from './features/users/pages/employee-import-guided/employee-import-host.context';
 import { KyntusSessionService } from './core/session/kyntus-session.service';
 
@@ -34,8 +36,6 @@ export const appConfig: ApplicationConfig = {
       withInterceptors([
         primeIdentityInterceptor,
         parrainageIdentityInterceptor,
-        primeDemoInterceptor,
-        parrainageDemoInterceptor,
       ]),
     ),
     {
@@ -54,6 +54,12 @@ export const appConfig: ApplicationConfig = {
       provide: APP_INITIALIZER,
       useFactory: documentationIdentityInitFactory,
       deps: [DocumentationIdentityService],
+      multi: true,
+    },
+    {
+      provide: APP_INITIALIZER,
+      useFactory: kyntusIdleLogoutInitFactory,
+      deps: [KyntusIdleLogoutService],
       multi: true,
     },
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },

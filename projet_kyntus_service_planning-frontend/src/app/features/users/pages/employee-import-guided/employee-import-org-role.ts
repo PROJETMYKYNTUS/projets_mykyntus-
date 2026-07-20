@@ -53,5 +53,5 @@ export function requiredOrgColumnsMessage(depth: EmployeeImportOrgDepth): string
 
 /** Message si création de pôle sans département de production mappable. */
 export function operationalDeptRequiredForPoleCreationMessage(poleName: string): string {
-  return `Département de production requis pour créer le pôle « ${poleName} » — mappez la colonne ou utilisez un pôle existant.`;
+  return `Département de production requis pour créer le pôle « ${poleName} » — mappez la colonne (il sera proposé à la création s'il n'existe pas encore).`;
 }

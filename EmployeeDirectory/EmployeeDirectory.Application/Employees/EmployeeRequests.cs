@@ -40,6 +40,40 @@ public sealed class CreateEmployeeCommandHandler(IDirectoryWriteService write)
         write.CreateEmployeeAsync(request.Body, request.ChangedBy, ct);
 }
 
+public record BulkCreateEmployeesCommand(BulkCreateEmployeesRequest Body, Guid? ChangedBy)
+    : IRequest<IReadOnlyList<BulkCreateEmployeeResult>>;
+
+public sealed class BulkCreateEmployeesCommandHandler(IMediator mediator)
+    : IRequestHandler<BulkCreateEmployeesCommand, IReadOnlyList<BulkCreateEmployeeResult>>
+{
+    public async Task<IReadOnlyList<BulkCreateEmployeeResult>> Handle(
+        BulkCreateEmployeesCommand request,
+        CancellationToken ct)
+    {
+        var results = new List<BulkCreateEmployeeResult>();
+
+        foreach (var item in request.Body.Items)
+        {
+            try
+            {
+                var created = await mediator.Send(new CreateEmployeeCommand(item, request.ChangedBy), ct);
+                Guid? employeeId = Guid.TryParse(created.Id, out var parsedId) ? parsedId : null;
+                results.Add(new BulkCreateEmployeeResult(item.Email, true, employeeId, null));
+            }
+            catch (InvalidOperationException ex)
+            {
+                results.Add(new BulkCreateEmployeeResult(item.Email, false, null, ex.Message));
+            }
+            catch (Exception ex)
+            {
+                results.Add(new BulkCreateEmployeeResult(item.Email, false, null, ex.Message));
+            }
+        }
+
+        return results;
+    }
+}
+
 public record UpdateEmployeeCommand(Guid Id, UpdateEmployeeRequest Body, Guid? ChangedBy) : IRequest<EmployeeDto?>;
 
 public sealed class UpdateEmployeeCommandHandler(IDirectoryWriteService write)

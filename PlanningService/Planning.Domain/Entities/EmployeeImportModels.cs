@@ -28,7 +28,14 @@ public class EmployeeImportJob
 {
     public Guid Id { get; set; }
     public string FileName { get; set; } = string.Empty;
+    /// <summary>Fichier source uploadé (traçabilité historique).</summary>
+    public byte[]? FileContent { get; set; }
+    public string? ContentType { get; set; }
     public int TotalLignes { get; set; }
+    public int ProcessedLignes { get; set; }
+    /// <summary>Pending | Running | Completed | Failed</summary>
+    public string Status { get; set; } = "Pending";
+    public string? ErrorMessage { get; set; }
     public int Crees { get; set; }
     public int MisAJour { get; set; }
     public int Ignores { get; set; }
@@ -54,6 +61,9 @@ public class EmployeeImportSession
 {
     public Guid Id { get; set; }
     public string FileName { get; set; } = string.Empty;
+    /// <summary>Fichier source uploadé (copié vers le job à l'exécution).</summary>
+    public byte[]? FileContent { get; set; }
+    public string? ContentType { get; set; }
     public string HeadersJson { get; set; } = "[]";
     public string RowsJson { get; set; } = "[]";
     public DateTime CreatedAt { get; set; }

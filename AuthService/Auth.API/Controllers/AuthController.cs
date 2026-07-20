@@ -5,6 +5,7 @@ using Auth.Application.Commands.Logout;
 using Auth.Application.Commands.RefreshToken;
 using Auth.Application.Commands.Register;
 using Auth.Application.Commands.RegisterFromPlanning;
+using Auth.Application.Commands.RegisterFromPlanningBatch;
 using Auth.Application.DTOs;
 using Auth.Application.Queries.CheckEmail;
 using Auth.Application.Queries.CheckUsername;
@@ -178,6 +179,25 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "❌ Erreur création user depuis Planning");
+            return StatusCode(500, new { message = "Erreur serveur" });
+        }
+    }
+
+    [HttpPost("register-from-planning-batch")]
+    [AllowAnonymous]
+    public async Task<IActionResult> RegisterFromPlanningBatch([FromBody] RegisterFromPlanningBatchDto dto)
+    {
+        try
+        {
+            if (dto.Items is null || dto.Items.Count == 0)
+                return BadRequest(new { message = "items requis." });
+
+            var response = await _mediator.Send(new RegisterFromPlanningBatchCommand(dto));
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erreur création batch users depuis Planning");
             return StatusCode(500, new { message = "Erreur serveur" });
         }
     }

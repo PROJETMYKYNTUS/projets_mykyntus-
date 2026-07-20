@@ -117,7 +117,20 @@ selectedHolidayShiftId      = 0;
           this.planningUserId = user?.id ?? null;
           this.loadPlanning(+id);
         },
-        error: () => this.loadPlanning(+id),
+        error: () => {
+          const authId = this.session.getAuthUserId();
+          if (authId > 0) {
+            this.userService.getUserByAuthId(authId).subscribe({
+              next: (user) => {
+                this.planningUserId = user?.id ?? null;
+                this.loadPlanning(+id);
+              },
+              error: () => this.loadPlanning(+id),
+            });
+          } else {
+            this.loadPlanning(+id);
+          }
+        },
       });
       this.loadShifts();
     }
@@ -145,25 +158,32 @@ selectedHolidayShiftId      = 0;
           });
         }
 
-        // Enregistre la consultation (Admin/RH) pour activer Valider
-        if (this.canValidate && this.planningUserId && data.status === 'Draft') {
-          this.consulting = true;
-          this.planningService.consultPlanning(data.id, this.planningUserId).subscribe({
-            next: () => {
-              this.hasConsulted = true;
-              this.consulting = false;
-              this.cdr.detectChanges();
-            },
-            error: () => {
-              this.consulting = false;
-              this.cdr.detectChanges();
-            },
-          });
+        // Ouvrir l’écran = consultation : Valider actif tout de suite
+        if (this.canValidate && data.status === 'Draft') {
+          this.hasConsulted = true;
+          this.recordConsultation();
         }
 
         this.cdr.detectChanges();
       },
       error: () => { this.loading = false; this.cdr.detectChanges(); }
+    });
+  }
+
+  /** Persiste la consultation côté API (requis pour publier) sans bloquer le bouton. */
+  private recordConsultation(): void {
+    if (!this.planning || !this.planningUserId || this.planning.status !== 'Draft') return;
+    this.consulting = true;
+    this.planningService.consultPlanning(this.planning.id, this.planningUserId).subscribe({
+      next: () => {
+        this.hasConsulted = true;
+        this.consulting = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.consulting = false;
+        this.cdr.detectChanges();
+      },
     });
   }
 
@@ -193,10 +213,6 @@ selectedHolidayShiftId      = 0;
   // ── Validation ────────────────────────────────────
   publishPlanning(): void {
     if (!this.planning || !this.canValidate) return;
-    if (!this.hasConsulted) {
-      this.error = 'Consultez d\'abord le planning pour activer la validation.';
-      return;
-    }
 
     const under = this.planning.coverageReport?.hasUnderstaffing;
     if (under) {
@@ -220,9 +236,16 @@ selectedHolidayShiftId      = 0;
       return;
     }
 
-    this.planningService.publish(this.planning.id, this.planningUserId).subscribe({
+    const userId = this.planningUserId;
+    const planningId = this.planning.id;
+
+    // Garantit la consultation API avant publish (ouverture de l’écran = consultation)
+    this.planningService.consultPlanning(planningId, userId).pipe(
+      switchMap(() => this.planningService.publish(planningId, userId)),
+    ).subscribe({
       next: data => {
         this.planning   = data;
+        this.hasConsulted = true;
         this.publishing = false;
         this.successMsg = 'Planning validé !';
         this.cdr.detectChanges();
@@ -293,49 +316,53 @@ selectedHolidayShiftId      = 0;
     return this.planning?.coverageReport?.daySynthesis?.find(d => d.day === day) ?? null;
   }
 
-  dayMixChips(day: string): { label: string; bad: boolean }[] {
+  /** Chips actionnables sous l’en-tête de jour (sous-effectif, excédent, débutant seul). */
+  dayDecisionChips(day: string): { label: string; kind: 'shortage' | 'surplus' | 'alone' }[] {
     const syn = this.daySynthesisFor(day);
-    if (!syn?.shifts?.length) return [];
-    return syn.shifts
-      .filter((s) => (s.assignedCount ?? 0) > 0)
-      .map((s) => {
-        const d = s.beginnerCount ?? 0;
-        const c = s.seniorCount ?? 0;
-        return {
-          label: `${s.shiftLabel} ${d}/${c}`,
-          bad: d > 0 && c === 0,
-        };
-      });
+    if (!syn) return [];
+    const chips: { label: string; kind: 'shortage' | 'surplus' | 'alone' }[] = [];
+
+    if (day === 'Saturday') {
+      const beginners = syn.saturdayBeginners ?? 0;
+      const seniors = syn.saturdaySeniors ?? 0;
+      if (beginners > 0 && seniors === 0) {
+        chips.push({ label: 'Débutant seul · samedi', kind: 'alone' });
+      }
+      return chips;
+    }
+
+    if (!syn.shifts?.length) return chips;
+
+    for (const s of syn.shifts) {
+      const delta = s.delta ?? 0;
+      if (delta < 0) {
+        chips.push({ label: `Manque ${Math.abs(delta)} · ${s.shiftLabel}`, kind: 'shortage' });
+      } else if (delta > 0) {
+        chips.push({ label: `Excédent ${delta} · ${s.shiftLabel}`, kind: 'surplus' });
+      }
+      if (s.hasLevelBalanceAnomaly) {
+        chips.push({
+          label: `Débutant seul · ${this.shiftKindContext(s.shiftKind)}`,
+          kind: 'alone',
+        });
+      }
+    }
+    return chips;
   }
 
-  saturdayMixChip(day: string): { label: string; bad: boolean } | null {
-    if (day !== 'Saturday') return null;
-    const syn = this.daySynthesisFor(day);
-    if (!syn) return null;
-    const d = syn.saturdayBeginners ?? 0;
-    const c = syn.saturdaySeniors ?? 0;
-    if (d + c === 0) return null;
-    return { label: `Sam ${d}/${c}`, bad: d > 0 && c === 0 };
-  }
-
-  dayDeltaChips(day: string): { label: string; delta: number }[] {
-    const syn = this.daySynthesisFor(day);
-    if (!syn?.shifts?.length || day === 'Saturday') return [];
-    return syn.shifts
-      .filter((s) => (s.delta ?? 0) !== 0)
-      .map((s) => ({
-        label: `${s.shiftLabel} ${s.delta > 0 ? '+' : ''}${s.delta}`,
-        delta: s.delta,
-      }));
+  private shiftKindContext(kind?: string): string {
+    switch ((kind ?? '').toLowerCase()) {
+      case 'opening':
+        return 'ouverture';
+      case 'closing':
+        return 'fermeture';
+      default:
+        return 'milieu';
+    }
   }
 
   daySynthTooltip(day: string): string {
-    const parts = [
-      ...this.dayMixChips(day).map((c) => c.label),
-      ...this.dayDeltaChips(day).map((d) => d.label),
-    ];
-    const sam = this.saturdayMixChip(day);
-    if (sam) parts.unshift(sam.label);
+    const parts = this.dayDecisionChips(day).map((c) => c.label);
     const syn = this.daySynthesisFor(day);
     if (syn?.leaveCount) parts.unshift(`${syn.leaveCount} absence(s)`);
     return parts.join(' · ');
@@ -343,7 +370,12 @@ selectedHolidayShiftId      = 0;
 
   dayHasLevelAnomaly(day: string): boolean {
     const syn = this.daySynthesisFor(day);
-    return !!syn?.hasAnyAnomaly && !!syn.shifts?.some(s => s.hasLevelBalanceAnomaly);
+    if (day === 'Saturday') {
+      const beginners = syn?.saturdayBeginners ?? 0;
+      const seniors = syn?.saturdaySeniors ?? 0;
+      return beginners > 0 && seniors === 0;
+    }
+    return !!syn?.shifts?.some(s => s.hasLevelBalanceAnomaly);
   }
 
   getAssignment(employee: EmployeePlanning, day: string): DayAssignment | null {

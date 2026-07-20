@@ -6,11 +6,11 @@ namespace Auth.Application;
 
 internal static class AuthResponseMapper
 {
-    public static AuthResponseDto ToDto(User user, string accessToken) => new()
+    public static AuthResponseDto ToDto(User user, string accessToken, int expiresInSeconds) => new()
     {
         AccessToken = accessToken,
         RefreshToken = user.RefreshToken ?? string.Empty,
-        ExpiresIn = 900,
+        ExpiresIn = expiresInSeconds > 0 ? expiresInSeconds : 3600,
         TokenType = "Bearer",
         User = new UserDto
         {

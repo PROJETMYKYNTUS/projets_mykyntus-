@@ -89,7 +89,8 @@ if (isTesting)
 else
 {
     await PlanningStartup.InitializeAsync(app.Services, app.Configuration);
-    PlanningStartup.RegisterDirectoryOrgBootstrap(app.Services);
+    // Syncs lourdes après écoute — sinon Compose timeout sur health (~6 min).
+    PlanningStartup.RegisterPostListenBootstrap(app.Services, app.Configuration);
 }
 
 if (app.Environment.IsDevelopment())

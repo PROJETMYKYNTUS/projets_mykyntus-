@@ -147,4 +147,16 @@ public class EmployeeImportOperationalDeptResolverTests
 
         Assert.Null(id);
     }
+
+    [Theory]
+    [InlineData("OP-001", "OP-001", "OP-001")]
+    [InlineData("OP-001 - Contact centre", "OP-001", "Contact centre")]
+    [InlineData("OP 002: Plateforme", "OP-002", "Plateforme")]
+    [InlineData("Departement Nord", null, "Departement Nord")]
+    public void ParseCodeAndName_splits_code_and_label(string raw, string? expectedCode, string expectedName)
+    {
+        var (code, name) = EmployeeImportOperationalDeptResolver.ParseCodeAndName(raw);
+        Assert.Equal(expectedCode, code);
+        Assert.Equal(expectedName, name);
+    }
 }

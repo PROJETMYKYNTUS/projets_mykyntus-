@@ -1,13 +1,15 @@
 namespace Planning.Infrastructure.Services.EmployeeImport;
 
 /// <summary>
-/// Normalisation des noms d'organisation à l'import (retrait préfixes métier redondants).
+/// Normalisation des noms d'organisation à l'import (retrait préfixes redondants du niveau).
+/// Pôle et Département de production sont des entités distinctes : ne jamais retirer
+/// « département / department » d'un libellé de pôle.
 /// </summary>
 public static class EmployeeImportOrgNameNormalizer
 {
     private static readonly Dictionary<string, string[]> LevelPrefixes = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["pole"] = ["departement", "department", "etage", "pole", "pôle"],
+        ["pole"] = ["etage", "étage", "pole", "pôle"],
         ["cellule"] = ["equipe mere", "équipe mère", "unite", "unité", "cellule", "cell"],
         ["service"] = ["sous service", "sous-service", "sub service", "subservice", "equipe", "équipe", "service"],
     };

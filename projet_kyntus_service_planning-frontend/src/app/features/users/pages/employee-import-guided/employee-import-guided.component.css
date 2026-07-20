@@ -140,6 +140,66 @@
   margin: 0 0 12px;
 }
 
+.import-progress {
+  height: 8px;
+  margin: 0 0 16px;
+  border-radius: 4px;
+  background: var(--border-color, #e2e8f0);
+  overflow: hidden;
+}
+
+.import-progress__bar {
+  height: 100%;
+  background: var(--ky-primary, #0f766e);
+  transition: width 0.3s ease;
+}
+
+.import-running {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 16px 20px;
+  text-align: center;
+}
+
+.import-running__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.import-running__label {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+
+.import-running__hint {
+  margin: 4px 0 0;
+  max-width: 420px;
+}
+
+.import-running .import-progress {
+  width: min(100%, 360px);
+  margin: 4px 0 0;
+}
+
+.import-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color, #e2e8f0);
+  border-top-color: var(--ky-primary, #0f766e);
+  border-radius: 50%;
+  animation: import-spin 0.8s linear infinite;
+}
+
+@keyframes import-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .mapping-table {
   width: 100%;
   border-collapse: collapse;
@@ -223,6 +283,42 @@
   opacity: 0.9;
 }
 
+.validation-title-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  opacity: 0.9;
+  cursor: pointer;
+  text-align: left;
+}
+
+.validation-title-toggle:hover {
+  opacity: 1;
+}
+
+.validation-chevron {
+  display: inline-block;
+  transition: transform 0.15s ease;
+  font-size: 0.75rem;
+}
+
+.validation-chevron.is-open {
+  transform: rotate(90deg);
+}
+
+.mapping-validation .alert-item:first-of-type {
+  margin-top: 8px;
+}
+
 .resume-banner {
   grid-column: 1 / -1;
   margin-bottom: 0;
@@ -237,8 +333,19 @@
 
 .preview-scroll {
   overflow-x: auto;
-  max-height: 360px;
+  max-height: 480px;
   overflow-y: auto;
+}
+
+.preview-pager {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.preview-pager__spacer {
+  flex: 1 1 auto;
+  min-width: 12px;
+  margin: 0;
 }
 
 .mapping-table.compact td,
@@ -297,6 +404,19 @@
   cursor: pointer;
   text-decoration: underline;
   padding: 0;
+}
+
+.file-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 320px;
+}
+
+.file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .error-text {

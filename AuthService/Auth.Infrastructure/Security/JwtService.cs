@@ -16,6 +16,8 @@ public class JwtService : IJwtService
     private readonly string _audience;
     private readonly int _accessTokenExpirationMinutes;
 
+    public int AccessTokenExpiresInSeconds => Math.Max(60, _accessTokenExpirationMinutes * 60);
+
     public JwtService(IConfiguration configuration)
     {
         _secretKey = configuration["JwtSettings:Secret"]

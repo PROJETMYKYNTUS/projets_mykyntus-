@@ -44,6 +44,18 @@
 .mp-card-head h3 { margin: 6px 0 2px; font-size: 1.05rem; color: var(--text-primary); }
 .mp-sub { margin: 0; font-size: 0.82rem; color: var(--text-muted); }
 
+.mp-deadline-ok {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--success-text, #15803d);
+}
+
+.mp-deadline-passed {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--danger-text, #b91c1c);
+}
+
 .mp-badge {
   display: inline-block;
   font-size: 0.72rem;

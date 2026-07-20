@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { firstValueFrom, interval } from 'rxjs';
+import { firstValueFrom, interval, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import {
   NotificationService,
   planningNotificationId,
@@ -295,20 +296,28 @@ export class KyntusNotificationHubService {
       return { route: resolveFormationDeepLink(n.weekCode ?? '', n.deepLink) };
     }
     if (src === 'planning') {
-      // Les employés n'ont pas accès à /planning (vue manager) — uniquement /mes-plannings.
       if (n.deepLink?.startsWith('/')) {
         return { route: n.deepLink };
       }
+      const sub = (n.subServiceName ?? '').toLowerCase();
+      if (sub.includes('demande')) {
+        const r = jwtRole.trim().toLowerCase();
+        if (r === 'admin' || r === 'rh') {
+          return { route: '/planning/change-requests' };
+        }
+        return { route: '/mes-plannings' };
+      }
+      // Les employés n'ont pas accès à /planning (vue manager) — uniquement /mes-plannings.
       const r = jwtRole.trim().toLowerCase();
       const canOpenManagerPlanning = [
         'admin', 'rh', 'manager', 'coach', 'rp', 'pilote', 'audit',
         'equipe_formation', 'equipe formation', 'formateur',
       ].includes(r);
-      if (canOpenManagerPlanning) {
-        if (n.weeklyPlanningId) {
-          return { route: `/planning/view/${n.weeklyPlanningId}` };
-        }
-        return { route: '/planning' };
+      if (canOpenManagerPlanning && n.weeklyPlanningId) {
+        return { route: `/planning/view/${n.weeklyPlanningId}` };
+      }
+      if (canOpenManagerPlanning && !n.weeklyPlanningId) {
+        return { route: '/planning/validation' };
       }
       return { route: '/mes-plannings' };
     }
@@ -375,7 +384,9 @@ export class KyntusNotificationHubService {
     const role = (this.session.getRole() || '').toLowerCase();
 
     try {
-      const planningUser = await firstValueFrom(this.userService.getCurrentUser());
+      const planningUser = await firstValueFrom(
+        this.userService.getCurrentUser().pipe(catchError(() => of(null))),
+      );
       const employeGuid = planningUser?.guid?.trim();
       if (!employeGuid) {
         this.congeItems.set([]);

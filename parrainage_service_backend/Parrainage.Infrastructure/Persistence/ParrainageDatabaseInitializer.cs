@@ -1,16 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using Parrainage.Infrastructure.Services;
 
 namespace Parrainage.Infrastructure.Persistence;
 
 /// <summary>
-/// Applique les migrations EF au démarrage (avec rattrapage si le schéma a été créé par l'ancien EnsureCreated),
-/// puis seed optionnel si <c>Parrainage:SeedDemoData</c> est activé.
+/// Applique les migrations EF au démarrage (avec rattrapage si le schéma a été créé par l'ancien EnsureCreated).
 /// </summary>
 public sealed class ParrainageDatabaseInitializer(
     IServiceScopeFactory scopeFactory,
-    IConfiguration configuration,
     ILogger<ParrainageDatabaseInitializer> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -39,33 +36,8 @@ public sealed class ParrainageDatabaseInitializer(
         }
 
         await ParrainageSchemaPatches.ApplyPendingSchemaAsync(db, logger, cancellationToken);
-
-        var seedDemo = configuration.GetValue("Parrainage:SeedDemoData", false);
-        logger.LogInformation("PARRAINAGE : SeedDemoData={SeedDemo}.", seedDemo);
-        try
-        {
-            await ParrainageKyntusUsersSeeder.SeedPortalUsersAsync(db, logger, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "PARRAINAGE : échec seed utilisateurs portail.");
-        }
-
-        if (seedDemo)
-        {
-            try
-            {
-                await ParrainageSeeder.SeedAsync(db, logger, cancellationToken);
-                var cvStorage = scope.ServiceProvider.GetRequiredService<ReferralCvStorageService>();
-                await ParrainageDemoCvSeeder.EnsureAsync(db, cvStorage, logger, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "PARRAINAGE : échec du seed de démonstration.");
-            }
-        }
+        logger.LogInformation("PARRAINAGE : base prête (sans seed démo).");
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
-

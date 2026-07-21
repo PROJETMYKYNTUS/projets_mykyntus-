@@ -18,6 +18,13 @@
 /dir
 /docker-compose.yml.backup
 /docker-compose.override.yml
+/_audit_*
+/_login_*
+/_t.json
+/_phase0_now.cmd
+/_run_docker_audit.ps1
+/RUN_E2E_AUDIT.cmd
+/TRY_LOGIN.cmd
 
 # Profil URL actif (régénéré par scripts/switch-kyntus-urls.ps1)
 /config/kyntus-public-urls.active.json

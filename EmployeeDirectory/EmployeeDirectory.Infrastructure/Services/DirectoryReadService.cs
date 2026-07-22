@@ -264,7 +264,13 @@ public sealed class DirectoryReadService(DirectoryDbContext db) : IDirectoryRead
         e.Email,
         null,
         e.BusinessDepartmentId?.ToString(),
-        e.BusinessDepartment?.Kind.ToString());
+        e.BusinessDepartment?.Kind.ToString(),
+        e.ChefDeProjetId?.ToString(),
+        e.SuperviseurId?.ToString(),
+        e.ReferentTechniqueId?.ToString(),
+        null,
+        e.IdTechnicien,
+        e.HtelCode);
 
     private static BusinessDepartmentDto MapBusinessDepartment(BusinessDepartment d, IReadOnlyList<string> poleIds) => new(
         d.Id.ToString(),

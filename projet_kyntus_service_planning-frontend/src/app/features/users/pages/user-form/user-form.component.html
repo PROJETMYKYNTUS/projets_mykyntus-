@@ -228,6 +228,24 @@
 
               </div>
 
+              <div class="form-group">
+                <label for="htelIdTechnicien">ID technicien HTEL</label>
+                <input class="ky-input" id="htelIdTechnicien" name="htelIdTechnicien" type="text" [ngModel]="htelIdTechnicien ?? ''" readonly />
+              </div>
+
+              <div class="form-group">
+                <label for="htelCode">Code HTEL</label>
+                <input class="ky-input" id="htelCode" name="htelCode" type="text" [ngModel]="htelCode" readonly />
+              </div>
+
+              @if (htelPreviewHint) {
+                <div class="form-group form-group--full">
+                  <p class="section-hint">{{ htelPreviewHint }}
+                    <a routerLink="/users/htel-liaisons">Voir les liaisons HTEL</a>
+                  </p>
+                </div>
+              }
+
               @if (!referralLockedFromUrl && referralMatchBanner; as match) {
                 <div class="form-group form-group--full">
                   <div class="alert alert-warning referral-match-banner" role="status">

@@ -38,6 +38,10 @@ public class DirectoryDbContext(DbContextOptions<DirectoryDbContext> options) : 
                 .ValueGeneratedNever();
             e.HasIndex(x => x.Email).IsUnique();
             e.HasIndex(x => x.BusinessDepartmentId);
+            e.Property(x => x.HtelCode).HasMaxLength(128);
+            e.HasIndex(x => x.IdTechnicien)
+                .IsUnique()
+                .HasFilter("\"IdTechnicien\" IS NOT NULL");
             e.HasOne(x => x.BusinessDepartment).WithMany().HasForeignKey(x => x.BusinessDepartmentId);
         });
 

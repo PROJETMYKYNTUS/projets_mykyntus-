@@ -1,3 +1,4 @@
+using EmployeeDirectory.Application.Abstractions;
 using EmployeeDirectory.Application.BusinessDepartments;
 using EmployeeDirectory.Application.Dtos;
 using EmployeeDirectory.Application.Employees;
@@ -451,6 +452,64 @@ public class DirectoryBusinessDepartmentsController(IMediator mediator) : Contro
     [Authorize(Roles = "Admin,RH")]
     public async Task<IActionResult> ClearManager(Guid id, CancellationToken ct) =>
         await mediator.Send(new ClearBusinessDepartmentManagerCommand(id), ct) ? NoContent() : NotFound();
+}
+
+[ApiController]
+[Route("api/directory/htel")]
+[Authorize]
+public class DirectoryHtelController(IHtelFusionService htelFusion) : ControllerBase
+{
+    [HttpGet("techniciens")]
+    public async Task<ActionResult<IReadOnlyList<HtelTechnicienDto>>> ListTechniciens(
+        [FromQuery] bool? actifOnly,
+        CancellationToken ct) =>
+        Ok(await htelFusion.ListTechniciensAsync(actifOnly, ct));
+
+    [HttpGet("liaisons")]
+    [Authorize(Roles = "Admin,RH")]
+    public async Task<ActionResult<HtelLiaisonsReportDto>> Liaisons(CancellationToken ct) =>
+        Ok(await htelFusion.GetLiaisonsAsync(ct));
+
+    [HttpPost("techniciens/sync")]
+    [Authorize(Roles = "Admin,RH")]
+    public async Task<ActionResult<HtelSyncReportDto>> Sync(CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await htelFusion.SyncAsync(ct));
+        }
+        catch (HttpRequestException ex)
+        {
+            return StatusCode(502, new { error = "HTEL indisponible.", detail = ex.Message });
+        }
+    }
+
+    [HttpPost("liaisons/link")]
+    [Authorize(Roles = "Admin,RH")]
+    public async Task<IActionResult> Link([FromBody] HtelLinkRequest body, CancellationToken ct)
+    {
+        if (body.EmployeeId == Guid.Empty || body.IdTechnicien <= 0)
+            return BadRequest(new { error = "employeeId et idTechnicien requis." });
+        try
+        {
+            return await htelFusion.LinkAsync(body.EmployeeId, body.IdTechnicien, ct)
+                ? NoContent()
+                : NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("liaisons/unlink")]
+    [Authorize(Roles = "Admin,RH")]
+    public async Task<IActionResult> Unlink([FromBody] HtelUnlinkRequest body, CancellationToken ct)
+    {
+        if (body.EmployeeId == Guid.Empty)
+            return BadRequest(new { error = "employeeId requis." });
+        return await htelFusion.UnlinkAsync(body.EmployeeId, ct) ? NoContent() : NotFound();
+    }
 }
 
 [ApiController]

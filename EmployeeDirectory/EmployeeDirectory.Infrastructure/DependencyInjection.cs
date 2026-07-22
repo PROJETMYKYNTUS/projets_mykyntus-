@@ -38,6 +38,20 @@ public static class DependencyInjection
         services.AddScoped<IDirectoryWriteService, DirectoryWriteService>();
         services.AddScoped<IDirectoryReconciliationService, DirectoryReconciliationService>();
         services.AddHttpClient("DirectoryReconcile");
+        services.AddHttpClient("Htel", (sp, client) =>
+        {
+            var configuration = sp.GetRequiredService<IConfiguration>();
+            var baseUrl = configuration["Htel:BaseUrl"]?.Trim() ?? "https://htel-groupe.fr/";
+            if (!baseUrl.EndsWith('/'))
+                baseUrl += "/";
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+            var apiKey = configuration["Htel:ApiKey"]?.Trim();
+            if (!string.IsNullOrEmpty(apiKey))
+                client.DefaultRequestHeaders.TryAddWithoutValidation("X-Api-Key", apiKey);
+        });
+        services.AddScoped<IHtelTechnicienClient, HtelTechnicienClient>();
+        services.AddScoped<IHtelFusionService, HtelFusionService>();
         services.AddScoped<DirectoryHierarchyService>();
         services.AddScoped<IIamReadService, DirectoryIamReadService>();
         services.AddScoped<IPermissionCatalog, DirectoryIamReadService>();

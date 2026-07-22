@@ -64,6 +64,13 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email)
             .IsUnique();
+        modelBuilder.Entity<User>()
+            .Property(u => u.HtelCode)
+            .HasMaxLength(128);
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.IdTechnicien)
+            .IsUnique()
+            .HasFilter("\"IdTechnicien\" IS NOT NULL");
 
         // ── Role ──
         modelBuilder.Entity<Role>()

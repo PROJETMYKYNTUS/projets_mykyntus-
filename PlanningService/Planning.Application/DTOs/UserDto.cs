@@ -24,6 +24,8 @@ public class UserDto
     public Guid? ChefDeProjetId { get; set; }
     public Guid? SuperviseurId { get; set; }
     public Guid? ReferentTechniqueId { get; set; }
+    public int? IdTechnicien { get; set; }
+    public string? HtelCode { get; set; }
     public UserHrProfileDto? HrProfile { get; set; }
     public List<ServiceSimpleDto> ManagedServices { get; set; } = new();
     public Dictionary<string, string?> CustomFields { get; set; } = new();

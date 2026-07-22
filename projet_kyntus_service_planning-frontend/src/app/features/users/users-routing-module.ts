@@ -5,6 +5,11 @@ const routes: Routes = [
   { path: '', loadComponent: () => import('./pages/user-list/user-list.component').then(m => m.UserListComponent) },
   { path: 'create', loadComponent: () => import('./pages/user-form/user-form.component').then(m => m.UserFormComponent) },
   { path: 'fields', loadComponent: () => import('./pages/employee-fields/employee-fields-page.component').then(m => m.EmployeeFieldsPageComponent) },
+  {
+    path: 'htel-liaisons',
+    loadComponent: () =>
+      import('./pages/htel-liaisons/htel-liaisons-page.component').then((m) => m.HtelLiaisonsPageComponent),
+  },
   { path: 'edit/:id', loadComponent: () => import('./pages/user-form/user-form.component').then(m => m.UserFormComponent) },
   {
     path: 'import',

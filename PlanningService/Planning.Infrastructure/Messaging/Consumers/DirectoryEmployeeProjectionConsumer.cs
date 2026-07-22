@@ -50,6 +50,8 @@ public sealed class DirectoryEmployeeProjectionConsumer(AppDbContext db) :
                 IsActive = msg.IsActive,
                 HireDate = DateTime.UtcNow,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("Azerty@123"),
+                IdTechnicien = msg.IdTechnicien,
+                HtelCode = msg.HtelCode,
             };
             if (!string.IsNullOrWhiteSpace(msg.ServiceId))
             {
@@ -72,6 +74,8 @@ public sealed class DirectoryEmployeeProjectionConsumer(AppDbContext db) :
             user.FirstName = msg.FirstName.Trim();
             user.LastName = msg.LastName.Trim();
             user.IsActive = msg.IsActive;
+            user.IdTechnicien = msg.IdTechnicien;
+            user.HtelCode = msg.HtelCode;
             if (role is not null && !IsStructureRole(user.Role?.Name))
                 user.RoleId = role.Id;
             if (!string.IsNullOrWhiteSpace(msg.ServiceId))

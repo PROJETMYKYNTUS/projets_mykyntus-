@@ -270,4 +270,17 @@ public static class PlanningSchemaPatches
             """,
             ct);
     }
+
+    public static async Task EnsureUserHtelColumnsAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "IdTechnicien" integer NULL;
+            ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "HtelCode" character varying(128) NULL;
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_Users_IdTechnicien"
+                ON "Users" ("IdTechnicien")
+                WHERE "IdTechnicien" IS NOT NULL;
+            """,
+            ct);
+    }
 }

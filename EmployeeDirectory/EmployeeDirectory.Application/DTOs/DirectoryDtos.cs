@@ -16,7 +16,9 @@ public record EmployeeDto(
     string? ChefDeProjetId = null,
     string? SuperviseurId = null,
     string? ReferentTechniqueId = null,
-    EmployeeHrProfileDto? HrProfile = null);
+    EmployeeHrProfileDto? HrProfile = null,
+    int? IdTechnicien = null,
+    string? HtelCode = null);
 
 public record EmployeeHrProfileDto(
     DateOnly? DateNaissance,
@@ -133,7 +135,8 @@ public record CreateEmployeeRequest(
     Guid? ChefDeProjetId = null,
     Guid? SuperviseurId = null,
     Guid? ReferentTechniqueId = null,
-    EmployeeHrProfileDto? HrProfile = null);
+    EmployeeHrProfileDto? HrProfile = null,
+    int? IdTechnicien = null);
 
 public record BulkCreateEmployeesRequest(IReadOnlyList<CreateEmployeeRequest> Items);
 
@@ -152,7 +155,8 @@ public record UpdateEmployeeRequest(
     Guid? ChefDeProjetId = null,
     Guid? SuperviseurId = null,
     Guid? ReferentTechniqueId = null,
-    EmployeeHrProfileDto? HrProfile = null);
+    EmployeeHrProfileDto? HrProfile = null,
+    int? IdTechnicien = null);
 
 public record OrgAssignmentAsOfDto(
     DateTime AsOf,
@@ -234,3 +238,53 @@ public record DirectoryReconcileReportDto(
     int OrphansPrime,
     int OrgGapsFixed,
     DirectoryReconcileVerifyDto Verify);
+
+// ─── HTEL techniciens (source de vérité externe) ───
+
+public record HtelTechnicienDto(int IdTechnicien, string Technicien, int Actif, string Code);
+
+public record HtelLinkedEmployeeDto(
+    string EmployeeId,
+    string FirstName,
+    string LastName,
+    string Email,
+    int IdTechnicien,
+    string? HtelCode,
+    string? HtelTechnicienName);
+
+public record HtelOrphanTechnicienDto(int IdTechnicien, string Technicien, int Actif, string Code);
+
+public record HtelAmbiguousMatchDto(
+    int IdTechnicien,
+    string Technicien,
+    string Code,
+    IReadOnlyList<HtelEmployeeCandidateDto> Candidates);
+
+public record HtelEmployeeCandidateDto(
+    string EmployeeId,
+    string FirstName,
+    string LastName,
+    string Email);
+
+public record HtelUnlinkedEmployeeDto(
+    string EmployeeId,
+    string FirstName,
+    string LastName,
+    string Email);
+
+public record HtelLiaisonsReportDto(
+    IReadOnlyList<HtelLinkedEmployeeDto> Linked,
+    IReadOnlyList<HtelOrphanTechnicienDto> OrphansHtel,
+    IReadOnlyList<HtelAmbiguousMatchDto> Ambiguous,
+    IReadOnlyList<HtelUnlinkedEmployeeDto> UnlinkedEmployees);
+
+public record HtelSyncReportDto(
+    int TechniciensFetched,
+    int LinkedUpdated,
+    int NewlyLinked,
+    int OrphansHtel,
+    int Ambiguous,
+    int UnlinkedEmployees);
+
+public record HtelLinkRequest(Guid EmployeeId, int IdTechnicien);
+public record HtelUnlinkRequest(Guid EmployeeId);

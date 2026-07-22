@@ -17,7 +17,8 @@ public sealed class DirectoryWriteService(
     IOutboxWriter outbox,
     DirectoryHierarchyService hierarchy,
     IOrgStructuralRoleExclusivityService exclusivity,
-    IPilotRotationTenureService pilotRotation) : IDirectoryWriteService
+    IPilotRotationTenureService pilotRotation,
+    IHtelFusionService htelFusion) : IDirectoryWriteService
 {
     public async Task<EmployeeDto> CreateEmployeeAsync(CreateEmployeeRequest request, Guid? changedBy, CancellationToken ct = default)
     {
@@ -63,6 +64,8 @@ public sealed class DirectoryWriteService(
         if (employee.ParentId is null)
             employee.ParentId = await hierarchy.ResolveDefaultParentIdAsync(employee, ct);
 
+        await htelFusion.ApplyLinkOnEmployeeAsync(employee, request.IdTechnicien, ct);
+
         db.Employees.Add(employee);
         await DirectoryHrProfileHelper.UpsertAsync(
             db, outbox, employee.Id, request.HrProfile, employee.HireDate, ct);
@@ -98,6 +101,8 @@ public sealed class DirectoryWriteService(
 
         if (employee.ParentId is null)
             employee.ParentId = await hierarchy.ResolveDefaultParentIdAsync(employee, ct);
+
+        await htelFusion.ApplyLinkOnEmployeeAsync(employee, request.IdTechnicien, ct);
 
         await DirectoryHrProfileHelper.UpsertAsync(
             db, outbox, employee.Id, request.HrProfile, employee.HireDate, ct);
@@ -140,6 +145,8 @@ public sealed class DirectoryWriteService(
 
         if (employee.ParentId is null)
             employee.ParentId = await hierarchy.ResolveDefaultParentIdAsync(employee, ct);
+
+        await htelFusion.ApplyLinkOnEmployeeAsync(employee, request.IdTechnicien, ct);
 
         await DirectoryHrProfileHelper.UpsertAsync(
             db, outbox, employee.Id, request.HrProfile, employee.HireDate, ct);
@@ -940,6 +947,8 @@ public sealed class DirectoryWriteService(
             ChefDeProjetId = employee.ChefDeProjetId,
             SuperviseurId = employee.SuperviseurId,
             ReferentTechniqueId = employee.ReferentTechniqueId,
+            IdTechnicien = employee.IdTechnicien,
+            HtelCode = employee.HtelCode,
         }, aggregateId: employee.Id.ToString(), ct: ct);
 
         if (!emitLegacyCreate || isDeleted)
@@ -990,5 +999,8 @@ public sealed class DirectoryWriteService(
         null,
         e.ChefDeProjetId?.ToString(),
         e.SuperviseurId?.ToString(),
-        e.ReferentTechniqueId?.ToString());
+        e.ReferentTechniqueId?.ToString(),
+        null,
+        e.IdTechnicien,
+        e.HtelCode);
 }

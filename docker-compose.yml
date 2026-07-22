@@ -299,6 +299,8 @@ services:
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_DIRECTORY:?Définir KYNTUS_CONN_DIRECTORY dans .env}
       Prime__BaseUrl: http://prime-backend:8080/
       Planning__BaseUrl: http://planning-backend:8080/
+      Htel__BaseUrl: https://htel-groupe.fr/
+      Htel__ApiKey: ${HTEL_API_KEY:-}
       Directory__EnablePrimeBootstrap: "false"
       <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:

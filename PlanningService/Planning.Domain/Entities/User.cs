@@ -25,6 +25,9 @@ public class User
     public DateTime HireDate { get; set; } = DateTime.UtcNow;
     public bool IsNewEmployee { get; set; } = false;
     public int Level { get; set; } = 1;
+    /// <summary>Miroir Directory / HTEL.</summary>
+    public int? IdTechnicien { get; set; }
+    public string? HtelCode { get; set; }
     public ICollection<UserSubService> ManagedSubServices { get; set; } = new List<UserSubService>();
     public ICollection<ShiftAssignment> ShiftAssignments { get; set; } = new List<ShiftAssignment>();
     public ICollection<Declaration> Declarations { get; set; } = new List<Declaration>();

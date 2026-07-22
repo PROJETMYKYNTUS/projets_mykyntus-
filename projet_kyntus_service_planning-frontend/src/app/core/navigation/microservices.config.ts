@@ -122,6 +122,7 @@ export const MICROSERVICES: Microservice[] = [
     icon: ICONS.users,
     children: [
       { label: 'Employés', route: '/users', roles: ADMIN_RH },
+      { label: 'Liaisons HTEL', route: '/users/htel-liaisons', roles: ADMIN_RH },
       { label: 'Historique rotations', route: '/pilotage-rh', roles: ADMIN_RH },
       { label: 'Champs employés', route: '/users/fields', roles: ADMIN_RH },
       { label: 'Nouvel employé', route: '/users/create', roles: ADMIN_RH },

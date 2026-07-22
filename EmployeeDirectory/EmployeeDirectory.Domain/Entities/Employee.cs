@@ -17,6 +17,10 @@ public class Employee
     public Guid? BusinessDepartmentId { get; set; }
     public BusinessDepartment? BusinessDepartment { get; set; }
     public Guid? AuthSubjectId { get; set; }
+    /// <summary>Identifiant technicien HTEL (source de vérité externe).</summary>
+    public int? IdTechnicien { get; set; }
+    /// <summary>Code HTEL miroir (ex. SUPPORT TECHNICIEN BYTEL).</summary>
+    public string? HtelCode { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime HireDate { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

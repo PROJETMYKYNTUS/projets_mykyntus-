@@ -197,6 +197,8 @@ public sealed class OrgStructuralRoleExclusivityService(
             BusinessDepartmentKind = deptKind,
             IsActive = employee.IsActive,
             IsDeleted = false,
+            IdTechnicien = employee.IdTechnicien,
+            HtelCode = employee.HtelCode,
         }, aggregateId: employee.Id.ToString(), ct: ct);
     }
 }

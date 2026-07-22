@@ -67,6 +67,8 @@ export interface User {
   referentTechniqueId?: string | null;
   hrProfile?: UserHrProfile | null;
   niveauExpertiseMetier?: number | null;
+  idTechnicien?: number | null;
+  htelCode?: string | null;
   customFields?: Record<string, string | null>;
 }
 

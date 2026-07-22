@@ -20,6 +20,8 @@ public record DirectoryEmployeeChangedMessage
     public Guid? ChefDeProjetId { get; init; }
     public Guid? SuperviseurId { get; init; }
     public Guid? ReferentTechniqueId { get; init; }
+    public int? IdTechnicien { get; init; }
+    public string? HtelCode { get; init; }
 }
 
 /// <summary>Profil RH canonique publié après mutation.</summary>

@@ -2,7 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin, defer, of, Observable, throwError } from 'rxjs';
 import { retry, switchMap, map, catchError } from 'rxjs/operators';
 import { formatHttpErrorMessage } from '../../../../core/lib/http-error-message.util';
@@ -13,6 +13,11 @@ import { ServiceService } from '../../../services/services/service';
 import { CreateUserDto, UpdateUserDto, type UserHrProfile } from '../../users-module';
 import { EmployeeFieldService } from '../../services/employee-field.service';
 import type { EmployeeImportFieldConfig } from '../../services/employee-import.service';
+import {
+  findUniqueHtelMatch,
+  HtelApiService,
+  type HtelTechnicienDto,
+} from '../../services/htel-api.service';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-select-sync.directive';
@@ -121,7 +126,7 @@ type WizardStepId = 'identity' | 'position' | 'pathway' | 'finalize';
 @Component({
   selector: 'app-user-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective, KyntusPageHeaderComponent, ContractFieldsComponent],
+  imports: [CommonModule, FormsModule, RouterLink, LucideIconComponent, KyntusSelectSyncDirective, KyntusPageHeaderComponent, ContractFieldsComponent],
   templateUrl: './user-form.component.html',
   styleUrls: ['./user-form.component.css']
 })
@@ -168,6 +173,14 @@ export class UserFormComponent implements OnInit {
   private loadedUserGuid = '';
   customEmployeeFields: EmployeeImportFieldConfig[] = [];
   customFieldValues: Record<string, string> = {};
+
+  /** Miroir HTEL (lecture seule — source de vérité HTEL). */
+  htelIdTechnicien: number | null = null;
+  htelCode = '';
+  htelPreviewHint = '';
+  private preferredIdTechnicien: number | null = null;
+  private htelTechniciensCache: HtelTechnicienDto[] = [];
+
   form = {
     roleId: 0,
     subServiceId: null as number | null,
@@ -284,6 +297,7 @@ export class UserFormComponent implements OnInit {
     private confirmService: KyntusConfirmService,
     private toastService: KyntusToastService,
     private fieldService: EmployeeFieldService,
+    private htelApi: HtelApiService,
     private http: HttpClient,
     private contractService: ContractService,
     private parrainageApi: ParrainageApiService,
@@ -310,17 +324,74 @@ export class UserFormComponent implements OnInit {
     this.loadOrgAndSubServices();
     this.loadBusinessDepartments();
     this.loadRoles();
+    this.preloadHtelTechniciens();
     void this.loadLinkableReferrals();
-    const referralId = this.route.snapshot.queryParamMap.get('referralId');
+    const q = this.route.snapshot.queryParamMap;
+    const referralId = q.get('referralId');
     if (referralId) {
       this.referralLockedFromUrl = true;
       void this.prefillFromReferral(referralId);
+    }
+    if (!this.isEditMode) {
+      const lastName = q.get('lastName');
+      const firstName = q.get('firstName');
+      const idTech = q.get('idTechnicien');
+      if (lastName) this.form.lastName = lastName;
+      if (firstName) this.form.firstName = firstName;
+      if (idTech && Number.isFinite(Number(idTech))) {
+        this.preferredIdTechnicien = Number(idTech);
+        this.htelIdTechnicien = this.preferredIdTechnicien;
+      }
+      this.refreshHtelPreview();
     }
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isEditMode = true;
       this.userId = Number(id);
       this.loadUser(this.userId);
+    }
+  }
+
+  private preloadHtelTechniciens(): void {
+    this.htelApi.listTechniciens(true).subscribe({
+      next: (rows) => {
+        this.htelTechniciensCache = rows ?? [];
+        this.refreshHtelPreview();
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.htelTechniciensCache = [];
+      },
+    });
+  }
+
+  private refreshHtelPreview(): void {
+    if (this.preferredIdTechnicien) {
+      const tech = this.htelTechniciensCache.find((t) => t.idTechnicien === this.preferredIdTechnicien);
+      if (tech) {
+        this.htelIdTechnicien = tech.idTechnicien;
+        this.htelCode = tech.code;
+        this.htelPreviewHint = `Liaison HTEL prévue : ${tech.technicien}`;
+        return;
+      }
+    }
+    if (this.isEditMode && this.htelIdTechnicien && this.htelCode) {
+      this.htelPreviewHint = '';
+      return;
+    }
+    const match = findUniqueHtelMatch(this.form.firstName, this.form.lastName, this.htelTechniciensCache);
+    if (match) {
+      this.htelIdTechnicien = match.idTechnicien;
+      this.htelCode = match.code;
+      this.htelPreviewHint = `Correspondance HTEL unique : ${match.technicien} (liaison à l'enregistrement)`;
+    } else if (!this.isEditMode || !this.htelIdTechnicien) {
+      if (!this.isEditMode) {
+        this.htelIdTechnicien = null;
+        this.htelCode = '';
+      }
+      this.htelPreviewHint = this.form.firstName.trim() && this.form.lastName.trim()
+        ? 'Aucune correspondance HTEL unique pour ce nom — voir Liaisons HTEL.'
+        : '';
     }
   }
 
@@ -1134,11 +1205,13 @@ export class UserFormComponent implements OnInit {
   onLastNameChange(value: string): void {
     this.form.lastName = value ?? '';
     this.onIdentityFieldChange();
+    this.refreshHtelPreview();
   }
 
   onFirstNameChange(value: string): void {
     this.form.firstName = value ?? '';
     this.onIdentityFieldChange();
+    this.refreshHtelPreview();
   }
 
   get wizardRecapReferral(): string {
@@ -1856,10 +1929,20 @@ export class UserFormComponent implements OnInit {
 
   private loadDirectoryEmployeeContext(guid: string): void {
     if (!guid.trim()) return;
-    this.http.get<{ businessDepartmentId?: string; businessDepartmentKind?: string }>(
+    this.http.get<{
+      businessDepartmentId?: string;
+      businessDepartmentKind?: string;
+      idTechnicien?: number | null;
+      htelCode?: string | null;
+    }>(
       `/api/directory/employees/${encodeURIComponent(guid)}`,
     ).subscribe({
       next: (emp) => {
+        if (emp.idTechnicien != null) {
+          this.htelIdTechnicien = emp.idTechnicien;
+          this.htelCode = emp.htelCode ?? '';
+          this.htelPreviewHint = '';
+        }
         const kind = String(emp.businessDepartmentKind ?? '').toLowerCase();
         if (kind === 'support' && emp.businessDepartmentId) {
           this.orgMode = 'support';
@@ -1868,6 +1951,8 @@ export class UserFormComponent implements OnInit {
         } else if (kind === 'operational' && emp.businessDepartmentId && isSupportManagerRole(this.selectedRoleName)) {
           this.orgMode = 'operational';
           this.operationalBusinessDepartmentId = emp.businessDepartmentId;
+          this.cdr.detectChanges();
+        } else {
           this.cdr.detectChanges();
         }
       },
@@ -1919,6 +2004,8 @@ export class UserFormComponent implements OnInit {
         this.loadedManagedServiceIds = user.managedServices?.map(s => s.id) ?? [];
         this.loadedManagedSubServiceIds = user.managedSubServices?.map(s => s.id) ?? [];
         this.loadedUserGuid = resolveUserGuid(user);
+        this.htelIdTechnicien = user.idTechnicien ?? null;
+        this.htelCode = user.htelCode ?? '';
         if (user.customFields) {
           for (const [key, value] of Object.entries(user.customFields)) {
             this.customFieldValues[key] = value ?? '';
@@ -2467,6 +2554,15 @@ export class UserFormComponent implements OnInit {
             ),
           ),
         ),
+        switchMap(({ user, referralResult }) => {
+          const guid = resolveUserGuid(user);
+          const idTech = this.preferredIdTechnicien ?? this.htelIdTechnicien;
+          if (!guid || !idTech) return of({ user, referralResult });
+          return this.htelApi.link(guid, idTech).pipe(
+            map(() => ({ user, referralResult })),
+            catchError(() => of({ user, referralResult })),
+          );
+        }),
       ).subscribe({
         next: ({ user, referralResult }) => {
           this.createdUserId = user.id;

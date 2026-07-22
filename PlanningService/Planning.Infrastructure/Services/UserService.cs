@@ -1534,6 +1534,8 @@ public class UserService : IUserService
             ChefDeProjetId = hr?.ChefDeProjetId,
             SuperviseurId = hr?.SuperviseurId,
             ReferentTechniqueId = hr?.ReferentTechniqueId,
+            IdTechnicien = u.IdTechnicien,
+            HtelCode = u.HtelCode,
             HrProfile = hr is null ? null : MapHrProfileDto(hr),
             CustomFields = customFields ?? new Dictionary<string, string?>()
         };

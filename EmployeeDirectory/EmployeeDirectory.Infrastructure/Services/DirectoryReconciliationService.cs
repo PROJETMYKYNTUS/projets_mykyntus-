@@ -319,6 +319,8 @@ public sealed class DirectoryReconciliationService(
             PoleId = employee.PoleId,
             IsActive = employee.IsActive,
             IsDeleted = isDeleted,
+            IdTechnicien = employee.IdTechnicien,
+            HtelCode = employee.HtelCode,
         }, aggregateId: employee.Id.ToString(), ct: ct);
     }
 

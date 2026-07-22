@@ -14,6 +14,20 @@ public static class DirectorySchemaPatches
         await EnsureDateDebutFormationColumnAsync(db, ct);
         await EnsureNumeroCarteAutoentrepreneurColumnAsync(db, ct);
         await EnsureEmailPersonnelColumnAsync(db, ct);
+        await EnsureEmployeeHtelColumnsAsync(db, ct);
+    }
+
+    public static async Task EnsureEmployeeHtelColumnsAsync(DirectoryDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE employees ADD COLUMN IF NOT EXISTS "IdTechnicien" integer NULL;
+            ALTER TABLE employees ADD COLUMN IF NOT EXISTS "HtelCode" character varying(128) NULL;
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_employees_IdTechnicien"
+                ON employees ("IdTechnicien")
+                WHERE "IdTechnicien" IS NOT NULL;
+            """,
+            ct);
     }
 
     public static async Task EnsureOutboxTableAsync(DirectoryDbContext db, CancellationToken ct = default)

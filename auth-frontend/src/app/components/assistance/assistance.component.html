@@ -1,0 +1,73 @@
+<div class="assist">
+  <header class="nav">
+    <div class="nav__bar">
+      <a routerLink="/" class="brand" aria-label="MyKyntus">
+        <img [src]="logoSrc" alt="Kyntus Morocco" class="nav__logo" />
+        <span>
+          <b>MyKyntus</b>
+          <small>Kyntus Morocco</small>
+        </span>
+      </a>
+      <div class="nav__end">
+        <app-theme-toggle-button />
+        <a routerLink="/login" class="btn btn--signal">Connexion</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="assist__main">
+    <p class="kicker">Assistance</p>
+    <h1>Centre d’aide MyKyntus</h1>
+    <p class="lead">
+      Guides et réponses pour utiliser le portail — sans courriel.
+      Les demandes métier se traitent dans l’application après connexion.
+    </p>
+
+    <section class="assist__section">
+      <h2>Accès au portail</h2>
+      <div class="assist__grid">
+        <div class="card">
+          <strong>Se connecter</strong>
+          <span>Authentifiez-vous pour accéder aux modules et aux réclamations.</span>
+          <a routerLink="/login" class="btn btn--fill">Connexion</a>
+        </div>
+        <div class="card">
+          <strong>Session et mot de passe</strong>
+          <span>
+            Pour renouveler votre session, déconnectez-vous puis reconnectez-vous.
+            Aucune demande n’est traitée par courriel.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section class="assist__section">
+      <h2>Guide par module</h2>
+      <div class="assist__grid assist__grid--3">
+        @for (mod of modules; track mod.title) {
+          <div class="card">
+            <strong>{{ mod.title }}</strong>
+            <span>{{ mod.description }}</span>
+          </div>
+        }
+      </div>
+    </section>
+
+    <section class="assist__section">
+      <h2>Questions fréquentes</h2>
+      <div class="faq">
+        @for (item of faq; track item.question; let i = $index) {
+          <div class="faq__item" [class.is-open]="openFaq() === i">
+            <button type="button" class="faq__q" (click)="toggleFaq(i)" [attr.aria-expanded]="openFaq() === i">
+              {{ item.question }}
+              <span class="faq__chevron" aria-hidden="true"></span>
+            </button>
+            @if (openFaq() === i) {
+              <p class="faq__a">{{ item.answer }}</p>
+            }
+          </div>
+        }
+      </div>
+    </section>
+  </main>
+</div>

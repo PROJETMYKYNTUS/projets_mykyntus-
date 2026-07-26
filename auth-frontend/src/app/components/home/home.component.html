@@ -40,18 +40,11 @@
         <a href="#system" (click)="scrollTo('system', $event)">Modules</a>
         <a href="#flow" (click)="scrollTo('flow', $event)">Connexion</a>
         <a href="#spotlight" (click)="scrollTo('spotlight', $event)">Pilotage</a>
-        <a [href]="assistanceUrl">Assistance</a>
+        <a routerLink="/assistance">Assistance</a>
       </nav>
 
       <div class="nav__end">
-        <button
-          type="button"
-          class="btn btn--theme"
-          (click)="theme.toggleTheme()"
-          [attr.aria-label]="theme.theme() === 'light' ? 'Activer le mode sombre' : 'Activer le mode clair'"
-        >
-          {{ theme.theme() === 'light' ? 'Sombre' : 'Clair' }}
-        </button>
+        <app-theme-toggle-button />
         <a routerLink="/login" class="btn btn--signal">Connexion</a>
         <button type="button" class="burger" [attr.aria-expanded]="menuOpen" aria-label="Menu" (click)="toggleMenu()">
           <i></i><i></i>
@@ -212,7 +205,7 @@
       </div>
       <div class="foot__links">
         <a routerLink="/login">Connexion</a>
-        <a [href]="assistanceUrl">Assistance</a>
+        <a routerLink="/assistance">Assistance</a>
         <a [href]="groupUrl" target="_blank" rel="noopener noreferrer">kyntus.com</a>
       </div>
     </div>

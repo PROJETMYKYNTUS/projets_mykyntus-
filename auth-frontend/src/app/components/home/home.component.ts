@@ -4,12 +4,12 @@ import { RouterModule } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { KyntusThemeService } from '../../core/kyntus-theme.service';
 import { brandLogoSrc } from '../../core/brand-logo';
-import { KYNTUS_PUBLIC_URLS } from '../../config/kyntus-public-urls';
+import { ThemeToggleButtonComponent } from '../../core/theme-toggle-button.component';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, ThemeToggleButtonComponent],
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.css'],
 })
@@ -26,7 +26,6 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   readonly groupUrl = 'https://kyntus.com/';
   readonly year = new Date().getFullYear();
-  readonly assistanceUrl = `${KYNTUS_PUBLIC_URLS.planningSpa}/assistance`;
 
   get logoSrc(): string {
     return brandLogoSrc(this.theme.theme());

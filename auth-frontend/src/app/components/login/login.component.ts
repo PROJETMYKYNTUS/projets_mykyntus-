@@ -6,17 +6,17 @@ import { AuthService } from '../../services/auth.service';
 import { KyntusThemeService } from '../../core/kyntus-theme.service';
 import { brandLogoSrc } from '../../core/brand-logo';
 import { KYNTUS_PUBLIC_URLS } from '../../config/kyntus-public-urls';
+import { ThemeToggleButtonComponent } from '../../core/theme-toggle-button.component';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, ThemeToggleButtonComponent],
   templateUrl: './login.html',
   styleUrls: ['./login.css']
 })
 export class LoginComponent implements OnInit {
   readonly theme = inject(KyntusThemeService);
-  readonly assistanceUrl = `${KYNTUS_PUBLIC_URLS.planningSpa}/assistance`;
   loginForm!: FormGroup;
   errorMessage: string = '';
   loading: boolean = false;

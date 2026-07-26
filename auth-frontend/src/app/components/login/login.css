@@ -243,8 +243,7 @@
   gap: 8px;
 }
 
-.btn-support,
-.btn-theme {
+.btn-support {
   font-size: 12px;
   font-family: inherit;
   color: var(--text-muted);
@@ -257,8 +256,7 @@
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
-.btn-support:hover,
-.btn-theme:hover {
+.btn-support:hover {
   color: var(--auth-signal, #38b6ff);
   border-color: var(--auth-signal, #38b6ff);
 }

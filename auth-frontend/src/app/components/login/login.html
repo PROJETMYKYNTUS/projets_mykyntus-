@@ -56,9 +56,7 @@
     </div>
 
     <div class="panel-footer">
-      <button type="button" class="auth-theme-toggle" (click)="theme.toggleTheme()" [attr.aria-label]="theme.theme() === 'light' ? 'Activer le mode sombre' : 'Activer le mode clair'">
-        {{ theme.theme() === 'light' ? 'Mode sombre' : 'Mode clair' }}
-      </button>
+      <app-theme-toggle-button />
       <span class="online-dot"></span>
       <span>Services disponibles</span>
     </div>
@@ -72,10 +70,8 @@
         <span>Authentification MyKyntus</span>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="btn-theme" (click)="theme.toggleTheme()" [attr.aria-label]="theme.theme() === 'light' ? 'Mode sombre' : 'Mode clair'">
-          {{ theme.theme() === 'light' ? 'Sombre' : 'Clair' }}
-        </button>
-        <a [href]="assistanceUrl" class="btn-support">Assistance</a>
+        <app-theme-toggle-button />
+        <a routerLink="/assistance" class="btn-support">Assistance</a>
       </div>
     </header>
 
@@ -127,7 +123,7 @@
             <label class="check-label">
               <input type="checkbox" /> Se souvenir de moi
             </label>
-            <a [href]="assistanceUrl" class="forgot">Aide — Assistance</a>
+            <a routerLink="/assistance" class="forgot">Aide — Assistance</a>
           </div>
 
           <button type="submit" class="btn-login" [disabled]="loading || loginForm.invalid">
@@ -137,7 +133,7 @@
         </form>
 
         <div class="card-footer">
-          <p>Après connexion, ouvrez <a [href]="assistanceUrl">Assistance</a> dans le menu.</p>
+          <p>Besoin d’aide ? Consultez <a routerLink="/assistance">Assistance</a>.</p>
         </div>
         <div class="copyright">© 2026 Kyntus Morocco</div>
       </div>

@@ -28,31 +28,37 @@ html.dark {
 }
 
 body.theme-light {
-  --bg-primary: #f8fafc;
+  --bg-primary: #f4f7fb;
   --bg-sidebar: #ffffff;
   --bg-card: #ffffff;
-  --bg-input: #f1f5f9;
-  --text-primary: #0f172a;
-  --text-muted: #64748b;
-  --border-color: #e2e8f0;
-  --auth-panel-left-bg: #0f1e2e;
-  --auth-panel-left-text: #e8eeff;
-  --auth-panel-right-bg: var(--bg-primary);
-  --auth-accent: var(--electric-blue);
+  --bg-input: #eef2f7;
+  --text-primary: #1a2332;
+  --text-muted: #5a6577;
+  --border-color: #d5dce6;
+  --auth-panel-left-bg: #eef3f9;
+  --auth-panel-left-text: #1a2332;
+  --auth-panel-right-bg: #f4f7fb;
+  --auth-accent: #1e4fd8;
+  --auth-signal: #1e4fd8;
+  --auth-signal-deep: #0d2d5b;
+  --auth-glow: rgba(30, 79, 216, 0.18);
 }
 
 body.theme-dark {
-  --bg-primary: #040b16;
-  --bg-sidebar: #020617;
-  --bg-card: #0a1526;
-  --bg-input: #0a1526;
-  --text-primary: #e5e7eb;
-  --text-muted: #9ca3af;
-  --border-color: #112240;
-  --auth-panel-left-bg: #020617;
-  --auth-panel-left-text: #e5e7eb;
-  --auth-panel-right-bg: var(--bg-primary);
-  --auth-accent: var(--electric-blue);
+  --bg-primary: #05070b;
+  --bg-sidebar: #0a1018;
+  --bg-card: #0f1722;
+  --bg-input: #0a1018;
+  --text-primary: #e8eef7;
+  --text-muted: #8b9bb0;
+  --border-color: rgba(56, 182, 255, 0.14);
+  --auth-panel-left-bg: #05070b;
+  --auth-panel-left-text: #e8eef7;
+  --auth-panel-right-bg: #0a1018;
+  --auth-accent: #38b6ff;
+  --auth-signal: #38b6ff;
+  --auth-signal-deep: #1e4fd8;
+  --auth-glow: rgba(56, 182, 255, 0.16);
 }
 
 body.theme-light {
@@ -75,11 +81,11 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--auth-panel-left-text) 20%, transparent);
-  background: color-mix(in srgb, var(--auth-panel-left-text) 8%, transparent);
-  color: var(--auth-panel-left-text);
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--auth-signal) 30%, transparent);
+  background: color-mix(in srgb, var(--auth-signal) 10%, transparent);
+  color: var(--auth-signal);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -88,6 +94,6 @@ body {
 }
 
 .auth-theme-toggle:hover {
-  background: color-mix(in srgb, var(--electric-blue) 18%, transparent);
-  border-color: color-mix(in srgb, var(--electric-blue) 35%, transparent);
+  background: color-mix(in srgb, var(--auth-signal) 18%, transparent);
+  border-color: color-mix(in srgb, var(--auth-signal) 45%, transparent);
 }

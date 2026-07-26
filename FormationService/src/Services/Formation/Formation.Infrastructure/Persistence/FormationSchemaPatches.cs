@@ -18,6 +18,29 @@ public static class FormationSchemaPatches
         {
             await db.Database.ExecuteSqlRawAsync(
                 """
+                CREATE TABLE IF NOT EXISTS training_programs (
+                    "Id" uuid NOT NULL,
+                    "Title" character varying(300) NOT NULL,
+                    "Description" text NOT NULL,
+                    "Mode" integer NOT NULL,
+                    "SessionCount" integer NOT NULL,
+                    "AnimatorKind" integer NOT NULL,
+                    "AnimatorUserId" uuid NULL,
+                    "ExternalAnimatorName" text NULL,
+                    "ExternalAnimatorOrganization" text NULL,
+                    "ExternalAnimatorEmail" text NULL,
+                    "ExternalAnimatorPhone" text NULL,
+                    "Capacity" integer NOT NULL,
+                    "CreatedByUserId" text NOT NULL,
+                    "CreatedAt" timestamp with time zone NOT NULL,
+                    "UpdatedAt" timestamp with time zone NOT NULL,
+                    CONSTRAINT "PK_training_programs" PRIMARY KEY ("Id")
+                );
+                """,
+                ct);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
                 CREATE TABLE IF NOT EXISTS training_sessions (
                     "Id" uuid NOT NULL,
                     "Title" character varying(300) NOT NULL,
@@ -38,6 +61,30 @@ public static class FormationSchemaPatches
                     "UpdatedAt" timestamp with time zone NOT NULL,
                     CONSTRAINT "PK_training_sessions" PRIMARY KEY ("Id")
                 );
+                """,
+                ct);
+
+            await EnsureColumnAsync(db, "training_sessions", "ProgramId", "uuid NULL", ct);
+            await EnsureColumnAsync(db, "training_sessions", "SequenceNumber", "integer NOT NULL DEFAULT 1", ct);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                DO $$ BEGIN
+                  IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'FK_training_sessions_training_programs_ProgramId'
+                  ) THEN
+                    ALTER TABLE training_sessions
+                      ADD CONSTRAINT "FK_training_sessions_training_programs_ProgramId"
+                      FOREIGN KEY ("ProgramId") REFERENCES training_programs ("Id") ON DELETE SET NULL;
+                  END IF;
+                END $$;
+                """,
+                ct);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE INDEX IF NOT EXISTS "IX_training_sessions_ProgramId"
+                    ON training_sessions ("ProgramId");
                 """,
                 ct);
 
@@ -95,10 +142,157 @@ public static class FormationSchemaPatches
                     ON initial_training_paths ("EmployeeId");
                 """,
                 ct);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS training_session_reports (
+                    "Id" uuid NOT NULL,
+                    "SessionId" uuid NOT NULL,
+                    "UploadedByUserId" uuid NOT NULL,
+                    "FileName" character varying(500) NOT NULL,
+                    "ContentType" character varying(200) NOT NULL,
+                    "StoragePath" character varying(1000) NOT NULL,
+                    "UploadedAt" timestamp with time zone NOT NULL,
+                    CONSTRAINT "PK_training_session_reports" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_training_session_reports_training_sessions_SessionId"
+                        FOREIGN KEY ("SessionId") REFERENCES training_sessions ("Id") ON DELETE CASCADE
+                );
+                """,
+                ct);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_training_session_reports_SessionId"
+                    ON training_session_reports ("SessionId");
+                """,
+                ct);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS training_quizzes (
+                    "Id" uuid NOT NULL,
+                    "SessionId" uuid NOT NULL,
+                    "Title" character varying(300) NOT NULL,
+                    "Status" integer NOT NULL,
+                    "CreatedByUserId" uuid NOT NULL,
+                    "CreatedAt" timestamp with time zone NOT NULL,
+                    "UpdatedAt" timestamp with time zone NOT NULL,
+                    "ValidatedByUserId" uuid NULL,
+                    "ValidatedAt" timestamp with time zone NULL,
+                    "RejectedByUserId" uuid NULL,
+                    "RejectedAt" timestamp with time zone NULL,
+                    "RejectedReason" text NULL,
+                    CONSTRAINT "PK_training_quizzes" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_training_quizzes_training_sessions_SessionId"
+                        FOREIGN KEY ("SessionId") REFERENCES training_sessions ("Id") ON DELETE CASCADE
+                );
+                """,
+                ct);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_training_quizzes_SessionId"
+                    ON training_quizzes ("SessionId");
+                """,
+                ct);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS training_quiz_questions (
+                    "Id" uuid NOT NULL,
+                    "QuizId" uuid NOT NULL,
+                    "SortOrder" integer NOT NULL,
+                    "Type" integer NOT NULL,
+                    "Prompt" text NOT NULL,
+                    "OptionsJson" text NULL,
+                    "CorrectOptionIndex" integer NULL,
+                    "Points" numeric(18,2) NOT NULL,
+                    CONSTRAINT "PK_training_quiz_questions" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_training_quiz_questions_training_quizzes_QuizId"
+                        FOREIGN KEY ("QuizId") REFERENCES training_quizzes ("Id") ON DELETE CASCADE
+                );
+                """,
+                ct);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS training_quiz_attempts (
+                    "Id" uuid NOT NULL,
+                    "QuizId" uuid NOT NULL,
+                    "AssignmentId" uuid NOT NULL,
+                    "EmployeeId" uuid NOT NULL,
+                    "AnswersJson" text NOT NULL,
+                    "AutoScore" numeric(18,2) NULL,
+                    "ManualScore" numeric(18,2) NULL,
+                    "FinalScore" numeric(18,2) NULL,
+                    "Passed" boolean NULL,
+                    "IsGraded" boolean NOT NULL DEFAULT FALSE,
+                    "GradedByUserId" uuid NULL,
+                    "GradedAt" timestamp with time zone NULL,
+                    "AnimatorComment" text NULL,
+                    "SubmittedAt" timestamp with time zone NOT NULL,
+                    CONSTRAINT "PK_training_quiz_attempts" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_training_quiz_attempts_training_quizzes_QuizId"
+                        FOREIGN KEY ("QuizId") REFERENCES training_quizzes ("Id") ON DELETE CASCADE
+                );
+                """,
+                ct);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_training_quiz_attempts_QuizId_AssignmentId"
+                    ON training_quiz_attempts ("QuizId", "AssignmentId");
+                """,
+                ct);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS initial_training_quiz_results (
+                    "Id" uuid NOT NULL,
+                    "InitialTrainingPathId" uuid NOT NULL,
+                    "Title" character varying(300) NOT NULL,
+                    "Score" numeric(18,2) NOT NULL,
+                    "Passed" boolean NOT NULL,
+                    "RecordedBy" character varying(200) NULL,
+                    "RecordedAt" timestamp with time zone NOT NULL,
+                    CONSTRAINT "PK_initial_training_quiz_results" PRIMARY KEY ("Id"),
+                    CONSTRAINT "FK_initial_training_quiz_results_initial_training_paths_InitialTrainingPathId"
+                        FOREIGN KEY ("InitialTrainingPathId") REFERENCES initial_training_paths ("Id") ON DELETE CASCADE
+                );
+                """,
+                ct);
+
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE INDEX IF NOT EXISTS "IX_initial_training_quiz_results_InitialTrainingPathId"
+                    ON initial_training_quiz_results ("InitialTrainingPathId");
+                """,
+                ct);
+
+            // Migration douce : une ligne « Quiz » depuis QuizScore legacy s'il n'existe encore aucun résultat.
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO initial_training_quiz_results
+                    ("Id", "InitialTrainingPathId", "Title", "Score", "Passed", "RecordedBy", "RecordedAt")
+                SELECT
+                    gen_random_uuid(),
+                    p."Id",
+                    'Quiz',
+                    p."QuizScore",
+                    COALESCE(p."QuizPassed", FALSE),
+                    p."QuizRecordedBy",
+                    COALESCE(p."UpdatedAt", NOW())
+                FROM initial_training_paths p
+                WHERE p."QuizScore" IS NOT NULL
+                  AND NOT EXISTS (
+                    SELECT 1 FROM initial_training_quiz_results r
+                    WHERE r."InitialTrainingPathId" = p."Id"
+                  );
+                """,
+                ct);
         }
         catch (Exception ex)
         {
-            // Tables déjà présentes / droits partiels : on vérifie l'essentiel.
             var exists = await TableExistsAsync(db, "training_sessions", ct);
             if (exists)
             {
@@ -108,6 +302,97 @@ public static class FormationSchemaPatches
 
             throw;
         }
+    }
+
+    public static async Task EnsureDocumentChecklistTablesAsync(
+        FormationDbContext db,
+        ILogger? logger = null,
+        CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS formation_document_definitions (
+                "Id" uuid NOT NULL,
+                "Title" character varying(300) NOT NULL,
+                "SortOrder" integer NOT NULL,
+                "IsActive" boolean NOT NULL DEFAULT TRUE,
+                "CreatedAt" timestamp with time zone NOT NULL,
+                CONSTRAINT "PK_formation_document_definitions" PRIMARY KEY ("Id")
+            );
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS formation_document_checklist_items (
+                "Id" uuid NOT NULL,
+                "EmployeeId" uuid NOT NULL,
+                "InitialTrainingPathId" uuid NULL,
+                "DefinitionId" uuid NOT NULL,
+                "IsReceived" boolean NOT NULL DEFAULT FALSE,
+                "ReceivedAt" timestamp with time zone NULL,
+                "ReceivedBy" character varying(200) NULL,
+                "Note" text NULL,
+                CONSTRAINT "PK_formation_document_checklist_items" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_formation_document_checklist_items_definitions"
+                    FOREIGN KEY ("DefinitionId") REFERENCES formation_document_definitions ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_formation_document_checklist_items_paths"
+                    FOREIGN KEY ("InitialTrainingPathId") REFERENCES initial_training_paths ("Id") ON DELETE CASCADE
+            );
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX IF NOT EXISTS "IX_formation_document_checklist_items_EmployeeId"
+                ON formation_document_checklist_items ("EmployeeId");
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX IF NOT EXISTS "IX_formation_document_checklist_items_InitialTrainingPathId"
+                ON formation_document_checklist_items ("InitialTrainingPathId");
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_formation_document_checklist_items_Path_Definition"
+                ON formation_document_checklist_items ("InitialTrainingPathId", "DefinitionId");
+            """,
+            ct);
+
+        logger?.LogInformation("Tables checklist documents formation vérifiées.");
+    }
+
+    public static async Task EnsureQuizMultiChoiceColumnsAsync(
+        FormationDbContext db,
+        CancellationToken ct = default)
+    {
+        await EnsureColumnAsync(db, "training_quiz_questions", "AllowMultiple", "boolean NOT NULL DEFAULT FALSE", ct);
+        await EnsureColumnAsync(db, "training_quiz_questions", "CorrectOptionIndexesJson", "text NULL", ct);
+        await EnsureColumnAsync(db, "training_quizzes", "PassThreshold", "numeric(18,2) NOT NULL DEFAULT 70", ct);
+        await EnsureColumnAsync(db, "training_quiz_attempts", "FreeTextGradesJson", "text NULL", ct);
+    }
+
+    private static async Task EnsureColumnAsync(
+        FormationDbContext db,
+        string table,
+        string column,
+        string definition,
+        CancellationToken ct)
+    {
+        // Identifiants figés par les patches (pas d'entrée utilisateur).
+        var sql =
+            "DO $$ BEGIN " +
+            "IF NOT EXISTS ( " +
+            "SELECT 1 FROM information_schema.columns " +
+            "WHERE table_schema = 'public' AND table_name = '" + table + "' AND column_name = '" + column + "' " +
+            ") THEN " +
+            "ALTER TABLE " + table + " ADD COLUMN \"" + column + "\" " + definition + "; " +
+            "END IF; END $$;";
+        await db.Database.ExecuteSqlRawAsync(sql, ct);
     }
 
     private static async Task<bool> TableExistsAsync(

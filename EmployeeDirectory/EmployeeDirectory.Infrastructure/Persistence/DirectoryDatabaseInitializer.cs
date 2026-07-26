@@ -40,7 +40,8 @@ public static class DirectoryDatabaseInitializer
             try
             {
                 await db.Database.EnsureCreatedAsync(ct);
-                await DirectorySchemaPatches.ApplyAsync(db, ct);
+                // Best-effort : un patch HR legacy ne doit pas bloquer HTEL ni le démarrage.
+                await DirectorySchemaPatches.ApplyBestEffortAsync(db, log, ct);
                 return;
             }
             catch (Exception ex) when (attempt < maxRetries)

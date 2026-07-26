@@ -54,6 +54,9 @@ function planningContentKey(n: Pick<PlanningNotification, 'weekCode' | 'weeklyPl
 export function resolveFormationDeepLink(weekCode: string, deepLink?: string | null): string {
   if (deepLink && deepLink.startsWith('/')) return deepLink;
   const code = (weekCode ?? '').toUpperCase();
+  if (code.startsWith('INIT-DOCS-')) {
+    return '/formations?tab=initial';
+  }
   if (code.startsWith('TRAINING-ANIM-') || code.startsWith('TRAINING-START-ANIM-')) {
     return '/mes-sessions';
   }
@@ -214,6 +217,7 @@ export class NotificationService {
 
 private connectPlanningHub(): void {
   const authUserId = this.getAuthUserIdFromToken();
+  const isRhOrAdmin = this.isRhOrAdminRole();
 
   // Charger l'historique persisté (notifs reçues hors-ligne) avant le temps réel.
   this.loadPersistedPlanningNotifications(authUserId);
@@ -254,12 +258,22 @@ private connectPlanningHub(): void {
       });
     });
 
+    const joinPlanningGroups = async (): Promise<void> => {
+      if (authUserId) {
+        await this.connection.invoke('JoinUserGroup', authUserId);
+        console.log('✅ Planning Hub — groupe user rejoint:', authUserId);
+      }
+      if (isRhOrAdmin) {
+        await this.connection.invoke('JoinRhAdminGroup');
+        console.log('✅ Planning Hub — groupe rh_admins rejoint');
+      }
+    };
+
     this.connection.onreconnected(async () => {
       console.log('🔄 Planning Hub reconnecté — re-join groupe');
       try {
-        await this.connection.invoke('JoinUserGroup', authUserId);
+        await joinPlanningGroups();
         this.loadPersistedPlanningNotifications(authUserId);
-        console.log('✅ Planning Hub — groupe user re-rejoint:', authUserId);
       } catch (err) {
         console.error('❌ Planning Hub re-join échoué:', err);
       }
@@ -272,9 +286,31 @@ private connectPlanningHub(): void {
     this.connection.start()
       .then(async () => {
         console.log('✅ Planning Hub connecté — AuthUserId:', authUserId);
-        await this.connection.invoke('JoinUserGroup', authUserId);
+        await joinPlanningGroups();
       })
       .catch(err => console.error('❌ Planning Hub erreur:', err));
+  }
+
+  private isRhOrAdminRole(): boolean {
+    try {
+      const raw = localStorage.getItem('user');
+      const role = (raw ? JSON.parse(raw).role : '') || '';
+      const r = String(role).trim().toLowerCase();
+      if (r === 'rh' || r === 'admin') return true;
+    } catch { /* ignore */ }
+    try {
+      const token = this.getToken();
+      if (!token) return false;
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const role =
+        payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
+        ?? payload.role
+        ?? '';
+      const r = String(role).trim().toLowerCase();
+      return r === 'rh' || r === 'admin';
+    } catch {
+      return false;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────

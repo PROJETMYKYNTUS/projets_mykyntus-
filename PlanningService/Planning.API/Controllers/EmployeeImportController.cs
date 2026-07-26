@@ -39,7 +39,14 @@ public class EmployeeImportController(IEmployeeImportService importService, IEmp
         if (!string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase))
             return Forbid();
 
-        return Ok(await configService.UpdateConfigAsync(request, ct));
+        try
+        {
+            return Ok(await configService.UpdateConfigAsync(request, ct));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpGet("template")]

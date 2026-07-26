@@ -61,6 +61,7 @@
           class="search-input ky-input"
           placeholder="Rechercher par nom, email, ID technicien ou code…"
           [(ngModel)]="searchTerm"
+          (ngModelChange)="onSearchChange()"
         />
         @if (hasSearch) {
           <button type="button" class="search-clear" (click)="clearSearch()" title="Effacer">
@@ -98,7 +99,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (row of filteredLinked; track row.employeeId) {
+            @for (row of pagedLinked; track row.employeeId) {
               <tr>
                 <td>
                   <div class="name-cell">
@@ -131,6 +132,19 @@
           </tbody>
         </table>
       </div>
+      @if (filteredLinked.length > 0) {
+        <div class="pager">
+          <button type="button" class="ky-btn-secondary btn-sm" [disabled]="!canPrev('linked')" (click)="prevPage('linked')">
+            <app-lucide-icon [icon]="icons.prev" className="w-3.5 h-3.5" />
+            Précédent
+          </button>
+          <span class="pager-label">{{ pageLabel('linked') }}</span>
+          <button type="button" class="ky-btn-secondary btn-sm" [disabled]="!canNext('linked')" (click)="nextPage('linked')">
+            Suivant
+            <app-lucide-icon [icon]="icons.next" className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      }
     </section>
 
     <section class="card ky-card">
@@ -152,7 +166,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (row of filteredOrphans; track row.idTechnicien) {
+            @for (row of pagedOrphans; track row.idTechnicien) {
               <tr>
                 <td><code class="id-chip">{{ row.idTechnicien }}</code></td>
                 <td class="name">{{ row.technicien }}</td>
@@ -182,6 +196,19 @@
           </tbody>
         </table>
       </div>
+      @if (filteredOrphans.length > 0) {
+        <div class="pager">
+          <button type="button" class="ky-btn-secondary btn-sm" [disabled]="!canPrev('orphans')" (click)="prevPage('orphans')">
+            <app-lucide-icon [icon]="icons.prev" className="w-3.5 h-3.5" />
+            Précédent
+          </button>
+          <span class="pager-label">{{ pageLabel('orphans') }}</span>
+          <button type="button" class="ky-btn-secondary btn-sm" [disabled]="!canNext('orphans')" (click)="nextPage('orphans')">
+            Suivant
+            <app-lucide-icon [icon]="icons.next" className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      }
     </section>
 
     <section class="card ky-card">
@@ -191,7 +218,7 @@
           <p>Plusieurs employés MyKyntus correspondent au même nom HTEL — résolution manuelle.</p>
         </div>
       </div>
-      @for (row of filteredAmbiguous; track row.idTechnicien) {
+      @for (row of pagedAmbiguous; track row.idTechnicien) {
         <div class="ambiguous-block">
           <div class="ambiguous-head">
             <strong>{{ row.technicien }}</strong>
@@ -218,6 +245,19 @@
             Aucun cas ambigu.
           }
         </p>
+      }
+      @if (filteredAmbiguous.length > 0) {
+        <div class="pager">
+          <button type="button" class="ky-btn-secondary btn-sm" [disabled]="!canPrev('ambiguous')" (click)="prevPage('ambiguous')">
+            <app-lucide-icon [icon]="icons.prev" className="w-3.5 h-3.5" />
+            Précédent
+          </button>
+          <span class="pager-label">{{ pageLabel('ambiguous') }}</span>
+          <button type="button" class="ky-btn-secondary btn-sm" [disabled]="!canNext('ambiguous')" (click)="nextPage('ambiguous')">
+            Suivant
+            <app-lucide-icon [icon]="icons.next" className="w-3.5 h-3.5" />
+          </button>
+        </div>
       }
     </section>
 

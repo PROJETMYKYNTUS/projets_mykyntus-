@@ -1355,6 +1355,9 @@ public class PlanningService : IPlanningService
             return "/mes-plannings";
         }
 
+        if (code.StartsWith("INIT-DOCS-", StringComparison.Ordinal))
+            return "/formations?tab=initial";
+
         if (code.StartsWith("TRAINING-ANIM-", StringComparison.Ordinal)
             || code.StartsWith("TRAINING-START-ANIM-", StringComparison.Ordinal))
             return "/mes-sessions";

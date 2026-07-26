@@ -197,7 +197,9 @@ export class KyntusNotificationHubService {
               ? 'Réclamation'
               : src === 'formation'
                 ? 'Formation'
-                : 'Planning',
+                : (n.subServiceName ?? '').toLowerCase().includes('demande')
+                  ? 'Demande de changement'
+                  : 'Planning',
         body: n.message,
         read: n.read,
         createdAt: n.receivedAt instanceof Date ? n.receivedAt : new Date(n.receivedAt),

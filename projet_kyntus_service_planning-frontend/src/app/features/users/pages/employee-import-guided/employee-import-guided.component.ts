@@ -38,6 +38,13 @@ import {
 } from './employee-import-mapping.validation';
 
 import {
+  applyFieldLockToPayload,
+  isEnabledCheckboxLocked,
+  isRequiredCheckboxLocked,
+  lockHint,
+} from '../../utils/employee-field-locks.util';
+
+import {
   headerDisplayLabel,
   isIgnorableHeader,
   suggestedConfidenceForColumn,
@@ -77,7 +84,9 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
   private readonly host = inject(EMPLOYEE_IMPORT_HOST, { optional: true });
   private readonly cdr = inject(ChangeDetectorRef);
 
-
+  readonly isEnabledCheckboxLocked = isEnabledCheckboxLocked;
+  readonly isRequiredCheckboxLocked = isRequiredCheckboxLocked;
+  readonly lockHint = lockHint;
 
   readonly steps: { id: EmployeeImportWizardStep; label: string }[] = [
 
@@ -195,7 +204,10 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
       next: (fields) => {
 
-        this.configFields = fields;
+        this.configFields = fields.map((f) => {
+          const locked = applyFieldLockToPayload(f);
+          return { ...f, isEnabled: locked.isEnabled, isRequiredOnCreate: locked.isRequiredOnCreate };
+        });
 
         this.cdr.detectChanges();
 
@@ -208,21 +220,25 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
 
   saveConfig(): void {
-
-    this.importSvc.updateConfig(this.configFields).subscribe({
-
-      next: (fields) => {
-
-        this.configFields = fields;
-
-        this.cdr.detectChanges();
-
-      },
-
-      error: () => alert('Impossible de sauvegarder la configuration.'),
-
+    this.configFields = this.configFields.map((field) => {
+      const locked = applyFieldLockToPayload(field);
+      return {
+        ...field,
+        isEnabled: locked.isEnabled,
+        isRequiredOnCreate: locked.isRequiredOnCreate,
+      };
     });
-
+    this.importSvc.updateConfig(this.configFields).subscribe({
+      next: (fields) => {
+        this.configFields = fields.map((f) => {
+          const locked = applyFieldLockToPayload(f);
+          return { ...f, isEnabled: locked.isEnabled, isRequiredOnCreate: locked.isRequiredOnCreate };
+        });
+        this.cdr.detectChanges();
+      },
+      error: (err) =>
+        alert(err?.error?.message ?? 'Impossible de sauvegarder la configuration.'),
+    });
   }
 
 

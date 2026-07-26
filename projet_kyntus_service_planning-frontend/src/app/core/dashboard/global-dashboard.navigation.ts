@@ -16,6 +16,7 @@ export const DASHBOARD_ROUTES = {
   reclamationsAdmin: '/reclamations-admin',
   contracts: '/contracts',
   formations: '/formations',
+  formationDashboard: '/formations/dashboard',
   mesFormations: '/mes-formations',
   planning: '/planning',
   notifications: '/notifications',
@@ -53,6 +54,10 @@ export function formationsPendingTarget(): DashboardNavTarget {
     route: DASHBOARD_ROUTES.formations,
     queryParams: { tab: 'initial', statut: 'AttenteValidationRh' },
   };
+}
+
+export function formationDashboardTarget(): DashboardNavTarget {
+  return { route: DASHBOARD_ROUTES.formationDashboard };
 }
 
 export function parrainageRhManagementTarget(): DashboardNavTarget {

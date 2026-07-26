@@ -112,6 +112,7 @@ import {
 } from '../../../parrainage/utils/referral-candidate-match.util';
 import { REFERRAL_STATUS_LABELS } from '../../../parrainage/utils/referral-status.util';
 import { FormationTrainingService } from '../../../../core/services/formation-training.service';
+import type { FormationDocumentChecklistItemDto } from '../../../../core/models/formation-training.models';
 import {
   ContractService,
   type CreateContractDto,
@@ -230,6 +231,12 @@ export class UserFormComponent implements OnInit {
   contractId: number | null = null;
   contractLoading = false;
 
+  formationDocs: FormationDocumentChecklistItemDto[] = [];
+  formationDocsLoading = false;
+  /** Query ?passageProduction=pathId — confirmation RH sans changer le statut avant clic. */
+  passageProductionPathId = '';
+  passageProductionBusy = false;
+
   selectedReferralId = '';
   linkableReferrals: Referral[] = [];
   /** Pool pour l'alerte de matching (dossiers sans employé lié). */
@@ -328,6 +335,10 @@ export class UserFormComponent implements OnInit {
     void this.loadLinkableReferrals();
     const q = this.route.snapshot.queryParamMap;
     const referralId = q.get('referralId');
+    const passagePath = q.get('passageProduction');
+    if (passagePath) {
+      this.passageProductionPathId = passagePath;
+    }
     if (referralId) {
       this.referralLockedFromUrl = true;
       void this.prefillFromReferral(referralId);
@@ -900,14 +911,94 @@ export class UserFormComponent implements OnInit {
       if (!this.hrProfile.dateDebutFormation.trim()) {
         this.hrProfile.dateDebutFormation = this.form.hireDate;
       }
+      void this.loadFormationDocs();
     } else {
       this.hrProfile.dateDebutFormation = '';
       this.hrProfile.dateFinFormationPrevue = '';
+      this.formationDocs = [];
       if (!this.contractDraft.startDate.trim()) {
         this.contractDraft.startDate = this.form.hireDate;
       }
     }
     this.cdr.detectChanges();
+  }
+
+  get formationDocsReceivedCount(): number {
+    return this.formationDocs.filter((d) => d.isReceived).length;
+  }
+
+  async confirmPassageProduction(): Promise<void> {
+    if (!this.passageProductionPathId || this.passageProductionBusy) return;
+
+    // Recharger la checklist du parcours (même si « En formation » est déjà décoché sur la fiche).
+    try {
+      this.formationDocs = await this.formationTraining.getPathChecklist(this.passageProductionPathId);
+    } catch {
+      /* keep existing */
+    }
+
+    if (this.formationDocs.length > 0 && this.formationDocsReceivedCount < this.formationDocs.length) {
+      const cont = await this.confirmService.confirm({
+        title: 'Documents incomplets',
+        message: `Checklist incomplete (${this.formationDocsReceivedCount}/${this.formationDocs.length}). Vous pouvez quand même confirmer le passage en production.`,
+        confirmLabel: 'Continuer',
+        cancelLabel: 'Annuler',
+        variant: 'warning',
+      });
+      if (!cont) return;
+    }
+    const ok = await this.confirmService.confirm({
+      title: 'Confirmer le passage en production',
+      message:
+        'Le statut passera à « En production » et l’employé quittera la file Passage en production. Continuer ?',
+      confirmLabel: 'Confirmer',
+    });
+    if (!ok) return;
+
+    this.passageProductionBusy = true;
+    this.cdr.detectChanges();
+    try {
+      await this.formationTraining.rhValidate(this.passageProductionPathId);
+      this.toastService.success('Passage en production confirmé.');
+      this.passageProductionPathId = '';
+      await this.router.navigate(['/formations/passage-production']);
+    } catch (e) {
+      this.toastService.error(e instanceof Error ? e.message : 'Échec de la confirmation');
+    } finally {
+      this.passageProductionBusy = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async loadFormationDocs(): Promise<void> {
+    if (!this.isEditMode || !this.hrProfile.enFormation || !this.loadedUserGuid) {
+      this.formationDocs = [];
+      return;
+    }
+    this.formationDocsLoading = true;
+    this.cdr.detectChanges();
+    try {
+      this.formationDocs = await this.formationTraining.getEmployeeChecklist(this.loadedUserGuid);
+    } catch {
+      this.formationDocs = [];
+    } finally {
+      this.formationDocsLoading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async toggleFormationDoc(doc: FormationDocumentChecklistItemDto, isReceived: boolean): Promise<void> {
+    const pathId = doc.pathId;
+    if (!pathId) return;
+    try {
+      await this.formationTraining.updateChecklistItem(pathId, doc.id, {
+        isReceived,
+        receivedBy: this.session.getStoredUser()?.username || 'RH',
+      });
+      await this.loadFormationDocs();
+    } catch {
+      await this.loadFormationDocs();
+    }
   }
 
   patchSituationFamiliale(value: string): void {
@@ -2015,6 +2106,16 @@ export class UserFormComponent implements OnInit {
         this.syncEducationPickersFromProfile();
         this.syncAncienPickersFromProfile();
         this.loadContractForUser(id);
+        void this.loadFormationDocs();
+        if (this.passageProductionPathId) {
+          void this.formationTraining
+            .getPathChecklist(this.passageProductionPathId)
+            .then((rows) => {
+              this.formationDocs = rows;
+              this.cdr.detectChanges();
+            })
+            .catch(() => undefined);
+        }
         if (this.operationalDepartments.length > 0 || this.unassignedPoles.length > 0) {
           this.reconcileOrgPickerAfterLoad();
         }

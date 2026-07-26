@@ -20,4 +20,7 @@ public class InitialTrainingPath
     public string? RejectReason { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public ICollection<InitialTrainingQuizResult> QuizResults { get; set; } = new List<InitialTrainingQuizResult>();
+    public ICollection<FormationDocumentChecklistItem> DocumentChecklistItems { get; set; } = new List<FormationDocumentChecklistItem>();
 }

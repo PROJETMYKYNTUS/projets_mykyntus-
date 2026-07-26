@@ -84,8 +84,11 @@ public partial class EmployeeFieldService(AppDbContext db) : IEmployeeFieldServi
             row.Label = request.Label.Trim();
 
         row.DataType = NormalizeDataType(request.DataType);
-        row.IsRequiredOnCreate = request.IsRequiredOnCreate;
-        row.IsEnabled = request.IsEnabled;
+        var isRequired = request.IsRequiredOnCreate;
+        var isEnabled = request.IsEnabled;
+        EmployeeImportFieldRegistry.EnforceFieldLockConstraints(row.FieldKey, ref isEnabled, ref isRequired);
+        row.IsRequiredOnCreate = isRequired;
+        row.IsEnabled = isEnabled;
         row.SortOrder = request.SortOrder;
 
         if (request.Aliases.Count > 0)
@@ -310,6 +313,12 @@ public partial class EmployeeFieldService(AppDbContext db) : IEmployeeFieldServi
                 row.AliasesJson = JsonSerializer.Serialize(def.Aliases, JsonOpts);
                 if (!def.IsEnabledByDefault)
                     row.IsEnabled = false;
+
+                var enabled = row.IsEnabled;
+                var required = row.IsRequiredOnCreate;
+                EmployeeImportFieldRegistry.ApplyFieldLockDefaults(row.FieldKey, ref enabled, ref required);
+                row.IsEnabled = enabled;
+                row.IsRequiredOnCreate = required;
             }
         }
 

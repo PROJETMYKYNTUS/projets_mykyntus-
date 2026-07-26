@@ -58,7 +58,8 @@ public static class AuthDatabaseInitializer
                 new Role { Id = 6, Name = "Admin", Description = "Administrateur système", CreatedAt = DateTime.UtcNow },
                 new Role { Id = 7, Name = "Audit", Description = "Auditeur interne", CreatedAt = DateTime.UtcNow },
                 new Role { Id = 8, Name = "Formateur", Description = "Équipe formation — parcours initiale", CreatedAt = DateTime.UtcNow },
-                new Role { Id = 9, Name = "Superviseur", Description = "Superviseur de cellule PRIME", CreatedAt = DateTime.UtcNow });
+                new Role { Id = 9, Name = "Superviseur", Description = "Superviseur de cellule PRIME", CreatedAt = DateTime.UtcNow },
+                new Role { Id = 10, Name = "Qualiticien", Description = "Qualiticien — planification formation continue", CreatedAt = DateTime.UtcNow });
             db.SaveChanges();
             Console.WriteLine("Auth roles seeded.");
         }
@@ -85,11 +86,14 @@ public static class AuthDatabaseInitializer
         try
         {
             if (configuration.GetValue("DemoSeed:Enabled", false))
+            {
                 EnsureSuperviseurAccount(db, passwordHasher, configuration, subjectIdResolver);
+                EnsureQualiticienAccount(db, passwordHasher, configuration, subjectIdResolver);
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"WARNING: superviseur seed skipped: {ex.Message}");
+            Console.WriteLine($"WARNING: superviseur/qualiticien seed skipped: {ex.Message}");
         }
 
         try
@@ -115,6 +119,7 @@ public static class AuthDatabaseInitializer
             "employee@kyntus.ma", "rh@kyntus.ma", "manager@kyntus.ma", "coach@kyntus.ma",
             "rp@kyntus.ma", "admin@kyntus.ma", "audit@kyntus.ma", "formation@kyntus.ma",
             "formateur@gmail.com", "formateur@kyntus.ma", "superviseur@kyntus.ma",
+            "qualiticien@kyntus.ma",
         };
         var changed = 0;
         foreach (var email in emails)
@@ -228,6 +233,7 @@ public static class AuthDatabaseInitializer
         SeedUser("equipeformation", "formation@kyntus.ma", DemoPassword(configuration, "Formation"), 8, passwordHasher, subjectIdResolver),
         SeedUser("formateur", "formateur@gmail.com", DemoPassword(configuration, "Formation"), 8, passwordHasher, subjectIdResolver),
         SeedUser("superviseur", "superviseur@kyntus.ma", DemoPassword(configuration, "Superviseur"), 9, passwordHasher, subjectIdResolver),
+        SeedUser("qualiticien", "qualiticien@kyntus.ma", DemoPassword(configuration, "Qualiticien"), 10, passwordHasher, subjectIdResolver),
     ];
 
     static User SeedUser(
@@ -294,5 +300,55 @@ public static class AuthDatabaseInitializer
         });
         db.SaveChanges();
         Console.WriteLine("Auth user superviseur@kyntus.ma added.");
+    }
+
+    static void EnsureQualiticienAccount(
+        AuthDbContext db,
+        IPasswordHasher hasher,
+        IConfiguration configuration,
+        ISubjectIdResolver subjectIdResolver)
+    {
+        var role = db.Roles.FirstOrDefault(r => r.Name == "Qualiticien");
+        if (role == null)
+        {
+            var nextId = (db.Roles.Max(r => (int?)r.Id) ?? 0) + 1;
+            role = new Role
+            {
+                Id = nextId,
+                Name = "Qualiticien",
+                Description = "Qualiticien — planification formation continue",
+                CreatedAt = DateTime.UtcNow,
+            };
+            db.Roles.Add(role);
+            db.SaveChanges();
+            Console.WriteLine("Auth role Qualiticien added.");
+        }
+
+        if (db.Users.Any(u => u.Email.ToLower() == "qualiticien@kyntus.ma"))
+            return;
+
+        // Réutilise le mot de passe Formation si Qualiticien non défini (évite plantage seed).
+        string password;
+        try
+        {
+            password = DemoPassword(configuration, "Qualiticien");
+        }
+        catch
+        {
+            password = DemoPassword(configuration, "Formation");
+        }
+
+        db.Users.Add(new User
+        {
+            Username = "qualiticien",
+            Email = "qualiticien@kyntus.ma",
+            SubjectId = subjectIdResolver.ResolveForEmail("qualiticien@kyntus.ma"),
+            PasswordHash = hasher.HashPassword(password),
+            RoleId = role.Id,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+        });
+        db.SaveChanges();
+        Console.WriteLine("Auth user qualiticien@kyntus.ma added.");
     }
 }

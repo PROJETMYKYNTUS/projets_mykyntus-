@@ -9,9 +9,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Formation.Infrastructure.Services;
 
-public sealed class TrainingWorkflowService(
+public sealed partial class TrainingWorkflowService(
     FormationDbContext db,
     IPublishEndpoint publish,
+    FormationDocumentChecklistService documentChecklist,
     ILogger<TrainingWorkflowService> logger)
 {
     /// <summary>Seuil de réussite du quiz de formation initiale (note sur 100).</summary>
@@ -33,6 +34,7 @@ public sealed class TrainingWorkflowService(
             Title = request.Title.Trim(),
             Description = request.Description?.Trim() ?? string.Empty,
             Type = TrainingSessionType.Continue,
+            SequenceNumber = 1,
             AnimatorKind = request.AnimatorKind,
             AnimatorUserId = request.AnimatorKind == AnimatorKind.Internal ? request.AnimatorUserId : null,
             ExternalAnimatorName = request.AnimatorKind == AnimatorKind.External ? request.ExternalAnimatorName?.Trim() : null,
@@ -93,18 +95,15 @@ public sealed class TrainingWorkflowService(
         }
 
         var count = await db.TrainingAssignments.CountAsync(a => a.SessionId == id, ct);
-        return ToSessionDto(session, count);
+        var mapped = await MapSessionsAsync(new[] { session }, ct);
+        return mapped.FirstOrDefault() ?? ToSessionDto(session, count);
     }
 
     public async Task<IReadOnlyList<TrainingSessionDto>> ListSessionsAsync(CancellationToken ct)
     {
         await SyncPublishedSessionStatusesAsync(ct);
         var sessions = await db.TrainingSessions.AsNoTracking().OrderByDescending(s => s.CreatedAt).ToListAsync(ct);
-        var counts = await db.TrainingAssignments.AsNoTracking()
-            .GroupBy(a => a.SessionId)
-            .Select(g => new { g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.Key, x => x.Count, ct);
-        return sessions.Select(s => ToSessionDto(s, counts.GetValueOrDefault(s.Id))).ToList();
+        return await MapSessionsAsync(sessions, ct);
     }
 
     public async Task<IReadOnlyList<TrainingSessionDto>> ListAnimatedSessionsAsync(Guid animatorUserId, CancellationToken ct)
@@ -114,12 +113,7 @@ public sealed class TrainingWorkflowService(
             .Where(s => s.AnimatorKind == AnimatorKind.Internal && s.AnimatorUserId == animatorUserId)
             .OrderByDescending(s => s.PlannedStart)
             .ToListAsync(ct);
-        var counts = await db.TrainingAssignments.AsNoTracking()
-            .Where(a => sessions.Select(s => s.Id).Contains(a.SessionId))
-            .GroupBy(a => a.SessionId)
-            .Select(g => new { g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.Key, x => x.Count, ct);
-        return sessions.Select(s => ToSessionDto(s, counts.GetValueOrDefault(s.Id))).ToList();
+        return await MapSessionsAsync(sessions, ct);
     }
 
     public async Task<IReadOnlyList<MyAssignedTrainingSessionDto>> ListMyAssignedSessionsAsync(
@@ -136,14 +130,42 @@ public sealed class TrainingWorkflowService(
             select new { a, s }
         ).ToListAsync(ct);
 
-        return rows.Select(r => new MyAssignedTrainingSessionDto(
-            r.s.Id,
-            r.a.Id,
-            r.s.Title,
-            r.s.PlannedStart,
-            r.s.PlannedEnd,
-            r.s.Status,
-            AttendanceLabel(r.a.Status))).ToList();
+        var sessionIds = rows.Select(r => r.s.Id).ToList();
+        var quizzes = await db.TrainingQuizzes.AsNoTracking()
+            .Where(q => sessionIds.Contains(q.SessionId))
+            .ToDictionaryAsync(q => q.SessionId, ct);
+        var quizIds = quizzes.Values.Select(q => q.Id).ToList();
+        var attempts = await db.TrainingQuizAttempts.AsNoTracking()
+            .Where(t => quizIds.Contains(t.QuizId) && t.EmployeeId == employeeId)
+            .ToDictionaryAsync(t => t.QuizId, ct);
+
+        return rows.Select(r =>
+        {
+            quizzes.TryGetValue(r.s.Id, out var quiz);
+            TrainingQuizAttempt? attempt = null;
+            if (quiz is not null)
+                attempts.TryGetValue(quiz.Id, out attempt);
+            var present = r.a.Status == TrainingAssignmentStatus.Completed;
+            var canTake = quiz is not null
+                && quiz.Status is TrainingQuizStatus.Published or TrainingQuizStatus.Graded
+                && present
+                && attempt is null;
+            return new MyAssignedTrainingSessionDto(
+                r.s.Id,
+                r.a.Id,
+                r.s.Title,
+                r.s.PlannedStart,
+                r.s.PlannedEnd,
+                r.s.Status,
+                AttendanceLabel(r.a.Status),
+                quiz?.Id,
+                quiz?.Status.ToString(),
+                canTake,
+                attempt?.Id,
+                attempt?.IsGraded ?? false,
+                attempt?.FinalScore,
+                attempt?.Passed);
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<TrainingAssignmentDto>> AssignEmployeesAsync(
@@ -274,6 +296,7 @@ public sealed class TrainingWorkflowService(
     public async Task<InitialTrainingPathDto> CreateInitialPathAsync(CreateInitialTrainingPathRequest request, CancellationToken ct)
     {
         var existing = await db.InitialTrainingPaths
+            .Include(p => p.QuizResults)
             .FirstOrDefaultAsync(p => p.EmployeeId == request.EmployeeId && p.Status != InitialTrainingStatus.Rejete && p.Status != InitialTrainingStatus.EnProduction, ct);
         if (existing is not null)
             return ToInitialDto(existing);
@@ -288,60 +311,120 @@ public sealed class TrainingWorkflowService(
         };
         db.InitialTrainingPaths.Add(path);
         await db.SaveChangesAsync(ct);
+        await documentChecklist.MaterializeForPathAsync(path, ct);
         return ToInitialDto(path);
     }
 
     public async Task<IReadOnlyList<InitialTrainingPathDto>> ListInitialForFormateurAsync(CancellationToken ct)
     {
         var rows = await db.InitialTrainingPaths.AsNoTracking()
+            .Include(p => p.QuizResults)
             .Where(p => p.Status != InitialTrainingStatus.EnProduction && p.Status != InitialTrainingStatus.Rejete)
             .OrderBy(p => p.DateFinPrevue)
             .ToListAsync(ct);
-        return rows.Select(ToInitialDto).ToList();
+        var summaries = await documentChecklist.LoadSummariesAsync(rows.Select(r => r.Id).ToList(), ct);
+        return rows.Select(p => ToInitialDto(p, summaries.GetValueOrDefault(p.Id))).ToList();
     }
 
     public async Task<IReadOnlyList<InitialTrainingPathDto>> ListInitialPendingRhAsync(CancellationToken ct)
     {
         var rows = await db.InitialTrainingPaths.AsNoTracking()
+            .Include(p => p.QuizResults)
             .Where(p => p.Status == InitialTrainingStatus.AttenteValidationRh)
             .OrderBy(p => p.FormateurValidatedAt)
             .ToListAsync(ct);
-        return rows.Select(ToInitialDto).ToList();
+        var summaries = await documentChecklist.LoadSummariesAsync(rows.Select(r => r.Id).ToList(), ct);
+        return rows.Select(p => ToInitialDto(p, summaries.GetValueOrDefault(p.Id))).ToList();
     }
 
     public async Task<IReadOnlyList<InitialTrainingPathDto>> ListInitialByEmployeeAsync(Guid employeeId, CancellationToken ct)
     {
         var rows = await db.InitialTrainingPaths.AsNoTracking()
+            .Include(p => p.QuizResults)
             .Where(p => p.EmployeeId == employeeId)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync(ct);
-        return rows.Select(ToInitialDto).ToList();
+        var summaries = await documentChecklist.LoadSummariesAsync(rows.Select(r => r.Id).ToList(), ct);
+        return rows.Select(p => ToInitialDto(p, summaries.GetValueOrDefault(p.Id))).ToList();
     }
 
     public async Task<IReadOnlyList<InitialTrainingPathDto>> ListInitialOverviewAsync(CancellationToken ct)
     {
         var rows = await db.InitialTrainingPaths.AsNoTracking()
+            .Include(p => p.QuizResults)
             .OrderByDescending(p => p.UpdatedAt)
             .Take(500)
             .ToListAsync(ct);
-        return rows.Select(ToInitialDto).ToList();
+        var summaries = await documentChecklist.LoadSummariesAsync(rows.Select(r => r.Id).ToList(), ct);
+        return rows.Select(p => ToInitialDto(p, summaries.GetValueOrDefault(p.Id))).ToList();
     }
 
-    public async Task<InitialTrainingPathDto?> RecordQuizAsync(Guid id, RecordInitialQuizRequest request, CancellationToken ct)
+    public async Task<InitialTrainingPathDto?> AddQuizResultAsync(Guid id, AddInitialQuizResultRequest request, CancellationToken ct)
     {
-        var path = await db.InitialTrainingPaths.FirstOrDefaultAsync(p => p.Id == id, ct);
+        var path = await db.InitialTrainingPaths
+            .Include(p => p.QuizResults)
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
         if (path is null) return null;
-        if (request.QuizScore is < 0 or > 100)
+
+        var title = request.Title?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(title))
+            throw new InvalidOperationException("Le titre du quiz est obligatoire.");
+        if (request.Score is < 0 or > 100)
             throw new InvalidOperationException("La note du quiz doit être entre 0 et 100.");
 
-        var passed = request.QuizScore >= QuizPassThreshold;
-        path.QuizScore = request.QuizScore;
-        path.QuizPassed = passed;
-        path.QuizRecordedBy = request.RecordedBy;
-        path.FormateurComment = request.FormateurComment?.Trim();
-        path.Status = passed
-            ? InitialTrainingStatus.AttenteValidationFormateur
-            : InitialTrainingStatus.QuizASaisir;
+        var passed = request.Score >= QuizPassThreshold;
+        var result = new InitialTrainingQuizResult
+        {
+            Id = Guid.NewGuid(),
+            InitialTrainingPathId = path.Id,
+            Title = title,
+            Score = request.Score,
+            Passed = passed,
+            RecordedBy = string.IsNullOrWhiteSpace(request.RecordedBy) ? null : request.RecordedBy.Trim(),
+            RecordedAt = DateTime.UtcNow,
+        };
+        // DbSet.Add force EntityState.Added (Guid client ≠ UPDATE via navigation seule).
+        db.InitialTrainingQuizResults.Add(result);
+        path.QuizResults.Add(result);
+
+        // Agrégats legacy (dernier score) — sans impact sur le statut workflow.
+        path.QuizScore = result.Score;
+        path.QuizPassed = result.Passed;
+        path.QuizRecordedBy = result.RecordedBy;
+        path.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return ToInitialDto(path);
+    }
+
+    /// <summary>Compat : enregistre un résultat de traçabilité sans changer le statut.</summary>
+    public async Task<InitialTrainingPathDto?> RecordQuizAsync(Guid id, RecordInitialQuizRequest request, CancellationToken ct)
+    {
+        var title = string.IsNullOrWhiteSpace(request.Title) ? "Quiz" : request.Title.Trim();
+        return await AddQuizResultAsync(id, new AddInitialQuizResultRequest
+        {
+            Title = title,
+            Score = request.QuizScore,
+            RecordedBy = request.RecordedBy,
+        }, ct);
+    }
+
+    public async Task<InitialTrainingPathDto?> DeleteQuizResultAsync(Guid pathId, Guid resultId, CancellationToken ct)
+    {
+        var path = await db.InitialTrainingPaths
+            .Include(p => p.QuizResults)
+            .FirstOrDefaultAsync(p => p.Id == pathId, ct);
+        if (path is null) return null;
+
+        var result = path.QuizResults.FirstOrDefault(r => r.Id == resultId);
+        if (result is null) return null;
+
+        path.QuizResults.Remove(result);
+        db.InitialTrainingQuizResults.Remove(result);
+
+        var last = path.QuizResults.OrderByDescending(r => r.RecordedAt).FirstOrDefault();
+        path.QuizScore = last?.Score;
+        path.QuizPassed = last?.Passed;
+        path.QuizRecordedBy = last?.RecordedBy;
         path.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
         return ToInitialDto(path);
@@ -349,13 +432,18 @@ public sealed class TrainingWorkflowService(
 
     public async Task<InitialTrainingPathDto?> FormateurValidateAsync(Guid id, CancellationToken ct)
     {
-        var path = await db.InitialTrainingPaths.FirstOrDefaultAsync(p => p.Id == id, ct);
+        var path = await db.InitialTrainingPaths
+            .Include(p => p.QuizResults)
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
         if (path is null) return null;
-        if (path.QuizScore is null)
-            throw new InvalidOperationException("Saisissez d'abord le résultat du quiz.");
-        if (path.QuizPassed != true)
+        if (path.Status is InitialTrainingStatus.EnProduction or InitialTrainingStatus.Rejete)
+            throw new InvalidOperationException("Ce parcours ne peut plus être validé.");
+        if (path.Status == InitialTrainingStatus.AttenteValidationRh)
+            throw new InvalidOperationException("Le parcours est déjà en attente de validation RH.");
+        if (path.DateFinPrevue.Date.AddDays(-7) > DateTime.UtcNow.Date)
             throw new InvalidOperationException(
-                $"Le quiz doit être réussi (seuil {QuizPassThreshold:0} %) avant validation formateur.");
+                "La validation formateur n’est possible qu’à partir de J-7 avant la date de fin prévue (ou après prolongation).");
+
         path.Status = InitialTrainingStatus.AttenteValidationRh;
         path.FormateurValidatedAt = DateTime.UtcNow;
         path.UpdatedAt = DateTime.UtcNow;
@@ -365,20 +453,29 @@ public sealed class TrainingWorkflowService(
 
     public async Task<InitialTrainingPathDto?> FormateurRejectAsync(Guid id, RejectInitialTrainingRequest request, CancellationToken ct)
     {
-        var path = await db.InitialTrainingPaths.FirstOrDefaultAsync(p => p.Id == id, ct);
+        var path = await db.InitialTrainingPaths
+            .Include(p => p.QuizResults)
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
         if (path is null) return null;
         return await RejectPathAsync(path, request.RejectedBy, request.Reason, ct);
     }
 
     public async Task<InitialTrainingPathDto?> RhValidateAsync(Guid id, CancellationToken ct)
     {
-        var path = await db.InitialTrainingPaths.FirstOrDefaultAsync(p => p.Id == id, ct);
+        var path = await db.InitialTrainingPaths
+            .Include(p => p.QuizResults)
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
         if (path is null) return null;
         if (path.Status != InitialTrainingStatus.AttenteValidationRh)
             throw new InvalidOperationException("Le formateur doit valider avant la RH.");
-        if (path.QuizPassed != true)
+        if (path.DateFinPrevue.Date.AddDays(-7) > DateTime.UtcNow.Date)
             throw new InvalidOperationException(
-                $"Le quiz doit être réussi (seuil {QuizPassThreshold:0} %) avant le passage en production.");
+                "La validation RH n’est possible qu’à partir de J-7 avant la date de fin prévue (ou après prolongation).");
+
+        // Checklist : informative uniquement — ne bloque plus la validation.
+        await documentChecklist.MaterializeForPathAsync(path, ct);
+        var summaries = await documentChecklist.LoadSummariesAsync([path.Id], ct);
+        summaries.TryGetValue(path.Id, out var summary);
 
         path.Status = InitialTrainingStatus.EnProduction;
         path.RhValidatedAt = DateTime.UtcNow;
@@ -386,6 +483,7 @@ public sealed class TrainingWorkflowService(
         await db.SaveChangesAsync(ct);
 
         var completedAt = path.RhValidatedAt ?? DateTime.UtcNow;
+        var successRate = ComputeQuizSuccessRate(path.QuizResults);
         try
         {
             await publish.Publish(new InitialTrainingCompletedMessage
@@ -396,7 +494,7 @@ public sealed class TrainingWorkflowService(
                 CompletedAt = completedAt,
                 ProductionStartDate = DateOnly.FromDateTime(completedAt),
                 NiveauExpertiseMetier = 1,
-                QuizScore = path.QuizScore,
+                QuizScore = path.QuizScore ?? successRate,
             }, ct);
         }
         catch (Exception ex)
@@ -408,25 +506,114 @@ public sealed class TrainingWorkflowService(
                 path.Id);
         }
 
-        return ToInitialDto(path);
+        return ToInitialDto(path, summary);
+    }
+
+    public async Task<FormationInitialDashboardStatsDto> GetInitialDashboardStatsAsync(
+        IReadOnlyCollection<Guid>? employeeScope,
+        CancellationToken ct)
+    {
+        var scope = employeeScope is { Count: > 0 }
+            ? employeeScope.Where(id => id != Guid.Empty).ToHashSet()
+            : null;
+
+        var query = db.InitialTrainingPaths.AsNoTracking().AsQueryable();
+        if (scope is not null)
+            query = query.Where(p => scope.Contains(p.EmployeeId));
+
+        var paths = await query
+            .Include(p => p.QuizResults)
+            .OrderByDescending(p => p.UpdatedAt)
+            .Take(500)
+            .ToListAsync(ct);
+
+        var summaries = await documentChecklist.LoadSummariesAsync(paths.Select(p => p.Id).ToList(), ct);
+        var now = DateTime.UtcNow.Date;
+
+        var enCours = paths.Count(p =>
+            p.Status is InitialTrainingStatus.EnCours or InitialTrainingStatus.QuizASaisir);
+        var attFormateur = paths.Count(p => p.Status == InitialTrainingStatus.AttenteValidationFormateur);
+        var attRh = paths.Count(p => p.Status == InitialTrainingStatus.AttenteValidationRh);
+        var enProd = paths.Count(p => p.Status == InitialTrainingStatus.EnProduction);
+        var rejete = paths.Count(p => p.Status == InitialTrainingStatus.Rejete);
+
+        var withQuiz = paths.Where(p => (p.QuizResults?.Count ?? 0) > 0 || p.QuizScore is not null).ToList();
+        var avgQuiz = withQuiz.Count == 0
+            ? 0d
+            : Math.Round((double)withQuiz.Average(p =>
+                (p.QuizResults?.Count ?? 0) > 0
+                    ? ComputeQuizSuccessRate(p.QuizResults!)
+                    : p.QuizScore!.Value), 1);
+
+        var missingDocs = 0;
+        var endingSoon = 0;
+        var atRisk = new List<FormationInitialRiskItemDto>();
+
+        foreach (var path in paths)
+        {
+            if (path.Status is InitialTrainingStatus.EnProduction or InitialTrainingStatus.Rejete)
+                continue;
+
+            summaries.TryGetValue(path.Id, out var sum);
+            sum ??= new FormationDocumentChecklistService.ChecklistSummary(0, 0, Array.Empty<string>());
+            var incomplete = sum.TotalCount > 0 && sum.ReceivedCount < sum.TotalCount;
+            if (incomplete) missingDocs++;
+
+            var days = (int)Math.Ceiling((path.DateFinPrevue.Date - now).TotalDays);
+            if (days <= 7) endingSoon++;
+
+            if (incomplete && days <= 7)
+            {
+                atRisk.Add(new FormationInitialRiskItemDto(
+                    path.Id,
+                    path.EmployeeId,
+                    path.EmployeeName,
+                    days,
+                    sum.ReceivedCount,
+                    sum.TotalCount,
+                    sum.MissingTitles));
+            }
+        }
+
+        return new FormationInitialDashboardStatsDto(
+            paths.Count,
+            enCours,
+            attFormateur,
+            attRh,
+            enProd,
+            rejete,
+            attRh,
+            avgQuiz,
+            missingDocs,
+            endingSoon,
+            atRisk.OrderBy(a => a.DaysUntilEnd ?? int.MaxValue).Take(8).ToList());
     }
 
     public async Task<InitialTrainingPathDto?> RhRejectAsync(Guid id, RejectInitialTrainingRequest request, CancellationToken ct)
     {
-        var path = await db.InitialTrainingPaths.FirstOrDefaultAsync(p => p.Id == id, ct);
+        var path = await db.InitialTrainingPaths
+            .Include(p => p.QuizResults)
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
         if (path is null) return null;
         return await RejectPathAsync(path, request.RejectedBy, request.Reason, ct);
     }
 
     public async Task<InitialTrainingPathDto?> ExtendInitialAsync(Guid id, ExtendInitialTrainingRequest request, CancellationToken ct)
     {
-        var path = await db.InitialTrainingPaths.FirstOrDefaultAsync(p => p.Id == id, ct);
+        var path = await db.InitialTrainingPaths
+            .Include(p => p.QuizResults)
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
         if (path is null) return null;
-        path.DateFinPrevue = request.DateFinPrevue;
-        path.QuizScore = null;
-        path.QuizPassed = null;
+
+        var newEnd = DateTime.SpecifyKind(request.DateFinPrevue.Date, DateTimeKind.Utc);
+        if (newEnd <= path.DateFinPrevue.Date)
+            throw new InvalidOperationException("La nouvelle date de fin doit être postérieure à la date actuelle.");
+
+        path.DateFinPrevue = newEnd;
+        // Traçabilité quiz conservée ; on réouvre le parcours côté formateur.
         path.FormateurValidatedAt = null;
-        path.Status = InitialTrainingStatus.QuizASaisir;
+        if (path.Status == InitialTrainingStatus.AttenteValidationRh)
+            path.Status = InitialTrainingStatus.EnCours;
         path.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
         return ToInitialDto(path);
@@ -575,6 +762,37 @@ public sealed class TrainingWorkflowService(
         }
     }
 
+    private async Task<IReadOnlyList<TrainingSessionDto>> MapSessionsAsync(
+        IReadOnlyList<TrainingSession> sessions,
+        CancellationToken ct)
+    {
+        if (sessions.Count == 0) return Array.Empty<TrainingSessionDto>();
+        var ids = sessions.Select(s => s.Id).ToList();
+        var counts = await db.TrainingAssignments.AsNoTracking()
+            .Where(a => ids.Contains(a.SessionId))
+            .GroupBy(a => a.SessionId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, ct);
+        var reports = (await db.TrainingSessionReports.AsNoTracking()
+            .Where(r => ids.Contains(r.SessionId))
+            .Select(r => r.SessionId)
+            .ToListAsync(ct)).ToHashSet();
+        var quizzes = await db.TrainingQuizzes.AsNoTracking()
+            .Where(q => ids.Contains(q.SessionId))
+            .ToDictionaryAsync(q => q.SessionId, ct);
+
+        return sessions.Select(s =>
+        {
+            quizzes.TryGetValue(s.Id, out var quiz);
+            return ToSessionDto(
+                s,
+                counts.GetValueOrDefault(s.Id),
+                reports.Contains(s.Id),
+                quiz?.Id,
+                quiz?.Status.ToString());
+        }).ToList();
+    }
+
     private static TrainingAssignmentDto ToAssignmentDto(TrainingAssignment a) =>
         new(
             a.Id,
@@ -592,7 +810,12 @@ public sealed class TrainingWorkflowService(
             _ => "Pending",
         };
 
-    private static TrainingSessionDto ToSessionDto(TrainingSession session, int assignmentCount) =>
+    private static TrainingSessionDto ToSessionDto(
+        TrainingSession session,
+        int assignmentCount,
+        bool hasReport = false,
+        Guid? quizId = null,
+        string? quizStatus = null) =>
         new(
             session.Id,
             session.Title,
@@ -608,19 +831,73 @@ public sealed class TrainingWorkflowService(
             session.PlannedEnd,
             session.Capacity,
             session.Status,
-            assignmentCount);
+            assignmentCount,
+            session.ProgramId,
+            session.SequenceNumber,
+            hasReport,
+            quizId,
+            quizStatus);
 
-    private static InitialTrainingPathDto ToInitialDto(InitialTrainingPath path) =>
-        new(
+    private static InitialTrainingPathDto ToInitialDto(
+        InitialTrainingPath path,
+        FormationDocumentChecklistService.ChecklistSummary? docs = null)
+    {
+        var results = (path.QuizResults ?? Array.Empty<InitialTrainingQuizResult>())
+            .OrderByDescending(r => r.RecordedAt)
+            .Select(r => new InitialTrainingQuizResultDto(
+                r.Id,
+                r.Title,
+                r.Score,
+                r.Passed,
+                r.RecordedBy,
+                r.RecordedAt))
+            .ToList();
+
+        // Fallback legacy si table résultats vide mais QuizScore présent.
+        if (results.Count == 0 && path.QuizScore is not null)
+        {
+            results.Add(new InitialTrainingQuizResultDto(
+                Guid.Empty,
+                "Quiz",
+                path.QuizScore.Value,
+                path.QuizPassed == true,
+                path.QuizRecordedBy,
+                path.UpdatedAt));
+        }
+
+        var daysUntilEnd = (int)Math.Ceiling((path.DateFinPrevue.Date - DateTime.UtcNow.Date).TotalDays);
+
+        return new(
             path.Id,
             path.EmployeeId,
             path.EmployeeName,
             path.DateDebut,
             path.DateFinPrevue,
             path.Status,
-            path.QuizScore is not null,
+            results.Count > 0,
             path.FormateurValidatedAt,
             path.RhValidatedAt,
             path.RejectedBy,
-            path.RejectReason);
+            path.RejectReason,
+            results,
+            ComputeQuizSuccessRate(results),
+            docs?.ReceivedCount ?? 0,
+            docs?.TotalCount ?? 0,
+            docs?.MissingTitles ?? Array.Empty<string>(),
+            daysUntilEnd);
+    }
+
+    /// <summary>Moyenne des notes quiz (0–100), pas le taux de réussite.</summary>
+    private static decimal ComputeQuizSuccessRate(IEnumerable<InitialTrainingQuizResult> results)
+    {
+        var list = results.ToList();
+        if (list.Count == 0) return 0m;
+        return Math.Round(list.Average(r => r.Score), 1);
+    }
+
+    private static decimal ComputeQuizSuccessRate(IReadOnlyList<InitialTrainingQuizResultDto> results)
+    {
+        if (results.Count == 0) return 0m;
+        return Math.Round(results.Average(r => r.Score), 1);
+    }
 }

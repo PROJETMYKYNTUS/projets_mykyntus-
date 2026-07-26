@@ -38,3 +38,24 @@ public enum InitialTrainingStatus
     EnProduction = 4,
     Rejete = 5,
 }
+
+public enum TrainingProgramMode
+{
+    Single = 0,
+    Multiple = 1,
+}
+
+public enum TrainingQuizStatus
+{
+    Draft = 0,
+    Published = 1,
+    Graded = 2,
+    Validated = 3,
+    Rejected = 4,
+}
+
+public enum TrainingQuizQuestionType
+{
+    Qcm = 0,
+    FreeText = 1,
+}

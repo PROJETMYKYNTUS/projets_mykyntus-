@@ -1,6 +1,7 @@
 using Formation.Application.DTOs;
 using Formation.Domain.Enums;
 using Formation.Infrastructure.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Formation.API.Controllers;
@@ -24,18 +25,36 @@ public sealed class TrainingSessionsController(TrainingWorkflowService training)
         training.ListMyAssignedSessionsAsync(employeeId, ct);
 
     [HttpPost]
+    [Authorize(Policy = "CanPlanContinue")]
     public async Task<ActionResult<TrainingSessionDto>> Create([FromBody] CreateTrainingSessionRequest body, CancellationToken ct)
     {
-        var created = await training.CreateSessionAsync(body, ct);
-        return CreatedAtAction(nameof(List), new { id = created.Id }, created);
+        try
+        {
+            var created = await training.CreateSessionAsync(body, ct);
+            return CreatedAtAction(nameof(List), new { id = created.Id }, created);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPost("{id:guid}/assign")]
-    public Task<IReadOnlyList<TrainingAssignmentDto>> Assign(
+    [Authorize(Policy = "CanPlanContinue")]
+    public async Task<ActionResult<IReadOnlyList<TrainingAssignmentDto>>> Assign(
         Guid id,
         [FromBody] AssignTrainingEmployeesRequest body,
-        CancellationToken ct) =>
-        training.AssignEmployeesAsync(id, body, ct);
+        CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await training.AssignEmployeesAsync(id, body, ct));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 
     [HttpGet("{id:guid}/assignments")]
     public async Task<ActionResult<IReadOnlyList<TrainingAssignmentDto>>> ListAssignments(
@@ -71,6 +90,7 @@ public sealed class TrainingSessionsController(TrainingWorkflowService training)
     }
 
     [HttpPatch("{id:guid}")]
+    [Authorize(Policy = "CanPlanContinue")]
     public async Task<ActionResult<TrainingSessionDto>> PatchStatus(
         Guid id,
         [FromBody] PatchTrainingSessionStatusRequest body,

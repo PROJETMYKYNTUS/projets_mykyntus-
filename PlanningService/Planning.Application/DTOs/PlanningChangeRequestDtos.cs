@@ -33,6 +33,7 @@ public class PlanningChangeRequestDto
     public string? RejectionReason { get; set; }
     public int SubServiceId { get; set; }
     public string SubServiceName { get; set; } = string.Empty;
+    public int WeeklyPlanningId { get; set; }
 }
 
 public class SwapCandidateDto

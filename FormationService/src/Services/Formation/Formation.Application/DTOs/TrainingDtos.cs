@@ -17,7 +17,12 @@ public sealed record TrainingSessionDto(
     DateTime PlannedEnd,
     int Capacity,
     TrainingSessionStatus Status,
-    int AssignmentCount);
+    int AssignmentCount,
+    Guid? ProgramId = null,
+    int SequenceNumber = 1,
+    bool HasReport = false,
+    Guid? QuizId = null,
+    string? QuizStatus = null);
 
 public sealed record TrainingAssignmentDto(
     Guid Id,
@@ -35,7 +40,22 @@ public sealed record MyAssignedTrainingSessionDto(
     DateTime PlannedStart,
     DateTime PlannedEnd,
     TrainingSessionStatus Status,
-    string Attendance);
+    string Attendance,
+    Guid? QuizId = null,
+    string? QuizStatus = null,
+    bool CanTakeQuiz = false,
+    Guid? AttemptId = null,
+    bool AttemptGraded = false,
+    decimal? FinalScore = null,
+    bool? Passed = null);
+
+public sealed record InitialTrainingQuizResultDto(
+    Guid Id,
+    string Title,
+    decimal Score,
+    bool Passed,
+    string? RecordedBy,
+    DateTime RecordedAt);
 
 public sealed record InitialTrainingPathDto(
     Guid Id,
@@ -48,7 +68,45 @@ public sealed record InitialTrainingPathDto(
     DateTime? FormateurValidatedAt,
     DateTime? RhValidatedAt,
     string? RejectedBy,
-    string? RejectReason);
+    string? RejectReason,
+    IReadOnlyList<InitialTrainingQuizResultDto> QuizResults,
+    decimal QuizSuccessRate,
+    int DocumentsReceivedCount = 0,
+    int DocumentsTotalCount = 0,
+    IReadOnlyList<string>? MissingDocumentTitles = null,
+    int? DaysUntilEnd = null);
+
+public sealed record FormationDocumentDefinitionDto(
+    Guid Id,
+    string Title,
+    int SortOrder,
+    bool IsActive,
+    DateTime CreatedAt);
+
+public sealed class UpsertFormationDocumentDefinitionRequest
+{
+    public string Title { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
+public sealed record FormationDocumentChecklistItemDto(
+    Guid Id,
+    Guid DefinitionId,
+    string Title,
+    int SortOrder,
+    bool IsReceived,
+    DateTime? ReceivedAt,
+    string? ReceivedBy,
+    string? Note,
+    Guid? PathId = null);
+
+public sealed class UpdateChecklistItemRequest
+{
+    public bool IsReceived { get; set; }
+    public string? ReceivedBy { get; set; }
+    public string? Note { get; set; }
+}
 
 public sealed class MarkTrainingAttendanceRequest
 {
@@ -99,6 +157,15 @@ public sealed class RecordInitialQuizRequest
     public bool QuizPassed { get; set; }
     public string? FormateurComment { get; set; }
     public string RecordedBy { get; set; } = string.Empty;
+    /// <summary>Titre libre pour la traçabilité (défaut « Quiz »).</summary>
+    public string? Title { get; set; }
+}
+
+public sealed class AddInitialQuizResultRequest
+{
+    public string Title { get; set; } = string.Empty;
+    public decimal Score { get; set; }
+    public string RecordedBy { get; set; } = string.Empty;
 }
 
 public sealed class RejectInitialTrainingRequest
@@ -111,3 +178,212 @@ public sealed class ExtendInitialTrainingRequest
 {
     public DateTime DateFinPrevue { get; set; }
 }
+
+public sealed record TrainingProgramDto(
+    Guid Id,
+    string Title,
+    string Description,
+    TrainingProgramMode Mode,
+    int SessionCount,
+    AnimatorKind AnimatorKind,
+    Guid? AnimatorUserId,
+    string? ExternalAnimatorName,
+    int Capacity,
+    IReadOnlyList<TrainingSessionDto> Sessions);
+
+public sealed class CreateTrainingProgramRequest
+{
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public TrainingProgramMode Mode { get; set; } = TrainingProgramMode.Single;
+    public int SessionCount { get; set; } = 1;
+    public AnimatorKind AnimatorKind { get; set; }
+    public Guid? AnimatorUserId { get; set; }
+    public string? ExternalAnimatorName { get; set; }
+    public string? ExternalAnimatorOrganization { get; set; }
+    public string? ExternalAnimatorEmail { get; set; }
+    public string? ExternalAnimatorPhone { get; set; }
+    public int Capacity { get; set; }
+    public string CreatedByUserId { get; set; } = string.Empty;
+    public bool Publish { get; set; }
+    public IReadOnlyList<TrainingProgramSessionSlot> Sessions { get; set; } = Array.Empty<TrainingProgramSessionSlot>();
+}
+
+public sealed class TrainingProgramSessionSlot
+{
+    public DateTime PlannedStart { get; set; }
+    public DateTime PlannedEnd { get; set; }
+}
+
+public sealed record TrainingSessionReportDto(
+    Guid Id,
+    Guid SessionId,
+    string FileName,
+    string ContentType,
+    DateTime UploadedAt);
+
+public sealed record TrainingQuizQuestionDto(
+    Guid Id,
+    int SortOrder,
+    TrainingQuizQuestionType Type,
+    string Prompt,
+    IReadOnlyList<string>? Options,
+    int? CorrectOptionIndex,
+    decimal Points,
+    bool AllowMultiple = false,
+    IReadOnlyList<int>? CorrectOptionIndexes = null);
+
+public sealed record TrainingQuizDto(
+    Guid Id,
+    Guid SessionId,
+    string Title,
+    TrainingQuizStatus Status,
+    IReadOnlyList<TrainingQuizQuestionDto> Questions,
+    string? RejectedReason = null,
+    decimal PassThreshold = 70m);
+
+public sealed class GradeFreeTextAnswerRequest
+{
+    public Guid AnimatorUserId { get; set; }
+    public Guid QuestionId { get; set; }
+    public bool IsCorrect { get; set; }
+}
+
+/// <summary>Quiz for employees — hides correct answers.</summary>
+public sealed record TrainingQuizForEmployeeDto(
+    Guid Id,
+    Guid SessionId,
+    string Title,
+    TrainingQuizStatus Status,
+    IReadOnlyList<TrainingQuizQuestionPublicDto> Questions);
+
+public sealed record TrainingQuizQuestionPublicDto(
+    Guid Id,
+    int SortOrder,
+    TrainingQuizQuestionType Type,
+    string Prompt,
+    IReadOnlyList<string>? Options,
+    decimal Points,
+    bool AllowMultiple = false);
+
+public sealed class UpsertTrainingQuizRequest
+{
+    public string Title { get; set; } = string.Empty;
+    /// <summary>Seuil de réussite en % (1–100). Défaut 70.</summary>
+    public decimal PassThreshold { get; set; } = 70m;
+    public Guid AnimatorUserId { get; set; }
+    public IReadOnlyList<UpsertTrainingQuizQuestionItem> Questions { get; set; } = Array.Empty<UpsertTrainingQuizQuestionItem>();
+}
+
+public sealed class UpsertTrainingQuizQuestionItem
+{
+    public TrainingQuizQuestionType Type { get; set; }
+    public string Prompt { get; set; } = string.Empty;
+    public IReadOnlyList<string>? Options { get; set; }
+    public int? CorrectOptionIndex { get; set; }
+    public bool AllowMultiple { get; set; }
+    public IReadOnlyList<int>? CorrectOptionIndexes { get; set; }
+    public decimal Points { get; set; } = 1m;
+}
+
+public sealed class SubmitTrainingQuizAttemptRequest
+{
+    public Guid AssignmentId { get; set; }
+    public Guid EmployeeId { get; set; }
+    public IReadOnlyList<TrainingQuizAnswerItem> Answers { get; set; } = Array.Empty<TrainingQuizAnswerItem>();
+}
+
+public sealed class TrainingQuizAnswerItem
+{
+    public Guid QuestionId { get; set; }
+    public int? SelectedOptionIndex { get; set; }
+    public IReadOnlyList<int>? SelectedOptionIndexes { get; set; }
+    public string? FreeText { get; set; }
+}
+
+public sealed class GradeTrainingQuizAttemptRequest
+{
+    public Guid AnimatorUserId { get; set; }
+    public decimal? ManualScore { get; set; }
+    public bool Passed { get; set; }
+    public string? AnimatorComment { get; set; }
+}
+
+public sealed class ValidateTrainingQuizRequest
+{
+    public Guid ActorUserId { get; set; }
+}
+
+public sealed class RejectTrainingQuizRequest
+{
+    public Guid ActorUserId { get; set; }
+    public string Reason { get; set; } = string.Empty;
+}
+
+public sealed record TrainingQuizAttemptAnswerDetailDto(
+    Guid QuestionId,
+    int SortOrder,
+    TrainingQuizQuestionType Type,
+    string Prompt,
+    IReadOnlyList<string>? Options,
+    int? SelectedOptionIndex,
+    IReadOnlyList<int>? SelectedOptionIndexes,
+    string? FreeText,
+    int? CorrectOptionIndex,
+    IReadOnlyList<int>? CorrectOptionIndexes,
+    bool AllowMultiple,
+    bool? IsCorrect,
+    decimal Points);
+
+public sealed record TrainingQuizAttemptDto(
+    Guid Id,
+    Guid QuizId,
+    Guid AssignmentId,
+    Guid EmployeeId,
+    string EmployeeName,
+    decimal? AutoScore,
+    decimal? ManualScore,
+    decimal? FinalScore,
+    bool? Passed,
+    bool IsGraded,
+    DateTime SubmittedAt,
+    string? AnimatorComment,
+    IReadOnlyList<TrainingQuizAttemptAnswerDetailDto>? Answers = null);
+
+public sealed record FormationDashboardStatsDto(
+    int ProgramCount,
+    int SessionCount,
+    int AssignmentCount,
+    int PresentCount,
+    double AttendanceRate,
+    int QuizCount,
+    int QuizzesValidated,
+    int GradedAttempts,
+    int PassedAttempts,
+    double QuizSuccessRate,
+    int UpcomingSessions,
+    int MissingReports,
+    int QuizzesPendingValidation);
+
+public sealed record FormationInitialRiskItemDto(
+    Guid PathId,
+    Guid EmployeeId,
+    string EmployeeName,
+    int? DaysUntilEnd,
+    int DocumentsReceivedCount,
+    int DocumentsTotalCount,
+    IReadOnlyList<string> MissingDocumentTitles);
+
+public sealed record FormationInitialDashboardStatsDto(
+    int TotalPaths,
+    int EnCours,
+    int AttenteValidationFormateur,
+    int AttenteValidationRh,
+    int EnProduction,
+    int Rejete,
+    int PendingRh,
+    double AvgQuizSuccessRate,
+    int PathsWithMissingDocs,
+    int EndingWithin7Days,
+    IReadOnlyList<FormationInitialRiskItemDto> AtRisk);
+

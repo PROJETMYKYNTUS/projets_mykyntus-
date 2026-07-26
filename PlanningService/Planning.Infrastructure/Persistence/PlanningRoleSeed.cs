@@ -21,6 +21,7 @@ internal static class PlanningRoleSeed
         ("Admin", "Administrateur système"),
         ("Audit", "Auditeur interne"),
         ("EquipeFormation", "Équipe formation"),
+        (KyntusRoleNames.Qualiticien, "Qualiticien — formation continue"),
     ];
 
     internal static async Task EnsureCatalogAsync(AppDbContext context, CancellationToken ct = default)

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Planning.Application.Abstractions;
 using Planning.Application.DTOs.Planning;
 using Planning.Domain.Entities;
@@ -13,13 +14,18 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
 {
     private readonly AppDbContext _context;
     private readonly IHubContext<PlanningHub> _hubContext;
+    private readonly ILogger<PlanningChangeRequestService> _logger;
     private const string CasablancaTz = "Africa/Casablanca";
     private const string ChangeRequestSubService = "Demande de changement";
 
-    public PlanningChangeRequestService(AppDbContext context, IHubContext<PlanningHub> hubContext)
+    public PlanningChangeRequestService(
+        AppDbContext context,
+        IHubContext<PlanningHub> hubContext,
+        ILogger<PlanningChangeRequestService> logger)
     {
         _context = context;
         _hubContext = hubContext;
+        _logger = logger;
     }
 
     public async Task<PlanningChangeRequestDto> CreateAsync(
@@ -69,10 +75,20 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
         if (string.IsNullOrWhiteSpace(requesterName))
             requesterName = assignment.User.Email ?? $"#{requesterUserId}";
 
-        await NotifyRhAdminsAsync(
-            entity.WeekCode,
-            $"Nouvelle demande de changement — {requesterName} ({entity.WeekCode})",
-            "/planning/change-requests");
+        try
+        {
+            await NotifyRhAdminsAsync(
+                entity.WeekCode,
+                $"Nouvelle demande de changement — {requesterName} ({entity.WeekCode})",
+                "/planning/change-requests");
+        }
+        catch (Exception ex)
+        {
+            // La demande est déjà persistée : ne pas faire échouer la création si la notif échoue.
+            _logger.LogError(ex,
+                "Échec notification RH/Admin pour la demande de changement {RequestId} ({WeekCode})",
+                entity.Id, entity.WeekCode);
+        }
 
         return await MapAsync(entity.Id)
             ?? throw new InvalidOperationException("Erreur création demande.");
@@ -224,7 +240,22 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
             ?? throw new InvalidOperationException("Assignation source disparue — demande non applicable.");
 
         if (!request.ProposedSwapUserId.HasValue)
-            throw new InvalidOperationException("Aucune proposition de switch — réaffectation manuelle requise.");
+        {
+            // Pas de switch proposé : le RH traite manuellement sur la grille.
+            // Approuver = confirmer que la réaffectation a été faite (ou clôturer la demande).
+            request.Status = PlanningChangeRequestStatus.Approved;
+            request.ProcessedByUserId = processedByUserId;
+            request.ProcessedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            await NotifyUserAsync(
+                request.RequesterUserId,
+                request.WeekCode,
+                $"Votre demande de changement ({request.WeekCode}) a été traitée par le RH.",
+                "/mes-plannings");
+
+            return await MapAsync(id) ?? throw new InvalidOperationException("Erreur approve.");
+        }
 
         var swapAssignment = await _context.ShiftAssignments
             .FirstOrDefaultAsync(a =>
@@ -339,16 +370,62 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
     {
         var recipients = await _context.Users
             .AsNoTracking()
-            .Include(u => u.Role)
             .Where(u => u.IsActive
                         && u.AuthUserId != null
                         && u.Role != null
-                        && (u.Role.Name == "RH" || u.Role.Name == "Admin"))
+                        && (u.Role.Name.ToLower() == "rh" || u.Role.Name.ToLower() == "admin"))
             .Select(u => new { u.Id, AuthUserId = u.AuthUserId!.Value })
             .ToListAsync();
 
+        if (recipients.Count == 0)
+        {
+            _logger.LogWarning(
+                "Aucune fiche Planning RH/Admin avec AuthUserId — push SignalR groupe {Group} uniquement. Message: {Message}",
+                PlanningHub.RhAdminsGroup, message);
+        }
+
+        // Persistance individuelle (historique cloche après refresh).
+        var created = new List<PlanningNotification>();
         foreach (var r in recipients)
-            await PersistAndPushAsync(r.Id, r.AuthUserId, weekCode, message, deepLink);
+        {
+            var notif = new PlanningNotification
+            {
+                UserId = r.Id,
+                AuthUserId = r.AuthUserId,
+                WeeklyPlanningId = null,
+                WeekCode = weekCode,
+                SubServiceName = ChangeRequestSubService,
+                Message = message,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.PlanningNotifications.Add(notif);
+            created.Add(notif);
+        }
+
+        if (created.Count > 0)
+            await _context.SaveChangesAsync();
+
+        // Push temps réel : groupe partagé RH/Admin (même si 0 destinataire en base).
+        var payload = new
+        {
+            id = created.FirstOrDefault()?.Id,
+            weekCode,
+            subServiceName = ChangeRequestSubService,
+            message,
+            weeklyPlanningId = (int?)null,
+            deepLink,
+            createdAt = created.FirstOrDefault()?.CreatedAt ?? DateTime.UtcNow,
+            isRead = false
+        };
+
+        await _hubContext.Clients
+            .Group(PlanningHub.RhAdminsGroup)
+            .SendAsync("PlanningPublished", payload);
+
+        _logger.LogInformation(
+            "Notification demande de changement poussée vers {Group} ({RecipientCount} persistée(s))",
+            PlanningHub.RhAdminsGroup, created.Count);
     }
 
     private async Task NotifyUserAsync(int planningUserId, string weekCode, string message, string deepLink)
@@ -452,7 +529,8 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
             ProcessedAt = r.ProcessedAt,
             RejectionReason = r.RejectionReason,
             SubServiceId = r.CurrentAssignment.WeeklyPlanning.SubServiceId,
-            SubServiceName = r.CurrentAssignment.WeeklyPlanning.SubService.Name
+            SubServiceName = r.CurrentAssignment.WeeklyPlanning.SubService.Name,
+            WeeklyPlanningId = r.CurrentAssignment.WeeklyPlanningId
         };
     }
 }

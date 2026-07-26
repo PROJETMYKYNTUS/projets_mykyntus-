@@ -44,8 +44,18 @@
       <tbody>
         <tr *ngFor="let field of configFields">
           <td>{{ field.label }} <span class="field-key">({{ field.fieldKey }})</span></td>
-          <td><input type="checkbox" [(ngModel)]="field.isEnabled" /></td>
-          <td><input type="checkbox" [(ngModel)]="field.isRequiredOnCreate" [disabled]="!field.isEnabled" /></td>
+          <td>
+            <input type="checkbox"
+                   [(ngModel)]="field.isEnabled"
+                   [disabled]="isEnabledCheckboxLocked(field.fieldKey)"
+                   [title]="lockHint(field.fieldKey)" />
+          </td>
+          <td>
+            <input type="checkbox"
+                   [(ngModel)]="field.isRequiredOnCreate"
+                   [disabled]="!field.isEnabled || isRequiredCheckboxLocked(field.fieldKey)"
+                   [title]="lockHint(field.fieldKey)" />
+          </td>
         </tr>
       </tbody>
     </table>

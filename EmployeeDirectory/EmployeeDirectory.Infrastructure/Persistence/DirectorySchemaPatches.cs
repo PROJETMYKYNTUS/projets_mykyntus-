@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace EmployeeDirectory.Infrastructure.Persistence;
 
@@ -6,6 +7,8 @@ public static class DirectorySchemaPatches
 {
     public static async Task ApplyAsync(DirectoryDbContext db, CancellationToken ct = default)
     {
+        // Chaque patch est isolé : un échec (ex. contrainte legacy) ne doit pas
+        // empêcher les suivants (HTEL, colonnes HR, etc.).
         await EnsureOutboxTableAsync(db, ct);
         await EnsureEmployeeRowVersionDefaultAsync(db, ct);
         await EnsureBusinessDepartmentSchemaAsync(db, ct);
@@ -15,6 +18,41 @@ public static class DirectorySchemaPatches
         await EnsureNumeroCarteAutoentrepreneurColumnAsync(db, ct);
         await EnsureEmailPersonnelColumnAsync(db, ct);
         await EnsureEmployeeHtelColumnsAsync(db, ct);
+    }
+
+    /// <summary>
+    /// Applique les patches en continuant après une erreur non fatale, pour ne pas
+    /// bloquer HTEL / colonnes récentes derrière un script HR legacy.
+    /// </summary>
+    public static async Task ApplyBestEffortAsync(
+        DirectoryDbContext db,
+        ILogger? log = null,
+        CancellationToken ct = default)
+    {
+        await RunPatchAsync(nameof(EnsureOutboxTableAsync), () => EnsureOutboxTableAsync(db, ct), log);
+        await RunPatchAsync(nameof(EnsureEmployeeRowVersionDefaultAsync), () => EnsureEmployeeRowVersionDefaultAsync(db, ct), log);
+        await RunPatchAsync(nameof(EnsureBusinessDepartmentSchemaAsync), () => EnsureBusinessDepartmentSchemaAsync(db, ct), log);
+        await RunPatchAsync(nameof(EnsureOrgPoleBusinessDepartmentAsync), () => EnsureOrgPoleBusinessDepartmentAsync(db, ct), log);
+        await RunPatchAsync(nameof(EnsureEmployeeManagersAndHrProfileAsync), () => EnsureEmployeeManagersAndHrProfileAsync(db, ct), log);
+        await RunPatchAsync(nameof(EnsureDateDebutFormationColumnAsync), () => EnsureDateDebutFormationColumnAsync(db, ct), log);
+        await RunPatchAsync(nameof(EnsureNumeroCarteAutoentrepreneurColumnAsync), () => EnsureNumeroCarteAutoentrepreneurColumnAsync(db, ct), log);
+        await RunPatchAsync(nameof(EnsureEmailPersonnelColumnAsync), () => EnsureEmailPersonnelColumnAsync(db, ct), log);
+        await RunPatchAsync(nameof(EnsureEmployeeHtelColumnsAsync), () => EnsureEmployeeHtelColumnsAsync(db, ct), log);
+    }
+
+    private static async Task RunPatchAsync(
+        string name,
+        Func<Task> patch,
+        ILogger? log)
+    {
+        try
+        {
+            await patch();
+        }
+        catch (Exception ex)
+        {
+            log?.LogWarning(ex, "Directory schema patch {Patch} failed — continuing.", name);
+        }
     }
 
     public static async Task EnsureEmployeeHtelColumnsAsync(DirectoryDbContext db, CancellationToken ct = default)
@@ -175,6 +213,12 @@ public static class DirectorySchemaPatches
                 "UpdatedAt" timestamp with time zone NULL
             );
 
+            ALTER TABLE employee_hr_profiles
+                ALTER COLUMN "EnFormation" SET DEFAULT FALSE;
+            UPDATE employee_hr_profiles
+                SET "EnFormation" = FALSE
+                WHERE "EnFormation" IS NULL;
+
             UPDATE employee_hr_profiles p
             SET "DateEmbauche" = e."HireDate"::date
             FROM employees e
@@ -182,8 +226,8 @@ public static class DirectorySchemaPatches
               AND p."DateEmbauche" IS NULL
               AND e."HireDate" IS NOT NULL;
 
-            INSERT INTO employee_hr_profiles ("EmployeeId", "DateEmbauche", "CreatedAt")
-            SELECT e."Id", e."HireDate"::date, NOW()
+            INSERT INTO employee_hr_profiles ("EmployeeId", "DateEmbauche", "EnFormation", "CreatedAt")
+            SELECT e."Id", e."HireDate"::date, FALSE, NOW()
             FROM employees e
             WHERE NOT EXISTS (
                 SELECT 1 FROM employee_hr_profiles p WHERE p."EmployeeId" = e."Id"

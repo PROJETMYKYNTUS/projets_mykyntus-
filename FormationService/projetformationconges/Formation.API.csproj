@@ -16,5 +16,7 @@
 		<ProjectReference Include="..\src\Services\Formation\Formation.Domain\Formation.Domain.csproj" />
 		<ProjectReference Include="..\src\Services\Formation\Formation.Application\Formation.Application.csproj" />
 		<ProjectReference Include="..\src\Services\Formation\Formation.Infrastructure\Formation.Infrastructure.csproj" />
+		<ProjectReference Include="..\..\Kyntus.Identity.Jwt\Kyntus.Identity.Jwt.csproj" />
+		<ProjectReference Include="..\..\Messaging.Contracts\Messaging.Contracts.csproj" />
 	</ItemGroup>
 </Project>

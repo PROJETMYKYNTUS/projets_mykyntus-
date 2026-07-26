@@ -1,0 +1,54 @@
+<div class="assist-page">
+  <app-kyntus-page-header
+    title="Assistance MyKyntus"
+    subtitle="Aide à l’usage du portail — guides, FAQ et accès aux demandes internes."
+  />
+
+  <section class="assist-section">
+    <h2>Accès rapide</h2>
+    <div class="assist-grid">
+      @for (link of quickLinks(); track link.route) {
+        <a [routerLink]="link.route" class="assist-card assist-card--action">
+          <strong>{{ link.title }}</strong>
+          <span>{{ link.description }}</span>
+        </a>
+      }
+      <div class="assist-card">
+        <strong>Session et mot de passe</strong>
+        <span>
+          Pour renouveler votre session, déconnectez-vous puis reconnectez-vous via l’écran d’authentification.
+          Aucune demande de mot de passe n’est traitée par courriel.
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <section class="assist-section">
+    <h2>Guide par module</h2>
+    <div class="assist-grid assist-grid--modules">
+      @for (mod of modules(); track mod.title) {
+        <a [routerLink]="mod.route" class="assist-card assist-card--module">
+          <strong>{{ mod.title }}</strong>
+          <span>{{ mod.description }}</span>
+        </a>
+      }
+    </div>
+  </section>
+
+  <section class="assist-section">
+    <h2>Questions fréquentes</h2>
+    <div class="assist-faq">
+      @for (item of faq; track item.question; let i = $index) {
+        <div class="assist-faq-item" [class.is-open]="openFaq() === i">
+          <button type="button" class="assist-faq-q" (click)="toggleFaq(i)" [attr.aria-expanded]="openFaq() === i">
+            {{ item.question }}
+            <span class="assist-faq-chevron" aria-hidden="true"></span>
+          </button>
+          @if (openFaq() === i) {
+            <p class="assist-faq-a">{{ item.answer }}</p>
+          }
+        </div>
+      }
+    </div>
+  </section>
+</div>

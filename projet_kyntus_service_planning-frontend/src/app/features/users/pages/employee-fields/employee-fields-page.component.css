@@ -87,6 +87,16 @@
   padding: 6px 10px;
 }
 
+.toggle-chip.locked {
+  opacity: 0.72;
+  cursor: not-allowed;
+  background: color-mix(in srgb, var(--border-color) 35%, var(--bg-input));
+}
+
+.toggle-chip.locked input {
+  cursor: not-allowed;
+}
+
 .actions-row {
   display: flex;
   justify-content: flex-end;

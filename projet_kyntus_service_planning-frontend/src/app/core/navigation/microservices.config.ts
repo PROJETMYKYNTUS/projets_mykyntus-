@@ -87,8 +87,19 @@ const MES_SESSIONS_ROLES = [
   'Superviseur',
   'Admin',
   'RH',
+  'Qualiticien',
 ];
-const FORMATION_STAFF_ROLES = ['Admin', 'RH', 'Formateur', 'Equipe_Formation', 'Equipe formation'];
+const FORMATION_GESTION_ROLES = ['Admin', 'RH'];
+/** Saisie quiz + file formateur initiale. */
+const FORMATION_FORMATEUR_ROLES = ['Admin', 'Formateur', 'Equipe_Formation', 'Equipe formation'];
+const FORMATION_PLANNER_ROLES = [
+  'Admin',
+  'RH',
+  'Chef de projet',
+  'RP',
+  'Superviseur',
+  'Qualiticien',
+];
 const PLANNING_MANAGER_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'Référent technique', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'];
 
 const ICONS = {
@@ -101,6 +112,7 @@ const ICONS = {
   mail: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
   chat: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   doc: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+  help: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
   award: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>',
   share: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
 };
@@ -171,7 +183,6 @@ export const MICROSERVICES: Microservice[] = [
       { label: 'Gestion des demandes', route: '/planning/change-requests', roles: ADMIN_RH },
       { label: 'Planning Équipe', route: '/planning/equipe', roles: ['Manager', 'Coach', 'Référent technique', 'Superviseur'] },
       { label: 'Configuration Shifts', route: '/planning/shift-config', roles: ADMIN_RH },
-      { label: 'Historique Samedis', route: '/planning/saturday-history', roles: ADMIN_RH },
     ],
   },
   {
@@ -179,10 +190,12 @@ export const MICROSERVICES: Microservice[] = [
     label: 'Formation',
     icon: ICONS.graduation,
     children: [
-      { label: 'Gestion des formations', route: '/formations', roles: FORMATION_STAFF_ROLES },
-      { label: 'Planifier formation continue', route: '/formations/planifier', roles: ['Admin', 'RH'] },
-      { label: 'Formation initiale (formateur)', route: '/formations/initiales', roles: FORMATION_STAFF_ROLES },
-      { label: 'Passage en production', route: '/formations/passage-production', roles: ['Admin', 'RH'] },
+      { label: 'Tableau de bord', route: '/formations/dashboard', roles: FORMATION_PLANNER_ROLES },
+      { label: 'Gestion des formations', route: '/formations', roles: FORMATION_GESTION_ROLES },
+      { label: 'Passage en production', route: '/formations/passage-production', roles: ADMIN_RH },
+      { label: 'Documents formation', route: '/formations/documents-checklist-config', roles: ADMIN_RH },
+      { label: 'Planifier formation continue', route: '/formations/planifier', roles: FORMATION_PLANNER_ROLES },
+      { label: 'Suivi initiale (formateur)', route: '/formations/initiales', roles: FORMATION_FORMATEUR_ROLES },
       { label: 'Mes sessions', route: '/mes-sessions', roles: MES_SESSIONS_ROLES },
       { label: 'Mes formations', route: '/mes-formations', roles: EMPLOYEE_ROLES },
     ],
@@ -202,7 +215,19 @@ export const MICROSERVICES: Microservice[] = [
     icon: ICONS.chat,
     children: [
       { label: 'Réclamations (gestion)', route: '/reclamations-admin', roles: ['RH', 'Manager', 'RP', 'Admin', 'Audit'] },
-      { label: 'Mes réclamations', route: '/reclamations', roles: ['Employee'] },
+      {
+        label: 'Mes réclamations',
+        route: '/reclamations',
+        roles: ['Employee', 'RH', 'Manager', 'Coach', 'RP', 'Admin', 'Audit', 'Equipe_Formation', 'Equipe formation', 'Superviseur', 'Pilote', 'Formateur'],
+      },
+    ],
+  },
+  {
+    id: 'assistance',
+    label: 'Assistance',
+    icon: ICONS.help,
+    children: [
+      { label: 'Centre d’aide', route: '/assistance' },
     ],
   },
   {

@@ -14,6 +14,7 @@ public class PlanningRoleToAuthRoleMapperTests
     [InlineData("Chef de projet", "RP")]
     [InlineData("RP", "RP")]
     [InlineData("Superviseur", "Superviseur")]
+    [InlineData("Qualiticien", "Qualiticien")]
     [InlineData("Audit", "Audit")]
     public void Maps_planning_role_to_auth_role(string planningRole, string authRole)
     {

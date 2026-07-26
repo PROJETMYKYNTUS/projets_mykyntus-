@@ -69,3 +69,17 @@ public record TrainingSessionStartedMessage
     public string RecipientRole { get; init; } = "Beneficiary"; // Beneficiary | Animator
     public DateTime StartedAt { get; init; } = DateTime.UtcNow;
 }
+
+/// <summary>
+/// Publié par Formation lorsqu'un parcours initial arrive à ≤ 7 jours de la fin
+/// avec des documents physiques encore manquants — notification RH/Admin.
+/// </summary>
+public record InitialTrainingMissingDocumentsAlertMessage
+{
+    public Guid TrainingPathId { get; init; }
+    public Guid EmployeeId { get; init; }
+    public string EmployeeName { get; init; } = string.Empty;
+    public DateTime DateFinPrevue { get; init; }
+    public IReadOnlyList<string> MissingDocumentTitles { get; init; } = Array.Empty<string>();
+    public DateTime AlertedAt { get; init; } = DateTime.UtcNow;
+}

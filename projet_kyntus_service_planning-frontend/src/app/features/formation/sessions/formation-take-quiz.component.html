@@ -1,0 +1,129 @@
+<div class="ky-page-shell take-quiz-page">
+  <app-kyntus-page-header
+    [title]="quiz?.title || assigned?.title || 'Passer le quiz'"
+    subtitle="Une question à la fois — vérifiez vos réponses avant de soumettre"
+  >
+    <div actions>
+      <a routerLink="/mes-formations" class="ky-btn-secondary">
+        <app-lucide-icon [icon]="icons.back" className="w-4 h-4" />
+        Retour
+      </a>
+    </div>
+  </app-kyntus-page-header>
+
+  @if (loading()) {
+    <div class="ky-card state-box">Chargement…</div>
+  } @else {
+    @if (error() && step !== 'done') {
+      <div class="alert alert-error">{{ error() }}</div>
+    }
+
+    @if (step === 'done') {
+      <div class="ky-card done-card">
+        <app-lucide-icon [icon]="icons.done" className="w-10 h-10 done-icon" />
+        <h2>Quiz soumis</h2>
+        @if (attempt?.isGraded) {
+          <p>
+            Score :
+            <strong>{{ attempt?.finalScore ?? '—' }}</strong>
+            —
+            @if (attempt?.passed) {
+              <span class="ok">Réussi</span>
+            } @else {
+              <span class="ko">Non réussi</span>
+            }
+          </p>
+        } @else {
+          <p class="muted">En attente de notation par l’animateur.</p>
+        }
+        <a routerLink="/mes-formations" class="ky-btn-primary">Retour à Mes formations</a>
+      </div>
+    } @else if (quiz) {
+      <div class="progress-wrap">
+        <div class="progress-bar" [style.width.%]="progressPercent"></div>
+      </div>
+      <p class="progress-label">
+        @if (step === 'questions') {
+          Question {{ currentIndex + 1 }} / {{ totalQuestions }}
+        } @else {
+          Récapitulatif
+        }
+      </p>
+
+      @if (step === 'questions' && currentQuestion; as q) {
+        <article class="ky-card question-panel">
+          <h2 class="question-prompt">{{ q.prompt }}</h2>
+          <p class="muted text-xs">{{ q.points }} point(s)</p>
+
+          @if (isQcm(q.type)) {
+            <p class="muted text-xs mb-2">
+              {{ isMulti(q) ? 'Plusieurs réponses possibles' : 'Une seule réponse' }}
+            </p>
+            <div class="options">
+              @for (opt of q.options || []; track $index; let i = $index) {
+                <label class="option-choice">
+                  @if (isMulti(q)) {
+                    <input
+                      type="checkbox"
+                      [checked]="isSelectedMulti(q.id, i)"
+                      (change)="toggleMulti(q.id, i, $any($event.target).checked)"
+                    />
+                  } @else {
+                    <input
+                      type="radio"
+                      [name]="'q-' + q.id"
+                      [checked]="answers[q.id].selectedOptionIndex === i"
+                      (change)="answers[q.id].selectedOptionIndex = i"
+                    />
+                  }
+                  <span>{{ opt }}</span>
+                </label>
+              }
+            </div>
+          } @else {
+            <textarea
+              class="ky-textarea w-full"
+              rows="5"
+              [(ngModel)]="answers[q.id].freeText"
+              placeholder="Votre réponse…"
+            ></textarea>
+          }
+
+          <div class="nav-row">
+            <button type="button" class="ky-btn-secondary" [disabled]="currentIndex === 0" (click)="prev()">
+              Précédent
+            </button>
+            <button type="button" class="ky-btn-primary" (click)="next()">
+              {{ currentIndex >= totalQuestions - 1 ? 'Récapitulatif' : 'Suivant' }}
+            </button>
+          </div>
+        </article>
+      }
+
+      @if (step === 'recap') {
+        <div class="ky-card recap-panel space-y-3">
+          <h2>Vérifiez vos réponses</h2>
+          @for (q of quiz.questions; track q.id; let i = $index) {
+            <button type="button" class="recap-item" (click)="goToQuestion(i)">
+              <strong>Q{{ i + 1 }}. {{ q.prompt }}</strong>
+              <span class="muted text-xs block mt-1">
+                {{ answerSummary(q) }}
+              </span>
+            </button>
+          }
+          <div class="nav-row">
+            <button type="button" class="ky-btn-secondary" (click)="prev()">Modifier</button>
+            <button type="button" class="ky-btn-primary" [disabled]="busy()" (click)="submit()">
+              Soumettre le quiz
+            </button>
+          </div>
+          @if (error()) {
+            <p class="alert alert-error m-0">{{ error() }}</p>
+          }
+        </div>
+      }
+    } @else if (!error()) {
+      <div class="ky-card state-box">Quiz indisponible.</div>
+    }
+  }
+</div>

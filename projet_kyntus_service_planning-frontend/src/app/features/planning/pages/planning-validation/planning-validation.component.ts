@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
   PlanningService,
   PlanningWeekItem,
@@ -60,11 +60,12 @@ export class PlanningValidationComponent implements OnInit {
     private userService: UserService,
     private session: KyntusSessionService,
     private router: Router,
+    private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
-    this.initNextWeek();
+    this.initWeekFromRouteOrDefault();
     this.userService.getCurrentUser().subscribe({
       next: (u) => {
         this.planningUserId = u?.id ?? null;
@@ -78,12 +79,55 @@ export class PlanningValidationComponent implements OnInit {
     });
   }
 
+  /** Restaure la semaine via query params (retour depuis la vue détail), sinon semaine prochaine. */
+  initWeekFromRouteOrDefault(): void {
+    const qp = this.route.snapshot.queryParamMap;
+    const weekCode = qp.get('weekCode');
+    const weekStart = qp.get('weekStart');
+
+    if (weekCode && weekStart) {
+      this.weekCode = weekCode;
+      this.weekStartDate = weekStart.split('T')[0];
+      return;
+    }
+
+    if (weekCode) {
+      const monday = this.mondayFromIsoWeek(weekCode);
+      if (monday) {
+        this.weekCode = weekCode;
+        this.weekStartDate = this.formatDate(monday);
+        return;
+      }
+    }
+
+    this.initNextWeek();
+  }
+
   initNextWeek(): void {
     const today = new Date();
     const monday = this.getMondayOfWeek(today);
     monday.setDate(monday.getDate() + 7);
     this.weekStartDate = this.formatDate(monday);
     this.weekCode = this.getWeekCode(monday);
+  }
+
+  /** Convertit un code ISO `YYYY-Www` en lundi de la semaine. */
+  private mondayFromIsoWeek(weekCode: string): Date | null {
+    const match = /^(\d{4})-W(\d{1,2})$/i.exec(weekCode.trim());
+    if (!match) return null;
+    const year = Number(match[1]);
+    const week = Number(match[2]);
+    if (!Number.isFinite(year) || !Number.isFinite(week) || week < 1 || week > 53) {
+      return null;
+    }
+    const jan4 = new Date(year, 0, 4);
+    const day = jan4.getDay() || 7;
+    const mondayWeek1 = new Date(jan4);
+    mondayWeek1.setDate(jan4.getDate() - day + 1);
+    const monday = new Date(mondayWeek1);
+    monday.setDate(mondayWeek1.getDate() + (week - 1) * 7);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
   }
 
   loadWeek(): void {

@@ -467,8 +467,17 @@ public class DirectoryHtelController(IHtelFusionService htelFusion) : Controller
 
     [HttpGet("liaisons")]
     [Authorize(Roles = "Admin,RH")]
-    public async Task<ActionResult<HtelLiaisonsReportDto>> Liaisons(CancellationToken ct) =>
-        Ok(await htelFusion.GetLiaisonsAsync(ct));
+    public async Task<ActionResult<HtelLiaisonsReportDto>> Liaisons(CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await htelFusion.GetLiaisonsAsync(ct));
+        }
+        catch (HttpRequestException ex)
+        {
+            return StatusCode(502, new { error = "HTEL indisponible.", detail = ex.Message });
+        }
+    }
 
     [HttpPost("techniciens/sync")]
     [Authorize(Roles = "Admin,RH")]

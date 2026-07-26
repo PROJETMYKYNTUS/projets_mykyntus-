@@ -97,6 +97,22 @@ if (!isTesting && app.Configuration.GetValue("Documentation:ApplyPostSchemaObjec
     }
 }
 
+if (!isTesting)
+{
+    await using var enrichScope = app.Services.CreateAsyncScope();
+    var enrichLog = enrichScope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("Documentation.EnrichmentSeed");
+    var enrichDb = enrichScope.ServiceProvider.GetRequiredService<DocumentationDbContext>();
+    try
+    {
+        await DockerDocumentationEnrichmentSeed.ApplyIfEnabledAsync(app.Configuration, enrichDb, enrichLog);
+    }
+    catch (Exception ex)
+    {
+        enrichLog.LogWarning(ex, "Documentation enrichment seed ignoré.");
+    }
+}
+
 app.UseMiddleware<UnhandledExceptionMiddleware>();
 app.UseCors("devCors");
 app.UseAuthentication();

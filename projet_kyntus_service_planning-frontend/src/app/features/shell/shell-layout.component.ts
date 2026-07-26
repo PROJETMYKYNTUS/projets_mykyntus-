@@ -119,6 +119,12 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   sidebarCollapsed = false;
   logoError = false;
 
+  get logoSrc(): string {
+    return this.theme.theme() === 'dark'
+      ? '/assets/brand/logo-mode-sombre.png?v=icon3'
+      : '/assets/brand/logo-mode-claire.png?v=icon3';
+  }
+
   moduleContentClass = '';
 
 
@@ -149,6 +155,10 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   }
 
   constructor() {
+    effect(() => {
+      this.theme.theme();
+      this.logoError = false;
+    });
     effect(() => {
       if (!this.deptContext.loaded()) return;
       void this.deptContext.context();

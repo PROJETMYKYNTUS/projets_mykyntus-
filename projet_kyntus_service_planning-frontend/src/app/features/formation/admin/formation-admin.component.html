@@ -8,10 +8,6 @@
         ? filteredPaths.length + ' parcours affiché(s) — vue d’ensemble du pipeline formation'
         : filteredSessions.length + ' session(s) affichée(s) — formations continues planifiées'">
     <div actions class="header-actions">
-      <a routerLink="/formations/initiales" class="ky-btn-secondary btn-link">
-        <app-lucide-icon [icon]="icons.clipboard" className="w-4 h-4" />
-        File formateur
-      </a>
       <a routerLink="/formations/passage-production" class="ky-btn-secondary btn-link">
         <app-lucide-icon [icon]="icons.validate" className="w-4 h-4" />
         Passage production
@@ -22,6 +18,10 @@
       </a>
     </div>
   </app-kyntus-page-header>
+
+  @if (feedback && !panelPathId) {
+    <p class="fa-feedback fa-feedback-banner" [class.fa-feedback-error]="feedbackKind === 'error'">{{ feedback }}</p>
+  }
 
   <div class="kpi-row">
     <div class="kpi-card ky-card kc-blue">
@@ -119,6 +119,9 @@
               <tr>
                 <th>Employé</th>
                 <th>Début → Fin prévue</th>
+                <th>Absentéisme</th>
+                <th>Retard</th>
+                <th>Documents</th>
                 <th>Quiz</th>
                 <th>Statut</th>
                 <th>Action</th>
@@ -130,12 +133,29 @@
                   <td class="td-title">{{ p.employeeName }}</td>
                   <td class="td-date">
                     {{ p.dateDebut | date:'dd/MM/yy' }} → {{ p.dateFinPrevue | date:'dd/MM/yy' }}
+                    @if (p.daysUntilEnd != null && p.daysUntilEnd <= 7 && p.daysUntilEnd >= 0) {
+                      <div class="text-xs text-amber-300">J-{{ p.daysUntilEnd }}</div>
+                    }
+                  </td>
+                  <td>{{ formatMetric(metricsFor(p.employeeId).absenteeismRate) }}</td>
+                  <td>{{ formatMetric(metricsFor(p.employeeId).latenessRate) }}</td>
+                  <td>
+                    <div class="docs-cell">
+                      <span>{{ p.documentsReceivedCount ?? 0 }}/{{ p.documentsTotalCount ?? 0 }}</span>
+                      <a
+                        class="ky-btn-secondary fa-btn"
+                        [routerLink]="['/formations/initiales', p.id, 'checklist']"
+                        [queryParams]="{ name: p.employeeName, returnUrl: '/formations?tab=initial' }"
+                      >
+                        Checklist
+                      </a>
+                    </div>
                   </td>
                   <td>
                     @if (p.hasQuizResult) {
-                      <span class="quiz-ok">Saisi</span>
+                      <span class="quiz-ok">{{ p.quizSuccessRate ?? 0 }} %</span>
                     } @else {
-                      <span class="quiz-missing">À saisir</span>
+                      <span class="quiz-missing">Aucun</span>
                     }
                   </td>
                   <td>
@@ -144,16 +164,125 @@
                     </span>
                   </td>
                   <td class="td-actions">
-                    @if (nextActionRoute(p); as route) {
-                      <a [routerLink]="route" class="ky-btn-secondary btn-action">
-                        {{ nextActionLabel(p) }}
-                        <app-lucide-icon [icon]="icons.arrow" className="w-3.5 h-3.5" />
-                      </a>
-                    } @else {
+                    @if (p.status === 'EnProduction' || p.status === 'Rejete') {
                       <span class="text-muted">—</span>
+                    } @else {
+                      <div class="action-btns">
+                        <button
+                          type="button"
+                          class="ky-btn-primary fa-btn"
+                          [disabled]="!canRhValidate(p) || isPanelOpen(p.id)"
+                          [title]="rhValidateHint(p)"
+                          (click)="rhValidateAction(p)"
+                        >
+                          Valider
+                        </button>
+                        <button
+                          type="button"
+                          class="ky-btn-secondary fa-btn fa-btn-reject"
+                          [disabled]="isPanelOpen(p.id)"
+                          (click)="openReject(p)"
+                        >
+                          Rejeter
+                        </button>
+                        <button
+                          type="button"
+                          class="ky-btn-secondary fa-btn"
+                          [disabled]="isPanelOpen(p.id)"
+                          (click)="openExtend(p)"
+                        >
+                          Prolonger
+                        </button>
+                      </div>
                     }
                   </td>
                 </tr>
+                @if (panelPathId === p.id) {
+                  <tr class="fa-panel-row">
+                    <td colspan="8">
+                      @if (feedback) {
+                        <p class="fa-feedback" [class.fa-feedback-error]="feedbackKind === 'error'">{{ feedback }}</p>
+                      }
+                      @if (panelMode === 'docs') {
+                        <div class="fa-panel fa-panel-warn">
+                          <p class="fa-panel-title">Checklist documents incomplète</p>
+                          <p class="fa-panel-text">
+                            Reçus : {{ p.documentsReceivedCount ?? 0 }}/{{ p.documentsTotalCount ?? 0 }}.
+                            Continuer vers la fiche employé ?
+                          </p>
+                          @if ((p.missingDocumentTitles?.length ?? 0) > 0) {
+                            <ul class="fa-missing">
+                              @for (t of p.missingDocumentTitles!; track t) {
+                                <li>{{ t }}</li>
+                              }
+                            </ul>
+                          }
+                          <div class="fa-panel-actions">
+                            <button type="button" class="ky-btn-primary fa-btn" [disabled]="panelBusy" (click)="confirmNavigateToEmployee(p)">
+                              {{ panelBusy ? 'Ouverture…' : 'Continuer' }}
+                            </button>
+                            <a
+                              class="ky-btn-secondary fa-btn"
+                              [routerLink]="['/formations/initiales', p.id, 'checklist']"
+                              [queryParams]="{ name: p.employeeName, returnUrl: '/formations?tab=initial' }"
+                            >
+                              Voir checklist
+                            </a>
+                            <button type="button" class="ky-btn-secondary fa-btn" [disabled]="panelBusy" (click)="closePanel()">
+                              Annuler
+                            </button>
+                          </div>
+                        </div>
+                      }
+                      @if (panelMode === 'extend') {
+                        <div class="fa-panel">
+                          <label class="fa-field">
+                            <span>Nouvelle date de fin</span>
+                            <input class="ky-input" type="date" [(ngModel)]="extendDate" [min]="minExtendDate(p)" />
+                          </label>
+                          <div class="fa-panel-actions">
+                            <button
+                              type="button"
+                              class="ky-btn-primary fa-btn"
+                              [disabled]="!canConfirmExtend(p) || panelBusy"
+                              (click)="confirmExtend(p)"
+                            >
+                              {{ panelBusy ? 'Enregistrement…' : 'Confirmer' }}
+                            </button>
+                            <button type="button" class="ky-btn-secondary fa-btn" [disabled]="panelBusy" (click)="closePanel()">
+                              Annuler
+                            </button>
+                          </div>
+                        </div>
+                      }
+                      @if (panelMode === 'reject') {
+                        <div class="fa-panel fa-panel-danger">
+                          <p class="fa-panel-title">Motif du rejet</p>
+                          <p class="fa-panel-text">
+                            Entraîne la sortie complète de l’employé (désactivation + date de sortie).
+                          </p>
+                          <label class="fa-field fa-field-grow">
+                            <span>Motif</span>
+                            <textarea class="ky-input fa-reason" rows="2" [(ngModel)]="rejectReason" placeholder="Indiquez le motif…"></textarea>
+                          </label>
+                          <div class="fa-panel-actions">
+                            <button
+                              type="button"
+                              class="ky-btn-primary fa-btn fa-btn-reject-confirm"
+                              [disabled]="!canConfirmReject() || panelBusy"
+                              (click)="confirmReject(p)"
+                            >
+                              {{ panelBusy ? 'Rejet…' : 'Confirmer le rejet' }}
+                            </button>
+                            <button type="button" class="ky-btn-secondary fa-btn" [disabled]="panelBusy" (click)="closePanel()">
+                              Annuler
+                            </button>
+                          </div>
+                        </div>
+                      }
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>
@@ -208,7 +337,7 @@
                     </span>
                   </td>
                   <td class="td-actions">
-                    <a routerLink="/formations/planifier" class="ky-btn-secondary btn-action">
+                    <a routerLink="/formations/planifier" class="ky-btn-secondary fa-btn">
                       Gérer
                       <app-lucide-icon [icon]="icons.arrow" className="w-3.5 h-3.5" />
                     </a>

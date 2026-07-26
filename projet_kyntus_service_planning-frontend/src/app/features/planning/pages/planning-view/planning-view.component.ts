@@ -42,6 +42,13 @@ export class PlanningViewComponent implements OnInit {
   successMsg    = '';
   private planningUserId: number | null = null;
 
+  /** Surbrillance depuis une demande de changement sans switch. */
+  highlightAssignmentId: number | null = null;
+  highlightUserId: number | null = null;
+  highlightDay: string | null = null;
+  changeRequestId: number | null = null;
+  markingChangeRequest = false;
+
   // ── Override shift modal ──
   showOverride             = false;
   selectedAssignmentId     = 0;
@@ -110,6 +117,15 @@ selectedHolidayShiftId      = 0;
     const role = this.session.getRole();
     this.canValidate = role === 'Admin' || role === 'RH';
 
+    const qp = this.route.snapshot.queryParamMap;
+    const ha = Number(qp.get('highlightAssignmentId'));
+    const hu = Number(qp.get('highlightUserId'));
+    const cr = Number(qp.get('changeRequestId'));
+    this.highlightAssignmentId = Number.isFinite(ha) && ha > 0 ? ha : null;
+    this.highlightUserId = Number.isFinite(hu) && hu > 0 ? hu : null;
+    this.highlightDay = qp.get('highlightDay');
+    this.changeRequestId = Number.isFinite(cr) && cr > 0 ? cr : null;
+
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.userService.getCurrentUser().subscribe({
@@ -165,6 +181,9 @@ selectedHolidayShiftId      = 0;
         }
 
         this.cdr.detectChanges();
+        if (this.highlightAssignmentId) {
+          setTimeout(() => this.scrollToHighlightedCell(), 80);
+        }
       },
       error: () => { this.loading = false; this.cdr.detectChanges(); }
     });
@@ -380,6 +399,53 @@ selectedHolidayShiftId      = 0;
 
   getAssignment(employee: EmployeePlanning, day: string): DayAssignment | null {
     return employee.days.find(d => d.day === day) ?? null;
+  }
+
+  isHighlightedAssignment(a: DayAssignment | null): boolean {
+    if (!a || !this.highlightAssignmentId) return false;
+    return a.assignmentId === this.highlightAssignmentId;
+  }
+
+  isHighlightedEmployee(emp: EmployeePlanning): boolean {
+    return this.highlightUserId != null && emp.userId === this.highlightUserId;
+  }
+
+  private scrollToHighlightedCell(): void {
+    const el = document.querySelector('.cell-change-request-highlight');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }
+  }
+
+  markChangeRequestTreated(): void {
+    if (!this.changeRequestId || this.markingChangeRequest) return;
+    const authUserId = this.session.getAuthUserId();
+    if (!authUserId) {
+      this.error = 'Session invalide — reconnectez-vous.';
+      return;
+    }
+    this.markingChangeRequest = true;
+    this.planningService.approveChangeRequest(this.changeRequestId, authUserId).subscribe({
+      next: () => {
+        this.markingChangeRequest = false;
+        this.successMsg = 'Demande marquée comme traitée.';
+        this.changeRequestId = null;
+        this.highlightAssignmentId = null;
+        this.highlightUserId = null;
+        this.highlightDay = null;
+        this.cdr.detectChanges();
+        setTimeout(() => this.goToChangeRequests(), 800);
+      },
+      error: (err) => {
+        this.markingChangeRequest = false;
+        this.error = err.error?.message ?? 'Impossible de clôturer la demande.';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  goToChangeRequests(): void {
+    void this.router.navigate(['/planning/change-requests']);
   }
 
   // ── Override SHIFT (lun–ven) ──────────────────────
@@ -728,7 +794,25 @@ confirmHolidayOverride(): void {
   }
 
   // ── Navigation ────────────────────────────────────
-  goBack(): void { this.router.navigate(['/planning']); }
+  goBack(): void { this.goBackToWeekList(); }
+
+  /** Retour à la liste des plannings de la semaine (validation). */
+  goBackToWeekList(): void {
+    const qp = this.route.snapshot.queryParamMap;
+    const weekCode =
+      qp.get('weekCode') ||
+      this.planning?.weekCode ||
+      undefined;
+    const weekStartRaw = this.planning?.weekStartDate;
+    const weekStart = weekStartRaw ? weekStartRaw.split('T')[0] : undefined;
+
+    void this.router.navigate(['/planning/validation'], {
+      queryParams: {
+        ...(weekCode ? { weekCode } : {}),
+        ...(weekStart ? { weekStart } : {}),
+      },
+    });
+  }
 
   getStatusClass(status: string): string {
     return ({ Draft: 'st-draft', Published: 'st-published' } as any)[status] ?? '';

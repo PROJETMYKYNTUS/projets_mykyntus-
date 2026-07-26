@@ -1,0 +1,117 @@
+.assist-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+}
+
+.assist-section {
+  margin-top: 28px;
+}
+
+.assist-section h2 {
+  margin: 0 0 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.assist-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.assist-grid--modules {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.assist-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card, 0.875rem);
+  color: inherit;
+  text-decoration: none;
+}
+
+a.assist-card:hover {
+  border-color: color-mix(in srgb, var(--electric-blue, #3b82f6) 45%, var(--border-color));
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.assist-card strong {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.assist-card span {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.assist-card--action strong {
+  color: var(--electric-blue, #3b82f6);
+}
+
+.assist-faq {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.assist-faq-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card, 0.875rem);
+  overflow: hidden;
+}
+
+.assist-faq-q {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.assist-faq-chevron {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.assist-faq-item.is-open .assist-faq-chevron {
+  transform: rotate(-135deg);
+}
+
+.assist-faq-a {
+  margin: 0;
+  padding: 0 16px 16px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+@media (max-width: 860px) {
+  .assist-grid,
+  .assist-grid--modules {
+    grid-template-columns: 1fr;
+  }
+}

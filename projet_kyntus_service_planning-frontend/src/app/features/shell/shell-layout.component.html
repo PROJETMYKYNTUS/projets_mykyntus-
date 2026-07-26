@@ -7,7 +7,14 @@
           <polyline [attr.points]="sidebarCollapsed ? '9 18 15 12 9 6' : '15 18 9 12 15 6'"/>
         </svg>
       </button>
-      <img src="/assets/kyntus-logo.jpg" alt="Kyntus Morocco" class="ks-brand-logo-img" (error)="logoError = true" *ngIf="!logoError" />
+      <img
+        [src]="logoSrc"
+        alt="Kyntus Morocco"
+        class="ks-brand-logo-img"
+        (error)="logoError = true"
+        (load)="logoError = false"
+        *ngIf="!logoError"
+      />
       <div class="ks-brand-logo" *ngIf="logoError">K</div>
       <div class="ks-brand-text" *ngIf="!sidebarCollapsed">
         <strong>Kyntus</strong>

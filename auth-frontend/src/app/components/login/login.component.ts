@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { KyntusThemeService } from '../../core/kyntus-theme.service';
+import { brandLogoSrc } from '../../core/brand-logo';
 import { KYNTUS_PUBLIC_URLS } from '../../config/kyntus-public-urls';
 
 @Component({
@@ -15,10 +16,16 @@ import { KYNTUS_PUBLIC_URLS } from '../../config/kyntus-public-urls';
 })
 export class LoginComponent implements OnInit {
   readonly theme = inject(KyntusThemeService);
+  readonly assistanceUrl = `${KYNTUS_PUBLIC_URLS.planningSpa}/assistance`;
   loginForm!: FormGroup;
   errorMessage: string = '';
   loading: boolean = false;
   showPassword: boolean = false;
+
+  /** Logo selon thème (page login entièrement claire en mode light) */
+  get logoSrc(): string {
+    return brandLogoSrc(this.theme.theme());
+  }
 
   constructor(
     private fb: FormBuilder,

@@ -13,12 +13,16 @@ public static class KyntusRoleNames
     public const string Rp = "RP";
     public const string Superviseur = "Superviseur";
     public const string Manager = "Manager";
+    public const string Qualiticien = "Qualiticien";
 
     public static bool IsSupportManager(string? role) =>
         string.Equals(role, Manager, StringComparison.OrdinalIgnoreCase);
 
     public static bool IsSuperviseur(string? role) =>
         string.Equals(role, Superviseur, StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsQualiticien(string? role) =>
+        string.Equals(role, Qualiticien, StringComparison.OrdinalIgnoreCase);
 
     public static bool IsPilote(string? role) =>
         string.Equals(role, Employee, StringComparison.OrdinalIgnoreCase)

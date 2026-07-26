@@ -1,6 +1,7 @@
 using Conge.Application.Behaviors;
 using Conge.Application.Contracts;
 using Conge.Domain.Interfaces;
+using Conge.Infrastructure.Data;
 using Conge.Infrastructure.Messaging;
 using Conge.Infrastructure.Messaging.Consumers;
 using Conge.Infrastructure.Messaging.Publishers;
@@ -136,6 +137,15 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CongeDbContext>();
     await db.Database.MigrateAsync();
+    var seedLog = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Conge.EnrichmentSeed");
+    try
+    {
+        await DockerComposeCongeEnrichmentSeed.ApplyIfEnabledAsync(app.Configuration, db, seedLog);
+    }
+    catch (Exception ex)
+    {
+        seedLog.LogWarning(ex, "Conge enrichment seed ignoré.");
+    }
 }
 
 // ?? Middleware pipeline ???????????????????????????????????????????????????????

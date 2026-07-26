@@ -2,7 +2,7 @@
   <div class="formation-plan-page">
     <app-kyntus-page-header
       title="Planifier une formation continue"
-      subtitle="Sessions imposées par la RH — animateur, bénéficiaires et capacité"
+      subtitle="Programme unique ou multi-séances — animateur, cellule et bénéficiaires"
     />
 
     <div class="card-navy formation-plan-card space-y-4">
@@ -19,15 +19,77 @@
           <span class="field-label">Description</span>
           <textarea class="ky-textarea w-full" rows="2" [(ngModel)]="form.description"></textarea>
         </label>
-        <label class="block">
-          <span class="field-label">Début</span>
-          <input class="ky-input w-full" type="datetime-local" [(ngModel)]="form.plannedStart" />
-        </label>
-        <label class="block">
-          <span class="field-label">Fin</span>
-          <input class="ky-input w-full" type="datetime-local" [(ngModel)]="form.plannedEnd" />
-        </label>
       </div>
+
+      <fieldset class="animator-fieldset">
+        <legend>Mode de planification</legend>
+        <div class="radio-row">
+          <label class="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="mode"
+              value="Single"
+              [ngModel]="form.mode"
+              (ngModelChange)="onModeChange($event)"
+            />
+            Session unique
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="mode"
+              value="Multiple"
+              [ngModel]="form.mode"
+              (ngModelChange)="onModeChange($event)"
+            />
+            Sessions multiples
+          </label>
+        </div>
+        @if (form.mode === 'Multiple') {
+          <label class="block mt-2" style="max-width: 12rem">
+            <span class="field-label">Nombre de séances</span>
+            <input
+              class="ky-input w-full"
+              type="number"
+              min="2"
+              max="20"
+              [ngModel]="form.sessionCount"
+              (ngModelChange)="onSessionCountChange($event)"
+            />
+          </label>
+        }
+        <div class="session-slots mt-3">
+          @for (slot of form.sessionSlots; track $index; let i = $index) {
+            <article class="session-slot-card">
+              <header class="session-slot-header">
+                <span class="session-slot-badge">Séance {{ i + 1 }}</span>
+                <span class="session-slot-duration">{{ slotDurationLabel(slot) }}</span>
+              </header>
+              <div class="session-slot-grid">
+                <label class="session-slot-field">
+                  <span class="field-label">Début</span>
+                  <input
+                    class="ky-input w-full session-datetime"
+                    type="datetime-local"
+                    [ngModel]="slot.plannedStart"
+                    (ngModelChange)="onSlotStartChange(i, $event)"
+                  />
+                </label>
+                <div class="session-slot-arrow" aria-hidden="true">→</div>
+                <label class="session-slot-field">
+                  <span class="field-label">Fin <span class="field-hint">(défaut +1 h)</span></span>
+                  <input
+                    class="ky-input w-full session-datetime"
+                    type="datetime-local"
+                    [ngModel]="slot.plannedEnd"
+                    (ngModelChange)="onSlotEndChange(i, $event)"
+                  />
+                </label>
+              </div>
+            </article>
+          }
+        </div>
+      </fieldset>
 
       <fieldset class="animator-fieldset">
         <legend>Animateur</legend>
@@ -119,50 +181,177 @@
       </fieldset>
 
       <fieldset class="beneficiaries-fieldset">
-        <legend>Bénéficiaires</legend>
+        <legend>Bénéficiaires (multi-périmètres)</legend>
+
+        <div class="org-filters-toolbar">
+          <select
+            class="filter-ctl ky-input filter-ctl--org"
+            [kyntusSelectSync]="filterOperationalDepartment"
+            (kyntusSelectSyncChange)="patchFilterOperationalDepartment($event)"
+          >
+            <option value="">Département</option>
+            @for (d of operationalDepartmentOptions; track d) {
+              <option [value]="d">{{ d }}</option>
+            }
+          </select>
+
+          <select
+            class="filter-ctl ky-input filter-ctl--org"
+            [kyntusSelectSync]="filterPole"
+            (kyntusSelectSyncChange)="patchFilterPole($event)"
+          >
+            <option value="">Pôle</option>
+            @for (p of poleOptions; track p) {
+              <option [value]="p">{{ p }}</option>
+            }
+          </select>
+
+          <select
+            class="filter-ctl ky-input filter-ctl--org"
+            [kyntusSelectSync]="filterCellule"
+            (kyntusSelectSyncChange)="patchFilterCellule($event)"
+          >
+            <option value="">Cellule</option>
+            @for (c of celluleOptions; track c) {
+              <option [value]="c">{{ c }}</option>
+            }
+          </select>
+
+          <select
+            class="filter-ctl ky-input filter-ctl--org"
+            [kyntusSelectSync]="filterService"
+            (kyntusSelectSyncChange)="patchFilterService($event)"
+          >
+            <option value="">Service</option>
+            @for (s of serviceOptions; track s) {
+              <option [value]="s">{{ s }}</option>
+            }
+          </select>
+
+          <button type="button" class="ky-btn-secondary text-xs" (click)="clearOrgFilters()">Réinitialiser filtres</button>
+        </div>
+
         <p class="capacity-hint mb-2">
-          Employés qui suivront la formation et recevront une notification
-          ({{ selectedBeneficiaries().length }}/{{ form.capacity }}).
+          Choisissez un périmètre, cochez les employés voulu, puis
+          <strong>Ajouter à la liste des bénéficiaires</strong>.
+          Vous pouvez enchaîner plusieurs services / pôles.
+          Liste cumulée : {{ beneficiaryList().length }}/{{ form.capacity }}.
         </p>
 
-        @if (selectedBeneficiaries().length) {
-          <div class="beneficiary-chips">
-            @for (row of selectedBeneficiaries(); track row.user.id) {
-              <span class="beneficiary-chip">
-                {{ row.displayName }}
-                <button type="button" (click)="removeBeneficiary(userGuid(row.user))" aria-label="Retirer">×</button>
-              </span>
-            }
-          </div>
+        @if (hasOrgSelection()) {
+          @if (perimeterChecklist().length) {
+            <div class="checklist-toolbar">
+              <button type="button" class="ky-btn-secondary text-xs" (click)="selectAllChecklist(true)">Tout cocher</button>
+              <button type="button" class="ky-btn-secondary text-xs" (click)="selectAllChecklist(false)">Tout décocher</button>
+              <div class="checklist-search search-box ky-card">
+                <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+                <input
+                  class="ky-input search-input"
+                  type="search"
+                  placeholder="Rechercher dans le périmètre (nom, email, rôle, org)…"
+                  [ngModel]="checklistSearch"
+                  (ngModelChange)="onChecklistSearchChange($event)"
+                />
+              </div>
+            </div>
+            <div class="employee-options checklist-options">
+              @for (item of visiblePerimeterChecklist(); track item.row.user.id) {
+                <label
+                  class="employee-option checklist-row"
+                  [class.checklist-row--locked]="isAlreadyBeneficiary(item.row)"
+                >
+                  <input
+                    type="checkbox"
+                    [checked]="item.checked"
+                    [disabled]="isAlreadyBeneficiary(item.row)"
+                    (change)="toggleChecklist(userGuid(item.row.user), $any($event.target).checked)"
+                  />
+                  <span>
+                    <span class="employee-option-name">
+                      {{ item.row.displayName }}
+                      @if (isAlreadyBeneficiary(item.row)) {
+                        <span class="already-badge">déjà ajouté</span>
+                      }
+                    </span>
+                    <span class="employee-option-meta"
+                      >{{ item.row.user.email }} · {{ item.row.user.roleName }} · {{ perimeterLabel(item.row) }}</span
+                    >
+                  </span>
+                </label>
+              } @empty {
+                <p class="text-muted text-sm p-3">
+                  @if (checklistSearch.trim()) {
+                    Aucun employé du périmètre ne correspond à « {{ checklistSearch }} ».
+                  } @else {
+                    Aucun employé dans ce périmètre.
+                  }
+                </p>
+              }
+            </div>
+            <div class="add-beneficiaries-row">
+              <button
+                type="button"
+                class="ky-btn-primary"
+                [disabled]="checkedInPerimeter().length === 0"
+                (click)="addCheckedToBeneficiaries()"
+              >
+                <app-lucide-icon [icon]="icons.add" className="w-4 h-4" />
+                Ajouter à la liste des bénéficiaires
+                @if (checkedInPerimeter().length > 0) {
+                  <span class="add-count">({{ checkedInPerimeter().length }})</span>
+                }
+              </button>
+            </div>
+          } @else {
+            <p class="text-muted text-sm">Aucun employé dans ce périmètre.</p>
+          }
+        } @else {
+          <p class="text-muted text-sm">Choisissez un département, pôle, cellule ou service pour charger les candidats.</p>
         }
 
-        <div class="search-box ky-card">
-          <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
-          <input
-            class="ky-input search-input"
-            type="text"
-            placeholder="Rechercher un bénéficiaire…"
-            [ngModel]="beneficiarySearch"
-            (ngModelChange)="onBeneficiarySearchChange($event)"
-          />
-        </div>
-        @if (beneficiarySearch.trim() && searchRevision() >= 0) {
-          <div class="employee-options">
-            @for (row of visibleBeneficiaryRows(); track row.user.id) {
-              <button type="button" class="employee-option" (click)="addBeneficiary(row)">
-                <span class="employee-option-name">{{ row.displayName }}</span>
-                <span class="employee-option-meta">{{ row.user.email }} · {{ row.user.roleName }}</span>
+        <div class="beneficiary-list-block">
+          <div class="beneficiary-list-header">
+            <h3>
+              Liste des bénéficiaires
+              <span class="count-pill">{{ beneficiaryList().length }}</span>
+            </h3>
+            @if (beneficiaryList().length > 0) {
+              <button type="button" class="ky-btn-secondary text-xs" (click)="clearBeneficiaryList()">
+                Vider la liste
               </button>
-            } @empty {
-              <p class="text-muted text-sm p-3">Aucun employé trouvé.</p>
             }
           </div>
-        }
+          @if (beneficiaryList().length === 0) {
+            <p class="text-muted text-sm m-0">Aucun bénéficiaire cumulé pour l’instant.</p>
+          } @else {
+            <ul class="beneficiary-list">
+              @for (row of beneficiaryList(); track row.user.id) {
+                <li class="beneficiary-list-item">
+                  <span>
+                    <span class="employee-option-name">{{ row.displayName }}</span>
+                    <span class="employee-option-meta"
+                      >{{ row.user.email }} · {{ row.user.roleName }} · {{ perimeterLabel(row) }}</span
+                    >
+                  </span>
+                  <button
+                    type="button"
+                    class="ky-btn-secondary btn-sm remove-btn"
+                    title="Retirer"
+                    (click)="removeBeneficiary(row)"
+                  >
+                    <app-lucide-icon [icon]="icons.remove" className="w-3.5 h-3.5" />
+                    Retirer
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
       </fieldset>
 
       <div class="form-actions">
         <button type="button" class="ky-btn-primary" [disabled]="busy()" (click)="publish()">
-          Publier la session
+          Publier le programme
         </button>
         @if (error()) {
           <p class="text-rose-300 text-sm m-0">{{ error() }}</p>
@@ -171,11 +360,14 @@
     </div>
 
     <div class="card-navy formation-plan-card">
-      <h2>Sessions planifiées — capacité formateur</h2>
+      <h2>Séances planifiées</h2>
       @for (s of sessions(); track s.id) {
         <div class="session-row text-sm">
           <div>
             <strong>{{ s.title }}</strong>
+            @if (s.sequenceNumber) {
+              <span class="text-muted"> · #{{ s.sequenceNumber }}</span>
+            }
             — {{ s.assignmentCount }}/{{ s.capacity }} ({{ fillRate(s) }} %)
             <span class="text-muted">({{ statusLabel(s.status) }})</span>
             <div class="text-muted text-xs mt-1">
@@ -187,11 +379,8 @@
           </div>
         </div>
       } @empty {
-        <p class="text-muted text-sm">Aucune session.</p>
+        <p class="text-muted text-sm">Aucune séance.</p>
       }
-      <p class="text-muted text-xs mt-2">
-        Statut automatique selon les horaires : avant début = Planifiée, pendant = En cours, après fin = Terminée.
-      </p>
       @if (assignMsg()) {
         <p class="text-sm mt-2 text-emerald-300">{{ assignMsg() }}</p>
       }

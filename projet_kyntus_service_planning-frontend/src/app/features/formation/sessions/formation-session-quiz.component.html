@@ -1,0 +1,442 @@
+<div class="ky-page-shell quiz-page">
+  <app-kyntus-page-header
+    [title]="quizTitle || 'Quiz de séance'"
+    subtitle="Édition QCM / réponses libres et historique des résultats"
+  >
+    <div actions>
+      <a routerLink="/mes-sessions" class="ky-btn-secondary">
+        <app-lucide-icon [icon]="icons.back" className="w-4 h-4" />
+        Retour aux sessions
+      </a>
+    </div>
+  </app-kyntus-page-header>
+
+  @if (loading()) {
+    <div class="ky-card state-box">Chargement du quiz…</div>
+  } @else {
+    @if (sessionDto(); as s) {
+      <div class="session-meta ky-card">
+        <div>
+          <strong>{{ s.title }}</strong>
+          <span class="muted"> · {{ sessionStatusLabel(s.status) }}</span>
+          <span class="muted block text-xs mt-1">
+            {{ s.plannedStart | date: 'short' }} → {{ s.plannedEnd | date: 'short' }}
+          </span>
+        </div>
+        <span class="status-pill">{{ quizStatusLabel(quiz()?.status) }}</span>
+      </div>
+    }
+
+    @if (error()) {
+      <div class="alert alert-error">{{ error() }}</div>
+    }
+    @if (message()) {
+      <div class="alert alert-ok">{{ message() }}</div>
+    }
+
+    <div class="tabs">
+      <button type="button" class="tab" [class.tab--active]="tab() === 'edit'" (click)="setTab('edit')">
+        Édition
+      </button>
+      <button type="button" class="tab" [class.tab--active]="tab() === 'results'" (click)="setTab('results')">
+        Résultats
+      </button>
+    </div>
+
+    @if (tab() === 'edit') {
+      <div class="ky-card editor-card space-y-4">
+        <div class="title-threshold-row">
+          <label class="field title-field">
+            <span class="field-label">Titre du quiz</span>
+            <input
+              class="ky-input w-full"
+              [(ngModel)]="quizTitle"
+              [disabled]="isLocked() || busy()"
+              placeholder="Ex. Quiz de fin — Formation vente"
+            />
+          </label>
+          <label class="field threshold-field">
+            <span class="field-label">Plafond de réussite (%)</span>
+            <input
+              class="ky-input w-full"
+              type="number"
+              min="1"
+              max="100"
+              step="1"
+              [(ngModel)]="passThreshold"
+              [disabled]="isLocked() || busy()"
+              title="Score ≥ plafond → résultat Valide"
+            />
+          </label>
+        </div>
+        <p class="muted text-xs m-0">
+          Le score est calculé automatiquement en %. Dès qu’il atteint le plafond ({{ passThreshold }} %), le résultat est
+          <strong>Valide</strong>.
+        </p>
+
+        @if (quiz()?.rejectedReason) {
+          <p class="alert alert-error m-0">Rejeté : {{ quiz()!.rejectedReason }}</p>
+        }
+
+        <div class="questions">
+          @for (q of questions; track trackByIndex($index); let i = $index) {
+            <article class="question-card">
+              <header class="question-card__head">
+                <span class="question-index">Question {{ i + 1 }}</span>
+                <div class="question-card__actions">
+                  <button type="button" class="icon-btn" [disabled]="i === 0 || isLocked()" (click)="moveQuestion(i, -1)" title="Monter">
+                    <app-lucide-icon [icon]="icons.up" className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    class="icon-btn"
+                    [disabled]="i === questions.length - 1 || isLocked()"
+                    (click)="moveQuestion(i, 1)"
+                    title="Descendre"
+                  >
+                    <app-lucide-icon [icon]="icons.down" className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    class="icon-btn icon-btn--danger"
+                    [disabled]="questions.length <= 1 || isLocked()"
+                    (click)="removeQuestion(i)"
+                    title="Supprimer"
+                  >
+                    <app-lucide-icon [icon]="icons.remove" className="w-4 h-4" />
+                  </button>
+                </div>
+              </header>
+
+              <div class="type-switch">
+                <label>
+                  <input
+                    type="radio"
+                    name="type-{{ i }}"
+                    [checked]="q.type === 'Qcm'"
+                    [disabled]="isLocked()"
+                    (change)="onTypeChange(q, 'Qcm')"
+                  />
+                  QCM
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="type-{{ i }}"
+                    [checked]="q.type === 'FreeText'"
+                    [disabled]="isLocked()"
+                    (change)="onTypeChange(q, 'FreeText')"
+                  />
+                  Réponse libre
+                </label>
+                <label class="points-field">
+                  Points
+                  <input
+                    class="ky-input points-input"
+                    type="number"
+                    min="1"
+                    [(ngModel)]="q.points"
+                    [disabled]="isLocked()"
+                  />
+                </label>
+              </div>
+
+              <label class="field">
+                <span class="field-label">Énoncé</span>
+                <textarea
+                  class="ky-textarea w-full"
+                  rows="2"
+                  [(ngModel)]="q.prompt"
+                  [disabled]="isLocked()"
+                  placeholder="Saisissez la question…"
+                ></textarea>
+              </label>
+
+              @if (q.type === 'Qcm') {
+                <div class="options-block">
+                  <label class="multi-toggle">
+                    <input
+                      type="checkbox"
+                      [checked]="q.allowMultiple"
+                      [disabled]="isLocked()"
+                      (change)="toggleAllowMultiple(q, $any($event.target).checked)"
+                    />
+                    <span>
+                      <strong>QCM multi-choix</strong>
+                      <span class="muted text-xs block">Le bénéficiaire pourra cocher plusieurs options</span>
+                    </span>
+                  </label>
+                  <span class="field-label">
+                    Options — {{ q.allowMultiple ? 'cochez toutes les bonnes réponses' : 'cochez la seule bonne réponse' }}
+                  </span>
+                  @for (opt of q.options; track trackByIndex($index); let oi = $index) {
+                    <div class="option-row">
+                      @if (q.allowMultiple) {
+                        <input
+                          type="checkbox"
+                          [checked]="isCorrectIndex(q, oi)"
+                          [disabled]="isLocked()"
+                          (change)="toggleCorrectMulti(q, oi, $any($event.target).checked)"
+                          title="Bonne réponse"
+                        />
+                      } @else {
+                        <input
+                          type="radio"
+                          name="correct-{{ i }}"
+                          [checked]="isCorrectIndex(q, oi)"
+                          [disabled]="isLocked()"
+                          (change)="setCorrectSingle(q, oi)"
+                          title="Bonne réponse"
+                        />
+                      }
+                      <input
+                        class="ky-input flex-1"
+                        [(ngModel)]="q.options[oi]"
+                        [disabled]="isLocked()"
+                        [placeholder]="'Option ' + (oi + 1)"
+                      />
+                      <button
+                        type="button"
+                        class="icon-btn"
+                        [disabled]="q.options.length <= 2 || isLocked()"
+                        (click)="removeOption(q, oi)"
+                        title="Retirer l’option"
+                      >
+                        <app-lucide-icon [icon]="icons.remove" className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  }
+                  <button
+                    type="button"
+                    class="ky-btn-secondary text-xs"
+                    [disabled]="isLocked()"
+                    (click)="addOption(q)"
+                  >
+                    <app-lucide-icon [icon]="icons.add" className="w-3.5 h-3.5" />
+                    Ajouter une option
+                  </button>
+                </div>
+              } @else {
+                <p class="muted text-xs">
+                  Réponse libre : notation manuelle après soumission (seuil de réussite 70 %).
+                </p>
+              }
+            </article>
+          }
+        </div>
+
+        <button type="button" class="ky-btn-secondary" [disabled]="isLocked() || busy()" (click)="addQuestion()">
+          <app-lucide-icon [icon]="icons.add" className="w-4 h-4" />
+          Ajouter une question
+        </button>
+
+        <div class="sticky-actions">
+          <button type="button" class="ky-btn-primary" [disabled]="isLocked() || busy()" (click)="saveDraft()">
+            Enregistrer brouillon
+          </button>
+          <button type="button" class="ky-btn-secondary" [disabled]="!canPublish() || busy()" (click)="publish()">
+            Publier aux présents
+          </button>
+          @if (canValidate()) {
+            <button type="button" class="ky-btn-secondary" [disabled]="busy()" (click)="validate()">
+              Valider le quiz
+            </button>
+            <div class="reject-row">
+              <input
+                class="ky-input"
+                [(ngModel)]="rejectReason"
+                placeholder="Motif de rejet (optionnel)"
+                [disabled]="busy()"
+              />
+              <button type="button" class="ky-btn-secondary text-rose-300" [disabled]="busy()" (click)="reject()">
+                Rejeter
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    @if (tab() === 'results') {
+      <div class="ky-card results-card space-y-3">
+        @let summary = resultsSummary();
+        <div class="results-summary">
+          <div class="stat">
+            <span class="stat-val">{{ summary.submitted }}</span>
+            <span class="stat-lbl">Soumis</span>
+          </div>
+          <div class="stat">
+            <span class="stat-val">{{ summary.graded }}</span>
+            <span class="stat-lbl">Notés</span>
+          </div>
+          <div class="stat">
+            <span class="stat-val">{{ summary.passed }}</span>
+            <span class="stat-lbl">Réussis</span>
+          </div>
+          <div class="stat">
+            <span class="stat-val">{{ summary.rate }} %</span>
+            <span class="stat-lbl">Taux réussite</span>
+          </div>
+        </div>
+
+        <button type="button" class="ky-btn-secondary text-xs" [disabled]="busy()" (click)="loadAttempts()">
+          Actualiser
+        </button>
+
+        @if (attempts().length === 0) {
+          <p class="muted text-sm">Aucune tentative pour l’instant.</p>
+        } @else {
+          <div class="table-wrap">
+            <table class="results-table">
+              <thead>
+                <tr>
+                  <th>Employé</th>
+                  <th>Soumis le</th>
+                  <th>Score %</th>
+                  <th>Résultat</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (a of attempts(); track a.id) {
+                  <tr class="attempt-row" [class.attempt-row--open]="expandedAttemptId() === a.id">
+                    <td>
+                      <button type="button" class="employee-link" (click)="toggleAttemptDetails(a.id)">
+                        {{ a.employeeName }}
+                      </button>
+                    </td>
+                    <td>{{ a.submittedAt | date: 'short' }}</td>
+                    <td>
+                      {{ a.finalScore != null ? (a.finalScore + ' %') : '—' }}
+                      @if (!a.isGraded) {
+                        <span class="muted text-xs block">provisoire</span>
+                      }
+                    </td>
+                    <td>
+                      @if (!a.isGraded) {
+                        <span class="muted">En attente</span>
+                      } @else if (a.passed) {
+                        <span class="ok">Valide</span>
+                      } @else {
+                        <span class="ko">Non valide</span>
+                      }
+                    </td>
+                    <td>
+                      <div class="actions-stack">
+                        <button
+                          type="button"
+                          class="ky-btn-secondary text-xs"
+                          (click)="toggleAttemptDetails(a.id)"
+                        >
+                          {{ expandedAttemptId() === a.id ? 'Masquer réponses' : 'Voir réponses' }}
+                        </button>
+                        @if (a.isGraded) {
+                          <span class="muted text-xs">Noté</span>
+                        } @else {
+                          <span class="muted text-xs">Noter les réponses libres ↓</span>
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                  @if (expandedAttemptId() === a.id) {
+                    <tr class="answers-detail-row">
+                      <td colspan="5">
+                        <div class="answers-panel">
+                          <h3 class="answers-panel-title">Réponses de {{ a.employeeName }}</h3>
+                          @for (ans of a.answers || []; track ans.questionId) {
+                            <article class="answer-card" [class.answer-card--ok]="ans.isCorrect === true" [class.answer-card--ko]="ans.isCorrect === false">
+                              <header class="answer-head">
+                                <strong>Q{{ ans.sortOrder + 1 }}. {{ ans.prompt }}</strong>
+                                @if (isQcmAnswer(ans.type)) {
+                                  @if (ans.isCorrect === true) {
+                                    <span class="badge-ok">Correct</span>
+                                  } @else if (ans.isCorrect === false) {
+                                    <span class="badge-ko">Incorrect</span>
+                                  }
+                                  @if (ans.allowMultiple) {
+                                    <span class="badge-multi">Multi-choix</span>
+                                  }
+                                } @else {
+                                  <span class="badge-free">Réponse libre</span>
+                                }
+                              </header>
+
+                              @if (isQcmAnswer(ans.type)) {
+                                <ul class="option-review">
+                                  @for (opt of ans.options || []; track $index; let oi = $index) {
+                                    <li
+                                      class="option-review__item"
+                                      [class.is-selected]="isSelected(ans, oi)"
+                                      [class.is-correct]="isCorrectOption(ans, oi)"
+                                      [class.is-wrong-pick]="isSelected(ans, oi) && !isCorrectOption(ans, oi)"
+                                    >
+                                      <span class="option-review__mark">
+                                        @if (isCorrectOption(ans, oi) && isSelected(ans, oi)) {
+                                          ✓
+                                        } @else if (isCorrectOption(ans, oi)) {
+                                          ○
+                                        } @else if (isSelected(ans, oi)) {
+                                          ✗
+                                        } @else {
+                                          ·
+                                        }
+                                      </span>
+                                      <span class="option-review__text">{{ opt }}</span>
+                                      <span class="option-review__tags">
+                                        @if (isSelected(ans, oi)) {
+                                          <em>choisi</em>
+                                        }
+                                        @if (isCorrectOption(ans, oi)) {
+                                          <em class="tag-correct">bonne réponse</em>
+                                        }
+                                      </span>
+                                    </li>
+                                  }
+                                </ul>
+                              } @else {
+                                <blockquote class="answer-free">{{ ans.freeText?.trim() || '— (vide)' }}</blockquote>
+                                <div class="free-grade-row">
+                                  <button
+                                    type="button"
+                                    class="pill-btn pill-btn--ok"
+                                    [class.pill-btn--active]="ans.isCorrect === true"
+                                    [disabled]="busy()"
+                                    (click)="gradeFreeText(a, ans.questionId, true)"
+                                  >
+                                    Correcte
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="pill-btn pill-btn--ko"
+                                    [class.pill-btn--active]="ans.isCorrect === false"
+                                    [disabled]="busy()"
+                                    (click)="gradeFreeText(a, ans.questionId, false)"
+                                  >
+                                    Fausse
+                                  </button>
+                                  @if (ans.isCorrect === true) {
+                                    <span class="ok text-xs">+ {{ ans.points }} pt</span>
+                                  } @else if (ans.isCorrect === false) {
+                                    <span class="ko text-xs">0 pt</span>
+                                  } @else {
+                                    <span class="muted text-xs">À noter</span>
+                                  }
+                                </div>
+                              }
+                            </article>
+                          } @empty {
+                            <p class="muted text-sm m-0">Détail des réponses indisponible pour cette tentative.</p>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>

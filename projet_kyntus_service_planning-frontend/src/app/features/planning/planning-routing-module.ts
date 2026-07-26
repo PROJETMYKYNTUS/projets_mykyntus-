@@ -20,14 +20,6 @@ const routes: Routes = [
         .then(m => m.PlanningValidationComponent),
   },
   {
-    path: 'saturday-history',
-    canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },
-    loadComponent: () =>
-      import('./pages/saturday-history/saturday-history.component')
-        .then(m => m.SaturdayHistoryComponent)
-  },
-  {
     path: 'shift-config',
     canActivate: [AuthGuard],
     data: { roles: ['Admin', 'RH'] },

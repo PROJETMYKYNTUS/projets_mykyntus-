@@ -143,7 +143,7 @@
   <div class="card ky-card">
     <div class="section-heading">
       <h2>Champs système</h2>
-      <p>Colonnes standard du modèle employé (email, prénom, rôle…). Ajustez libellé, obligation et activation.</p>
+      <p>Colonnes standard du modèle employé (email, prénom, rôle…). Identité et organisation : cases verrouillées.</p>
     </div>
 
     @if (loading) {
@@ -173,13 +173,21 @@
                 <td><span class="field-key-badge system">{{ field.fieldKey }}</span></td>
                 <td><span class="type-label">{{ typeLabel(field.dataType) }}</span></td>
                 <td class="cell-center">
-                  <label class="toggle-chip compact">
-                    <input type="checkbox" [(ngModel)]="field.isRequiredOnCreate" />
+                  <label class="toggle-chip compact"
+                         [class.locked]="isRequiredCheckboxLocked(field.fieldKey)"
+                         [title]="lockHint(field.fieldKey)">
+                    <input type="checkbox"
+                           [(ngModel)]="field.isRequiredOnCreate"
+                           [disabled]="isRequiredCheckboxLocked(field.fieldKey)" />
                   </label>
                 </td>
                 <td class="cell-center">
-                  <label class="toggle-chip compact">
-                    <input type="checkbox" [(ngModel)]="field.isEnabled" />
+                  <label class="toggle-chip compact"
+                         [class.locked]="isEnabledCheckboxLocked(field.fieldKey)"
+                         [title]="lockHint(field.fieldKey)">
+                    <input type="checkbox"
+                           [(ngModel)]="field.isEnabled"
+                           [disabled]="isEnabledCheckboxLocked(field.fieldKey)" />
                   </label>
                 </td>
                 <td class="col-actions">

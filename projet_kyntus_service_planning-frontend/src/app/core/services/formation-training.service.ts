@@ -2,11 +2,21 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import type {
+  FormationAttendanceMetricsStub,
+  FormationDashboardStatsDto,
+  FormationInitialDashboardStatsDto,
+  FormationDocumentChecklistItemDto,
+  FormationDocumentDefinitionDto,
   InitialTrainingPathDto,
   MyAssignedTrainingSessionDto,
   TrainingAssignmentDto,
   TrainingAttendance,
+  TrainingProgramDto,
+  TrainingQuizAttemptDto,
+  TrainingQuizDto,
+  TrainingQuizForEmployeeDto,
   TrainingSessionDto,
+  TrainingSessionReportDto,
 } from '../models/formation-training.models';
 
 const PREFIX = '/api/formations';
@@ -63,13 +73,24 @@ export class FormationTrainingService {
 
   createSession(body: Record<string, unknown>): Promise<TrainingSessionDto> {
     return firstValueFrom(this.http.post<TrainingSessionDto>(`${PREFIX}/sessions`, body)).catch((err) => {
-      const msg =
-        err?.error?.error ||
-        err?.error?.title ||
-        (typeof err?.error === 'string' ? err.error : null) ||
-        err?.message ||
-        'Échec de la création';
-      throw new Error(msg);
+      throw new Error(extractError(err, 'Échec de la création'));
+    });
+  }
+
+  createProgram(body: Record<string, unknown>): Promise<TrainingProgramDto> {
+    return firstValueFrom(this.http.post<TrainingProgramDto>(`${PREFIX}/programs`, body)).catch((err) => {
+      throw new Error(extractError(err, 'Échec de la création du programme'));
+    });
+  }
+
+  assignEmployeesToProgram(
+    programId: string,
+    employees: { employeeId: string; employeeName: string }[],
+  ): Promise<unknown> {
+    return firstValueFrom(
+      this.http.post(`${PREFIX}/programs/${programId}/assign`, { employees }),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec de l’affectation'));
     });
   }
 
@@ -82,6 +103,146 @@ export class FormationTrainingService {
   patchSessionStatus(sessionId: string, status: string): Promise<TrainingSessionDto> {
     return firstValueFrom(
       this.http.patch<TrainingSessionDto>(`${PREFIX}/sessions/${sessionId}`, { status }),
+    );
+  }
+
+  uploadSessionReport(sessionId: string, file: File, uploadedByUserId: string): Promise<TrainingSessionReportDto> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('uploadedByUserId', uploadedByUserId);
+    return firstValueFrom(
+      this.http.post<TrainingSessionReportDto>(`${PREFIX}/sessions/${sessionId}/report`, form),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec de l’upload du compte rendu'));
+    });
+  }
+
+  getQuiz(sessionId: string): Promise<TrainingQuizDto | null> {
+    return firstValueFrom(this.http.get<TrainingQuizDto>(`${PREFIX}/sessions/${sessionId}/quiz`)).catch(() => null);
+  }
+
+  upsertQuiz(sessionId: string, body: Record<string, unknown>): Promise<TrainingQuizDto> {
+    return firstValueFrom(
+      this.http.put<TrainingQuizDto>(`${PREFIX}/sessions/${sessionId}/quiz`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec enregistrement quiz'));
+    });
+  }
+
+  publishQuiz(sessionId: string, actorUserId: string): Promise<TrainingQuizDto> {
+    return firstValueFrom(
+      this.http.post<TrainingQuizDto>(`${PREFIX}/sessions/${sessionId}/quiz/publish`, { actorUserId }),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec publication quiz'));
+    });
+  }
+
+  getQuizForEmployee(sessionId: string, employeeId: string): Promise<TrainingQuizForEmployeeDto> {
+    return firstValueFrom(
+      this.http.get<TrainingQuizForEmployeeDto>(`${PREFIX}/sessions/${sessionId}/quiz/for-employee`, {
+        params: { employeeId },
+      }),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Quiz indisponible'));
+    });
+  }
+
+  submitQuizAttempt(
+    sessionId: string,
+    body: {
+      assignmentId: string;
+      employeeId: string;
+      answers: {
+        questionId: string;
+        selectedOptionIndex?: number | null;
+        selectedOptionIndexes?: number[] | null;
+        freeText?: string | null;
+      }[];
+    },
+  ): Promise<TrainingQuizAttemptDto> {
+    return firstValueFrom(
+      this.http.post<TrainingQuizAttemptDto>(`${PREFIX}/sessions/${sessionId}/quiz/attempts`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec soumission quiz'));
+    });
+  }
+
+  listQuizAttempts(sessionId: string, animatorUserId: string): Promise<TrainingQuizAttemptDto[]> {
+    return firstValueFrom(
+      this.http.get<TrainingQuizAttemptDto[]>(`${PREFIX}/sessions/${sessionId}/quiz/attempts`, {
+        params: { animatorUserId },
+      }),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec chargement tentatives'));
+    });
+  }
+
+  gradeQuizAttempt(
+    sessionId: string,
+    attemptId: string,
+    body: { animatorUserId: string; manualScore?: number; passed: boolean; animatorComment?: string },
+  ): Promise<TrainingQuizAttemptDto> {
+    return firstValueFrom(
+      this.http.post<TrainingQuizAttemptDto>(
+        `${PREFIX}/sessions/${sessionId}/quiz/attempts/${attemptId}/grade`,
+        body,
+      ),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec notation'));
+    });
+  }
+
+  gradeFreeTextAnswer(
+    sessionId: string,
+    attemptId: string,
+    body: { animatorUserId: string; questionId: string; isCorrect: boolean },
+  ): Promise<TrainingQuizAttemptDto> {
+    return firstValueFrom(
+      this.http.post<TrainingQuizAttemptDto>(
+        `${PREFIX}/sessions/${sessionId}/quiz/attempts/${attemptId}/free-text-grade`,
+        body,
+      ),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec notation réponse libre'));
+    });
+  }
+
+  validateQuiz(sessionId: string, actorUserId: string): Promise<TrainingQuizDto> {
+    return firstValueFrom(
+      this.http.post<TrainingQuizDto>(`${PREFIX}/sessions/${sessionId}/quiz/validate`, { actorUserId }),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec validation'));
+    });
+  }
+
+  rejectQuiz(sessionId: string, actorUserId: string, reason: string): Promise<TrainingQuizDto> {
+    return firstValueFrom(
+      this.http.post<TrainingQuizDto>(`${PREFIX}/sessions/${sessionId}/quiz/reject`, {
+        actorUserId,
+        reason,
+      }),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec rejet'));
+    });
+  }
+
+  getDashboardStats(employeeIds?: string[]): Promise<FormationDashboardStatsDto> {
+    const params: Record<string, string | string[]> = {};
+    if (employeeIds?.length) {
+      params['employeeIds'] = employeeIds;
+    }
+    return firstValueFrom(
+      this.http.get<FormationDashboardStatsDto>(`${PREFIX}/dashboard/stats`, { params }),
+    );
+  }
+
+  getInitialDashboardStats(employeeIds?: string[]): Promise<FormationInitialDashboardStatsDto> {
+    const params: Record<string, string | string[]> = {};
+    if (employeeIds?.length) {
+      params['employeeIds'] = employeeIds;
+    }
+    return firstValueFrom(
+      this.http.get<FormationInitialDashboardStatsDto>(`${PREFIX}/dashboard/stats-initial`, { params }),
     );
   }
 
@@ -112,29 +273,125 @@ export class FormationTrainingService {
     );
   }
 
-  recordQuiz(pathId: string, body: { quizScore: number; quizPassed: boolean; formateurComment?: string; recordedBy: string }): Promise<InitialTrainingPathDto> {
+  recordQuiz(pathId: string, body: { quizScore: number; quizPassed: boolean; formateurComment?: string; recordedBy: string; title?: string }): Promise<InitialTrainingPathDto> {
     return firstValueFrom(this.http.post<InitialTrainingPathDto>(`${PREFIX}/initial-paths/${pathId}/quiz-result`, body));
   }
 
+  addQuizResult(pathId: string, body: { title: string; score: number; recordedBy: string }): Promise<InitialTrainingPathDto> {
+    return firstValueFrom(
+      this.http.post<InitialTrainingPathDto>(`${PREFIX}/initial-paths/${pathId}/quiz-results`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec enregistrement des notes'));
+    });
+  }
+
+  deleteQuizResult(pathId: string, resultId: string): Promise<InitialTrainingPathDto> {
+    return firstValueFrom(
+      this.http.delete<InitialTrainingPathDto>(`${PREFIX}/initial-paths/${pathId}/quiz-results/${resultId}`),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec suppression de la note'));
+    });
+  }
+
   formateurValidate(pathId: string): Promise<InitialTrainingPathDto> {
-    return firstValueFrom(this.http.post<InitialTrainingPathDto>(`${PREFIX}/initial-paths/${pathId}/formateur-validate`, {}));
+    return firstValueFrom(
+      this.http.post<InitialTrainingPathDto>(`${PREFIX}/initial-paths/${pathId}/formateur-validate`, {}),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec validation formateur'));
+    });
   }
 
   formateurReject(pathId: string, body: { rejectedBy: string; reason: string }): Promise<InitialTrainingPathDto> {
-    return firstValueFrom(this.http.post<InitialTrainingPathDto>(`${PREFIX}/initial-paths/${pathId}/formateur-reject`, body));
+    return firstValueFrom(
+      this.http.post<InitialTrainingPathDto>(`${PREFIX}/initial-paths/${pathId}/formateur-reject`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec du rejet'));
+    });
   }
 
   extendInitial(pathId: string, dateFinPrevue: string): Promise<InitialTrainingPathDto> {
     return firstValueFrom(
       this.http.post<InitialTrainingPathDto>(`${PREFIX}/initial-paths/${pathId}/extend`, { dateFinPrevue }),
-    );
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec de la prolongation'));
+    });
   }
 
   rhValidate(pathId: string): Promise<InitialTrainingPathDto> {
-    return firstValueFrom(this.http.post<InitialTrainingPathDto>(`${PREFIX}/initial-paths/${pathId}/rh-validate`, {}));
+    return firstValueFrom(
+      this.http.post<InitialTrainingPathDto>(`${PREFIX}/initial-paths/${pathId}/rh-validate`, {}),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec validation RH'));
+    });
   }
 
   rhReject(pathId: string, body: { rejectedBy: string; reason: string }): Promise<InitialTrainingPathDto> {
     return firstValueFrom(this.http.post<InitialTrainingPathDto>(`${PREFIX}/initial-paths/${pathId}/rh-reject`, body));
   }
+
+  listDocumentDefinitions(): Promise<FormationDocumentDefinitionDto[]> {
+    return firstValueFrom(this.http.get<FormationDocumentDefinitionDto[]>(`${PREFIX}/document-definitions`));
+  }
+
+  createDocumentDefinition(body: {
+    title: string;
+    sortOrder: number;
+    isActive: boolean;
+  }): Promise<FormationDocumentDefinitionDto> {
+    return firstValueFrom(this.http.post<FormationDocumentDefinitionDto>(`${PREFIX}/document-definitions`, body));
+  }
+
+  updateDocumentDefinition(
+    id: string,
+    body: { title: string; sortOrder: number; isActive: boolean },
+  ): Promise<FormationDocumentDefinitionDto> {
+    return firstValueFrom(this.http.put<FormationDocumentDefinitionDto>(`${PREFIX}/document-definitions/${id}`, body));
+  }
+
+  deleteDocumentDefinition(id: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`${PREFIX}/document-definitions/${id}`));
+  }
+
+  getPathChecklist(pathId: string): Promise<FormationDocumentChecklistItemDto[]> {
+    return firstValueFrom(
+      this.http.get<FormationDocumentChecklistItemDto[]>(`${PREFIX}/initial-paths/${pathId}/checklist`),
+    );
+  }
+
+  getEmployeeChecklist(employeeId: string): Promise<FormationDocumentChecklistItemDto[]> {
+    return firstValueFrom(
+      this.http.get<FormationDocumentChecklistItemDto[]>(
+        `${PREFIX}/initial-paths/by-employee/${employeeId}/checklist`,
+      ),
+    );
+  }
+
+  updateChecklistItem(
+    pathId: string,
+    itemId: string,
+    body: { isReceived: boolean; receivedBy?: string; note?: string },
+  ): Promise<FormationDocumentChecklistItemDto> {
+    return firstValueFrom(
+      this.http.patch<FormationDocumentChecklistItemDto>(
+        `${PREFIX}/initial-paths/${pathId}/checklist/${itemId}`,
+        body,
+      ),
+    );
+  }
+
+  /** Préparatif front — à remplacer par l’API externe absentéisme / retard. */
+  getAttendanceMetricsStub(_employeeId: string): FormationAttendanceMetricsStub {
+    return { absenteeismRate: null, latenessRate: null };
+  }
+}
+
+function extractError(err: any, fallback: string): string {
+  return (
+    err?.error?.message ||
+    err?.error?.error ||
+    err?.error?.title ||
+    (typeof err?.error === 'string' ? err.error : null) ||
+    err?.message ||
+    fallback
+  );
 }

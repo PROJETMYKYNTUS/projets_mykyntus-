@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Kyntus.Identity.Jwt;
 using Planning.Application.Abstractions;
 using Planning.Application.DTOs.Planning;
 
@@ -15,9 +16,20 @@ public class PlanningChangeRequestsController(
 
     private async Task<int> ResolvePlanningUserIdAsync(int authUserId)
     {
-        var user = await _userService.GetUserByAuthIdAsync(authUserId)
-            ?? throw new InvalidOperationException("Utilisateur introuvable.");
-        return user.Id;
+        var user = await _userService.GetUserByAuthIdAsync(authUserId);
+        if (user is not null)
+            return user.Id;
+
+        // Provisionne / lie la fiche Planning depuis le JWT (ex. RH jamais synchronisé).
+        var ensured = await _userService.GetOrEnsureUserForAuthAsync(
+            authUserId,
+            User.GetEmail()?.Trim(),
+            User.GetAuthRole(),
+            User.GetSubjectId());
+        if (ensured is not null)
+            return ensured.Id;
+
+        throw new InvalidOperationException("Utilisateur introuvable.");
     }
 
     [HttpPost]

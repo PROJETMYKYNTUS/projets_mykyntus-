@@ -23,6 +23,7 @@ public static class PlanningRoleToAuthRoleMapper
             "admin" => "Admin",
             "audit" => "Audit",
             "equipeformation" or "formateur" => "Formateur",
+            "qualiticien" => "Qualiticien",
             _ => planningRoleName.Trim(),
         };
     }

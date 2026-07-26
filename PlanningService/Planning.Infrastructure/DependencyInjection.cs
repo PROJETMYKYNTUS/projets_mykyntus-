@@ -106,6 +106,7 @@ public static class DependencyInjection
                 x.AddConsumer<TrainingSessionAssignedConsumer>();
                 x.AddConsumer<TrainingSessionAnimatorAssignedConsumer>();
                 x.AddConsumer<TrainingSessionStartedConsumer>();
+                x.AddConsumer<InitialTrainingMissingDocumentsAlertConsumer>();
 
                 x.UsingRabbitMq((ctx, cfg) =>
                 {
@@ -137,6 +138,8 @@ public static class DependencyInjection
                         e.ConfigureConsumer<TrainingSessionAnimatorAssignedConsumer>(ctx));
                     cfg.ReceiveEndpoint("planning-training-session-started", e =>
                         e.ConfigureConsumer<TrainingSessionStartedConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-initial-training-missing-docs", e =>
+                        e.ConfigureConsumer<InitialTrainingMissingDocumentsAlertConsumer>(ctx));
 
                     cfg.ConfigureEndpoints(ctx);
                 });

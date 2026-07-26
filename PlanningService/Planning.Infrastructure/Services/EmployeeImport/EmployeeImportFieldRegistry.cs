@@ -144,6 +144,69 @@ public static class EmployeeImportFieldRegistry
 
     public static bool IsSystemFieldKey(string fieldKey) =>
         DefaultFields.Any(f => string.Equals(f.FieldKey, fieldKey, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Identité cœur système : toujours Actif + Obligatoire (non décochables).
+    /// </summary>
+    public static readonly HashSet<string> IdentityLockedFieldKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "email", "firstName", "lastName", "role"
+    };
+
+    /// <summary>
+    /// Organisation : toujours Actifs (disponibles) ; l'obligation réelle dépend du rôle métier.
+    /// </summary>
+    public static readonly HashSet<string> OrgActiveLockedFieldKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "operationalDepartment", "pole", "cellule", "service"
+    };
+
+    public static bool IsIdentityLocked(string? fieldKey) =>
+        !string.IsNullOrWhiteSpace(fieldKey) && IdentityLockedFieldKeys.Contains(fieldKey.Trim());
+
+    public static bool IsOrgActiveLocked(string? fieldKey) =>
+        !string.IsNullOrWhiteSpace(fieldKey) && OrgActiveLockedFieldKeys.Contains(fieldKey.Trim());
+
+    /// <summary>
+    /// Applique les verrous métier. Lève si la requête tente de violer un verrou.
+    /// </summary>
+    public static void EnforceFieldLockConstraints(
+        string fieldKey,
+        ref bool isEnabled,
+        ref bool isRequiredOnCreate)
+    {
+        if (IsIdentityLocked(fieldKey))
+        {
+            if (!isEnabled || !isRequiredOnCreate)
+                throw new InvalidOperationException(
+                    $"Le champ « {fieldKey} » est critique (identité) : il doit rester Actif et Obligatoire.");
+            isEnabled = true;
+            isRequiredOnCreate = true;
+            return;
+        }
+
+        if (IsOrgActiveLocked(fieldKey))
+        {
+            if (!isEnabled)
+                throw new InvalidOperationException(
+                    $"Le champ organisation « {fieldKey} » doit rester Actif (l'obligation suit le rôle métier).");
+            isEnabled = true;
+        }
+    }
+
+    /// <summary>Répare l'état en base sans lever (seed / migration douce).</summary>
+    public static void ApplyFieldLockDefaults(string fieldKey, ref bool isEnabled, ref bool isRequiredOnCreate)
+    {
+        if (IsIdentityLocked(fieldKey))
+        {
+            isEnabled = true;
+            isRequiredOnCreate = true;
+            return;
+        }
+
+        if (IsOrgActiveLocked(fieldKey))
+            isEnabled = true;
+    }
 }
 
 public sealed record EmployeeImportFieldDefinition(

@@ -1,0 +1,175 @@
+.take-quiz-page {
+  max-width: 42rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding-bottom: 2.5rem;
+}
+
+.progress-wrap {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-color, #e5e7eb) 70%, transparent);
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--soft-blue, #60a5fa), var(--electric-blue, #2563eb));
+  transition: width 0.25s ease;
+}
+
+.progress-label {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ky-muted, #6b7280);
+}
+
+.question-panel,
+.recap-panel,
+.done-card {
+  padding: 1.35rem 1.4rem;
+  border: 1px solid color-mix(in srgb, var(--border-color, #e5e7eb) 80%, transparent);
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--electric-blue, #2563eb) 5%, var(--bg-card, #fff)) 0%,
+      var(--bg-card, #fff) 38%
+    );
+}
+
+.question-prompt {
+  margin: 0 0 0.4rem;
+  font-size: 1.08rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 1.05rem 0;
+}
+
+.option-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 0.65rem;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--bg-input, #f8fafc) 80%, transparent);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.option-choice:hover {
+  border-color: color-mix(in srgb, var(--electric-blue, #2563eb) 45%, var(--border-color, #e5e7eb));
+  box-shadow: 0 4px 12px color-mix(in srgb, #0f172a 5%, transparent);
+}
+
+.option-choice:has(input:checked) {
+  border-color: color-mix(in srgb, var(--electric-blue, #2563eb) 55%, transparent);
+  background: color-mix(in srgb, var(--electric-blue, #2563eb) 8%, #fff);
+}
+
+.nav-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1.15rem;
+}
+
+.recap-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border-color, #e5e7eb);
+  background: color-mix(in srgb, var(--bg-input, #f8fafc) 70%, transparent);
+  border-radius: 0.65rem;
+  padding: 0.8rem 0.9rem;
+  cursor: pointer;
+  color: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.recap-item:hover {
+  border-color: color-mix(in srgb, var(--electric-blue, #2563eb) 35%, var(--border-color, #e5e7eb));
+  background: color-mix(in srgb, var(--electric-blue, #2563eb) 6%, #fff);
+}
+
+.done-card {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.done-icon {
+  color: #059669;
+}
+
+.ok {
+  color: #059669;
+  font-weight: 700;
+}
+
+.ko {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.muted {
+  color: var(--ky-muted, #6b7280);
+}
+
+.alert {
+  padding: 0.75rem 0.95rem;
+  border-radius: 0.6rem;
+  font-size: 0.88rem;
+}
+
+.alert-error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.state-box {
+  padding: 2.25rem;
+  text-align: center;
+  color: var(--ky-muted, #6b7280);
+}
+
+.space-y-3 > * + * {
+  margin-top: 0.75rem;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+}
+
+.m-0 {
+  margin: 0;
+}
+
+.block {
+  display: block;
+}
+
+.mt-1 {
+  margin-top: 0.25rem;
+}
+
+.mb-2 {
+  margin-bottom: 0.5rem;
+}

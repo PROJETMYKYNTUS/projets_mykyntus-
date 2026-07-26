@@ -24,6 +24,7 @@ import {
   DASHBOARD_ROUTES,
   congeMesDemandesTarget,
   congeValidationRhTarget,
+  formationDashboardTarget,
   formationsPendingTarget,
   parrainageRhManagementTarget,
   primeAdminAnomaliesTarget,
@@ -915,6 +916,16 @@ export class GlobalDashboardService {
           moduleId: 'formation',
           count: m.formationsPending,
           action: this.navAction(formationsPendingTarget()),
+        });
+      }
+      if (mods.has('formation')) {
+        push({
+          id: 'formation-dashboard',
+          label: 'Tableau de bord formation',
+          detail: 'KPI présence, quiz, comptes rendus',
+          module: moduleLabel('formation'),
+          moduleId: 'formation',
+          action: this.navAction(formationDashboardTarget()),
         });
       }
       if (mods.has('prime') && m.primeValidations > 0) {

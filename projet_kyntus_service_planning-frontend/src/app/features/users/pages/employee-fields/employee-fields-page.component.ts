@@ -12,6 +12,12 @@ import {
   UpdateEmployeeFieldRequest,
 } from '../../services/employee-field.service';
 import { EmployeeImportFieldConfig } from '../../services/employee-import.service';
+import {
+  applyFieldLockToPayload,
+  isEnabledCheckboxLocked,
+  isRequiredCheckboxLocked,
+  lockHint,
+} from '../../utils/employee-field-locks.util';
 
 @Component({
   selector: 'app-employee-fields-page',
@@ -22,6 +28,9 @@ import { EmployeeImportFieldConfig } from '../../services/employee-import.servic
 })
 export class EmployeeFieldsPageComponent implements OnInit {
   readonly icons = { back: ArrowLeft, plus: Plus, save: Save, trash: Trash2, warn: AlertTriangle };
+  readonly isEnabledCheckboxLocked = isEnabledCheckboxLocked;
+  readonly isRequiredCheckboxLocked = isRequiredCheckboxLocked;
+  readonly lockHint = lockHint;
 
   /** Champs système retirés du modèle (import legacy) — masqués dans l'admin. */
   private static readonly hiddenSystemFieldKeys = new Set([
@@ -71,7 +80,10 @@ export class EmployeeFieldsPageComponent implements OnInit {
     this.error = null;
     this.fieldSvc.getFields().subscribe({
       next: (fields) => {
-        this.fields = fields;
+        this.fields = fields.map((f) => {
+          const locked = applyFieldLockToPayload(f);
+          return { ...f, isEnabled: locked.isEnabled, isRequiredOnCreate: locked.isRequiredOnCreate };
+        });
         this.loading = false;
         this.cdr.detectChanges();
       },
@@ -127,11 +139,14 @@ export class EmployeeFieldsPageComponent implements OnInit {
   }
 
   saveField(field: EmployeeImportFieldConfig): void {
+    const locked = applyFieldLockToPayload(field);
+    field.isEnabled = locked.isEnabled;
+    field.isRequiredOnCreate = locked.isRequiredOnCreate;
     const request: UpdateEmployeeFieldRequest = {
       label: field.label,
       dataType: field.dataType ?? 'text',
-      isRequiredOnCreate: field.isRequiredOnCreate,
-      isEnabled: field.isEnabled,
+      isRequiredOnCreate: locked.isRequiredOnCreate,
+      isEnabled: locked.isEnabled,
       sortOrder: field.sortOrder,
       aliases: field.aliases ?? [],
     };

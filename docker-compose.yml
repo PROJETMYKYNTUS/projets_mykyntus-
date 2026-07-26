@@ -79,6 +79,7 @@ services:
       DemoSeed__Passwords__Audit: ${KYNTUS_DEMO_SEED_PASSWORD_AUDIT:-Azerty@123}
       DemoSeed__Passwords__Formation: ${KYNTUS_DEMO_SEED_PASSWORD_FORMATION:-Azerty@123}
       DemoSeed__Passwords__Superviseur: ${KYNTUS_DEMO_SEED_PASSWORD_SUPERVISEUR:-Azerty@123}
+      DemoSeed__Passwords__Qualiticien: ${KYNTUS_DEMO_SEED_PASSWORD_QUALITICIEN:-Azerty@123}
       <<: *kyntus-jwt
     ports:
       - "8520:8080"
@@ -168,9 +169,10 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_FORMATION:?Définir KYNTUS_CONN_FORMATION dans .env}
-      RabbitMQ__Host: rabbitmq
-      RabbitMQ__Username: ${RABBITMQ_USER:-guest}
-      RabbitMQ__Password: ${RABBITMQ_PASSWORD:-guest}
+      # Catalogue + parcours formation initiale (quiz, checklists, file formateur/RH)
+      KYNTUS_FORMATION_DEMO_SEED: ${KYNTUS_FORMATION_DEMO_SEED:-true}
+      KYNTUS_DEMO_ENRICHMENT: ${KYNTUS_DEMO_ENRICHMENT:-true}
+      <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:
       - "8522:8080"
     depends_on:

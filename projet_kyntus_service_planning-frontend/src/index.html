@@ -5,7 +5,35 @@
   <title>Kyntus — Plateforme RH</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0a1526" media="(prefers-color-scheme: dark)">
+  <link id="kyntus-favicon" rel="icon" type="image/png" href="kyntus-favicon-dark.png?v=3">
+  <link rel="shortcut icon" type="image/png" href="kyntus-favicon-dark.png?v=3">
+  <script>
+    (function () {
+      var light = 'kyntus-favicon-light.png?v=3';
+      var dark = 'kyntus-favicon-dark.png?v=3';
+      function apply() {
+        var href = window.matchMedia('(prefers-color-scheme: dark)').matches ? dark : light;
+        var link = document.getElementById('kyntus-favicon');
+        if (!link) {
+          link = document.createElement('link');
+          link.id = 'kyntus-favicon';
+          link.rel = 'icon';
+          link.type = 'image/png';
+          document.head.appendChild(link);
+        }
+        link.href = href;
+        document.querySelectorAll('link[rel="shortcut icon"]').forEach(function (el) {
+          el.href = href;
+        });
+      }
+      apply();
+      try {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', apply);
+      } catch (e) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />

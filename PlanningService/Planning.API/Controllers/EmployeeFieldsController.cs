@@ -53,8 +53,15 @@ public class EmployeeFieldsController(IEmployeeFieldService fieldService) : Cont
         if (!IsHrOrAdmin(GetRole()))
             return Forbid();
 
-        var updated = await fieldService.UpdateFieldAsync(fieldKey, request, ct);
-        return updated is null ? NotFound() : Ok(updated);
+        try
+        {
+            var updated = await fieldService.UpdateFieldAsync(fieldKey, request, ct);
+            return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpDelete("{fieldKey}")]

@@ -1,0 +1,221 @@
+<div class="home" [class.home--ready]="ready">
+  <a class="skip" href="#system" (click)="scrollTo('system', $event)">Aller au contenu</a>
+
+  <div class="ambient" aria-hidden="true">
+    <svg class="ambient__mesh" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#38b6ff" stop-opacity="0"/>
+          <stop offset="45%" stop-color="#38b6ff" stop-opacity="0.55"/>
+          <stop offset="100%" stop-color="#1e4fd8" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <g class="ambient__lines" stroke="currentColor" stroke-width="1" fill="none">
+        <path d="M40 620 C220 520, 280 380, 420 340 S680 300, 820 180 S1040 80, 1180 40"/>
+        <path d="M0 420 C180 400, 260 480, 400 460 S620 360, 760 400 S980 520, 1200 480"/>
+        <path d="M80 120 C240 200, 320 280, 480 260 S720 140, 880 220 S1060 360, 1200 320"/>
+        <path d="M0 700 C200 640, 340 700, 500 640 S780 520, 940 560 S1100 640, 1200 600"/>
+      </g>
+      <g class="ambient__nodes" fill="currentColor">
+        <circle class="node n1" cx="420" cy="340" r="4"/>
+        <circle class="node n2" cx="760" cy="400" r="4"/>
+        <circle class="node n3" cx="880" cy="220" r="4"/>
+        <circle class="node n4" cx="500" cy="640" r="4"/>
+        <circle class="node n5" cx="820" cy="180" r="3.5"/>
+      </g>
+    </svg>
+  </div>
+
+  <header class="nav" [class.nav--on]="navScrolled">
+    <div class="nav__bar">
+      <a routerLink="/" class="brand" aria-label="MyKyntus">
+        <img [src]="logoSrc" alt="Kyntus Morocco" class="nav__logo" />
+        <span>
+          <b>MyKyntus</b>
+          <small>Kyntus Morocco</small>
+        </span>
+      </a>
+
+      <nav class="nav__menu" [class.nav__menu--open]="menuOpen" aria-label="Principal">
+        <a href="#system" (click)="scrollTo('system', $event)">Modules</a>
+        <a href="#flow" (click)="scrollTo('flow', $event)">Connexion</a>
+        <a href="#spotlight" (click)="scrollTo('spotlight', $event)">Pilotage</a>
+        <a [href]="assistanceUrl">Assistance</a>
+      </nav>
+
+      <div class="nav__end">
+        <button
+          type="button"
+          class="btn btn--theme"
+          (click)="theme.toggleTheme()"
+          [attr.aria-label]="theme.theme() === 'light' ? 'Activer le mode sombre' : 'Activer le mode clair'"
+        >
+          {{ theme.theme() === 'light' ? 'Sombre' : 'Clair' }}
+        </button>
+        <a routerLink="/login" class="btn btn--signal">Connexion</a>
+        <button type="button" class="burger" [attr.aria-expanded]="menuOpen" aria-label="Menu" (click)="toggleMenu()">
+          <i></i><i></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero__top">
+      <p class="signal" data-reveal>
+        <span class="signal__dot"></span>
+        Portail interne · Kyntus Morocco
+      </p>
+      <h1 data-reveal style="--i:1">
+        <span class="hero__line">La plateforme qui</span>
+        <span class="hero__line hero__line--accent">orchestre</span>
+        <span class="hero__line">les processus RH</span>
+      </h1>
+      <p class="hero__dek" data-reveal style="--i:2">
+        Planning, formation, congés, documentation, primes et parrainage —
+        réunis en un espace unique, adapté aux prérogatives de chaque collaborateur.
+      </p>
+      <div class="hero__actions" data-reveal style="--i:3">
+        <a routerLink="/login" class="btn btn--fill">Accéder à MyKyntus</a>
+        <a href="#system" class="btn btn--ghost" (click)="scrollTo('system', $event)">Découvrir les modules</a>
+      </div>
+    </div>
+
+    <div class="hero__stats" data-reveal style="--i:4">
+      <div>
+        <strong>6 modules</strong>
+        <span>Accessibles après authentification</span>
+      </div>
+      <div>
+        <strong>Droits différenciés</strong>
+        <span>RH, managers et collaborateurs</span>
+      </div>
+      <div>
+        <strong>Assistance</strong>
+        <span>Centre d’aide dans le portail</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="system" class="system">
+    <div class="system__head" data-reveal>
+      <p class="kicker">Modules</p>
+      <h2>Six domaines métier.<br /><em>Une seule entrée.</em></h2>
+    </div>
+
+    <div class="system__rail">
+      <article class="panel" data-reveal style="--i:0">
+        <span class="panel__idx">01</span>
+        <h3>Planning</h3>
+        <p>Organisation des plannings, demandes de modification, validation et paramétrage des postes.</p>
+        <div class="panel__viz panel__viz--cal" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+      </article>
+      <article class="panel" data-reveal style="--i:1">
+        <span class="panel__idx">02</span>
+        <h3>Formation</h3>
+        <p>Parcours d’intégration, sessions, suivi pédagogique et pièces associées.</p>
+        <div class="panel__viz panel__viz--ring" aria-hidden="true"><b>94</b></div>
+      </article>
+      <article class="panel" data-reveal style="--i:2">
+        <span class="panel__idx">03</span>
+        <h3>Congés</h3>
+        <p>Demandes d’absence, consultation des soldes et circuit de validation.</p>
+        <div class="panel__viz panel__viz--docs" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+      </article>
+      <article class="panel" data-reveal style="--i:3">
+        <span class="panel__idx">04</span>
+        <h3>Documents</h3>
+        <p>Consultation, dépôt et traçabilité de la documentation ressources humaines.</p>
+        <div class="panel__viz panel__viz--docs" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+      </article>
+      <article class="panel" data-reveal style="--i:4">
+        <span class="panel__idx">05</span>
+        <h3>Primes</h3>
+        <p>Calcul, suivi et consultation selon les profils superviseur, RH et audit.</p>
+        <div class="panel__viz panel__viz--bars" aria-hidden="true">
+          <i style="--h:55%"></i><i style="--h:78%"></i><i style="--h:42%"></i><i style="--h:90%"></i>
+        </div>
+      </article>
+      <article class="panel" data-reveal style="--i:5">
+        <span class="panel__idx">06</span>
+        <h3>Parrainage</h3>
+        <p>Pilotage des parcours de parrainage, suivi RH et contrôle des dossiers.</p>
+        <div class="panel__viz panel__viz--bars" aria-hidden="true">
+          <i style="--h:62%"></i><i style="--h:84%"></i><i style="--h:48%"></i><i style="--h:71%"></i>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section id="flow" class="flow">
+    <div class="flow__copy" data-reveal>
+      <p class="kicker">Connexion</p>
+      <h2>Accès<br />sécurisé</h2>
+      <p>
+        Authentifiez-vous à l’aide de vos identifiants collaborateurs.
+        Les modules s’ouvrent conformément à vos habilitations.
+      </p>
+      <ol>
+        <li><span>01</span> Authentification MyKyntus</li>
+        <li><span>02</span> Attribution des droits</li>
+        <li><span>03</span> Accès aux applications métier</li>
+      </ol>
+      <a routerLink="/login" class="btn btn--fill">Se connecter</a>
+    </div>
+    <div class="flow__frame" data-reveal style="--i:1">
+      <img src="images/hero-reseaux.jpg" alt="Infrastructure et opérations" width="1200" height="800" loading="lazy" />
+      <div class="flow__chip">
+        <span class="signal__dot"></span>
+        Environnement sécurisé
+      </div>
+    </div>
+  </section>
+
+  <section id="spotlight" class="group">
+    <div class="group__bg" aria-hidden="true">
+      <img src="images/metier-equipes.jpg" alt="" loading="lazy" />
+    </div>
+    <div class="group__content" data-reveal>
+      <p class="kicker kicker--light">Pilotage</p>
+      <h2>Le quotidien RH<br />maîtrisé de bout en bout</h2>
+      <p>
+        Disponibilité des services, modules actifs et accès contrôlé :
+        MyKyntus centralise le pilotage des ressources humaines
+        pour le personnel de Kyntus Morocco.
+      </p>
+      <a routerLink="/login" class="btn btn--ghost">
+        Accéder aux modules
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </a>
+    </div>
+  </section>
+
+  <section class="close">
+    <div data-reveal>
+      <h2>Accéder à MyKyntus</h2>
+      <p>Réservé aux collaborateurs de Kyntus Morocco.</p>
+      <a routerLink="/login" class="btn btn--fill btn--lg">Connexion</a>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div class="foot__row">
+      <div>
+        <strong>MyKyntus</strong>
+        <span>Kyntus Morocco · Plateforme ressources humaines</span>
+      </div>
+      <div class="foot__links">
+        <a routerLink="/login">Connexion</a>
+        <a [href]="assistanceUrl">Assistance</a>
+        <a [href]="groupUrl" target="_blank" rel="noopener noreferrer">kyntus.com</a>
+      </div>
+    </div>
+    <p class="foot__copy">© {{ year }} Kyntus Morocco</p>
+  </footer>
+</div>

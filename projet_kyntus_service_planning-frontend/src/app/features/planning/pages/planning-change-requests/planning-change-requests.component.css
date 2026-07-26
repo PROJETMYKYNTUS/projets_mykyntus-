@@ -34,6 +34,7 @@
 }
 .pcr-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 .pcr-approve,
@@ -44,6 +45,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
 }
 .pcr-approve { background: #dcfce7; color: #166534; }
 .pcr-reject { background: #fee2e2; color: #991b1b; }

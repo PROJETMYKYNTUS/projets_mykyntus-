@@ -207,15 +207,10 @@ public class UserService : IUserService
         var results = new List<ImportChunkCreateResultDto>(items.Count);
         var usersToInsert = new List<(User User, CreateUserFromImportDto Dto, string Password)>();
 
-        var emailKeys = items
-            .Select(i => i.Dto.Email.Trim().ToLowerInvariant())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        var existingEmails = (await _context.Users.AsNoTracking()
-                .Where(u => emailKeys.Contains(u.Email.ToLower()))
-                .Select(u => u.Email.ToLower())
-                .ToListAsync(ct))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Dedup email dans le chunk uniquement. Les Users déjà projetés par
+        // DirectoryEmployeeProjectionConsumer sont adoptés dans PersistImportUsersHandlingConflictsAsync
+        // (ne plus échouer en « email déjà utilisée » — fausse erreur de course async).
+        var seenInChunk = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // Hash BCrypt en parallèle (CPU-bound) avant les écritures DB.
         var passwordByIndex = new string[items.Count];
@@ -231,20 +226,28 @@ public class UserService : IUserService
         {
             var item = items[i];
             var email = item.Dto.Email.Trim().ToLowerInvariant();
-            if (existingEmails.Contains(email) || item.DirectoryEmployeeId == Guid.Empty)
+            if (item.DirectoryEmployeeId == Guid.Empty)
             {
                 results.Add(new ImportChunkCreateResultDto
                 {
                     Email = email,
                     Success = false,
-                    ErrorMessage = item.DirectoryEmployeeId == Guid.Empty
-                        ? "Identifiant Directory manquant."
-                        : $"L'adresse email « {email} » est déjà utilisée.",
+                    ErrorMessage = "Identifiant Directory manquant.",
                 });
                 continue;
             }
 
-            existingEmails.Add(email);
+            if (!seenInChunk.Add(email))
+            {
+                results.Add(new ImportChunkCreateResultDto
+                {
+                    Email = email,
+                    Success = false,
+                    ErrorMessage = "Email en double dans le même chunk d'import.",
+                });
+                continue;
+            }
+
             var password = passwordByIndex[i];
             var isActive = item.Dto.IsActiveOnImport ?? true;
             var user = new User
@@ -402,29 +405,36 @@ public class UserService : IUserService
 
             if (byGuid.TryGetValue(user.Guid, out var existingByGuid))
             {
-                existingByGuid.FirstName = user.FirstName;
-                existingByGuid.LastName = user.LastName;
-                existingByGuid.RoleId = user.RoleId;
-                existingByGuid.SubServiceId = user.SubServiceId;
-                existingByGuid.HireDate = user.HireDate;
-                existingByGuid.Level = user.Level;
-                existingByGuid.IsActive = user.IsActive;
-                if (string.IsNullOrWhiteSpace(existingByGuid.PasswordHash))
-                    existingByGuid.PasswordHash = user.PasswordHash;
+                ApplyImportCreateOntoExisting(existingByGuid, user);
                 adoptedDirty = true;
                 inserted.Add((existingByGuid, dto, password));
                 continue;
             }
 
-            if (byEmail.TryGetValue(emailKey, out _))
+            if (byEmail.TryGetValue(emailKey, out var existingByEmail))
             {
-                results.Add(new ImportChunkCreateResultDto
+                // Course avec DirectoryEmployeeProjectionConsumer : même email déjà projeté.
+                // On adopte et on aligne le Guid Directory (source de vérité WriteMaster).
+                if (existingByEmail.Guid != user.Guid && byGuid.ContainsKey(user.Guid))
                 {
-                    Email = emailKey,
-                    Success = false,
-                    ErrorMessage =
-                        $"L'adresse email « {emailKey} » est déjà utilisée (conflit IX_Users_Email).",
-                });
+                    results.Add(new ImportChunkCreateResultDto
+                    {
+                        Email = emailKey,
+                        Success = false,
+                        ErrorMessage =
+                            $"L'adresse email « {emailKey} » est déjà utilisée (conflit IX_Users_Email).",
+                    });
+                    continue;
+                }
+
+                existingByEmail.Guid = user.Guid;
+                ApplyImportCreateOntoExisting(existingByEmail, user);
+                byGuid[user.Guid] = existingByEmail;
+                adoptedDirty = true;
+                inserted.Add((existingByEmail, dto, password));
+                _logger.LogInformation(
+                    "User {Email} adopté après projection Directory (Guid aligné).",
+                    emailKey);
                 continue;
             }
 
@@ -484,29 +494,26 @@ public class UserService : IUserService
 
             if (existing is not null)
             {
-                if (existing.Guid == user.Guid)
+                // Guid égal OU même email (projection async) → adopter.
+                var guidTakenByOther = existing.Guid != user.Guid
+                    && await _context.Users.AnyAsync(
+                        u => u.Guid == user.Guid && u.Id != existing.Id, ct);
+                if (guidTakenByOther)
                 {
-                    existing.FirstName = user.FirstName;
-                    existing.LastName = user.LastName;
-                    existing.RoleId = user.RoleId;
-                    existing.SubServiceId = user.SubServiceId;
-                    existing.HireDate = user.HireDate;
-                    existing.Level = user.Level;
-                    existing.IsActive = user.IsActive;
-                    if (string.IsNullOrWhiteSpace(existing.PasswordHash))
-                        existing.PasswordHash = user.PasswordHash;
-                    await _context.SaveChangesAsync(ct);
-                    inserted.Add((existing, dto, password));
+                    results.Add(new ImportChunkCreateResultDto
+                    {
+                        Email = emailKey,
+                        Success = false,
+                        ErrorMessage =
+                            $"L'adresse email « {emailKey} » est déjà utilisée (conflit IX_Users_Email).",
+                    });
                     continue;
                 }
 
-                results.Add(new ImportChunkCreateResultDto
-                {
-                    Email = emailKey,
-                    Success = false,
-                    ErrorMessage =
-                        $"L'adresse email « {emailKey} » est déjà utilisée (conflit IX_Users_Email).",
-                });
+                existing.Guid = user.Guid;
+                ApplyImportCreateOntoExisting(existing, user);
+                await _context.SaveChangesAsync(ct);
+                inserted.Add((existing, dto, password));
                 continue;
             }
 
@@ -525,12 +532,31 @@ public class UserService : IUserService
                         u => u.Guid == user.Guid || u.Email.ToLower() == emailKey,
                         ct);
 
-                if (existing is not null && existing.Guid == user.Guid)
+                if (existing is not null)
                 {
-                    inserted.Add((existing, dto, password));
-                    _logger.LogInformation(
-                        "User {Email} adopté après conflit IX_Users_Email (projection Directory).",
-                        emailKey);
+                    var guidTakenByOther = existing.Guid != user.Guid
+                        && await _context.Users.AnyAsync(
+                            u => u.Guid == user.Guid && u.Id != existing.Id, ct);
+                    if (guidTakenByOther)
+                    {
+                        results.Add(new ImportChunkCreateResultDto
+                        {
+                            Email = emailKey,
+                            Success = false,
+                            ErrorMessage =
+                                $"L'adresse email « {emailKey} » est déjà utilisée (conflit IX_Users_Email).",
+                        });
+                    }
+                    else
+                    {
+                        existing.Guid = user.Guid;
+                        ApplyImportCreateOntoExisting(existing, user);
+                        await _context.SaveChangesAsync(ct);
+                        inserted.Add((existing, dto, password));
+                        _logger.LogInformation(
+                            "User {Email} adopté après conflit IX_Users_Email (projection Directory).",
+                            emailKey);
+                    }
                 }
                 else
                 {
@@ -546,6 +572,19 @@ public class UserService : IUserService
         }
 
         return inserted;
+    }
+
+    private static void ApplyImportCreateOntoExisting(User existing, User imported)
+    {
+        existing.FirstName = imported.FirstName;
+        existing.LastName = imported.LastName;
+        existing.RoleId = imported.RoleId;
+        existing.SubServiceId = imported.SubServiceId;
+        existing.HireDate = imported.HireDate;
+        existing.Level = imported.Level;
+        existing.IsActive = imported.IsActive;
+        if (string.IsNullOrWhiteSpace(existing.PasswordHash))
+            existing.PasswordHash = imported.PasswordHash;
     }
 
     private async Task EnsureBalancedSaturdayGroupsBatchAsync(

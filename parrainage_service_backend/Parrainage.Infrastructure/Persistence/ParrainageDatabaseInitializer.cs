@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Npgsql;
+using Parrainage.Infrastructure.Services;
 
 namespace Parrainage.Infrastructure.Persistence;
 
@@ -8,6 +10,7 @@ namespace Parrainage.Infrastructure.Persistence;
 /// </summary>
 public sealed class ParrainageDatabaseInitializer(
     IServiceScopeFactory scopeFactory,
+    IConfiguration configuration,
     ILogger<ParrainageDatabaseInitializer> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -36,7 +39,24 @@ public sealed class ParrainageDatabaseInitializer(
         }
 
         await ParrainageSchemaPatches.ApplyPendingSchemaAsync(db, logger, cancellationToken);
-        logger.LogInformation("PARRAINAGE : base prête (sans seed démo).");
+
+        var seedDemo = configuration.GetValue("Parrainage:SeedDemoData", false)
+            && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "true", "true", StringComparison.OrdinalIgnoreCase);
+        if (seedDemo)
+        {
+            try
+            {
+                await ParrainageSeeder.SeedAsync(db, logger, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "PARRAINAGE : seed démo ignoré.");
+            }
+        }
+        else
+        {
+            logger.LogInformation("PARRAINAGE : base prête (sans seed démo).");
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

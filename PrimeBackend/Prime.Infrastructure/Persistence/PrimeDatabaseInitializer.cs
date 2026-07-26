@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Prime.Infrastructure.Persistence;
 
 public sealed class PrimeDatabaseInitializer(
     IServiceScopeFactory scopeFactory,
+    IConfiguration configuration,
     ILogger<PrimeDatabaseInitializer> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -67,7 +69,24 @@ public sealed class PrimeDatabaseInitializer(
         }
 
         await EnsurePrimeMetierTablesExistAsync(db, cancellationToken);
-        logger.LogInformation("PRIME : base prête (sans seed démo).");
+
+        var enrich = configuration.GetValue("Prime:EnrichDemoData", false)
+            && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "true", "true", StringComparison.OrdinalIgnoreCase);
+        if (enrich)
+        {
+            try
+            {
+                await PrimeDbEnrichmentSeeder.EnrichAsync(db, force: false, cancellationToken, logger);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "PRIME : enrichissement démo ignoré.");
+            }
+        }
+        else
+        {
+            logger.LogInformation("PRIME : base prête (sans seed démo).");
+        }
     }
 
     /// <summary>

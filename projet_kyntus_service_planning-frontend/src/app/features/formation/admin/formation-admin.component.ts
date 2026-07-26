@@ -8,6 +8,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import {
   ArrowRight,
   Calendar,
@@ -31,6 +32,9 @@ import {
 } from '../../../core/models/formation-training.models';
 import { LucideIconComponent } from '../../../shared/lucide-icon.component';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
+import { KyntusSessionService } from '../../../core/session/kyntus-session.service';
+import { UserService } from '../../users/services/user.service';
+import { resolveUserGuid } from '../../../core/lib/user-guid.util';
 
 type AdminTab = 'initial' | 'continue';
 
@@ -47,6 +51,8 @@ export class FormationAdminComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly session = inject(KyntusSessionService);
+  private readonly usersApi = inject(UserService);
 
   readonly icons = {
     graduation: GraduationCap,
@@ -88,6 +94,14 @@ export class FormationAdminComponent implements OnInit {
   searchTerm = '';
   filterInitialStatut: '' | InitialTrainingStatus = '';
   filterSessionStatut: '' | TrainingSessionStatus = '';
+
+  panelPathId: string | null = null;
+  panelMode: 'docs' | 'extend' | 'reject' | null = null;
+  panelBusy = false;
+  extendDate = '';
+  rejectReason = '';
+  feedback = '';
+  feedbackKind: 'info' | 'error' = 'info';
 
   ngOnInit(): void {
     const tabParam = this.route.snapshot.queryParamMap.get('tab');
@@ -233,31 +247,190 @@ export class FormationAdminComponent implements OnInit {
     return s.animatorUserId ? 'Animateur interne' : '—';
   }
 
-  nextActionRoute(path: InitialTrainingPathDto): string | null {
-    switch (path.status) {
-      case 'EnCours':
-      case 'QuizASaisir':
-      case 'AttenteValidationFormateur':
-        return '/formations/initiales';
-      case 'AttenteValidationRh':
-        return '/formations/passage-production';
-      default:
-        return null;
+  isPeriodEnded(path: InitialTrainingPathDto): boolean {
+    // Fenêtre ouverte dès J-7 avant DateFinPrevue.
+    if (path.daysUntilEnd != null) return path.daysUntilEnd <= 7;
+    const end = new Date(path.dateFinPrevue);
+    if (Number.isNaN(end.getTime())) return false;
+    const openFrom = new Date(end);
+    openFrom.setHours(0, 0, 0, 0);
+    openFrom.setDate(openFrom.getDate() - 7);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today.getTime() >= openFrom.getTime();
+  }
+
+  /** RH Valider : formateur a validé + fenêtre J-7 ouverte. */
+  canRhValidate(path: InitialTrainingPathDto): boolean {
+    return path.status === 'AttenteValidationRh' && this.isPeriodEnded(path);
+  }
+
+  rhValidateHint(path: InitialTrainingPathDto): string {
+    if (path.status !== 'AttenteValidationRh') {
+      return 'En attente de la validation formateur';
+    }
+    if (!this.isPeriodEnded(path)) {
+      return 'Disponible à partir de J-7 avant la fin prévue (ou prolonger)';
+    }
+    return 'Ouvrir la fiche employé pour confirmer le passage en production';
+  }
+
+  async rhValidateAction(path: InitialTrainingPathDto): Promise<void> {
+    if (!this.canRhValidate(path)) return;
+
+    const total = path.documentsTotalCount ?? 0;
+    const received = path.documentsReceivedCount ?? 0;
+    if (total > 0 && received < total) {
+      this.openPanel(path, 'docs');
+      return;
+    }
+
+    await this.confirmNavigateToEmployee(path);
+  }
+
+  isPanelOpen(pathId: string): boolean {
+    return this.panelPathId === pathId && this.panelMode != null;
+  }
+
+  closePanel(): void {
+    this.panelPathId = null;
+    this.panelMode = null;
+    this.panelBusy = false;
+    this.extendDate = '';
+    this.rejectReason = '';
+    this.feedback = '';
+    this.cdr.markForCheck();
+  }
+
+  openPanel(path: InitialTrainingPathDto, mode: 'docs' | 'extend' | 'reject'): void {
+    this.panelPathId = path.id;
+    this.panelMode = mode;
+    this.panelBusy = false;
+    this.feedback = '';
+    this.extendDate = mode === 'extend' ? this.nextDayIso(path.dateFinPrevue) : '';
+    this.rejectReason = '';
+    this.cdr.markForCheck();
+  }
+
+  openReject(path: InitialTrainingPathDto): void {
+    this.openPanel(path, 'reject');
+  }
+
+  openExtend(path: InitialTrainingPathDto): void {
+    this.openPanel(path, 'extend');
+  }
+
+  minExtendDate(path: InitialTrainingPathDto): string {
+    return this.nextDayIso(path.dateFinPrevue);
+  }
+
+  canConfirmExtend(path: InitialTrainingPathDto): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(this.extendDate)) return false;
+    const chosen = new Date(`${this.extendDate}T00:00:00`);
+    if (Number.isNaN(chosen.getTime())) return false;
+    const end = new Date(path.dateFinPrevue);
+    end.setHours(0, 0, 0, 0);
+    return chosen.getTime() > end.getTime();
+  }
+
+  canConfirmReject(): boolean {
+    return this.rejectReason.trim().length >= 3;
+  }
+
+  async confirmNavigateToEmployee(path: InitialTrainingPathDto): Promise<void> {
+    this.panelBusy = true;
+    this.feedback = '';
+    this.cdr.markForCheck();
+    try {
+      const users = await firstValueFrom(this.usersApi.getAllUsers());
+      const user = (users ?? []).find((u) => resolveUserGuid(u) === path.employeeId);
+      if (!user?.id) {
+        this.setFeedback(`Fiche employé introuvable pour ${path.employeeName}.`, 'error');
+        return;
+      }
+      await this.router.navigate(['/users/edit', user.id], {
+        queryParams: { passageProduction: path.id },
+      });
+    } catch (e) {
+      this.setFeedback(e instanceof Error ? e.message : 'Impossible d’ouvrir la fiche employé', 'error');
+    } finally {
+      this.panelBusy = false;
+      this.cdr.markForCheck();
     }
   }
 
-  nextActionLabel(path: InitialTrainingPathDto): string {
-    switch (path.status) {
-      case 'EnCours':
-      case 'QuizASaisir':
-        return 'Saisir quiz';
-      case 'AttenteValidationFormateur':
-        return 'File formateur';
-      case 'AttenteValidationRh':
-        return 'Passage production';
-      default:
-        return '';
+  async confirmExtend(path: InitialTrainingPathDto): Promise<void> {
+    if (!this.canConfirmExtend(path)) {
+      this.setFeedback('Choisissez une date de fin postérieure à la date actuelle.', 'error');
+      return;
     }
+    this.panelBusy = true;
+    this.cdr.markForCheck();
+    try {
+      await this.api.extendInitial(path.id, this.extendDate);
+      this.closePanel();
+      await this.load();
+    } catch (e) {
+      this.setFeedback(e instanceof Error ? e.message : 'Échec de la prolongation', 'error');
+    } finally {
+      this.panelBusy = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async confirmReject(path: InitialTrainingPathDto): Promise<void> {
+    if (!this.canConfirmReject()) {
+      this.setFeedback('Saisissez un motif de rejet (3 caractères minimum).', 'error');
+      return;
+    }
+    this.panelBusy = true;
+    this.cdr.markForCheck();
+    try {
+      await this.api.rhReject(path.id, {
+        rejectedBy: this.session.getStoredUser()?.username || 'RH',
+        reason: this.rejectReason.trim(),
+      });
+      this.closePanel();
+      await this.load();
+    } catch (e) {
+      this.setFeedback(e instanceof Error ? e.message : 'Échec du rejet', 'error');
+    } finally {
+      this.panelBusy = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  metricsFor(employeeId: string) {
+    return this.api.getAttendanceMetricsStub(employeeId);
+  }
+
+  formatMetric(value: number | null | undefined): string {
+    return value == null ? '—' : `${value} %`;
+  }
+
+  private setFeedback(message: string, kind: 'info' | 'error'): void {
+    this.feedback = message;
+    this.feedbackKind = kind;
+    this.cdr.markForCheck();
+  }
+
+  private nextDayIso(dateIso: string): string {
+    const d = new Date(dateIso);
+    if (Number.isNaN(d.getTime())) {
+      const today = new Date();
+      today.setDate(today.getDate() + 1);
+      return this.toDateInputValue(today);
+    }
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 1);
+    return this.toDateInputValue(d);
+  }
+
+  private toDateInputValue(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   private isInitialStatus(value: string): value is InitialTrainingStatus {

@@ -100,6 +100,24 @@ public static class PlanningStartup
 
                     await Task.Delay(TimeSpan.FromSeconds(5));
                     await PlanningDirectoryOrgBootstrap.SyncFromDirectoryAsync(services);
+
+                    try
+                    {
+                        await DockerComposePlanningEnrichmentSeed.ApplyIfEnabledAsync(services, configuration);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"⚠️ Planning enrichment ignoré: {ex.Message}");
+                    }
+
+                    try
+                    {
+                        await DockerComposeFormationNotificationsSeed.ApplyIfEnabledAsync(services, configuration);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"⚠️ Notifications formation seed ignoré: {ex.Message}");
+                    }
                 }
                 catch (Exception ex)
                 {

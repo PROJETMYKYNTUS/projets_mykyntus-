@@ -17,6 +17,11 @@
     <div class="pv-header">
 
       <div class="header-left">
+        <button type="button" class="ky-btn-secondary btn-back" (click)="goBackToWeekList()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Retourner à la liste des plannings
+        </button>
+        <div class="header-divider" aria-hidden="true"></div>
         <div class="header-meta">
           <div class="header-week">
             <span class="week-chip">
@@ -43,6 +48,29 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- ── Bannière demande de changement (sans switch) ── -->
+    <div class="pv-change-request-banner" *ngIf="changeRequestId && canValidate">
+      <div class="pv-cr-copy">
+        <strong>Demande de changement à traiter</strong>
+        <span>
+          Cellule surlignée : modifiez le shift de l’employé, puis marquez la demande comme traitée.
+        </span>
+      </div>
+      <div class="pv-cr-actions">
+        <button type="button"
+                class="ky-btn-secondary"
+                (click)="goToChangeRequests()">
+          Retour aux demandes
+        </button>
+        <button type="button"
+                class="ky-btn-primary"
+                [disabled]="markingChangeRequest"
+                (click)="markChangeRequestTreated()">
+          {{ markingChangeRequest ? 'Enregistrement…' : 'Marquer comme traitée' }}
+        </button>
+      </div>
     </div>
 
     <!-- ── Actions RH (Valider / Régénérer) ── -->
@@ -210,7 +238,8 @@
           <tbody>
             <tr *ngFor="let emp of planning.assignments; let odd = odd"
                 [class.row-odd]="odd"
-                [class.row-new]="emp.isNewEmployee">
+                [class.row-new]="emp.isNewEmployee"
+                [class.row-change-request-highlight]="isHighlightedEmployee(emp)">
 
               <!-- ── Cellule employé ── -->
               <td class="td-emp">
@@ -223,6 +252,7 @@
                     <div class="emp-name-row">
                       <span class="emp-name">{{ emp.fullName }}</span>
                       <span class="lvl-badge lvl-{{ emp.level }}">{{ contractLevelLabel(emp.level) }}</span>
+                      <span class="cr-emp-tag" *ngIf="isHighlightedEmployee(emp)">À modifier</span>
                     </div>
                     <!-- Actions commentaire -->
                     <div class="emp-actions" *ngIf="planning!.status === 'Draft'">
@@ -251,9 +281,12 @@
               <!-- ── Cellules shifts ── -->
               <td *ngFor="let day of days"
                   class="td-shift"
-                  [class.td-saturday]="day === 'Saturday'">
+                  [class.td-saturday]="day === 'Saturday'"
+                  [class.cell-change-request-highlight]="isHighlightedAssignment(getAssignment(emp, day))">
 
                 <ng-container *ngIf="getAssignment(emp, day) as a; else noShift">
+
+                  <div class="cr-cell-tag" *ngIf="isHighlightedAssignment(a)">Demande</div>
 
                   <!-- Congé -->
                 <div class="cell-conge"

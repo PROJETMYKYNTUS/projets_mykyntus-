@@ -4,12 +4,29 @@ using Formation.Infrastructure.Persistence;
 using Formation.Infrastructure.Repositories;
 using Formation.Domain.Interfaces;
 using Formation.API.Middlewares;
+using Kyntus.Identity.Jwt;
+using Kyntus.Messaging.Contracts;
 using MassTransit;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 var isTesting = builder.Environment.IsEnvironment("Testing");
+
+if (string.IsNullOrWhiteSpace(builder.Configuration["JwtSettings:Secret"]))
+{
+    if (isTesting || builder.Environment.IsDevelopment())
+    {
+        // Dev/test sans secret injecté — ne pas planter le démarrage.
+        builder.Configuration["JwtSettings:Secret"] = "local-dev-formation-jwt-secret-key-32c";
+    }
+    else
+    {
+        throw new InvalidOperationException(
+            "JwtSettings:Secret manquant pour Formation API — injecter KYNTUS_JWT_SECRET (même secret que Auth).");
+    }
+}
 
 // DbContext
 builder.Services.AddDbContext<FormationDbContext>(opt =>
@@ -27,7 +44,35 @@ builder.Services.AddMediatR(cfg =>
 
 // Repositories
 builder.Services.AddScoped<IFormationRepository, FormationRepository>();
+builder.Services.AddScoped<Formation.Infrastructure.Services.FormationDocumentChecklistService>();
 builder.Services.AddScoped<Formation.Infrastructure.Services.TrainingWorkflowService>();
+builder.Services.AddHostedService<Formation.Infrastructure.Services.InitialTrainingMissingDocumentsAlertHostedService>();
+
+builder.Services.AddKyntusJwtAuthentication(builder.Configuration);
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("CanPlanContinue", policy =>
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.GetAuthRole();
+            if (string.IsNullOrWhiteSpace(role)) return false;
+            return role.Equals("Admin", StringComparison.OrdinalIgnoreCase)
+                || role.Equals("RH", StringComparison.OrdinalIgnoreCase)
+                || KyntusRoleNames.IsChefDeProjet(role)
+                || KyntusRoleNames.IsSuperviseur(role)
+                || KyntusRoleNames.IsQualiticien(role);
+        }));
+    options.AddPolicy("CanRecordInitialQuiz", policy =>
+        policy.RequireAssertion(ctx =>
+        {
+            var role = ctx.User.GetAuthRole();
+            if (string.IsNullOrWhiteSpace(role)) return false;
+            return role.Equals("Admin", StringComparison.OrdinalIgnoreCase)
+                || role.Equals("Formateur", StringComparison.OrdinalIgnoreCase)
+                || role.Equals("Equipe_Formation", StringComparison.OrdinalIgnoreCase)
+                || role.Equals("Equipe formation", StringComparison.OrdinalIgnoreCase);
+        }));
+});
 
 if (isTesting)
 {
@@ -77,6 +122,8 @@ var app = builder.Build();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseSwagger();
 app.UseSwaggerUI();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 // Migration automatique au démarrage
@@ -100,11 +147,38 @@ using (var scope = app.Services.CreateScope())
         try
         {
             await FormationSchemaPatches.EnsureTrainingWorkflowTablesAsync(db, startupLog);
+            await FormationSchemaPatches.EnsureQuizMultiChoiceColumnsAsync(db);
         }
         catch (Exception ex)
         {
             startupLog.LogError(ex, "Impossible de créer les tables training workflow.");
             throw;
+        }
+
+        try
+        {
+            await FormationSchemaPatches.EnsureDocumentChecklistTablesAsync(db, startupLog);
+            var checklist = scope.ServiceProvider.GetRequiredService<Formation.Infrastructure.Services.FormationDocumentChecklistService>();
+            await checklist.EnsureDefaultDefinitionsAsync();
+            var activePaths = await db.InitialTrainingPaths
+                .Where(p => p.Status != Formation.Domain.Enums.InitialTrainingStatus.EnProduction
+                            && p.Status != Formation.Domain.Enums.InitialTrainingStatus.Rejete)
+                .ToListAsync();
+            foreach (var path in activePaths)
+                await checklist.MaterializeForPathAsync(path);
+        }
+        catch (Exception ex)
+        {
+            startupLog.LogWarning(ex, "Checklist documents formation — seed / matérialisation ignorée.");
+        }
+
+        try
+        {
+            await DockerComposeFormationEnrichmentSeed.ApplyIfEnabledAsync(app.Configuration, db, startupLog);
+        }
+        catch (Exception ex)
+        {
+            startupLog.LogWarning(ex, "Formation enrichment seed ignoré.");
         }
     }
 

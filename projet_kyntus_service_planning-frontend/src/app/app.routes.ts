@@ -51,6 +51,13 @@ export const routes: Routes = [
             .then(m => m.GlobalSettingsComponent),
       },
 
+      {
+        path: 'assistance',
+        loadComponent: () =>
+          import('./features/assistance/assistance.component')
+            .then(m => m.AssistanceComponent),
+      },
+
       // ─── QUALITÉ & AMÉLIORATION ──────────────────
       {
         path: 'reclamations',
@@ -70,26 +77,27 @@ export const routes: Routes = [
       },
 
       // ─── FORMATION ───────────────────────────────
-      {
-        path: 'formations',
-        canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation', 'Equipe formation'] },
-        loadComponent: () =>
-          import('./features/formation/admin/formation-admin.component')
-            .then(m => m.FormationAdminComponent),
-      },
+      // Routes spécifiques AVANT `formations` (évite collision de préfixe).
       {
         path: 'formations/planifier',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
+        data: { roles: ['Admin', 'RH', 'Chef de projet', 'RP', 'Superviseur', 'Qualiticien'] },
         loadComponent: () =>
           import('./features/formation/rh/formation-rh-plan.component')
             .then(m => m.FormationRhPlanComponent),
       },
       {
+        path: 'formations/dashboard',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH', 'Chef de projet', 'RP', 'Superviseur', 'Qualiticien'] },
+        loadComponent: () =>
+          import('./features/formation/dashboard/formation-dashboard.component')
+            .then(m => m.FormationDashboardComponent),
+      },
+      {
         path: 'formations/initiales',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation', 'Equipe formation'] },
+        data: { roles: ['Admin', 'Formateur', 'Equipe_Formation', 'Equipe formation'] },
         loadComponent: () =>
           import('./features/formation/formateur/formation-formateur-initial.component')
             .then(m => m.FormationFormateurInitialComponent),
@@ -101,6 +109,31 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/formation/rh/formation-rh-prod-queue.component')
             .then(m => m.FormationRhProdQueueComponent),
+      },
+      {
+        path: 'formations/documents-checklist-config',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadComponent: () =>
+          import('./features/formation/rh/formation-documents-config.component')
+            .then(m => m.FormationDocumentsConfigComponent),
+      },
+      {
+        path: 'formations/initiales/:pathId/checklist',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation', 'Equipe formation'] },
+        loadComponent: () =>
+          import('./features/formation/rh/formation-path-checklist.component')
+            .then(m => m.FormationPathChecklistComponent),
+      },
+      {
+        path: 'formations',
+        pathMatch: 'full',
+        canActivate: [AuthGuard],
+        data: { roles: ['Admin', 'RH'] },
+        loadComponent: () =>
+          import('./features/formation/admin/formation-admin.component')
+            .then(m => m.FormationAdminComponent),
       },
       {
         path: 'mes-sessions',
@@ -125,6 +158,28 @@ export const routes: Routes = [
             .then(m => m.FormationMesSessionsComponent),
       },
       {
+        path: 'mes-sessions/:sessionId/quiz',
+        canActivate: [AuthGuard],
+        data: {
+          roles: [
+            'Employee',
+            'Manager',
+            'Coach',
+            'RP',
+            'Audit',
+            'Formateur',
+            'Equipe_Formation',
+            'Equipe formation',
+            'Superviseur',
+            'Admin',
+            'RH',
+          ],
+        },
+        loadComponent: () =>
+          import('./features/formation/sessions/formation-session-quiz.component')
+            .then(m => m.FormationSessionQuizComponent),
+      },
+      {
         path: 'mes-formations',
         canActivate: [AuthGuard],
         data: {
@@ -143,6 +198,26 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/formation/employee/formation-employee.component')
             .then(m => m.FormationEmployeeComponent),
+      },
+      {
+        path: 'mes-formations/:sessionId/quiz',
+        canActivate: [AuthGuard],
+        data: {
+          roles: [
+            'Employee',
+            'Manager',
+            'Coach',
+            'RP',
+            'Audit',
+            'Formateur',
+            'Equipe_Formation',
+            'Equipe formation',
+            'Superviseur',
+          ],
+        },
+        loadComponent: () =>
+          import('./features/formation/sessions/formation-take-quiz.component')
+            .then(m => m.FormationTakeQuizComponent),
       },
 
       // ─── NEWSLETTER ──────────────────────────────

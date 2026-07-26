@@ -5,6 +5,8 @@ namespace Formation.Domain.Entities;
 public class TrainingSession
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid? ProgramId { get; set; }
+    public int SequenceNumber { get; set; } = 1;
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public TrainingSessionType Type { get; set; } = TrainingSessionType.Continue;
@@ -22,5 +24,8 @@ public class TrainingSession
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    public TrainingProgram? Program { get; set; }
     public ICollection<TrainingAssignment> Assignments { get; set; } = new List<TrainingAssignment>();
+    public TrainingSessionReport? Report { get; set; }
+    public TrainingQuiz? Quiz { get; set; }
 }

@@ -1,0 +1,180 @@
+<section class="ky-page-shell formation-dashboard">
+  <app-kyntus-page-header
+    title="Tableau de bord"
+    subtitle="Formation continue et initiale — indicateurs, pipeline et actions"
+  />
+
+  <div class="fd-tabs" role="tablist">
+    <button type="button" class="fd-tab" [class.active]="tab() === 'continue'" (click)="setTab('continue')">Continue</button>
+    <button type="button" class="fd-tab" [class.active]="tab() === 'initiale'" (click)="setTab('initiale')">Initiale</button>
+  </div>
+
+  @if (tab() === 'continue') {
+    <div class="card-navy org-filters-panel">
+      <p class="org-filters-title">Filtre formation continue</p>
+      <div class="org-filters-toolbar">
+        <select
+          class="filter-ctl ky-input filter-ctl--org"
+          [kyntusSelectSync]="filterOperationalDepartment"
+          (kyntusSelectSyncChange)="patchFilterOperationalDepartment($event)"
+        >
+          <option value="">Département</option>
+          @for (d of operationalDepartmentOptions; track d) {
+            <option [value]="d">{{ d }}</option>
+          }
+        </select>
+
+        <select
+          class="filter-ctl ky-input filter-ctl--org"
+          [kyntusSelectSync]="filterPole"
+          (kyntusSelectSyncChange)="patchFilterPole($event)"
+        >
+          <option value="">Pôle</option>
+          @for (p of poleOptions; track p) {
+            <option [value]="p">{{ p }}</option>
+          }
+        </select>
+
+        <select
+          class="filter-ctl ky-input filter-ctl--org"
+          [kyntusSelectSync]="filterCellule"
+          (kyntusSelectSyncChange)="patchFilterCellule($event)"
+        >
+          <option value="">Cellule</option>
+          @for (c of celluleOptions; track c) {
+            <option [value]="c">{{ c }}</option>
+          }
+        </select>
+
+        <select
+          class="filter-ctl ky-input filter-ctl--org"
+          [kyntusSelectSync]="filterService"
+          (kyntusSelectSyncChange)="patchFilterService($event)"
+        >
+          <option value="">Service</option>
+          @for (s of serviceOptions; track s) {
+            <option [value]="s">{{ s }}</option>
+          }
+        </select>
+
+        <button type="button" class="ky-btn-secondary text-xs" (click)="clearOrgFilters()">Réinitialiser</button>
+      </div>
+      <p class="org-filters-hint">
+        @if (filterActive()) {
+          Périmètre continue — {{ scopeEmployeeCount() }} employé(s)
+        } @else {
+          Cascade Département → Pôle → Cellule → Service (formation continue uniquement)
+        }
+      </p>
+    </div>
+  }
+
+  @if (error()) {
+    <p class="text-rose-300 text-sm">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="text-muted text-sm">Chargement…</p>
+  } @else if (tab() === 'continue') {
+    @if (stats(); as s) {
+      <div class="kpi-grid">
+        <div class="card-navy kpi-card">
+          <div class="text-xs text-muted">Présence</div>
+          <div class="kpi-value">{{ s.attendanceRate }} %</div>
+          <div class="text-xs text-muted">{{ s.presentCount }}/{{ s.assignmentCount }}</div>
+        </div>
+        <div class="card-navy kpi-card">
+          <div class="text-xs text-muted">Réussite quiz</div>
+          <div class="kpi-value">{{ s.quizSuccessRate }} %</div>
+        </div>
+        <div class="card-navy kpi-card">
+          <div class="text-xs text-muted">Séances / programmes</div>
+          <div class="kpi-value">{{ s.sessionCount }}</div>
+          <div class="text-xs text-muted">{{ s.programCount }} programme(s)</div>
+        </div>
+        <div class="card-navy kpi-card">
+          <div class="text-xs text-muted">À traiter</div>
+          <div class="kpi-value">{{ s.quizzesPendingValidation + s.missingReports }}</div>
+          <div class="text-xs text-muted">quiz + CR</div>
+        </div>
+      </div>
+
+      <div class="fd-charts">
+        <article class="card-navy fd-chart-card">
+          <h3>Présence</h3>
+          <div echarts [options]="continueAttendanceChart()" class="fd-chart"></div>
+        </article>
+        <article class="card-navy fd-chart-card">
+          <h3>Quiz continue</h3>
+          <div echarts [options]="continueQuizChart()" class="fd-chart"></div>
+        </article>
+        <article class="card-navy fd-chart-card fd-chart-wide">
+          <h3>Opérations</h3>
+          <div echarts [options]="continueOpsChart()" class="fd-chart"></div>
+        </article>
+      </div>
+    }
+  } @else if (tab() === 'initiale') {
+    @if (initialStats(); as i) {
+      <div class="kpi-grid">
+        <div class="card-navy kpi-card">
+          <div class="text-xs text-muted">Pipeline actif</div>
+          <div class="kpi-value">{{ i.enCours + i.attenteValidationFormateur + i.attenteValidationRh }}</div>
+          <div class="text-xs text-muted">sur {{ i.totalPaths }}</div>
+        </div>
+        <a routerLink="/formations/passage-production" class="card-navy kpi-card kpi-link">
+          <div class="text-xs text-muted">Attente RH</div>
+          <div class="kpi-value">{{ i.pendingRh }}</div>
+          <div class="text-xs text-muted">Passage production →</div>
+        </a>
+        <div class="card-navy kpi-card">
+          <div class="text-xs text-muted">Réussite quiz moy.</div>
+          <div class="kpi-value">{{ i.avgQuizSuccessRate }} %</div>
+        </div>
+        <div class="card-navy kpi-card">
+          <div class="text-xs text-muted">Docs / J-7</div>
+          <div class="kpi-value">{{ i.pathsWithMissingDocs }}</div>
+          <div class="text-xs text-muted">{{ i.endingWithin7Days }} fin ≤ 7 j</div>
+        </div>
+      </div>
+
+      <div class="fd-charts">
+        <article class="card-navy fd-chart-card fd-chart-wide">
+          <h3>Pipeline formation initiale</h3>
+          <div echarts [options]="initialPipelineChart()" class="fd-chart"></div>
+        </article>
+        <article class="card-navy fd-chart-card">
+          <h3>Documents</h3>
+          <div echarts [options]="initialDocsChart()" class="fd-chart"></div>
+        </article>
+      </div>
+
+      @if (i.atRisk.length > 0) {
+        <article class="card-navy fd-risk">
+          <div class="fd-risk-head">
+            <h3>À risque (J≤7 + docs manquants)</h3>
+            <a routerLink="/formations" class="fd-link">Gestion →</a>
+          </div>
+          <ul>
+            @for (r of i.atRisk; track r.pathId) {
+              <li>
+                <div>
+                  <strong>{{ r.employeeName }}</strong>
+                  <span class="text-xs text-muted">
+                    J{{ (r.daysUntilEnd ?? 0) >= 0 ? '+' : '' }}{{ r.daysUntilEnd ?? '—' }}
+                    · docs {{ r.documentsReceivedCount }}/{{ r.documentsTotalCount }}
+                  </span>
+                </div>
+                <a
+                  class="fd-link"
+                  [routerLink]="['/formations/initiales', r.pathId, 'checklist']"
+                  [queryParams]="{ name: r.employeeName, returnUrl: '/formations/dashboard' }"
+                >Checklist</a>
+              </li>
+            }
+          </ul>
+        </article>
+      }
+    }
+  }
+</section>

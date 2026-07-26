@@ -35,7 +35,6 @@ export class PlanningChangeRequestsComponent implements OnInit {
   ngOnInit(): void {
     const role = this.session.getRole();
     if (role !== 'Admin' && role !== 'RH') {
-      // Coach / Superviseur / Pilote → même interface self-service que le Pilote
       void this.router.navigate(['/mes-plannings']);
       return;
     }
@@ -64,11 +63,45 @@ export class PlanningChangeRequestsComponent implements OnInit {
     });
   }
 
+  hasSwap(r: any): boolean {
+    return r?.proposedSwapUserId != null && Number(r.proposedSwapUserId) > 0;
+  }
+
+  /** Avec switch proposé : appliquer l’échange après validation RH. */
   approve(id: number): void {
-    if (!confirm('Approuver et appliquer le switch ?')) return;
+    if (!confirm('Approuver et appliquer le switch entre les deux employés ?')) return;
+    this.error = '';
     this.planning.approveChangeRequest(id, this.authUserId).subscribe({
-      next: () => { this.toast = 'Demande approuvée.'; this.reload(); },
-      error: (err) => { this.error = err.error?.message ?? 'Échec approve.'; this.cdr.detectChanges(); },
+      next: () => {
+        this.toast = 'Switch appliqué — demande approuvée.';
+        this.reload();
+      },
+      error: (err) => {
+        this.error = err.error?.message ?? 'Échec approve.';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  /**
+   * Sans switch : ouvrir le planning de la semaine avec la cellule employé/shift surlignée
+   * pour que le RH réaffecte manuellement.
+   */
+  openPlanningToTreat(r: any): void {
+    const planningId = Number(r?.weeklyPlanningId);
+    if (!Number.isFinite(planningId) || planningId <= 0) {
+      this.error = 'Planning de la demande introuvable.';
+      this.cdr.detectChanges();
+      return;
+    }
+    void this.router.navigate(['/planning/view', planningId], {
+      queryParams: {
+        from: 'change-request',
+        changeRequestId: r.id,
+        highlightAssignmentId: r.currentAssignmentId,
+        highlightUserId: r.requesterUserId,
+        highlightDay: r.assignmentDay,
+      },
     });
   }
 
@@ -85,7 +118,10 @@ export class PlanningChangeRequestsComponent implements OnInit {
         this.toast = 'Demande rejetée.';
         this.reload();
       },
-      error: (err) => { this.error = err.error?.message ?? 'Échec reject.'; this.cdr.detectChanges(); },
+      error: (err) => {
+        this.error = err.error?.message ?? 'Échec reject.';
+        this.cdr.detectChanges();
+      },
     });
   }
 

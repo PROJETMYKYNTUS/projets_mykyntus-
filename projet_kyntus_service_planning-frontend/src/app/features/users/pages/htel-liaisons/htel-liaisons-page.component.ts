@@ -2,9 +2,10 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { AlertTriangle, Link2, RefreshCw, Search, Unlink, X } from 'lucide';
+import { AlertTriangle, ChevronLeft, ChevronRight, Link2, RefreshCw, Search, Unlink, X } from 'lucide';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 import { formatHttpErrorMessage } from '../../../../core/lib/http-error-message.util';
 import {
   HtelAmbiguousMatchDto,
@@ -15,6 +16,8 @@ import {
   HtelSyncReportDto,
   HtelUnlinkedEmployeeDto,
 } from '../../services/htel-api.service';
+
+type HtelListKey = 'linked' | 'orphans' | 'ambiguous';
 
 @Component({
   selector: 'app-htel-liaisons-page',
@@ -31,11 +34,16 @@ export class HtelLiaisonsPageComponent implements OnInit {
     unlink: Unlink,
     search: Search,
     clear: X,
+    prev: ChevronLeft,
+    next: ChevronRight,
   };
+
+  readonly pageSize = 10;
 
   private readonly htelApi = inject(HtelApiService);
   private readonly router = inject(Router);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly confirmService = inject(KyntusConfirmService);
 
   loading = false;
   syncing = false;
@@ -43,6 +51,10 @@ export class HtelLiaisonsPageComponent implements OnInit {
   syncReport: HtelSyncReportDto | null = null;
   report: HtelLiaisonsReportDto | null = null;
   searchTerm = '';
+
+  linkedPage = 1;
+  orphansPage = 1;
+  ambiguousPage = 1;
 
   linkEmployeeId = '';
   linkIdTechnicien: number | null = null;
@@ -99,13 +111,66 @@ export class HtelLiaisonsPageComponent implements OnInit {
     return this.unlinked.filter((r) => this.matches(q, r.lastName, r.firstName, r.email));
   }
 
+  get pagedLinked(): HtelLinkedEmployeeDto[] {
+    return this.slicePage(this.filteredLinked, this.linkedPage);
+  }
+
+  get pagedOrphans(): HtelOrphanTechnicienDto[] {
+    return this.slicePage(this.filteredOrphans, this.orphansPage);
+  }
+
+  get pagedAmbiguous(): HtelAmbiguousMatchDto[] {
+    return this.slicePage(this.filteredAmbiguous, this.ambiguousPage);
+  }
+
   get hasSearch(): boolean {
     return this.normalize(this.searchTerm).length > 0;
   }
 
+  onSearchChange(): void {
+    this.resetPages();
+  }
+
   clearSearch(): void {
     this.searchTerm = '';
+    this.resetPages();
     this.cdr.detectChanges();
+  }
+
+  pageCount(list: HtelListKey): number {
+    const total = this.filteredTotal(list);
+    return Math.max(1, Math.ceil(total / this.pageSize));
+  }
+
+  currentPage(list: HtelListKey): number {
+    return this.clampPage(list, this.rawPage(list));
+  }
+
+  pageLabel(list: HtelListKey): string {
+    const total = this.filteredTotal(list);
+    if (total === 0) return '0 / 0';
+    const page = this.currentPage(list);
+    const from = (page - 1) * this.pageSize + 1;
+    const to = Math.min(page * this.pageSize, total);
+    return `${from}–${to} / ${total}`;
+  }
+
+  canPrev(list: HtelListKey): boolean {
+    return this.currentPage(list) > 1;
+  }
+
+  canNext(list: HtelListKey): boolean {
+    return this.currentPage(list) < this.pageCount(list);
+  }
+
+  prevPage(list: HtelListKey): void {
+    if (!this.canPrev(list)) return;
+    this.setPage(list, this.currentPage(list) - 1);
+  }
+
+  nextPage(list: HtelListKey): void {
+    if (!this.canNext(list)) return;
+    this.setPage(list, this.currentPage(list) + 1);
   }
 
   reload(): void {
@@ -114,6 +179,7 @@ export class HtelLiaisonsPageComponent implements OnInit {
     this.htelApi.getLiaisons().subscribe({
       next: (report) => {
         this.report = report;
+        this.resetPages();
         this.loading = false;
         this.cdr.detectChanges();
       },
@@ -143,7 +209,17 @@ export class HtelLiaisonsPageComponent implements OnInit {
     });
   }
 
-  unlink(row: HtelLinkedEmployeeDto): void {
+  async unlink(row: HtelLinkedEmployeeDto): Promise<void> {
+    const name = `${row.lastName} ${row.firstName}`.trim() || row.email;
+    const ok = await this.confirmService.confirm({
+      title: 'Délier l’employé',
+      message: `Êtes-vous sûr de délier l’employé ${name} ?`,
+      confirmLabel: 'Délier',
+      cancelLabel: 'Annuler',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
     this.htelApi.unlink(row.employeeId).subscribe({
       next: () => this.reload(),
       error: (err) => {
@@ -194,6 +270,60 @@ export class HtelLiaisonsPageComponent implements OnInit {
         idTechnicien: orphan.idTechnicien,
       },
     });
+  }
+
+  private slicePage<T>(items: T[], page: number): T[] {
+    const safePage = Math.min(Math.max(page, 1), Math.max(1, Math.ceil(items.length / this.pageSize) || 1));
+    const start = (safePage - 1) * this.pageSize;
+    return items.slice(start, start + this.pageSize);
+  }
+
+  private filteredTotal(list: HtelListKey): number {
+    switch (list) {
+      case 'linked':
+        return this.filteredLinked.length;
+      case 'orphans':
+        return this.filteredOrphans.length;
+      case 'ambiguous':
+        return this.filteredAmbiguous.length;
+    }
+  }
+
+  private rawPage(list: HtelListKey): number {
+    switch (list) {
+      case 'linked':
+        return this.linkedPage;
+      case 'orphans':
+        return this.orphansPage;
+      case 'ambiguous':
+        return this.ambiguousPage;
+    }
+  }
+
+  private setPage(list: HtelListKey, page: number): void {
+    const clamped = this.clampPage(list, page);
+    switch (list) {
+      case 'linked':
+        this.linkedPage = clamped;
+        break;
+      case 'orphans':
+        this.orphansPage = clamped;
+        break;
+      case 'ambiguous':
+        this.ambiguousPage = clamped;
+        break;
+    }
+    this.cdr.detectChanges();
+  }
+
+  private clampPage(list: HtelListKey, page: number): number {
+    return Math.min(Math.max(page, 1), this.pageCount(list));
+  }
+
+  private resetPages(): void {
+    this.linkedPage = 1;
+    this.orphansPage = 1;
+    this.ambiguousPage = 1;
   }
 
   private normalize(value: string | null | undefined): string {

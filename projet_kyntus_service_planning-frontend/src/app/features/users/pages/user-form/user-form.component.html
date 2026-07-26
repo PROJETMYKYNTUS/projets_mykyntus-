@@ -28,6 +28,26 @@
 
       } @else {
 
+        @if (passageProductionPathId) {
+          <div class="alert alert-info passage-prod-banner">
+            <div>
+              <strong>Passage en production</strong>
+              <p>
+                Vérifiez la fiche et la checklist documents. Le statut reste « Attente validation RH »
+                tant que vous n’avez pas confirmé.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="ky-btn-primary"
+              [disabled]="passageProductionBusy"
+              (click)="confirmPassageProduction()"
+            >
+              {{ passageProductionBusy ? 'Confirmation…' : 'Confirmer passage production' }}
+            </button>
+          </div>
+        }
+
         @if (error) {
 
           <div class="alert alert-error">
@@ -954,6 +974,37 @@
                   <input class="ky-input" id="dateFinFormationPrevue" name="dateFinFormationPrevue" type="date" [(ngModel)]="hrProfile.dateFinFormationPrevue" />
                 </div>
               </div>
+
+              @if (isEditMode) {
+                <div class="formation-docs-block">
+                  <h3 class="formation-docs-title">Documents de formation</h3>
+                  <p class="section-hint">Pièces à apporter — cochez lorsqu’elles sont reçues.</p>
+                  @if (formationDocsLoading) {
+                    <p class="hint">Chargement de la checklist…</p>
+                  } @else if (formationDocs.length === 0) {
+                    <p class="hint">Aucun parcours initial / document pour cet employé.</p>
+                  } @else {
+                    <ul class="formation-docs-list">
+                      @for (doc of formationDocs; track doc.id) {
+                        <li>
+                          <label class="checkbox-label">
+                            <input
+                              type="checkbox"
+                              [checked]="doc.isReceived"
+                              (change)="toggleFormationDoc(doc, $any($event.target).checked)"
+                            />
+                            <span>{{ doc.title }}</span>
+                          </label>
+                          @if (doc.isReceived) {
+                            <span class="hint">Reçu</span>
+                          }
+                        </li>
+                      }
+                    </ul>
+                    <p class="hint">{{ formationDocsReceivedCount }}/{{ formationDocs.length }} reçus</p>
+                  }
+                </div>
+              }
             } @else if (canShowContractFields) {
               @if (contractLoading) {
                 <p class="hint">Chargement du contrat…</p>

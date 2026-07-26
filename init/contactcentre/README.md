@@ -1,6 +1,14 @@
-# Contact centre — seeds Formation / Planning / Parrainage
+# Contact centre — seeds événements (employés / org intacts)
 
-Source de vérité : [`roster.json`](roster.json) (mirroir C# dans chaque service).
+Source de vérité : [`roster.json`](roster.json) (miroir C# dans chaque service) + [`../demo/kyntus-users.manifest.json`](../demo/kyntus-users.manifest.json).
+
+## Principe event-only
+
+Les seeds d’enrichissement **n’upsertent jamais** l’organisation (floors / services / cellules) ni ne créent / modifient des employés Planning ou Directory.
+
+Ils n’insèrent que des **événements métier** (congés, parrainages, formations, réclamations, documentation, fiches prime, notifications) qui référencent des `SubjectId` / GUID **déjà en base**. Si un GUID roster est absent → skip + log warning.
+
+> `docker compose down -v` **n’est pas obligatoire** : le seed est idempotent sur une base déjà peuplée.
 
 ## Mapping Auth → persona
 
@@ -18,34 +26,37 @@ Source de vérité : [`roster.json`](roster.json) (mirroir C# dans chaque servic
 
 Mot de passe démo Docker (défaut compose) : voir `DemoSeed__*` / `Azerty@123`.
 
-## Flags Docker (déjà activés dans `docker-compose.yml`)
+## Flags Docker (désactivés par défaut — non présents dans `docker-compose.yml`)
 
-| Flag | Service |
-|------|---------|
-| `KYNTUS_PLANNING_DEMO_SEED=true` | Org + users Planning |
-| `KYNTUS_DEMO_ENRICHMENT=true` | Semaines / congés / réclamations (Planning enrichment **v2**) |
-| `KYNTUS_FORMATION_DEMO_SEED=true` | Catalogue + TrainingSessions + annuaire |
-| `Parrainage__SeedDemoData=true` | 15 parrainages contact centre (**v2**, remplace l’ancien seed « Démo ») |
+Le remplissage démo des événements **n’est pas activé** au démarrage Compose. Pour le réactiver manuellement, ajouter sur le service concerné :
 
-## Checklist de vérification
+| Flag | Service | Effet |
+|------|---------|--------|
+| `KYNTUS_DEMO_ENRICHMENT=true` | tous (gate) | Active les enrichissements event-only |
+| `KYNTUS_CONGE_DEMO_SEED=true` | conge-backend | Demandes + soldes (motif `%(démo)%`) |
+| `KYNTUS_FORMATION_DEMO_SEED=true` | formation-backend | Sessions / assignments / parcours initiale (pas d’annuaire) |
+| `KYNTUS_PLANNING_DEMO_SEED=true` | planning-backend | Réclamations + notifs (+ semaines / change-requests si cellule peuplée) |
+| `Parrainage__SeedDemoData=true` | parrainage-backend | Referrals contact centre + pilotage |
+| `Documentation__DemoDataSeed=true` | documentation-backend | DocumentRequests multi-statut (`ENRICH-DEMO-V1`) |
+| `Prime__EnrichDemoData=true` | prime-backend | Fiches / indicateurs sur employés **existants** (pas de staff `emp-ma`) |
 
-Après `docker compose up -d` (ou restart `planning-api`, `formation-api`, `parrainage-api`) :
+## Checklist de vérification dashboard
 
-1. **Planning**
-   - Org : Floor « Relation client… », Service « Plateforme inbound », SubServices `c1` / `c2` (plus de « Siège démo »)
-   - Users : Yasmine, Mehdi, Omar, Kenza… (noms contact centre)
-   - Login `superviseur@kyntus.ma` → plannings publiés sur `c1`, notifications
-2. **Formation**
-   - Liste sessions : softphone, rétention, NPS, ACD…
-   - Login `employee@kyntus.ma` → « mes sessions » non vides
-   - Login `formation@kyntus.ma` → sessions animées (Hicham)
-3. **Parrainage**
-   - Admin : parrains Yasmine / Omar / Kenza / Ghita / Nadia (plus de « Employé Démo »)
-   - Login `employee@kyntus.ma` → « mes parrainages » (ReferrerId = SubjectId `…103`)
+Après recreate des backends concernés (`docker compose up -d --build …`) :
 
-## Re-seed sur base déjà peuplée
+1. Login `rh@kyntus.ma` → dashboard : congés en attente, parrainages, formations RH, doc, réclamations **non nuls**.
+2. Login `employee@kyntus.ma` → mes congés / mes formations / mes parrainages **non vides**.
+3. Relancer le même service → **pas de doublons** (marqueurs).
+4. Compter les users Planning avant/après → **identique**.
 
-- **Planning enrichment** : marqueur `DockerPlanningEnrichmentV2` — redémarre le service ; les semaines déjà créées sont conservées.
-- **Formation TrainingSessions** : marqueur titre `Qualité softphone — Agents 1er niveau (contact centre)`.
-- **Parrainage** : si d’anciens referrals « … Démo » / `kyntus-*` existent, ils sont **remplacés** au démarrage.
-- Sinon : `docker compose down -v` puis `up` pour une base vierge.
+## Marqueurs d’idempotence
+
+| Domaine | Marqueur |
+|---------|----------|
+| Congé | motif contenant `(démo)` |
+| Formation sessions | titre `Qualité softphone — Agents 1er niveau (contact centre)` |
+| Planning | commentaire / réclamation `DockerPlanningEnrichmentV2` |
+| Notifications formation | `WeekCode = TRAINING-SEED-MARK` |
+| Documentation | type `ENRICH-DEMO-V1` |
+| Prime | audit `DemoSeedApplied` |
+| Parrainage | referrals contact centre ; pilotage `ref-pilot-*` |

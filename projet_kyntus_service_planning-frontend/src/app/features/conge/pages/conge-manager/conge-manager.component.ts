@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
+import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
 import { CongeService } from '../../../../core/services/conge.service';
 import { UserService } from '../../../users/services/user.service';
 import { AuthService }  from '../../../../core/services/auth.service';
@@ -19,6 +20,8 @@ import {
   styleUrls: ['./conge-manager.component.css']
 })
 export class CongeManagerComponent implements OnInit {
+
+  private readonly toastSvc = inject(KyntusToastService);
 
   demandes:         DemandeCongeDto[] = [];
   demandesFiltrees: DemandeCongeDto[] = [];
@@ -49,8 +52,6 @@ export class CongeManagerComponent implements OnInit {
   get nbEnAttente(): number { return this.demandes.filter(d => d.statut === StatutDemande.EnAttente).length; }
   get nbValidees():  number { return this.demandes.filter(d => d.statut === StatutDemande.Validee).length; }
   get nbRefusees():  number { return this.demandes.filter(d => d.statut === StatutDemande.Refusee).length; }
-
-  toast = { show: false, message: '', type: 'success' };
 
   constructor(
     private svc:     CongeService,
@@ -153,7 +154,7 @@ export class CongeManagerComponent implements OnInit {
   }
 
   showToast(message: string, type: 'success' | 'error'): void {
-    this.toast = { show: true, message, type };
-    setTimeout(() => this.toast.show = false, 4000);
+    if (type === 'error') this.toastSvc.error(message);
+    else this.toastSvc.success(message);
   }
 }

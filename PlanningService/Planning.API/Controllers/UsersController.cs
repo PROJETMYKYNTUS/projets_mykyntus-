@@ -166,6 +166,28 @@ public class UsersController(
         return NoContent();
     }
 
+    [HttpPost("{id}/reset-password")]
+    [Authorize(Roles = "Admin,RH")]
+    public async Task<ActionResult<ResetPasswordResultDto>> ResetPassword(int id, CancellationToken ct)
+    {
+        if (await DenyUnlessCanManageUsersAsync() is { } denied) return denied;
+        try
+        {
+            var result = await userService.ResetPasswordAsync(id, ct);
+            if (result is null)
+                return NotFound(new { message = $"Utilisateur {id} introuvable." });
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+
     [HttpGet("check-email/{email}")]
     public async Task<ActionResult<bool>> CheckEmail(string email, [FromQuery] int? excludeId = null)
     {

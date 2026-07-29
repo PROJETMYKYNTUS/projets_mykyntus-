@@ -131,6 +131,8 @@ public class ImportExecutionJournalTests
         public Task<UserDto?> GetUserByIdAsync(int id) => Task.FromResult<UserDto?>(null);
         public Task<UserDto> CreateUserAsync(CreateUserDto dto) => throw new NotImplementedException();
         public Task<UserDto> CreateUserFromImportAsync(CreateUserFromImportDto dto) => throw new NotImplementedException();
+        public Task<ResetPasswordResultDto?> ResetPasswordAsync(int userId, CancellationToken ct = default) =>
+            Task.FromResult<ResetPasswordResultDto?>(null);
         public Task<IReadOnlyList<ImportChunkCreateResultDto>> CreateUsersFromImportChunkAsync(
             IReadOnlyList<ImportChunkCreateItemDto> items,
             CancellationToken ct = default) =>

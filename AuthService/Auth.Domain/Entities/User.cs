@@ -14,4 +14,6 @@ public class User
     public Role Role { get; set; } = null!;
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiryTime { get; set; }
+    public int AccessFailedCount { get; set; }
+    public DateTime? LockoutEnd { get; set; }
 }

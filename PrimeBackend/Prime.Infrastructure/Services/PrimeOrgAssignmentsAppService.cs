@@ -126,15 +126,23 @@ public sealed class PrimeOrgAssignmentsAppService(
         var q = db.Employees.AsNoTracking().Where(e => e.Role == "Chef de projet");
         if (!string.IsNullOrWhiteSpace(userId)) q = q.Where(e => e.Id == userId.Trim());
         var rows = await q.OrderBy(e => e.Id).ToListAsync(ct);
-        return rows
-            .Where(e => !string.IsNullOrWhiteSpace(e.PoleId))
-            .Select(e => new ChefProjetPoleAssignment
+        var result = new List<ChefProjetPoleAssignment>();
+        foreach (var e in rows)
+        {
+            var poles = await org.GetManagedPoleIdsAsync(e.Id, ct);
+            if (poles.Count == 0 && !string.IsNullOrWhiteSpace(e.PoleId))
+                poles = [e.PoleId];
+            foreach (var poleId in poles.Distinct(StringComparer.Ordinal))
             {
-                Id = $"m|{e.Id}|{e.PoleId}",
-                UserId = e.Id,
-                PoleId = e.PoleId,
-            })
-            .ToList();
+                result.Add(new ChefProjetPoleAssignment
+                {
+                    Id = $"m|{e.Id}|{poleId}",
+                    UserId = e.Id,
+                    PoleId = poleId,
+                });
+            }
+        }
+        return result;
     }
 
     public async Task<IReadOnlyList<SupervisorCelluleAssignment>> GetSupervisorCelluleAssignmentsAsync(
@@ -144,15 +152,23 @@ public sealed class PrimeOrgAssignmentsAppService(
         var q = db.Employees.AsNoTracking().Where(e => e.Role == "Superviseur");
         if (!string.IsNullOrWhiteSpace(userId)) q = q.Where(e => e.Id == userId.Trim());
         var rows = await q.OrderBy(e => e.Id).ToListAsync(ct);
-        return rows
-            .Where(e => !string.IsNullOrWhiteSpace(e.CelluleId))
-            .Select(e => new SupervisorCelluleAssignment
+        var result = new List<SupervisorCelluleAssignment>();
+        foreach (var e in rows)
+        {
+            var cellules = await org.GetSupervisedCelluleIdsAsync(e.Id, ct);
+            if (cellules.Count == 0 && !string.IsNullOrWhiteSpace(e.CelluleId))
+                cellules.Add(e.CelluleId);
+            foreach (var celluleId in cellules)
             {
-                Id = $"s|{e.Id}|{e.CelluleId}",
-                UserId = e.Id,
-                CelluleId = e.CelluleId,
-            })
-            .ToList();
+                result.Add(new SupervisorCelluleAssignment
+                {
+                    Id = $"s|{e.Id}|{celluleId}",
+                    UserId = e.Id,
+                    CelluleId = celluleId,
+                });
+            }
+        }
+        return result;
     }
 
     public async Task<IReadOnlyList<ReferentTechniqueServiceAssignment>> GetReferentTechniqueServiceAssignmentsAsync(
@@ -162,15 +178,23 @@ public sealed class PrimeOrgAssignmentsAppService(
         var q = db.Employees.AsNoTracking().Where(e => e.Role == "Référent technique");
         if (!string.IsNullOrWhiteSpace(userId)) q = q.Where(e => e.Id == userId.Trim());
         var rows = await q.OrderBy(e => e.Id).ToListAsync(ct);
-        return rows
-            .Where(e => !string.IsNullOrWhiteSpace(e.ServiceId))
-            .Select(e => new ReferentTechniqueServiceAssignment
+        var result = new List<ReferentTechniqueServiceAssignment>();
+        foreach (var e in rows)
+        {
+            var services = await org.GetManagedServiceIdsAsync(e.Id, ct);
+            if (services.Count == 0 && !string.IsNullOrWhiteSpace(e.ServiceId))
+                services = [e.ServiceId];
+            foreach (var serviceId in services.Distinct(StringComparer.Ordinal))
             {
-                Id = $"c|{e.Id}|{e.ServiceId}",
-                UserId = e.Id,
-                ServiceId = e.ServiceId,
-            })
-            .ToList();
+                result.Add(new ReferentTechniqueServiceAssignment
+                {
+                    Id = $"c|{e.Id}|{serviceId}",
+                    UserId = e.Id,
+                    ServiceId = serviceId,
+                });
+            }
+        }
+        return result;
     }
 
     public async Task<IReadOnlyList<ReferentTechniquePilotLink>> GetReferentTechniquePilotLinksAsync(

@@ -18,6 +18,10 @@ public class UserRepository : IUserRepository
         await _context.Users.Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower(), ct);
 
+    public async Task<User?> GetBySubjectIdAsync(Guid subjectId, CancellationToken ct = default) =>
+        await _context.Users.Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.SubjectId == subjectId, ct);
+
     public async Task<User?> GetByUsernameAsync(string username, CancellationToken ct = default) =>
         await _context.Users.Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower(), ct);

@@ -82,13 +82,17 @@ public sealed class PlanningDirectoryOrgProjectionConsumer(
             if (planningService is not null)
             {
                 user.SubServiceId = null;
-                var existing = db.UserManagedServices.Where(us => us.UserId == user.Id);
-                db.UserManagedServices.RemoveRange(existing);
-                db.UserManagedServices.Add(new UserManagedService
+                var alreadyLinked = await db.UserManagedServices.AnyAsync(
+                    us => us.UserId == user.Id && us.ServiceId == planningService.Id,
+                    context.CancellationToken);
+                if (!alreadyLinked)
                 {
-                    UserId = user.Id,
-                    ServiceId = planningService.Id,
-                });
+                    db.UserManagedServices.Add(new UserManagedService
+                    {
+                        UserId = user.Id,
+                        ServiceId = planningService.Id,
+                    });
+                }
             }
         }
         else if (msg.Kind == OrgAssignmentKind.ReferentTechnique && !string.IsNullOrWhiteSpace(msg.NodeId))
@@ -96,7 +100,14 @@ public sealed class PlanningDirectoryOrgProjectionConsumer(
             var sub = await db.SubServices.FirstOrDefaultAsync(
                 s => s.PrimeServiceId == msg.NodeId.Trim(), context.CancellationToken);
             if (sub is not null)
+            {
                 user.SubServiceId = sub.Id;
+                var alreadyLinked = await db.UserSubServices.AnyAsync(
+                    us => us.UserId == user.Id && us.SubServiceId == sub.Id,
+                    context.CancellationToken);
+                if (!alreadyLinked)
+                    db.UserSubServices.Add(new UserSubService { UserId = user.Id, SubServiceId = sub.Id });
+            }
         }
         else if (msg.Kind == OrgAssignmentKind.ChefDeProjet)
         {
@@ -135,8 +146,22 @@ public sealed class PlanningDirectoryOrgProjectionConsumer(
             {
                 var sub = await db.SubServices.FirstOrDefaultAsync(
                     s => s.PrimeServiceId == msg.NodeId.Trim(), ct);
-                if (sub is not null && user.SubServiceId == sub.Id)
-                    user.SubServiceId = null;
+                if (sub is not null)
+                {
+                    var links = await db.UserSubServices
+                        .Where(us => us.UserId == user.Id && us.SubServiceId == sub.Id)
+                        .ToListAsync(ct);
+                    db.UserSubServices.RemoveRange(links);
+                    if (user.SubServiceId == sub.Id)
+                    {
+                        var remaining = await db.UserSubServices
+                            .Where(us => us.UserId == user.Id)
+                            .OrderBy(us => us.SubServiceId)
+                            .Select(us => (int?)us.SubServiceId)
+                            .FirstOrDefaultAsync(ct);
+                        user.SubServiceId = remaining;
+                    }
+                }
                 break;
             }
         }

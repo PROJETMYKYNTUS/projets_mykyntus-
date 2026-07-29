@@ -1,9 +1,8 @@
-// src/app/features/reclamation/admin/reclamation-admin.component.ts
-
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
+import { KyntusToastService } from '../../../shared/components/ui/kyntus-toast.service';
 import { Subscription } from 'rxjs';
 import { ReclamationService } from '../../../core/services/reclamation.service';
 import { PropositionService } from '../../../core/services/proposition.service';
@@ -25,6 +24,8 @@ type AdminView = 'list' | 'detail' | 'reporting' | 'historique';
   styleUrls: ['./reclamation-admin.component.css']
 })
 export class ReclamationAdminComponent implements OnInit, OnDestroy {
+
+  private readonly toastSvc = inject(KyntusToastService);
 
   // ── State ────────────────────────────────────────────
   mainTab:   MainTab   = 'reclamations';
@@ -70,8 +71,6 @@ export class ReclamationAdminComponent implements OnInit, OnDestroy {
   // ── UI ───────────────────────────────────────────────
   loading    = false;
   submitting = false;
-  toastMsg   = '';
-  toastType: 'success' | 'error' = 'success';
 
   constructor(
     private reclamationSvc:      ReclamationService,
@@ -383,8 +382,7 @@ loadHistorique(): void {
   }
 
   private showToast(msg: string, type: 'success' | 'error' = 'success'): void {
-    this.toastMsg  = msg;
-    this.toastType = type;
-    setTimeout(() => this.toastMsg = '', 3500);
+    if (type === 'error') this.toastSvc.error(msg);
+    else this.toastSvc.success(msg);
   }
 }

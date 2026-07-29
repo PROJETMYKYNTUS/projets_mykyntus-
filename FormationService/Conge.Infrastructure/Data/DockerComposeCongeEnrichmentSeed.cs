@@ -77,7 +77,7 @@ public static class DockerComposeCongeEnrichmentSeed
 
     private static bool IsEnabled(IConfiguration configuration) =>
         string.Equals(configuration["KYNTUS_CONGE_DEMO_SEED"], "true", StringComparison.OrdinalIgnoreCase)
-        && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "true", "true", StringComparison.OrdinalIgnoreCase);
+        && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "false", "true", StringComparison.OrdinalIgnoreCase);
 
     private static async Task SeedPendingAndDecidedDemandesAsync(CongeDbContext db, CancellationToken ct)
     {

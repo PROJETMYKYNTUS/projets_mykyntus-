@@ -1,17 +1,19 @@
 using System.Security.Claims;
+using Auth.Application.Commands.AdminResetPassword;
 using Auth.Application.Commands.DeleteFromPlanning;
 using Auth.Application.Commands.Login;
 using Auth.Application.Commands.Logout;
 using Auth.Application.Commands.RefreshToken;
-using Auth.Application.Commands.Register;
 using Auth.Application.Commands.RegisterFromPlanning;
 using Auth.Application.Commands.RegisterFromPlanningBatch;
 using Auth.Application.DTOs;
 using Auth.Application.Queries.CheckEmail;
 using Auth.Application.Queries.CheckUsername;
+using Auth.API.Filters;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Auth.API.Controllers;
 
@@ -30,27 +32,17 @@ public class AuthController : ControllerBase
 
     [HttpPost("register")]
     [AllowAnonymous]
-    public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
+    public IActionResult Register()
     {
-        try
+        return StatusCode(StatusCodes.Status403Forbidden, new
         {
-            var response = await _mediator.Send(new RegisterCommand(registerDto));
-            return Ok(response);
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Erreur lors de l'inscription");
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Erreur serveur lors de l'inscription");
-            return StatusCode(500, new { message = "Une erreur est survenue lors de l'inscription" });
-        }
+            message = "L'inscription libre est désactivée. Les comptes sont créés par la RH.",
+        });
     }
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth-login")]
     public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
     {
         try
@@ -72,6 +64,7 @@ public class AuthController : ControllerBase
 
     [HttpPost("refresh")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth-login")]
     public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenDto refreshTokenDto)
     {
         try
@@ -163,13 +156,18 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register-from-planning")]
-    [AllowAnonymous]
+    [RequireInternalService]
     public async Task<IActionResult> RegisterFromPlanning([FromBody] RegisterFromPlanningDto dto)
     {
         try
         {
             var response = await _mediator.Send(new RegisterFromPlanningCommand(dto));
             return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Mot de passe invalide (RoleName={RoleName})", dto.RoleName);
+            return BadRequest(new { message = ex.Message });
         }
         catch (RegisterFromPlanningRoleNotFoundException)
         {
@@ -184,7 +182,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register-from-planning-batch")]
-    [AllowAnonymous]
+    [RequireInternalService]
     public async Task<IActionResult> RegisterFromPlanningBatch([FromBody] RegisterFromPlanningBatchDto dto)
     {
         try
@@ -203,7 +201,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpDelete("users/from-planning/{authUserId:int}")]
-    [AllowAnonymous]
+    [RequireInternalService]
     public async Task<IActionResult> DeleteFromPlanning(int authUserId)
     {
         try
@@ -218,6 +216,30 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erreur suppression user Auth depuis Planning");
+            return StatusCode(500, new { message = "Erreur serveur" });
+        }
+    }
+
+    [HttpPost("admin/reset-password")]
+    [RequireInternalService]
+    public async Task<IActionResult> AdminResetPassword([FromBody] AdminResetPasswordDto dto)
+    {
+        try
+        {
+            await _mediator.Send(new AdminResetPasswordCommand(dto));
+            return Ok(new { message = "Mot de passe réinitialisé." });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erreur réinitialisation mot de passe admin");
             return StatusCode(500, new { message = "Erreur serveur" });
         }
     }

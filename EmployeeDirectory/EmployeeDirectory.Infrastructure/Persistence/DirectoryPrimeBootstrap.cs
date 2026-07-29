@@ -170,6 +170,11 @@ public static class DirectoryPrimeBootstrap
         if (active.Any(a => a.EmployeeId == employeeId))
             return;
 
+        // Unicité par nœud : clôturer les titulaires d'un autre employé avant l'ajout.
+        var now = DateTime.UtcNow;
+        foreach (var other in active.Where(a => a.EmployeeId != employeeId))
+            other.EffectiveTo = now;
+
         db.OrgAssignments.Add(new OrgAssignment
         {
             Id = Guid.NewGuid(),
@@ -177,7 +182,7 @@ public static class DirectoryPrimeBootstrap
             NodeId = nodeId,
             NodeLevel = level,
             EmployeeId = employeeId,
-            EffectiveFrom = DateTime.UtcNow,
+            EffectiveFrom = now,
             ChangeReason = "bootstrap-from-prime",
         });
 

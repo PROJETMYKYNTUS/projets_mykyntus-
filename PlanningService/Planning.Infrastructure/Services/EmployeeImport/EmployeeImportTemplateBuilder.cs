@@ -196,7 +196,7 @@ public class EmployeeImportTemplateBuilder(AppDbContext db, IEmployeeFieldServic
             "• Email = identifiant unique (création si nouveau, mise à jour si existant).",
             "• Champs marqués * obligatoires à la création.",
             "• Cellule vide = la valeur en base n'est pas effacée.",
-            "• Mot de passe vide = mot de passe système par défaut (Azerty@123).",
+            "• Mot de passe vide = un mot de passe unique est généré automatiquement (à récupérer dans le résultat d'import).",
             "• Pôle / Cellule / Service : utilisez les noms exacts de la feuille Référentiels.",
             "• Département de production : entité distincte du Pôle — colonne dédiée, requise seulement pour créer un nouveau pôle.",
             "• Ne pas mettre « Département … » dans la colonne Pôle (ce n'est pas un préfixe de pôle).",

@@ -71,19 +71,23 @@ public sealed class OrgStructureConsumer(AppDbContext db, ILogger<OrgStructureCo
         if (role is not null)
             user.RoleId = role.Id;
 
-        await ClearManagedLinksAsync(user.Id, context.CancellationToken);
-
         if (msg.Kind == OrgAssignmentKind.Superviseur && !string.IsNullOrWhiteSpace(msg.NodeId))
         {
             var planningService = await db.Services
                 .FirstOrDefaultAsync(s => s.PrimeCelluleId == msg.NodeId.Trim(), context.CancellationToken);
             if (planningService is not null)
             {
-                db.UserManagedServices.Add(new UserManagedService
+                var alreadyLinked = await db.UserManagedServices.AnyAsync(
+                    us => us.UserId == user.Id && us.ServiceId == planningService.Id,
+                    context.CancellationToken);
+                if (!alreadyLinked)
                 {
-                    UserId = user.Id,
-                    ServiceId = planningService.Id
-                });
+                    db.UserManagedServices.Add(new UserManagedService
+                    {
+                        UserId = user.Id,
+                        ServiceId = planningService.Id
+                    });
+                }
             }
         }
         else if (msg.Kind == OrgAssignmentKind.ReferentTechnique && !string.IsNullOrWhiteSpace(msg.NodeId))
@@ -93,7 +97,11 @@ public sealed class OrgStructureConsumer(AppDbContext db, ILogger<OrgStructureCo
             if (sub is not null)
             {
                 user.SubServiceId = sub.Id;
-                db.UserSubServices.Add(new UserSubService { UserId = user.Id, SubServiceId = sub.Id });
+                var alreadyLinked = await db.UserSubServices.AnyAsync(
+                    us => us.UserId == user.Id && us.SubServiceId == sub.Id,
+                    context.CancellationToken);
+                if (!alreadyLinked)
+                    db.UserSubServices.Add(new UserSubService { UserId = user.Id, SubServiceId = sub.Id });
             }
         }
         else if (msg.Kind == OrgAssignmentKind.ChefDeProjet)
@@ -142,6 +150,7 @@ public sealed class OrgStructureConsumer(AppDbContext db, ILogger<OrgStructureCo
 
     private async Task ClearManagedLinksAsync(int userId, CancellationToken ct)
     {
+        // Conservé pour compat éventuelle ; préférer append/remove ciblé.
         var managedSubs = db.UserSubServices.Where(us => us.UserId == userId);
         db.UserSubServices.RemoveRange(managedSubs);
         var managedSvcs = db.UserManagedServices.Where(us => us.UserId == userId);

@@ -236,7 +236,7 @@ internal static class DockerDocumentationEnrichmentSeed
 
     private static bool IsEnabled(IConfiguration configuration) =>
         configuration.GetValue("Documentation:DemoDataSeed", false)
-        && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "true", "true", StringComparison.OrdinalIgnoreCase);
+        && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "false", "true", StringComparison.OrdinalIgnoreCase);
 
     private static async Task SeedDocumentRequestsAsync(
         DocumentationDbContext db,

@@ -81,6 +81,8 @@ public static class AuthDatabaseInitializer
         else if (configuration.GetValue("DemoSeed:Enabled", false))
         {
             EnsureDemoUsers(db, passwordHasher, configuration, subjectIdResolver);
+            SyncDemoPasswords(db, passwordHasher, configuration);
+            DeactivateLegacyMockUsers(db);
         }
 
         try
@@ -89,6 +91,7 @@ public static class AuthDatabaseInitializer
             {
                 EnsureSuperviseurAccount(db, passwordHasher, configuration, subjectIdResolver);
                 EnsureQualiticienAccount(db, passwordHasher, configuration, subjectIdResolver);
+                SyncDemoPasswords(db, passwordHasher, configuration);
             }
         }
         catch (Exception ex)
@@ -111,15 +114,14 @@ public static class AuthDatabaseInitializer
         db.SaveChanges();
     }
 
-    /// <summary>Réaligne SubjectId des emails connus (ex. formateur@gmail.com → Guid formateur seed).</summary>
+    /// <summary>Réaligne SubjectId des emails des comptes rôle @kyntus.ma.</summary>
     static void RealignKnownSubjectIds(AuthDbContext db, ISubjectIdResolver subjectIdResolver)
     {
         var emails = new[]
         {
             "employee@kyntus.ma", "rh@kyntus.ma", "manager@kyntus.ma", "coach@kyntus.ma",
             "rp@kyntus.ma", "admin@kyntus.ma", "audit@kyntus.ma", "formation@kyntus.ma",
-            "formateur@gmail.com", "formateur@kyntus.ma", "superviseur@kyntus.ma",
-            "qualiticien@kyntus.ma",
+            "superviseur@kyntus.ma", "qualiticien@kyntus.ma",
         };
         var changed = 0;
         foreach (var email in emails)
@@ -163,11 +165,8 @@ public static class AuthDatabaseInitializer
             UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111108'::uuid WHERE lower("Email") = lower('admin@kyntus.ma');
             UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111109'::uuid WHERE lower("Email") = lower('audit@kyntus.ma');
             UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111110'::uuid WHERE lower("Email") = lower('formation@kyntus.ma');
-            UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111120'::uuid WHERE lower("Email") = lower('formateur@gmail.com');
-            UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111120'::uuid WHERE lower("Email") = lower('formateur@kyntus.ma');
             UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111111'::uuid WHERE lower("Email") = lower('superviseur@kyntus.ma');
-            UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111101'::uuid WHERE lower("Email") = lower('yasmine.elamrani@atlas-tech-demo.dev');
-            UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111102'::uuid WHERE lower("Email") = lower('fatima.alaoui@atlas-tech-demo.dev');
+            UPDATE "Users" SET "SubjectId" = '11111111-1111-4111-8111-111111111112'::uuid WHERE lower("Email") = lower('qualiticien@kyntus.ma');
             UPDATE "Users" SET "SubjectId" = gen_random_uuid() WHERE "SubjectId" IS NULL;
 
             ALTER TABLE "Users" ALTER COLUMN "SubjectId" SET NOT NULL;
@@ -231,10 +230,85 @@ public static class AuthDatabaseInitializer
         SeedUser("admin", "admin@kyntus.ma", DemoPassword(configuration, "Admin"), 6, passwordHasher, subjectIdResolver),
         SeedUser("audit", "audit@kyntus.ma", DemoPassword(configuration, "Audit"), 7, passwordHasher, subjectIdResolver),
         SeedUser("equipeformation", "formation@kyntus.ma", DemoPassword(configuration, "Formation"), 8, passwordHasher, subjectIdResolver),
-        SeedUser("formateur", "formateur@gmail.com", DemoPassword(configuration, "Formation"), 8, passwordHasher, subjectIdResolver),
         SeedUser("superviseur", "superviseur@kyntus.ma", DemoPassword(configuration, "Superviseur"), 9, passwordHasher, subjectIdResolver),
         SeedUser("qualiticien", "qualiticien@kyntus.ma", DemoPassword(configuration, "Qualiticien"), 10, passwordHasher, subjectIdResolver),
     ];
+
+    /// <summary>Aligne les hashs des comptes rôle sur DemoSeed:Passwords (ex. Azerty@2026).</summary>
+    static void SyncDemoPasswords(
+        AuthDbContext db,
+        IPasswordHasher passwordHasher,
+        IConfiguration configuration)
+    {
+        var rolePasswordByEmail = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["employee@kyntus.ma"] = DemoPassword(configuration, "Employee"),
+            ["rh@kyntus.ma"] = DemoPassword(configuration, "RH"),
+            ["manager@kyntus.ma"] = DemoPassword(configuration, "Manager"),
+            ["coach@kyntus.ma"] = DemoPassword(configuration, "Coach"),
+            ["rp@kyntus.ma"] = DemoPassword(configuration, "RP"),
+            ["admin@kyntus.ma"] = DemoPassword(configuration, "Admin"),
+            ["audit@kyntus.ma"] = DemoPassword(configuration, "Audit"),
+            ["formation@kyntus.ma"] = DemoPassword(configuration, "Formation"),
+            ["superviseur@kyntus.ma"] = DemoPassword(configuration, "Superviseur"),
+            ["qualiticien@kyntus.ma"] = DemoPassword(configuration, "Qualiticien"),
+        };
+
+        var updated = 0;
+        foreach (var (email, password) in rolePasswordByEmail)
+        {
+            var user = db.Users.FirstOrDefault(u => u.Email.ToLower() == email.ToLower());
+            if (user is null)
+                continue;
+            if (passwordHasher.VerifyPassword(user.PasswordHash, password))
+                continue;
+
+            user.PasswordHash = passwordHasher.HashPassword(password);
+            user.AccessFailedCount = 0;
+            user.LockoutEnd = null;
+            user.RefreshToken = null;
+            user.RefreshTokenExpiryTime = null;
+            user.UpdatedAt = DateTime.UtcNow;
+            updated++;
+        }
+
+        if (updated > 0)
+        {
+            db.SaveChanges();
+            Console.WriteLine($"Auth demo passwords synced ({updated} updated).");
+        }
+    }
+
+    /// <summary>Désactive les anciens comptes mock hors set rôles @kyntus.ma.</summary>
+    static void DeactivateLegacyMockUsers(AuthDbContext db)
+    {
+        var legacyEmails = new[]
+        {
+            "formateur@gmail.com",
+            "formateur@kyntus.ma",
+            "yasmine.elamrani@atlas-tech-demo.dev",
+            "fatima.alaoui@atlas-tech-demo.dev",
+        };
+
+        var deactivated = 0;
+        foreach (var email in legacyEmails)
+        {
+            var user = db.Users.FirstOrDefault(u => u.Email.ToLower() == email.ToLower());
+            if (user is null || !user.IsActive)
+                continue;
+            user.IsActive = false;
+            user.RefreshToken = null;
+            user.RefreshTokenExpiryTime = null;
+            user.UpdatedAt = DateTime.UtcNow;
+            deactivated++;
+        }
+
+        if (deactivated > 0)
+        {
+            db.SaveChanges();
+            Console.WriteLine($"Auth legacy mock users deactivated ({deactivated}).");
+        }
+    }
 
     static User SeedUser(
         string username,

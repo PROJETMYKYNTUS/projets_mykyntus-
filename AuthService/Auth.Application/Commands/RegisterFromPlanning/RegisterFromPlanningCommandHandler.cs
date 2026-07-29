@@ -1,7 +1,9 @@
 using Auth.Application.DTOs;
+using Auth.Application.Security;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Auth.Application.Commands.RegisterFromPlanning;
 
@@ -14,17 +16,20 @@ public class RegisterFromPlanningCommandHandler
     private readonly IRoleRepository _roleRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ISubjectIdResolver _subjectIdResolver;
+    private readonly ILogger<RegisterFromPlanningCommandHandler> _logger;
 
     public RegisterFromPlanningCommandHandler(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IPasswordHasher passwordHasher,
-        ISubjectIdResolver subjectIdResolver)
+        ISubjectIdResolver subjectIdResolver,
+        ILogger<RegisterFromPlanningCommandHandler> logger)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _passwordHasher = passwordHasher;
         _subjectIdResolver = subjectIdResolver;
+        _logger = logger;
     }
 
     public async Task<RegisterFromPlanningResponseDto> Handle(
@@ -52,6 +57,9 @@ public class RegisterFromPlanningCommandHandler
             };
         }
 
+        if (!PasswordPolicy.TryValidate(dto.DefaultPassword, out var passwordError))
+            throw new ArgumentException(passwordError);
+
         var user = new User
         {
             Username = dto.Email,
@@ -59,15 +67,23 @@ public class RegisterFromPlanningCommandHandler
             SubjectId = dto.EmployeeId != Guid.Empty
                 ? dto.EmployeeId
                 : _subjectIdResolver.ResolveForEmail(dto.Email),
-            PasswordHash = _passwordHasher.HashPassword(dto.DefaultPassword),
+            PasswordHash = _passwordHasher.HashPassword(dto.DefaultPassword.Trim()),
             RoleId = role.Id,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             RefreshToken = null,
             RefreshTokenExpiryTime = null,
+            AccessFailedCount = 0,
+            LockoutEnd = null,
         };
 
         await _userRepository.CreateAsync(user, ct);
+
+        _logger.LogInformation(
+            "UserProvisioned: AuthUserId={UserId} Email={Email} SubjectId={SubjectId}",
+            user.Id,
+            user.Email,
+            user.SubjectId);
 
         return new RegisterFromPlanningResponseDto
         {

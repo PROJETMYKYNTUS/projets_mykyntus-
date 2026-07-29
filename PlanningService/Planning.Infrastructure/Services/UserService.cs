@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Planning.Infrastructure.Messaging.Publishers;
 using Planning.Infrastructure.Persistence;
+using Planning.Infrastructure.Security;
 using Planning.Application.DTOs;
 using Planning.Application.Abstractions;
 using Planning.Domain.Entities;
@@ -138,6 +139,7 @@ public class UserService : IUserService
         if (IsDirectoryWriteMaster())
             return await CreateUserDirectoryFirstAsync(dto, null);
 
+        var password = PasswordGenerator.Generate();
         var user = new User
         {
             RoleId = dto.RoleId,
@@ -147,7 +149,7 @@ public class UserService : IUserService
             Email = dto.Email,
             HireDate = dto.HireDate,
             Level = dto.Level,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Azerty@123"),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -156,7 +158,7 @@ public class UserService : IUserService
         await _context.SaveChangesAsync();
 
         await _context.Entry(user).Reference(u => u.Role).LoadAsync();
-        await SyncToAuthServiceAsync(user);
+        await SyncToAuthServiceAsync(user, password);
 
         await PublishEmployeCreatedForUserAsync(user, dto.SubServiceId);
         await _context.SaveChangesAsync();
@@ -174,8 +176,10 @@ public class UserService : IUserService
         if (user.SubServiceId is int subId)
             await EnsureBalancedSaturdayGroupAsync(user.Id, subId);
 
-        return await GetUserByIdAsync(user.Id)
+        var created = await GetUserByIdAsync(user.Id)
             ?? throw new Exception("Erreur création utilisateur.");
+        created.GeneratedPassword = password;
+        return created;
     }
 
     public async Task<UserDto> CreateUserFromImportAsync(CreateUserFromImportDto dto)
@@ -190,7 +194,7 @@ public class UserService : IUserService
             throw new InvalidOperationException(
                 "L'import guidé requiert Directory__WriteMaster=true pour garantir la synchronisation plateforme.");
 
-        return await CreateUserDirectoryFirstAsync(dto, ResolveImportPassword(dto.Password), requireAuthSuccess: true);
+        return await CreateUserDirectoryFirstAsync(dto, ResolveOrGeneratePassword(dto.Password), requireAuthSuccess: true);
     }
 
     public async Task<IReadOnlyList<ImportChunkCreateResultDto>> CreateUsersFromImportChunkAsync(
@@ -215,9 +219,15 @@ public class UserService : IUserService
         // Hash BCrypt en parallèle (CPU-bound) avant les écritures DB.
         var passwordByIndex = new string[items.Count];
         var hashByIndex = new string[items.Count];
+        var passwordErrors = new string?[items.Count];
         Parallel.For(0, items.Count, i =>
         {
-            var password = ResolveImportPassword(items[i].Dto.Password);
+            if (!PasswordGenerator.TryResolveOrGenerate(items[i].Dto.Password, out var password, out var error))
+            {
+                passwordErrors[i] = error;
+                return;
+            }
+
             passwordByIndex[i] = password;
             hashByIndex[i] = BCrypt.Net.BCrypt.HashPassword(password);
         });
@@ -226,6 +236,17 @@ public class UserService : IUserService
         {
             var item = items[i];
             var email = item.Dto.Email.Trim().ToLowerInvariant();
+            if (passwordErrors[i] is { } pwdError)
+            {
+                results.Add(new ImportChunkCreateResultDto
+                {
+                    Email = email,
+                    Success = false,
+                    ErrorMessage = pwdError,
+                });
+                continue;
+            }
+
             if (item.DirectoryEmployeeId == Guid.Empty)
             {
                 results.Add(new ImportChunkCreateResultDto
@@ -291,7 +312,7 @@ public class UserService : IUserService
 
         var saturdayAssignments = new List<(int UserId, int SubServiceId)>();
 
-        foreach (var (user, dto, _) in insertedUsers)
+        foreach (var (user, dto, password) in insertedUsers)
         {
             var auth = authResults.FirstOrDefault(r =>
                 string.Equals(r.Email, user.Email, StringComparison.OrdinalIgnoreCase));
@@ -343,6 +364,7 @@ public class UserService : IUserService
                     PlanningUserId = user.Id,
                     EmployeeGuid = user.Guid,
                     AuthUserId = user.AuthUserId,
+                    TemporaryPassword = password,
                 });
             }
             catch (Exception ex)
@@ -694,7 +716,7 @@ public class UserService : IUserService
         bool requireAuthSuccess)
     {
         var isActive = dto.IsActiveOnImport ?? true;
-        var userDto = await CreateUserDirectoryFirstCoreAsync(dto, ResolveImportPassword(dto.Password), requireAuthSuccess, isActive);
+        var userDto = await CreateUserDirectoryFirstCoreAsync(dto, ResolveOrGeneratePassword(dto.Password), requireAuthSuccess, isActive);
 
         if (!isActive && userDto.Id > 0)
         {
@@ -716,8 +738,71 @@ public class UserService : IUserService
         return userDto;
     }
 
-    private static string ResolveImportPassword(string? password) =>
-        string.IsNullOrWhiteSpace(password) ? "Azerty@123" : password.Trim();
+    private static string ResolveOrGeneratePassword(string? password) =>
+        PasswordGenerator.ResolveOrGenerate(password);
+
+    public async Task<ResetPasswordResultDto?> ResetPasswordAsync(int userId, CancellationToken ct = default)
+    {
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (user is null)
+            return null;
+
+        var password = PasswordGenerator.Generate();
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
+        await _context.SaveChangesAsync(ct);
+
+        var ok = await ResetAuthPasswordAsync(user, password, ct);
+        if (!ok)
+            throw new InvalidOperationException(
+                "La réinitialisation Auth a échoué. Réessayez ou contactez l'administrateur.");
+
+        _logger.LogInformation(
+            "PasswordReset: PlanningUserId={UserId} Email={Email} Actor={Actor}",
+            user.Id,
+            user.Email,
+            _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "unknown");
+
+        return new ResetPasswordResultDto
+        {
+            UserId = user.Id,
+            Email = user.Email,
+            TemporaryPassword = password,
+        };
+    }
+
+    private async Task<bool> ResetAuthPasswordAsync(User user, string newPassword, CancellationToken ct)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(
+                "api/auth/admin/reset-password",
+                new
+                {
+                    EmployeeId = user.Guid,
+                    Email = user.Email,
+                    NewPassword = newPassword,
+                },
+                ct);
+
+            if (response.IsSuccessStatusCode)
+                return true;
+
+            var body = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogWarning(
+                "Reset Auth password failed for {Email}: {Status} {Body}",
+                user.Email,
+                response.StatusCode,
+                body);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Reset Auth password exception for {Email}", user.Email);
+            return false;
+        }
+    }
 
     private async Task<UserDto> CreateUserDirectoryFirstCoreAsync(
         CreateUserDto dto,
@@ -751,7 +836,7 @@ public class UserService : IUserService
                     ? "La création dans l'annuaire (Directory) a échoué. Réessayez ou contactez l'administrateur."
                     : directoryResult.ErrorMessage);
 
-        var password = ResolveImportPassword(importPassword);
+        var password = ResolveOrGeneratePassword(importPassword);
         var user = new User
         {
             Guid = directoryResult.EmployeeId,
@@ -800,7 +885,9 @@ public class UserService : IUserService
 
         // Import hot path : pas de GetUserById / LoadOrgNameContext (GET all employees Directory).
         var hrProfile = await _context.UserHrProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == user.Id);
-        return ToDto(user, null, EmptyOrgNameContext, hrProfile);
+        var resultDto = ToDto(user, null, EmptyOrgNameContext, hrProfile);
+        resultDto.GeneratedPassword = password;
+        return resultDto;
     }
 
     private async Task SyncToAuthServiceAsync(User user, string? defaultPassword = null)
@@ -811,7 +898,7 @@ public class UserService : IUserService
         {
             try
             {
-                var password = ResolveImportPassword(defaultPassword);
+                var password = ResolveOrGeneratePassword(defaultPassword);
                 var response = await _httpClient.PostAsJsonAsync(
                     "api/auth/register-from-planning",
                     new
@@ -874,7 +961,7 @@ public class UserService : IUserService
                     Items = items.Select(i => new
                     {
                         Email = i.User.Email,
-                        DefaultPassword = ResolveImportPassword(i.DefaultPassword),
+                        DefaultPassword = ResolveOrGeneratePassword(i.DefaultPassword),
                         RoleName = i.User.Role?.Name,
                         EmployeeId = i.User.Guid,
                     }).ToList(),
@@ -1576,7 +1663,79 @@ public class UserService : IUserService
             IdTechnicien = u.IdTechnicien,
             HtelCode = u.HtelCode,
             HrProfile = hr is null ? null : MapHrProfileDto(hr),
-            CustomFields = customFields ?? new Dictionary<string, string?>()
+            CustomFields = customFields ?? new Dictionary<string, string?>(),
+            LifecycleStatus = BuildLifecycleStatus(u, hr),
+        };
+    }
+
+    private static EmployeeLifecycleStatusDto BuildLifecycleStatus(User u, UserHrProfile? hr)
+    {
+        var enFormation = hr?.EnFormation == true;
+        var authOk = u.AuthUserId is > 0;
+        var active = u.IsActive;
+
+        string phase;
+        string label;
+        if (!active)
+        {
+            phase = "inactive";
+            label = "Inactif";
+        }
+        else if (!authOk)
+        {
+            phase = "awaiting_auth";
+            label = "Compte Auth manquant";
+        }
+        else if (enFormation)
+        {
+            phase = "onboarding_formation";
+            label = "En formation";
+        }
+        else
+        {
+            phase = "active";
+            label = "Actif";
+        }
+
+        var steps = new List<EmployeeLifecycleStepDto>
+        {
+            new()
+            {
+                Id = "account",
+                Label = "Compte Planning",
+                State = active ? "done" : "blocked",
+            },
+            new()
+            {
+                Id = "auth",
+                Label = "Compte Auth",
+                State = authOk ? "done" : (active ? "current" : "pending"),
+            },
+            new()
+            {
+                Id = "formation",
+                Label = "Formation initiale",
+                State = enFormation ? "current" : (authOk && active ? "done" : "pending"),
+            },
+            new()
+            {
+                Id = "production",
+                Label = "Passage en production",
+                State = !enFormation && authOk && active ? "done" : (enFormation ? "pending" : "pending"),
+            },
+        };
+
+        return new EmployeeLifecycleStatusDto
+        {
+            Phase = phase,
+            Label = label,
+            IsActive = active,
+            EnFormation = enFormation,
+            AuthProvisioned = authOk,
+            FormationDeepLink = enFormation ? $"/users/{u.Id}/edit" : null,
+            PassageProductionDeepLink = enFormation ? "/formations/passage-production" : null,
+            EditDeepLink = $"/users/{u.Id}/edit",
+            Steps = steps,
         };
     }
 
@@ -1799,13 +1958,20 @@ public class UserService : IUserService
         var targetCellule = target.SubService?.Service?.PrimeCelluleId;
         if (string.IsNullOrWhiteSpace(targetCellule)) return false;
 
-        var supervisorCellules = await _context.UserSubServices.AsNoTracking()
+        var supervisorCellules = await _context.UserManagedServices.AsNoTracking()
             .Where(us => us.UserId == supervisor.Id)
-            .Select(us => us.SubService.Service.PrimeCelluleId)
+            .Select(us => us.Service.PrimeCelluleId)
             .ToListAsync(ct);
 
         if (supervisor.SubService?.Service?.PrimeCelluleId is { } ownCellule)
             supervisorCellules.Add(ownCellule);
+
+        // Ancre ManagedSubServices (legacy) : cellules via sous-services managés
+        var fromSubs = await _context.UserSubServices.AsNoTracking()
+            .Where(us => us.UserId == supervisor.Id)
+            .Select(us => us.SubService.Service.PrimeCelluleId)
+            .ToListAsync(ct);
+        supervisorCellules.AddRange(fromSubs);
 
         return supervisorCellules.Any(c => string.Equals(c, targetCellule, StringComparison.Ordinal));
     }
@@ -1813,10 +1979,18 @@ public class UserService : IUserService
     private async Task<bool> IsUserInReferentServiceResponsibilityAsync(User referent, User target, CancellationToken ct)
     {
         var targetService = target.SubService?.PrimeServiceId;
-        var referentService = referent.SubService?.PrimeServiceId;
-        if (string.IsNullOrWhiteSpace(targetService) || string.IsNullOrWhiteSpace(referentService))
+        if (string.IsNullOrWhiteSpace(targetService))
             return false;
-        if (!string.Equals(targetService, referentService, StringComparison.Ordinal))
+
+        var managedServiceIds = await _context.UserSubServices.AsNoTracking()
+            .Where(us => us.UserId == referent.Id)
+            .Select(us => us.SubService.PrimeServiceId)
+            .ToListAsync(ct);
+
+        if (referent.SubService?.PrimeServiceId is { } primary)
+            managedServiceIds.Add(primary);
+
+        if (!managedServiceIds.Any(s => string.Equals(s, targetService, StringComparison.Ordinal)))
             return false;
 
         var targetHr = await _context.UserHrProfiles.AsNoTracking()

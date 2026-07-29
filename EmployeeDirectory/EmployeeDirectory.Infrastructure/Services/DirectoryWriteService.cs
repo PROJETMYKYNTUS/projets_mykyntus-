@@ -203,24 +203,18 @@ public sealed class DirectoryWriteService(
             _ => DomainNodeLevel.Service,
         };
 
-        var revokedOnNode = new List<NodeIncumbentRevokedDto>();
-        if (revokeEmployeeIds is { Count: > 0 })
-        {
-            foreach (var revokeId in revokeEmployeeIds.Distinct())
-            {
-                if (revokeId == employeeId) continue;
-                var removed = await RevokeNodeIncumbentAsync(
-                    assignmentKind, trimmedNodeId, nodeLevel, revokeId, changedBy, reason, ct);
-                if (removed)
-                {
-                    revokedOnNode.Add(new NodeIncumbentRevokedDto(
-                        revokeId.ToString(), kind, trimmedNodeId));
-                }
-            }
-        }
+        // Unicité par nœud : évincer tout autre titulaire actif (indépendamment de revokeEmployeeIds).
+        var revokedOnNode = await EvictOtherIncumbentsOnNodeAsync(
+            assignmentKind,
+            trimmedNodeId,
+            nodeLevel,
+            employeeId,
+            changedBy,
+            reason ?? "Remplacement titulaire — unicité par nœud",
+            ct);
 
-        var revoked = (await exclusivity.RevokeAllStructuralRolesForEmployeeAsync(
-            employeeId, changedBy, reason ?? "Nouvelle affectation structurelle", ct)).ToList();
+        // revokeEmployeeIds reste accepté pour traçabilité UX, mais l'éviction serveur est déjà faite.
+        _ = revokeEmployeeIds;
 
         var alreadyOnNode = await db.OrgAssignments.AnyAsync(
             a => a.Kind == assignmentKind
@@ -231,6 +225,11 @@ public sealed class DirectoryWriteService(
         if (alreadyOnNode)
             throw new InvalidOperationException(
                 $"Cet employé occupe déjà la charge {kind} sur ce nœud.");
+
+        // Exclusivité inter-kinds uniquement : un chef/superviseur/RT peut cumuler plusieurs nœuds.
+        // Pilote reste mono-charge (géré dans RevokeConflicting).
+        var revoked = (await exclusivity.RevokeConflictingStructuralRolesForEmployeeAsync(
+            employeeId, assignmentKind, changedBy, reason ?? "Nouvelle affectation structurelle", ct)).ToList();
 
         var assignment = new OrgAssignment
         {
@@ -274,6 +273,223 @@ public sealed class DirectoryWriteService(
         return new StructuralRoleAssignmentResult(revoked, revokedOnNode, employeeId.ToString());
     }
 
+    public async Task<StructuralAssignmentsReconcileResult> ReconcileEmployeeStructuralAssignmentsAsync(
+        string kind,
+        Guid employeeId,
+        IReadOnlyList<string> nodeIds,
+        string primaryNodeId,
+        Guid? changedBy,
+        string? reason,
+        CancellationToken ct = default)
+    {
+        if (!Enum.TryParse<DomainAssignmentKind>(kind, true, out var assignmentKind))
+            throw new ArgumentException($"Kind invalide : {kind}");
+
+        if (assignmentKind is not (
+            DomainAssignmentKind.ChefDeProjet
+            or DomainAssignmentKind.Superviseur
+            or DomainAssignmentKind.ReferentTechnique))
+        {
+            throw new ArgumentException(
+                "La synchronisation multi-nœuds est réservée à ChefDeProjet, Superviseur et ReferentTechnique.");
+        }
+
+        var desired = nodeIds
+            .Select(n => n?.Trim() ?? string.Empty)
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (desired.Count == 0)
+            throw new ArgumentException("Au moins un nœud est requis.");
+
+        var primary = (primaryNodeId ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(primary))
+            throw new ArgumentException("primaryNodeId est requis.");
+        if (!desired.Contains(primary, StringComparer.Ordinal))
+            throw new ArgumentException("primaryNodeId doit faire partie de nodeIds.");
+
+        var nodeLevel = assignmentKind switch
+        {
+            DomainAssignmentKind.ChefDeProjet => DomainNodeLevel.Pole,
+            DomainAssignmentKind.Superviseur => DomainNodeLevel.Cellule,
+            DomainAssignmentKind.ReferentTechnique => DomainNodeLevel.Service,
+            _ => DomainNodeLevel.Service,
+        };
+
+        await EnsureNodesExistAsync(assignmentKind, desired, ct);
+
+        var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId, ct)
+            ?? throw new KeyNotFoundException("Employé introuvable.");
+
+        var activeSameKind = await db.OrgAssignments
+            .Where(a => a.EmployeeId == employeeId
+                        && a.Kind == assignmentKind
+                        && a.EffectiveTo == null)
+            .ToListAsync(ct);
+
+        var currentIds = activeSameKind
+            .Select(a => a.NodeId)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var toRemove = activeSameKind
+            .Where(a => !desired.Contains(a.NodeId, StringComparer.Ordinal))
+            .ToList();
+        var toAdd = desired
+            .Where(id => !currentIds.Contains(id))
+            .ToList();
+
+        var revokedOther = (await exclusivity.RevokeConflictingStructuralRolesForEmployeeAsync(
+            employeeId,
+            assignmentKind,
+            changedBy,
+            reason ?? "Synchronisation multi-périmètres",
+            ct)).ToList();
+
+        var now = DateTime.UtcNow;
+        var removedIds = new List<string>();
+        foreach (var row in toRemove)
+        {
+            row.EffectiveTo = now;
+            row.SupersededBy = Guid.NewGuid();
+            db.OrgAssignmentHistories.Add(new OrgAssignmentHistory
+            {
+                Id = Guid.NewGuid(),
+                Kind = assignmentKind,
+                NodeId = row.NodeId,
+                NodeLevel = nodeLevel,
+                PreviousEmployeeId = employeeId,
+                NewEmployeeId = null,
+                ChangedBy = changedBy,
+                ChangeReason = reason ?? "Retrait lors de synchronisation multi-périmètres",
+                ChangedAt = now,
+            });
+
+            await outbox.EnqueueAsync(new DirectoryAssignmentChangedMessage
+            {
+                Kind = MessagingEnumMapper.ToMessage(assignmentKind),
+                NodeId = row.NodeId,
+                NodeLevel = MessagingEnumMapper.ToMessage(nodeLevel),
+                EmployeeId = employeeId,
+                Removed = true,
+            }, aggregateId: employeeId.ToString(), ct: ct);
+
+            removedIds.Add(row.NodeId);
+        }
+
+        var addedIds = new List<string>();
+        var revokedOnNode = new List<NodeIncumbentRevokedDto>();
+        foreach (var nodeId in toAdd)
+        {
+            // Unicité par nœud : évincer les titulaires d'un autre employé avant l'ajout.
+            var evicted = await EvictOtherIncumbentsOnNodeAsync(
+                assignmentKind,
+                nodeId,
+                nodeLevel,
+                employeeId,
+                changedBy,
+                reason ?? "Remplacement titulaire — unicité par nœud (reconcile)",
+                ct);
+            revokedOnNode.AddRange(evicted);
+
+            db.OrgAssignments.Add(new OrgAssignment
+            {
+                Id = Guid.NewGuid(),
+                Kind = assignmentKind,
+                NodeId = nodeId,
+                NodeLevel = nodeLevel,
+                EmployeeId = employeeId,
+                EffectiveFrom = now,
+                ChangedBy = changedBy,
+                ChangeReason = reason ?? "Ajout lors de synchronisation multi-périmètres",
+            });
+
+            await outbox.EnqueueAsync(new DirectoryAssignmentChangedMessage
+            {
+                Kind = MessagingEnumMapper.ToMessage(assignmentKind),
+                NodeId = nodeId,
+                NodeLevel = MessagingEnumMapper.ToMessage(nodeLevel),
+                EmployeeId = employeeId,
+                EmployeeEmail = employee.Email,
+                NewRole = null,
+                Removed = false,
+            }, aggregateId: employeeId.ToString(), ct: ct);
+
+            addedIds.Add(nodeId);
+        }
+
+        // Ancre primaire appliquée une seule fois après le diff.
+        await hierarchy.ApplyAssignmentToEmployeeAsync(employee, assignmentKind, primary, ct);
+        employee.UpdatedAt = now;
+
+        // Republier l'événement du primary avec le NewRole final (ancre).
+        await outbox.EnqueueAsync(new DirectoryAssignmentChangedMessage
+        {
+            Kind = MessagingEnumMapper.ToMessage(assignmentKind),
+            NodeId = primary,
+            NodeLevel = MessagingEnumMapper.ToMessage(nodeLevel),
+            EmployeeId = employeeId,
+            EmployeeEmail = employee.Email,
+            NewRole = employee.Role,
+            Removed = false,
+        }, aggregateId: employeeId.ToString(), ct: ct);
+
+        await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
+        await db.SaveChangesAsync(ct);
+
+        return new StructuralAssignmentsReconcileResult(
+            assignmentKind.ToString(),
+            employeeId.ToString(),
+            desired,
+            primary,
+            addedIds,
+            removedIds,
+            revokedOther,
+            revokedOnNode);
+    }
+
+    private async Task EnsureNodesExistAsync(
+        DomainAssignmentKind kind,
+        IReadOnlyList<string> nodeIds,
+        CancellationToken ct)
+    {
+        switch (kind)
+        {
+            case DomainAssignmentKind.ChefDeProjet:
+            {
+                var existing = await db.OrgPoles.AsNoTracking()
+                    .Where(p => nodeIds.Contains(p.Id))
+                    .Select(p => p.Id)
+                    .ToListAsync(ct);
+                var missing = nodeIds.Except(existing, StringComparer.Ordinal).ToList();
+                if (missing.Count > 0)
+                    throw new ArgumentException($"Pôle(s) introuvable(s) : {string.Join(", ", missing)}");
+                break;
+            }
+            case DomainAssignmentKind.Superviseur:
+            {
+                var existing = await db.OrgCellules.AsNoTracking()
+                    .Where(c => nodeIds.Contains(c.Id))
+                    .Select(c => c.Id)
+                    .ToListAsync(ct);
+                var missing = nodeIds.Except(existing, StringComparer.Ordinal).ToList();
+                if (missing.Count > 0)
+                    throw new ArgumentException($"Cellule(s) introuvable(s) : {string.Join(", ", missing)}");
+                break;
+            }
+            case DomainAssignmentKind.ReferentTechnique:
+            {
+                var existing = await db.OrgServices.AsNoTracking()
+                    .Where(s => nodeIds.Contains(s.Id))
+                    .Select(s => s.Id)
+                    .ToListAsync(ct);
+                var missing = nodeIds.Except(existing, StringComparer.Ordinal).ToList();
+                if (missing.Count > 0)
+                    throw new ArgumentException($"Service(s) introuvable(s) : {string.Join(", ", missing)}");
+                break;
+            }
+        }
+    }
+
     public async Task<bool> RemoveStructureAssignmentAsync(
         string kind,
         string nodeId,
@@ -304,6 +520,45 @@ public sealed class DirectoryWriteService(
         await ResetDisplacedEmployeeAsync(employeeId, changedBy, reason, ct);
         await db.SaveChangesAsync(ct);
         return true;
+    }
+
+    /// <summary>
+    /// Garantit au plus un titulaire actif par (kind, nodeId) en évincant les autres employés.
+    /// Ne touche pas aux autres nœuds de l'employé assigné (multi-périmètre autorisé).
+    /// </summary>
+    private async Task<List<NodeIncumbentRevokedDto>> EvictOtherIncumbentsOnNodeAsync(
+        DomainAssignmentKind assignmentKind,
+        string nodeId,
+        DomainNodeLevel nodeLevel,
+        Guid keepEmployeeId,
+        Guid? changedBy,
+        string? reason,
+        CancellationToken ct)
+    {
+        var otherIncumbentIds = await db.OrgAssignments
+            .Where(a => a.Kind == assignmentKind
+                        && a.NodeId == nodeId
+                        && a.EmployeeId != keepEmployeeId
+                        && a.EffectiveTo == null)
+            .Select(a => a.EmployeeId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var revokedOnNode = new List<NodeIncumbentRevokedDto>();
+        foreach (var otherId in otherIncumbentIds)
+        {
+            var removed = await RevokeNodeIncumbentAsync(
+                assignmentKind, nodeId, nodeLevel, otherId, changedBy, reason, ct);
+            if (!removed) continue;
+
+            await ResetDisplacedEmployeeAsync(otherId, changedBy, reason, ct);
+            revokedOnNode.Add(new NodeIncumbentRevokedDto(
+                otherId.ToString(),
+                assignmentKind.ToString(),
+                nodeId));
+        }
+
+        return revokedOnNode;
     }
 
     private async Task<bool> RevokeNodeIncumbentAsync(
@@ -421,16 +676,27 @@ public sealed class DirectoryWriteService(
 
     private async Task ResetDisplacedEmployeeAsync(Guid employeeId, Guid? changedBy, string? reason, CancellationToken ct)
     {
-        var hasOtherActive = await db.OrgAssignments
-            .AnyAsync(a => a.EmployeeId == employeeId && a.EffectiveTo == null, ct);
-        if (hasOtherActive) return;
+        var remaining = await db.OrgAssignments
+            .Where(a => a.EmployeeId == employeeId && a.EffectiveTo == null)
+            .OrderByDescending(a => a.EffectiveFrom)
+            .ToListAsync(ct);
+
+        var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId, ct);
+        if (employee is null) return;
+
+        if (remaining.Count > 0)
+        {
+            // Ré-ancrage primaire sur la charge restante la plus récente.
+            var primary = remaining[0];
+            await hierarchy.ApplyAssignmentToEmployeeAsync(employee, primary.Kind, primary.NodeId, ct);
+            employee.UpdatedAt = DateTime.UtcNow;
+            await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
+            return;
+        }
 
         var isManager = await db.BusinessDepartments
             .AnyAsync(d => d.ManagerEmployeeId == employeeId, ct);
         if (isManager) return;
-
-        var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId, ct);
-        if (employee is null) return;
 
         employee.Role = KyntusRoleNames.Employee;
         employee.PoleId = null;
@@ -440,6 +706,67 @@ public sealed class DirectoryWriteService(
         employee.ParentId = null;
         employee.UpdatedAt = DateTime.UtcNow;
         await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
+    }
+
+    public async Task<int> DeduplicateActiveNodeIncumbentsAsync(
+        Guid? changedBy = null,
+        CancellationToken ct = default)
+    {
+        var active = await db.OrgAssignments
+            .Where(a => a.EffectiveTo == null)
+            .OrderByDescending(a => a.EffectiveFrom)
+            .ThenByDescending(a => a.Id)
+            .ToListAsync(ct);
+
+        var closed = 0;
+        var displaced = new HashSet<Guid>();
+        var now = DateTime.UtcNow;
+
+        foreach (var group in active.GroupBy(a => (a.Kind, a.NodeId)))
+        {
+            var winners = group.ToList();
+            if (winners.Count <= 1) continue;
+
+            foreach (var loser in winners.Skip(1))
+            {
+                if (loser.EffectiveTo is not null) continue;
+
+                loser.EffectiveTo = now;
+                loser.SupersededBy = Guid.NewGuid();
+                db.OrgAssignmentHistories.Add(new OrgAssignmentHistory
+                {
+                    Id = Guid.NewGuid(),
+                    Kind = loser.Kind,
+                    NodeId = loser.NodeId,
+                    NodeLevel = loser.NodeLevel,
+                    PreviousEmployeeId = loser.EmployeeId,
+                    NewEmployeeId = null,
+                    ChangedBy = changedBy,
+                    ChangeReason = "Dédoublonnage unicité par nœud",
+                    ChangedAt = now,
+                });
+
+                await outbox.EnqueueAsync(new DirectoryAssignmentChangedMessage
+                {
+                    Kind = MessagingEnumMapper.ToMessage(loser.Kind),
+                    NodeId = loser.NodeId,
+                    NodeLevel = MessagingEnumMapper.ToMessage(loser.NodeLevel),
+                    EmployeeId = loser.EmployeeId,
+                    Removed = true,
+                }, aggregateId: loser.EmployeeId.ToString(), ct: ct);
+
+                closed++;
+                displaced.Add(loser.EmployeeId);
+            }
+        }
+
+        foreach (var employeeId in displaced)
+            await ResetDisplacedEmployeeAsync(employeeId, changedBy, "Dédoublonnage unicité par nœud", ct);
+
+        if (closed > 0)
+            await db.SaveChangesAsync(ct);
+
+        return closed;
     }
 
     public async Task ClearStructureRoleAsync(string kind, string nodeId, Guid? changedBy, string? reason, CancellationToken ct = default)

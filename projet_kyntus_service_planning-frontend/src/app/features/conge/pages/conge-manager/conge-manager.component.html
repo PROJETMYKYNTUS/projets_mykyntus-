@@ -1,9 +1,7 @@
 <div class="ky-page-shell">
 
-  <div class="cm-toast" [class.visible]="toast.show" [class.error]="toast.type === 'error'">{{ toast.message }}</div>
-
   <app-kyntus-page-header
-    title="Gestion des congés"
+    title="Validation des congés"
     subtitle="Validez ou refusez les demandes de votre équipe">
     <div actions>
       <button type="button" class="ky-btn-secondary" (click)="loadDemandes()">

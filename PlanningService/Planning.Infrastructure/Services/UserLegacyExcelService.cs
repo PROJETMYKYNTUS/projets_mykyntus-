@@ -33,7 +33,7 @@ public sealed class UserLegacyExcelService(AppDbContext context) : IUserLegacyEx
         ws.Cell(2, 1).Value = "Mohammed";
         ws.Cell(2, 2).Value = "Alami";
         ws.Cell(2, 3).Value = "m.alami@kyntus.ma";
-        ws.Cell(2, 4).Value = "Password123!";
+        ws.Cell(2, 4).Value = "Kyntus-Import-99!";
         ws.Cell(2, 5).Value = 2;
         ws.Cell(2, 6).Value = 1;
         ws.Cell(2, 7).Value = "2024-01-15";

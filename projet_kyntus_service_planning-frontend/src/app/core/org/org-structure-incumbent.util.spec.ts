@@ -112,5 +112,10 @@ describe('org-structure-incumbent.util', () => {
         { userId: 'u2', displayName: 'Bob Dupont' },
       ]),
     ).toContain('Bob Dupont');
+    expect(
+      buildIncumbentChoiceMessage('Superviseur', [
+        { userId: 'u2', displayName: 'Bob Dupont' },
+      ]),
+    ).toMatch(/remplacera/i);
   });
 });

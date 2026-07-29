@@ -88,6 +88,7 @@ export function shouldConfirmOverwrite(
   return false;
 }
 
+/** Unicité par nœud : confirmer le remplacement du/des titulaire(s) existant(s). */
 export function shouldConfirmIncumbentChoice(incumbents: readonly StructureIncumbent[]): boolean {
   return incumbents.length > 0;
 }
@@ -98,9 +99,13 @@ export function buildIncumbentChoiceMessage(
 ): string {
   const label = structureRoleLabel(roleName);
   const names = incumbents.map((i) => i.displayName).join(', ');
-  return `Ce poste a déjà ${incumbents.length} ${label}(s) : ${names}.`;
+  if (incumbents.length === 1) {
+    return `Ce poste a déjà un ${label} : ${names}. L’affectation remplacera ce titulaire.`;
+  }
+  return `Ce poste a déjà ${incumbents.length} ${label}(s) : ${names}. L’affectation remplacera ces titulaires (unicité par nœud).`;
 }
 
+/** @deprecated Conservé pour compat — l’API évince désormais tous les titulaires du nœud. */
 export type IncumbentAssignmentChoice = 'add' | 'replace' | 'cancel';
 
 export function buildStructureOverwriteMessage(
@@ -118,60 +123,103 @@ export type EmployeeStructuralRole = {
   departmentCode?: string;
 };
 
-export function findEmployeeStructuralRole(
+export function findEmployeeStructuralRoles(
   overview: OrgAssignmentsOverview,
   employeeId: string,
-): EmployeeStructuralRole | null {
+): EmployeeStructuralRole[] {
   const id = employeeId.trim();
-  if (!id) return null;
+  if (!id) return [];
+
+  const roles: EmployeeStructuralRole[] = [];
 
   for (const md of overview.operationalDepartments ?? []) {
     if (md.managerEmployeeId === id) {
-      return {
+      roles.push({
         role: 'Manager',
         nodeId: md.id,
         nodeLabel: md.name,
         departmentCode: md.code,
-      };
+      });
     }
   }
 
-  const chef = overview.managerEtage?.find((a) => a.userId === id);
-  if (chef) {
-    return { role: 'Chef de projet', nodeId: chef.etageId };
+  for (const chef of overview.managerEtage ?? []) {
+    if (chef.userId === id) {
+      roles.push({ role: 'Chef de projet', nodeId: chef.etageId });
+    }
   }
 
-  const sup = overview.supervisorService?.find((a) => a.userId === id);
-  if (sup) {
-    return {
-      role: 'Superviseur',
-      nodeId: (sup.celluleId ?? sup.serviceId)?.trim() ?? '',
-    };
+  for (const sup of overview.supervisorService ?? []) {
+    if (sup.userId === id) {
+      roles.push({
+        role: 'Superviseur',
+        nodeId: (sup.celluleId ?? sup.serviceId)?.trim() ?? '',
+      });
+    }
   }
 
-  const coach = overview.coachSousService?.find((a) => a.userId === id);
-  if (coach) {
-    return {
-      role: 'Référent technique',
-      nodeId: (coach.serviceId ?? coach.sousServiceId)?.trim() ?? '',
-    };
+  for (const coach of overview.coachSousService ?? []) {
+    if (coach.userId === id) {
+      roles.push({
+        role: 'Référent technique',
+        nodeId: (coach.serviceId ?? coach.sousServiceId)?.trim() ?? '',
+      });
+    }
   }
 
   const emp = overview.employees?.find((e) => e.id === id);
   if (emp?.role === 'Pilote' && emp.serviceId) {
-    return { role: 'Pilote', nodeId: emp.serviceId };
+    roles.push({ role: 'Pilote', nodeId: emp.serviceId });
   }
 
   if (
+    roles.length === 0 &&
     emp &&
     (isChefDeProjetRole(emp.role) ||
       isSuperviseurRole(emp.role) ||
       isReferentTechniqueRole(emp.role))
   ) {
-    return { role: emp.role, nodeId: emp.serviceId ?? emp.celluleId ?? emp.poleId ?? '' };
+    roles.push({
+      role: emp.role,
+      nodeId: emp.serviceId ?? emp.celluleId ?? emp.poleId ?? '',
+    });
   }
 
-  return null;
+  return roles;
+}
+
+/** @deprecated Préférer findEmployeeStructuralRoles — retourne la première charge. */
+export function findEmployeeStructuralRole(
+  overview: OrgAssignmentsOverview,
+  employeeId: string,
+): EmployeeStructuralRole | null {
+  return findEmployeeStructuralRoles(overview, employeeId)[0] ?? null;
+}
+
+function normalizeStructuralRoleKey(role: string): string {
+  const r = role.trim().toLowerCase();
+  if (r === 'chef de projet' || r === 'rp') return 'chef';
+  if (r === 'superviseur') return 'superviseur';
+  if (r === 'référent technique' || r === 'referent technique' || r === 'coach') return 'rt';
+  if (r === 'pilote' || r === 'employee') return 'pilote';
+  if (r === 'manager') return 'manager';
+  return r;
+}
+
+/**
+ * true si l'employé a déjà une charge d'un *autre* kind structurel
+ * (pas un conflit d'ajouter un 2e pôle / 2e cellule / 2e service du même kind).
+ */
+export function findConflictingStructuralRole(
+  overview: OrgAssignmentsOverview,
+  employeeId: string,
+  targetRole: string,
+): EmployeeStructuralRole | null {
+  const targetKey = normalizeStructuralRoleKey(targetRole);
+  const existing = findEmployeeStructuralRoles(overview, employeeId);
+  return (
+    existing.find((r) => normalizeStructuralRoleKey(r.role) !== targetKey) ?? null
+  );
 }
 
 export function buildCrossRoleOverwriteMessage(
@@ -181,6 +229,12 @@ export function buildCrossRoleOverwriteMessage(
   const where = existing.nodeLabel ?? existing.departmentCode ?? existing.nodeId;
   const suffix = where ? ` (${where})` : '';
   return `${assigneeDisplayName} est déjà ${existing.role}${suffix}. Cette affectation remplacera le rôle précédent.`;
+}
+
+export function buildMultiChargeHint(roles: readonly EmployeeStructuralRole[]): string {
+  if (roles.length <= 1) return '';
+  const labels = roles.map((r) => `${r.role}: ${r.nodeLabel ?? r.nodeId}`).join(' · ');
+  return `Charges actuelles : ${labels}`;
 }
 
 function isCoachOrReferentRole(role: string): boolean {

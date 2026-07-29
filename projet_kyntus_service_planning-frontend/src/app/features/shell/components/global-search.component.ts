@@ -23,6 +23,7 @@ import {
   type GlobalSearchResult,
 } from '../../../core/search/global-search.service';
 import { ParrainageNavService } from '../../parrainage/state/parrainage-nav.service';
+import { NavigationActionsService } from '../../../core/navigation/navigation-actions.service';
 
 @Component({
   selector: 'app-global-search',
@@ -219,6 +220,7 @@ export class GlobalSearchComponent implements OnInit, OnDestroy {
   private readonly searchService = inject(GlobalSearchService);
   private readonly router = inject(Router);
   private readonly parrainageNav = inject(ParrainageNavService);
+  private readonly navActions = inject(NavigationActionsService);
 
   readonly icons = { search: Search, close: X };
 
@@ -341,6 +343,19 @@ export class GlobalSearchComponent implements OnInit, OnDestroy {
         void this.router.navigate(['/documentation', 'doc-gen'], {
           queryParams: { requestId: result.id },
         });
+        break;
+      case 'formation':
+        void this.router.navigate(['/formations'], {
+          queryParams: { highlight: result.id },
+        });
+        break;
+      case 'conge':
+        void this.router.navigate(['/conges/validation'], {
+          queryParams: { demandeId: result.id },
+        });
+        break;
+      case 'prime':
+        void this.navActions.openPrimePath('/dashboard');
         break;
     }
   }

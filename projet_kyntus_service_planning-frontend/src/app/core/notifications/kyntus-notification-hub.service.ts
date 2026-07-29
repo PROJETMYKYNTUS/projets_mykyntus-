@@ -25,6 +25,7 @@ import { StatutDemande, StatutDemandeLabels, TypeCongeLabels } from '../models/c
 import type { DemandeCongeDto } from '../models/conge.models';
 import type { DocumentationTabId } from '../../features/documentation/services/documentation-navigation.service';
 import type { ParrainageView } from '../../features/parrainage/state/parrainage-nav.service';
+import type { AdminSection } from '../../features/prime/state/prime-section.service';
 import { isNotificationVisibleForRole, prefKeyForSource } from './kyntus-notification-role-filter';
 import { Router } from '@angular/router';
 
@@ -44,6 +45,7 @@ export interface KyntusNotificationAction {
   route?: string;
   queryParams?: Record<string, string>;
   primePath?: string;
+  primeAdminSection?: AdminSection;
   parrainageView?: ParrainageView;
   documentationTab?: DocumentationTabId;
 }
@@ -130,7 +132,7 @@ export class KyntusNotificationHubService {
     const jwtRole = this.session.getRole();
 
     if (prefs.prime) {
-      for (const n of this.primeUi.notifications()) {
+      for (const n of this.primeUi.localNotifications()) {
         items.push({
           id: `prime-${n.id}`,
           source: 'prime',
@@ -139,6 +141,18 @@ export class KyntusNotificationHubService {
           read: n.read,
           createdAt: n.createdAt,
           action: { primePath: PRIME_PATHS[n.type] ?? '/dashboard' },
+        });
+      }
+      for (const n of this.primeUi.apiNotifications()) {
+        items.push({
+          id: `prime-api-${n.id}`,
+          source: 'prime',
+          title: n.title,
+          body: n.body,
+          read: n.read,
+          createdAt: n.createdAt,
+          severity: n.severity,
+          action: { route: '/prime', primeAdminSection: n.adminSection },
         });
       }
     }
@@ -275,9 +289,13 @@ export class KyntusNotificationHubService {
         if (this.userPrefs.isSourceEnabled('conge')) {
           void this.refreshConges();
         }
+        if (this.userPrefs.isSourceEnabled('prime')) {
+          void this.primeUi.refreshFromApi();
+        }
       });
 
     this.refreshContracts();
+    void this.primeUi.refreshFromApi();
   }
 
   bootstrapAfterLogin(): void {
@@ -287,6 +305,7 @@ export class KyntusNotificationHubService {
     void this.refreshParrainageNotifications();
     void this.refreshConges();
     this.refreshContracts();
+    void this.primeUi.refreshFromApi();
   }
 
   private planningAction(
@@ -431,12 +450,16 @@ export class KyntusNotificationHubService {
       severity: d.statut === StatutDemande.Refusee ? 'warning' : d.statut === StatutDemande.Validee ? 'success' : 'info',
       audience: audience === 'manager' ? 'manager' : 'user',
       action: {
-        route: audience === 'manager' ? '/conge-gestion' : '/mes-conges',
+        route: audience === 'manager' ? '/conges/validation' : '/mes-conges',
       },
     };
   }
 
   markAsRead(id: string): void {
+    if (id.startsWith('prime-api-')) {
+      this.primeUi.markApiAsRead(id.replace('prime-api-', ''));
+      return;
+    }
     if (id.startsWith('prime-')) {
       const num = Number(id.replace('prime-', ''));
       this.primeUi.markAsRead(num);
@@ -495,6 +518,14 @@ export class KyntusNotificationHubService {
     const action = n.action;
     if (!action) return;
 
+    if (action.primeAdminSection) {
+      await this.nav.applyMenuItem({
+        label: 'PRIME',
+        route: action.route ?? '/prime',
+        primeAdminSection: action.primeAdminSection,
+      });
+      return;
+    }
     if (action.primePath) {
       await this.nav.openPrimePath(action.primePath);
       return;

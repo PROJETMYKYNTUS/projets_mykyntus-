@@ -3,15 +3,6 @@
 
 <div class="ky-page-shell rp-root">
 
-  <!-- ══ TOAST ══ -->
-  <div class="rp-toast" [class.visible]="toastMsg" [class.rp-toast-error]="toastType==='error'">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-      <polyline *ngIf="toastType==='success'" points="20 6 9 17 4 12"/>
-      <circle   *ngIf="toastType==='error'"   cx="12" cy="12" r="10"/><line *ngIf="toastType==='error'" x1="15" y1="9" x2="9" y2="15"/><line *ngIf="toastType==='error'" x1="9" y1="9" x2="15" y2="15"/>
-    </svg>
-    {{ toastMsg }}
-  </div>
-
   <!-- ══ SATISFACTION MODAL ══ -->
   <div class="rp-overlay" *ngIf="showSatForm" (click)="showSatForm=false">
     <div class="rp-modal" (click)="$event.stopPropagation()">

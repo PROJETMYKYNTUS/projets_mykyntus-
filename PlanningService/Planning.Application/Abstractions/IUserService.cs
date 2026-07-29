@@ -9,6 +9,7 @@ public interface IUserService
     Task<UserDto?> GetUserByIdAsync(int id);
     Task<UserDto> CreateUserAsync(CreateUserDto dto);
     Task<UserDto> CreateUserFromImportAsync(CreateUserFromImportDto dto);
+    Task<ResetPasswordResultDto?> ResetPasswordAsync(int userId, CancellationToken ct = default);
 
     /// <summary>
     /// Insert Planning + Auth batch pour un chunk déjà créé dans Directory (sans check-email Directory).

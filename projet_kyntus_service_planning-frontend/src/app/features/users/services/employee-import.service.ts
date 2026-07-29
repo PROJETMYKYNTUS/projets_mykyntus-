@@ -150,6 +150,9 @@ export interface EmployeeImportRowResult {
   email: string | null;
   action: string;
   message: string | null;
+  temporaryPassword?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
 }
 
 export interface EmployeeImportReport {

@@ -2,23 +2,23 @@
 
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthGuard } from '../../guard/guards/auth';
-import { KYNTUS_PUBLIC_URLS } from '../../config/kyntus-public-urls';
+import { redirectToAuthLogin } from '../session/kyntus-auth-refresh.service';
+import { readStoredAccessToken } from '../session/kyntus-auth-token.util';
 
 @Injectable({ providedIn: 'root' })
 export class RedirectService {
 
-  constructor(private router: Router, private authGuard: AuthGuard) {}
+  constructor(private router: Router) {}
 
   redirectAfterLogin(): void {
-    const token = localStorage.getItem('token');
+    const token = readStoredAccessToken();
 
     if (!token) {
-      window.location.href = KYNTUS_PUBLIC_URLS.authLogin;
+      redirectToAuthLogin();
       return;
     }
 
-    // Atterrissage unifié : le shell + menu global des microservices décide de l'affichage selon le rôle.
-    this.router.navigate(['/home']);
+    // replaceUrl : retire auth-callback (+ tokens query) de l’historique navigateur.
+    void this.router.navigate(['/home'], { replaceUrl: true });
   }
 }

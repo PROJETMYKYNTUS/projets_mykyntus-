@@ -14,6 +14,7 @@ namespace EmployeeDirectory.Infrastructure.Services;
 public sealed class DirectoryReconciliationService(
     DirectoryDbContext db,
     IOutboxWriter outbox,
+    IDirectoryWriteService write,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     ILogger<DirectoryReconciliationService> logger) : IDirectoryReconciliationService
@@ -38,6 +39,7 @@ public sealed class DirectoryReconciliationService(
 
     public async Task<DirectoryReconcileReportDto> ReconcileAsync(CancellationToken ct = default)
     {
+        var nodeDupesClosed = await write.DeduplicateActiveNodeIncumbentsAsync(null, ct);
         var merged = await DedupeEmployeesByEmailAsync(ct);
         var (orgBackfilled, employeesImported) = await SyncOrgAndEmployeesFromPrimeAsync(ct);
         var orgGapsFixed = await FixUnmappedOrgReferencesAsync(ct);
@@ -48,8 +50,8 @@ public sealed class DirectoryReconciliationService(
         var orphansPrime = verify.OrphansInPrimeNotDirectory ?? 0;
 
         logger.LogInformation(
-            "Directory reconcile: merged={Merged}, orgBackfilled={Org}, imported={Import}, republished={Republish}",
-            merged, orgBackfilled, employeesImported, republished);
+            "Directory reconcile: nodeDupesClosed={NodeDupes}, merged={Merged}, orgBackfilled={Org}, imported={Import}, republished={Republish}",
+            nodeDupesClosed, merged, orgBackfilled, employeesImported, republished);
 
         return new DirectoryReconcileReportDto(
             merged,
@@ -59,7 +61,8 @@ public sealed class DirectoryReconciliationService(
             orphansPlanning,
             orphansPrime,
             orgGapsFixed,
-            verify);
+            verify,
+            nodeDupesClosed);
     }
 
     private async Task<DirectoryReconcileVerifyDto> BuildLocalVerifyAsync(CancellationToken ct)

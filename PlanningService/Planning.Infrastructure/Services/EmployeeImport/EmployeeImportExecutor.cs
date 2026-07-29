@@ -42,6 +42,7 @@ public class EmployeeImportExecutor(
     IFormationInitialTrainingClient formationInitialTraining,
     IHttpContextAccessor httpContextAccessor,
     IServiceScopeFactory scopeFactory,
+    IEmployeeImportCredentialsStore credentialsStore,
     ILogger<EmployeeImportExecutor> logger) : IEmployeeImportExecutor
 {
     private const int ChunkSize = 100;
@@ -243,6 +244,8 @@ public class EmployeeImportExecutor(
             report.Status = "Completed";
             report.ProcessedLignes = job.ProcessedLignes;
             report.CompletedAt = job.CompletedAt.Value;
+
+            credentialsStore.Remember(job.Id, report.Lignes);
 
             await db.SaveChangesAsync(ct);
             journal.Commit();
@@ -536,6 +539,9 @@ public class EmployeeImportExecutor(
         public required string Email { get; init; }
         public required string ActionOnSuccess { get; init; }
         public int? PlanningUserIdForJournal { get; init; }
+        public string? TemporaryPassword { get; init; }
+        public string? FirstName { get; init; }
+        public string? LastName { get; init; }
     }
 
     private async Task<PendingImportCreate?> TryPrepareCreateAsync(
@@ -752,6 +758,9 @@ public class EmployeeImportExecutor(
                     Email = pending.Email,
                     ActionOnSuccess = "create",
                     PlanningUserIdForJournal = result.PlanningUserId,
+                    TemporaryPassword = result.TemporaryPassword,
+                    FirstName = pending.Dto.FirstName,
+                    LastName = pending.Dto.LastName,
                 });
             }
             catch (Exception lineEx)
@@ -905,7 +914,10 @@ public class EmployeeImportExecutor(
             else
             {
                 AddLine(job, report, item.LineNumber, item.Email, item.ActionOnSuccess,
-                    item.ActionOnSuccess == "create" ? "Employé créé." : "Employé mis à jour.");
+                    item.ActionOnSuccess == "create" ? "Employé créé." : "Employé mis à jour.",
+                    item.TemporaryPassword,
+                    item.FirstName,
+                    item.LastName);
             }
         }
     }
@@ -1263,7 +1275,10 @@ public class EmployeeImportExecutor(
         int lineNumber,
         string? email,
         string action,
-        string? message)
+        string? message,
+        string? temporaryPassword = null,
+        string? firstName = null,
+        string? lastName = null)
     {
         job.Lines.Add(new EmployeeImportJobLine
         {
@@ -1279,7 +1294,10 @@ public class EmployeeImportExecutor(
             LineNumber = lineNumber,
             Email = email,
             Action = action,
-            Message = message
+            Message = message,
+            TemporaryPassword = temporaryPassword,
+            FirstName = firstName,
+            LastName = lastName,
         });
 
         switch (action)

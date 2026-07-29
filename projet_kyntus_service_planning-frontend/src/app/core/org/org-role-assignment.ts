@@ -10,51 +10,58 @@ function normalizeRoleToken(name: string): string {
     .replace(/[_\s-]+/g, '');
 }
 
-/** Compare rôles en ignorant casse, accents, espaces / underscores (ex. Equipe_Formation ≈ Equipe formation).
- *  Alias métier : Coach ≈ Référent technique ; RP ≈ Chef de projet.
- *  Employee et Pilote restent distincts (menus / ACL). */
+/**
+ * Compare rôles en ignorant casse, accents, espaces / underscores.
+ * Alias alignés sur KyntusRoleNames.cs :
+ * Employee ≡ Pilote ; Coach ≡ Référent technique ; RP ≡ Chef de projet ;
+ * Equipe_Formation ≡ Equipe formation ≡ Formateur.
+ */
 export function roleNamesMatch(a: string, b: string): boolean {
   return canonicalizeRole(a) === canonicalizeRole(b);
 }
 
-function canonicalizeRole(name: string): string {
+export function canonicalizeRole(name: string): string {
   const r = normalizeRoleToken(name);
+  if (r === 'employee' || r === 'pilote') return 'pilote';
   if (r === 'referentechnique' || r === 'referenttechnique') return 'coach';
   if (r === 'chefdeprojet') return 'rp';
+  if (r === 'equipeformation' || r === 'formateur') return 'equipeformation';
   return r;
 }
 
 export function isChefDeProjetRole(roleName: string): boolean {
-  const r = normalizeRoleToken(roleName);
-  return r === 'rp' || r === 'chefdeprojet';
+  return canonicalizeRole(roleName) === 'rp';
 }
 
 export function isSupportManagerRole(roleName: string): boolean {
-  return normalizeRoleToken(roleName) === 'manager';
+  return canonicalizeRole(roleName) === 'manager';
 }
 
 export function isSuperviseurRole(roleName: string): boolean {
-  return normalizeRoleToken(roleName) === 'superviseur';
+  return canonicalizeRole(roleName) === 'superviseur';
 }
 
 export function isReferentTechniqueRole(roleName: string): boolean {
-  const r = normalizeRoleToken(roleName);
-  return r === 'coach' || r === 'referentechnique' || r === 'referenttechnique';
+  return canonicalizeRole(roleName) === 'coach';
 }
 
 export function isPiloteRole(roleName: string): boolean {
-  const r = normalizeRoleToken(roleName);
-  return r === 'employee' || r === 'pilote';
+  return canonicalizeRole(roleName) === 'pilote';
+}
+
+export function isEquipeFormationRole(roleName: string): boolean {
+  return canonicalizeRole(roleName) === 'equipeformation';
 }
 
 /** Profils sans périmètre organisationnel obligatoire. */
 export function isOrgNeutralRole(roleName: string): boolean {
-  const r = normalizeRoleToken(roleName);
+  const r = canonicalizeRole(roleName);
   return (
     r === 'rh' ||
     r === 'admin' ||
     r === 'audit' ||
-    r === 'equipeformation'
+    r === 'equipeformation' ||
+    r === 'qualiticien'
   );
 }
 
@@ -88,14 +95,14 @@ export function orgAssignmentIsRequired(depth: OrgRoleAssignmentDepth): boolean 
 
 export function orgAssignmentHint(roleName: string, depth: OrgRoleAssignmentDepth): string {
   if (depth === 'pole') {
-    return 'Chef de projet : département de production puis pôle supervisé.';
+    return 'Chef de projet : sélectionnez un ou plusieurs pôles (un principal obligatoire).';
   }
   if (depth === 'cellule') {
-    return 'Superviseur : département, pôle puis cellule supervisée.';
+    return 'Superviseur : sélectionnez une ou plusieurs cellules (une principale obligatoire).';
   }
   if (depth === 'service') {
     if (isReferentTechniqueRole(roleName)) {
-      return 'Référent technique : département, pôle, cellule puis service encadré.';
+      return 'Référent technique : sélectionnez un ou plusieurs services (un principal obligatoire).';
     }
     return 'Pilote : département, pôle, cellule et service d’affectation.';
   }

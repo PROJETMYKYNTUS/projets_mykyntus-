@@ -1,3 +1,4 @@
+using Kyntus.Iam;
 using Kyntus.Messaging.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Prime.Application.Abstractions;
@@ -8,7 +9,7 @@ using Prime.Domain.Entities;
 namespace Prime.Infrastructure.Services;
 
 /// <summary>Mutations org/hiérarchie directement sur PostgreSQL (remplace PrimeInMemoryStore).</summary>
-public sealed class PrimeOrgStructureCommandService(PrimeDbContext db)
+public sealed class PrimeOrgStructureCommandService(PrimeDbContext db, IRebacClient? rebac = null)
 {
     public async Task<ChefProjetPoleAssignment> AssignManagerEtageAsync(string userId, string poleId, CancellationToken ct = default)
     {
@@ -73,17 +74,98 @@ public sealed class PrimeOrgStructureCommandService(PrimeDbContext db)
         var parts = assignmentId.Split('|');
         if (parts.Length < 3) throw new KeyNotFoundException("Affectation introuvable.");
         var userId = parts[1];
+        var nodeId = parts[2].Trim();
         var emp = await db.Employees.FirstOrDefaultAsync(e => e.Id == userId, ct)
             ?? throw new KeyNotFoundException("Employé introuvable.");
-        if (prefix == 'm') { emp.PoleId = ""; emp.Role = KyntusRoleNames.Pilote; }
-        if (prefix == 's') { emp.CelluleId = null; emp.Role = KyntusRoleNames.Pilote; }
-        if (prefix == 'c') { emp.ServiceId = null; emp.Role = KyntusRoleNames.Pilote; }
-        if (prefix == 'p' && parts.Length >= 3)
+
+        if (prefix == 'm')
+            await ReanchorOrDemoteAsync(emp, "ChefDeProjet", nodeId, KyntusRoleNames.ChefDeProjet, ct);
+        else if (prefix == 's')
+            await ReanchorOrDemoteAsync(emp, "Superviseur", nodeId, KyntusRoleNames.Superviseur, ct);
+        else if (prefix == 'c')
+            await ReanchorOrDemoteAsync(emp, "ReferentTechnique", nodeId, KyntusRoleNames.ReferentTechnique, ct);
+        else if (prefix == 'p' && parts.Length >= 3)
         {
             var pilot = await db.Employees.FirstOrDefaultAsync(e => e.Id == parts[2], ct);
             if (pilot is not null) pilot.ParentId = null;
         }
+
         await db.SaveChangesAsync(ct);
+    }
+
+    private async Task ReanchorOrDemoteAsync(
+        EmployeeEntity emp,
+        string kind,
+        string removedNodeId,
+        string keepRole,
+        CancellationToken ct)
+    {
+        var remaining = await TryGetManagedNodeIdsAsync(emp.Id, kind, ct);
+        // Directory a déjà retiré le nœud ; remaining = autres charges.
+        if (remaining.Count > 0)
+        {
+            emp.Role = keepRole;
+            var primary = remaining[0];
+            switch (kind)
+            {
+                case "ChefDeProjet":
+                    emp.PoleId = primary;
+                    emp.CelluleId = null;
+                    emp.ServiceId = null;
+                    break;
+                case "Superviseur":
+                {
+                    emp.CelluleId = primary;
+                    var cell = await db.Cellules.AsNoTracking().FirstOrDefaultAsync(c => c.Id == primary, ct);
+                    emp.PoleId = cell?.PoleId ?? emp.PoleId;
+                    emp.ServiceId = null;
+                    break;
+                }
+                case "ReferentTechnique":
+                {
+                    emp.ServiceId = primary;
+                    var svc = await db.Services.AsNoTracking().Include(s => s.Cellule)
+                        .FirstOrDefaultAsync(s => s.Id == primary, ct);
+                    if (svc is not null)
+                    {
+                        emp.CelluleId = svc.CelluleId;
+                        emp.PoleId = svc.Cellule.PoleId;
+                    }
+                    break;
+                }
+            }
+            return;
+        }
+
+        // Plus aucune charge de ce kind : ne démotiver que si l'ancre primaire correspondait au nœud retiré
+        // ou qu'aucune ancre n'existe.
+        var homeMatches = kind switch
+        {
+            "ChefDeProjet" => string.Equals(emp.PoleId, removedNodeId, StringComparison.Ordinal),
+            "Superviseur" => string.Equals(emp.CelluleId, removedNodeId, StringComparison.Ordinal),
+            "ReferentTechnique" => string.Equals(emp.ServiceId, removedNodeId, StringComparison.Ordinal),
+            _ => true,
+        };
+        if (!homeMatches) return;
+
+        if (kind == "ChefDeProjet") emp.PoleId = "";
+        if (kind == "Superviseur") emp.CelluleId = null;
+        if (kind == "ReferentTechnique") emp.ServiceId = null;
+        emp.Role = KyntusRoleNames.Pilote;
+    }
+
+    private async Task<IReadOnlyList<string>> TryGetManagedNodeIdsAsync(string employeeId, string kind, CancellationToken ct)
+    {
+        if (rebac is null || !Guid.TryParse(employeeId, out var guid))
+            return [];
+        try
+        {
+            return await rebac.GetManagedNodeIdsAsync(guid, kind, ct);
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     public async Task ClearManagerForPoleAsync(string poleId, CancellationToken ct = default)

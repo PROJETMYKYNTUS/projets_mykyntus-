@@ -90,6 +90,15 @@ getUserByAuthId(authId: number): Observable<User> {
     );
   }
 
+  resetPassword(id: number): Observable<{ userId: number; email: string; temporaryPassword: string }> {
+    return this.http.post<{ userId: number; email: string; temporaryPassword: string }>(
+      `${this.apiUrl}/${id}/reset-password`,
+      {},
+    ).pipe(
+      catchError(err => throwError(() => err))
+    );
+  }
+
   checkEmailUnique(email: string, excludeId?: number): Observable<{ isUnique: boolean }> {
     const params = excludeId ? `?excludeId=${excludeId}` : '';
     return this.http.get<{ isUnique: boolean }>(`${this.apiUrl}/check-email/${email}${params}`).pipe(

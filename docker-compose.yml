@@ -70,16 +70,17 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_AUTH:?Définir KYNTUS_CONN_AUTH dans .env}
       DemoSeed__Enabled: ${KYNTUS_DEMO_SEED_ENABLED:-true}
-      DemoSeed__Passwords__Employee: ${KYNTUS_DEMO_SEED_PASSWORD_EMPLOYEE:-Azerty@123}
-      DemoSeed__Passwords__RH: ${KYNTUS_DEMO_SEED_PASSWORD_RH:-Azerty@123}
-      DemoSeed__Passwords__Manager: ${KYNTUS_DEMO_SEED_PASSWORD_MANAGER:-Azerty@123}
-      DemoSeed__Passwords__Coach: ${KYNTUS_DEMO_SEED_PASSWORD_COACH:-Azerty@123}
-      DemoSeed__Passwords__RP: ${KYNTUS_DEMO_SEED_PASSWORD_RP:-Azerty@123}
-      DemoSeed__Passwords__Admin: ${KYNTUS_DEMO_SEED_PASSWORD_ADMIN:-Azerty@123}
-      DemoSeed__Passwords__Audit: ${KYNTUS_DEMO_SEED_PASSWORD_AUDIT:-Azerty@123}
-      DemoSeed__Passwords__Formation: ${KYNTUS_DEMO_SEED_PASSWORD_FORMATION:-Azerty@123}
-      DemoSeed__Passwords__Superviseur: ${KYNTUS_DEMO_SEED_PASSWORD_SUPERVISEUR:-Azerty@123}
-      DemoSeed__Passwords__Qualiticien: ${KYNTUS_DEMO_SEED_PASSWORD_QUALITICIEN:-Azerty@123}
+      DemoSeed__Passwords__Employee: ${KYNTUS_DEMO_SEED_PASSWORD_EMPLOYEE:-Azerty@2026}
+      DemoSeed__Passwords__RH: ${KYNTUS_DEMO_SEED_PASSWORD_RH:-Azerty@2026}
+      DemoSeed__Passwords__Manager: ${KYNTUS_DEMO_SEED_PASSWORD_MANAGER:-Azerty@2026}
+      DemoSeed__Passwords__Coach: ${KYNTUS_DEMO_SEED_PASSWORD_COACH:-Azerty@2026}
+      DemoSeed__Passwords__RP: ${KYNTUS_DEMO_SEED_PASSWORD_RP:-Azerty@2026}
+      DemoSeed__Passwords__Admin: ${KYNTUS_DEMO_SEED_PASSWORD_ADMIN:-Azerty@2026}
+      DemoSeed__Passwords__Audit: ${KYNTUS_DEMO_SEED_PASSWORD_AUDIT:-Azerty@2026}
+      DemoSeed__Passwords__Formation: ${KYNTUS_DEMO_SEED_PASSWORD_FORMATION:-Azerty@2026}
+      DemoSeed__Passwords__Superviseur: ${KYNTUS_DEMO_SEED_PASSWORD_SUPERVISEUR:-Azerty@2026}
+      DemoSeed__Passwords__Qualiticien: ${KYNTUS_DEMO_SEED_PASSWORD_QUALITICIEN:-Azerty@2026}
+      InternalServices__ApiKey: ${KYNTUS_INTERNAL_SERVICE_API_KEY:?Définir KYNTUS_INTERNAL_SERVICE_API_KEY dans .env}
       <<: *kyntus-jwt
     ports:
       - "8520:8080"
@@ -141,6 +142,8 @@ services:
       Directory__WriteMaster: "true"
       Directory__RequireEnsureOnWrite: "false"
       Directory__EnablePlanningBootstrap: "false"
+      Auth__BaseUrl: http://kyntus_auth_backend:8080/
+      InternalServices__ApiKey: ${KYNTUS_INTERNAL_SERVICE_API_KEY:?Définir KYNTUS_INTERNAL_SERVICE_API_KEY dans .env}
       <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:
       - "8521:8080"
@@ -169,9 +172,9 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_FORMATION:?Définir KYNTUS_CONN_FORMATION dans .env}
-      # Catalogue + parcours formation initiale (quiz, checklists, file formateur/RH)
-      KYNTUS_FORMATION_DEMO_SEED: ${KYNTUS_FORMATION_DEMO_SEED:-true}
-      KYNTUS_DEMO_ENRICHMENT: ${KYNTUS_DEMO_ENRICHMENT:-true}
+      # Catalogue / parcours mock — false = data clean (vrais flux métier)
+      KYNTUS_FORMATION_DEMO_SEED: ${KYNTUS_FORMATION_DEMO_SEED:-false}
+      KYNTUS_DEMO_ENRICHMENT: ${KYNTUS_DEMO_ENRICHMENT:-false}
       <<: [*kyntus-jwt, *kyntus-rabbitmq]
     ports:
       - "8522:8080"
@@ -301,7 +304,8 @@ services:
       ConnectionStrings__DefaultConnection: ${KYNTUS_CONN_DIRECTORY:?Définir KYNTUS_CONN_DIRECTORY dans .env}
       Prime__BaseUrl: http://prime-backend:8080/
       Planning__BaseUrl: http://planning-backend:8080/
-      Htel__BaseUrl: https://htel-groupe.fr/
+      Htel__BaseUrl: ${HTEL_BASE_URL:-https://htel-groupe.fr/}
+      Htel__TechniciensUrl: ${HTEL_TECHNICIENS_URL:-https://htel-groupe.fr/api/v1/techniciens}
       Htel__ApiKey: ${HTEL_API_KEY:-}
       Directory__EnablePrimeBootstrap: "false"
       <<: [*kyntus-jwt, *kyntus-rabbitmq]

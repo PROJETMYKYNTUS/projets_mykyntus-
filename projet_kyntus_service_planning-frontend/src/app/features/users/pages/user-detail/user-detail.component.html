@@ -26,6 +26,10 @@
             <app-lucide-icon [icon]="icons.edit" className="w-4 h-4" />
             Modifier
           </button>
+          <button type="button" class="ky-btn-secondary" (click)="resetPassword()" [disabled]="resettingPassword">
+            <app-lucide-icon [icon]="icons.key" className="w-4 h-4" />
+            {{ resettingPassword ? 'Réinitialisation…' : 'Réinitialiser le mot de passe' }}
+          </button>
           <button type="button" class="ky-btn-danger" (click)="deleteUser()">
             <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
             Supprimer
@@ -33,6 +37,28 @@
         }
       </div>
     </app-kyntus-page-header>
+
+    @if (resetCredentials) {
+      <div class="ky-card credentials-oneshot-panel" style="margin-bottom: 1rem; padding: 1rem;">
+        <h3>Nouveau mot de passe (une seule fois)</h3>
+        <p><strong>Login :</strong> {{ resetCredentials.email }}</p>
+        <p>
+          <strong>Mot de passe :</strong>
+          <code>{{ showResetPassword ? resetCredentials.password : '••••••••••••••••' }}</code>
+        </p>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem;">
+          <button type="button" class="ky-btn-secondary" (click)="showResetPassword = !showResetPassword">
+            {{ showResetPassword ? 'Masquer' : 'Afficher' }}
+          </button>
+          <button type="button" class="ky-btn-secondary" (click)="copyResetPassword()">Copier</button>
+          <button type="button" class="ky-btn-secondary" (click)="downloadResetCredentialsExcel()" [disabled]="downloadingCredentialsExcel">
+            {{ downloadingCredentialsExcel ? 'Téléchargement…' : 'Télécharger Excel' }}
+          </button>
+          <button type="button" class="ky-btn-primary" (click)="closeResetCredentials()">Fermer</button>
+        </div>
+        <p style="margin-top: 0.5rem; opacity: 0.85;">Remettez ces identifiants à l’employé hors application. Ils ne seront plus affichés ensuite — conservez l’Excel pour la remise.</p>
+      </div>
+    }
 
     <div class="card ky-card">
       @if (loading) {
@@ -54,6 +80,42 @@
             @if (linkedReferral.eligibleForPaymentAt) {
               <p>Éligibilité prime prévue le {{ linkedReferral.eligibleForPaymentAt | date:'shortDate' }}</p>
             }
+          </section>
+        }
+
+        @if (lifecycle) {
+          <section class="lifecycle-banner ky-card" [class]="lifecyclePhaseClass(lifecycle.phase)">
+            <div class="lifecycle-banner__head">
+              <div>
+                <h3>Statut onboarding</h3>
+                <p>{{ lifecycle.label }}@if (lifecycle.hasContract === false) { · contrat manquant}</p>
+              </div>
+              <div class="lifecycle-banner__actions">
+                @if (lifecycle.passageProductionDeepLink) {
+                  <button type="button" class="ky-btn-primary" (click)="openLifecycleLink(lifecycle.passageProductionDeepLink)">
+                    Passage en production
+                  </button>
+                }
+                @if (lifecycle.editDeepLink) {
+                  <button type="button" class="ky-btn-secondary" (click)="openLifecycleLink(lifecycle.editDeepLink)">
+                    Checklist / fiche
+                  </button>
+                }
+                @if (lifecycle.hasContract === false) {
+                  <button type="button" class="ky-btn-secondary" (click)="openLifecycleLink(lifecycle.editDeepLink)">
+                    Ajouter un contrat
+                  </button>
+                }
+              </div>
+            </div>
+            <ol class="lifecycle-steps">
+              @for (step of lifecycle.steps; track step.id) {
+                <li [class]="'lifecycle-step lifecycle-step--' + step.state">
+                  <span class="lifecycle-step__dot"></span>
+                  <span>{{ step.label }}</span>
+                </li>
+              }
+            </ol>
           </section>
         }
 

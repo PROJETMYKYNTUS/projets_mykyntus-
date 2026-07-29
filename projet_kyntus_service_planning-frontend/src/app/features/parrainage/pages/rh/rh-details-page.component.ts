@@ -8,6 +8,7 @@ import { ReferralService } from '../../services/referral.service';
 import { ParrainageStoreService } from '../../services/parrainage-store.service';
 import { ParrainageNavService } from '../../state/parrainage-nav.service';
 import { ParrainageRoleService } from '../../state/parrainage-role.service';
+import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
 import type { ReferralStatus } from '../../models/referral.model';
 import {
   REFERRAL_STATUS_LABELS,
@@ -30,12 +31,6 @@ type ToastType = 'success' | 'error' | 'info';
   imports: [FormsModule, LucideIconComponent, CvPreviewPanelComponent],
   template: `
     <section class="flex-1 min-w-0 space-y-6">
-      @if (toast().show) {
-        <div [class]="'fixed top-4 left-1/2 -translate-x-1/2 z-[60] card-navy px-4 py-3 border-l-4 ' + toastBorder()">
-          <div class="text-sm font-medium">{{ toast().message }}</div>
-        </div>
-      }
-
       <div class="space-y-2">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -724,6 +719,7 @@ export class RhDetailsPageComponent {
   readonly nav = inject(ParrainageNavService);
   private readonly role = inject(ParrainageRoleService);
   private readonly router = inject(Router);
+  private readonly toastSvc = inject(KyntusToastService);
 
   readonly String = String;
 
@@ -756,7 +752,6 @@ export class RhDetailsPageComponent {
   extendTrainingComment = '';
   readonly busy = signal(false);
   readonly confirmOpen = signal<null | 'process' | 'confirm-production' | 'extend-training' | 'confirm-eligibility' | 'early-departure' | 'reject'>(null);
-  readonly toast = signal<{ show: boolean; type: ToastType; message: string }>({ show: false, type: 'success', message: '' });
 
   get id(): string {
     return this.nav.selectedReferralId() ?? '';
@@ -816,11 +811,6 @@ export class RhDetailsPageComponent {
     return this.referralService.getRuleLabelForReferral(this.id);
   });
 
-  toastBorder(): string {
-    const t = this.toast().type;
-    return t === 'success' ? 'border-emerald-500' : t === 'error' ? 'border-red-500' : 'border-soft-blue';
-  }
-
   historyStatus(action: string): ReferralStatus {
     if (action === 'PROCESSED') return 'PROCESSED';
     if (action === 'IN_TRAINING') return 'IN_TRAINING';
@@ -840,8 +830,9 @@ export class RhDetailsPageComponent {
   }
 
   private showToast(type: ToastType, message: string): void {
-    this.toast.set({ show: true, type, message });
-    setTimeout(() => this.toast.update((t) => ({ ...t, show: false })), 3200);
+    if (type === 'error') this.toastSvc.error(message);
+    else if (type === 'info') this.toastSvc.info(message);
+    else this.toastSvc.success(message);
   }
 
   handleProcessClick(): void {

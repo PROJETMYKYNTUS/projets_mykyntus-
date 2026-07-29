@@ -125,6 +125,10 @@ public class DirectoryDbContext(DbContextOptions<DirectoryDbContext> options) : 
             e.HasKey(x => x.Id);
             e.Property(x => x.NodeId).HasMaxLength(64);
             e.HasIndex(x => new { x.Kind, x.NodeId, x.EffectiveTo });
+            e.HasIndex(x => new { x.Kind, x.NodeId })
+                .IsUnique()
+                .HasFilter("\"EffectiveTo\" IS NULL")
+                .HasDatabaseName("IX_org_assignments_Kind_NodeId_Active");
             e.HasIndex(x => x.EmployeeId);
         });
 

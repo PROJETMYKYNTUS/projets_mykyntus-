@@ -49,7 +49,7 @@ import {
   buildCrossRoleOverwriteMessage,
   buildStructureOverwriteMessage,
   employeeDisplayName,
-  findEmployeeStructuralRole,
+  findConflictingStructuralRole,
   findStructureIncumbents,
   shouldConfirmOverwrite,
   shouldConfirmIncumbentChoice,
@@ -2210,7 +2210,7 @@ export class OrganisationManagementComponent implements OnInit {
   async saveMetierManagerRow(deptId: string): Promise<void> {
     const id = this.draftMetierManager(deptId);
     if (!id) return;
-    if (!(await this.confirmCrossRoleAssignment(id))) return;
+    if (!(await this.confirmCrossRoleAssignment(id, 'Manager'))) return;
     const md = this.data()?.operationalDepartments.find((d) => d.id === deptId);
     if (md?.managerEmployeeId && md.managerEmployeeId !== id) {
       const ok = await this.confirmService.confirm({
@@ -3139,10 +3139,13 @@ export class OrganisationManagementComponent implements OnInit {
     return t?.value ?? '';
   }
 
-  private async confirmCrossRoleAssignment(employeeId: string): Promise<boolean> {
+  private async confirmCrossRoleAssignment(
+    employeeId: string,
+    targetRole: string,
+  ): Promise<boolean> {
     const overview = this.data();
     if (!overview) return true;
-    const existing = findEmployeeStructuralRole(overview, employeeId);
+    const existing = findConflictingStructuralRole(overview, employeeId, targetRole);
     if (!existing) return true;
     const name = employeeDisplayName(overview.employees, employeeId);
     return this.confirmService.confirm({
@@ -3156,12 +3159,22 @@ export class OrganisationManagementComponent implements OnInit {
 
   private formatRevokedLog(result: unknown): string[] {
     if (!result || typeof result !== 'object') return [];
-    const revoked = (result as StructuralRoleAssignmentResult).revoked;
-    if (!Array.isArray(revoked) || revoked.length === 0) return [];
-    return revoked.map((v) => {
-      const where = v.nodeLabel ?? v.departmentCode ?? v.nodeId;
-      return `Ancien rôle retiré : ${v.role}${where ? ` (${where})` : ''}`;
-    });
+    const typed = result as StructuralRoleAssignmentResult;
+    const messages: string[] = [];
+    const revoked = typed.revoked;
+    if (Array.isArray(revoked)) {
+      for (const v of revoked) {
+        const where = v.nodeLabel ?? v.departmentCode ?? v.nodeId;
+        messages.push(`Ancien rôle retiré : ${v.role}${where ? ` (${where})` : ''}`);
+      }
+    }
+    const revokedOnNode = typed.revokedOnNode;
+    if (Array.isArray(revokedOnNode)) {
+      for (const v of revokedOnNode) {
+        messages.push(`Titulaire remplacé sur ${v.nodeId} : employé ${v.employeeId}`);
+      }
+    }
+    return messages;
   }
 
   private async resolveIncumbentAssignment(
@@ -3184,37 +3197,17 @@ export class OrganisationManagementComponent implements OnInit {
       return { cancelled: false };
     }
 
-    const add = await this.confirmService.confirm({
-      title: 'Titulaires existants',
-      message: `${buildIncumbentChoiceMessage(roleName, incumbents)} Ajouter le nouveau titulaire sans retirer les autres ?`,
-      confirmLabel: 'Ajouter',
-      cancelLabel: 'Autre choix…',
-      variant: 'default',
-    });
-    if (add) return { cancelled: false };
-
-    const selectedIds = await this.confirmService.confirmSelect({
-      title: 'Remplacer les titulaires',
-      message:
-        incumbents.length === 1
-          ? `Remplacer le titulaire actuel ?`
-          : `Cochez uniquement le(s) titulaire(s) à remplacer (les non cochés restent en place).`,
+    const replace = await this.confirmService.confirm({
+      title: 'Remplacer le titulaire',
+      message: buildIncumbentChoiceMessage(roleName, incumbents),
       confirmLabel: 'Remplacer',
       cancelLabel: 'Annuler',
       variant: 'warning',
-      choicesHint:
-        incumbents.length > 1
-          ? 'Vous pouvez n’en remplacer qu’un seul parmi plusieurs.'
-          : undefined,
-      choices: incumbents.map((i) => ({
-        id: i.userId,
-        label: i.displayName,
-        checked: true,
-      })),
-      requireSelection: true,
     });
-    if (!selectedIds) return { cancelled: true };
-    return { revokeIds: selectedIds, cancelled: false };
+    if (!replace) return { cancelled: true };
+
+    // L'API évince tous les titulaires du nœud ; on passe les IDs pour traçabilité UX.
+    return { revokeIds: incumbents.map((i) => i.userId), cancelled: false };
   }
 
   removeDepartmentManagerIncumbent(poleId: string, employeeId: string): void {
@@ -3266,7 +3259,7 @@ export class OrganisationManagementComponent implements OnInit {
   async saveDepartmentManagerRow(departmentId: string): Promise<void> {
     const id = this.draftManagerByDept()[departmentId];
     if (!id) return;
-    if (!(await this.confirmCrossRoleAssignment(id))) {
+    if (!(await this.confirmCrossRoleAssignment(id, 'Chef de projet'))) {
       return;
     }
     const choice = await this.resolveIncumbentAssignment('Chef de projet', departmentId, id);
@@ -3292,7 +3285,7 @@ export class OrganisationManagementComponent implements OnInit {
   async savePoleSupervisorRow(poleId: string): Promise<void> {
     const id = this.draftSupervisorByPole()[poleId];
     if (!id) return;
-    if (!(await this.confirmCrossRoleAssignment(id))) return;
+    if (!(await this.confirmCrossRoleAssignment(id, 'Superviseur'))) return;
     const choice = await this.resolveIncumbentAssignment('Superviseur', poleId, id);
     if (choice.cancelled) return;
     this.runMutation(
@@ -3316,7 +3309,7 @@ export class OrganisationManagementComponent implements OnInit {
   async saveCellCoachRow(celluleId: string): Promise<void> {
     const id = this.draftCoachByCell()[celluleId];
     if (!id) return;
-    if (!(await this.confirmCrossRoleAssignment(id))) return;
+    if (!(await this.confirmCrossRoleAssignment(id, 'Référent technique'))) return;
     const choice = await this.resolveIncumbentAssignment('Référent technique', celluleId, id);
     if (choice.cancelled) return;
     this.runMutation(
@@ -3389,7 +3382,7 @@ export class OrganisationManagementComponent implements OnInit {
   async addPilotRow(celluleId: string): Promise<void> {
     const emp = this.draftPilotByCell()[celluleId];
     if (!emp) return;
-    if (!(await this.confirmCrossRoleAssignment(emp))) return;
+    if (!(await this.confirmCrossRoleAssignment(emp, 'Pilote'))) return;
     const rotation = await this.resolvePilotRotationAssignment(emp, celluleId);
     if (!rotation.proceed) return;
     this.runMutation(
@@ -3408,7 +3401,7 @@ export class OrganisationManagementComponent implements OnInit {
   async saveMetierManagerStructure(deptId: string): Promise<void> {
     const id = this.draftEmployeeId();
     if (!id) return;
-    if (!(await this.confirmCrossRoleAssignment(id))) return;
+    if (!(await this.confirmCrossRoleAssignment(id, 'Manager'))) return;
     const md = this.data()?.operationalDepartments.find((d) => d.id === deptId);
     if (md?.managerEmployeeId && md.managerEmployeeId !== id) {
       const ok = await this.confirmService.confirm({
@@ -3436,7 +3429,7 @@ export class OrganisationManagementComponent implements OnInit {
   async saveDepartmentManager(departmentId: string): Promise<void> {
     const id = this.draftEmployeeId();
     if (!id) return;
-    if (!(await this.confirmCrossRoleAssignment(id))) {
+    if (!(await this.confirmCrossRoleAssignment(id, 'Chef de projet'))) {
       return;
     }
     const choice = await this.resolveIncumbentAssignment('Chef de projet', departmentId, id);
@@ -3459,7 +3452,7 @@ export class OrganisationManagementComponent implements OnInit {
   async savePoleSupervisor(poleId: string): Promise<void> {
     const id = this.draftEmployeeId();
     if (!id) return;
-    if (!(await this.confirmCrossRoleAssignment(id))) return;
+    if (!(await this.confirmCrossRoleAssignment(id, 'Superviseur'))) return;
     const choice = await this.resolveIncumbentAssignment('Superviseur', poleId, id);
     if (choice.cancelled) return;
     this.runMutation(
@@ -3480,7 +3473,7 @@ export class OrganisationManagementComponent implements OnInit {
   async saveCellCoach(celluleId: string): Promise<void> {
     const id = this.draftEmployeeId();
     if (!id) return;
-    if (!(await this.confirmCrossRoleAssignment(id))) return;
+    if (!(await this.confirmCrossRoleAssignment(id, 'Référent technique'))) return;
     const choice = await this.resolveIncumbentAssignment('Référent technique', celluleId, id);
     if (choice.cancelled) return;
     this.runMutation(
@@ -3501,7 +3494,7 @@ export class OrganisationManagementComponent implements OnInit {
   async addPilot(celluleId: string): Promise<void> {
     const emp = this.draftPilotId();
     if (!emp) return;
-    if (!(await this.confirmCrossRoleAssignment(emp))) return;
+    if (!(await this.confirmCrossRoleAssignment(emp, 'Pilote'))) return;
     const rotation = await this.resolvePilotRotationAssignment(emp, celluleId);
     if (!rotation.proceed) return;
     this.runMutation(

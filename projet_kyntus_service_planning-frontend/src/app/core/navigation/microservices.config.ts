@@ -4,6 +4,7 @@ import type { AuditSectionId } from '../../features/parrainage/state/audit-secti
 import type { DocumentationTabId } from '../../features/documentation/services/documentation-navigation.service';
 import type { AuditInterfaceSectionId } from '../../features/documentation/services/audit-interface-nav.service';
 import type { OrganisationMenuEntry } from './organisation-nav';
+import { ROLE_SETS } from '../org/kyntus-role-names';
 
 /**
  * Configuration centrale du menu latéral global des microservices.
@@ -13,7 +14,7 @@ import type { OrganisationMenuEntry } from './organisation-nav';
  * - un item est visible si `roles` est vide/absent (tous), ou si le rôle courant y figure.
  * - un groupe est visible s'il a au moins un enfant visible (ou si `roles` au niveau groupe l'autorise).
  *
- * Rôles connus (claim JWT) : Admin, RH, Manager, Coach, RP, Pilote, Audit, Equipe_Formation, Employee, Superviseur.
+ * Rôles : voir core/org/kyntus-role-names.ts (aligné Messaging.Contracts/KyntusRoleNames).
  */
 
 export interface MenuItem {
@@ -55,52 +56,17 @@ export interface Microservice {
   dynamicChildren?: boolean;
   children: MenuItem[];
 }
-const ALL_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Formateur', 'Employee', 'Superviseur'];
-const MANAGER_ROLES = ['Admin', 'RH', 'Manager'];
-const ADMIN_RH = ['Admin', 'RH'];
-/** Rôles qui demandent un changement comme le Pilote (Mes plannings). */
-const PLANNING_SELF_SERVICE_ROLES = [
-  'Employee',
-  'Pilote',
-  'Coach',
-  'Référent technique',
-  'Superviseur',
-  'Manager',
-  'RP',
-  'Audit',
-  'Equipe_Formation',
-  'Equipe formation',
-  'Formateur',
-];
-const EMPLOYEE_ROLES = PLANNING_SELF_SERVICE_ROLES;
-const MES_SESSIONS_ROLES = [
-  'Employee',
-  'Pilote',
-  'Manager',
-  'Coach',
-  'Référent technique',
-  'RP',
-  'Audit',
-  'Formateur',
-  'Equipe_Formation',
-  'Equipe formation',
-  'Superviseur',
-  'Admin',
-  'RH',
-  'Qualiticien',
-];
-const FORMATION_GESTION_ROLES = ['Admin', 'RH'];
-/** Saisie quiz + file formateur initiale. */
-const FORMATION_FORMATEUR_ROLES = ['Admin', 'Formateur', 'Equipe_Formation', 'Equipe formation'];
-const FORMATION_PLANNER_ROLES = [
-  'Admin',
-  'RH',
-  'Chef de projet',
-  'RP',
-  'Superviseur',
-  'Qualiticien',
-];
-const PLANNING_MANAGER_ROLES = ['Admin', 'RH', 'Manager', 'Coach', 'Référent technique', 'RP', 'Pilote', 'Audit', 'Equipe_Formation'];
+
+const ALL_ROLES = ROLE_SETS.allAuthenticated;
+const MANAGER_ROLES = ROLE_SETS.managerRh;
+const ADMIN_RH = ROLE_SETS.adminRh;
+const PLANNING_SELF_SERVICE_ROLES = ROLE_SETS.planningSelfService;
+const EMPLOYEE_ROLES = ROLE_SETS.planningSelfService;
+const MES_SESSIONS_ROLES = ROLE_SETS.mesSessions;
+const FORMATION_GESTION_ROLES = ROLE_SETS.formationGestion;
+const FORMATION_FORMATEUR_ROLES = ROLE_SETS.formationFormateur;
+const FORMATION_PLANNER_ROLES = ROLE_SETS.formationPlanner;
+const PLANNING_MANAGER_ROLES = ROLE_SETS.planningManagers;
 
 const ICONS = {
   grid: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -147,9 +113,8 @@ export const MICROSERVICES: Microservice[] = [
     label: 'Congés',
     icon: ICONS.leave,
     children: [
-      { label: 'Gestion des congés', route: '/conge-gestion', roles: MANAGER_ROLES },
-      { label: 'Historique des congés', route: '/conge-historique', roles: MANAGER_ROLES },
-      { label: 'Gestion des absences', route: '/conge', roles: MANAGER_ROLES },
+      { label: 'Validation des congés', route: '/conges/validation', roles: MANAGER_ROLES },
+      { label: 'Historique des congés', route: '/conges/historique', roles: MANAGER_ROLES },
       { label: 'Mes congés', route: '/mes-conges', roles: EMPLOYEE_ROLES },
     ],
   },
@@ -182,6 +147,7 @@ export const MICROSERVICES: Microservice[] = [
       { label: 'Validation plannings', route: '/planning/validation', roles: ['Admin', 'RH'] },
       { label: 'Gestion des demandes', route: '/planning/change-requests', roles: ADMIN_RH },
       { label: 'Planning Équipe', route: '/planning/equipe', roles: ['Manager', 'Coach', 'Référent technique', 'Superviseur'] },
+      { label: 'Absences planning', route: '/absences-planning', roles: MANAGER_ROLES },
       { label: 'Configuration Shifts', route: '/planning/shift-config', roles: ADMIN_RH },
     ],
   },

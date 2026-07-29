@@ -49,7 +49,7 @@ public sealed class DirectoryEmployeeProjectionConsumer(AppDbContext db) :
                 RoleId = role.Id,
                 IsActive = msg.IsActive,
                 HireDate = DateTime.UtcNow,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Azerty@123"),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(Planning.Infrastructure.Security.PasswordGenerator.Generate()),
                 IdTechnicien = msg.IdTechnicien,
                 HtelCode = msg.HtelCode,
             };

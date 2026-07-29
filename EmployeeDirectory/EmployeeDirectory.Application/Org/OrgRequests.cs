@@ -102,6 +102,31 @@ public sealed class AssignStructureRoleCommandHandler(IDirectoryWriteService wri
             ct);
 }
 
+public record ReconcileEmployeeStructuralAssignmentsCommand(
+    string Kind,
+    Guid EmployeeId,
+    IReadOnlyList<string> NodeIds,
+    string PrimaryNodeId,
+    Guid? ChangedBy,
+    string? Reason)
+    : IRequest<StructuralAssignmentsReconcileResult>;
+
+public sealed class ReconcileEmployeeStructuralAssignmentsCommandHandler(IDirectoryWriteService write)
+    : IRequestHandler<ReconcileEmployeeStructuralAssignmentsCommand, StructuralAssignmentsReconcileResult>
+{
+    public Task<StructuralAssignmentsReconcileResult> Handle(
+        ReconcileEmployeeStructuralAssignmentsCommand request,
+        CancellationToken ct) =>
+        write.ReconcileEmployeeStructuralAssignmentsAsync(
+            request.Kind,
+            request.EmployeeId,
+            request.NodeIds,
+            request.PrimaryNodeId,
+            request.ChangedBy,
+            request.Reason,
+            ct);
+}
+
 public record RemoveStructureAssignmentCommand(
     string Kind,
     string NodeId,

@@ -326,3 +326,20 @@
     border-radius: var(--radius-card);
   }
 }
+
+.lifecycle-pill {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: color-mix(in srgb, #f59e0b 22%, transparent);
+  color: #b45309;
+}
+
+.lifecycle-pill[data-phase='awaiting_auth'],
+.lifecycle-pill[data-phase='inactive'] {
+  background: color-mix(in srgb, #ef4444 18%, transparent);
+  color: #b91c1c;
+}

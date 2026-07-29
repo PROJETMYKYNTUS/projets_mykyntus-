@@ -15,11 +15,43 @@ public sealed class OrgStructuralRoleExclusivityService(
     DirectoryDbContext db,
     IOutboxWriter outbox) : IOrgStructuralRoleExclusivityService
 {
-    public async Task<IReadOnlyList<RevokedStructuralRoleDto>> RevokeAllStructuralRolesForEmployeeAsync(
+    public Task<IReadOnlyList<RevokedStructuralRoleDto>> RevokeAllStructuralRolesForEmployeeAsync(
         Guid employeeId,
         Guid? changedBy,
         string? reason,
-        CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        RevokeStructuralRolesCoreAsync(
+            employeeId,
+            keepKind: null,
+            exclusiveWithinKind: false,
+            clearAllIncludingSameKind: true,
+            changedBy,
+            reason,
+            ct);
+
+    public Task<IReadOnlyList<RevokedStructuralRoleDto>> RevokeConflictingStructuralRolesForEmployeeAsync(
+        Guid employeeId,
+        DomainAssignmentKind keepKind,
+        Guid? changedBy,
+        string? reason,
+        CancellationToken ct = default) =>
+        RevokeStructuralRolesCoreAsync(
+            employeeId,
+            keepKind,
+            exclusiveWithinKind: keepKind == DomainAssignmentKind.Pilote,
+            clearAllIncludingSameKind: false,
+            changedBy,
+            reason,
+            ct);
+
+    private async Task<IReadOnlyList<RevokedStructuralRoleDto>> RevokeStructuralRolesCoreAsync(
+        Guid employeeId,
+        DomainAssignmentKind? keepKind,
+        bool exclusiveWithinKind,
+        bool clearAllIncludingSameKind,
+        Guid? changedBy,
+        string? reason,
+        CancellationToken ct)
     {
         var revoked = new List<RevokedStructuralRoleDto>();
         var now = DateTime.UtcNow;
@@ -28,7 +60,15 @@ public sealed class OrgStructuralRoleExclusivityService(
             .Where(a => a.EmployeeId == employeeId && a.EffectiveTo == null)
             .ToListAsync(ct);
 
-        foreach (var row in activeAssignments)
+        var alreadyHasKeepKind = keepKind.HasValue
+            && activeAssignments.Any(a => a.Kind == keepKind.Value);
+
+        // clearAll / Pilote → tout révoquer ; sinon → uniquement les kinds incompatibles.
+        var toRevoke = clearAllIncludingSameKind || exclusiveWithinKind
+            ? activeAssignments
+            : activeAssignments.Where(a => keepKind.HasValue && a.Kind != keepKind.Value).ToList();
+
+        foreach (var row in toRevoke)
         {
             row.EffectiveTo = now;
             row.SupersededBy = Guid.NewGuid();
@@ -62,9 +102,14 @@ public sealed class OrgStructuralRoleExclusivityService(
             }, aggregateId: employeeId.ToString(), ct: ct);
         }
 
-        var managedDepts = await db.BusinessDepartments
-            .Where(d => d.ManagerEmployeeId == employeeId)
-            .ToListAsync(ct);
+        // Départements managés : seulement lors d'une transition vers un kind structurel
+        // (pas quand on ajoute un 2e nœud du même kind).
+        var shouldClearManagedDepts = clearAllIncludingSameKind || !alreadyHasKeepKind;
+        var managedDepts = shouldClearManagedDepts
+            ? await db.BusinessDepartments
+                .Where(d => d.ManagerEmployeeId == employeeId)
+                .ToListAsync(ct)
+            : [];
 
         foreach (var dept in managedDepts)
         {
@@ -92,12 +137,20 @@ public sealed class OrgStructuralRoleExclusivityService(
             await EnqueueBusinessDepartmentChangedAsync(dept, ct);
         }
 
+        var remainingSameKind = keepKind.HasValue
+            && activeAssignments.Any(a => a.Kind == keepKind.Value && a.EffectiveTo == null);
+
         var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId, ct);
-        if (employee is not null && (activeAssignments.Count > 0 || managedDepts.Count > 0))
+        if (employee is not null && (toRevoke.Count > 0 || managedDepts.Count > 0))
         {
-            ResetEmployeeStructuralFields(employee);
-            employee.UpdatedAt = now;
-            await EnqueueEmployeeChangedAsync(employee, ct);
+            // Ne pas écraser le home si des charges du même kind restent actives
+            // (ApplyAssignmentToEmployeeAsync mettra à jour l'ancre primaire ensuite).
+            if (!remainingSameKind)
+            {
+                ResetEmployeeStructuralFields(employee);
+                employee.UpdatedAt = now;
+                await EnqueueEmployeeChangedAsync(employee, ct);
+            }
         }
 
         return revoked;

@@ -51,25 +51,21 @@
         <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
         Contrats
       </a>
-<!-- Ancien bouton — ne touchez pas -->
-<a class="nav-item" routerLink="/conge">
-  Congés (ancien)
-</a>
-
-<!-- Nouveau — gestion complète -->
-<a class="nav-item" routerLink="/conge-gestion">
-  Congés — Gestion complète
-</a>
-
-       <a class="nav-item" routerLink="/conge-admin">
+<a class="nav-item" routerLink="/conges/validation">
   <span class="nav-icon">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" 
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
          stroke="currentColor" stroke-width="2">
       <path d="M17.5 19H9a7 7 0 117-7v1"/>
       <path d="M17 9l4-4-4-4M21 5H9"/>
     </svg>
   </span>
-  Suivi Congés
+  Validation des congés
+</a>
+<a class="nav-item" routerLink="/conges/historique">
+  Historique des congés
+</a>
+<a class="nav-item" routerLink="/absences-planning">
+  Absences planning
 </a>
 
       <span class="nav-label">Planification</span>
@@ -297,13 +293,13 @@
               <span class="card-cta">Ouvrir →</span>
             </div>
           </a>
-          <a class="card cc-t" routerLink="/conge">
+          <a class="card cc-t" routerLink="/conges/validation">
             <div class="card-top">
               <div class="card-ic cic-t"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 117-7v1"/><path d="M17 9l4-4-4-4M21 5H9"/></svg></div>
               <div class="card-arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
             </div>
-            <h3>Congés</h3>
-            <p>Gestion et suivi des congés des employés</p>
+            <h3>Validation des congés</h3>
+            <p>Valider et suivre les demandes de congés des employés</p>
             <div class="card-ft">
               <span class="badge"><span class="bdot bd-t"></span>Suivi en temps réel</span>
               <span class="card-cta">Ouvrir →</span>

@@ -60,27 +60,17 @@
 
 
 
-        @if (!isEditMode) {
-
+        @if (!isEditMode && !showCreateSuccess) {
           <div class="alert alert-info">
-
             <div class="alert-icon"><app-lucide-icon [icon]="icons.lock" className="w-5 h-5" /></div>
-
             <div>
-
-              <strong>Mot de passe par défaut</strong>
-
-              <p>Le compte sera créé avec le mot de passe : <strong>Azerty@123</strong></p>
-
+              <strong>Identifiants générés automatiquement</strong>
+              <p>Un mot de passe unique sera créé et affiché une seule fois après l’enregistrement. Téléchargez l’Excel ou copiez le mot de passe pour le remettre à l’employé hors application.</p>
             </div>
-
           </div>
-
         }
 
-
-
-        @if (!isEditMode && selectedReferral && currentWizardStep !== 'identity') {
+        @if (!isEditMode && selectedReferral && currentWizardStep !== 'identity' && !showCreateSuccess) {
           <div class="alert alert-info referral-context-banner">
             <div>
               <strong>Dossier parrainage lié</strong>
@@ -103,14 +93,69 @@
         <form class="form">
 
           @if (showCreateSuccess) {
-            <section class="form-section create-success-panel">
-              <h2>Employé enregistré</h2>
-              <p>{{ createSuccessMessage }}</p>
-              <div class="form-actions">
-                <button type="button" class="btn btn-primary ky-btn-primary" (click)="viewCreatedUser()">
+            <section class="form-section create-success-panel" aria-live="polite">
+              <div class="section-heading create-success-heading">
+                <div class="create-success-heading-row">
+                  <span class="create-success-icon" aria-hidden="true">
+                    <app-lucide-icon [icon]="icons.lock" className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <h2>Identifiants à remettre</h2>
+                    <p class="section-hint">{{ createSuccessMessage }}</p>
+                  </div>
+                </div>
+              </div>
+
+              @if (createdCredentials) {
+                <div class="credentials-oneshot">
+                  <div class="form-group">
+                    <label>Login (email)</label>
+                    <code class="ky-input credential-value" tabindex="0">{{ createdCredentials.email }}</code>
+                  </div>
+                  <div class="form-group">
+                    <label>Mot de passe</label>
+                    <code class="ky-input credential-value credential-value--secret" tabindex="0">{{
+                      showCreatedPassword ? createdCredentials.password : '••••••••••••••••'
+                    }}</code>
+                  </div>
+
+                  <div class="credentials-actions">
+                    <button type="button" class="ky-btn-secondary" (click)="showCreatedPassword = !showCreatedPassword">
+                      {{ showCreatedPassword ? 'Masquer' : 'Afficher' }}
+                    </button>
+                    <button type="button" class="ky-btn-secondary" (click)="copyCreatedPassword()">
+                      Copier le mot de passe
+                    </button>
+                    <button
+                      type="button"
+                      class="ky-btn-primary"
+                      (click)="downloadCreatedCredentialsExcel()"
+                      [disabled]="downloadingCredentialsExcel"
+                    >
+                      {{ downloadingCredentialsExcel ? 'Téléchargement…' : 'Télécharger Excel' }}
+                    </button>
+                  </div>
+
+                  <div class="alert alert-warning credentials-warning-box">
+                    <p>
+                      Ce mot de passe ne sera plus visible après avoir quitté cet écran.
+                      L’Excel est le support de remise recommandé.
+                    </p>
+                  </div>
+                </div>
+              } @else {
+                <div class="alert alert-warning credentials-warning-box">
+                  <p>
+                    Mot de passe non renvoyé par le serveur — utilisez « Réinitialiser le mot de passe » sur la fiche.
+                  </p>
+                </div>
+              }
+
+              <div class="form-actions create-success-nav">
+                <button type="button" class="ky-btn-primary" (click)="viewCreatedUser()">
                   Voir la fiche
                 </button>
-                <button type="button" class="btn btn-outline ky-btn-secondary" (click)="goBack()">
+                <button type="button" class="ky-btn-secondary" (click)="goBack()">
                   Retour à la liste
                 </button>
               </div>
@@ -769,10 +814,66 @@
                         </div>
                       }
                     </div>
-                    @if (orgServiceId || orgCelluleId || orgPoleId || orgOperationalDeptId) {
+                    @if (supportsMultiOrg) {
+                      <div class="multi-org-selection">
+                        <div class="multi-org-selection__header">
+                          <strong>{{ selectedOrgNodeIds.length }}</strong>
+                          périmètre(s) sélectionné(s)
+                          @if (canAddOrgNodeToSelection) {
+                            <button
+                              type="button"
+                              class="link-inline"
+                              (click)="addCurrentOrgNodeToSelection()"
+                            >
+                              Ajouter à la sélection
+                            </button>
+                          }
+                        </div>
+                        @if (selectedOrgChipItems.length === 0) {
+                          <p class="empty-results">
+                            Naviguez dans la cascade puis sélectionnez le nœud cible pour l’ajouter.
+                          </p>
+                        } @else {
+                          <ul class="org-chip-list">
+                            @for (chip of selectedOrgChipItems; track chip.id) {
+                              <li class="org-chip" [class.org-chip--primary]="chip.isPrimary">
+                                <div class="org-chip__body">
+                                  <span class="org-chip__label">{{ chip.label }}</span>
+                                  @if (chip.isPrimary) {
+                                    <span class="org-chip__badge">Principal</span>
+                                  }
+                                </div>
+                                <div class="org-chip__actions">
+                                  @if (!chip.isPrimary) {
+                                    <button
+                                      type="button"
+                                      class="link-inline"
+                                      (click)="setSelectedOrgNodePrimary(chip.id)"
+                                    >
+                                      Définir principal
+                                    </button>
+                                  }
+                                  <button
+                                    type="button"
+                                    class="org-chip__remove"
+                                    (click)="removeSelectedOrgNode(chip.id)"
+                                    aria-label="Retirer ce périmètre"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              </li>
+                            }
+                          </ul>
+                        }
+                      </div>
+                    } @else if (orgServiceId || orgCelluleId || orgPoleId || orgOperationalDeptId) {
                       <div class="selected-org">
                         <strong>Périmètre :</strong> {{ selectedOrgSummary }}
                       </div>
+                    }
+                    @if (additionalStructuralChargesHint) {
+                      <p class="field-hint">{{ additionalStructuralChargesHint }}</p>
                     }
                   }
 

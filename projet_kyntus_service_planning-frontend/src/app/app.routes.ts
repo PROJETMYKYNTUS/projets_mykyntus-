@@ -3,6 +3,7 @@ import { AuthCallbackComponent } from './component/pages/auth-callback.component
 import { AuthGuard } from './guard/guards/auth';
 import { NewsletterAdminComponent } from './features/Newsletter-admin/newsletter-admin.component';
 import { ShellLayoutComponent } from './features/shell/shell-layout.component';
+import { ROLE_SETS } from './core/org/kyntus-role-names';
 
 export const routes: Routes = [
 
@@ -62,7 +63,7 @@ export const routes: Routes = [
       {
         path: 'reclamations',
         canActivate: [AuthGuard],
-        data: { roles: ['employee', 'RH', 'Manager', 'Coach', 'RP', 'Admin', 'Audit', 'Equipe_Formation', 'Superviseur'] },
+        data: { roles: ROLE_SETS.reclamationsEmployee },
         loadComponent: () =>
           import('./features/reclamation/employee/reclamation-employee.component')
             .then(m => m.ReclamationEmployeeComponent),
@@ -70,7 +71,7 @@ export const routes: Routes = [
       {
         path: 'reclamations-admin',
         canActivate: [AuthGuard],
-        data: { roles: ['RH', 'Manager', 'RP', 'Admin', 'Audit'] },
+        data: { roles: ROLE_SETS.reclamationsAdmin },
         loadComponent: () =>
           import('./features/reclamation/admin/reclamation-admin.component')
             .then(m => m.ReclamationAdminComponent),
@@ -81,7 +82,7 @@ export const routes: Routes = [
       {
         path: 'formations/planifier',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Chef de projet', 'RP', 'Superviseur', 'Qualiticien'] },
+        data: { roles: ROLE_SETS.formationPlanner },
         loadComponent: () =>
           import('./features/formation/rh/formation-rh-plan.component')
             .then(m => m.FormationRhPlanComponent),
@@ -89,7 +90,7 @@ export const routes: Routes = [
       {
         path: 'formations/dashboard',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Chef de projet', 'RP', 'Superviseur', 'Qualiticien'] },
+        data: { roles: ROLE_SETS.formationPlanner },
         loadComponent: () =>
           import('./features/formation/dashboard/formation-dashboard.component')
             .then(m => m.FormationDashboardComponent),
@@ -97,7 +98,7 @@ export const routes: Routes = [
       {
         path: 'formations/initiales',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'Formateur', 'Equipe_Formation', 'Equipe formation'] },
+        data: { roles: ROLE_SETS.formationFormateur },
         loadComponent: () =>
           import('./features/formation/formateur/formation-formateur-initial.component')
             .then(m => m.FormationFormateurInitialComponent),
@@ -105,7 +106,7 @@ export const routes: Routes = [
       {
         path: 'formations/passage-production',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
+        data: { roles: ROLE_SETS.adminRh },
         loadComponent: () =>
           import('./features/formation/rh/formation-rh-prod-queue.component')
             .then(m => m.FormationRhProdQueueComponent),
@@ -113,7 +114,7 @@ export const routes: Routes = [
       {
         path: 'formations/documents-checklist-config',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
+        data: { roles: ROLE_SETS.adminRh },
         loadComponent: () =>
           import('./features/formation/rh/formation-documents-config.component')
             .then(m => m.FormationDocumentsConfigComponent),
@@ -121,7 +122,7 @@ export const routes: Routes = [
       {
         path: 'formations/initiales/:pathId/checklist',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Formateur', 'Equipe_Formation', 'Equipe formation'] },
+        data: { roles: ROLE_SETS.formationChecklist },
         loadComponent: () =>
           import('./features/formation/rh/formation-path-checklist.component')
             .then(m => m.FormationPathChecklistComponent),
@@ -130,7 +131,7 @@ export const routes: Routes = [
         path: 'formations',
         pathMatch: 'full',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
+        data: { roles: ROLE_SETS.adminRh },
         loadComponent: () =>
           import('./features/formation/admin/formation-admin.component')
             .then(m => m.FormationAdminComponent),
@@ -139,19 +140,7 @@ export const routes: Routes = [
         path: 'mes-sessions',
         canActivate: [AuthGuard],
         data: {
-          roles: [
-            'Employee',
-            'Manager',
-            'Coach',
-            'RP',
-            'Audit',
-            'Formateur',
-            'Equipe_Formation',
-            'Equipe formation',
-            'Superviseur',
-            'Admin',
-            'RH',
-          ],
+          roles: ROLE_SETS.mesSessions,
         },
         loadComponent: () =>
           import('./features/formation/sessions/formation-mes-sessions.component')
@@ -161,19 +150,7 @@ export const routes: Routes = [
         path: 'mes-sessions/:sessionId/quiz',
         canActivate: [AuthGuard],
         data: {
-          roles: [
-            'Employee',
-            'Manager',
-            'Coach',
-            'RP',
-            'Audit',
-            'Formateur',
-            'Equipe_Formation',
-            'Equipe formation',
-            'Superviseur',
-            'Admin',
-            'RH',
-          ],
+          roles: ROLE_SETS.mesSessions,
         },
         loadComponent: () =>
           import('./features/formation/sessions/formation-session-quiz.component')
@@ -183,17 +160,7 @@ export const routes: Routes = [
         path: 'mes-formations',
         canActivate: [AuthGuard],
         data: {
-          roles: [
-            'Employee',
-            'Manager',
-            'Coach',
-            'RP',
-            'Audit',
-            'Formateur',
-            'Equipe_Formation',
-            'Equipe formation',
-            'Superviseur',
-          ],
+          roles: ROLE_SETS.mesFormations,
         },
         loadComponent: () =>
           import('./features/formation/employee/formation-employee.component')
@@ -203,17 +170,7 @@ export const routes: Routes = [
         path: 'mes-formations/:sessionId/quiz',
         canActivate: [AuthGuard],
         data: {
-          roles: [
-            'Employee',
-            'Manager',
-            'Coach',
-            'RP',
-            'Audit',
-            'Formateur',
-            'Equipe_Formation',
-            'Equipe formation',
-            'Superviseur',
-          ],
+          roles: ROLE_SETS.mesFormations,
         },
         loadComponent: () =>
           import('./features/formation/sessions/formation-take-quiz.component')
@@ -224,13 +181,13 @@ export const routes: Routes = [
       {
         path: 'newsletter',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
+        data: { roles: ROLE_SETS.adminRh },
         component: NewsletterAdminComponent,
       },
       {
         path: 'mes-newsletters',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Employee', 'Superviseur'] },
+        data: { roles: ROLE_SETS.allAuthenticated },
         loadComponent: () =>
           import('./features/newsletter-inbox/my-newsletters-page.component')
             .then(m => m.MyNewslettersPageComponent),
@@ -240,7 +197,7 @@ export const routes: Routes = [
       {
         path: 'organisation',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
+        data: { roles: ROLE_SETS.adminRh },
         loadComponent: () =>
           import('./features/prime/pages/organisation-management.component')
             .then((m) => m.OrganisationManagementComponent),
@@ -248,7 +205,7 @@ export const routes: Routes = [
       {
         path: 'departements-metier',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
+        data: { roles: ROLE_SETS.adminRh },
         loadComponent: () =>
           import('./features/prime/pages/allowances/business-departments-page.component')
             .then((m) => m.BusinessDepartmentsPageComponent),
@@ -273,7 +230,7 @@ export const routes: Routes = [
       {
         path: 'pilotage-rh',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
+        data: { roles: ROLE_SETS.adminRh },
         loadComponent: () =>
           import('./features/rh/pilotage-rh/pilotage-rh.component')
             .then(m => m.PilotageRhComponent),
@@ -281,7 +238,7 @@ export const routes: Routes = [
       {
         path: 'users',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
+        data: { roles: ROLE_SETS.adminRh },
         loadChildren: () =>
           import('./features/users/users-routing-module')
             .then(m => m.UsersRoutingModule),
@@ -289,7 +246,7 @@ export const routes: Routes = [
       {
         path: 'import',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH'] },
+        data: { roles: ROLE_SETS.adminRh },
         loadComponent: () =>
           import('./features/users/pages/employee-import-guided/employee-import-guided.component')
             .then(m => m.EmployeeImportGuidedComponent),
@@ -299,7 +256,7 @@ export const routes: Routes = [
       {
         path: 'contracts',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Manager'] },
+        data: { roles: ROLE_SETS.congesManager },
         loadChildren: () =>
           import('./features/contract/contract-routing-module')
             .then(m => m.ContractRoutingModule),
@@ -309,34 +266,43 @@ export const routes: Routes = [
         redirectTo: 'users',
         pathMatch: 'full',
       },
+      // Compat: anciennes URLs Congés / absences
+      { path: 'conge', redirectTo: 'absences-planning', pathMatch: 'full' },
+      { path: 'conge-gestion', redirectTo: '/conges/validation', pathMatch: 'full' },
+      { path: 'conge-historique', redirectTo: '/conges/historique', pathMatch: 'full' },
       {
-        path: 'conge',
+        path: 'absences-planning',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Manager'] },
+        data: { roles: ROLE_SETS.congesManager },
         loadComponent: () =>
           import('./features/planning/pages/conge-manager/conge-manager.component')
             .then(m => m.CongeManagerComponent),
       },
       {
-        path: 'conge-gestion',
-        canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Manager'] },
-        loadComponent: () =>
-          import('./features/conge/pages/conge-manager/conge-manager.component')
-            .then(m => m.CongeManagerComponent),
-      },
-      {
-        path: 'conge-historique',
-        canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Manager'] },
-        loadComponent: () =>
-          import('./features/conge/pages/conge-historique/conge-historique.component')
-            .then(m => m.CongeHistoriqueComponent),
+        path: 'conges',
+        children: [
+          {
+            path: 'validation',
+            canActivate: [AuthGuard],
+            data: { roles: ROLE_SETS.congesManager },
+            loadComponent: () =>
+              import('./features/conge/pages/conge-manager/conge-manager.component')
+                .then(m => m.CongeManagerComponent),
+          },
+          {
+            path: 'historique',
+            canActivate: [AuthGuard],
+            data: { roles: ROLE_SETS.congesManager },
+            loadComponent: () =>
+              import('./features/conge/pages/conge-historique/conge-historique.component')
+                .then(m => m.CongeHistoriqueComponent),
+          },
+        ],
       },
       {
         path: 'mes-conges',
         canActivate: [AuthGuard],
-        data: { roles: ['Employee', 'Manager', 'Coach', 'RP', 'Audit', 'Equipe_Formation', 'Superviseur'] },
+        data: { roles: ROLE_SETS.mesConges },
         loadComponent: () =>
           import('./features/conge/pages/conge-employe/conge-employe.component')
             .then(m => m.CongeEmployeComponent),
@@ -346,19 +312,7 @@ export const routes: Routes = [
       {
         path: 'mes-plannings',
         canActivate: [AuthGuard],
-        data: {
-          roles: [
-            'Employee',
-            'Pilote',
-            'Manager',
-            'Coach',
-            'Référent technique',
-            'RP',
-            'Audit',
-            'Equipe_Formation',
-            'Superviseur',
-          ],
-        },
+        data: { roles: ROLE_SETS.planningSelfService },
         loadComponent: () =>
           import('./features/planning/pages/mes-plannings/mes-plannings.component')
             .then(m => m.MesPlanningsComponent),
@@ -366,21 +320,7 @@ export const routes: Routes = [
       {
         path: 'planning',
         canActivate: [AuthGuard],
-        data: {
-          roles: [
-            'Admin',
-            'RH',
-            'Manager',
-            'Coach',
-            'Référent technique',
-            'RP',
-            'Pilote',
-            'Audit',
-            'Equipe_Formation',
-            'Superviseur',
-            'Employee',
-          ],
-        },
+        data: { roles: ROLE_SETS.planningManagers },
         loadChildren: () =>
           import('./features/planning/planning-routing-module')
             .then(m => m.PlanningRoutingModule),
@@ -390,9 +330,7 @@ export const routes: Routes = [
       {
         path: 'documentation',
         canActivate: [AuthGuard],
-        data: {
-          roles: ['Admin', 'RH', 'Employee', 'employee', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Equipe_Formation', 'Equipe formation', 'Superviseur'],
-        },
+        data: { roles: ROLE_SETS.documentation },
         loadChildren: () =>
           import('./features/documentation/documentation.module')
             .then(m => m.DocumentationModule),
@@ -402,7 +340,7 @@ export const routes: Routes = [
       {
         path: 'prime',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Manager', 'Coach', 'RP', 'Pilote', 'Audit', 'Employee', 'Superviseur'] },
+        data: { roles: ROLE_SETS.prime },
         loadChildren: () =>
           import('./features/prime/prime.routes').then((m) => m.PRIME_ROUTES),
       },
@@ -411,7 +349,7 @@ export const routes: Routes = [
       {
         path: 'parrainage',
         canActivate: [AuthGuard],
-        data: { roles: ['Admin', 'RH', 'Manager', 'Pilote', 'Employee', 'Audit', 'Coach', 'RP', 'Superviseur'] },
+        data: { roles: ROLE_SETS.parrainage },
         loadChildren: () =>
           import('./features/parrainage/parrainage.routes').then((m) => m.PARRAINAGE_ROUTES),
       },

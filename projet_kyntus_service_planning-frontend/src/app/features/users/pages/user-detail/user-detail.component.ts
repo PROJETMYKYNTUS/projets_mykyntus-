@@ -5,12 +5,13 @@ import { HttpClient } from '@angular/common/http';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { UserService } from '../../services/user.service';
-import { User } from '../../users-module';
+import { User, type EmployeeLifecycleStatus } from '../../users-module';
+import { copyTextToClipboard } from '../../../../core/lib/clipboard.util';
 import { EmployeeFieldService } from '../../services/employee-field.service';
 import type { EmployeeImportFieldConfig } from '../../services/employee-import.service';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
-import { ArrowLeft, History, Pencil, Trash2 } from 'lucide';
+import { ArrowLeft, History, KeyRound, Pencil, Trash2 } from 'lucide';
 import type { Department } from '../../../prime/models';
 import { PrimeOrgApiService, type OrgAssignmentsOverview } from '../../../prime/services/prime-org-api.service';
 import type { SubService } from '../../../sub-services/sub-services-module';
@@ -19,6 +20,9 @@ import { ParrainageApiService } from '../../../parrainage/services/parrainage-ap
 import type { Referral } from '../../../parrainage/models/referral.model';
 import { ContractService, type ContractResponse } from '../../../contract/services/contract.service';
 import { resolveUserGuid } from '../../../../core/lib/user-guid.util';
+import { formatHttpErrorMessage } from '../../../../core/lib/http-error-message.util';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
+import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
 import {
   enrichUserOrgPerimeter,
   orgCellLabel,
@@ -47,12 +51,13 @@ import { PilotRotationHistoryModalComponent } from '../../../prime/components/pi
   styleUrls: ['./user-detail.component.css']
 })
 export class UserDetailComponent implements OnInit {
-  readonly icons = { back: ArrowLeft, edit: Pencil, trash: Trash2, history: History };
+  readonly icons = { back: ArrowLeft, edit: Pencil, trash: Trash2, history: History, key: KeyRound };
   readonly orgCellLabel = orgCellLabel;
   readonly orgDepartmentLabel = orgDepartmentLabel;
   readonly contractLevelLabel = contractLevelLabel;
   readonly expertiseLevelLabel = expertiseLevelLabel;
   user: User | null = null;
+  lifecycle: EmployeeLifecycleStatus | null = null;
   detailSections: EmployeeDetailSection[] = [];
   linkedReferral: Referral | null = null;
   perimeter: UserOrgPerimeterView = { operationalDepartment: null, pole: null, cellule: null, service: null };
@@ -61,6 +66,10 @@ export class UserDetailComponent implements OnInit {
   rotationHistoryEmployeeName = '';
   loading = false;
   error: string | null = null;
+  resettingPassword = false;
+  resetCredentials: { email: string; password: string } | null = null;
+  showResetPassword = false;
+  downloadingCredentialsExcel = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -72,6 +81,8 @@ export class UserDetailComponent implements OnInit {
     private http: HttpClient,
     private contractService: ContractService,
     private parrainageApi: ParrainageApiService,
+    private confirmService: KyntusConfirmService,
+    private toastService: KyntusToastService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -139,6 +150,20 @@ export class UserDetailComponent implements OnInit {
     contracts: ContractResponse[],
   ): void {
     this.user = user;
+    const hasContract = contracts.length > 0;
+    const base = user.lifecycleStatus ?? this.fallbackLifecycle(user);
+    this.lifecycle = {
+      ...base,
+      hasContract,
+      steps: [
+        ...base.steps.filter((s) => s.id !== 'contract'),
+        {
+          id: 'contract',
+          label: 'Contrat',
+          state: hasContract ? 'done' : (base.enFormation ? 'pending' : 'current'),
+        },
+      ],
+    };
     this.perimeter = enrichUserOrgPerimeter(
       user,
       departments,
@@ -217,6 +242,74 @@ export class UserDetailComponent implements OnInit {
   goBack(): void { this.router.navigate(['/users']); }
   editUser(): void { this.router.navigate(['/users', 'edit', this.user?.id]); }
 
+  async resetPassword(): Promise<void> {
+    if (!this.user || this.resettingPassword) return;
+    const ok = await this.confirmService.confirm({
+      title: 'Réinitialiser le mot de passe',
+      message: `Générer un nouveau mot de passe pour ${this.user.email} ? L'ancien ne fonctionnera plus.`,
+      confirmLabel: 'Réinitialiser',
+      cancelLabel: 'Annuler',
+    });
+    if (!ok) return;
+
+    this.resettingPassword = true;
+    this.userService.resetPassword(this.user.id).subscribe({
+      next: (result) => {
+        this.resetCredentials = { email: result.email, password: result.temporaryPassword };
+        this.showResetPassword = true;
+        this.resettingPassword = false;
+        this.toastService.success('Mot de passe réinitialisé.');
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.resettingPassword = false;
+        this.toastService.error(formatHttpErrorMessage(err, 'Échec de la réinitialisation.'));
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  closeResetCredentials(): void {
+    this.resetCredentials = null;
+    this.showResetPassword = false;
+  }
+
+  async copyResetPassword(): Promise<void> {
+    if (!this.resetCredentials?.password) return;
+    try {
+      await copyTextToClipboard(this.resetCredentials.password);
+      this.toastService.success('Mot de passe copié.');
+    } catch (err) {
+      console.error('copyResetPassword', err);
+      this.toastService.error('Impossible de copier le mot de passe.');
+    }
+  }
+
+  async downloadResetCredentialsExcel(): Promise<void> {
+    if (!this.resetCredentials || this.downloadingCredentialsExcel) return;
+    this.downloadingCredentialsExcel = true;
+    try {
+      const { downloadCredentialsExcel } = await import('../../../../core/lib/credentials-excel.util');
+      await downloadCredentialsExcel(
+        [
+          {
+            email: this.resetCredentials.email,
+            password: this.resetCredentials.password,
+            firstName: this.user?.firstName,
+            lastName: this.user?.lastName,
+          },
+        ],
+        { fileNamePrefix: 'identifiants-mykyntus-reinit' },
+      );
+      this.toastService.success('Excel des identifiants téléchargé.');
+    } catch {
+      this.toastService.error('Échec du téléchargement Excel.');
+    } finally {
+      this.downloadingCredentialsExcel = false;
+      this.cdr.detectChanges();
+    }
+  }
+
   deleteUser(): void {
     if (!this.user) return;
     if (confirm('Supprimer cet employé ?')) {
@@ -224,6 +317,44 @@ export class UserDetailComponent implements OnInit {
         next: () => this.router.navigate(['/users']),
         error: (err) => alert(`Erreur: ${err.error?.message}`)
       });
+    }
+  }
+
+  private fallbackLifecycle(user: User): EmployeeLifecycleStatus {
+    const enFormation = !!user.hrProfile?.enFormation;
+    return {
+      phase: !user.isActive ? 'inactive' : enFormation ? 'onboarding_formation' : 'active',
+      label: !user.isActive ? 'Inactif' : enFormation ? 'En formation' : 'Actif',
+      isActive: user.isActive,
+      enFormation,
+      authProvisioned: true,
+      editDeepLink: `/users/${user.id}/edit`,
+      formationDeepLink: enFormation ? `/users/${user.id}/edit` : null,
+      passageProductionDeepLink: enFormation ? '/formations/passage-production' : null,
+      steps: [
+        { id: 'account', label: 'Compte Planning', state: user.isActive ? 'done' : 'blocked' },
+        { id: 'auth', label: 'Compte Auth', state: 'done' },
+        { id: 'formation', label: 'Formation initiale', state: enFormation ? 'current' : 'done' },
+        { id: 'production', label: 'Passage en production', state: enFormation ? 'pending' : 'done' },
+      ],
+    };
+  }
+
+  openLifecycleLink(path: string | null | undefined): void {
+    if (!path) return;
+    void this.router.navigateByUrl(path);
+  }
+
+  lifecyclePhaseClass(phase: string | undefined): string {
+    switch (phase) {
+      case 'inactive':
+        return 'lifecycle--inactive';
+      case 'awaiting_auth':
+        return 'lifecycle--warn';
+      case 'onboarding_formation':
+        return 'lifecycle--formation';
+      default:
+        return 'lifecycle--active';
     }
   }
 }

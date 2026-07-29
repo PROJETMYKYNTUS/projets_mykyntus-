@@ -6,6 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin, defer, of, Observable, throwError } from 'rxjs';
 import { retry, switchMap, map, catchError } from 'rxjs/operators';
 import { formatHttpErrorMessage } from '../../../../core/lib/http-error-message.util';
+import { copyTextToClipboard } from '../../../../core/lib/clipboard.util';
 import { resolveUserGuid } from '../../../../core/lib/user-guid.util';
 import { UserService } from '../../services/user.service';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
@@ -75,12 +76,26 @@ import {
   type OrgRoleAssignmentDepth,
 } from '../../../../core/org/org-role-assignment';
 import {
+  addOrgNodeSelection,
+  clearMultiOrgSelection,
+  directoryAssignmentKindForRole,
+  hydrateMultiOrgSelectionFromOverview,
+  removeOrgNodeSelection,
+  resolveOrgNodePathLabel,
+  setPrimaryOrgNode,
+  summarizeMultiOrgSelection,
+  supportsMultiOrgSelection,
+  validateMultiOrgSelection,
+} from '../../../../core/org/multi-org-selection';
+import {
   buildCrossRoleOverwriteMessage,
   employeeDisplayName,
-  findEmployeeStructuralRole,
+  findConflictingStructuralRole,
+  findEmployeeStructuralRoles,
   findStructureIncumbents,
   filterSuperviseursForChefDeProjet,
   filterReferentsForSuperviseur,
+  buildMultiChargeHint,
 } from '../../../../core/org/org-structure-incumbent.util';
 import {
   HR_EDUCATION_LEVEL_OPTIONS,
@@ -145,6 +160,9 @@ export class UserFormComponent implements OnInit {
   orgPoleId = '';
   orgCelluleId = '';
   orgServiceId = '';
+  /** Périmètres multi-nœuds (Chef / Superviseur / RT) — ancre primaire séparée. */
+  selectedOrgNodeIds: string[] = [];
+  primaryOrgNodeId = '';
   orgMirrorWarning: string | null = null;
   orgStructureSearch = '';
   orgFilterPoleId = '';
@@ -160,6 +178,9 @@ export class UserFormComponent implements OnInit {
   showCreateSuccess = false;
   createdUserId: number | null = null;
   createSuccessMessage: string | null = null;
+  createdCredentials: { email: string; password: string } | null = null;
+  showCreatedPassword = false;
+  downloadingCredentialsExcel = false;
 
   currentWizardStep: WizardStepId = 'identity';
   showCivilDetails = true;
@@ -370,8 +391,13 @@ export class UserFormComponent implements OnInit {
         this.refreshHtelPreview();
         this.cdr.detectChanges();
       },
-      error: () => {
+      error: (err) => {
         this.htelTechniciensCache = [];
+        this.htelPreviewHint = formatHttpErrorMessage(
+          err,
+          'HTEL indisponible — vérifier la connexion à htel-groupe.fr.',
+        );
+        this.cdr.detectChanges();
       },
     });
   }
@@ -385,6 +411,13 @@ export class UserFormComponent implements OnInit {
         this.htelPreviewHint = `Liaison HTEL prévue : ${tech.technicien}`;
         return;
       }
+      this.htelIdTechnicien = this.preferredIdTechnicien;
+      if (!this.htelTechniciensCache.length) {
+        // Catalogue HTEL non chargé (clé absente / API down) — on garde l’id pour le link à l’enregistrement.
+        return;
+      }
+      this.htelPreviewHint = `Id technicien HTEL ${this.preferredIdTechnicien} introuvable dans le catalogue.`;
+      return;
     }
     if (this.isEditMode && this.htelIdTechnicien && this.htelCode) {
       this.htelPreviewHint = '';
@@ -588,6 +621,17 @@ export class UserFormComponent implements OnInit {
   }
 
   get selectedOrgSummary(): string {
+    if (this.supportsMultiOrg) {
+      return summarizeMultiOrgSelection(
+        this.operationalDepartments,
+        this.unassignedPoles,
+        this.orgAssignmentDepth,
+        {
+          selectedOrgNodeIds: this.selectedOrgNodeIds,
+          primaryOrgNodeId: this.primaryOrgNodeId,
+        },
+      );
+    }
     return operationalSelectionSummary(
       this.operationalDepartments,
       this.unassignedPoles,
@@ -596,6 +640,30 @@ export class UserFormComponent implements OnInit {
       this.orgCelluleId,
       this.orgServiceId,
     );
+  }
+
+  get supportsMultiOrg(): boolean {
+    return supportsMultiOrgSelection(this.selectedRoleName);
+  }
+
+  get selectedOrgChipItems(): { id: string; label: string; isPrimary: boolean }[] {
+    return this.selectedOrgNodeIds.map((id) => ({
+      id,
+      label: resolveOrgNodePathLabel(
+        this.operationalDepartments,
+        this.unassignedPoles,
+        this.orgAssignmentDepth,
+        id,
+      ),
+      isPrimary: id === this.primaryOrgNodeId,
+    }));
+  }
+
+  /** @deprecated Conservé pour compat — la multi-sélection est maintenant éditable ici. */
+  get additionalStructuralChargesHint(): string {
+    if (!this.isEditMode || !this.orgOverview || !this.loadedUserGuid.trim()) return '';
+    if (this.supportsMultiOrg) return '';
+    return buildMultiChargeHint(findEmployeeStructuralRoles(this.orgOverview, this.loadedUserGuid));
   }
 
   get showOrgFilterBar(): boolean {
@@ -1786,6 +1854,9 @@ export class UserFormComponent implements OnInit {
     this.orgMirrorWarning = null;
     this.resetResponsables();
     this.ensureOrgPickerDefaults();
+    if (this.supportsMultiOrg && this.orgAssignmentDepth === 'pole' && poleId.trim()) {
+      this.applyMultiOrgLeafSelection();
+    }
     this.cdr.detectChanges();
   }
 
@@ -1800,6 +1871,9 @@ export class UserFormComponent implements OnInit {
       this.orgMirrorWarning = this.superviseurMirrorWarning();
     }
     this.resetInvalidResponsables();
+    if (this.supportsMultiOrg && this.orgAssignmentDepth === 'cellule' && celluleId.trim()) {
+      this.applyMultiOrgLeafSelection();
+    }
     this.cdr.detectChanges();
   }
 
@@ -1807,6 +1881,12 @@ export class UserFormComponent implements OnInit {
     this.orgServiceId = serviceId;
     this.resetInvalidResponsables();
     this.syncSubServiceFromOrg();
+    if (this.supportsMultiOrg && this.orgAssignmentDepth === 'service' && serviceId.trim()) {
+      this.applyMultiOrgLeafSelection();
+    } else if (!this.supportsMultiOrg && serviceId.trim()) {
+      this.selectedOrgNodeIds = [serviceId.trim()];
+      this.primaryOrgNodeId = serviceId.trim();
+    }
     this.cdr.detectChanges();
   }
 
@@ -1825,6 +1905,9 @@ export class UserFormComponent implements OnInit {
     }
     this.resetInvalidResponsables();
     this.syncSubServiceFromOrg();
+    if (this.supportsMultiOrg && this.orgServiceId.trim()) {
+      this.applyMultiOrgLeafSelection();
+    }
     this.cdr.detectChanges();
   }
 
@@ -1833,10 +1916,125 @@ export class UserFormComponent implements OnInit {
     this.orgPoleId = '';
     this.orgCelluleId = '';
     this.orgServiceId = '';
+    const cleared = clearMultiOrgSelection();
+    this.selectedOrgNodeIds = cleared.selectedOrgNodeIds;
+    this.primaryOrgNodeId = cleared.primaryOrgNodeId;
     this.form.subServiceId = null;
     this.orgMirrorWarning = null;
     this.resetResponsables();
     this.cdr.detectChanges();
+  }
+
+  addCurrentOrgNodeToSelection(): void {
+    if (!this.supportsMultiOrg) return;
+    const nodeId = this.currentLeafOrgNodeId();
+    if (!nodeId) return;
+    const next = addOrgNodeSelection(
+      { selectedOrgNodeIds: this.selectedOrgNodeIds, primaryOrgNodeId: this.primaryOrgNodeId },
+      nodeId,
+    );
+    this.selectedOrgNodeIds = next.selectedOrgNodeIds;
+    this.primaryOrgNodeId = next.primaryOrgNodeId;
+    this.syncCascadeFromPrimaryOrgNode();
+    this.cdr.detectChanges();
+  }
+
+  removeSelectedOrgNode(nodeId: string): void {
+    const next = removeOrgNodeSelection(
+      { selectedOrgNodeIds: this.selectedOrgNodeIds, primaryOrgNodeId: this.primaryOrgNodeId },
+      nodeId,
+    );
+    this.selectedOrgNodeIds = next.selectedOrgNodeIds;
+    this.primaryOrgNodeId = next.primaryOrgNodeId;
+    this.syncCascadeFromPrimaryOrgNode();
+    this.cdr.detectChanges();
+  }
+
+  setSelectedOrgNodePrimary(nodeId: string): void {
+    const next = setPrimaryOrgNode(
+      { selectedOrgNodeIds: this.selectedOrgNodeIds, primaryOrgNodeId: this.primaryOrgNodeId },
+      nodeId,
+    );
+    this.selectedOrgNodeIds = next.selectedOrgNodeIds;
+    this.primaryOrgNodeId = next.primaryOrgNodeId;
+    this.syncCascadeFromPrimaryOrgNode();
+    this.cdr.detectChanges();
+  }
+
+  private currentLeafOrgNodeId(): string {
+    const depth = this.orgAssignmentDepth;
+    if (depth === 'pole') return this.orgPoleId.trim();
+    if (depth === 'cellule') return this.orgCelluleId.trim();
+    if (depth === 'service') return this.orgServiceId.trim();
+    return '';
+  }
+
+  private canAddCurrentOrgNode(): boolean {
+    if (!this.supportsMultiOrg) return false;
+    const nodeId = this.currentLeafOrgNodeId();
+    return !!nodeId && !this.selectedOrgNodeIds.includes(nodeId);
+  }
+
+  get canAddOrgNodeToSelection(): boolean {
+    return this.canAddCurrentOrgNode();
+  }
+
+  private syncCascadeFromPrimaryOrgNode(): void {
+    const primary = this.primaryOrgNodeId.trim();
+    if (!primary) {
+      this.syncSubServiceFromOrg();
+      this.resetInvalidResponsables();
+      return;
+    }
+    const depth = this.orgAssignmentDepth;
+    if (depth === 'pole') {
+      const sel = findOperationalSelectionByPoleId(
+        this.operationalDepartments,
+        this.unassignedPoles,
+        primary,
+      );
+      if (sel) {
+        this.orgOperationalDeptId = sel.operationalDeptId;
+        this.orgPoleId = sel.poleId;
+        this.orgCelluleId = '';
+        this.orgServiceId = '';
+      }
+    } else if (depth === 'cellule') {
+      const sel = findOperationalSelectionByCelluleId(
+        this.operationalDepartments,
+        this.unassignedPoles,
+        primary,
+      );
+      if (sel) {
+        this.orgOperationalDeptId = sel.operationalDeptId;
+        this.orgPoleId = sel.poleId;
+        this.orgCelluleId = sel.celluleId;
+        this.orgServiceId = '';
+      }
+    } else if (depth === 'service') {
+      const sel = findOperationalSelectionByServiceId(
+        this.operationalDepartments,
+        this.unassignedPoles,
+        primary,
+      );
+      if (sel) {
+        this.applyOrgSelection(sel);
+      }
+    }
+    this.syncSubServiceFromOrg();
+    this.resetInvalidResponsables();
+  }
+
+  private applyMultiOrgLeafSelection(): void {
+    if (!this.supportsMultiOrg) return;
+    const nodeId = this.currentLeafOrgNodeId();
+    if (!nodeId) return;
+    const next = addOrgNodeSelection(
+      { selectedOrgNodeIds: this.selectedOrgNodeIds, primaryOrgNodeId: this.primaryOrgNodeId },
+      nodeId,
+    );
+    this.selectedOrgNodeIds = next.selectedOrgNodeIds;
+    this.primaryOrgNodeId = next.primaryOrgNodeId;
   }
 
   private superviseurMirrorWarning(): string | null {
@@ -1956,6 +2154,17 @@ export class UserFormComponent implements OnInit {
   private applyOrgFromPrimeOverview(guid: string, roleName: string): boolean {
     const overview = this.orgOverview;
     if (!overview || !guid.trim()) return false;
+
+    if (supportsMultiOrgSelection(roleName) || isPiloteRole(roleName)) {
+      const hydrated = hydrateMultiOrgSelectionFromOverview(overview, guid, roleName);
+      if (hydrated && hydrated.selectedOrgNodeIds.length > 0) {
+        this.selectedOrgNodeIds = hydrated.selectedOrgNodeIds;
+        this.primaryOrgNodeId = hydrated.primaryOrgNodeId;
+        this.syncCascadeFromPrimaryOrgNode();
+        this.orgMirrorWarning = null;
+        return true;
+      }
+    }
 
     if (isChefDeProjetRole(roleName)) {
       const mgr = overview.managerEtage?.find((a) => a.userId === guid);
@@ -2139,6 +2348,9 @@ export class UserFormComponent implements OnInit {
     if (this.orgAssignmentDepth === 'none') {
       this.clearOrgAssignment();
     } else {
+      const cleared = clearMultiOrgSelection();
+      this.selectedOrgNodeIds = cleared.selectedOrgNodeIds;
+      this.primaryOrgNodeId = cleared.primaryOrgNodeId;
       const depth = this.orgAssignmentDepth;
       this.orgServiceId = '';
       this.form.subServiceId = null;
@@ -2192,6 +2404,42 @@ export class UserFormComponent implements OnInit {
     if (this.isSupportMode) return null;
     const depth = this.orgAssignmentDepth;
     if (!orgAssignmentIsRequired(depth)) return null;
+
+    if (this.supportsMultiOrg) {
+      const multiErr = validateMultiOrgSelection(
+        {
+          selectedOrgNodeIds: this.selectedOrgNodeIds,
+          primaryOrgNodeId: this.primaryOrgNodeId,
+        },
+        true,
+      );
+      if (multiErr) return multiErr;
+
+      // Ancre primaire → champs cascade legacy pour mentors / Planning.
+      if (!this.orgPoleId.trim() && orgAssignmentRequiresPole(depth)) {
+        return 'Périmètre principal invalide (pôle introuvable).';
+      }
+      if (orgAssignmentRequiresCellule(depth) && !this.orgCelluleId.trim()) {
+        return 'Périmètre principal invalide (cellule introuvable).';
+      }
+      if (orgAssignmentRequiresService(depth) && !this.orgServiceId.trim()) {
+        return 'Périmètre principal invalide (service introuvable).';
+      }
+      if (this.orgMirrorWarning) return this.orgMirrorWarning;
+      if (orgAssignmentRequiresService(depth) && !this.form.subServiceId) {
+        return 'Le service principal choisi n’est pas encore disponible dans Planning.';
+      }
+      if (isSuperviseurRole(this.selectedRoleName)) {
+        for (const celluleId of this.selectedOrgNodeIds) {
+          const svcId = resolvePlanningServiceIdByPrimeCelluleId(this.planningServices, celluleId);
+          if (!svcId) {
+            return 'Une des cellules choisies n’est pas encore synchronisée dans Planning.';
+          }
+        }
+      }
+      return null;
+    }
+
     if (
       orgAssignmentRequiresOperationalDept(depth) &&
       !this.orgOperationalDeptId.trim() &&
@@ -2304,12 +2552,22 @@ export class UserFormComponent implements OnInit {
 
   private formatRevokedLog(result: unknown): string[] {
     if (!result || typeof result !== 'object') return [];
-    const revoked = (result as StructuralRoleAssignmentResult).revoked;
-    if (!Array.isArray(revoked) || revoked.length === 0) return [];
-    return revoked.map((v) => {
-      const where = v.nodeLabel ?? v.departmentCode ?? v.nodeId;
-      return `Ancien rôle retiré : ${v.role}${where ? ` (${where})` : ''}`;
-    });
+    const typed = result as StructuralRoleAssignmentResult;
+    const messages: string[] = [];
+    const revoked = typed.revoked;
+    if (Array.isArray(revoked)) {
+      for (const v of revoked) {
+        const where = v.nodeLabel ?? v.departmentCode ?? v.nodeId;
+        messages.push(`Ancien rôle retiré : ${v.role}${where ? ` (${where})` : ''}`);
+      }
+    }
+    const revokedOnNode = typed.revokedOnNode;
+    if (Array.isArray(revokedOnNode)) {
+      for (const v of revokedOnNode) {
+        messages.push(`Titulaire remplacé sur ${v.nodeId} (unicité par nœud)`);
+      }
+    }
+    return messages;
   }
 
   private showRevokedToasts(result: unknown): void {
@@ -2325,6 +2583,51 @@ export class UserFormComponent implements OnInit {
   ): Observable<StructuralRoleAssignmentResult | void> {
     if (!needsPrimeStructureAssignment(roleName)) {
       return of(undefined);
+    }
+    const kind = directoryAssignmentKindForRole(roleName);
+    if (kind && supportsMultiOrgSelection(roleName)) {
+      const nodeIds = [...this.selectedOrgNodeIds];
+      const primaryNodeId = this.primaryOrgNodeId.trim();
+      if (nodeIds.length === 0 || !primaryNodeId) {
+        return throwError(() => new Error('Sélection multi-périmètres incomplète.'));
+      }
+      return defer(() =>
+        this.orgApi.reconcileEmployeeStructuralAssignments(
+          kind,
+          employeeGuid,
+          nodeIds,
+          primaryNodeId,
+          'Formulaire employé — synchronisation multi-périmètres',
+        ),
+      ).pipe(
+        map((result) => {
+          this.selectedOrgNodeIds = [...result.nodeIds];
+          this.primaryOrgNodeId = result.primaryNodeId;
+          this.syncCascadeFromPrimaryOrgNode();
+          if (result.revokedOtherKinds?.length) {
+            for (const msg of result.revokedOtherKinds.map(
+              (r) => `Rôle retiré : ${r.role} (${r.nodeId})`,
+            )) {
+              this.toastService.show(msg, 'info', 6000);
+            }
+          }
+          if (result.revokedOnNode?.length) {
+            for (const v of result.revokedOnNode) {
+              this.toastService.show(
+                `Titulaire remplacé sur ${v.nodeId} (unicité par nœud)`,
+                'info',
+                6000,
+              );
+            }
+          }
+          return {
+            revoked: result.revokedOtherKinds ?? [],
+            revokedOnNode: result.revokedOnNode ?? [],
+            addedEmployeeId: result.employeeId,
+          } satisfies StructuralRoleAssignmentResult;
+        }),
+        catchError((err) => (strict ? throwError(() => err) : of(undefined))),
+      );
     }
     const depth = orgRoleAssignmentDepth(roleName);
     const call = (): Observable<StructuralRoleAssignmentResult> => {
@@ -2360,7 +2663,10 @@ export class UserFormComponent implements OnInit {
   }
 
   private buildEnsureEmployeeDto(employeeGuid: string, roleName: string) {
-    const primeServiceId = this.orgServiceId.trim() || null;
+    const primeServiceId =
+      (this.supportsMultiOrg && isReferentTechniqueRole(roleName)
+        ? this.primaryOrgNodeId.trim()
+        : this.orgServiceId.trim()) || null;
     return {
       employeeId: employeeGuid,
       firstName: this.form.firstName.trim(),
@@ -2392,10 +2698,13 @@ export class UserFormComponent implements OnInit {
     if (!needsPrimeStructureAssignment(roleName)) {
       return of(undefined);
     }
+    // Réconciliation atomique : pas de retry en boucle (évite états partiels / 409 répétés).
     return this.ensureEmployeeInDirectory(employeeGuid, roleName).pipe(
       switchMap(() => this.applyPrimeStructureAssignment(employeeGuid, roleName, true)),
       map((result) => {
-        this.showRevokedToasts(result);
+        if (result && 'revoked' in result) {
+          this.showRevokedToasts(result);
+        }
         return undefined;
       }),
     );
@@ -2477,7 +2786,8 @@ export class UserFormComponent implements OnInit {
   private async confirmCrossRoleAssignment(employeeId: string): Promise<boolean> {
     const overview = this.orgOverview;
     if (!overview || !employeeId.trim()) return true;
-    const existing = findEmployeeStructuralRole(overview, employeeId);
+    const targetRole = this.selectedRoleName || '';
+    const existing = findConflictingStructuralRole(overview, employeeId, targetRole);
     if (!existing) return true;
     const name = employeeDisplayName(overview.employees, employeeId);
     return this.confirmService.confirm({
@@ -2660,8 +2970,13 @@ export class UserFormComponent implements OnInit {
           const idTech = this.preferredIdTechnicien ?? this.htelIdTechnicien;
           if (!guid || !idTech) return of({ user, referralResult });
           return this.htelApi.link(guid, idTech).pipe(
-            map(() => ({ user, referralResult })),
-            catchError(() => of({ user, referralResult })),
+            map(() => ({ user, referralResult, htelLinkOk: true as boolean })),
+            catchError((err) => {
+              this.toastService.error(
+                formatHttpErrorMessage(err, 'Employé créé mais liaison HTEL échouée.'),
+              );
+              return of({ user, referralResult, htelLinkOk: false as boolean });
+            }),
           );
         }),
       ).subscribe({
@@ -2679,6 +2994,11 @@ export class UserFormComponent implements OnInit {
                   : this.referralStatusLabels[referralResult.status] ?? referralResult.status;
             message = `Employé créé et dossier parrainage passé en ${statusLabel}.`;
           }
+          const generated = (user as { generatedPassword?: string | null }).generatedPassword?.trim();
+          this.createdCredentials = generated
+            ? { email: user.email, password: generated }
+            : null;
+          this.showCreatedPassword = false;
           this.createSuccessMessage = message;
           this.showCreateSuccess = true;
           this.submitting = false;
@@ -2911,5 +3231,45 @@ export class UserFormComponent implements OnInit {
   viewCreatedUser(): void {
     if (!this.createdUserId) return;
     void this.router.navigate(['/users', this.createdUserId]);
+  }
+
+  async copyCreatedPassword(): Promise<void> {
+    if (!this.createdCredentials?.password) return;
+    try {
+      await copyTextToClipboard(this.createdCredentials.password);
+      this.toastService.success('Mot de passe copié.');
+    } catch (err) {
+      console.error('copyCreatedPassword', err);
+      this.toastService.error('Impossible de copier le mot de passe.');
+    } finally {
+      this.cdr.detectChanges();
+    }
+  }
+
+  async downloadCreatedCredentialsExcel(): Promise<void> {
+    if (!this.createdCredentials || this.downloadingCredentialsExcel) return;
+    this.downloadingCredentialsExcel = true;
+    this.cdr.detectChanges();
+    try {
+      const { downloadCredentialsExcel } = await import('../../../../core/lib/credentials-excel.util');
+      await downloadCredentialsExcel(
+        [
+          {
+            email: this.createdCredentials.email,
+            password: this.createdCredentials.password,
+            firstName: this.form.firstName,
+            lastName: this.form.lastName,
+          },
+        ],
+        { fileNamePrefix: 'identifiants-mykyntus' },
+      );
+      this.toastService.success('Excel des identifiants téléchargé.');
+    } catch (err) {
+      console.error('downloadCreatedCredentialsExcel', err);
+      this.toastService.error('Échec du téléchargement Excel.');
+    } finally {
+      this.downloadingCredentialsExcel = false;
+      this.cdr.detectChanges();
+    }
   }
 }

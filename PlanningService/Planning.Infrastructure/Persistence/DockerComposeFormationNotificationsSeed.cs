@@ -103,7 +103,7 @@ internal static class DockerComposeFormationNotificationsSeed
 
     private static bool IsEnabled(IConfiguration configuration) =>
         string.Equals(configuration["KYNTUS_PLANNING_DEMO_SEED"], "true", StringComparison.OrdinalIgnoreCase)
-        && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "true", "true", StringComparison.OrdinalIgnoreCase);
+        && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "false", "true", StringComparison.OrdinalIgnoreCase);
 
     private static async Task<User?> ResolveExistingUserAsync(
         AppDbContext context,

@@ -1,7 +1,8 @@
-import { Component, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { KyntusPageHeaderComponent } from '../../shared/components/ui/kyntus-page-header.component';
+import { KyntusToastService } from '../../shared/components/ui/kyntus-toast.service';
 import { Subject, takeUntil } from 'rxjs';
 import {
   AudienceTarget,
@@ -21,6 +22,8 @@ type AdminView = 'list' | 'create' | 'campaigns' | 'analytics';
   styleUrls: ['./newsletter-admin.component.css']
 })
 export class NewsletterAdminComponent implements OnInit, OnDestroy {
+  private readonly toastSvc = inject(KyntusToastService);
+
   currentView: AdminView = 'list';
   private destroy$ = new Subject<void>();
   private loadedViews = new Set<AdminView>();
@@ -35,8 +38,6 @@ export class NewsletterAdminComponent implements OnInit, OnDestroy {
   loadingAnalytics = false;
   submittingNewsletter = false;
   submittingCampaign = false;
-
-  toast = { show: false, message: '', type: 'success' as 'success' | 'error' };
 
   audienceOptions: AudienceTarget[] = [
   'All', 'Employees', 'Managers', 'Admins',
@@ -381,10 +382,8 @@ getAudienceLabel(audience: string): string {
   }
 
   showToast(message: string, type: 'success' | 'error' = 'success'): void {
-    this.toast = { show: true, message, type };
-    setTimeout(() => {
-      this.toast.show = false;
-    }, 3500);
+    if (type === 'error') this.toastSvc.error(message);
+    else this.toastSvc.success(message);
   }
 
   trackById(index: number, item: { id: number }): number {

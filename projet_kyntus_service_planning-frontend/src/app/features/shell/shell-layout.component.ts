@@ -26,7 +26,7 @@ import { ShellNotificationDropdownComponent } from '../../shared/shell-controls/
 import { ShellSettingsPanelComponent } from '../../shared/shell-controls/settings-panel.component';
 import { KyntusNotificationHubService } from '../../core/notifications/kyntus-notification-hub.service';
 import { KyntusNotificationInitService } from '../../core/notifications/kyntus-notification-init.service';
-import { KYNTUS_PUBLIC_URLS } from '../../config/kyntus-public-urls';
+import { redirectToAuthLogin } from '../../core/session/kyntus-auth-refresh.service';
 import { KyntusShellUiService } from '../../core/notifications/kyntus-shell-ui.service';
 
 import { PrimeNavRequestService } from '../prime/services/prime-nav-request.service';
@@ -189,7 +189,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     this.role = (this.auth.getRole() || this.currentUser?.role || '').trim();
 
     if (!this.session.isAuthenticated()) {
-      window.location.href = KYNTUS_PUBLIC_URLS.authLogin;
+      redirectToAuthLogin();
       return;
     }
 
@@ -471,11 +471,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
 
   logout(): void {
-
-    localStorage.clear();
-
-    window.location.href = KYNTUS_PUBLIC_URLS.authLogin;
-
+    redirectToAuthLogin();
   }
 
   ngOnDestroy(): void {

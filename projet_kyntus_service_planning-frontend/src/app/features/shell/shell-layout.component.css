@@ -13,6 +13,70 @@
   --ks-sidebar-w: var(--ks-sidebar-w-collapsed);
 }
 
+/* ── Sidebar repliée : logo + icônes centrés / taille adaptée ── */
+.kyntus-shell.sidebar-collapsed .ks-sidebar {
+  overflow-x: hidden;
+}
+
+.kyntus-shell.sidebar-collapsed .ks-brand {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0 8px;
+  height: auto;
+  min-height: var(--ks-topbar-h);
+}
+
+.kyntus-shell.sidebar-collapsed .ks-brand::after {
+  left: 14px;
+  right: 14px;
+}
+
+.kyntus-shell.sidebar-collapsed .ks-collapse-btn {
+  order: -1;
+  padding: 2px;
+}
+
+.kyntus-shell.sidebar-collapsed .ks-brand-logo,
+.kyntus-shell.sidebar-collapsed .ks-brand-logo-img {
+  width: 28px;
+  height: 28px;
+  margin: 0 auto;
+}
+
+.kyntus-shell.sidebar-collapsed .ks-brand-logo {
+  font-size: 12px;
+}
+
+.kyntus-shell.sidebar-collapsed .ks-nav {
+  padding: 12px 8px;
+  align-items: stretch;
+}
+
+.kyntus-shell.sidebar-collapsed .ks-home,
+.kyntus-shell.sidebar-collapsed .ks-group-head {
+  justify-content: center;
+  padding: 12px 0;
+  gap: 0;
+}
+
+.kyntus-shell.sidebar-collapsed .ks-ic {
+  width: 20px;
+  margin: 0 auto;
+}
+
+.kyntus-shell.sidebar-collapsed .ks-sidebar-footer {
+  padding: 10px 8px 12px;
+  align-items: center;
+}
+
+.kyntus-shell.sidebar-collapsed .ks-logout {
+  justify-content: center;
+  padding: 10px 0;
+  gap: 0;
+}
+
 .ks-sidebar {
   width: var(--ks-sidebar-w);
   background: linear-gradient(175deg, var(--ks-sidebar-bg) 0%, var(--ks-sidebar-bg2) 100%);

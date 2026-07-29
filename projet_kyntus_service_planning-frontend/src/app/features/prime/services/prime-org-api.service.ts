@@ -72,6 +72,17 @@ export interface StructuralRoleAssignmentResult {
   addedEmployeeId?: string | null;
 }
 
+export interface StructuralAssignmentsReconcileResult {
+  kind: string;
+  employeeId: string;
+  nodeIds: string[];
+  primaryNodeId: string;
+  addedNodeIds: string[];
+  removedNodeIds: string[];
+  revokedOtherKinds: RevokedStructuralRoleDto[];
+  revokedOnNode?: NodeIncumbentRevokedDto[];
+}
+
 export interface SupervisorOrgScopeService {
   id: string;
   name: string;
@@ -252,6 +263,24 @@ export class PrimeOrgApiService {
       {
         employeeId,
         revokeEmployeeIds: revokeEmployeeIds?.length ? revokeEmployeeIds : undefined,
+      },
+    );
+  }
+
+  /** Synchronise exactement les nœuds managés (Chef / Superviseur / RT). */
+  reconcileEmployeeStructuralAssignments(
+    kind: 'ChefDeProjet' | 'Superviseur' | 'ReferentTechnique',
+    employeeId: string,
+    nodeIds: string[],
+    primaryNodeId: string,
+    reason?: string,
+  ): Observable<StructuralAssignmentsReconcileResult> {
+    return this.http.put<StructuralAssignmentsReconcileResult>(
+      `${orgBase}/assignments/${kind}/employees/${encodeURIComponent(employeeId)}`,
+      {
+        nodeIds,
+        primaryNodeId,
+        reason: reason?.trim() || undefined,
       },
     );
   }

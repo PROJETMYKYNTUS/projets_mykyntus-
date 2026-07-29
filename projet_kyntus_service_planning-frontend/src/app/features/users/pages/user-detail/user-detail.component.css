@@ -425,6 +425,77 @@
   to { transform: rotate(360deg); }
 }
 
+.lifecycle-banner {
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.25rem;
+  border-left: 4px solid var(--soft-blue, #3b82f6);
+}
+
+.lifecycle-banner.lifecycle--formation {
+  border-left-color: #f59e0b;
+}
+
+.lifecycle-banner.lifecycle--warn {
+  border-left-color: #ef4444;
+}
+
+.lifecycle-banner.lifecycle--inactive {
+  border-left-color: #94a3b8;
+}
+
+.lifecycle-banner__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.lifecycle-banner__head h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.lifecycle-banner__head p {
+  margin: 0;
+  opacity: 0.85;
+  font-size: 0.9rem;
+}
+
+.lifecycle-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.lifecycle-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lifecycle-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.lifecycle-step__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.lifecycle-step--done .lifecycle-step__dot { background: #22c55e; }
+.lifecycle-step--current .lifecycle-step__dot { background: #f59e0b; }
+.lifecycle-step--blocked .lifecycle-step__dot { background: #ef4444; }
+
 @media (max-width: 768px) {
   .org-grid {
     grid-template-columns: 1fr;

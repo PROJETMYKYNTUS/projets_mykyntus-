@@ -6,14 +6,27 @@ import { UserService } from '../../features/users/services/user.service';
 import { ContractService, type ContractResponse } from '../../features/contract/services/contract.service';
 import { ParrainageApiService } from '../../features/parrainage/services/parrainage-api.service';
 import { DocumentationDataApiService } from '../services/documentation-data-api.service';
+import { FormationService } from '../services/formation.service';
+import { CongeService } from '../services/conge.service';
+import { PrimeService } from '../../features/prime/services/prime.service';
+import type { Employee } from '../../features/prime/models';
 import type { User } from '../../features/users/users-module';
 import { userMatchesSearch } from '../hr/user-hr-display.util';
+import { StatutDemandeLabels, TypeCongeLabels } from '../models/conge.models';
+import { StatutFormationLabels } from '../models/formation.models';
 
-export type GlobalSearchType = 'employee' | 'contract' | 'parrainage' | 'document';
+export type GlobalSearchType =
+  | 'employee'
+  | 'contract'
+  | 'parrainage'
+  | 'document'
+  | 'formation'
+  | 'conge'
+  | 'prime';
 
 export interface GlobalSearchResult {
   type: GlobalSearchType;
-  /** Identifiant utilisé pour la navigation (id Planning, id contrat, id referral, internalId document). */
+  /** Identifiant utilisé pour la navigation. */
   id: string;
   title: string;
   subtitle: string;
@@ -35,12 +48,14 @@ const GROUP_LABELS: Record<GlobalSearchType, string> = {
   contract: 'Contrats',
   parrainage: 'Parrainage',
   document: 'Documents',
+  formation: 'Formations',
+  conge: 'Congés',
+  prime: 'Primes',
 };
 
 /**
  * Recherche globale multi-sources. Il n'existe pas d'endpoint /api/search unifié :
- * on interroge les endpoints existants (employés en cache + filtre client, contrats,
- * parrainage en recherche serveur, documents) et on agrège des résultats groupés.
+ * on interroge les endpoints existants et on agrège des résultats groupés.
  * Chaque source échoue silencieusement (catchError → []) pour ne jamais casser la barre.
  */
 @Injectable({ providedIn: 'root' })
@@ -49,6 +64,8 @@ export class GlobalSearchService {
   private readonly contractService = inject(ContractService);
   private readonly parrainageApi = inject(ParrainageApiService);
   private readonly docApi = inject(DocumentationDataApiService);
+  private readonly formationService = inject(FormationService);
+  private readonly congeService = inject(CongeService);
 
   private usersCache$: Observable<User[]> | null = null;
   private contractsCache$: Observable<ContractResponse[]> | null = null;
@@ -64,6 +81,9 @@ export class GlobalSearchService {
       contract: this.searchContracts(term),
       parrainage: this.searchParrainage(term),
       document: this.searchDocuments(term),
+      formation: this.searchFormations(term),
+      conge: this.searchConges(term),
+      prime: this.searchPrime(term),
     }).pipe(
       map((buckets) =>
         (Object.keys(buckets) as GlobalSearchType[])
@@ -162,6 +182,79 @@ export class GlobalSearchService {
             id: d.internalId,
             title: d.employeeName || 'Demande de document',
             subtitle: [d.type, d.status].filter(Boolean).join(' · ') || '—',
+          })),
+      ),
+      catchError(() => of<GlobalSearchResult[]>([])),
+    );
+  }
+
+  private searchFormations(term: string): Observable<GlobalSearchResult[]> {
+    return this.formationService.getAll().pipe(
+      map((list) =>
+        (list ?? [])
+          .filter((f) =>
+            [f.titre, f.formateur, f.description].filter(Boolean).join(' ').toLowerCase().includes(term),
+          )
+          .slice(0, PER_GROUP_LIMIT)
+          .map<GlobalSearchResult>((f) => ({
+            type: 'formation',
+            id: f.id,
+            title: f.titre || 'Formation',
+            subtitle: [f.formateur, StatutFormationLabels[f.statut]].filter(Boolean).join(' · ') || '—',
+          })),
+      ),
+      catchError(() => of<GlobalSearchResult[]>([])),
+    );
+  }
+
+  private searchConges(term: string): Observable<GlobalSearchResult[]> {
+    const year = new Date().getFullYear();
+    return this.congeService.getHistoriqueRh(year).pipe(
+      map((list) =>
+        (list ?? [])
+          .filter((d) =>
+            [
+              d.employeId,
+              TypeCongeLabels[d.typeConge],
+              StatutDemandeLabels[d.statut],
+              d.motif,
+            ]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase()
+              .includes(term),
+          )
+          .slice(0, PER_GROUP_LIMIT)
+          .map<GlobalSearchResult>((d) => ({
+            type: 'conge',
+            id: d.id,
+            title: TypeCongeLabels[d.typeConge] || 'Congé',
+            subtitle: [d.employeId, StatutDemandeLabels[d.statut], `${d.dateDebut} → ${d.dateFin}`]
+              .filter(Boolean)
+              .join(' · '),
+          })),
+      ),
+      catchError(() => of<GlobalSearchResult[]>([])),
+    );
+  }
+
+  private searchPrime(term: string): Observable<GlobalSearchResult[]> {
+    return from(PrimeService.getEmployees()).pipe(
+      map((employees: Employee[]) =>
+        (employees ?? [])
+          .filter((e: Employee) =>
+            [e.firstName, e.lastName, e.email, e.role]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase()
+              .includes(term),
+          )
+          .slice(0, PER_GROUP_LIMIT)
+          .map<GlobalSearchResult>((e: Employee) => ({
+            type: 'prime',
+            id: String(e.id),
+            title: `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim() || 'Employé Prime',
+            subtitle: [e.role, e.email].filter(Boolean).join(' · ') || '—',
           })),
       ),
       catchError(() => of<GlobalSearchResult[]>([])),

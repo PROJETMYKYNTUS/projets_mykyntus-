@@ -41,7 +41,7 @@ public sealed class ParrainageDatabaseInitializer(
         await ParrainageSchemaPatches.ApplyPendingSchemaAsync(db, logger, cancellationToken);
 
         var seedDemo = configuration.GetValue("Parrainage:SeedDemoData", false)
-            && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "true", "true", StringComparison.OrdinalIgnoreCase);
+            && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "false", "true", StringComparison.OrdinalIgnoreCase);
         if (seedDemo)
         {
             try

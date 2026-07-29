@@ -50,10 +50,18 @@ public static class DependencyInjection
         services.AddScoped<IDirectoryEmployeeWriteClient, DirectoryEmployeeWriteClient>();
         services.AddScoped<IFormationInitialTrainingClient, FormationInitialTrainingClient>();
         services.AddScoped<IDirectoryHierarchyClient, DirectoryHierarchyClient>();
-        services.AddHttpClient<IUserService, UserService>(client =>
+        services.AddHttpClient<IUserService, UserService>((sp, client) =>
         {
-            client.BaseAddress = new Uri("http://kyntus_auth_backend:8080/");
+            var configuration = sp.GetRequiredService<IConfiguration>();
+            var baseUrl = configuration["Auth:BaseUrl"] ?? "http://kyntus_auth_backend:8080/";
+            client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/");
             client.Timeout = TimeSpan.FromSeconds(30);
+            var apiKey = configuration["InternalServices:ApiKey"];
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                client.DefaultRequestHeaders.Remove("X-Internal-Service-Key");
+                client.DefaultRequestHeaders.TryAddWithoutValidation("X-Internal-Service-Key", apiKey);
+            }
         });
         services.AddScoped<IContractService, ContractService>();
         services.AddScoped<IPlanningOrgMirrorService, PlanningOrgMirrorService>();
@@ -65,6 +73,7 @@ public static class DependencyInjection
         services.AddScoped<IDirectoryOrgWriteClient, DirectoryOrgWriteClient>();
 
         services.AddScoped<IEmployeeFieldService, EmployeeFieldService>();
+        services.AddSingleton<IEmployeeImportCredentialsStore, EmployeeImportCredentialsStore>();
         services.AddScoped<IEmployeeImportConfigService, EmployeeImportConfigService>();
         services.AddScoped<IEmployeeImportSessionStore, EmployeeImportSessionStore>();
         services.AddScoped<IEmployeeImportOrgResolver, EmployeeImportOrgResolver>();

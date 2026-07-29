@@ -1,16 +1,20 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { KYNTUS_PUBLIC_URLS } from '../../../config/kyntus-public-urls';
+import { RouterLink } from '@angular/router';
+import { redirectToAuthLogin } from '../../../core/session/kyntus-auth-refresh.service';
 
 @Component({
   selector: 'app-unauthorized',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   template: `
     <div class="unauthorized ky-fade-up">
       <h1 class="unauthorized-code">403</h1>
       <p class="unauthorized-text">Vous n'avez pas accès à cette page.</p>
-      <a class="ky-btn-primary" [href]="authLoginUrl">Retour au login</a>
+      <div class="unauthorized-actions">
+        <a class="ky-btn-secondary" routerLink="/home">Accueil</a>
+        <button type="button" class="ky-btn-primary" (click)="goLogin()">Retour au login</button>
+      </div>
     </div>
   `,
   styles: [`
@@ -38,9 +42,17 @@ import { KYNTUS_PUBLIC_URLS } from '../../../config/kyntus-public-urls';
       font-size: 0.9375rem;
       color: var(--text-muted);
     }
+    .unauthorized-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+    }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UnauthorizedComponent {
-  readonly authLoginUrl = KYNTUS_PUBLIC_URLS.authLogin;
+  goLogin(): void {
+    redirectToAuthLogin();
+  }
 }

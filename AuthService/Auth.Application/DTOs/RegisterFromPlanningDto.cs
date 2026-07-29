@@ -3,7 +3,7 @@ namespace Auth.Application.DTOs;
 public class RegisterFromPlanningDto
 {
     public string Email { get; set; } = string.Empty;
-    public string DefaultPassword { get; set; } = "Azerty@123";
+    public string DefaultPassword { get; set; } = string.Empty;
     public int RoleId { get; set; }
     public string? RoleName { get; set; }
 

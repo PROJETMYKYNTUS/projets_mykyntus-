@@ -6,9 +6,10 @@ import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { UserService } from '../../services/user.service';
 import { User } from '../../users-module';
+import { copyTextToClipboard } from '../../../../core/lib/clipboard.util';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
-import { AlertTriangle, Award, Eye, History, Pencil, Search, Trash2 } from 'lucide';
+import { AlertTriangle, Award, Eye, History, KeyRound, Pencil, Search, Trash2 } from 'lucide';
 import type { Department } from '../../../prime/models';
 import type { OrgAssignmentsOverview } from '../../../prime/services/prime-org-api.service';
 import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
@@ -56,6 +57,7 @@ export class UserListComponent implements OnInit {
     search: Search,
     history: History,
     level: Award,
+    key: KeyRound,
   };
   readonly orgCellLabel = orgCellLabel;
   readonly orgDepartmentLabel = orgDepartmentLabel;
@@ -81,6 +83,10 @@ export class UserListComponent implements OnInit {
   levelDraft: 1 | 2 | 3 = 1;
   levelSaving = false;
   levelError = '';
+  resetCredentials: { email: string; password: string; firstName?: string; lastName?: string } | null = null;
+  showResetPassword = false;
+  resettingUserId: number | null = null;
+  downloadingCredentialsExcel = false;
 
   constructor(
     private userService: UserService,
@@ -237,5 +243,80 @@ export class UserListComponent implements OnInit {
         error: (err) => alert(`Erreur: ${err.error?.message}`)
       });
     }
+  }
+
+  resetPassword(user: User, event?: Event): void {
+    event?.stopPropagation();
+    if (this.resettingUserId != null) return;
+    if (!confirm(`Réinitialiser le mot de passe de ${user.email} ?`)) return;
+    this.resettingUserId = user.id;
+    this.userService.resetPassword(user.id).subscribe({
+      next: (result) => {
+        this.resetCredentials = {
+          email: result.email,
+          password: result.temporaryPassword,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        };
+        this.showResetPassword = true;
+        this.resettingUserId = null;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.resettingUserId = null;
+        alert(err?.error?.message ?? 'Échec de la réinitialisation.');
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  closeResetCredentials(): void {
+    this.resetCredentials = null;
+    this.showResetPassword = false;
+  }
+
+  async copyResetPassword(): Promise<void> {
+    if (!this.resetCredentials?.password) return;
+    try {
+      await copyTextToClipboard(this.resetCredentials.password);
+    } catch (err) {
+      console.error('copyResetPassword', err);
+      alert('Impossible de copier le mot de passe.');
+    }
+  }
+
+  async downloadResetCredentialsExcel(): Promise<void> {
+    if (!this.resetCredentials || this.downloadingCredentialsExcel) return;
+    this.downloadingCredentialsExcel = true;
+    try {
+      const { downloadCredentialsExcel } = await import('../../../../core/lib/credentials-excel.util');
+      await downloadCredentialsExcel(
+        [
+          {
+            email: this.resetCredentials.email,
+            password: this.resetCredentials.password,
+            firstName: this.resetCredentials.firstName,
+            lastName: this.resetCredentials.lastName,
+          },
+        ],
+        { fileNamePrefix: 'identifiants-mykyntus-reinit' },
+      );
+    } catch {
+      alert('Échec du téléchargement Excel.');
+    } finally {
+      this.downloadingCredentialsExcel = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  lifecycleBadge(user: User): { phase: string; label: string } | null {
+    const ls = user.lifecycleStatus;
+    if (ls && ls.phase && ls.phase !== 'active') {
+      return { phase: ls.phase, label: ls.label };
+    }
+    if (user.hrProfile?.enFormation) {
+      return { phase: 'onboarding_formation', label: 'En formation' };
+    }
+    return null;
   }
 }

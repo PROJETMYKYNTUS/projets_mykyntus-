@@ -35,9 +35,8 @@ const routes: Routes = [
   },
   {
     path: 'conges',
-    loadComponent: () =>
-      import('./pages/conge-manager/conge-manager.component')
-        .then(m => m.CongeManagerComponent)
+    redirectTo: '/absences-planning',
+    pathMatch: 'full',
   },
   {
     path: 'equipe',

@@ -8,17 +8,19 @@ using Prime.Domain.Entities;
 namespace Prime.Infrastructure.Services;
 
 /// <summary>Requêtes Chef de projet / RP depuis PostgreSQL (remplace les mocks in-memory).</summary>
-public sealed class PrimeRpQueryService(PrimeDbContext? db, IPrimeDirectoryAsOfClient? directoryAsOf = null)
-    : IPrimeRpAppService
+public sealed class PrimeRpQueryService(
+    PrimeDbContext? db,
+    IPrimeDirectoryAsOfClient? directoryAsOf = null,
+    PrimeOrgScopeService? orgScope = null) : IPrimeRpAppService
 {
     public async Task<List<string>> GetAssignedProjectIdsAsync(string rpUserId, CancellationToken ct = default)
     {
-        var poleId = await ResolveChefDeProjetPoleIdAsync(rpUserId, ct);
-        if (db is null || poleId is null)
+        var poleIds = await ResolveChefDeProjetPoleIdsAsync(rpUserId, ct);
+        if (db is null || poleIds.Count == 0)
             return ["default"];
 
         var ids = await db.Services.AsNoTracking()
-            .Where(s => s.Cellule.PoleId == poleId)
+            .Where(s => poleIds.Contains(s.Cellule.PoleId))
             .Select(s => s.Id)
             .Distinct()
             .ToListAsync(ct);
@@ -27,14 +29,14 @@ public sealed class PrimeRpQueryService(PrimeDbContext? db, IPrimeDirectoryAsOfC
 
     public async Task<ChefProjetDashboardStats> GetDashboardStatsAsync(string rpUserId, CancellationToken ct = default)
     {
-        var poleId = await ResolveChefDeProjetPoleIdAsync(rpUserId, ct);
-        if (db is null || poleId is null)
+        var poleIds = await ResolveChefDeProjetPoleIdsAsync(rpUserId, ct);
+        if (db is null || poleIds.Count == 0)
             return EmptyDashboard();
 
         var fiches = await (
             from f in db.EmployeePrimeServiceFiches.AsNoTracking()
             join e in db.Employees.AsNoTracking() on f.EmployeeId equals e.Id
-            where e.PoleId == poleId
+            where poleIds.Contains(e.PoleId)
             select f
         ).ToListAsync(ct);
 
@@ -91,14 +93,14 @@ public sealed class PrimeRpQueryService(PrimeDbContext? db, IPrimeDirectoryAsOfC
         string rpUserId,
         CancellationToken ct = default)
     {
-        var poleId = await ResolveChefDeProjetPoleIdAsync(rpUserId, ct);
-        if (db is null || poleId is null) return [];
+        var poleIds = await ResolveChefDeProjetPoleIdsAsync(rpUserId, ct);
+        if (db is null || poleIds.Count == 0) return [];
 
         var rows = await (
             from f in db.EmployeePrimeServiceFiches.AsNoTracking()
             join e in db.Employees.AsNoTracking() on f.EmployeeId equals e.Id
             join s in db.Services.AsNoTracking() on f.ServiceId equals s.Id
-            where e.PoleId == poleId && e.Role == "Pilote"
+            where poleIds.Contains(e.PoleId) && e.Role == "Pilote"
             select new { f, e, s }
         ).ToListAsync(ct);
 
@@ -130,14 +132,14 @@ public sealed class PrimeRpQueryService(PrimeDbContext? db, IPrimeDirectoryAsOfC
         string rpUserId,
         CancellationToken ct = default)
     {
-        var poleId = await ResolveChefDeProjetPoleIdAsync(rpUserId, null, ct);
-        if (db is null || poleId is null) return [];
+        var poleIds = await ResolveChefDeProjetPoleIdsAsync(rpUserId, null, ct);
+        if (db is null || poleIds.Count == 0) return [];
 
         var rows = await (
             from f in db.EmployeePrimeServiceFiches.AsNoTracking()
             join e in db.Employees.AsNoTracking() on f.EmployeeId equals e.Id
             join s in db.Services.AsNoTracking() on f.ServiceId equals s.Id
-            where e.PoleId == poleId
+            where poleIds.Contains(e.PoleId)
                   && (f.ValidationStatus == PrimeValidationWorkflowService.SuperviseurApproved
                       || f.ValidationStatus == PrimeValidationWorkflowService.ChefDeProjetApproved
                       || f.ValidationStatus == PrimeValidationWorkflowService.Rejected)
@@ -173,9 +175,9 @@ public sealed class PrimeRpQueryService(PrimeDbContext? db, IPrimeDirectoryAsOfC
             .FirstOrDefaultAsync(f => f.Id == id, ct);
         if (fiche is null) throw new KeyNotFoundException("Validation introuvable.");
 
-        var poleId = await ResolveChefDeProjetPoleIdForPeriodAsync(rpUserId, fiche.Period, ct);
+        var poleIds = await ResolveChefDeProjetPoleIdsForPeriodAsync(rpUserId, fiche.Period, ct);
         var emp = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == fiche.EmployeeId, ct);
-        if (poleId is null || emp is null || emp.PoleId != poleId)
+        if (poleIds.Count == 0 || emp is null || !poleIds.Contains(emp.PoleId ?? ""))
             throw new UnauthorizedAccessException("Hors périmètre chef de projet.");
 
         var now = DateTimeOffset.UtcNow;
@@ -215,7 +217,7 @@ public sealed class PrimeRpQueryService(PrimeDbContext? db, IPrimeDirectoryAsOfC
         };
     }
 
-    private async Task<string?> ResolveChefDeProjetPoleIdAsync(
+    private async Task<IReadOnlyList<string>> ResolveChefDeProjetPoleIdsAsync(
         string rpUserId,
         DateTime? asOf,
         CancellationToken ct)
@@ -224,12 +226,18 @@ public sealed class PrimeRpQueryService(PrimeDbContext? db, IPrimeDirectoryAsOfC
         {
             var historical = await directoryAsOf.ResolveChefDeProjetPoleIdAsync(rpUserId, asOf, ct);
             if (!string.IsNullOrWhiteSpace(historical))
-                return historical;
+                return [historical];
         }
 
-        if (db is null) return null;
+        if (orgScope is not null)
+        {
+            var poles = await orgScope.GetManagedPoleIdsAsync(rpUserId, ct);
+            if (poles.Count > 0) return poles;
+        }
+
+        if (db is null) return [];
         var emp = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == rpUserId, ct);
-        return emp?.PoleId;
+        return string.IsNullOrWhiteSpace(emp?.PoleId) ? [] : [emp.PoleId.Trim()];
     }
 
     private static DateTime? ParsePeriodEndDate(string? period)
@@ -241,11 +249,12 @@ public sealed class PrimeRpQueryService(PrimeDbContext? db, IPrimeDirectoryAsOfC
         return null;
     }
 
-    private async Task<string?> ResolveChefDeProjetPoleIdForPeriodAsync(string rpUserId, string? period, CancellationToken ct) =>
-        await ResolveChefDeProjetPoleIdAsync(rpUserId, ParsePeriodEndDate(period), ct);
+    private async Task<IReadOnlyList<string>> ResolveChefDeProjetPoleIdsForPeriodAsync(
+        string rpUserId, string? period, CancellationToken ct) =>
+        await ResolveChefDeProjetPoleIdsAsync(rpUserId, ParsePeriodEndDate(period), ct);
 
-    private async Task<string?> ResolveChefDeProjetPoleIdAsync(string rpUserId, CancellationToken ct) =>
-        await ResolveChefDeProjetPoleIdAsync(rpUserId, null, ct);
+    private async Task<IReadOnlyList<string>> ResolveChefDeProjetPoleIdsAsync(string rpUserId, CancellationToken ct) =>
+        await ResolveChefDeProjetPoleIdsAsync(rpUserId, null, ct);
 
     private static string MapRpUiStatus(string validationStatus) => validationStatus switch
     {

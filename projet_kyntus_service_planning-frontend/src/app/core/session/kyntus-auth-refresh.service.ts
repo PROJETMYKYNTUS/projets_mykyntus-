@@ -45,10 +45,16 @@ async function doRefreshAccessToken(): Promise<string | null> {
   }
 }
 
-export function redirectToAuthLogin(): void {
+export function redirectToAuthLogin(returnUrl?: string): void {
   clearStoredTokens();
   localStorage.removeItem('user');
-  window.location.href = KYNTUS_PUBLIC_URLS.authLogin;
+  const base = KYNTUS_PUBLIC_URLS.authLogin;
+  const url =
+    returnUrl && returnUrl.trim()
+      ? `${base}?returnUrl=${encodeURIComponent(returnUrl.trim())}`
+      : base;
+  // replace : empêche le bouton Retour d’afficher une page SPA encore « authentifiée ».
+  window.location.replace(url);
 }
 
 @Injectable({ providedIn: 'root' })

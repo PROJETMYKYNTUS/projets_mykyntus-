@@ -21,3 +21,12 @@ public sealed class ReconcileDirectoryCommandHandler(IDirectoryReconciliationSer
     public Task<DirectoryReconcileReportDto> Handle(ReconcileDirectoryCommand request, CancellationToken ct) =>
         reconcile.ReconcileAsync(ct);
 }
+
+public record DeduplicateActiveNodeIncumbentsCommand(Guid? ChangedBy) : IRequest<int>;
+
+public sealed class DeduplicateActiveNodeIncumbentsCommandHandler(IDirectoryWriteService write)
+    : IRequestHandler<DeduplicateActiveNodeIncumbentsCommand, int>
+{
+    public Task<int> Handle(DeduplicateActiveNodeIncumbentsCommand request, CancellationToken ct) =>
+        write.DeduplicateActiveNodeIncumbentsAsync(request.ChangedBy, ct);
+}

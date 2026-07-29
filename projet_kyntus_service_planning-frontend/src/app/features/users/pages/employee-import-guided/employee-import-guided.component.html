@@ -411,7 +411,7 @@
         <li *ngIf="acceptedFuzzyMatches.length"><strong>Correspondances floues acceptées :</strong> {{ acceptedFuzzyMatches.length }}</li>
       </ul>
       <p class="hint">
-        Règles : email = identifiant unique · cellule vide = pas d'écrasement · mot de passe optionnel (défaut système).
+        Règles : email = identifiant unique · cellule vide = pas d'écrasement · mot de passe optionnel (si vide → généré automatiquement, affiché une fois dans le rapport).
       </p>
       <div class="actions-row">
         <button type="button" class="ky-btn-secondary" (click)="goToStep('org')">Retour</button>
@@ -459,12 +459,39 @@
         </li>
       </ul>
     </div>
+
+    <div
+      class="ky-alert"
+      *ngIf="createdCredentialsCount > 0"
+      style="margin: 1rem 0; border-left: 4px solid #c2410c; background: #fff7ed; padding: 0.85rem 1rem;"
+    >
+      <strong>{{ createdCredentialsCount }} identifiant(s) généré(s)</strong>
+      <p style="margin: 0.35rem 0 0;">
+        Ces mots de passe ne seront plus disponibles après avoir quitté cet écran.
+        Utilisez le fichier Excel pour la remise à chaque employé. En cas de perte, réinitialisez depuis la fiche employé.
+      </p>
+    </div>
+
     <div class="actions-row report-actions">
       <a routerLink="/users/htel-liaisons" class="ky-btn-secondary">Voir les liaisons HTEL</a>
       <button type="button" class="ky-btn-secondary" (click)="exportErrors()" *ngIf="report.erreurs > 0">
         Exporter erreurs (CSV)
       </button>
-      <button type="button" class="ky-btn-primary" (click)="resetWizard()">Nouvel import</button>
+      <button
+        type="button"
+        class="ky-btn-primary"
+        (click)="downloadCredentialsExcel()"
+        *ngIf="createdCredentialsCount > 0"
+        [disabled]="credentialsExcelDownloading"
+      >
+        {{ credentialsExcelDownloading ? 'Téléchargement…' : 'Télécharger Excel des identifiants' }}
+      </button>
+      <button type="button" class="ky-btn-primary" (click)="resetWizard()" *ngIf="createdCredentialsCount === 0">
+        Nouvel import
+      </button>
+      <button type="button" class="ky-btn-secondary" (click)="resetWizard()" *ngIf="createdCredentialsCount > 0">
+        Nouvel import
+      </button>
     </div>
     <div class="ky-card-table-section">
       <table class="ky-table">
@@ -474,6 +501,7 @@
             <th>Email</th>
             <th>Action</th>
             <th>Message</th>
+            <th>Mot de passe</th>
           </tr>
         </thead>
         <tbody>
@@ -482,6 +510,18 @@
             <td>{{ line.email ?? '—' }}</td>
             <td>{{ actionLabel(line.action) }}</td>
             <td>{{ line.message ?? '—' }}</td>
+            <td>
+              <ng-container *ngIf="line.temporaryPassword; else noPwd">
+                <code>{{ isPasswordRevealed(line) ? line.temporaryPassword : '••••••••••••••••' }}</code>
+                <button type="button" class="ky-btn-secondary" style="margin-left: 0.35rem;" (click)="togglePasswordReveal(line)">
+                  {{ isPasswordRevealed(line) ? 'Masquer' : 'Afficher' }}
+                </button>
+                <button type="button" class="ky-btn-secondary" style="margin-left: 0.25rem;" (click)="copyLinePassword(line)">
+                  Copier
+                </button>
+              </ng-container>
+              <ng-template #noPwd><span>—</span></ng-template>
+            </td>
           </tr>
         </tbody>
       </table>

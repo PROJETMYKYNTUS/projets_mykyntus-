@@ -71,7 +71,7 @@ public sealed class PrimeDatabaseInitializer(
         await EnsurePrimeMetierTablesExistAsync(db, cancellationToken);
 
         var enrich = configuration.GetValue("Prime:EnrichDemoData", false)
-            && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "true", "true", StringComparison.OrdinalIgnoreCase);
+            && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "false", "true", StringComparison.OrdinalIgnoreCase);
         if (enrich)
         {
             try

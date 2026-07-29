@@ -122,6 +122,17 @@ public record StructuralRoleAssignmentResult(
     IReadOnlyList<NodeIncumbentRevokedDto> RevokedOnNode,
     string? AddedEmployeeId);
 
+/// <summary>Résultat d'une synchronisation exacte multi-nœuds pour un employé/kind.</summary>
+public record StructuralAssignmentsReconcileResult(
+    string Kind,
+    string EmployeeId,
+    IReadOnlyList<string> NodeIds,
+    string PrimaryNodeId,
+    IReadOnlyList<string> AddedNodeIds,
+    IReadOnlyList<string> RemovedNodeIds,
+    IReadOnlyList<RevokedStructuralRoleDto> RevokedOtherKinds,
+    IReadOnlyList<NodeIncumbentRevokedDto> RevokedOnNode);
+
 public record CreateEmployeeRequest(
     Guid? EmployeeId,
     string FirstName,
@@ -237,7 +248,8 @@ public record DirectoryReconcileReportDto(
     int OrphansPlanning,
     int OrphansPrime,
     int OrgGapsFixed,
-    DirectoryReconcileVerifyDto Verify);
+    DirectoryReconcileVerifyDto Verify,
+    int DuplicateNodeIncumbentsClosed = 0);
 
 // ─── HTEL techniciens (source de vérité externe) ───
 

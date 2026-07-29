@@ -80,7 +80,7 @@ export class AssistanceComponent {
     },
     {
       title: 'Congés',
-      description: 'Déposez une demande d’absence et consultez vos soldes.',
+      description: 'Déposez une demande de congé et consultez vos soldes.',
       route: '/mes-conges',
     },
     {

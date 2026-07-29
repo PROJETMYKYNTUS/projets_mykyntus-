@@ -194,6 +194,17 @@ public sealed class DirectoryAssignmentSyncService(
         if (duplicate)
             return;
 
+        // Unicité par nœud : clôturer les titulaires d'un autre employé avant l'ajout.
+        var otherIncumbents = await db.OrgAssignments
+            .Where(a => a.Kind == msgKindAssign
+                        && a.NodeId == msg.NodeId
+                        && a.EmployeeId != employeeId
+                        && a.EffectiveTo == null)
+            .ToListAsync(ct);
+        var now = DateTime.UtcNow;
+        foreach (var row in otherIncumbents)
+            row.EffectiveTo = now;
+
         db.OrgAssignments.Add(new OrgAssignment
         {
             Id = Guid.NewGuid(),
@@ -201,12 +212,12 @@ public sealed class DirectoryAssignmentSyncService(
             NodeId = msg.NodeId,
             NodeLevel = MessagingEnumMapper.FromMessage(msg.NodeLevel),
             EmployeeId = employeeId,
-            EffectiveFrom = DateTime.UtcNow,
+            EffectiveFrom = now,
             ChangeReason = "sync-from-prime",
         });
 
         await hierarchy.ApplyAssignmentToEmployeeAsync(employee, msgKindAssign, msg.NodeId, ct);
-        employee.UpdatedAt = DateTime.UtcNow;
+        employee.UpdatedAt = now;
         await db.SaveChangesAsync(ct);
     }
 }

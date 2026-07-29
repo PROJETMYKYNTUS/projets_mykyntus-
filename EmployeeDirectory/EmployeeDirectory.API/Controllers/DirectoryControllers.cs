@@ -11,6 +11,7 @@ using EmployeeDirectory.Application.Reconcile;
 using EmployeeDirectory.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -284,6 +285,48 @@ public class DirectoryOrgController(IMediator mediator, ILogger<DirectoryOrgCont
         }
     }
 
+    /// <summary>
+    /// Synchronise exactement les nœuds managés d'un employé pour un kind
+    /// (ChefDeProjet / Superviseur / ReferentTechnique).
+    /// </summary>
+    [HttpPut("assignments/{kind}/employees/{employeeId:guid}")]
+    public async Task<ActionResult<StructuralAssignmentsReconcileResult>> ReconcileEmployeeAssignments(
+        string kind,
+        Guid employeeId,
+        [FromBody] ReconcileEmployeeAssignmentsRequest body,
+        CancellationToken ct)
+    {
+        if (body is null)
+            return BadRequest(new { error = "Corps de requête requis." });
+
+        var changedBy = User.GetSubjectId();
+        try
+        {
+            var result = await mediator.Send(
+                new ReconcileEmployeeStructuralAssignmentsCommand(
+                    kind,
+                    employeeId,
+                    body.NodeIds ?? [],
+                    body.PrimaryNodeId ?? string.Empty,
+                    changedBy,
+                    body.Reason),
+                ct);
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
+    }
+
     [HttpDelete("assignments/Pilote/{serviceId}/employees/{employeeId:guid}")]
     public async Task<IActionResult> RemovePilot(string serviceId, Guid employeeId, CancellationToken ct)
     {
@@ -376,6 +419,15 @@ public class DirectoryReconcileController(IMediator mediator) : ControllerBase
     [Authorize(Roles = "Admin,RH")]
     public async Task<ActionResult<DirectoryReconcileReportDto>> Reconcile(CancellationToken ct) =>
         Ok(await mediator.Send(new ReconcileDirectoryCommand(), ct));
+
+    /// <summary>Clôture les doublons de titulaires actifs par nœud (Kind, NodeId).</summary>
+    [HttpPost("dedupe-node-incumbents")]
+    [Authorize(Roles = "Admin,RH")]
+    public async Task<ActionResult<object>> DedupeNodeIncumbents(CancellationToken ct)
+    {
+        var closed = await mediator.Send(new DeduplicateActiveNodeIncumbentsCommand(null), ct);
+        return Ok(new { closed });
+    }
 }
 
 [ApiController]
@@ -462,8 +514,22 @@ public class DirectoryHtelController(IHtelFusionService htelFusion) : Controller
     [HttpGet("techniciens")]
     public async Task<ActionResult<IReadOnlyList<HtelTechnicienDto>>> ListTechniciens(
         [FromQuery] bool? actifOnly,
-        CancellationToken ct) =>
-        Ok(await htelFusion.ListTechniciensAsync(actifOnly, ct));
+        CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await htelFusion.ListTechniciensAsync(actifOnly, ct));
+        }
+        catch (HttpRequestException)
+        {
+            // HTEL externe indisponible : ne pas casser le formulaire RH.
+            return Ok(Array.Empty<HtelTechnicienDto>());
+        }
+        catch (TaskCanceledException)
+        {
+            return Ok(Array.Empty<HtelTechnicienDto>());
+        }
+    }
 
     [HttpGet("liaisons")]
     [Authorize(Roles = "Admin,RH")]
@@ -475,7 +541,11 @@ public class DirectoryHtelController(IHtelFusionService htelFusion) : Controller
         }
         catch (HttpRequestException ex)
         {
-            return StatusCode(502, new { error = "HTEL indisponible.", detail = ex.Message });
+            return StatusCode(StatusCodes.Status502BadGateway, new { error = "HTEL indisponible.", detail = ex.Message });
+        }
+        catch (TaskCanceledException)
+        {
+            return StatusCode(StatusCodes.Status504GatewayTimeout, new { error = "Timeout HTEL." });
         }
     }
 
@@ -489,7 +559,11 @@ public class DirectoryHtelController(IHtelFusionService htelFusion) : Controller
         }
         catch (HttpRequestException ex)
         {
-            return StatusCode(502, new { error = "HTEL indisponible.", detail = ex.Message });
+            return StatusCode(StatusCodes.Status502BadGateway, new { error = "HTEL indisponible.", detail = ex.Message });
+        }
+        catch (TaskCanceledException)
+        {
+            return StatusCode(StatusCodes.Status504GatewayTimeout, new { error = "Timeout HTEL." });
         }
     }
 
@@ -508,6 +582,10 @@ public class DirectoryHtelController(IHtelFusionService htelFusion) : Controller
         catch (InvalidOperationException ex)
         {
             return Conflict(new { error = ex.Message });
+        }
+        catch (HttpRequestException ex)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway, new { error = "HTEL indisponible.", detail = ex.Message });
         }
     }
 
@@ -540,6 +618,10 @@ public record AssignRequest(
     string? Reason,
     IReadOnlyList<string>? RevokeEmployeeIds,
     bool? ForceTenureOverride);
+public record ReconcileEmployeeAssignmentsRequest(
+    IReadOnlyList<string>? NodeIds,
+    string? PrimaryNodeId,
+    string? Reason);
 public record SetAuthSubjectRequest(Guid AuthSubjectId);
 public record EvaluatePolicyRequest(string Action, string ResourceType, string? ResourceId);
 

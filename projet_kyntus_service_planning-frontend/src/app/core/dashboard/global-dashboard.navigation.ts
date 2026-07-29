@@ -10,9 +10,9 @@ import type { NavigationActionsService } from '../navigation/navigation-actions.
 
 /** Routes alignées sur microservices.config.ts / app.routes.ts */
 export const DASHBOARD_ROUTES = {
-  congeValidationRh: '/conge-gestion',
+  congeValidationRh: '/conges/validation',
   congeMesDemandes: '/mes-conges',
-  congeAbsencesPlanning: '/conge',
+  congeAbsencesPlanning: '/absences-planning',
   reclamationsAdmin: '/reclamations-admin',
   contracts: '/contracts',
   formations: '/formations',

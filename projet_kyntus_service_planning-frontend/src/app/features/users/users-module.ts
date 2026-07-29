@@ -70,6 +70,31 @@ export interface User {
   idTechnicien?: number | null;
   htelCode?: string | null;
   customFields?: Record<string, string | null>;
+  /** Mot de passe généré — présent uniquement juste après création. */
+  generatedPassword?: string | null;
+  /** Statut onboarding agrégé (Planning). */
+  lifecycleStatus?: EmployeeLifecycleStatus | null;
+}
+
+export interface EmployeeLifecycleStep {
+  id: string;
+  label: string;
+  /** done | current | pending | blocked */
+  state: string;
+}
+
+export interface EmployeeLifecycleStatus {
+  phase: string;
+  label: string;
+  isActive: boolean;
+  enFormation: boolean;
+  authProvisioned: boolean;
+  formationDeepLink?: string | null;
+  passageProductionDeepLink?: string | null;
+  editDeepLink?: string | null;
+  steps: EmployeeLifecycleStep[];
+  /** Enrichi côté fiche détail si un contrat est présent. */
+  hasContract?: boolean;
 }
 
 export interface CreateUserDto {

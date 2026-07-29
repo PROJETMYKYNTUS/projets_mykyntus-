@@ -32,9 +32,30 @@ public interface IDirectoryWriteService
         IReadOnlyList<Guid>? revokeEmployeeIds = null,
         bool forceTenureOverride = false,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Synchronise exactement les nœuds managés d'un employé pour un kind structurel
+    /// (ChefDeProjet / Superviseur / ReferentTechnique) dans une seule transaction.
+    /// </summary>
+    Task<StructuralAssignmentsReconcileResult> ReconcileEmployeeStructuralAssignmentsAsync(
+        string kind,
+        Guid employeeId,
+        IReadOnlyList<string> nodeIds,
+        string primaryNodeId,
+        Guid? changedBy,
+        string? reason,
+        CancellationToken ct = default);
+
     Task ClearStructureRoleAsync(string kind, string nodeId, Guid? changedBy, string? reason, CancellationToken ct = default);
     Task<bool> RemoveStructurePilotAsync(string serviceId, Guid employeeId, Guid? changedBy, string? reason, CancellationToken ct = default);
     Task<bool> RemoveStructureAssignmentAsync(string kind, string nodeId, Guid employeeId, Guid? changedBy, string? reason, CancellationToken ct = default);
+
+    /// <summary>
+    /// Clôture les doublons actifs (Kind, NodeId) en gardant le titulaire le plus récent.
+    /// Retourne le nombre de lignes clôturées.
+    /// </summary>
+    Task<int> DeduplicateActiveNodeIncumbentsAsync(Guid? changedBy = null, CancellationToken ct = default);
+
     Task<string> CreatePoleAsync(string name, Guid businessDepartmentId, CancellationToken ct = default);
     Task<bool> AttachPoleToBusinessDepartmentAsync(string poleId, Guid businessDepartmentId, CancellationToken ct = default);
     Task<string> CreateCelluleAsync(string poleId, string name, CancellationToken ct = default);

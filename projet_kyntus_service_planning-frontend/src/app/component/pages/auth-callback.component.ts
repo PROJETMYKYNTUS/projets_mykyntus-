@@ -1,11 +1,12 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { RedirectService } from '../../core/services/redirect.service';
 import { DocumentationIdentityService } from '../../core/services/documentation-identity.service';
 import { KyntusNotificationInitService } from '../../core/notifications/kyntus-notification-init.service';
-import { KYNTUS_PUBLIC_URLS } from '../../config/kyntus-public-urls';
 import { persistAccessTokens, clearStoredTokens } from '../../core/session/kyntus-auth-token.util';
+import { redirectToAuthLogin } from '../../core/session/kyntus-auth-refresh.service';
+import { KyntusThemeService, type KyntusTheme } from '../../core/theme/kyntus-theme.service';
 
 @Component({
   selector: 'app-auth-callback',
@@ -47,7 +48,6 @@ import { persistAccessTokens, clearStoredTokens } from '../../core/session/kyntu
 })
 export class AuthCallbackComponent implements OnInit {
 
-  // ── Claims JWT ──────────────────────────────────────────────
   private readonly ROLE_CLAIM  = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
   private readonly ID_CLAIM    = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
   private readonly NAME_CLAIM  = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
@@ -59,22 +59,24 @@ export class AuthCallbackComponent implements OnInit {
     private redirectService: RedirectService,
     private readonly documentationIdentity: DocumentationIdentityService,
     private readonly notificationInit: KyntusNotificationInitService,
+    private readonly themeService: KyntusThemeService,
   ) {}
 
   ngOnInit(): void {
     const token   = this.route.snapshot.queryParams['token'];
     const refresh = this.route.snapshot.queryParams['refresh'];
+    const themeParam = this.route.snapshot.queryParams['theme'];
+    if (themeParam === 'light' || themeParam === 'dark') {
+      this.themeService.setTheme(themeParam as KyntusTheme);
+    }
 
-    // ── Pas de token → retour login ─────────────────────────
     if (!token) {
-      window.location.href = KYNTUS_PUBLIC_URLS.authLogin;
+      redirectToAuthLogin();
       return;
     }
 
-    // ── Stocker les tokens ───────────────────────────────────
     persistAccessTokens(token, refresh ?? undefined);
 
-    // ── Décoder le JWT et sauvegarder le user ────────────────
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
 
@@ -92,13 +94,6 @@ export class AuthCallbackComponent implements OnInit {
       const username = payload[this.NAME_CLAIM]  || 'Utilisateur';
       const email    = payload[this.EMAIL_CLAIM] || '';
 
-      // ✅ Debug — à supprimer en production
-      console.log('=== AuthCallback ===');
-      console.log('Payload JWT :', payload);
-      console.log('Rôle détecté :', role);
-      console.log('User :', { authUserId, subjectId, username, email });
-
-      // ✅ Sauvegarder le user complet
       localStorage.setItem('user', JSON.stringify({
         id: subjectId,
         authUserId,
@@ -111,14 +106,16 @@ export class AuthCallbackComponent implements OnInit {
       this.documentationIdentity.syncFromJwtSession();
       this.notificationInit.connectIfAuthenticated();
 
-      // ✅ UNE seule redirection — RedirectService décide selon le rôle
+      // Retire tokens de l’URL / historique avant atterrissage /home (replaceUrl).
+      if (typeof history !== 'undefined') {
+        history.replaceState(null, '', '/auth-callback');
+      }
       setTimeout(() => this.redirectService.redirectAfterLogin(), 100);
 
     } catch (e) {
-      // JWT invalide → fallback dashboard-employee
       console.warn('Impossible de décoder le token JWT :', e);
       clearStoredTokens();
-      setTimeout(() => this.router.navigate(['/dashboard-employee']), 100);
+      redirectToAuthLogin();
     }
   }
 }

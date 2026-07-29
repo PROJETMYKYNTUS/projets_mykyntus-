@@ -24,6 +24,13 @@ export class KyntusIdleLogoutService {
       this.router.events
         .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
         .subscribe(() => this.bump());
+
+      // Cache navigateur (bfcache) : après déconnexion, Retour ne doit pas restaurer la SPA.
+      window.addEventListener('pageshow', (ev: PageTransitionEvent) => {
+        if (ev.persisted && !this.hasSession()) {
+          this.zone.run(() => redirectToAuthLogin());
+        }
+      });
     });
 
     this.bump();

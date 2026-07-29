@@ -355,6 +355,13 @@ public class EmployeeImportRowResultDto
 
     public string? Message { get; set; }
 
+    /// <summary>Mot de passe one-shot pour les créations (non stocké en historique durable).</summary>
+    public string? TemporaryPassword { get; set; }
+
+    public string? FirstName { get; set; }
+
+    public string? LastName { get; set; }
+
 }
 
 
@@ -458,6 +465,9 @@ public sealed class ImportChunkCreateResultDto
     public Guid? EmployeeGuid { get; set; }
     public int? AuthUserId { get; set; }
     public string? ErrorMessage { get; set; }
+
+    /// <summary>Mot de passe généré ou fourni — visible une seule fois dans le résultat d'import.</summary>
+    public string? TemporaryPassword { get; set; }
 }
 
 

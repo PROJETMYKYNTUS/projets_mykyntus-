@@ -22,9 +22,11 @@ public partial class EmployeeImportService(
     EmployeeImportTemplateBuilder templateBuilder,
     IPlanningOrgMirrorService orgMirror,
     IDirectoryOrgWriteClient directoryOrg,
+    IEmployeeImportCredentialsStore credentialsStore,
     IHttpContextAccessor httpContextAccessor) : IEmployeeImportService
 {
     private readonly AppDbContext _db = db;
+    private readonly IEmployeeImportCredentialsStore _credentialsStore = credentialsStore;
     public async Task<EmployeeImportAnalyzeResponse> AnalyzeAsync(IFormFile file, CancellationToken ct = default)
     {
         var auth = httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();

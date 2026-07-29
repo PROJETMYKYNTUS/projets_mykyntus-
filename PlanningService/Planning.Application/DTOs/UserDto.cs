@@ -29,6 +29,35 @@ public class UserDto
     public UserHrProfileDto? HrProfile { get; set; }
     public List<ServiceSimpleDto> ManagedServices { get; set; } = new();
     public Dictionary<string, string?> CustomFields { get; set; } = new();
+
+    /// <summary>Mot de passe généré, renvoyé une seule fois à la création / réinit (jamais persisté).</summary>
+    public string? GeneratedPassword { get; set; }
+
+    /// <summary>Statut onboarding agrégé (compte, formation RH, Auth).</summary>
+    public EmployeeLifecycleStatusDto LifecycleStatus { get; set; } = new();
+}
+
+/// <summary>Projection onboarding RH pour fiche employé / liste.</summary>
+public class EmployeeLifecycleStatusDto
+{
+    /// <summary>inactive | awaiting_auth | onboarding_formation | active</summary>
+    public string Phase { get; set; } = "active";
+    public string Label { get; set; } = "Actif";
+    public bool IsActive { get; set; }
+    public bool EnFormation { get; set; }
+    public bool AuthProvisioned { get; set; }
+    public string? FormationDeepLink { get; set; }
+    public string? PassageProductionDeepLink { get; set; }
+    public string? EditDeepLink { get; set; }
+    public List<EmployeeLifecycleStepDto> Steps { get; set; } = new();
+}
+
+public class EmployeeLifecycleStepDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    /// <summary>done | current | pending | blocked</summary>
+    public string State { get; set; } = "pending";
 }
 
 public class UserHrProfileDto

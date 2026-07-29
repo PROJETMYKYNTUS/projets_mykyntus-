@@ -3,7 +3,7 @@ import { inject } from '@angular/core';
 import { Component, ViewEncapsulation, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
-import { KYNTUS_PUBLIC_URLS } from '../../../../config/kyntus-public-urls';
+import { redirectToAuthLogin } from '../../../../core/session/kyntus-auth-refresh.service';
 
 @Component({
   selector: 'app-dashboard-home',
@@ -38,26 +38,25 @@ export class DashboardHomeComponent implements OnInit {
 
     const token = localStorage.getItem('token');
     if (!token) {
-      window.location.href = KYNTUS_PUBLIC_URLS.authLogin;
+      redirectToAuthLogin();
     }
   }
 
   get congesRoute(): string {
     const role: string = this.currentUser?.role || '';
     const managerRoles = ['Admin', 'RH', 'Manager'];
-    return managerRoles.includes(role) ? '/conge' : '/mes-conges';
+    return managerRoles.includes(role) ? '/conges/validation' : '/mes-conges';
   }
 
   get congesLabel(): string {
     const role: string = this.currentUser?.role || '';
     return ['Admin', 'RH', 'Manager'].includes(role)
-      ? 'Gérer les congés'
+      ? 'Validation des congés'
       : 'Mes congés';
   }
 
   logout(): void {
-    localStorage.clear();
-    window.location.href = KYNTUS_PUBLIC_URLS.authLogin;
+    redirectToAuthLogin();
   }
 
   openDocumentationRhApp(): void {

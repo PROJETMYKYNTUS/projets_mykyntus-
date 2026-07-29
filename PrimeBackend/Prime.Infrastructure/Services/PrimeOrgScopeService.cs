@@ -1,3 +1,4 @@
+using Kyntus.Iam;
 using Microsoft.EntityFrameworkCore;
 using Prime.Infrastructure.Persistence;
 using Prime.Application.DTOs;
@@ -6,9 +7,10 @@ using Prime.Domain.Entities;
 namespace Prime.Infrastructure.Services;
 
 /// <summary>
-/// Périmètre organisationnel et hiérarchie issus uniquement de PostgreSQL (plus de dépendance à <see cref="PrimeInMemoryStore"/> pour les contrôleurs métier).
+/// Périmètre organisationnel et hiérarchie issus de PostgreSQL,
+/// enrichi par les nœuds managés Directory (ReBAC) pour la multi-responsabilité.
 /// </summary>
-public sealed class PrimeOrgScopeService(PrimeDbContext? db)
+public sealed class PrimeOrgScopeService(PrimeDbContext? db, IRebacClient? rebac = null)
 {
     public bool IsDatabaseAvailable => db != null;
 
@@ -44,16 +46,28 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
             return null;
         var key = celluleIdOrLegacyPoleId.Trim();
         if (string.IsNullOrEmpty(key)) return null;
+
+        var supervised = await GetSupervisedCelluleIdsAsync(supervisorUserId, ct);
+        if (supervised.Contains(key))
+            return key;
+
+        var underPole = await db.Cellules.AsNoTracking()
+            .Where(c => c.PoleId == key && supervised.Contains(c.Id))
+            .Select(c => c.Id)
+            .FirstOrDefaultAsync(ct);
+        if (!string.IsNullOrWhiteSpace(underPole))
+            return underPole;
+
         if (string.Equals(emp.CelluleId, key, StringComparison.Ordinal))
             return emp.CelluleId;
-        // Ancre « grand pôle » (PoleEntity.Id) au lieu de CelluleEntity.Id
         if (string.Equals(emp.PoleId, key, StringComparison.Ordinal))
             return emp.CelluleId;
         return null;
     }
 
     /// <summary>
-    /// Cellules RH du périmètre superviseur : toutes les cellules des pôles d’affectation (<see cref="EmployeeEntity.PoleId"/>).
+    /// Cellules du périmètre superviseur : union des nœuds managés Directory (ReBAC),
+    /// avec repli sur l’ancre primaire / pôle.
     /// </summary>
     public async Task<HashSet<string>> GetSupervisedCelluleIdsAsync(string supervisorUserId, CancellationToken ct = default)
     {
@@ -62,6 +76,10 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
         var emp = await db.Employees.AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == u && e.Role == "Superviseur", ct);
         if (emp is null) return new HashSet<string>(StringComparer.Ordinal);
+
+        var fromRebac = await TryGetManagedNodeIdsAsync(u, "Superviseur", ct);
+        if (fromRebac.Count > 0)
+            return fromRebac.ToHashSet(StringComparer.Ordinal);
 
         var poleIds = new HashSet<string>(StringComparer.Ordinal);
         if (!string.IsNullOrWhiteSpace(emp.PoleId))
@@ -89,6 +107,43 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
             .Select(c => c.Id)
             .ToListAsync(ct);
         return celluleIds.ToHashSet(StringComparer.Ordinal);
+    }
+
+    public async Task<IReadOnlyList<string>> GetManagedPoleIdsAsync(string chefUserId, CancellationToken ct = default)
+    {
+        var fromRebac = await TryGetManagedNodeIdsAsync(chefUserId, "ChefDeProjet", ct);
+        if (fromRebac.Count > 0) return fromRebac;
+
+        if (db == null) return [];
+        var emp = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == chefUserId.Trim(), ct);
+        return string.IsNullOrWhiteSpace(emp?.PoleId) ? [] : [emp.PoleId.Trim()];
+    }
+
+    public async Task<IReadOnlyList<string>> GetManagedServiceIdsAsync(string referentUserId, CancellationToken ct = default)
+    {
+        var fromRebac = await TryGetManagedNodeIdsAsync(referentUserId, "ReferentTechnique", ct);
+        if (fromRebac.Count > 0) return fromRebac;
+
+        if (db == null) return [];
+        var emp = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == referentUserId.Trim(), ct);
+        return string.IsNullOrWhiteSpace(emp?.ServiceId) ? [] : [emp.ServiceId.Trim()];
+    }
+
+    private async Task<IReadOnlyList<string>> TryGetManagedNodeIdsAsync(
+        string employeeId,
+        string kind,
+        CancellationToken ct)
+    {
+        if (rebac is null || !Guid.TryParse(employeeId, out var guid))
+            return [];
+        try
+        {
+            return await rebac.GetManagedNodeIdsAsync(guid, kind, ct);
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     public static bool IsPilotRole(string? role) =>
@@ -156,6 +211,12 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db)
 
         if (!string.IsNullOrWhiteSpace(referent.CelluleId) &&
             string.Equals(pilote.CelluleId, referent.CelluleId, StringComparison.Ordinal))
+            return true;
+
+        var managedServices = await GetManagedServiceIdsAsync(referentUserId, ct);
+        if (managedServices.Count > 0
+            && !string.IsNullOrWhiteSpace(pilote.ServiceId)
+            && managedServices.Contains(pilote.ServiceId.Trim(), StringComparer.Ordinal))
             return true;
 
         if (!string.IsNullOrWhiteSpace(referent.ServiceId) &&

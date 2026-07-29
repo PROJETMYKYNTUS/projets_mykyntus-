@@ -3,12 +3,14 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using EmployeeDirectory.Application.Abstractions;
 using EmployeeDirectory.Application.Dtos;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace EmployeeDirectory.Infrastructure.Services;
 
 public sealed class HtelTechnicienClient(
     IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
     ILogger<HtelTechnicienClient> logger) : IHtelTechnicienClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -18,8 +20,13 @@ public sealed class HtelTechnicienClient(
 
     public async Task<IReadOnlyList<HtelTechnicienDto>> GetTechniciensAsync(CancellationToken ct = default)
     {
+        // Comme b8781ae : l’appel part même sans ApiKey (header X-Api-Key ajouté seulement si présent).
         var client = httpClientFactory.CreateClient("Htel");
-        using var response = await client.GetAsync("api/v1/techniciens", ct);
+        var techniciensUrl = configuration["Htel:TechniciensUrl"]?.Trim();
+        var requestUri = string.IsNullOrEmpty(techniciensUrl)
+            ? (configuration["Htel:TechniciensPath"]?.Trim() ?? "api/v1/techniciens")
+            : techniciensUrl;
+        using var response = await client.GetAsync(requestUri, ct);
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(ct);

@@ -18,6 +18,7 @@ public static class DirectorySchemaPatches
         await EnsureNumeroCarteAutoentrepreneurColumnAsync(db, ct);
         await EnsureEmailPersonnelColumnAsync(db, ct);
         await EnsureEmployeeHtelColumnsAsync(db, ct);
+        await EnsureOrgAssignmentNodeUniquenessAsync(db, ct);
     }
 
     /// <summary>
@@ -38,6 +39,7 @@ public static class DirectorySchemaPatches
         await RunPatchAsync(nameof(EnsureNumeroCarteAutoentrepreneurColumnAsync), () => EnsureNumeroCarteAutoentrepreneurColumnAsync(db, ct), log);
         await RunPatchAsync(nameof(EnsureEmailPersonnelColumnAsync), () => EnsureEmailPersonnelColumnAsync(db, ct), log);
         await RunPatchAsync(nameof(EnsureEmployeeHtelColumnsAsync), () => EnsureEmployeeHtelColumnsAsync(db, ct), log);
+        await RunPatchAsync(nameof(EnsureOrgAssignmentNodeUniquenessAsync), () => EnsureOrgAssignmentNodeUniquenessAsync(db, ct), log);
     }
 
     private static async Task RunPatchAsync(
@@ -64,6 +66,38 @@ public static class DirectorySchemaPatches
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_employees_IdTechnicien"
                 ON employees ("IdTechnicien")
                 WHERE "IdTechnicien" IS NOT NULL;
+            """,
+            ct);
+    }
+
+    /// <summary>
+    /// Unicité : au plus un titulaire actif par (Kind, NodeId).
+    /// Dédoublonne d'abord (garde le plus récent), puis crée l'index unique filtré.
+    /// </summary>
+    public static async Task EnsureOrgAssignmentNodeUniquenessAsync(DirectoryDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            WITH ranked AS (
+                SELECT "Id",
+                       ROW_NUMBER() OVER (
+                           PARTITION BY "Kind", "NodeId"
+                           ORDER BY "EffectiveFrom" DESC, "Id" DESC
+                       ) AS rn
+                FROM org_assignments
+                WHERE "EffectiveTo" IS NULL
+            )
+            UPDATE org_assignments a
+            SET "EffectiveTo" = NOW() AT TIME ZONE 'utc',
+                "ChangeReason" = COALESCE(a."ChangeReason", '') ||
+                    CASE WHEN COALESCE(a."ChangeReason", '') = '' THEN '' ELSE '; ' END ||
+                    'dedupe-node-unicity'
+            FROM ranked r
+            WHERE a."Id" = r."Id" AND r.rn > 1;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_org_assignments_Kind_NodeId_Active"
+                ON org_assignments ("Kind", "NodeId")
+                WHERE "EffectiveTo" IS NULL;
             """,
             ct);
     }

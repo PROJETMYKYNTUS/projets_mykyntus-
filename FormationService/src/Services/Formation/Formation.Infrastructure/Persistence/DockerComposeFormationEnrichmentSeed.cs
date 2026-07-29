@@ -53,7 +53,7 @@ public static class DockerComposeFormationEnrichmentSeed
 
     private static bool IsEnabled(IConfiguration configuration) =>
         string.Equals(configuration["KYNTUS_FORMATION_DEMO_SEED"], "true", StringComparison.OrdinalIgnoreCase)
-        && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "true", "true", StringComparison.OrdinalIgnoreCase);
+        && string.Equals(configuration["KYNTUS_DEMO_ENRICHMENT"] ?? "false", "true", StringComparison.OrdinalIgnoreCase);
 
     private static async Task EnsureAnnuaireAsync(FormationDbContext db, ILogger? logger, CancellationToken ct)
     {

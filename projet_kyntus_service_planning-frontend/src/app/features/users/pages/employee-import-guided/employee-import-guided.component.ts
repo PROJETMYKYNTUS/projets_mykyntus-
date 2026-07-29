@@ -23,11 +23,17 @@ import {
 
   EmployeeImportReport,
 
+  EmployeeImportRowResult,
+
   EmployeeImportService,
 
   PendingOrgCreation,
 
 } from '../../services/employee-import.service';
+import { downloadCredentialsExcel } from '../../../../core/lib/credentials-excel.util';
+import { copyTextToClipboard } from '../../../../core/lib/clipboard.util';
+import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
+import { formatHttpErrorMessage } from '../../../../core/lib/http-error-message.util';
 
 import {
 
@@ -83,6 +89,7 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
   private readonly importSvc = inject(EmployeeImportService);
   private readonly host = inject(EMPLOYEE_IMPORT_HOST, { optional: true });
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly toast = inject(KyntusToastService);
 
   readonly isEnabledCheckboxLocked = isEnabledCheckboxLocked;
   readonly isRequiredCheckboxLocked = isRequiredCheckboxLocked;
@@ -163,6 +170,11 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
   mappingIssues: MappingValidationIssue[] = [];
 
   report: EmployeeImportReport | null = null;
+
+  /** Line numbers whose password is revealed in the report table. */
+  revealedPasswordLines = new Set<number>();
+
+  credentialsExcelDownloading = false;
 
   approvedOrgCreations: PendingOrgCreation[] = [];
 
@@ -453,7 +465,7 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
         if (err?.status === 401) {
           this.analyzeError =
             'Session expirée ou non authentifié. Reconnectez-vous avec un compte RH ou Admin, puis relancez l\'import.';
-          window.location.href = `${KYNTUS_PUBLIC_URLS.authLogin}?returnUrl=${encodeURIComponent(KYNTUS_PUBLIC_URLS.planningSpa)}`;
+          window.location.replace(`${KYNTUS_PUBLIC_URLS.authLogin}?returnUrl=${encodeURIComponent(KYNTUS_PUBLIC_URLS.planningSpa)}`);
           return;
         }
 
@@ -983,10 +995,12 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
     this.executeProgressLabel = null;
     this.executeProcessedLignes = result.processedLignes ?? result.totalLignes;
     this.executeTotalLignes = result.totalLignes;
+    this.revealedPasswordLines = new Set();
     this.host?.onImportCompleted?.();
     clearEmployeeImportWizardDraft();
     this.goToStep('report');
     this.cdr.detectChanges();
+    void this.autoDownloadCredentialsExcel();
   }
 
 
@@ -1104,7 +1118,73 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
   }
 
+  get createdCredentialsCount(): number {
+    return (this.report?.lignes ?? []).filter((l) => !!l.temporaryPassword).length;
+  }
 
+  private credentialRowsFromReport(): {
+    email: string;
+    password: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    lineNumber?: number | null;
+  }[] {
+    return (this.report?.lignes ?? [])
+      .filter((l): l is EmployeeImportRowResult & { temporaryPassword: string } => !!l.temporaryPassword)
+      .map((l) => ({
+        email: l.email ?? '',
+        password: l.temporaryPassword,
+        firstName: l.firstName,
+        lastName: l.lastName,
+        lineNumber: l.lineNumber,
+      }))
+      .filter((r) => !!r.email);
+  }
+
+  async downloadCredentialsExcel(): Promise<void> {
+    const rows = this.credentialRowsFromReport();
+    if (!rows.length || this.credentialsExcelDownloading) return;
+    this.credentialsExcelDownloading = true;
+    try {
+      await downloadCredentialsExcel(rows);
+      this.toast.success('Excel des identifiants téléchargé — conservez-le pour la remise.');
+    } catch (err) {
+      this.toast.error(formatHttpErrorMessage(err, 'Échec du téléchargement Excel des identifiants.'));
+    } finally {
+      this.credentialsExcelDownloading = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  private async autoDownloadCredentialsExcel(): Promise<void> {
+    if (this.createdCredentialsCount <= 0) return;
+    await this.downloadCredentialsExcel();
+  }
+
+  isPasswordRevealed(line: EmployeeImportRowResult): boolean {
+    return this.revealedPasswordLines.has(line.lineNumber);
+  }
+
+  togglePasswordReveal(line: EmployeeImportRowResult): void {
+    if (!line.temporaryPassword) return;
+    if (this.revealedPasswordLines.has(line.lineNumber)) {
+      this.revealedPasswordLines.delete(line.lineNumber);
+    } else {
+      this.revealedPasswordLines.add(line.lineNumber);
+    }
+    this.revealedPasswordLines = new Set(this.revealedPasswordLines);
+  }
+
+  async copyLinePassword(line: EmployeeImportRowResult): Promise<void> {
+    if (!line.temporaryPassword) return;
+    try {
+      await copyTextToClipboard(line.temporaryPassword);
+      this.toast.success('Mot de passe copié.');
+    } catch (err) {
+      console.error('copyLinePassword', err);
+      this.toast.error('Impossible de copier le mot de passe.');
+    }
+  }
 
   stepIndex(): number {
 

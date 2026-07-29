@@ -117,6 +117,9 @@
                   <span class="status-indicator" [class.inactive]="!user.isActive">
                     {{ user.isActive ? 'Actif' : 'Inactif' }}
                   </span>
+                  @if (lifecycleBadge(user); as badge) {
+                    <span class="lifecycle-pill" [attr.data-phase]="badge.phase">{{ badge.label }}</span>
+                  }
                 </td>
                 <td class="col-actions" (click)="$event.stopPropagation()">
                   <div class="action-group">
@@ -145,6 +148,15 @@
                     </button>
                     <button class="btn-action edit" title="Modifier" (click)="editUser(user.id)">
                       <app-lucide-icon [icon]="icons.edit" className="w-4 h-4" />
+                    </button>
+                    <button
+                      class="btn-action view"
+                      type="button"
+                      title="Réinitialiser le mot de passe"
+                      (click)="resetPassword(user, $event)"
+                      [disabled]="resettingUserId === user.id"
+                    >
+                      <app-lucide-icon [icon]="icons.key" className="w-4 h-4" />
                     </button>
                     <button class="btn-action delete" title="Supprimer" (click)="deleteUser(user.id)">
                       <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
@@ -188,6 +200,28 @@
           <button type="button" class="ky-btn-primary" [disabled]="levelSaving" (click)="saveContractLevel()">
             {{ levelSaving ? 'Enregistrement…' : 'Enregistrer' }}
           </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (resetCredentials) {
+    <div class="level-modal-backdrop" (click)="closeResetCredentials()">
+      <div class="level-modal" (click)="$event.stopPropagation()">
+        <h3>Nouveau mot de passe (une seule fois)</h3>
+        <p class="level-modal-sub">{{ resetCredentials.email }}</p>
+        <p>
+          <code>{{ showResetPassword ? resetCredentials.password : '••••••••••••••••' }}</code>
+        </p>
+        <div class="level-modal-actions">
+          <button type="button" class="ky-btn-secondary" (click)="showResetPassword = !showResetPassword">
+            {{ showResetPassword ? 'Masquer' : 'Afficher' }}
+          </button>
+          <button type="button" class="ky-btn-secondary" (click)="copyResetPassword()">Copier</button>
+          <button type="button" class="ky-btn-secondary" (click)="downloadResetCredentialsExcel()" [disabled]="downloadingCredentialsExcel">
+            {{ downloadingCredentialsExcel ? 'Téléchargement…' : 'Télécharger Excel' }}
+          </button>
+          <button type="button" class="ky-btn-primary" (click)="closeResetCredentials()">Fermer</button>
         </div>
       </div>
     </div>

@@ -21,7 +21,10 @@ public static class DependencyInjection
     {
         var directoryBase = configuration["Directory:BaseUrl"] ?? "http://employee-directory-backend:8080";
 
-        services.AddScoped<PrimeOrgStructureCommandService>();
+        services.AddScoped<PrimeOrgStructureCommandService>(sp =>
+            new PrimeOrgStructureCommandService(
+                sp.GetRequiredService<PrimeDbContext>(),
+                sp.GetService<IRebacClient>()));
         services.AddScoped<PrimeAdminDbReadService>();
         services.AddScoped<IPrimeAdminReadAppService>(sp => sp.GetRequiredService<PrimeAdminDbReadService>());
         services.AddKyntusOutbox<PrimeDbContext>();
@@ -32,13 +35,14 @@ public static class DependencyInjection
         services.AddScoped<IOrgStructureEventPublisher, OrgStructureEventPublisher>();
         services.AddHttpContextAccessor();
         services.AddScoped<PrimeAuditLogService>();
+        services.AddScoped<PrimeOrgScopeService>(sp =>
+            new PrimeOrgScopeService(sp.GetService<PrimeDbContext>(), sp.GetService<IRebacClient>()));
         services.AddScoped<PrimeRpQueryService>(sp =>
             new PrimeRpQueryService(
                 sp.GetService<PrimeDbContext>(),
-                sp.GetService<IPrimeDirectoryAsOfClient>()));
+                sp.GetService<IPrimeDirectoryAsOfClient>(),
+                sp.GetService<PrimeOrgScopeService>()));
         services.AddScoped<IPrimeRpAppService>(sp => sp.GetRequiredService<PrimeRpQueryService>());
-        services.AddScoped<PrimeOrgScopeService>(sp =>
-            new PrimeOrgScopeService(sp.GetService<PrimeDbContext>()));
 
         var conn = configuration.GetConnectionString("DefaultConnection");
         if (isTesting || !string.IsNullOrWhiteSpace(conn))

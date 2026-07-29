@@ -41,7 +41,7 @@ public partial class EmployeeImportService
         if (job is null)
             return null;
 
-        return new EmployeeImportReportDto
+        var report = new EmployeeImportReportDto
         {
             ImportJobId = job.Id,
             TotalLignes = job.TotalLignes,
@@ -66,6 +66,9 @@ public partial class EmployeeImportService
                 })
                 .ToList()
         };
+
+        _credentialsStore.ApplyToReport(report);
+        return report;
     }
 
     private async Task<EmployeeImportSourceFile?> GetJobSourceFileInternalAsync(Guid jobId, CancellationToken ct = default)

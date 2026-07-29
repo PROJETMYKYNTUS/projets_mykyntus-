@@ -16,11 +16,8 @@ internal sealed class KyntusSubjectIdCatalog : ISubjectIdResolver
             ["admin@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111108"),
             ["audit@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111109"),
             ["formation@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111110"),
-            ["formateur@gmail.com"] = Guid.Parse("11111111-1111-4111-8111-111111111120"),
-            ["formateur@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111120"),
             ["superviseur@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111111"),
-            ["yasmine.elamrani@atlas-tech-demo.dev"] = Guid.Parse("11111111-1111-4111-8111-111111111101"),
-            ["fatima.alaoui@atlas-tech-demo.dev"] = Guid.Parse("11111111-1111-4111-8111-111111111102"),
+            ["qualiticien@kyntus.ma"] = Guid.Parse("11111111-1111-4111-8111-111111111112"),
         };
 
     public Guid ResolveForEmail(string email)

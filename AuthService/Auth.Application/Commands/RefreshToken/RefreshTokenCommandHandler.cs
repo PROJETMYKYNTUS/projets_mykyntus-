@@ -1,6 +1,7 @@
 using Auth.Application.DTOs;
 using Auth.Domain.Interfaces;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Auth.Application.Commands.RefreshToken;
 
@@ -10,11 +11,16 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, A
 {
     private readonly IUserRepository _userRepository;
     private readonly IJwtService _jwtService;
+    private readonly ILogger<RefreshTokenCommandHandler> _logger;
 
-    public RefreshTokenCommandHandler(IUserRepository userRepository, IJwtService jwtService)
+    public RefreshTokenCommandHandler(
+        IUserRepository userRepository,
+        IJwtService jwtService,
+        ILogger<RefreshTokenCommandHandler> logger)
     {
         _userRepository = userRepository;
         _jwtService = jwtService;
+        _logger = logger;
     }
 
     public async Task<AuthResponseDto> Handle(RefreshTokenCommand request, CancellationToken ct)
@@ -24,6 +30,18 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, A
 
         if (user == null || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
             throw new UnauthorizedAccessException("Refresh token invalide ou expiré");
+
+        if (!user.IsActive)
+        {
+            _logger.LogWarning("RefreshFailed: inactive account Email={Email}", user.Email);
+            throw new UnauthorizedAccessException("Refresh token invalide ou expiré");
+        }
+
+        if (user.LockoutEnd is { } lockoutEnd && lockoutEnd > DateTime.UtcNow)
+        {
+            _logger.LogWarning("RefreshFailed: locked account Email={Email}", user.Email);
+            throw new UnauthorizedAccessException("Compte temporairement verrouillé. Réessayez plus tard.");
+        }
 
         user.RefreshToken = _jwtService.GenerateRefreshToken();
         user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);

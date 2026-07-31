@@ -22,7 +22,9 @@ public sealed record TrainingSessionDto(
     int SequenceNumber = 1,
     bool HasReport = false,
     Guid? QuizId = null,
-    string? QuizStatus = null);
+    string? QuizStatus = null,
+    Guid? CatalogItemId = null,
+    string? LearningGateMode = null);
 
 public sealed record TrainingAssignmentDto(
     Guid Id,
@@ -47,7 +49,13 @@ public sealed record MyAssignedTrainingSessionDto(
     Guid? AttemptId = null,
     bool AttemptGraded = false,
     decimal? FinalScore = null,
-    bool? Passed = null);
+    bool? Passed = null,
+    Guid? CatalogItemId = null,
+    decimal CatalogProgressPercent = 0m,
+    int RequiredLessonsDone = 0,
+    int RequiredLessonsTotal = 0,
+    string? QuizBlockedReason = null,
+    bool AllowMultipleAttempts = false);
 
 public sealed record InitialTrainingQuizResultDto(
     Guid Id,
@@ -231,7 +239,9 @@ public sealed record TrainingQuizQuestionDto(
     int? CorrectOptionIndex,
     decimal Points,
     bool AllowMultiple = false,
-    IReadOnlyList<int>? CorrectOptionIndexes = null);
+    IReadOnlyList<int>? CorrectOptionIndexes = null,
+    string? ImageUrl = null,
+    string? Explanation = null);
 
 public sealed record TrainingQuizDto(
     Guid Id,
@@ -240,7 +250,8 @@ public sealed record TrainingQuizDto(
     TrainingQuizStatus Status,
     IReadOnlyList<TrainingQuizQuestionDto> Questions,
     string? RejectedReason = null,
-    decimal PassThreshold = 70m);
+    decimal PassThreshold = 70m,
+    bool AllowMultipleAttempts = false);
 
 public sealed class GradeFreeTextAnswerRequest
 {
@@ -255,7 +266,9 @@ public sealed record TrainingQuizForEmployeeDto(
     Guid SessionId,
     string Title,
     TrainingQuizStatus Status,
-    IReadOnlyList<TrainingQuizQuestionPublicDto> Questions);
+    IReadOnlyList<TrainingQuizQuestionPublicDto> Questions,
+    bool AllowMultipleAttempts = false,
+    decimal PassThreshold = 70m);
 
 public sealed record TrainingQuizQuestionPublicDto(
     Guid Id,
@@ -264,13 +277,15 @@ public sealed record TrainingQuizQuestionPublicDto(
     string Prompt,
     IReadOnlyList<string>? Options,
     decimal Points,
-    bool AllowMultiple = false);
+    bool AllowMultiple = false,
+    string? ImageUrl = null);
 
 public sealed class UpsertTrainingQuizRequest
 {
     public string Title { get; set; } = string.Empty;
     /// <summary>Seuil de réussite en % (1–100). Défaut 70.</summary>
     public decimal PassThreshold { get; set; } = 70m;
+    public bool AllowMultipleAttempts { get; set; }
     public Guid AnimatorUserId { get; set; }
     public IReadOnlyList<UpsertTrainingQuizQuestionItem> Questions { get; set; } = Array.Empty<UpsertTrainingQuizQuestionItem>();
 }
@@ -284,6 +299,8 @@ public sealed class UpsertTrainingQuizQuestionItem
     public bool AllowMultiple { get; set; }
     public IReadOnlyList<int>? CorrectOptionIndexes { get; set; }
     public decimal Points { get; set; } = 1m;
+    public string? ImageUrl { get; set; }
+    public string? Explanation { get; set; }
 }
 
 public sealed class SubmitTrainingQuizAttemptRequest
@@ -333,7 +350,9 @@ public sealed record TrainingQuizAttemptAnswerDetailDto(
     IReadOnlyList<int>? CorrectOptionIndexes,
     bool AllowMultiple,
     bool? IsCorrect,
-    decimal Points);
+    decimal Points,
+    string? ImageUrl = null,
+    string? Explanation = null);
 
 public sealed record TrainingQuizAttemptDto(
     Guid Id,
@@ -348,7 +367,8 @@ public sealed record TrainingQuizAttemptDto(
     bool IsGraded,
     DateTime SubmittedAt,
     string? AnimatorComment,
-    IReadOnlyList<TrainingQuizAttemptAnswerDetailDto>? Answers = null);
+    IReadOnlyList<TrainingQuizAttemptAnswerDetailDto>? Answers = null,
+    int AttemptNumber = 1);
 
 public sealed record FormationDashboardStatsDto(
     int ProgramCount,

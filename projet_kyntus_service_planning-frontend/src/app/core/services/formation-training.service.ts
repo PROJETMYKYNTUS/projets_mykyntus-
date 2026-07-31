@@ -2,19 +2,27 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import type {
+  CatalogPlayerDto,
   FormationAttendanceMetricsStub,
   FormationDashboardStatsDto,
   FormationInitialDashboardStatsDto,
   FormationDocumentChecklistItemDto,
   FormationDocumentDefinitionDto,
   InitialTrainingPathDto,
+  LearningQuizResultExportRowDto,
+  LearningQuizStatsDto,
   MyAssignedTrainingSessionDto,
   TrainingAssignmentDto,
   TrainingAttendance,
+  TrainingCatalogAudienceDto,
+  TrainingCatalogItemDto,
+  TrainingLessonDto,
+  TrainingModuleDto,
   TrainingProgramDto,
   TrainingQuizAttemptDto,
   TrainingQuizDto,
   TrainingQuizForEmployeeDto,
+  TrainingResourceDto,
   TrainingSessionDto,
   TrainingSessionReportDto,
 } from '../models/formation-training.models';
@@ -382,6 +390,178 @@ export class FormationTrainingService {
   /** Préparatif front — à remplacer par l’API externe absentéisme / retard. */
   getAttendanceMetricsStub(_employeeId: string): FormationAttendanceMetricsStub {
     return { absenteeismRate: null, latenessRate: null };
+  }
+
+  // ─── Catalogue e-learning ───────────────────────────────
+
+  listCatalog(includeArchived = false, category?: string): Promise<TrainingCatalogItemDto[]> {
+    const params: Record<string, string> = { includeArchived: String(includeArchived) };
+    if (category) params['category'] = category;
+    return firstValueFrom(this.http.get<TrainingCatalogItemDto[]>(`${PREFIX}/catalog`, { params }));
+  }
+
+  getCatalogItem(id: string): Promise<TrainingCatalogItemDto> {
+    return firstValueFrom(this.http.get<TrainingCatalogItemDto>(`${PREFIX}/catalog/${id}`));
+  }
+
+  createCatalogItem(body: Record<string, unknown>): Promise<TrainingCatalogItemDto> {
+    return firstValueFrom(this.http.post<TrainingCatalogItemDto>(`${PREFIX}/catalog`, body)).catch((err) => {
+      throw new Error(extractError(err, 'Échec création catalogue'));
+    });
+  }
+
+  updateCatalogItem(id: string, body: Record<string, unknown>): Promise<TrainingCatalogItemDto> {
+    return firstValueFrom(this.http.put<TrainingCatalogItemDto>(`${PREFIX}/catalog/${id}`, body)).catch((err) => {
+      throw new Error(extractError(err, 'Échec mise à jour catalogue'));
+    });
+  }
+
+  publishCatalogItem(id: string): Promise<TrainingCatalogItemDto> {
+    return firstValueFrom(this.http.post<TrainingCatalogItemDto>(`${PREFIX}/catalog/${id}/publish`, {})).catch((err) => {
+      throw new Error(extractError(err, 'Échec publication'));
+    });
+  }
+
+  archiveCatalogItem(id: string): Promise<TrainingCatalogItemDto> {
+    return firstValueFrom(this.http.post<TrainingCatalogItemDto>(`${PREFIX}/catalog/${id}/archive`, {})).catch((err) => {
+      throw new Error(extractError(err, 'Échec archivage'));
+    });
+  }
+
+  deleteCatalogItem(id: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`${PREFIX}/catalog/${id}`)).catch((err) => {
+      throw new Error(extractError(err, 'Échec suppression'));
+    });
+  }
+
+  upsertCatalogAudience(id: string, body: Record<string, unknown>): Promise<TrainingCatalogAudienceDto> {
+    return firstValueFrom(
+      this.http.put<TrainingCatalogAudienceDto>(`${PREFIX}/catalog/${id}/audience`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec audience'));
+    });
+  }
+
+  createCatalogModule(catalogId: string, body: Record<string, unknown>): Promise<TrainingModuleDto> {
+    return firstValueFrom(
+      this.http.post<TrainingModuleDto>(`${PREFIX}/catalog/${catalogId}/modules`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec module'));
+    });
+  }
+
+  updateCatalogModule(catalogId: string, moduleId: string, body: Record<string, unknown>): Promise<TrainingModuleDto> {
+    return firstValueFrom(
+      this.http.put<TrainingModuleDto>(`${PREFIX}/catalog/${catalogId}/modules/${moduleId}`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec module'));
+    });
+  }
+
+  deleteCatalogModule(catalogId: string, moduleId: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`${PREFIX}/catalog/${catalogId}/modules/${moduleId}`));
+  }
+
+  createCatalogLesson(moduleId: string, body: Record<string, unknown>): Promise<TrainingLessonDto> {
+    return firstValueFrom(
+      this.http.post<TrainingLessonDto>(`${PREFIX}/catalog/modules/${moduleId}/lessons`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec leçon'));
+    });
+  }
+
+  updateCatalogLesson(moduleId: string, lessonId: string, body: Record<string, unknown>): Promise<TrainingLessonDto> {
+    return firstValueFrom(
+      this.http.put<TrainingLessonDto>(`${PREFIX}/catalog/modules/${moduleId}/lessons/${lessonId}`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec leçon'));
+    });
+  }
+
+  deleteCatalogLesson(moduleId: string, lessonId: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`${PREFIX}/catalog/modules/${moduleId}/lessons/${lessonId}`));
+  }
+
+  createCatalogResource(lessonId: string, body: Record<string, unknown>): Promise<TrainingResourceDto> {
+    return firstValueFrom(
+      this.http.post<TrainingResourceDto>(`${PREFIX}/catalog/lessons/${lessonId}/resources`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec ressource'));
+    });
+  }
+
+  uploadCatalogResource(lessonId: string, file: File, title?: string, type?: string): Promise<TrainingResourceDto> {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (title) fd.append('title', title);
+    if (type) fd.append('type', type);
+    return firstValueFrom(
+      this.http.post<TrainingResourceDto>(`${PREFIX}/catalog/lessons/${lessonId}/resources/upload`, fd),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec upload'));
+    });
+  }
+
+  deleteCatalogResource(lessonId: string, resourceId: string): Promise<void> {
+    return firstValueFrom(
+      this.http.delete<void>(`${PREFIX}/catalog/lessons/${lessonId}/resources/${resourceId}`),
+    );
+  }
+
+  linkSessionCatalog(
+    sessionId: string,
+    body: { catalogItemId?: string | null; learningGateMode?: string | null; assignAudience?: boolean },
+  ): Promise<TrainingSessionDto> {
+    return firstValueFrom(
+      this.http.put<TrainingSessionDto>(`${PREFIX}/sessions/${sessionId}/catalog-link`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec liaison catalogue'));
+    });
+  }
+
+  getCatalogPlayer(sessionId: string, employeeId: string): Promise<CatalogPlayerDto> {
+    return firstValueFrom(
+      this.http.get<CatalogPlayerDto>(`${PREFIX}/catalog/sessions/${sessionId}/player`, {
+        params: { employeeId },
+      }),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec lecteur'));
+    });
+  }
+
+  completeLesson(
+    sessionId: string,
+    lessonId: string,
+    body: { employeeId: string; lastResourceId?: string | null },
+  ): Promise<TrainingLessonDto> {
+    return firstValueFrom(
+      this.http.post<TrainingLessonDto>(
+        `${PREFIX}/catalog/sessions/${sessionId}/lessons/${lessonId}/complete`,
+        body,
+      ),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec progression'));
+    });
+  }
+
+  getLearningStats(): Promise<LearningQuizStatsDto> {
+    return firstValueFrom(this.http.get<LearningQuizStatsDto>(`${PREFIX}/catalog/stats`));
+  }
+
+  exportLearningResults(sessionId?: string): Promise<LearningQuizResultExportRowDto[]> {
+    const params: Record<string, string> = {};
+    if (sessionId) params['sessionId'] = sessionId;
+    return firstValueFrom(
+      this.http.get<LearningQuizResultExportRowDto[]>(`${PREFIX}/catalog/results/export`, { params }),
+    );
+  }
+
+  listMyQuizAttempts(sessionId: string, employeeId: string): Promise<TrainingQuizAttemptDto[]> {
+    return firstValueFrom(
+      this.http.get<TrainingQuizAttemptDto[]>(`${PREFIX}/sessions/${sessionId}/quiz/my-attempts`, {
+        params: { employeeId },
+      }),
+    );
   }
 }
 

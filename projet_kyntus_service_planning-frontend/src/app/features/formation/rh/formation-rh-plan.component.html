@@ -19,6 +19,24 @@
           <span class="field-label">Description</span>
           <textarea class="ky-textarea w-full" rows="2" [(ngModel)]="form.description"></textarea>
         </label>
+        <label class="block">
+          <span class="field-label">Catalogue e-learning (optionnel)</span>
+          <select class="ky-input w-full" [(ngModel)]="form.catalogItemId">
+            <option value="">— Aucun —</option>
+            @for (c of catalogItems; track c.id) {
+              <option [value]="c.id">{{ c.title }}</option>
+            }
+          </select>
+        </label>
+        <label class="block">
+          <span class="field-label">Déblocage quiz</span>
+          <select class="ky-input w-full" [(ngModel)]="form.learningGateMode" [disabled]="!form.catalogItemId">
+            <option value="">Défaut catalogue</option>
+            <option value="Attendance">Présence</option>
+            <option value="Content">Contenu</option>
+            <option value="Both">Présence + contenu</option>
+          </select>
+        </label>
       </div>
 
       <fieldset class="animator-fieldset">

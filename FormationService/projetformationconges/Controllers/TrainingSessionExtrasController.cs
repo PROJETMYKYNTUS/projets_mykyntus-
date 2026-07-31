@@ -149,6 +149,23 @@ public sealed class TrainingSessionExtrasController(
         }
     }
 
+    [HttpGet("quiz/my-attempts")]
+    public async Task<ActionResult<IReadOnlyList<TrainingQuizAttemptDto>>> ListMyAttempts(
+        Guid sessionId,
+        [FromQuery] Guid employeeId,
+        CancellationToken ct)
+    {
+        try
+        {
+            var actor = employeeId != Guid.Empty ? employeeId : User.GetSubjectId() ?? Guid.Empty;
+            return Ok(await training.ListMyQuizAttemptsAsync(sessionId, actor, ct));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPost("quiz/attempts/{attemptId:guid}/grade")]
     public async Task<ActionResult<TrainingQuizAttemptDto>> GradeAttempt(
         Guid sessionId,

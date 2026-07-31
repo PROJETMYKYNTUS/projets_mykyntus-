@@ -33,6 +33,8 @@ export interface TrainingSessionDto {
   hasReport?: boolean;
   quizId?: string | null;
   quizStatus?: TrainingQuizStatus | string | null;
+  catalogItemId?: string | null;
+  learningGateMode?: string | null;
 }
 
 export interface TrainingProgramDto {
@@ -73,6 +75,12 @@ export interface MyAssignedTrainingSessionDto {
   attemptGraded?: boolean;
   finalScore?: number | null;
   passed?: boolean | null;
+  catalogItemId?: string | null;
+  catalogProgressPercent?: number;
+  requiredLessonsDone?: number;
+  requiredLessonsTotal?: number;
+  quizBlockedReason?: string | null;
+  allowMultipleAttempts?: boolean;
 }
 
 export interface TrainingSessionReportDto {
@@ -93,6 +101,8 @@ export interface TrainingQuizQuestionDto {
   correctOptionIndexes?: number[] | null;
   allowMultiple?: boolean;
   points: number;
+  imageUrl?: string | null;
+  explanation?: string | null;
 }
 
 export interface TrainingQuizDto {
@@ -104,6 +114,7 @@ export interface TrainingQuizDto {
   rejectedReason?: string | null;
   /** Seuil de réussite en % (score ≥ plafond → Valide). */
   passThreshold?: number;
+  allowMultipleAttempts?: boolean;
 }
 
 export interface TrainingQuizForEmployeeDto {
@@ -119,7 +130,10 @@ export interface TrainingQuizForEmployeeDto {
     options?: string[] | null;
     points: number;
     allowMultiple?: boolean;
+    imageUrl?: string | null;
   }[];
+  allowMultipleAttempts?: boolean;
+  passThreshold?: number;
 }
 
 export interface TrainingQuizAttemptAnswerDetailDto {
@@ -136,6 +150,8 @@ export interface TrainingQuizAttemptAnswerDetailDto {
   allowMultiple: boolean;
   isCorrect?: boolean | null;
   points: number;
+  imageUrl?: string | null;
+  explanation?: string | null;
 }
 
 export interface TrainingQuizAttemptDto {
@@ -152,6 +168,123 @@ export interface TrainingQuizAttemptDto {
   submittedAt: string;
   animatorComment?: string | null;
   answers?: TrainingQuizAttemptAnswerDetailDto[] | null;
+  attemptNumber?: number;
+}
+
+export type CatalogItemStatus = 'Draft' | 'Published' | 'Archived' | number;
+export type LearningGateMode = 'Attendance' | 'Content' | 'Both' | number;
+export type CatalogAudienceMatchMode = 'MatchAny' | 'MatchAll' | number;
+export type TrainingResourceType = 'Pdf' | 'Video' | 'Link' | 'Text' | number;
+
+export interface TrainingCatalogAudienceDto {
+  matchMode: CatalogAudienceMatchMode;
+  roles: string[];
+  structureKeys: string[];
+  userIds: string[];
+  estimatedBeneficiaryCount?: number;
+}
+
+export interface TrainingResourceDto {
+  id: string;
+  lessonId: string;
+  type: TrainingResourceType;
+  title: string;
+  url?: string | null;
+  contentType?: string | null;
+  fileName?: string | null;
+  textContent?: string | null;
+  sortOrder: number;
+  durationMinutes?: number | null;
+  downloadPath?: string | null;
+}
+
+export interface TrainingLessonDto {
+  id: string;
+  moduleId: string;
+  title: string;
+  description: string;
+  sortOrder: number;
+  isRequired: boolean;
+  resources: TrainingResourceDto[];
+  isCompleted?: boolean;
+  progressPercent?: number;
+}
+
+export interface TrainingModuleDto {
+  id: string;
+  catalogItemId: string;
+  title: string;
+  description: string;
+  sortOrder: number;
+  lessons: TrainingLessonDto[];
+}
+
+export interface TrainingCatalogItemDto {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  status: CatalogItemStatus;
+  isActive: boolean;
+  defaultGateMode: LearningGateMode;
+  audienceMatchMode: CatalogAudienceMatchMode;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string | null;
+  archivedAt?: string | null;
+  moduleCount: number;
+  lessonCount: number;
+  resourceCount: number;
+  audience?: TrainingCatalogAudienceDto | null;
+  modules?: TrainingModuleDto[] | null;
+}
+
+export interface CatalogPlayerDto {
+  catalogItemId: string;
+  sessionId: string;
+  assignmentId: string;
+  title: string;
+  description: string;
+  category: string;
+  gateMode: LearningGateMode;
+  progressPercent: number;
+  requiredLessonsTotal: number;
+  requiredLessonsDone: number;
+  canTakeQuiz: boolean;
+  quizBlockedReason?: string | null;
+  modules: TrainingModuleDto[];
+}
+
+export interface LearningQuizStatsDto {
+  catalogCount: number;
+  sessionWithCatalogCount: number;
+  questionCount: number;
+  attemptCount: number;
+  avgScore: number;
+  bestScore: number;
+  passRate: number;
+  bySession: {
+    sessionId: string;
+    title: string;
+    category?: string | null;
+    questionCount: number;
+    attemptCount: number;
+    avgScore: number;
+    bestScore: number;
+    passRate: number;
+  }[];
+}
+
+export interface LearningQuizResultExportRowDto {
+  employeeName: string;
+  email: string;
+  role: string;
+  structureKey: string;
+  sessionTitle: string;
+  score?: number | null;
+  passed?: boolean | null;
+  attemptNumber: number;
+  submittedAt: string;
 }
 
 export interface FormationDashboardStatsDto {

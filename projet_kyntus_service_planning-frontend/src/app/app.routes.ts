@@ -112,6 +112,14 @@ export const routes: Routes = [
             .then(m => m.FormationRhProdQueueComponent),
       },
       {
+        path: 'formations/catalogue',
+        canActivate: [AuthGuard],
+        data: { roles: ROLE_SETS.formationPlanner },
+        loadComponent: () =>
+          import('./features/formation/catalog/formation-catalog-admin.component')
+            .then(m => m.FormationCatalogAdminComponent),
+      },
+      {
         path: 'formations/documents-checklist-config',
         canActivate: [AuthGuard],
         data: { roles: ROLE_SETS.adminRh },
@@ -165,6 +173,16 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/formation/employee/formation-employee.component')
             .then(m => m.FormationEmployeeComponent),
+      },
+      {
+        path: 'mes-formations/:sessionId/contenu',
+        canActivate: [AuthGuard],
+        data: {
+          roles: ROLE_SETS.mesFormations,
+        },
+        loadComponent: () =>
+          import('./features/formation/catalog/formation-catalog-player.component')
+            .then(m => m.FormationCatalogPlayerComponent),
       },
       {
         path: 'mes-formations/:sessionId/quiz',

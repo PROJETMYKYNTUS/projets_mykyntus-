@@ -1,0 +1,26 @@
+.fcat-page { display: flex; flex-direction: column; gap: 1rem; }
+.fcat-tabs { display: flex; gap: .5rem; }
+.fcat-tab {
+  border: none; background: transparent; padding: .6rem 1rem; font-weight: 700;
+  color: var(--muted, #64748b); border-bottom: 2px solid transparent; cursor: pointer;
+}
+.fcat-tab.active { color: var(--primary, #4f46e5); border-bottom-color: currentColor; }
+.fcat-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.fcat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.fcat-card header { display: flex; justify-content: space-between; gap: .75rem; align-items: start; }
+.fcat-desc { color: var(--muted, #64748b); min-height: 2.5rem; }
+.fcat-meta { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; font-size: .8rem; color: var(--muted, #64748b); }
+.fcat-form { display: flex; flex-direction: column; gap: 1rem; }
+.fcat-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.fcat-fields .full { grid-column: 1 / -1; }
+.fcat-fields label { display: flex; flex-direction: column; gap: .35rem; font-weight: 600; font-size: .85rem; }
+.fcat-actions, .fcat-inline { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
+.fcat-check { display: inline-flex; align-items: center; gap: .4rem; font-weight: 600; }
+.fcat-module { border: 1px solid var(--border, #e2e8f0); border-radius: .75rem; padding: .75rem; margin-top: .75rem; }
+.fcat-module-head { display: flex; justify-content: space-between; align-items: center; }
+.fcat-resources { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .35rem; }
+.fcat-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.fcat-kpis div { background: var(--surface-2, #f8fafc); border-radius: .75rem; padding: .75rem; }
+.fcat-kpis span { display: block; font-size: .75rem; color: var(--muted, #64748b); }
+.fcat-kpis strong { font-size: 1.25rem; }
+@media (max-width: 800px) { .fcat-fields { grid-template-columns: 1fr; } }

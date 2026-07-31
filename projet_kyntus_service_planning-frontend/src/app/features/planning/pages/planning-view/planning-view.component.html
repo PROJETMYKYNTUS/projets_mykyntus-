@@ -119,6 +119,29 @@
       {{ error }}
     </div>
 
+    <!-- ── Performance semaine ── -->
+    <div class="perf-week" *ngIf="weekPerfKpis as wk">
+      <div class="perf-week-title">Performance semaine</div>
+      <div class="perf-week-cards">
+        <div class="perf-card" [attr.data-tone]="kpiTone(wk.plateau, { plateauTarget: wk.plateauTarget })">
+          <span class="perf-label">Disponibilité plateau</span>
+          <span class="perf-value">{{ formatKpiPct(wk.plateau) }}</span>
+          <span class="perf-hint">pire jour · cible {{ wk.plateauTarget }} %</span>
+        </div>
+        <div class="perf-card" [attr.data-tone]="kpiTone(wk.level)">
+          <span class="perf-label">Équilibre niveau</span>
+          <span class="perf-value">{{ formatKpiPct(wk.level) }}</span>
+          <span class="perf-hint">créneaux sans débutant seul</span>
+        </div>
+        <div class="perf-card" [attr.data-tone]="kpiTone(wk.rotation)">
+          <span class="perf-label">Rotation</span>
+          <span class="perf-value">{{ formatKpiPct(wk.rotation) }}</span>
+          <span class="perf-hint" *ngIf="wk.rotationTotal">{{ wk.rotationOk }}/{{ wk.rotationTotal }} employés OK</span>
+          <span class="perf-hint" *ngIf="!wk.rotationTotal">dispersion shifts</span>
+        </div>
+      </div>
+    </div>
+
     <div class="alert alert-warn coverage-panel" *ngIf="hasLevelBalanceAnomaly">
       <button type="button" class="coverage-toggle" (click)="coverageOpen = !coverageOpen">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -215,12 +238,28 @@
                 </div>
               </th>
               <th *ngFor="let day of days"
+                  class="th-day-clickable"
                   [class.th-saturday]="day === 'Saturday'"
-                  [class.th-anomaly]="dayHasLevelAnomaly(day) || daySynthesisFor(day)?.hasAnyAnomaly">
+                  [class.th-anomaly]="dayHasLevelAnomaly(day) || daySynthesisFor(day)?.hasAnyAnomaly"
+                  [class.th-day-active]="showDayInsights && insightsDay === day"
+                  (click)="openDayInsights(day, $event)"
+                  [title]="'Voir les diagrammes du ' + (dayLabels[day] || day)">
                 <div class="th-day-inner">
                   <span class="th-day-name">{{ dayLabels[day] }}</span>
                   <span class="th-day-date" *ngIf="planning.weekStartDate">
                     {{ getDateForDay(planning.weekStartDate, day) }}
+                  </span>
+                  <span class="th-day-kpis" *ngIf="daySynthesisFor(day) as syn"
+                        [title]="'Plateau · Niveau · Rotation'">
+                    <span class="th-kpi" [attr.data-tone]="kpiTone(syn.plateauAvailabilityPercent, { plateauTarget: planning.coverageReport?.plateauAvailabilityTargetPercent ?? 70 })">
+                      P {{ formatKpiPct(syn.plateauAvailabilityPercent) }}
+                    </span>
+                    <span class="th-kpi" [attr.data-tone]="kpiTone(syn.levelBalancePercent)">
+                      N {{ formatKpiPct(syn.levelBalancePercent) }}
+                    </span>
+                    <span class="th-kpi" [attr.data-tone]="kpiTone(syn.rotationCompliancePercent)">
+                      R {{ formatKpiPct(syn.rotationCompliancePercent) }}
+                    </span>
                   </span>
                   <span class="th-day-meta" *ngIf="daySynthesisFor(day) as syn" [title]="daySynthTooltip(day)">
                     <span *ngIf="syn.leaveCount" class="syn-leave">{{ syn.leaveCount }} abs</span>
@@ -394,6 +433,178 @@
       <div class="modal-footer">
         <button class="prime-btn-secondary btn-cancel" (click)="closeOverride()">Annuler</button>
         <button class="ky-btn-primary btn-confirm" [disabled]="!selectedNewShiftConfigId" (click)="confirmOverride()">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ MODAL — INSIGHTS JOUR ══════════════ -->
+  <div class="modal-bg" *ngIf="showDayInsights" (click)="closeDayInsights()">
+    <div class="modal modal-insights" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-icon modal-icon-blue">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div>
+          <h3 class="modal-title">{{ dayLabels[insightsDay] || insightsDay }}{{ insightsDateLabel ? ' · ' + insightsDateLabel : '' }}</h3>
+          <p class="modal-sub">Diagrammes du plateau</p>
+        </div>
+        <button class="modal-close" type="button" (click)="closeDayInsights()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="modal-body insights-body" *ngIf="insightsSyn as syn; else noDaySyn">
+        <div class="insights-kpi-row">
+          <span class="insights-kpi" [attr.data-tone]="kpiTone(syn.plateauAvailabilityPercent, { plateauTarget: insightsTarget })">
+            Plateau {{ formatKpiPct(syn.plateauAvailabilityPercent) }}
+          </span>
+          <span class="insights-kpi" [attr.data-tone]="kpiTone(syn.levelBalancePercent)">
+            Niveau {{ formatKpiPct(syn.levelBalancePercent) }}
+          </span>
+          <span class="insights-kpi" [attr.data-tone]="kpiTone(syn.rotationCompliancePercent)">
+            Rotation {{ formatKpiPct(syn.rotationCompliancePercent) }}
+          </span>
+        </div>
+
+        <!-- 1. Disponibilité -->
+        <section class="insights-section">
+          <h4 class="insights-section-title">Disponibilité plateau</h4>
+          <p class="insights-section-hint">% présents hors pause · points toutes les 5 min · survolez pour l’heure et le % exact · cible {{ insightsTarget }} %</p>
+          <div class="avail-chart" *ngIf="(syn.availabilityTimeline?.length || 0) > 0; else noTimeline">
+            <div class="avail-plot"
+                 (mousemove)="onAvailChartMove($event, syn)"
+                 (mouseleave)="clearAvailHover()">
+              <svg class="avail-svg" viewBox="0 0 100 48" preserveAspectRatio="none" aria-hidden="true">
+                <line class="avail-grid" x1="0" y1="2" x2="100" y2="2" />
+                <line class="avail-grid" x1="0" y1="21" x2="100" y2="21" />
+                <line class="avail-grid" x1="0" y1="40" x2="100" y2="40" />
+                <line class="avail-target" [attr.y1]="targetLineY()" [attr.y2]="targetLineY()" x1="0" x2="100" />
+                <path class="avail-area" [attr.d]="availabilityAreaPath(syn)" />
+                <polyline class="avail-line" fill="none" [attr.points]="availabilityPolyline(syn)" />
+                <ng-container *ngIf="availHoverMarker(syn) as mk">
+                  <line class="avail-crosshair" [attr.x1]="mk.x" [attr.x2]="mk.x" y1="0" y2="40" />
+                  <circle class="avail-dot-halo" [attr.cx]="mk.x" [attr.cy]="mk.y" r="1.8" />
+                  <circle class="avail-dot" [attr.cx]="mk.x" [attr.cy]="mk.y" r="0.9" />
+                </ng-container>
+              </svg>
+              <div class="avail-tooltip"
+                   *ngIf="availHoverPoint as hp"
+                   [class.avail-tooltip-right]="availTooltipLeft > 70"
+                   [class.avail-tooltip-left]="availTooltipLeft < 30"
+                   [style.left.%]="availTooltipLeft"
+                   [style.top.%]="availTooltipTop">
+                <strong>{{ hp.time }}</strong>
+                <span class="avail-tooltip-pct"
+                      [attr.data-tone]="kpiTone(hp.availabilityPercent, { plateauTarget: insightsTarget })">
+                  {{ formatKpiPct(hp.availabilityPercent) }}
+                </span>
+                <span class="avail-tooltip-meta">
+                  {{ hp.availableCount }}/{{ hp.presentCount }} présents
+                  <ng-container *ngIf="hp.onBreakCount"> · {{ hp.onBreakCount }} en pause</ng-container>
+                </span>
+              </div>
+            </div>
+            <div class="avail-y">
+              <span>100</span>
+              <span>50</span>
+              <span>0</span>
+            </div>
+            <div class="avail-x">
+              <span *ngFor="let tick of availabilityTickLabels(syn)" [style.left.%]="tick.x">{{ tick.label }}</span>
+            </div>
+            <div class="avail-legend">
+              <span class="avail-legend-item"><i class="avail-swatch avail-swatch-line"></i> Disponibilité</span>
+              <span class="avail-legend-item"><i class="avail-swatch avail-swatch-target"></i> Cible {{ insightsTarget }} %</span>
+            </div>
+          </div>
+          <ng-template #noTimeline>
+            <p class="insights-empty">Pas assez de données pour tracer la journée.</p>
+          </ng-template>
+        </section>
+
+        <!-- 2. Quotas -->
+        <section class="insights-section">
+          <h4 class="insights-section-title">Effectifs / quotas</h4>
+          <div class="bar-chart" *ngIf="syn.shifts?.length; else noShifts">
+            <div class="bar-row" *ngFor="let s of syn.shifts">
+              <span class="bar-label" [title]="s.shiftLabel">{{ s.shiftLabel }}</span>
+              <div class="bar-track">
+                <div class="bar-req"
+                     [style.width.%]="(s.requiredCount / maxQuotaCount(syn)) * 100"
+                     [title]="'Requis ' + s.requiredCount"></div>
+                <div class="bar-assigned"
+                     [class.bar-short]="s.assignedCount < s.requiredCount"
+                     [class.bar-over]="s.assignedCount > s.requiredCount"
+                     [style.width.%]="(s.assignedCount / maxQuotaCount(syn)) * 100"
+                     [title]="'Affectés ' + s.assignedCount"></div>
+              </div>
+              <span class="bar-val">{{ s.assignedCount }}/{{ s.requiredCount }}</span>
+            </div>
+            <div class="avail-legend">
+              <span class="avail-legend-item"><i class="avail-swatch avail-swatch-req"></i> Requis</span>
+              <span class="avail-legend-item"><i class="avail-swatch avail-swatch-assigned"></i> Affectés</span>
+            </div>
+          </div>
+          <ng-template #noShifts>
+            <p class="insights-empty">Aucun shift ce jour.</p>
+          </ng-template>
+        </section>
+
+        <!-- 3. Niveaux -->
+        <section class="insights-section">
+          <h4 class="insights-section-title">Niveaux</h4>
+          <ng-container *ngIf="insightsDay === 'Saturday'; else weekdayLevels">
+            <div class="bar-chart">
+              <div class="bar-row">
+                <span class="bar-label">Débutants</span>
+                <div class="bar-track">
+                  <div class="bar-beginner"
+                       [style.width.%]="((syn.saturdayBeginners || 0) / maxLevelCount(syn)) * 100"></div>
+                </div>
+                <span class="bar-val">{{ syn.saturdayBeginners || 0 }}</span>
+              </div>
+              <div class="bar-row">
+                <span class="bar-label">Seniors</span>
+                <div class="bar-track">
+                  <div class="bar-senior"
+                       [style.width.%]="((syn.saturdaySeniors || 0) / maxLevelCount(syn)) * 100"></div>
+                </div>
+                <span class="bar-val">{{ syn.saturdaySeniors || 0 }}</span>
+              </div>
+            </div>
+          </ng-container>
+          <ng-template #weekdayLevels>
+            <div class="bar-chart" *ngIf="syn.shifts?.length">
+              <div class="bar-row bar-row-stack" *ngFor="let s of syn.shifts">
+                <span class="bar-label" [title]="s.shiftLabel">{{ s.shiftLabel }}</span>
+                <div class="bar-track bar-track-dual">
+                  <div class="bar-dual">
+                    <div class="bar-beginner"
+                         [style.width.%]="((s.beginnerCount || 0) / maxLevelCount(syn)) * 100"
+                         [title]="'Débutants ' + (s.beginnerCount || 0)"></div>
+                    <div class="bar-senior"
+                         [style.width.%]="((s.seniorCount || 0) / maxLevelCount(syn)) * 100"
+                         [title]="'Seniors ' + (s.seniorCount || 0)"></div>
+                  </div>
+                </div>
+                <span class="bar-val">{{ s.beginnerCount || 0 }} / {{ s.seniorCount || 0 }}</span>
+              </div>
+              <div class="avail-legend">
+                <span class="avail-legend-item"><i class="avail-swatch avail-swatch-beg"></i> Débutants</span>
+                <span class="avail-legend-item"><i class="avail-swatch avail-swatch-sen"></i> Seniors</span>
+              </div>
+            </div>
+          </ng-template>
+        </section>
+      </div>
+      <ng-template #noDaySyn>
+        <div class="modal-body">
+          <p class="insights-empty">Aucune synthèse pour ce jour.</p>
+        </div>
+      </ng-template>
+
+      <div class="modal-footer">
+        <button class="prime-btn-secondary btn-cancel" type="button" (click)="closeDayInsights()">Fermer</button>
       </div>
     </div>
   </div>

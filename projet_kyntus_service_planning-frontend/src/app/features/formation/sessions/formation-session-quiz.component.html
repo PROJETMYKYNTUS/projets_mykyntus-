@@ -73,6 +73,10 @@
           Le score est calculé automatiquement en %. Dès qu’il atteint le plafond ({{ passThreshold }} %), le résultat est
           <strong>Valide</strong>.
         </p>
+        <label class="fcat-check">
+          <input type="checkbox" [(ngModel)]="allowMultipleAttempts" [disabled]="isLocked() || busy()" />
+          Autoriser plusieurs tentatives
+        </label>
 
         @if (quiz()?.rejectedReason) {
           <p class="alert alert-error m-0">Rejeté : {{ quiz()!.rejectedReason }}</p>
@@ -149,6 +153,20 @@
                   [(ngModel)]="q.prompt"
                   [disabled]="isLocked()"
                   placeholder="Saisissez la question…"
+                ></textarea>
+              </label>
+              <label class="field">
+                <span class="field-label">Image (URL)</span>
+                <input class="ky-input w-full" [(ngModel)]="q.imageUrl" [disabled]="isLocked()" placeholder="https://…" />
+              </label>
+              <label class="field">
+                <span class="field-label">Explication pédagogique (après soumission)</span>
+                <textarea
+                  class="ky-textarea w-full"
+                  rows="2"
+                  [(ngModel)]="q.explanation"
+                  [disabled]="isLocked()"
+                  placeholder="Pourquoi cette réponse…"
                 ></textarea>
               </label>
 

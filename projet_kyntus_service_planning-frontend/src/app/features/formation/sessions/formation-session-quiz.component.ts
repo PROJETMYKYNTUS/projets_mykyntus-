@@ -30,6 +30,8 @@ type QuizDraftQuestion = {
   correctOptionIndexes: number[];
   allowMultiple: boolean;
   points: number;
+  imageUrl: string;
+  explanation: string;
 };
 
 type QuizTab = 'edit' | 'results';
@@ -67,6 +69,7 @@ export class FormationSessionQuizComponent implements OnInit {
   sessionId = '';
   quizTitle = '';
   passThreshold = 70;
+  allowMultipleAttempts = false;
   questions: QuizDraftQuestion[] = [];
   rejectReason = '';
 
@@ -138,6 +141,8 @@ export class FormationSessionQuizComponent implements OnInit {
         correctOptionIndexes: [0],
         allowMultiple: false,
         points: 1,
+        imageUrl: '',
+        explanation: '',
       },
     ];
   }
@@ -290,6 +295,7 @@ export class FormationSessionQuizComponent implements OnInit {
       const saved = await this.api.upsertQuiz(this.sessionId, {
         title: this.quizTitle.trim(),
         passThreshold: threshold,
+        allowMultipleAttempts: this.allowMultipleAttempts,
         animatorUserId: animatorId,
         questions,
       });
@@ -424,6 +430,8 @@ export class FormationSessionQuizComponent implements OnInit {
             correctOptionIndexes: [0],
             allowMultiple: false,
             points: 1,
+            imageUrl: '',
+            explanation: '',
           },
         ];
       }
@@ -453,6 +461,7 @@ export class FormationSessionQuizComponent implements OnInit {
     if (!quiz) return;
     this.quizTitle = quiz.title;
     this.passThreshold = Number(quiz.passThreshold) > 0 ? Number(quiz.passThreshold) : 70;
+    this.allowMultipleAttempts = !!quiz.allowMultipleAttempts;
     this.questions = quiz.questions
       .slice()
       .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -469,6 +478,8 @@ export class FormationSessionQuizComponent implements OnInit {
           correctOptionIndexes: indexes,
           allowMultiple: !!q.allowMultiple,
           points: q.points || 1,
+          imageUrl: q.imageUrl || '',
+          explanation: q.explanation || '',
         };
       });
     if (this.questions.length === 0) {
@@ -481,6 +492,8 @@ export class FormationSessionQuizComponent implements OnInit {
           correctOptionIndexes: [0],
           allowMultiple: false,
           points: 1,
+          imageUrl: '',
+          explanation: '',
         },
       ];
     }
@@ -494,6 +507,8 @@ export class FormationSessionQuizComponent implements OnInit {
     correctOptionIndexes: number[] | null;
     allowMultiple: boolean;
     points: number;
+    imageUrl: string | null;
+    explanation: string | null;
   }> {
     return this.questions
       .map((q) => {
@@ -508,6 +523,8 @@ export class FormationSessionQuizComponent implements OnInit {
             correctOptionIndexes: null,
             allowMultiple: false,
             points: q.points || 1,
+            imageUrl: q.imageUrl.trim() || null,
+            explanation: q.explanation.trim() || null,
           };
         }
         const options = q.options.map((o) => o.trim()).filter(Boolean);
@@ -529,6 +546,8 @@ export class FormationSessionQuizComponent implements OnInit {
           correctOptionIndexes: indexes,
           allowMultiple: q.allowMultiple,
           points: q.points || 1,
+          imageUrl: q.imageUrl.trim() || null,
+          explanation: q.explanation.trim() || null,
         };
       })
       .filter((q): q is NonNullable<typeof q> => q != null);

@@ -33,6 +33,7 @@ public static class PlanningStartup
                     await PlanningSchemaPatches.EnsureCongeSourceDemandeIdColumnAsync(db);
                     await PlanningSchemaPatches.EnsureShiftTemplateAndValidationSchemaAsync(db);
                     await PlanningSchemaPatches.EnsureShiftKindColumnAsync(db);
+                    await PlanningSchemaPatches.EnsureBreakSlotsAndCriticalCellAsync(db);
                     await PlanningSchemaPatches.EnsurePlanningChangeRequestsTableAsync(db);
                     await PlanningSchemaPatches.EnsureEmployeeImportSourceFileColumnsAsync(db);
                     await PlanningSchemaPatches.EnsureUserHtelColumnsAsync(db);

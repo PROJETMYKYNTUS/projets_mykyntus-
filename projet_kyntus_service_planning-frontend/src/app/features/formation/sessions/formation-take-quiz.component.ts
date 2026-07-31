@@ -12,7 +12,7 @@ import type {
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../shared/lucide-icon.component';
 
-type Step = 'questions' | 'recap' | 'done';
+type Step = 'questions' | 'recap' | 'done' | 'review';
 
 @Component({
   selector: 'app-formation-take-quiz',
@@ -37,6 +37,7 @@ export class FormationTakeQuizComponent implements OnInit {
   assigned: MyAssignedTrainingSessionDto | null = null;
   quiz: TrainingQuizForEmployeeDto | null = null;
   attempt: TrainingQuizAttemptDto | null = null;
+  history: TrainingQuizAttemptDto[] = [];
   step: Step = 'questions';
   currentIndex = 0;
   answers: Record<string, { selectedOptionIndex?: number; selectedOptionIndexes?: number[]; freeText?: string }> = {};
@@ -117,6 +118,21 @@ export class FormationTakeQuizComponent implements OnInit {
     return idxs.map((i) => q.options?.[i] || `Option ${i + 1}`).join(' · ');
   }
 
+  selectedLabels(ans: {
+    options?: string[] | null;
+    selectedOptionIndexes?: number[] | null;
+    selectedOptionIndex?: number | null;
+  }): string {
+    const idxs =
+      ans.selectedOptionIndexes?.length
+        ? ans.selectedOptionIndexes
+        : ans.selectedOptionIndex != null
+          ? [ans.selectedOptionIndex]
+          : [];
+    if (!idxs.length) return '—';
+    return idxs.map((i) => ans.options?.[i] || `Option ${i + 1}`).join(' · ');
+  }
+
   prev(): void {
     if (this.step === 'recap') {
       this.step = 'questions';
@@ -160,12 +176,23 @@ export class FormationTakeQuizComponent implements OnInit {
           freeText: a.freeText ?? null,
         })),
       });
-      this.step = 'done';
+      this.history = await this.api.listMyQuizAttempts(this.sessionId, this.userId);
+      this.step = this.attempt.answers?.length ? 'review' : 'done';
     } catch (e) {
       this.error.set(e instanceof Error ? e.message : 'Échec soumission');
     } finally {
       this.busy.set(false);
     }
+  }
+
+  async restart(): Promise<void> {
+    if (!this.assigned?.allowMultipleAttempts && !this.quiz?.allowMultipleAttempts) return;
+    this.attempt = null;
+    this.step = 'questions';
+    this.currentIndex = 0;
+    this.answers = {};
+    this.quiz = await this.api.getQuizForEmployee(this.sessionId, this.userId);
+    for (const q of this.quiz.questions) this.answers[q.id] = {};
   }
 
   private async load(): Promise<void> {
@@ -178,9 +205,9 @@ export class FormationTakeQuizComponent implements OnInit {
         this.error.set('Session introuvable dans vos affectations.');
         return;
       }
-      if (this.assigned.attemptId) {
-        this.step = 'done';
-        this.attempt = {
+      this.history = await this.api.listMyQuizAttempts(this.sessionId, this.userId).catch(() => []);
+      if (this.assigned.attemptId && !this.assigned.canTakeQuiz) {
+        this.attempt = this.history[0] ?? {
           id: this.assigned.attemptId,
           quizId: this.assigned.quizId ?? '',
           assignmentId: this.assigned.assignmentId,
@@ -191,10 +218,14 @@ export class FormationTakeQuizComponent implements OnInit {
           isGraded: !!this.assigned.attemptGraded,
           submittedAt: '',
         };
+        this.step = this.attempt.answers?.length ? 'review' : 'done';
         return;
       }
       if (!this.assigned.canTakeQuiz) {
-        this.error.set('Ce quiz n’est pas disponible (présence requise, ou déjà soumis / non publié).');
+        this.error.set(
+          this.assigned.quizBlockedReason ||
+            'Ce quiz n’est pas disponible (présence/contenu requis, ou déjà soumis / non publié).',
+        );
         return;
       }
       this.quiz = await this.api.getQuizForEmployee(this.sessionId, this.userId);

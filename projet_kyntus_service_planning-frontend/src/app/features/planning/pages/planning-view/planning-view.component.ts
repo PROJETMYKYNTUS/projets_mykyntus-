@@ -65,6 +65,14 @@ export class PlanningViewComponent implements OnInit {
   selectedNewBreakTime      = '';
   breakSlotOptions: ShiftOption[] = [];
 
+  // ── Day insights modal (diagrammes) ──
+  showDayInsights = false;
+  insightsDay = '';
+  insightsDateLabel = '';
+  availHoverIndex: number | null = null;
+  availTooltipLeft = 50;
+  availTooltipTop = 0;
+
   // ── Commentaire modal ──
   showCommentModal    = false;
   commentEmployeeId   = 0;
@@ -335,6 +343,172 @@ selectedHolidayShiftId      = 0;
     return this.planning?.coverageReport?.daySynthesis?.find(d => d.day === day) ?? null;
   }
 
+  get weekPerfKpis(): {
+    plateau: number;
+    plateauTarget: number;
+    level: number;
+    rotation: number;
+    rotationOk: number;
+    rotationTotal: number;
+  } | null {
+    const r = this.planning?.coverageReport;
+    if (!r || r.plateauAvailabilityPercent == null) return null;
+    const total = r.rotationEmployeesCount ?? 0;
+    const violators = r.rotationViolatorsCount ?? 0;
+    return {
+      plateau: r.plateauAvailabilityPercent,
+      plateauTarget: r.plateauAvailabilityTargetPercent ?? 70,
+      level: r.levelBalancePercent ?? 100,
+      rotation: r.rotationCompliancePercent ?? 100,
+      rotationOk: Math.max(0, total - violators),
+      rotationTotal: total,
+    };
+  }
+
+  /** Couleur KPI : vert ≥90 / ambre ≥70 / rouge &lt;70 ; plateau vert si ≥ cible. */
+  kpiTone(
+    value: number | null | undefined,
+    opts?: { plateauTarget?: number },
+  ): 'ok' | 'warn' | 'bad' {
+    const v = value ?? 100;
+    if (opts?.plateauTarget != null) {
+      return v >= opts.plateauTarget ? 'ok' : v >= 70 ? 'warn' : 'bad';
+    }
+    if (v >= 90) return 'ok';
+    if (v >= 70) return 'warn';
+    return 'bad';
+  }
+
+  formatKpiPct(value: number | null | undefined): string {
+    if (value == null || Number.isNaN(value)) return '—';
+    return `${Math.round(value * 10) / 10} %`;
+  }
+
+  openDayInsights(day: string, event?: Event): void {
+    event?.stopPropagation();
+    this.insightsDay = day;
+    this.insightsDateLabel = this.planning?.weekStartDate
+      ? this.getDateForDay(this.planning.weekStartDate, day)
+      : '';
+    this.showDayInsights = true;
+  }
+
+  closeDayInsights(): void {
+    this.showDayInsights = false;
+    this.insightsDay = '';
+    this.insightsDateLabel = '';
+    this.clearAvailHover();
+  }
+
+  get insightsSyn() {
+    return this.insightsDay ? this.daySynthesisFor(this.insightsDay) : null;
+  }
+
+  get insightsTarget(): number {
+    return this.planning?.coverageReport?.plateauAvailabilityTargetPercent ?? 70;
+  }
+
+  get availHoverPoint() {
+    const pts = this.insightsSyn?.availabilityTimeline ?? [];
+    if (this.availHoverIndex == null || this.availHoverIndex < 0 || this.availHoverIndex >= pts.length) {
+      return null;
+    }
+    return pts[this.availHoverIndex];
+  }
+
+  clearAvailHover(): void {
+    this.availHoverIndex = null;
+  }
+
+  onAvailChartMove(event: MouseEvent, syn = this.insightsSyn): void {
+    const pts = syn?.availabilityTimeline ?? [];
+    if (pts.length === 0) {
+      this.clearAvailHover();
+      return;
+    }
+
+    const el = event.currentTarget as HTMLElement;
+    const rect = el.getBoundingClientRect();
+    const xPct = Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(1, rect.width)));
+    const n = pts.length;
+    const idx = n === 1 ? 0 : Math.round(xPct * (n - 1));
+    this.availHoverIndex = idx;
+    this.availTooltipLeft = n === 1 ? 50 : (idx / (n - 1)) * 100;
+    const pct = Math.max(0, Math.min(100, Number(pts[idx].availabilityPercent)));
+    // Align with SVG y (0% at bottom of plot ≈ 40 in viewBox of height 48 → ~83% from top of svg)
+    this.availTooltipTop = ((40 - pct * 0.38) / 48) * 100;
+  }
+
+  /** SVG polyline points for availability % (viewBox 0 0 100 40). */
+  availabilityChartPoints(syn = this.insightsSyn): { x: number; y: number }[] {
+    const pts = syn?.availabilityTimeline ?? [];
+    if (pts.length === 0) return [];
+    const n = pts.length;
+    return pts.map((p, i) => ({
+      x: n === 1 ? 50 : (i / (n - 1)) * 100,
+      y: 40 - Math.max(0, Math.min(100, Number(p.availabilityPercent))) * 0.38,
+    }));
+  }
+
+  availHoverMarker(syn = this.insightsSyn): { x: number; y: number } | null {
+    if (this.availHoverIndex == null) return null;
+    const pts = this.availabilityChartPoints(syn);
+    return pts[this.availHoverIndex] ?? null;
+  }
+
+  availabilityPolyline(syn = this.insightsSyn): string {
+    return this.availabilityChartPoints(syn)
+      .map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)
+      .join(' ');
+  }
+
+  availabilityAreaPath(syn = this.insightsSyn): string {
+    const pts = this.availabilityChartPoints(syn);
+    if (pts.length === 0) return '';
+    const line = pts.map((p) => `L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
+    const lastX = pts[pts.length - 1].x;
+    return `M 0 40 ${line} L ${lastX.toFixed(2)} 40 Z`;
+  }
+
+  targetLineY(): number {
+    return 40 - Math.max(0, Math.min(100, this.insightsTarget)) * 0.38;
+  }
+
+  availabilityTickLabels(syn = this.insightsSyn): { x: number; label: string }[] {
+    const pts = syn?.availabilityTimeline ?? [];
+    if (pts.length === 0) return [];
+    const n = pts.length;
+    const indexes =
+      n <= 8
+        ? pts.map((_, i) => i)
+        : [0, Math.floor((n - 1) / 3), Math.floor((2 * (n - 1)) / 3), n - 1].filter(
+            (v, i, a) => a.indexOf(v) === i,
+          );
+    return indexes.map((i) => ({
+      x: n === 1 ? 50 : (i / (n - 1)) * 100,
+      label: pts[i].time,
+    }));
+  }
+
+  maxQuotaCount(syn = this.insightsSyn): number {
+    const shifts = syn?.shifts ?? [];
+    if (!shifts.length) return 1;
+    return Math.max(1, ...shifts.map((s) => Math.max(s.assignedCount, s.requiredCount)));
+  }
+
+  maxLevelCount(syn = this.insightsSyn): number {
+    if (!syn) return 1;
+    if (syn.day === 'Saturday') {
+      return Math.max(1, syn.saturdayBeginners ?? 0, syn.saturdaySeniors ?? 0);
+    }
+    const shifts = syn.shifts ?? [];
+    if (!shifts.length) return 1;
+    return Math.max(
+      1,
+      ...shifts.map((s) => Math.max(s.beginnerCount ?? 0, s.seniorCount ?? 0)),
+    );
+  }
+
   /** Chips actionnables sous l’en-tête de jour (sous-effectif, excédent, débutant seul). */
   dayDecisionChips(day: string): { label: string; kind: 'shortage' | 'surplus' | 'alone' }[] {
     const syn = this.daySynthesisFor(day);
@@ -498,8 +672,38 @@ selectedHolidayShiftId      = 0;
     this.selectedBreakEmployeeName = employee.fullName;
     this.selectedBreakDay          = this.dayLabels[day] ?? day;
     this.selectedNewBreakTime      = assignment.breakTime;
+    this.breakSlotOptions          = this.resolveBreakSlotOptions(assignment);
     this.showBreakOverride         = true;
     this.cdr.detectChanges();
+  }
+
+  private resolveBreakSlotOptions(assignment: DayAssignment): ShiftOption[] {
+    const cfg = this.planning?.shiftConfigs?.find(
+      (c) => c.shiftLabel === assignment.shiftLabel || c.startTime === assignment.startTime
+    );
+    const duration = cfg?.breakDurationMinutes && cfg.breakDurationMinutes > 0
+      ? cfg.breakDurationMinutes
+      : 60;
+    const slots = cfg?.breakSlots?.length
+      ? cfg.breakSlots
+      : this.planningService.getBreakSlotOptions().map((o) => o.value);
+
+    return slots.map((start) => {
+      const end = this.addMinutesToTime(start, duration);
+      return {
+        value: start,
+        label: end ? `${start} → ${end}` : start,
+      };
+    });
+  }
+
+  private addMinutesToTime(time: string, minutes: number): string {
+    const [h, m] = time.split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return '';
+    const total = h * 60 + m + minutes;
+    const eh = Math.floor(total / 60) % 24;
+    const em = total % 60;
+    return `${eh.toString().padStart(2, '0')}:${em.toString().padStart(2, '0')}`;
   }
 
   closeBreakOverride(): void {

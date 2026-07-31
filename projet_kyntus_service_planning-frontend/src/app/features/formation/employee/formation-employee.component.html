@@ -77,6 +77,12 @@
 
               <div class="fe-session-footer">
                 <div class="fe-quiz-meta">
+                  @if (s.catalogItemId) {
+                    <span class="fe-quiz-chip">
+                      Contenu {{ s.catalogProgressPercent ?? 0 }}%
+                      ({{ s.requiredLessonsDone ?? 0 }}/{{ s.requiredLessonsTotal ?? 0 }})
+                    </span>
+                  }
                   @if (s.quizStatus) {
                     <span class="fe-quiz-chip">Quiz · {{ quizStatusLabel(s.quizStatus) }}</span>
                   }
@@ -85,8 +91,16 @@
                       {{ attemptHistoryLabel(s) }}
                     </span>
                   }
+                  @if (!s.canTakeQuiz && s.quizBlockedReason) {
+                    <span class="fe-result-line">{{ s.quizBlockedReason }}</span>
+                  }
                 </div>
                 <div class="fe-session-actions">
+                  @if (s.catalogItemId) {
+                    <a class="ky-btn-secondary fe-cta" [routerLink]="['/mes-formations', s.sessionId, 'contenu']">
+                      Contenu
+                    </a>
+                  }
                   @if (s.canTakeQuiz) {
                     <a class="ky-btn-primary fe-cta" [routerLink]="['/mes-formations', s.sessionId, 'quiz']">
                       Passer le quiz

@@ -1,0 +1,223 @@
+<div class="ky-page-shell fcat-page">
+  <app-kyntus-page-header
+    title="Catalogue e-learning"
+    subtitle="Formations réutilisables, ressources PDF/vidéo, ciblage et statistiques"
+  />
+
+  <div class="fcat-tabs">
+    <button type="button" class="fcat-tab" [class.active]="tab() === 'list'" (click)="tab.set('list'); reload()">
+      Formations
+    </button>
+    <button type="button" class="fcat-tab" [class.active]="tab() === 'edit'" (click)="openCreate()">
+      {{ selected() ? 'Édition' : 'Créer' }}
+    </button>
+    <button type="button" class="fcat-tab" [class.active]="tab() === 'stats'" (click)="loadStats()">
+      Statistiques
+    </button>
+  </div>
+
+  @if (error()) {
+    <div class="ky-alert ky-alert-danger">{{ error() }}</div>
+  }
+  @if (message()) {
+    <div class="ky-alert ky-alert-success">{{ message() }}</div>
+  }
+
+  @if (tab() === 'list') {
+    <div class="ky-card fcat-toolbar">
+      <label class="fcat-check">
+        <input type="checkbox" [(ngModel)]="includeArchived" (change)="reload()" />
+        Inclure archivées
+      </label>
+      <button type="button" class="ky-btn-primary" (click)="openCreate()">
+        <app-lucide-icon [icon]="icons.add" className="w-4 h-4" />
+        Nouvelle formation
+      </button>
+    </div>
+
+    @if (loading()) {
+      <div class="ky-card state-loading">Chargement…</div>
+    } @else if (!items().length) {
+      <div class="ky-card state-empty">
+        <app-lucide-icon [icon]="icons.book" className="w-10 h-10" />
+        <h3>Aucune formation catalogue</h3>
+        <p>Créez une formation avec modules, leçons et ressources PDF/vidéo.</p>
+      </div>
+    } @else {
+      <div class="fcat-grid">
+        @for (item of items(); track item.id) {
+          <article class="ky-card fcat-card">
+            <header>
+              <h3>{{ item.title }}</h3>
+              <span class="status-badge">{{ statusLabel(item.status) }}</span>
+            </header>
+            <p class="fcat-desc">{{ item.description || '—' }}</p>
+            <div class="fcat-meta">
+              <span>{{ item.category || 'Sans catégorie' }}</span>
+              <span>{{ item.moduleCount }} modules</span>
+              <span>{{ item.lessonCount }} leçons</span>
+              <span>{{ item.resourceCount }} ressources</span>
+            </div>
+            <button type="button" class="ky-btn-secondary" (click)="openEdit(item.id)">Éditer</button>
+          </article>
+        }
+      </div>
+    }
+  }
+
+  @if (tab() === 'edit') {
+    <section class="ky-card fcat-form">
+      <h2>{{ selected() ? 'Modifier la formation' : 'Créer une formation' }}</h2>
+      <div class="fcat-fields">
+        <label>Titre <input class="ky-input" [(ngModel)]="draft.title" /></label>
+        <label>Catégorie <input class="ky-input" [(ngModel)]="draft.category" /></label>
+        <label class="full">Description <textarea class="ky-input" rows="3" [(ngModel)]="draft.description"></textarea></label>
+        <label>
+          Déblocage quiz
+          <select class="ky-input" [(ngModel)]="draft.defaultGateMode">
+            <option value="Attendance">Présence</option>
+            <option value="Content">Contenu e-learning</option>
+            <option value="Both">Présence + contenu</option>
+          </select>
+        </label>
+        <label>
+          Mode audience
+          <select class="ky-input" [(ngModel)]="draft.audienceMatchMode">
+            <option value="MatchAny">OU (MatchAny)</option>
+            <option value="MatchAll">ET (MatchAll)</option>
+          </select>
+        </label>
+        <label>Rôles (csv) <input class="ky-input" [(ngModel)]="audience.rolesText" placeholder="Agent, Superviseur" /></label>
+        <label>Structures (csv) <input class="ky-input" [(ngModel)]="audience.structuresText" placeholder="Cellule A" /></label>
+        <label class="full">UserIds (csv GUID) <input class="ky-input" [(ngModel)]="audience.userIdsText" /></label>
+      </div>
+      <div class="fcat-actions">
+        <button type="button" class="ky-btn-primary" [disabled]="busy()" (click)="saveItem()">Enregistrer</button>
+        @if (selected()) {
+          <button type="button" class="ky-btn-secondary" [disabled]="busy()" (click)="publish()">Publier</button>
+          <button type="button" class="ky-btn-secondary" [disabled]="busy()" (click)="archive()">Archiver</button>
+        }
+      </div>
+    </section>
+
+    @if (selected(); as item) {
+      <section class="ky-card fcat-form">
+        <h3>Modules / leçons / ressources</h3>
+        <div class="fcat-inline">
+          <input class="ky-input" [(ngModel)]="moduleDraft.title" placeholder="Nouveau module" />
+          <button type="button" class="ky-btn-secondary" (click)="addModule()">+ Module</button>
+        </div>
+
+        @for (m of item.modules || []; track m.id) {
+          <div class="fcat-module">
+            <div class="fcat-module-head">
+              <strong>{{ m.title }}</strong>
+              <button type="button" class="ky-btn-ghost" (click)="deleteModule(m)">
+                <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+              </button>
+            </div>
+            <ul>
+              @for (l of m.lessons; track l.id) {
+                <li>
+                  <div>
+                    <strong>{{ l.title }}</strong>
+                    @if (l.isRequired) { <span class="fe-quiz-chip">Obligatoire</span> }
+                    <div class="fcat-resources">
+                      @for (r of l.resources; track r.id) {
+                        <span class="fe-quiz-chip">{{ r.type }} · {{ r.title }}</span>
+                      }
+                    </div>
+                  </div>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+
+        <div class="fcat-fields">
+          <label>
+            Module pour leçon
+            <select class="ky-input" [(ngModel)]="lessonDraft.moduleId">
+              <option value="">—</option>
+              @for (m of item.modules || []; track m.id) {
+                <option [value]="m.id">{{ m.title }}</option>
+              }
+            </select>
+          </label>
+          <label>Titre leçon <input class="ky-input" [(ngModel)]="lessonDraft.title" /></label>
+          <label class="fcat-check"><input type="checkbox" [(ngModel)]="lessonDraft.isRequired" /> Obligatoire</label>
+          <button type="button" class="ky-btn-secondary" (click)="addLesson()">+ Leçon</button>
+        </div>
+
+        <div class="fcat-fields">
+          <label>
+            Leçon pour ressource
+            <select class="ky-input" [(ngModel)]="resourceDraft.lessonId">
+              <option value="">—</option>
+              @for (m of item.modules || []; track m.id) {
+                @for (l of m.lessons; track l.id) {
+                  <option [value]="l.id">{{ m.title }} / {{ l.title }}</option>
+                }
+              }
+            </select>
+          </label>
+          <label>Titre <input class="ky-input" [(ngModel)]="resourceDraft.title" /></label>
+          <label>
+            Type
+            <select class="ky-input" [(ngModel)]="resourceDraft.type">
+              <option value="Pdf">PDF</option>
+              <option value="Video">Vidéo</option>
+              <option value="Link">Lien</option>
+              <option value="Text">Texte</option>
+            </select>
+          </label>
+          <label class="full">URL <input class="ky-input" [(ngModel)]="resourceDraft.url" placeholder="https://…" /></label>
+          <label class="full">Texte <textarea class="ky-input" rows="2" [(ngModel)]="resourceDraft.textContent"></textarea></label>
+          <button type="button" class="ky-btn-secondary" (click)="addResource()">+ Ressource URL/texte</button>
+          <label class="full">Upload fichier <input type="file" (change)="uploadResource($event)" /></label>
+        </div>
+      </section>
+    }
+  }
+
+  @if (tab() === 'stats' && stats(); as s) {
+    <section class="ky-card">
+      <div class="fcat-kpis">
+        <div><span>Formations</span><strong>{{ s.catalogCount }}</strong></div>
+        <div><span>Sessions liées</span><strong>{{ s.sessionWithCatalogCount }}</strong></div>
+        <div><span>Questions</span><strong>{{ s.questionCount }}</strong></div>
+        <div><span>Tentatives</span><strong>{{ s.attemptCount }}</strong></div>
+        <div><span>Score moyen</span><strong>{{ s.avgScore }}%</strong></div>
+        <div><span>Meilleur</span><strong>{{ s.bestScore }}%</strong></div>
+        <div><span>Réussite</span><strong>{{ s.passRate }}%</strong></div>
+      </div>
+      <div class="fcat-actions">
+        <button type="button" class="ky-btn-secondary" (click)="exportCsv()">Exporter CSV</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Session</th>
+            <th>Catégorie</th>
+            <th>Questions</th>
+            <th>Tentatives</th>
+            <th>Moyenne</th>
+            <th>Réussite</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of s.bySession; track row.sessionId) {
+            <tr>
+              <td>{{ row.title }}</td>
+              <td>{{ row.category || '—' }}</td>
+              <td>{{ row.questionCount }}</td>
+              <td>{{ row.attemptCount }}</td>
+              <td>{{ row.avgScore }}%</td>
+              <td>{{ row.passRate }}%</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+</div>

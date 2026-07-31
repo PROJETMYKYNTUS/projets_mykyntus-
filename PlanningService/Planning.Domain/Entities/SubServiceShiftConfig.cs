@@ -30,6 +30,12 @@ public class SubServiceShiftConfig
     public TimeOnly BreakRangeEnd { get; set; }
     public int BreakDurationMinutes { get; set; } = 60;
 
+    /// <summary>JSON des heures de début de pause (max 3), ex. ["12:00","12:30","13:00"].</summary>
+    public string? BreakSlotsJson { get; set; }
+
+    /// <summary>Si true : extrêmes [start+3h, start+5h] et ouverture tôt/tard selon le plateau.</summary>
+    public bool IsCriticalCell { get; set; }
+
     // -- Quota -----------------------------------------
     public int RequiredCount { get; set; }
     public decimal Percentage { get; set; }

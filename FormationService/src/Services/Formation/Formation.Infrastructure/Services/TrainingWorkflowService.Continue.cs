@@ -229,6 +229,7 @@ public sealed partial class TrainingWorkflowService
                 SessionId = sessionId,
                 Title = request.Title.Trim(),
                 PassThreshold = threshold,
+                AllowMultipleAttempts = request.AllowMultipleAttempts,
                 CreatedByUserId = request.AnimatorUserId,
                 Status = TrainingQuizStatus.Draft,
             };
@@ -240,6 +241,7 @@ public sealed partial class TrainingWorkflowService
                 throw new InvalidOperationException("Impossible de modifier un quiz validé.");
             quiz.Title = request.Title.Trim();
             quiz.PassThreshold = threshold;
+            quiz.AllowMultipleAttempts = request.AllowMultipleAttempts;
             quiz.UpdatedAt = DateTime.UtcNow;
             quiz.Status = TrainingQuizStatus.Draft;
             quiz.RejectedReason = null;
@@ -270,6 +272,8 @@ public sealed partial class TrainingWorkflowService
                     ? JsonSerializer.Serialize(indexes)
                     : null,
                 Points = q.Points <= 0 ? 1m : q.Points,
+                ImageUrl = string.IsNullOrWhiteSpace(q.ImageUrl) ? null : q.ImageUrl.Trim(),
+                Explanation = string.IsNullOrWhiteSpace(q.Explanation) ? null : q.Explanation.Trim(),
             });
         }
 
@@ -307,8 +311,15 @@ public sealed partial class TrainingWorkflowService
         var assignment = await db.TrainingAssignments.AsNoTracking()
             .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.EmployeeId == employeeId, ct)
             ?? throw new InvalidOperationException("Vous n'êtes pas affecté à cette séance.");
-        if (assignment.Status != TrainingAssignmentStatus.Completed)
-            throw new InvalidOperationException("Le quiz est réservé aux bénéficiaires présents.");
+
+        var session = await db.TrainingSessions.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == sessionId, ct)
+            ?? throw new InvalidOperationException("Session introuvable.");
+
+        var (gateOk, reason) = await learningCatalog.EvaluateQuizGateAsync(
+            session, assignment, session.CatalogItemId, ct);
+        if (!gateOk)
+            throw new InvalidOperationException(reason ?? "Quiz non disponible.");
 
         var quiz = await db.TrainingQuizzes.AsNoTracking()
             .Include(q => q.Questions)
@@ -317,6 +328,10 @@ public sealed partial class TrainingWorkflowService
         if (quiz.Status is not TrainingQuizStatus.Published and not TrainingQuizStatus.Graded
             and not TrainingQuizStatus.Validated)
             throw new InvalidOperationException("Le quiz n'est pas encore publié.");
+
+        if (!quiz.AllowMultipleAttempts
+            && await db.TrainingQuizAttempts.AnyAsync(a => a.QuizId == quiz.Id && a.AssignmentId == assignment.Id, ct))
+            throw new InvalidOperationException("Une seule tentative autorisée pour ce quiz.");
 
         return new TrainingQuizForEmployeeDto(
             quiz.Id,
@@ -330,7 +345,10 @@ public sealed partial class TrainingWorkflowService
                 q.Prompt,
                 ParseOptions(q.OptionsJson),
                 q.Points,
-                q.AllowMultiple)).ToList());
+                q.AllowMultiple,
+                q.ImageUrl)).ToList(),
+            quiz.AllowMultipleAttempts,
+            quiz.PassThreshold <= 0 ? ContinueQuizPassThreshold : quiz.PassThreshold);
     }
 
     public async Task<TrainingQuizAttemptDto> SubmitQuizAttemptAsync(
@@ -349,10 +367,18 @@ public sealed partial class TrainingWorkflowService
             ?? throw new InvalidOperationException("Affectation introuvable.");
         if (assignment.EmployeeId != request.EmployeeId)
             throw new InvalidOperationException("Employé incohérent avec l'affectation.");
-        if (assignment.Status != TrainingAssignmentStatus.Completed)
-            throw new InvalidOperationException("Seuls les présents peuvent passer le quiz.");
 
-        if (await db.TrainingQuizAttempts.AnyAsync(a => a.QuizId == quiz.Id && a.AssignmentId == assignment.Id, ct))
+        var session = await db.TrainingSessions.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == sessionId, ct)
+            ?? throw new InvalidOperationException("Session introuvable.");
+        var (gateOk, reason) = await learningCatalog.EvaluateQuizGateAsync(
+            session, assignment, session.CatalogItemId, ct);
+        if (!gateOk)
+            throw new InvalidOperationException(reason ?? "Quiz non disponible.");
+
+        var existingCount = await db.TrainingQuizAttempts
+            .CountAsync(a => a.QuizId == quiz.Id && a.AssignmentId == assignment.Id, ct);
+        if (!quiz.AllowMultipleAttempts && existingCount > 0)
             throw new InvalidOperationException("Une tentative existe déjà pour ce quiz.");
 
         var payload = request.Answers.Select(a => new
@@ -368,6 +394,7 @@ public sealed partial class TrainingWorkflowService
             QuizId = quiz.Id,
             AssignmentId = assignment.Id,
             EmployeeId = request.EmployeeId,
+            AttemptNumber = existingCount + 1,
             AnswersJson = JsonSerializer.Serialize(payload),
         };
 
@@ -380,6 +407,27 @@ public sealed partial class TrainingWorkflowService
         await db.SaveChangesAsync(ct);
 
         return ToAttemptDto(attempt, assignment.EmployeeName, quiz.Questions.ToList());
+    }
+
+    public async Task<IReadOnlyList<TrainingQuizAttemptDto>> ListMyQuizAttemptsAsync(
+        Guid sessionId,
+        Guid employeeId,
+        CancellationToken ct)
+    {
+        var quiz = await db.TrainingQuizzes.AsNoTracking()
+            .Include(q => q.Questions)
+            .FirstOrDefaultAsync(q => q.SessionId == sessionId, ct)
+            ?? throw new InvalidOperationException("Quiz introuvable.");
+        var assignment = await db.TrainingAssignments.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.EmployeeId == employeeId, ct)
+            ?? throw new InvalidOperationException("Affectation introuvable.");
+
+        var attempts = await db.TrainingQuizAttempts.AsNoTracking()
+            .Where(a => a.QuizId == quiz.Id && a.AssignmentId == assignment.Id)
+            .OrderByDescending(a => a.AttemptNumber)
+            .ToListAsync(ct);
+        var questions = quiz.Questions.OrderBy(q => q.SortOrder).ToList();
+        return attempts.Select(a => ToAttemptDto(a, assignment.EmployeeName, questions)).ToList();
     }
 
     public async Task<TrainingQuizAttemptDto> GradeFreeTextAnswerAsync(
@@ -612,9 +660,12 @@ public sealed partial class TrainingWorkflowService
                 q.CorrectOptionIndex,
                 q.Points,
                 q.AllowMultiple,
-                ResolveCorrectIndexes(q))).ToList(),
+                ResolveCorrectIndexes(q),
+                q.ImageUrl,
+                q.Explanation)).ToList(),
             quiz.RejectedReason,
-            quiz.PassThreshold <= 0 ? ContinueQuizPassThreshold : quiz.PassThreshold);
+            quiz.PassThreshold <= 0 ? ContinueQuizPassThreshold : quiz.PassThreshold,
+            quiz.AllowMultipleAttempts);
     }
 
     private static void ValidateProgramAnimator(CreateTrainingProgramRequest request)
@@ -708,7 +759,8 @@ public sealed partial class TrainingWorkflowService
             attempt.IsGraded,
             attempt.SubmittedAt,
             attempt.AnimatorComment,
-            BuildAnswerDetails(attempt.AnswersJson, questions, attempt.FreeTextGradesJson));
+            BuildAnswerDetails(attempt.AnswersJson, questions, attempt.FreeTextGradesJson),
+            attempt.AttemptNumber);
     }
 
     private static void ApplyAttemptScoring(
@@ -810,7 +862,9 @@ public sealed partial class TrainingWorkflowService
                 correct,
                 q.AllowMultiple,
                 isCorrect,
-                q.Points);
+                q.Points,
+                q.ImageUrl,
+                q.Explanation);
         }).ToList();
     }
 

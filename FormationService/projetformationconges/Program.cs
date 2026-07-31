@@ -45,6 +45,7 @@ builder.Services.AddMediatR(cfg =>
 // Repositories
 builder.Services.AddScoped<IFormationRepository, FormationRepository>();
 builder.Services.AddScoped<Formation.Infrastructure.Services.FormationDocumentChecklistService>();
+builder.Services.AddScoped<Formation.Infrastructure.Services.LearningCatalogService>();
 builder.Services.AddScoped<Formation.Infrastructure.Services.TrainingWorkflowService>();
 builder.Services.AddHostedService<Formation.Infrastructure.Services.InitialTrainingMissingDocumentsAlertHostedService>();
 
@@ -148,6 +149,7 @@ using (var scope = app.Services.CreateScope())
         {
             await FormationSchemaPatches.EnsureTrainingWorkflowTablesAsync(db, startupLog);
             await FormationSchemaPatches.EnsureQuizMultiChoiceColumnsAsync(db);
+            await FormationSchemaPatches.EnsureLearningCatalogTablesAsync(db, startupLog);
         }
         catch (Exception ex)
         {

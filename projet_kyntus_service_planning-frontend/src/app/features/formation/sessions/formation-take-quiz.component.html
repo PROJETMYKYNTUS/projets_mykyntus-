@@ -18,14 +18,14 @@
       <div class="alert alert-error">{{ error() }}</div>
     }
 
-    @if (step === 'done') {
+    @if (step === 'done' || step === 'review') {
       <div class="ky-card done-card">
         <app-lucide-icon [icon]="icons.done" className="w-10 h-10 done-icon" />
         <h2>Quiz soumis</h2>
         @if (attempt?.isGraded) {
           <p>
             Score :
-            <strong>{{ attempt?.finalScore ?? '—' }}</strong>
+            <strong>{{ attempt?.finalScore ?? '—' }}%</strong>
             —
             @if (attempt?.passed) {
               <span class="ok">Réussi</span>
@@ -36,7 +36,44 @@
         } @else {
           <p class="muted">En attente de notation par l’animateur.</p>
         }
-        <a routerLink="/mes-formations" class="ky-btn-primary">Retour à Mes formations</a>
+
+        @if (attempt?.answers?.length) {
+          <div class="review-list">
+            @for (ans of attempt?.answers || []; track ans.questionId) {
+              <article class="review-item" [class.ok]="ans.isCorrect === true" [class.ko]="ans.isCorrect === false">
+                <h3>Q{{ ans.sortOrder + 1 }}. {{ ans.prompt }}</h3>
+                @if (ans.imageUrl) {
+                  <img [src]="ans.imageUrl" alt="" class="q-image" />
+                }
+                <p class="muted text-xs">
+                  Votre réponse :
+                  @if (ans.freeText) {
+                    {{ ans.freeText }}
+                  } @else {
+                    {{ selectedLabels(ans) }}
+                  }
+                </p>
+                @if (ans.isCorrect != null) {
+                  <p><strong>{{ ans.isCorrect ? 'Correct' : 'Incorrect' }}</strong></p>
+                }
+                @if (ans.explanation) {
+                  <p class="explanation">{{ ans.explanation }}</p>
+                }
+              </article>
+            }
+          </div>
+        }
+
+        @if (history.length > 1) {
+          <p class="muted text-xs">Historique : {{ history.length }} tentative(s)</p>
+        }
+
+        <div class="nav-row">
+          @if (assigned?.allowMultipleAttempts || quiz?.allowMultipleAttempts) {
+            <button type="button" class="ky-btn-secondary" (click)="restart()">Recommencer</button>
+          }
+          <a routerLink="/mes-formations" class="ky-btn-primary">Retour à Mes formations</a>
+        </div>
       </div>
     } @else if (quiz) {
       <div class="progress-wrap">
@@ -53,6 +90,9 @@
       @if (step === 'questions' && currentQuestion; as q) {
         <article class="ky-card question-panel">
           <h2 class="question-prompt">{{ q.prompt }}</h2>
+          @if (q.imageUrl) {
+            <img [src]="q.imageUrl" alt="" class="q-image" />
+          }
           <p class="muted text-xs">{{ q.points }} point(s)</p>
 
           @if (isQcm(q.type)) {

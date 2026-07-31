@@ -374,6 +374,154 @@ public static class FormationSchemaPatches
         await EnsureColumnAsync(db, "training_quiz_questions", "CorrectOptionIndexesJson", "text NULL", ct);
         await EnsureColumnAsync(db, "training_quizzes", "PassThreshold", "numeric(18,2) NOT NULL DEFAULT 70", ct);
         await EnsureColumnAsync(db, "training_quiz_attempts", "FreeTextGradesJson", "text NULL", ct);
+        await EnsureColumnAsync(db, "training_quiz_questions", "ImageUrl", "character varying(2000) NULL", ct);
+        await EnsureColumnAsync(db, "training_quiz_questions", "ImageStoragePath", "character varying(1000) NULL", ct);
+        await EnsureColumnAsync(db, "training_quiz_questions", "Explanation", "text NULL", ct);
+        await EnsureColumnAsync(db, "training_quizzes", "AllowMultipleAttempts", "boolean NOT NULL DEFAULT FALSE", ct);
+        await EnsureColumnAsync(db, "training_quiz_attempts", "AttemptNumber", "integer NOT NULL DEFAULT 1", ct);
+        await EnsureColumnAsync(db, "training_sessions", "CatalogItemId", "uuid NULL", ct);
+        await EnsureColumnAsync(db, "training_sessions", "LearningGateMode", "integer NULL", ct);
+        await EnsureColumnAsync(db, "employe_annuaires", "StructureKey", "character varying(200) NULL", ct);
+
+        // Replace legacy unique (QuizId, AssignmentId) with (QuizId, AssignmentId, AttemptNumber).
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            DO $$ BEGIN
+              IF EXISTS (
+                SELECT 1 FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND indexname = 'IX_training_quiz_attempts_QuizId_AssignmentId'
+              ) THEN
+                DROP INDEX IF EXISTS "IX_training_quiz_attempts_QuizId_AssignmentId";
+              END IF;
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND indexname = 'IX_training_quiz_attempts_QuizId_AssignmentId_AttemptNumber'
+              ) THEN
+                CREATE UNIQUE INDEX "IX_training_quiz_attempts_QuizId_AssignmentId_AttemptNumber"
+                  ON training_quiz_attempts ("QuizId", "AssignmentId", "AttemptNumber");
+              END IF;
+            END $$;
+            """,
+            ct);
+    }
+
+    public static async Task EnsureLearningCatalogTablesAsync(
+        FormationDbContext db,
+        ILogger? logger = null,
+        CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS training_catalog_items (
+                "Id" uuid NOT NULL,
+                "Title" character varying(300) NOT NULL,
+                "Description" text NOT NULL DEFAULT '',
+                "Category" character varying(200) NOT NULL DEFAULT '',
+                "Status" integer NOT NULL DEFAULT 0,
+                "IsActive" boolean NOT NULL DEFAULT TRUE,
+                "DefaultGateMode" integer NOT NULL DEFAULT 1,
+                "AudienceMatchMode" integer NOT NULL DEFAULT 0,
+                "CreatedByUserId" character varying(100) NOT NULL DEFAULT '',
+                "CreatedAt" timestamp with time zone NOT NULL,
+                "UpdatedAt" timestamp with time zone NOT NULL,
+                "PublishedAt" timestamp with time zone NULL,
+                "ArchivedAt" timestamp with time zone NULL,
+                CONSTRAINT "PK_training_catalog_items" PRIMARY KEY ("Id")
+            );
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS training_modules (
+                "Id" uuid NOT NULL,
+                "CatalogItemId" uuid NOT NULL,
+                "Title" character varying(300) NOT NULL,
+                "Description" text NOT NULL DEFAULT '',
+                "SortOrder" integer NOT NULL DEFAULT 0,
+                CONSTRAINT "PK_training_modules" PRIMARY KEY ("Id")
+            );
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS training_lessons (
+                "Id" uuid NOT NULL,
+                "ModuleId" uuid NOT NULL,
+                "Title" character varying(300) NOT NULL,
+                "Description" text NOT NULL DEFAULT '',
+                "SortOrder" integer NOT NULL DEFAULT 0,
+                "IsRequired" boolean NOT NULL DEFAULT TRUE,
+                CONSTRAINT "PK_training_lessons" PRIMARY KEY ("Id")
+            );
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS training_resources (
+                "Id" uuid NOT NULL,
+                "LessonId" uuid NOT NULL,
+                "Type" integer NOT NULL DEFAULT 0,
+                "Title" character varying(300) NOT NULL,
+                "Url" character varying(2000) NULL,
+                "StoragePath" character varying(1000) NULL,
+                "ContentType" character varying(200) NULL,
+                "FileName" character varying(500) NULL,
+                "TextContent" text NULL,
+                "SortOrder" integer NOT NULL DEFAULT 0,
+                "DurationMinutes" integer NULL,
+                CONSTRAINT "PK_training_resources" PRIMARY KEY ("Id")
+            );
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS training_catalog_audience_rules (
+                "Id" uuid NOT NULL,
+                "CatalogItemId" uuid NOT NULL,
+                "RolesJson" text NOT NULL DEFAULT '[]',
+                "StructureKeysJson" text NOT NULL DEFAULT '[]',
+                "UserIdsJson" text NOT NULL DEFAULT '[]',
+                CONSTRAINT "PK_training_catalog_audience_rules" PRIMARY KEY ("Id")
+            );
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS training_lesson_progress (
+                "Id" uuid NOT NULL,
+                "AssignmentId" uuid NOT NULL,
+                "LessonId" uuid NOT NULL,
+                "LastResourceId" uuid NULL,
+                "ProgressPercent" numeric(18,2) NOT NULL DEFAULT 0,
+                "StartedAt" timestamp with time zone NOT NULL,
+                "CompletedAt" timestamp with time zone NULL,
+                CONSTRAINT "PK_training_lesson_progress" PRIMARY KEY ("Id")
+            );
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX IF NOT EXISTS "IX_training_modules_CatalogItemId" ON training_modules ("CatalogItemId");
+            CREATE INDEX IF NOT EXISTS "IX_training_lessons_ModuleId" ON training_lessons ("ModuleId");
+            CREATE INDEX IF NOT EXISTS "IX_training_resources_LessonId" ON training_resources ("LessonId");
+            CREATE INDEX IF NOT EXISTS "IX_training_catalog_audience_rules_CatalogItemId" ON training_catalog_audience_rules ("CatalogItemId");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_training_lesson_progress_AssignmentId_LessonId"
+                ON training_lesson_progress ("AssignmentId", "LessonId");
+            CREATE INDEX IF NOT EXISTS "IX_training_sessions_CatalogItemId" ON training_sessions ("CatalogItemId");
+            CREATE INDEX IF NOT EXISTS "IX_training_catalog_items_Category" ON training_catalog_items ("Category");
+            CREATE INDEX IF NOT EXISTS "IX_training_catalog_items_Status" ON training_catalog_items ("Status");
+            """,
+            ct);
+
+        logger?.LogInformation("Tables catalogue e-learning formation vérifiées.");
     }
 
     private static async Task EnsureColumnAsync(

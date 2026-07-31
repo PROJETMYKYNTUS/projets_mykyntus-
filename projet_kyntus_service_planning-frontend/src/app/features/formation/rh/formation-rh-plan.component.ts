@@ -179,12 +179,28 @@ export class FormationRhPlanComponent implements OnInit {
     externalAnimatorOrganization: '',
     externalAnimatorEmail: '',
     externalAnimatorPhone: '',
+    catalogItemId: '',
+    learningGateMode: '' as '' | 'Attendance' | 'Content' | 'Both',
   };
+
+  catalogItems: { id: string; title: string }[] = [];
 
   ngOnInit(): void {
     this.ensureDefaultSlots();
     void this.reload();
     void this.loadOrgAndEmployees();
+    void this.loadCatalogItems();
+  }
+
+  async loadCatalogItems(): Promise<void> {
+    try {
+      const items = await this.api.listCatalog(false);
+      this.catalogItems = items
+        .filter((i) => i.status === 'Published' || i.status === 1)
+        .map((i) => ({ id: i.id, title: i.title }));
+    } catch {
+      this.catalogItems = [];
+    }
   }
 
   perimeterLabel(row: EmployeePickerRow): string {
@@ -677,6 +693,16 @@ export class FormationRhPlanComponent implements OnInit {
         );
       }
 
+      if (this.form.catalogItemId && created?.sessions?.length) {
+        for (const session of created.sessions) {
+          await this.api.linkSessionCatalog(session.id, {
+            catalogItemId: this.form.catalogItemId,
+            learningGateMode: this.form.learningGateMode || null,
+            assignAudience: false,
+          });
+        }
+      }
+
       this.resetForm();
       await this.reload();
     } catch (e) {
@@ -700,6 +726,8 @@ export class FormationRhPlanComponent implements OnInit {
       externalAnimatorOrganization: '',
       externalAnimatorEmail: '',
       externalAnimatorPhone: '',
+      catalogItemId: '',
+      learningGateMode: '',
     };
     this.clearAnimator();
     this.beneficiaryList.set([]);

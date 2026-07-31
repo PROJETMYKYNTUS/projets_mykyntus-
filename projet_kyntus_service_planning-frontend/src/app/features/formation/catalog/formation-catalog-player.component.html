@@ -1,0 +1,114 @@
+<div class="ky-page-shell fplay-page">
+  <app-kyntus-page-header
+    [title]="player()?.title || 'Contenu e-learning'"
+    [subtitle]="player()?.description || 'Consultez les leçons puis passez le quiz'"
+  >
+    <div actions>
+      <a class="ky-btn-secondary" routerLink="/mes-formations">
+        <app-lucide-icon [icon]="icons.back" className="w-4 h-4" />
+        Retour
+      </a>
+    </div>
+  </app-kyntus-page-header>
+
+  @if (error()) {
+    <div class="ky-alert ky-alert-danger">{{ error() }}</div>
+  }
+
+  @if (loading()) {
+    <div class="ky-card state-loading">Chargement du contenu…</div>
+  } @else if (player(); as p) {
+    <div class="fplay-progress ky-card">
+      <div class="fplay-progress-top">
+        <strong>Progression {{ p.progressPercent }}%</strong>
+        <span>{{ p.requiredLessonsDone }}/{{ p.requiredLessonsTotal }} leçons obligatoires</span>
+      </div>
+      <div class="fplay-bar"><span [style.width.%]="p.progressPercent"></span></div>
+      <div class="fplay-progress-actions">
+        @if (p.canTakeQuiz) {
+          <a class="ky-btn-primary" [routerLink]="['/mes-formations', sessionId, 'quiz']">Passer le quiz</a>
+        } @else {
+          <span class="fplay-blocked">{{ p.quizBlockedReason || 'Quiz non disponible pour le moment.' }}</span>
+        }
+      </div>
+    </div>
+
+    <div class="fplay-layout">
+      <aside class="ky-card fplay-nav">
+        @for (m of p.modules; track m.id) {
+          <div class="fplay-mod">
+            <h3>{{ m.title }}</h3>
+            @for (l of m.lessons; track l.id) {
+              <button
+                type="button"
+                class="fplay-lesson"
+                [class.active]="activeLesson()?.id === l.id"
+                [class.done]="l.isCompleted"
+                (click)="selectLesson(l)"
+              >
+                {{ l.title }}
+                @if (l.isCompleted) {
+                  <app-lucide-icon [icon]="icons.done" className="w-4 h-4" />
+                }
+              </button>
+            }
+          </div>
+        }
+      </aside>
+
+      <section class="ky-card fplay-content">
+        @if (activeLesson(); as lesson) {
+          <header class="fplay-content-head">
+            <div>
+              <h2>{{ lesson.title }}</h2>
+              <p>{{ lesson.description }}</p>
+            </div>
+            <button
+              type="button"
+              class="ky-btn-secondary"
+              [disabled]="busy() || lesson.isCompleted"
+              (click)="completeLesson()"
+            >
+              {{ lesson.isCompleted ? 'Leçon terminée' : 'Marquer comme vu' }}
+            </button>
+          </header>
+
+          <div class="fplay-resource-tabs">
+            @for (r of lesson.resources; track r.id) {
+              <button
+                type="button"
+                class="fplay-resource-tab"
+                [class.active]="activeResource()?.id === r.id"
+                (click)="selectResource(r)"
+              >
+                {{ r.title }}
+              </button>
+            }
+          </div>
+
+          @if (activeResource(); as res) {
+            <div class="fplay-viewer">
+              @if (isPdf(res)) {
+                <iframe [src]="embedUrl(res)" title="PDF"></iframe>
+              } @else if (isVideo(res) && isExternalVideo(res)) {
+                <iframe [src]="embedUrl(res)" title="Vidéo" allowfullscreen></iframe>
+              } @else if (isVideo(res)) {
+                <video controls [src]="res.url || res.downloadPath || ''"></video>
+              } @else if (res.type === 'Text' || res.type === 3) {
+                <div class="fplay-text" [innerText]="res.textContent || ''"></div>
+              } @else {
+                <a class="ky-btn-secondary" [href]="res.url || res.downloadPath || '#'" target="_blank" rel="noopener">
+                  Ouvrir le lien
+                </a>
+              }
+            </div>
+          } @else {
+            <p class="fplay-empty">Aucune ressource pour cette leçon.</p>
+          }
+        } @else {
+          <p class="fplay-empty">Sélectionnez une leçon.</p>
+        }
+      </section>
+    </div>
+  }
+</div>

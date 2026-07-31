@@ -112,20 +112,22 @@ public class PlanningService : IPlanningService
 
         var totalEffectif = dto.Shifts.Sum(s => s.RequiredCount);
         var configs = new List<SubServiceShiftConfig>();
+        var isCriticalCell = dto.IsCriticalCell;
+        var cellMinPresence = dto.MinPresencePercent <= 0
+            ? 70
+            : Math.Clamp(dto.MinPresencePercent, 50, 100);
 
         for (int i = 0; i < dto.Shifts.Count; i++)
         {
             var shift = dto.Shifts[i];
             var startTime = TimeOnly.Parse(shift.StartTime);
+            var breakDuration = shift.BreakDurationMinutes > 0
+                ? shift.BreakDurationMinutes
+                : BreakSlotPlanner.BreakDurationMinutes;
 
-            var breakStart = shift.BreakRangeStart != null
-                ? TimeOnly.Parse(shift.BreakRangeStart)
-                : startTime.AddHours(4);
-
-            var breakDuration = shift.BreakDurationMinutes > 0 ? shift.BreakDurationMinutes : 60;
-            var breakEnd = shift.BreakRangeEnd != null
-                ? TimeOnly.Parse(shift.BreakRangeEnd)
-                : breakStart.AddMinutes(breakDuration);
+            var breakSlots = BreakSlotPlanner.NormalizeSlots(
+                startTime, isCriticalCell, shift.BreakSlots);
+            var (breakStart, breakEnd) = BreakSlotPlanner.SyncRange(breakSlots, breakDuration);
 
             var percentage = totalEffectif > 0
                 ? Math.Round((decimal)shift.RequiredCount / totalEffectif * 100, 1)
@@ -140,12 +142,14 @@ public class PlanningService : IPlanningService
                 Label = shift.Label,
                 StartTime = startTime,
                 WorkHours = shift.WorkHours,
-                BreakDurationMinutes = shift.BreakDurationMinutes,
+                BreakDurationMinutes = breakDuration,
                 BreakRangeStart = breakStart,
                 BreakRangeEnd = breakEnd,
+                BreakSlotsJson = BreakSlotPlanner.SerializeSlots(breakSlots),
+                IsCriticalCell = isCriticalCell,
                 RequiredCount = shift.RequiredCount,
                 Percentage = percentage,
-                MinPresencePercent = shift.MinPresencePercent,
+                MinPresencePercent = cellMinPresence,
                 DisplayOrder = shift.DisplayOrder > 0 ? shift.DisplayOrder : i + 1,
                 CreatedAt = DateTime.UtcNow
             });
@@ -194,6 +198,10 @@ public class PlanningService : IPlanningService
             WeekCode = string.Empty,
             WeekStartDate = default,
             IsTemplate = true,
+            IsCriticalCell = configs.Any(c => c.IsCriticalCell),
+            MinPresencePercent = configs.First().MinPresencePercent <= 0
+                ? 70
+                : configs.First().MinPresencePercent,
             TotalEffectif = configs.Sum(c => c.RequiredCount),
             Shifts = configs.Select(MapToShiftConfigResponseDto).ToList()
         };
@@ -287,6 +295,10 @@ public class PlanningService : IPlanningService
             WeekCode = weekCode,
             WeekStartDate = configs.FirstOrDefault()?.WeekStartDate ?? DateOnly.MinValue,
             IsTemplate = false,
+            IsCriticalCell = configs.Any(c => c.IsCriticalCell),
+            MinPresencePercent = configs.First().MinPresencePercent <= 0
+                ? 70
+                : configs.First().MinPresencePercent,
             TotalEffectif = configs.Sum(c => c.RequiredCount),
             Shifts = configs.Select(MapToShiftConfigResponseDto).ToList()
         };
@@ -330,6 +342,8 @@ public class PlanningService : IPlanningService
                 BreakDurationMinutes = t.BreakDurationMinutes,
                 BreakRangeStart = t.BreakRangeStart,
                 BreakRangeEnd = t.BreakRangeEnd,
+                BreakSlotsJson = t.BreakSlotsJson,
+                IsCriticalCell = t.IsCriticalCell,
                 RequiredCount = t.RequiredCount,
                 Percentage = t.Percentage,
                 MinPresencePercent = t.MinPresencePercent,
@@ -467,8 +481,10 @@ public class PlanningService : IPlanningService
         }
 
         // ------------------------------------------------
-        // G�N�RATION Lun ? Ven
+        // GÉNÉRATION Lun → Ven (dispersion max2 + non-consécutif)
         // ------------------------------------------------
+        var weekShiftHistoryByUser = new Dictionary<int, List<int>>();
+        var usersByIdForSelect = employees.ToDictionary(e => e.Id);
         int dayIdx = 0;
         foreach (var (day, date) in weekDays)
         {
@@ -531,20 +547,25 @@ public class PlanningService : IPlanningService
                 var startIdx = employeeStartShiftIndex.ContainsKey(emp.Id)
                     ? employeeStartShiftIndex[emp.Id]
                     : 0;
-                var todayShiftIdx = (startIdx + dayIdx) % orderedShifts.Count;
-                var todayShift = orderedShifts[todayShiftIdx];
 
-                var finalShift = todayShift;
-                int attempts = 0;
-                while (shiftCountToday[finalShift.Id] >= finalShift.RequiredCount
-                       && attempts < orderedShifts.Count)
+                var selected = ShiftDispersionSelector.Select(
+                    orderedShifts,
+                    startIdx,
+                    dayIdx,
+                    emp.Id,
+                    weekShiftHistoryByUser,
+                    shiftCountToday,
+                    usersByIdForSelect);
+
+                var finalShift = selected.Shift;
+                shiftCountToday[finalShift.Id] = shiftCountToday.GetValueOrDefault(finalShift.Id, 0) + 1;
+
+                if (!weekShiftHistoryByUser.TryGetValue(emp.Id, out var hist))
                 {
-                    todayShiftIdx = (todayShiftIdx + 1) % orderedShifts.Count;
-                    finalShift = orderedShifts[todayShiftIdx];
-                    attempts++;
+                    hist = new List<int>();
+                    weekShiftHistoryByUser[emp.Id] = hist;
                 }
-
-                shiftCountToday[finalShift.Id]++;
+                hist.Add(finalShift.Id);
 
                 assignments.Add(new ShiftAssignment
                 {
@@ -564,10 +585,12 @@ public class PlanningService : IPlanningService
         }
 
         // ------------------------------------------------
-        // SAMEDI
+        // SAMEDI — mêmes règles dispersion/équité que Lun–Ven
+        // + ON/OFF seniors + demi-journée débutants (inchangé)
         // ------------------------------------------------
         var saturdayDate = planning.WeekStartDate.AddDays(5);
         var saturdayWorkers = new List<int>();
+        var saturdayShiftCountToday = new Dictionary<int, int>();
 
         if (holidays.Contains(saturdayDate))
         {
@@ -622,12 +645,27 @@ public class PlanningService : IPlanningService
                     var satAssignment = await GenerateSaturdayAssignmentFromConfigAsync(
                         employee, planning, shiftConfigs, saturdayGroups, empIndex,
                         string.IsNullOrWhiteSpace(dto.WeekCode) ? planning.WeekCode : dto.WeekCode!,
-                        beginnerHalfDaySlotCounts);
+                        beginnerHalfDaySlotCounts,
+                        weekShiftHistoryByUser,
+                        usersByIdForSelect,
+                        saturdayShiftCountToday);
 
                     if (satAssignment != null)
                     {
                         assignments.Add(satAssignment);
                         saturdayWorkers.Add(employee.Id);
+                        if (satAssignment.SubServiceShiftConfigId.HasValue)
+                        {
+                            var sid = satAssignment.SubServiceShiftConfigId.Value;
+                            saturdayShiftCountToday[sid] =
+                                saturdayShiftCountToday.GetValueOrDefault(sid, 0) + 1;
+                            if (!weekShiftHistoryByUser.TryGetValue(employee.Id, out var hist))
+                            {
+                                hist = new List<int>();
+                                weekShiftHistoryByUser[employee.Id] = hist;
+                            }
+                            hist.Add(sid);
+                        }
                     }
                 }
             }
@@ -635,6 +673,8 @@ public class PlanningService : IPlanningService
 
         var usersById = employees.ToDictionary(e => e.Id);
         LevelBalanceRepairer.Repair(assignments, shiftConfigs, usersById, employees, planning);
+        ShiftDispersionSelector.RepairWeekdayDispersion(assignments, shiftConfigs);
+        ShiftDispersionSelector.RepairFairness(assignments, shiftConfigs, usersById);
 
         saturdayWorkers = assignments
             .Where(a => a.IsSaturday && a.SubServiceShiftConfigId != null && !a.IsOnLeave && !a.IsHoliday)
@@ -1078,8 +1118,8 @@ public class PlanningService : IPlanningService
             // ? Assigner une pause automatiquement
             if (assignment.BreakTime == null)
             {
-                var slots = GenerateBreakSlots(config.BreakRangeStart, config.BreakRangeEnd);
-                if (slots.Any())
+                var slots = BreakSlotPlanner.ResolveBreakSlots(config);
+                if (slots.Count > 0)
                     assignment.BreakTime = slots.First();
             }
 
@@ -1455,7 +1495,11 @@ public class PlanningService : IPlanningService
                 RequiredCount = c.RequiredCount,
                 Percentage = totalRequired > 0
                     ? Math.Round((decimal)c.RequiredCount / totalRequired * 100, 1)
-                    : 0
+                    : 0,
+                BreakSlots = BreakSlotPlanner.ResolveBreakSlots(c)
+                    .Select(s => s.ToString("HH:mm")).ToList(),
+                BreakDurationMinutes = c.BreakDurationMinutes > 0 ? c.BreakDurationMinutes : 60,
+                IsCriticalCell = c.IsCriticalCell
             }).ToList();
         }
 
@@ -1599,11 +1643,9 @@ public class PlanningService : IPlanningService
         // FIX � Assigner une pause si elle n existe pas encore
         if (assignment.SubServiceShiftConfig != null && assignment.BreakTime == null)
         {
-            var slots = GenerateBreakSlots(
-                assignment.SubServiceShiftConfig.BreakRangeStart,
-                assignment.SubServiceShiftConfig.BreakRangeEnd);
+            var slots = BreakSlotPlanner.ResolveBreakSlots(assignment.SubServiceShiftConfig);
 
-            if (slots.Any())
+            if (slots.Count > 0)
             {
                 assignment.BreakTime = slots.First();
                 await _context.SaveChangesAsync();
@@ -1703,12 +1745,16 @@ public class PlanningService : IPlanningService
         List<SaturdayGroup> saturdayGroups,
         int employeeIndex,
         string weekCode,
-        Dictionary<int, int> beginnerHalfDaySlotCounts)
+        Dictionary<int, int> beginnerHalfDaySlotCounts,
+        IReadOnlyDictionary<int, List<int>> weekShiftHistoryByUser,
+        IReadOnlyDictionary<int, User> usersById,
+        IReadOnlyDictionary<int, int> saturdayShiftCountToday)
     {
         var satGroup = saturdayGroups.FirstOrDefault(sg => sg.UserId == employee.Id);
         var orderedConfigs = shiftConfigs.OrderBy(s => s.StartTime).ThenBy(s => s.DisplayOrder).ToList();
 
         // Débutant (Level 1) : tous les samedis, demi-journée, créneau auto équitable
+        // (shift lié au slot — règle historique, non cassée)
         if (IsBeginnerLevel(employee))
         {
             if (orderedConfigs.Count == 0) return null;
@@ -1754,11 +1800,21 @@ public class PlanningService : IPlanningService
             planning.WeekStartDate.ToDateTime(TimeOnly.MinValue));
         var shiftIndex = (employeeIndex + weekNumber) % orderedConfigs.Count;
 
+        var fridayId = ShiftDispersionSelector.YesterdayShiftId(weekShiftHistoryByUser, employee.Id);
+        var chosen = ShiftDispersionSelector.SelectSaturday(
+            orderedConfigs,
+            shiftIndex,
+            fridayId,
+            weekShiftHistoryByUser,
+            employee.Id,
+            usersById,
+            saturdayShiftCountToday);
+
         return new ShiftAssignment
         {
             WeeklyPlanningId = planning.Id,
             UserId = employee.Id,
-            SubServiceShiftConfigId = orderedConfigs[shiftIndex].Id,
+            SubServiceShiftConfigId = chosen.Id,
             AssignedDate = planning.WeekStartDate.AddDays(5),
             DayOfWeek = DayOfWeekEnum.Saturday,
             IsSaturday = true,
@@ -1857,14 +1913,12 @@ public class PlanningService : IPlanningService
     {
         if (!dayAssignments.Any()) return;
 
-        // Usage global par créneau (tous shifts confondus) + limite par shift
         var breakSlotUsage = new Dictionary<TimeOnly, int>();
-        // Max pauses simultanées au niveau service : basé sur la présence min la plus stricte
-        var serviceMinPresence = shiftConfigs.Count > 0
-            ? shiftConfigs.Min(c => c.MinPresencePercent <= 0 ? 70 : c.MinPresencePercent)
+        // Présence min = niveau cellule (même valeur sur tous les shifts)
+        var cellMinPresence = shiftConfigs.Count > 0
+            ? BreakSlotPlanner.ClampMinPresence(shiftConfigs.First().MinPresencePercent)
             : 70;
-        serviceMinPresence = Math.Clamp(serviceMinPresence, 50, 95);
-        var serviceMaxBreak = Math.Max(1, (int)Math.Floor(totalEmployees * (100 - serviceMinPresence) / 100.0));
+        var cellMaxBreak = Math.Max(1, (int)Math.Floor(totalEmployees * (100 - cellMinPresence) / 100.0));
 
         var shiftGroups = dayAssignments
             .GroupBy(a => a.SubServiceShiftConfigId)
@@ -1875,39 +1929,94 @@ public class PlanningService : IPlanningService
             var config = shiftConfigs.FirstOrDefault(c => c.Id == group.Key);
             if (config == null) continue;
 
-            var groupSize = group.Count();
-            var minPresence = config.MinPresencePercent <= 0 ? 70 : config.MinPresencePercent;
-            minPresence = Math.Clamp(minPresence, 50, 95);
-            // Présence min PAR SHIFT : max en pause = floor(effectifs_shift * (100 - min) / 100)
-            var shiftMaxBreak = Math.Max(0, (int)Math.Floor(groupSize * (100 - minPresence) / 100.0));
-            if (shiftMaxBreak == 0 && groupSize > 0)
-                shiftMaxBreak = 1; // au moins 1 possible si le groupe est petit
+            var candidates = BreakSlotPlanner.ResolveBreakSlots(config);
+            if (candidates.Count == 0) continue;
 
-            var slots = GenerateBreakSlots(config.BreakRangeStart, config.BreakRangeEnd);
-            var shiftSlotUsage = new Dictionary<TimeOnly, int>();
+            var ideal = config.StartTime.AddHours(4);
+            var openOrder = config.IsCriticalCell
+                ? candidates
+                    .OrderBy(s => BreakSlotPlanner.DistanceMinutes(s, ideal))
+                    .ThenBy(s => s)
+                    .ToList()
+                : candidates;
+
+            if (!config.IsCriticalCell)
+            {
+                var preferred = BreakSlotPlanner.BuildPreferredBreakSlots(config.StartTime, false);
+                openOrder = preferred
+                    .Where(s => candidates.Contains(s))
+                    .Concat(candidates.Where(s => !preferred.Contains(s)))
+                    .Distinct()
+                    .ToList();
+                if (openOrder.Count == 0)
+                    openOrder = candidates;
+            }
+
+            var opened = new List<TimeOnly> { openOrder[0] };
 
             foreach (var assignment in group)
             {
-                var bestSlot = slots
-                    .OrderBy(s => breakSlotUsage.GetValueOrDefault(s, 0))
-                    .ThenBy(s => shiftSlotUsage.GetValueOrDefault(s, 0))
-                    .FirstOrDefault(s =>
-                        shiftSlotUsage.GetValueOrDefault(s, 0) < shiftMaxBreak
-                        && breakSlotUsage.GetValueOrDefault(s, 0) < serviceMaxBreak);
+                TimeOnly? bestSlot = FindBestOpenSlot(
+                    opened, breakSlotUsage, cellMaxBreak, ideal);
 
-                if (bestSlot == default)
+                if (bestSlot == null)
                 {
-                    bestSlot = slots
-                        .OrderBy(s => breakSlotUsage.GetValueOrDefault(s, 0))
-                        .ThenBy(s => shiftSlotUsage.GetValueOrDefault(s, 0))
-                        .First();
+                    while (opened.Count < openOrder.Count)
+                    {
+                        TimeOnly next;
+                        if (config.IsCriticalCell)
+                        {
+                            next = openOrder
+                                .Where(s => !opened.Contains(s))
+                                .OrderBy(s => breakSlotUsage.GetValueOrDefault(s, 0))
+                                .ThenBy(s => BreakSlotPlanner.DistanceMinutes(s, ideal))
+                                .ThenBy(s => s)
+                                .First();
+                        }
+                        else
+                        {
+                            next = openOrder.First(s => !opened.Contains(s));
+                        }
+
+                        opened.Add(next);
+                        bestSlot = FindBestOpenSlot(
+                            opened, breakSlotUsage, cellMaxBreak, ideal);
+                        if (bestSlot != null)
+                            break;
+                    }
                 }
 
-                assignment.BreakTime = bestSlot;
-                shiftSlotUsage[bestSlot] = shiftSlotUsage.GetValueOrDefault(bestSlot, 0) + 1;
-                breakSlotUsage[bestSlot] = breakSlotUsage.GetValueOrDefault(bestSlot, 0) + 1;
+                if (bestSlot == null)
+                {
+                    bestSlot = candidates
+                        .OrderBy(s => breakSlotUsage.GetValueOrDefault(s, 0))
+                        .ThenBy(s => BreakSlotPlanner.DistanceMinutes(s, ideal))
+                        .ThenBy(s => s)
+                        .First();
+                    if (!opened.Contains(bestSlot.Value))
+                        opened.Add(bestSlot.Value);
+                }
+
+                var chosen = bestSlot.Value;
+                assignment.BreakTime = chosen;
+                breakSlotUsage[chosen] = breakSlotUsage.GetValueOrDefault(chosen, 0) + 1;
             }
         }
+    }
+
+    private static TimeOnly? FindBestOpenSlot(
+        List<TimeOnly> opened,
+        Dictionary<TimeOnly, int> breakSlotUsage,
+        int cellMaxBreak,
+        TimeOnly ideal)
+    {
+        return opened
+            .Where(s => breakSlotUsage.GetValueOrDefault(s, 0) < cellMaxBreak)
+            .OrderBy(s => breakSlotUsage.GetValueOrDefault(s, 0))
+            .ThenBy(s => BreakSlotPlanner.DistanceMinutes(s, ideal))
+            .ThenBy(s => s)
+            .Cast<TimeOnly?>()
+            .FirstOrDefault();
     }
 
     private static CoverageReportDto BuildCoverageReport(
@@ -1931,15 +2040,70 @@ public class PlanningService : IPlanningService
         foreach (var a in levelAnomalies)
             report.Warnings.Add(a.Message);
 
+        if (usersById != null)
+        {
+            var configsById = shiftConfigs.ToDictionary(c => c.Id);
+            foreach (var w in ShiftDispersionSelector.BuildDispersionWarnings(
+                         planning.ShiftAssignments.ToList(), usersById, configsById))
+                report.Warnings.Add(w);
+        }
+
         var anomalyKeys = levelAnomalies
             .Select(a => (a.Date, a.ShiftConfigId))
             .ToHashSet();
         var anomalyDates = levelAnomalies.Select(a => a.Date).ToHashSet();
 
+        var cellMinPresence = shiftConfigs[0].MinPresencePercent <= 0
+            ? 70
+            : Math.Clamp(shiftConfigs[0].MinPresencePercent, 50, 100);
+
         var dayNames = new[]
         {
             "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
         };
+
+        report.PlateauAvailabilityTargetPercent = cellMinPresence;
+
+        var breakDurationMinutes = Math.Clamp(
+            shiftConfigs.Select(c => c.BreakDurationMinutes <= 0 ? 60 : c.BreakDurationMinutes).DefaultIfEmpty(60).Max(),
+            30,
+            120);
+
+        // Historique shifts Lun–Sam travaillés (rotation / dispersion)
+        var weekByUser = planning.ShiftAssignments
+            .Where(a =>
+                !a.IsOnLeave
+                && !a.IsHoliday
+                && a.SubServiceShiftConfigId != null)
+            .GroupBy(a => a.UserId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(a => a.AssignedDate).ToList());
+
+        var weekRotationViolators = new HashSet<int>();
+        foreach (var (userId, ordered) in weekByUser)
+        {
+            var consecutive = false;
+            for (var k = 1; k < ordered.Count; k++)
+            {
+                if (ordered[k].SubServiceShiftConfigId == ordered[k - 1].SubServiceShiftConfigId)
+                {
+                    consecutive = true;
+                    break;
+                }
+            }
+
+            var overMax = ordered
+                .GroupBy(a => a.SubServiceShiftConfigId!.Value)
+                .Any(g => g.Count() > ShiftDispersionSelector.MaxSameShiftPerWeek);
+
+            if (consecutive || overMax)
+                weekRotationViolators.Add(userId);
+        }
+
+        var weekLevelOk = 0;
+        var weekLevelEval = 0;
+        var dailyPlateauValues = new List<decimal>();
 
         for (var i = 0; i < 6; i++)
         {
@@ -1961,6 +2125,34 @@ public class PlanningService : IPlanningService
                 .ToList();
             daySynth.PresentCount = dayPresent.Count;
 
+            // Timeline disponibilité + min = KPI plateau du jour
+            daySynth.AvailabilityTimeline = BuildDayAvailabilityTimeline(
+                dayPresent, shiftConfigs, breakDurationMinutes);
+            daySynth.PlateauAvailabilityPercent = daySynth.AvailabilityTimeline.Count == 0
+                ? 100m
+                : daySynth.AvailabilityTimeline.Min(p => p.AvailabilityPercent);
+            dailyPlateauValues.Add(daySynth.PlateauAvailabilityPercent);
+
+            // Présence min cellule : pauses simultanées (Lun–Sam)
+            var cellPresenceIssue = false;
+            if (dayPresent.Count > 1)
+            {
+                var maxBreakAllowed = (int)Math.Floor(dayPresent.Count * (100 - cellMinPresence) / 100.0);
+                if (maxBreakAllowed == 0)
+                    maxBreakAllowed = 1;
+                cellPresenceIssue = dayPresent
+                    .Where(a => a.BreakTime.HasValue)
+                    .GroupBy(a => a.BreakTime!.Value)
+                    .Any(g => g.Count() > maxBreakAllowed);
+
+                if (cellPresenceIssue)
+                {
+                    report.HasUnderstaffing = true;
+                    report.Warnings.Add(
+                        $"{dayName} {date:dd/MM} — trop de pauses simultanées (présence min cellule {cellMinPresence} %)");
+                }
+            }
+
             if (i == 5)
             {
                 daySynth.SaturdayBeginners = dayPresent.Count(a =>
@@ -1972,6 +2164,9 @@ public class PlanningService : IPlanningService
                     && usersById.TryGetValue(a.UserId, out var u)
                     && u.Level >= 2);
             }
+
+            var dayLevelOk = 0;
+            var dayLevelEval = 0;
 
             foreach (var cfg in shiftConfigs.OrderBy(c => c.DisplayOrder))
             {
@@ -1999,22 +2194,17 @@ public class PlanningService : IPlanningService
 
                 var understaffed = i < 5 && cfg.RequiredCount > 0 && assigned < cfg.RequiredCount;
 
-                var minPresence = cfg.MinPresencePercent <= 0 ? 70 : Math.Clamp(cfg.MinPresencePercent, 50, 100);
-                var presenceIssue = false;
-                if (assigned > 1 && i < 5)
-                {
-                    var maxBreakAllowed = (int)Math.Floor(assigned * (100 - minPresence) / 100.0);
-                    if (maxBreakAllowed == 0)
-                        maxBreakAllowed = 1;
-                    presenceIssue = dayAssignments
-                        .Where(a => a.BreakTime.HasValue)
-                        .GroupBy(a => a.BreakTime!.Value)
-                        .Any(g => g.Count() > maxBreakAllowed);
-                }
-
                 var hasLevel = anomalyKeys.Contains((date, cfg.Id))
                                || (i == 5 && anomalyDates.Contains(date));
-                var isUnder = understaffed || presenceIssue;
+                var isUnder = understaffed || cellPresenceIssue;
+
+                // Équilibre niveau : créneaux Lun–Ven évalués (+ samedi si anomalie/présents)
+                if (i < 5 || (i == 5 && (assigned > 0 || anomalyDates.Contains(date))))
+                {
+                    dayLevelEval++;
+                    if (!hasLevel)
+                        dayLevelOk++;
+                }
 
                 report.Items.Add(new CoverageDayShiftDto
                 {
@@ -2025,7 +2215,7 @@ public class PlanningService : IPlanningService
                     ShiftKind = cfg.ShiftKind.ToString(),
                     RequiredCount = cfg.RequiredCount,
                     AssignedCount = assigned,
-                    MinPresencePercent = minPresence,
+                    MinPresencePercent = cellMinPresence,
                     PresencePercent = staffingPct,
                     IsUnderstaffed = isUnder,
                     HasLevelBalanceAnomaly = hasLevel,
@@ -2054,18 +2244,150 @@ public class PlanningService : IPlanningService
                     report.Warnings.Add(
                         $"{dayName} {date:dd/MM} — {cfg.Label}: {assigned}/{cfg.RequiredCount} affectés (quota)");
                 }
-                else if (presenceIssue)
+            }
+
+            if (i < 5)
+            {
+                weekLevelOk += dayLevelOk;
+                weekLevelEval += dayLevelEval;
+                daySynth.LevelBalancePercent = dayLevelEval == 0
+                    ? 100m
+                    : Math.Round((decimal)dayLevelOk / dayLevelEval * 100, 1);
+            }
+            else
+            {
+                // Samedi : règle jour (débutant seul sans senior) + contribution semaine
+                daySynth.LevelBalancePercent = anomalyDates.Contains(date) ? 0m : 100m;
+                weekLevelEval++;
+                if (!anomalyDates.Contains(date))
+                    weekLevelOk++;
+            }
+
+            // Rotation locale du jour (Lun–Sam : ≠ veille + max2 cumul)
+            if (dayPresent.Count > 0)
+            {
+                var okCount = 0;
+                foreach (var a in dayPresent)
                 {
-                    report.HasUnderstaffing = true;
-                    report.Warnings.Add(
-                        $"{dayName} {date:dd/MM} — {cfg.Label}: trop de pauses simultanées (présence min {minPresence} %)");
+                    if (!HasLocalRotationViolation(a, weekByUser, date))
+                        okCount++;
                 }
+
+                daySynth.RotationCompliancePercent =
+                    Math.Round((decimal)okCount / dayPresent.Count * 100, 1);
+            }
+            else
+            {
+                daySynth.RotationCompliancePercent = 100m;
             }
 
             report.DaySynthesis.Add(daySynth);
         }
 
+        report.PlateauAvailabilityPercent = dailyPlateauValues.Count == 0
+            ? 100m
+            : dailyPlateauValues.Min();
+        report.LevelBalancePercent = weekLevelEval == 0
+            ? 100m
+            : Math.Round((decimal)weekLevelOk / weekLevelEval * 100, 1);
+
+        report.RotationEmployeesCount = weekByUser.Count;
+        report.RotationViolatorsCount = weekRotationViolators.Count;
+        report.RotationCompliancePercent = weekByUser.Count == 0
+            ? 100m
+            : Math.Round(
+                (decimal)(weekByUser.Count - weekRotationViolators.Count) / weekByUser.Count * 100,
+                1);
+
         return report;
+    }
+
+    private static List<DayAvailabilityPointDto> BuildDayAvailabilityTimeline(
+        List<ShiftAssignment> dayPresent,
+        List<SubServiceShiftConfig> shiftConfigs,
+        int breakDurationMinutes)
+    {
+        var result = new List<DayAvailabilityPointDto>();
+        if (dayPresent.Count == 0)
+            return result;
+
+        var configsById = shiftConfigs.ToDictionary(c => c.Id);
+        var ranges = new List<(ShiftAssignment Assignment, TimeOnly Start, TimeOnly End)>();
+        TimeOnly? windowStart = null;
+        TimeOnly? windowEnd = null;
+
+        foreach (var a in dayPresent)
+        {
+            if (a.SubServiceShiftConfigId is not int cfgId)
+                continue;
+
+            SubServiceShiftConfig? cfg = a.SubServiceShiftConfig;
+            if (cfg == null && !configsById.TryGetValue(cfgId, out cfg))
+                continue;
+
+            ranges.Add((a, cfg.StartTime, cfg.EndTime));
+            if (windowStart == null || cfg.StartTime < windowStart)
+                windowStart = cfg.StartTime;
+            if (windowEnd == null || cfg.EndTime > windowEnd)
+                windowEnd = cfg.EndTime;
+        }
+
+        if (windowStart == null || windowEnd == null || windowStart >= windowEnd)
+            return result;
+
+        const int stepMinutes = 5;
+        var t = new TimeOnly(windowStart.Value.Hour, (windowStart.Value.Minute / stepMinutes) * stepMinutes);
+        while (t < windowEnd.Value)
+        {
+            var slotEnd = t.AddMinutes(stepMinutes);
+            var presentAt = ranges.Count(r => r.Start <= t && r.End > t);
+            if (presentAt > 0)
+            {
+                var onBreak = ranges.Count(r =>
+                    r.Start <= t
+                    && r.End > t
+                    && r.Assignment.BreakTime.HasValue
+                    && r.Assignment.BreakTime.Value < slotEnd
+                    && r.Assignment.BreakTime.Value.AddMinutes(breakDurationMinutes) > t);
+                var available = presentAt - onBreak;
+                result.Add(new DayAvailabilityPointDto
+                {
+                    Time = t.ToString("HH:mm"),
+                    PresentCount = presentAt,
+                    OnBreakCount = onBreak,
+                    AvailableCount = available,
+                    AvailabilityPercent = Math.Round((decimal)available / presentAt * 100, 1)
+                });
+            }
+
+            t = slotEnd;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Violation locale : même shift que la veille, ou déjà &gt; max× ce shift en cumul semaine à ce jour.
+    /// </summary>
+    private static bool HasLocalRotationViolation(
+        ShiftAssignment assignment,
+        Dictionary<int, List<ShiftAssignment>> weekByUser,
+        DateOnly date)
+    {
+        if (!weekByUser.TryGetValue(assignment.UserId, out var ordered))
+            return false;
+
+        var shiftId = assignment.SubServiceShiftConfigId;
+        if (shiftId == null)
+            return false;
+
+        var prev = ordered.LastOrDefault(a => a.AssignedDate < date);
+        if (prev?.SubServiceShiftConfigId == shiftId)
+            return true;
+
+        var countUpToDay = ordered.Count(a =>
+            a.AssignedDate <= date && a.SubServiceShiftConfigId == shiftId);
+        return countUpToDay > ShiftDispersionSelector.MaxSameShiftPerWeek;
     }
 
     private static List<TimeOnly> GenerateBreakSlots(TimeOnly rangeStart, TimeOnly rangeEnd)
@@ -2157,7 +2479,10 @@ public class PlanningService : IPlanningService
     };
 
     private static ShiftConfigResponseNewDto MapToShiftConfigResponseDto(
-        SubServiceShiftConfig c) => new()
+        SubServiceShiftConfig c)
+    {
+        var slots = BreakSlotPlanner.ResolveBreakSlots(c);
+        return new()
         {
             Id = c.Id,
             Label = c.Label,
@@ -2167,12 +2492,15 @@ public class PlanningService : IPlanningService
             BreakRangeStart = c.BreakRangeStart.ToString("HH:mm"),
             BreakRangeEnd = c.BreakRangeEnd.ToString("HH:mm"),
             BreakDurationMinutes = c.BreakDurationMinutes,
+            BreakSlots = slots.Select(s => s.ToString("HH:mm")).ToList(),
+            IsCriticalCell = c.IsCriticalCell,
             RequiredCount = c.RequiredCount,
             Percentage = c.Percentage,
             MinPresencePercent = c.MinPresencePercent,
             DisplayOrder = c.DisplayOrder,
             ShiftKind = c.ShiftKind.ToString()
         };
+    }
 
     private List<int> GetEmployeeWeekRotation(
         List<Shift> shifts, int employeeIndex, List<int> recentShiftIds)

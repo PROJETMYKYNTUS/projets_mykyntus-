@@ -96,6 +96,12 @@ export class ShiftConfigComponent implements OnInit {
   error = '';
   successMsg = '';
 
+  /** Extrêmes +3h/+5h seulement si cellule critique ; normal = +4h/+4h30. */
+  isCriticalCell = false;
+
+  /** Présence min plateau de toute la cellule (défaut 70). */
+  minPresencePercent = 70;
+
   shifts: ShiftConfigItem[] = [];
 
   constructor(
@@ -128,12 +134,97 @@ export class ShiftConfigComponent implements OnInit {
       startTime,
       workHours: 8,
       breakDurationMinutes: 60,
-      breakRangeStart: undefined,
-      breakRangeEnd: undefined,
+      breakSlots: this.buildAutoBreakSlots(startTime, this.isCriticalCell),
       requiredCount: 0,
-      minPresencePercent: 70,
       displayOrder: order,
     };
+  }
+
+  private parseTimeToMinutes(time: string): number | null {
+    if (!time) return null;
+    const [h, m] = time.split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m;
+  }
+
+  private formatMinutes(min: number): string {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  }
+
+  /** Défauts : OFF → +4h/+4h30 ; ON → +3h30/+4h/+4h30 (pool jusqu’à +3h/+5h). */
+  buildAutoBreakSlots(startTime: string, isCritical: boolean): string[] {
+    const startMin = this.parseTimeToMinutes(startTime);
+    if (startMin == null) return [];
+    if (isCritical) {
+      return [
+        this.formatMinutes(startMin + 3.5 * 60),
+        this.formatMinutes(startMin + 4 * 60),
+        this.formatMinutes(startMin + 4.5 * 60),
+      ];
+    }
+    return [
+      this.formatMinutes(startMin + 4 * 60),
+      this.formatMinutes(startMin + 4.5 * 60),
+    ];
+  }
+
+  getAllowedBreakStarts(shift: ShiftConfigItem): string[] {
+    const startMin = this.parseTimeToMinutes(shift.startTime);
+    if (startMin == null) return [];
+    const from = startMin + (this.isCriticalCell ? 3 : 4) * 60;
+    const to = startMin + (this.isCriticalCell ? 5 : 4.5) * 60;
+    const result: string[] = [];
+    for (let t = from; t <= to; t += 30) {
+      result.push(this.formatMinutes(t));
+    }
+    return result;
+  }
+
+  getBreakEndLabel(start: string, durationMinutes = 60): string {
+    const startMin = this.parseTimeToMinutes(start);
+    if (startMin == null) return '';
+    return this.formatMinutes(startMin + (durationMinutes > 0 ? durationMinutes : 60));
+  }
+
+  formatBreakSlotLabel(start: string, durationMinutes = 60): string {
+    const end = this.getBreakEndLabel(start, durationMinutes);
+    return end ? `${start} → ${end}` : start;
+  }
+
+  onStartTimeChange(shift: ShiftConfigItem): void {
+    shift.breakSlots = this.buildAutoBreakSlots(shift.startTime, this.isCriticalCell);
+    shift.breakDurationMinutes = 60;
+  }
+
+  onCriticalCellChange(): void {
+    for (const s of this.shifts) {
+      s.breakSlots = this.buildAutoBreakSlots(s.startTime, this.isCriticalCell);
+      s.breakDurationMinutes = 60;
+    }
+  }
+
+  isBreakSlotSelected(shift: ShiftConfigItem, slot: string): boolean {
+    return (shift.breakSlots ?? []).includes(slot);
+  }
+
+  toggleBreakSlot(shift: ShiftConfigItem, slot: string): void {
+    const current = [...(shift.breakSlots ?? [])];
+    const idx = current.indexOf(slot);
+    if (idx >= 0) {
+      if (current.length <= 1) return; // au moins 1 créneau
+      current.splice(idx, 1);
+    } else {
+      if (current.length >= 3) return;
+      current.push(slot);
+      current.sort();
+    }
+    shift.breakSlots = current;
+  }
+
+  resetBreakSlotsAuto(shift: ShiftConfigItem): void {
+    shift.breakSlots = this.buildAutoBreakSlots(shift.startTime, this.isCriticalCell);
   }
 
   loadStructure(): void {
@@ -400,17 +491,13 @@ export class ShiftConfigComponent implements OnInit {
   }
 
   getBreakRangeAuto(shift: ShiftConfigItem): string {
-    if (!shift.startTime) return '';
-    const [h, m] = shift.startTime.split(':').map(Number);
-    const startMin = h * 60 + m;
-    const breakDurationMin = shift.breakDurationMinutes > 0 ? shift.breakDurationMinutes : 60;
-    const breakStart = startMin + 4 * 60;
-    const breakEnd = breakStart + breakDurationMin;
-    const fmt = (min: number) =>
-      `${Math.floor(min / 60)
-        .toString()
-        .padStart(2, '0')}:${(min % 60).toString().padStart(2, '0')}`;
-    return `${fmt(breakStart)} → ${fmt(breakEnd)}`;
+    const slots = shift.breakSlots?.length
+      ? shift.breakSlots
+      : this.buildAutoBreakSlots(shift.startTime, this.isCriticalCell);
+    if (!slots.length) return '';
+    return slots
+      .map((s) => this.formatBreakSlotLabel(s, shift.breakDurationMinutes || 60))
+      .join(' · ');
   }
 
   get totalEffectif(): number {
@@ -478,11 +565,15 @@ export class ShiftConfigComponent implements OnInit {
       return;
     }
     for (const s of this.shifts) {
-      const p = s.minPresencePercent ?? 70;
-      if (p < 50 || p > 100) {
-        this.error = `Présence min invalide pour « ${s.label} » (50–100 %).`;
+      if (!(s.breakSlots?.length)) {
+        this.error = `Au moins un créneau de pause est requis pour « ${s.label} ».`;
         return;
       }
+    }
+    const p = this.minPresencePercent ?? 70;
+    if (p < 50 || p > 100) {
+      this.error = 'Présence min cellule invalide (50–100 %).';
+      return;
     }
 
     this.saving = true;
@@ -493,7 +584,16 @@ export class ShiftConfigComponent implements OnInit {
       subServiceId: this.subServiceId,
       weekCode: null,
       weekStartDate: null,
-      shifts: this.shifts,
+      isCriticalCell: this.isCriticalCell,
+      minPresencePercent: this.minPresencePercent,
+      shifts: this.shifts.map((s) => ({
+        ...s,
+        breakDurationMinutes: 60,
+        breakSlots: (s.breakSlots?.length
+          ? s.breakSlots
+          : this.buildAutoBreakSlots(s.startTime, this.isCriticalCell)
+        ).slice(0, 3),
+      })),
     };
 
     this.planningService.saveShiftConfig(dto).subscribe({
@@ -521,22 +621,33 @@ export class ShiftConfigComponent implements OnInit {
     this.planningService.getShiftTemplate(this.subServiceId).subscribe({
       next: (config) => {
         this.savedConfig = config;
-        this.shifts = config.shifts.map((s) => ({
-          label: s.label,
-          startTime: s.startTime,
-          workHours: s.workHours,
-          breakDurationMinutes: s.breakDurationMinutes,
-          breakRangeStart: s.breakRangeStart,
-          breakRangeEnd: s.breakRangeEnd,
-          requiredCount: s.requiredCount,
-          minPresencePercent: s.minPresencePercent,
-          displayOrder: s.displayOrder,
-        }));
+        this.isCriticalCell = !!config.isCriticalCell;
+        this.minPresencePercent =
+          config.minPresencePercent && config.minPresencePercent > 0
+            ? config.minPresencePercent
+            : config.shifts[0]?.minPresencePercent ?? 70;
+        this.shifts = config.shifts.map((s) => {
+          const slots =
+            s.breakSlots?.length
+              ? [...s.breakSlots]
+              : this.buildAutoBreakSlots(s.startTime, this.isCriticalCell);
+          return {
+            label: s.label,
+            startTime: s.startTime,
+            workHours: s.workHours,
+            breakDurationMinutes: s.breakDurationMinutes || 60,
+            breakSlots: slots,
+            requiredCount: s.requiredCount,
+            displayOrder: s.displayOrder,
+          };
+        });
         this.loading = false;
         this.cdr.detectChanges();
       },
       error: () => {
         this.savedConfig = null;
+        this.isCriticalCell = false;
+        this.minPresencePercent = 70;
         this.initShifts();
         this.loading = false;
         this.cdr.detectChanges();

@@ -215,6 +215,17 @@ public static class PlanningSchemaPatches
             ct);
     }
 
+    /// <summary>BreakSlotsJson + IsCriticalCell sur SubServiceShiftConfigs (idempotent).</summary>
+    public static async Task EnsureBreakSlotsAndCriticalCellAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE "SubServiceShiftConfigs" ADD COLUMN IF NOT EXISTS "BreakSlotsJson" character varying(128) NULL;
+            ALTER TABLE "SubServiceShiftConfigs" ADD COLUMN IF NOT EXISTS "IsCriticalCell" boolean NOT NULL DEFAULT false;
+            """,
+            ct);
+    }
+
     /// <summary>Table PlanningChangeRequests (idempotent).</summary>
     public static async Task EnsurePlanningChangeRequestsTableAsync(AppDbContext db, CancellationToken ct = default)
     {

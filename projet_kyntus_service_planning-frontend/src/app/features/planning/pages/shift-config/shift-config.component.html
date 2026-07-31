@@ -217,6 +217,35 @@
             </span>
           </div>
 
+          <div class="form-group critical-toggle">
+            <label class="critical-label">
+              <input
+                type="checkbox"
+                [(ngModel)]="isCriticalCell"
+                (ngModelChange)="onCriticalCellChange()" />
+              Cellule critique
+            </label>
+            <span class="hint">
+              Autres créneaux (+3h / +5h) uniquement en cellule critique
+            </span>
+          </div>
+
+          <div class="form-group presence-cell">
+            <label>Présence min cellule</label>
+            <div class="presence-input">
+              <input
+                type="number"
+                [(ngModel)]="minPresencePercent"
+                min="50"
+                max="100"
+                class="ky-input input-presence" />
+              <span class="hours-unit">%</span>
+            </div>
+            <span class="hint">
+              % minimum du plateau encore au sol (ex. 70 → max 30 % en pause)
+            </span>
+          </div>
+
           <div class="effectif-badge" *ngIf="totalEffectif > 0">
             <span class="eb-label">Total shifts</span>
             <span class="eb-value">{{ totalEffectif }}</span>
@@ -246,11 +275,9 @@
                   <th>Début</th>
                   <th>Fin (auto)</th>
                   <th>Durée travail</th>
-                  <th>Pause début</th>
-                  <th>Pause fin</th>
+                  <th>Créneaux pause (début → fin +1h)</th>
                   <th>Nb employés</th>
                   <th>%</th>
-                  <th>Présence min</th>
                   <th></th>
                 </tr>
               </thead>
@@ -261,7 +288,10 @@
                     <input type="text" [(ngModel)]="shift.label" placeholder="Ex: Matin" class="ky-input input-label" />
                   </td>
                   <td class="td-start">
-                    <select [(ngModel)]="shift.startTime" class="ky-input select-time">
+                    <select
+                      [(ngModel)]="shift.startTime"
+                      (ngModelChange)="onStartTimeChange(shift)"
+                      class="ky-input select-time">
                       <option *ngFor="let opt of startOptions" [value]="opt.value">{{ opt.label }}</option>
                     </select>
                   </td>
@@ -274,17 +304,26 @@
                       <span class="hours-unit">h</span>
                     </div>
                   </td>
-                  <td class="td-break">
-                    <select [(ngModel)]="shift.breakRangeStart" class="ky-input select-time">
-                      <option [ngValue]="undefined">Auto ({{ getBreakRangeAuto(shift).split('→')[0] }})</option>
-                      <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">{{ opt.label }}</option>
-                    </select>
-                  </td>
-                  <td class="td-break">
-                    <select [(ngModel)]="shift.breakRangeEnd" class="ky-input select-time">
-                      <option [ngValue]="undefined">Auto ({{ getBreakRangeAuto(shift).split('→')[1] }})</option>
-                      <option *ngFor="let opt of breakSlotOptions" [value]="opt.value">{{ opt.label }}</option>
-                    </select>
+                  <td class="td-break-slots">
+                    <div class="break-slots">
+                      <button
+                        type="button"
+                        class="break-chip"
+                        *ngFor="let slot of getAllowedBreakStarts(shift)"
+                        [class.break-chip--on]="isBreakSlotSelected(shift, slot)"
+                        [disabled]="!isBreakSlotSelected(shift, slot) && (shift.breakSlots?.length ?? 0) >= 3"
+                        (click)="toggleBreakSlot(shift, slot)"
+                        [title]="formatBreakSlotLabel(slot)">
+                        {{ formatBreakSlotLabel(slot) }}
+                      </button>
+                      <button
+                        type="button"
+                        class="break-auto-btn"
+                        (click)="resetBreakSlotsAuto(shift)"
+                        title="Recalculer les 3 créneaux auto">
+                        Auto
+                      </button>
+                    </div>
                   </td>
                   <td class="td-count">
                     <input
@@ -296,17 +335,6 @@
                   </td>
                   <td class="td-pct">
                     <span class="pct-badge">{{ getPercentage(shift) }}%</span>
-                  </td>
-                  <td class="td-presence">
-                    <div class="presence-input">
-                      <input
-                        type="number"
-                        [(ngModel)]="shift.minPresencePercent"
-                        min="50"
-                        max="100"
-                        class="ky-input input-presence" />
-                      <span class="hours-unit">%</span>
-                    </div>
                   </td>
                   <td class="td-actions">
                     <button
@@ -322,13 +350,13 @@
               </tbody>
               <tfoot>
                 <tr class="total-row">
-                  <td colspan="7" class="total-label">Total</td>
+                  <td colspan="6" class="total-label">Total</td>
                   <td class="total-count" [class.total-mismatch]="serviceEmployeeCount > 0 && !quotasMatchEffectif">
                     {{ totalEffectif }}
                     <span class="total-cap" *ngIf="serviceEmployeeCount > 0">/ {{ serviceEmployeeCount }}</span>
                   </td>
                   <td class="total-pct">{{ totalPercentageLabel }}</td>
-                  <td colspan="2"></td>
+                  <td></td>
                 </tr>
               </tfoot>
             </table>
@@ -342,8 +370,11 @@
           <div class="rule-info">
             <app-lucide-icon [icon]="icons.info" className="w-4 h-4" />
             <span>
-              <strong>Présence min</strong> (par shift) : % minimum de présents sur ce shift → le reste max en pause en même temps.
-              Ex. 70 % → max 30 % en pause. La somme des <strong>NB employés</strong> doit égaler l’effectif actif.
+              <strong>Présence min cellule</strong> : % minimum de pilotes encore au sol sur tout le plateau
+              (pas par shift). Pause durée <strong>1h</strong>.
+              <span *ngIf="!isCriticalCell"> Cas normal : pause après <strong>4h</strong> ou <strong>4h30</strong> de travail uniquement.</span>
+              <span *ngIf="isCriticalCell"> Cellule critique : jusqu’à 3 créneaux dans +3h…+5h, tôt ou tard selon le plateau.</span>
+              La somme des <strong>NB employés</strong> doit égaler l’effectif actif.
             </span>
           </div>
         </div>
@@ -360,7 +391,12 @@
               <span class="ss-time">{{ s.startTime }} → {{ s.endTime }}</span>
               <span class="ss-break">
                 <app-lucide-icon [icon]="icons.coffee" className="w-3.5 h-3.5 inline" />
-                {{ s.breakRangeStart }} → {{ s.breakRangeEnd }}
+                <ng-container *ngIf="s.breakSlots?.length; else legacyBreak">
+                  <span *ngFor="let b of s.breakSlots; let last = last">
+                    {{ formatBreakSlotLabel(b, s.breakDurationMinutes) }}<span *ngIf="!last"> · </span>
+                  </span>
+                </ng-container>
+                <ng-template #legacyBreak>{{ s.breakRangeStart }} → {{ s.breakRangeEnd }}</ng-template>
               </span>
               <span class="ss-count">
                 <app-lucide-icon [icon]="icons.users" className="w-3.5 h-3.5 inline" />

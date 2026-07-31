@@ -22,6 +22,12 @@ public class FormationDbContext : DbContext
     public DbSet<TrainingQuiz> TrainingQuizzes => Set<TrainingQuiz>();
     public DbSet<TrainingQuizQuestion> TrainingQuizQuestions => Set<TrainingQuizQuestion>();
     public DbSet<TrainingQuizAttempt> TrainingQuizAttempts => Set<TrainingQuizAttempt>();
+    public DbSet<TrainingCatalogItem> TrainingCatalogItems => Set<TrainingCatalogItem>();
+    public DbSet<TrainingModule> TrainingModules => Set<TrainingModule>();
+    public DbSet<TrainingLesson> TrainingLessons => Set<TrainingLesson>();
+    public DbSet<TrainingResource> TrainingResources => Set<TrainingResource>();
+    public DbSet<TrainingCatalogAudienceRule> TrainingCatalogAudienceRules => Set<TrainingCatalogAudienceRule>();
+    public DbSet<TrainingLessonProgress> TrainingLessonProgresses => Set<TrainingLessonProgress>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -53,6 +59,7 @@ public class FormationDbContext : DbContext
             e.Property(x => x.Prenom).HasMaxLength(200);
             e.Property(x => x.Email).HasMaxLength(320);
             e.Property(x => x.Role).HasMaxLength(100);
+            e.Property(x => x.StructureKey).HasMaxLength(200);
         });
 
         modelBuilder.Entity<TrainingProgram>(e =>
@@ -69,10 +76,79 @@ public class FormationDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Title).HasMaxLength(300).IsRequired();
             e.HasIndex(x => x.ProgramId);
+            e.HasIndex(x => x.CatalogItemId);
             e.HasMany(x => x.Assignments).WithOne(x => x.Session).HasForeignKey(x => x.SessionId);
             e.HasOne(x => x.Report).WithOne(x => x.Session).HasForeignKey<TrainingSessionReport>(x => x.SessionId);
             e.HasOne(x => x.Quiz).WithOne(x => x.Session).HasForeignKey<TrainingQuiz>(x => x.SessionId);
+            e.HasOne(x => x.CatalogItem).WithMany().HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
+
+        modelBuilder.Entity<TrainingCatalogItem>(e =>
+        {
+            e.ToTable("training_catalog_items");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Title).HasMaxLength(300).IsRequired();
+            e.Property(x => x.Category).HasMaxLength(200);
+            e.HasIndex(x => x.Category);
+            e.HasIndex(x => x.Status);
+            e.HasMany(x => x.Modules).WithOne(x => x.CatalogItem).HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.AudienceRules).WithOne(x => x.CatalogItem).HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TrainingModule>(e =>
+        {
+            e.ToTable("training_modules");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Title).HasMaxLength(300).IsRequired();
+            e.HasIndex(x => x.CatalogItemId);
+            e.HasMany(x => x.Lessons).WithOne(x => x.Module).HasForeignKey(x => x.ModuleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TrainingLesson>(e =>
+        {
+            e.ToTable("training_lessons");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Title).HasMaxLength(300).IsRequired();
+            e.HasIndex(x => x.ModuleId);
+            e.HasMany(x => x.Resources).WithOne(x => x.Lesson).HasForeignKey(x => x.LessonId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TrainingResource>(e =>
+        {
+            e.ToTable("training_resources");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Title).HasMaxLength(300).IsRequired();
+            e.Property(x => x.Url).HasMaxLength(2000);
+            e.Property(x => x.StoragePath).HasMaxLength(1000);
+            e.Property(x => x.ContentType).HasMaxLength(200);
+            e.Property(x => x.FileName).HasMaxLength(500);
+            e.HasIndex(x => x.LessonId);
+        });
+
+        modelBuilder.Entity<TrainingCatalogAudienceRule>(e =>
+        {
+            e.ToTable("training_catalog_audience_rules");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.CatalogItemId);
+        });
+
+        modelBuilder.Entity<TrainingLessonProgress>(e =>
+        {
+            e.ToTable("training_lesson_progress");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.AssignmentId, x.LessonId }).IsUnique();
+            e.Property(x => x.ProgressPercent).HasColumnType("numeric(18,2)");
+            e.HasOne(x => x.Assignment).WithMany().HasForeignKey(x => x.AssignmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Lesson).WithMany().HasForeignKey(x => x.LessonId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
 
         modelBuilder.Entity<TrainingAssignment>(e =>
         {
@@ -162,7 +238,7 @@ public class FormationDbContext : DbContext
         {
             e.ToTable("training_quiz_attempts");
             e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.QuizId, x.AssignmentId }).IsUnique();
+            e.HasIndex(x => new { x.QuizId, x.AssignmentId, x.AttemptNumber }).IsUnique();
             e.Property(x => x.AutoScore).HasColumnType("decimal(18,2)");
             e.Property(x => x.ManualScore).HasColumnType("decimal(18,2)");
             e.Property(x => x.FinalScore).HasColumnType("decimal(18,2)");

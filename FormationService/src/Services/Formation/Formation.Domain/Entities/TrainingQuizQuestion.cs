@@ -18,6 +18,12 @@ public class TrainingQuizQuestion
     /// <summary>JSON array of correct option indexes for multi QCM, e.g. [0,2].</summary>
     public string? CorrectOptionIndexesJson { get; set; }
     public decimal Points { get; set; } = 1m;
+    /// <summary>URL publique ou relative de l'image illustrative.</summary>
+    public string? ImageUrl { get; set; }
+    /// <summary>Chemin disque local de l'image uploadée.</summary>
+    public string? ImageStoragePath { get; set; }
+    /// <summary>Explication pédagogique affichée après soumission.</summary>
+    public string? Explanation { get; set; }
 
     public TrainingQuiz? Quiz { get; set; }
 }

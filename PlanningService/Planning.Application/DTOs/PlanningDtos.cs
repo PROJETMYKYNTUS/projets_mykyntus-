@@ -75,6 +75,17 @@ public class CoverageReportDto
     public List<PlanningAnomalyDto> LevelBalanceAnomalies { get; set; } = new();
     public List<CoverageDayShiftDto> Items { get; set; } = new();
     public List<DaySynthesisDto> DaySynthesis { get; set; } = new();
+
+    /// <summary>Min disponibilité plateau observée sur la semaine (Lun–Ven).</summary>
+    public decimal PlateauAvailabilityPercent { get; set; } = 100;
+    /// <summary>Cible présence min cellule.</summary>
+    public int PlateauAvailabilityTargetPercent { get; set; } = 70;
+    /// <summary>% créneaux sans anomalie débutant seul.</summary>
+    public decimal LevelBalancePercent { get; set; } = 100;
+    /// <summary>% employés respectant les règles de rotation / dispersion.</summary>
+    public decimal RotationCompliancePercent { get; set; } = 100;
+    public int RotationViolatorsCount { get; set; }
+    public int RotationEmployeesCount { get; set; }
 }
 
 public class PlanningAnomalyDto
@@ -101,6 +112,23 @@ public class DaySynthesisDto
     public int SaturdayBeginners { get; set; }
     public int SaturdaySeniors { get; set; }
     public bool HasAnyAnomaly { get; set; }
+
+    /// <summary>Min disponibilité plateau du jour.</summary>
+    public decimal PlateauAvailabilityPercent { get; set; } = 100;
+    public decimal LevelBalancePercent { get; set; } = 100;
+    public decimal RotationCompliancePercent { get; set; } = 100;
+
+    /// <summary>Disponibilité plateau par créneau 5 min (pour diagramme jour).</summary>
+    public List<DayAvailabilityPointDto> AvailabilityTimeline { get; set; } = new();
+}
+
+public class DayAvailabilityPointDto
+{
+    public string Time { get; set; } = string.Empty;
+    public int PresentCount { get; set; }
+    public int OnBreakCount { get; set; }
+    public int AvailableCount { get; set; }
+    public decimal AvailabilityPercent { get; set; }
 }
 
 public class DaySynthesisShiftDto
@@ -159,6 +187,9 @@ public class ShiftConfigResponseDto
     public string ShiftKind { get; set; } = "Standard";
     public int RequiredCount { get; set; }
     public decimal Percentage { get; set; }
+    public List<string> BreakSlots { get; set; } = new();
+    public int BreakDurationMinutes { get; set; } = 60;
+    public bool IsCriticalCell { get; set; }
 }
 
 // -- Shift d'un jour --
@@ -212,6 +243,10 @@ public class SaveShiftConfigDto
     /// <summary>Vide = sauvegarde du modèle permanent.</summary>
     public string? WeekCode { get; set; }
     public DateOnly? WeekStartDate { get; set; }
+    /// <summary>Extrêmes pause +3h/+5h et ouverture bidirectionnelle.</summary>
+    public bool IsCriticalCell { get; set; }
+    /// <summary>Présence min plateau de toute la cellule (défaut 70).</summary>
+    public int MinPresencePercent { get; set; } = 70;
     public List<ShiftConfigItemDto> Shifts { get; set; } = new();
 }
 
@@ -224,7 +259,10 @@ public class ShiftConfigItemDto
     public int BreakDurationMinutes { get; set; } = 60;
     public string? BreakRangeStart { get; set; }
     public string? BreakRangeEnd { get; set; }
+    /// <summary>Heures de début de pause (max 3), ex. ["12:00","12:30","13:00"].</summary>
+    public List<string>? BreakSlots { get; set; }
     public int RequiredCount { get; set; }
+    /// <summary>Ignoré à la sauvegarde — utiliser SaveShiftConfigDto.MinPresencePercent (niveau cellule).</summary>
     public int MinPresencePercent { get; set; } = 70;
     public int DisplayOrder { get; set; }
     /// <summary>Optionnel — sinon déduit (StartTime min=Opening, max=Closing).</summary>
@@ -242,6 +280,8 @@ public class ShiftConfigResponseNewDto
     public string BreakRangeStart { get; set; } = string.Empty;
     public string BreakRangeEnd { get; set; } = string.Empty;
     public int BreakDurationMinutes { get; set; }
+    public List<string> BreakSlots { get; set; } = new();
+    public bool IsCriticalCell { get; set; }
     public int RequiredCount { get; set; }
     public decimal Percentage { get; set; }
     public int MinPresencePercent { get; set; }
@@ -276,6 +316,9 @@ public class WeekShiftConfigResponseDto
     public string WeekCode { get; set; } = string.Empty;
     public DateOnly WeekStartDate { get; set; }
     public bool IsTemplate { get; set; }
+    public bool IsCriticalCell { get; set; }
+    /// <summary>Présence min plateau de toute la cellule.</summary>
+    public int MinPresencePercent { get; set; } = 70;
     public int TotalEffectif { get; set; }
     public List<ShiftConfigResponseNewDto> Shifts { get; set; } = new();
 }

@@ -24,7 +24,13 @@ public class TrainingSession
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>Lien optionnel vers un item du catalogue e-learning.</summary>
+    public Guid? CatalogItemId { get; set; }
+    /// <summary>Règle de déblocage du quiz pour cette session (null = Attendance historique).</summary>
+    public LearningGateMode? LearningGateMode { get; set; }
+
     public TrainingProgram? Program { get; set; }
+    public TrainingCatalogItem? CatalogItem { get; set; }
     public ICollection<TrainingAssignment> Assignments { get; set; } = new List<TrainingAssignment>();
     public TrainingSessionReport? Report { get; set; }
     public TrainingQuiz? Quiz { get; set; }

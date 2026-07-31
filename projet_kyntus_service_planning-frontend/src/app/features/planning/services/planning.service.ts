@@ -44,6 +44,14 @@ export interface DaySynthesisShift {
   hasLevelBalanceAnomaly: boolean;
 }
 
+export interface DayAvailabilityPoint {
+  time: string;
+  presentCount: number;
+  onBreakCount: number;
+  availableCount: number;
+  availabilityPercent: number;
+}
+
 export interface DaySynthesis {
   date: string;
   day: string;
@@ -54,6 +62,10 @@ export interface DaySynthesis {
   saturdayBeginners?: number;
   saturdaySeniors?: number;
   hasAnyAnomaly: boolean;
+  plateauAvailabilityPercent?: number;
+  levelBalancePercent?: number;
+  rotationCompliancePercent?: number;
+  availabilityTimeline?: DayAvailabilityPoint[];
 }
 
 export interface CoverageReport {
@@ -63,6 +75,12 @@ export interface CoverageReport {
   levelBalanceAnomalies?: PlanningAnomaly[];
   items: CoverageDayShift[];
   daySynthesis?: DaySynthesis[];
+  plateauAvailabilityPercent?: number;
+  plateauAvailabilityTargetPercent?: number;
+  levelBalancePercent?: number;
+  rotationCompliancePercent?: number;
+  rotationViolatorsCount?: number;
+  rotationEmployeesCount?: number;
 }
 
 export interface ShiftConfig {
@@ -72,6 +90,9 @@ export interface ShiftConfig {
   shiftKind?:    string;
   requiredCount: number;
   percentage:    number;
+  breakSlots?:   string[];
+  breakDurationMinutes?: number;
+  isCriticalCell?: boolean;
 }
 
 export interface SaturdayYtd {
@@ -185,8 +206,11 @@ export interface ShiftConfigItem {
   breakDurationMinutes: number;
   breakRangeStart?:     string;
   breakRangeEnd?:       string;
+  /** Heures de début de pause (max 3). */
+  breakSlots?:          string[];
   requiredCount:        number;
-  minPresencePercent:   number;
+  /** @deprecated Présence min est au niveau cellule (SaveShiftConfigDto). */
+  minPresencePercent?:  number;
   displayOrder:         number;
 }
 
@@ -194,6 +218,9 @@ export interface SaveShiftConfigDto {
   subServiceId:  number;
   weekCode?:     string | null;
   weekStartDate?: string | null;
+  isCriticalCell?: boolean;
+  /** Présence min plateau de toute la cellule (défaut 70). */
+  minPresencePercent?: number;
   shifts:        ShiftConfigItem[];
 }
 
@@ -206,6 +233,8 @@ export interface ShiftConfigResponseNew {
   breakRangeStart:      string;
   breakRangeEnd:        string;
   breakDurationMinutes: number;
+  breakSlots?:          string[];
+  isCriticalCell?:      boolean;
   requiredCount:        number;
   percentage:           number;
   minPresencePercent:   number;
@@ -218,6 +247,9 @@ export interface WeekShiftConfigResponse {
   weekCode:       string;
   weekStartDate:  string;
   isTemplate?:    boolean;
+  isCriticalCell?: boolean;
+  /** Présence min plateau de toute la cellule. */
+  minPresencePercent?: number;
   totalEffectif:  number;
   shifts:         ShiftConfigResponseNew[];
 }

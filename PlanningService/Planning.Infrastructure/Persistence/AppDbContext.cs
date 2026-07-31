@@ -204,6 +204,7 @@ public class AppDbContext : DbContext
         {
             entity.Property(e => e.Label).IsRequired().HasMaxLength(50);
             entity.Property(e => e.WeekCode).HasMaxLength(10);
+            entity.Property(e => e.BreakSlotsJson).HasMaxLength(128);
             entity.Property(e => e.Percentage).HasPrecision(5, 2);
             entity.Property(e => e.ShiftKind).HasConversion<int>();
             entity.Ignore(e => e.EndTime);

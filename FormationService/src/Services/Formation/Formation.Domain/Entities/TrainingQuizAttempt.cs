@@ -6,6 +6,8 @@ public class TrainingQuizAttempt
     public Guid QuizId { get; set; }
     public Guid AssignmentId { get; set; }
     public Guid EmployeeId { get; set; }
+    /// <summary>Numéro de tentative (1-based) lorsque AllowMultipleAttempts est activé.</summary>
+    public int AttemptNumber { get; set; } = 1;
     /// <summary>JSON map questionId → answer (option index or free text).</summary>
     public string AnswersJson { get; set; } = "{}";
     /// <summary>JSON map questionId → bool (notation Correct/Fausse des réponses libres).</summary>

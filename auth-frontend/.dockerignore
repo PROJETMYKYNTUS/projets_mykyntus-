@@ -1,0 +1,11 @@
+# Le Dockerfile relance npm ci et npm run build : rien de tout ceci n'est utile au contexte.
+node_modules/
+dist/
+.angular/
+.next/
+.git/
+.vs/
+.idea/
+.cursor/
+coverage/
+*.log

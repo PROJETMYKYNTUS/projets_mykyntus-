@@ -9,6 +9,8 @@ public class TrainingQuiz
     public string Title { get; set; } = string.Empty;
     /// <summary>Seuil de réussite en % (score final ≥ plafond → Valide).</summary>
     public decimal PassThreshold { get; set; } = 70m;
+    /// <summary>Si false, une seule tentative par affectation (comportement historique).</summary>
+    public bool AllowMultipleAttempts { get; set; }
     public TrainingQuizStatus Status { get; set; } = TrainingQuizStatus.Draft;
     public Guid CreatedByUserId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

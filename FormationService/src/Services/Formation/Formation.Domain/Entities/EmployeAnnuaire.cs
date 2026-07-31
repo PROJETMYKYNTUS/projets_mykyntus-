@@ -11,6 +11,8 @@ public class EmployeAnnuaire
     public string Prenom { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
+    /// <summary>Clé structure/cellule pour ciblage catalogue (optionnel).</summary>
+    public string? StructureKey { get; set; }
     public Guid ManagerId { get; set; }
     public DateTime DerniereModification { get; set; }
 }

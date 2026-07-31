@@ -948,11 +948,18 @@ namespace Planning.Infrastructure.Persistence.Migrations
                     b.Property<TimeOnly>("BreakRangeStart")
                         .HasColumnType("time without time zone");
 
+                    b.Property<string>("BreakSlotsJson")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("IsCriticalCell")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Label")
                         .IsRequired()

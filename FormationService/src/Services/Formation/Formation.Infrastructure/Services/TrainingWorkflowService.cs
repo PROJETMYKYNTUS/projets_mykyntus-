@@ -13,6 +13,7 @@ public sealed partial class TrainingWorkflowService(
     FormationDbContext db,
     IPublishEndpoint publish,
     FormationDocumentChecklistService documentChecklist,
+    LearningCatalogService learningCatalog,
     ILogger<TrainingWorkflowService> logger)
 {
     /// <summary>Seuil de réussite du quiz de formation initiale (note sur 100).</summary>
@@ -135,22 +136,53 @@ public sealed partial class TrainingWorkflowService(
             .Where(q => sessionIds.Contains(q.SessionId))
             .ToDictionaryAsync(q => q.SessionId, ct);
         var quizIds = quizzes.Values.Select(q => q.Id).ToList();
-        var attempts = await db.TrainingQuizAttempts.AsNoTracking()
+        var attemptRows = await db.TrainingQuizAttempts.AsNoTracking()
             .Where(t => quizIds.Contains(t.QuizId) && t.EmployeeId == employeeId)
-            .ToDictionaryAsync(t => t.QuizId, ct);
+            .ToListAsync(ct);
+        var attempts = attemptRows
+            .GroupBy(t => t.QuizId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.AttemptNumber).First());
 
-        return rows.Select(r =>
+        var assignmentIds = rows.Select(r => r.a.Id).ToList();
+        var progresses = await db.TrainingLessonProgresses.AsNoTracking()
+            .Where(p => assignmentIds.Contains(p.AssignmentId) && p.CompletedAt != null)
+            .ToListAsync(ct);
+
+        var catalogIds = rows.Where(r => r.s.CatalogItemId != null).Select(r => r.s.CatalogItemId!.Value).Distinct().ToList();
+        var requiredByCatalog = await (
+            from l in db.TrainingLessons.AsNoTracking()
+            join m in db.TrainingModules.AsNoTracking() on l.ModuleId equals m.Id
+            where catalogIds.Contains(m.CatalogItemId) && l.IsRequired
+            select new { m.CatalogItemId, l.Id }).ToListAsync(ct);
+
+        var result = new List<MyAssignedTrainingSessionDto>();
+        foreach (var r in rows)
         {
             quizzes.TryGetValue(r.s.Id, out var quiz);
             TrainingQuizAttempt? attempt = null;
             if (quiz is not null)
                 attempts.TryGetValue(quiz.Id, out attempt);
-            var present = r.a.Status == TrainingAssignmentStatus.Completed;
-            var canTake = quiz is not null
-                && quiz.Status is TrainingQuizStatus.Published or TrainingQuizStatus.Graded
-                && present
-                && attempt is null;
-            return new MyAssignedTrainingSessionDto(
+
+            var requiredLessonIds = r.s.CatalogItemId is Guid cid
+                ? requiredByCatalog.Where(x => x.CatalogItemId == cid).Select(x => x.Id).ToList()
+                : [];
+            var done = progresses.Count(p =>
+                p.AssignmentId == r.a.Id && requiredLessonIds.Contains(p.LessonId));
+            var progressPercent = requiredLessonIds.Count == 0
+                ? (r.s.CatalogItemId is null ? 0m : 100m)
+                : Math.Round((decimal)done / requiredLessonIds.Count * 100m, 1);
+
+            var (gateOk, blockedReason) = await learningCatalog.EvaluateQuizGateAsync(
+                r.s, r.a, r.s.CatalogItemId, ct);
+
+            var quizPublished = quiz is not null
+                && quiz.Status is TrainingQuizStatus.Published or TrainingQuizStatus.Graded or TrainingQuizStatus.Validated;
+            var canRetake = quiz is not null && quiz.AllowMultipleAttempts;
+            var canTake = quizPublished
+                && gateOk
+                && (attempt is null || canRetake);
+
+            result.Add(new MyAssignedTrainingSessionDto(
                 r.s.Id,
                 r.a.Id,
                 r.s.Title,
@@ -164,8 +196,16 @@ public sealed partial class TrainingWorkflowService(
                 attempt?.Id,
                 attempt?.IsGraded ?? false,
                 attempt?.FinalScore,
-                attempt?.Passed);
-        }).ToList();
+                attempt?.Passed,
+                r.s.CatalogItemId,
+                progressPercent,
+                done,
+                requiredLessonIds.Count,
+                canTake ? null : blockedReason,
+                quiz?.AllowMultipleAttempts ?? false));
+        }
+
+        return result;
     }
 
     public async Task<IReadOnlyList<TrainingAssignmentDto>> AssignEmployeesAsync(
@@ -836,7 +876,9 @@ public sealed partial class TrainingWorkflowService(
             session.SequenceNumber,
             hasReport,
             quizId,
-            quizStatus);
+            quizStatus,
+            session.CatalogItemId,
+            session.LearningGateMode?.ToString());
 
     private static InitialTrainingPathDto ToInitialDto(
         InitialTrainingPath path,

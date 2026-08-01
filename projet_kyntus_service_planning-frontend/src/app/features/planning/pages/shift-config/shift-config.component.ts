@@ -153,15 +153,18 @@ export class ShiftConfigComponent implements OnInit {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   }
 
-  /** Défauts : OFF → +4h/+4h30 ; ON → +3h30/+4h/+4h30 (pool jusqu’à +3h/+5h). */
+  /**
+   * Défauts relatifs au start, même priorité backend (sans saut) :
+   * +4h → +4h30 → (+3h30 si critique).
+   */
   buildAutoBreakSlots(startTime: string, isCritical: boolean): string[] {
     const startMin = this.parseTimeToMinutes(startTime);
     if (startMin == null) return [];
     if (isCritical) {
       return [
-        this.formatMinutes(startMin + 3.5 * 60),
         this.formatMinutes(startMin + 4 * 60),
         this.formatMinutes(startMin + 4.5 * 60),
+        this.formatMinutes(startMin + 3.5 * 60),
       ];
     }
     return [
@@ -170,16 +173,17 @@ export class ShiftConfigComponent implements OnInit {
     ];
   }
 
+  /** Créneaux autorisés UI : fenêtre progressive (+4 → … → extrêmes selon criticité). */
   getAllowedBreakStarts(shift: ShiftConfigItem): string[] {
     const startMin = this.parseTimeToMinutes(shift.startTime);
     if (startMin == null) return [];
-    const from = startMin + (this.isCriticalCell ? 3 : 4) * 60;
-    const to = startMin + (this.isCriticalCell ? 5 : 4.5) * 60;
-    const result: string[] = [];
-    for (let t = from; t <= to; t += 30) {
-      result.push(this.formatMinutes(t));
-    }
-    return result;
+    const early = Math.floor(startMin / 60) < 10;
+    const offsets = this.isCriticalCell
+      ? (early
+          ? [4, 4.5, 3.5, 5, 3]
+          : [4, 4.5, 3.5, 3, 5])
+      : [4, 4.5];
+    return offsets.map(h => this.formatMinutes(startMin + h * 60));
   }
 
   getBreakEndLabel(start: string, durationMinutes = 60): string {

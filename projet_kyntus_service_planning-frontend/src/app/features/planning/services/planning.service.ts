@@ -65,6 +65,8 @@ export interface DaySynthesis {
   plateauAvailabilityPercent?: number;
   levelBalancePercent?: number;
   rotationCompliancePercent?: number;
+  extremeBreakCount?: number;
+  extremeTierBreakCount?: number;
   availabilityTimeline?: DayAvailabilityPoint[];
 }
 
@@ -81,6 +83,11 @@ export interface CoverageReport {
   rotationCompliancePercent?: number;
   rotationViolatorsCount?: number;
   rotationEmployeesCount?: number;
+  extremeBreakCount?: number;
+  extremeTierBreakCount?: number;
+  extremeRotationCompliancePercent?: number;
+  extremeRotationViolatorsCount?: number;
+  extremeRotationEmployeesCount?: number;
 }
 
 export interface ShiftConfig {

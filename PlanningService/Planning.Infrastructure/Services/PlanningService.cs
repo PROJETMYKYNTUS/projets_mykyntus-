@@ -410,8 +410,7 @@ public class PlanningService : IPlanningService
 
         planning.TotalEffectif = employees.Count;
 
-        // Aligne les quotas snapshot sur l'effectif réel (conserve les proportions du modèle)
-        RescaleShiftQuotasToEffectif(shiftConfigs, employees.Count);
+        // RequiredCount = besoin prod RH : ne jamais le modifier à la génération.
 
         await AutoAssignSaturdayGroupsAsync(planning.SubServiceId);
 
@@ -472,7 +471,7 @@ public class PlanningService : IPlanningService
             }
         }
 
-        // Après rescale, le surplus ne devrait plus arriver ; filet de sécurité
+        // Employés au-delà de la somme des quotas prod → rotation libre (surplus)
         while (cumulative < employees.Count)
         {
             var empStartIdx = (cumulative + currentWeekNumber) % orderedShifts.Count;
@@ -694,21 +693,26 @@ public class PlanningService : IPlanningService
         _context.ShiftAssignments.AddRange(assignments);
 
         // -- PAUSES (uniquement jours normaux travaillés) --
+        var extremeBreakCounts = new Dictionary<int, int>();
         var workDayAssignments = assignments
             .Where(a => !a.IsSaturday && !a.IsOnLeave && !a.IsHoliday
                      && a.SubServiceShiftConfigId != null)
             .GroupBy(a => a.AssignedDate)
+            .OrderBy(g => g.Key)
             .ToList();
 
         foreach (var dayGroup in workDayAssignments)
-            AssignBreakTimesFromConfig(dayGroup.ToList(), shiftConfigs, employees.Count);
+            AssignBreakTimesFromConfig(dayGroup.ToList(), shiftConfigs, employees.Count, extremeBreakCounts);
 
         var saturdayWorkAssignments = assignments
             .Where(a => a.IsSaturday && !a.IsOnLeave && !a.IsHoliday
                      && a.SubServiceShiftConfigId != null)
             .ToList();
         if (saturdayWorkAssignments.Any())
-            AssignBreakTimesFromConfig(saturdayWorkAssignments, shiftConfigs, employees.Count);
+            AssignBreakTimesFromConfig(saturdayWorkAssignments, shiftConfigs, employees.Count, extremeBreakCounts);
+
+        // Rotation cas extrêmes : même niveau, pas de double charge si un collègue n'en a aucun
+        RepairExtremeBreakFairness(assignments, shiftConfigs, usersById);
 
         // Anomalies éventuelles (cas forcés) exposées via CoverageReport — pas de blocage.
 
@@ -1847,177 +1851,275 @@ public class PlanningService : IPlanningService
     }
 
     /// <summary>
-    /// Ajuste RequiredCount des configs pour que la somme = effectif réel,
-    /// en conservant les proportions (et Percentage).
+    /// OBSOLETE — ne plus appeler. Les quotas prod (RequiredCount) sont figés ;
+    /// la génération ne doit pas les réécrire pour « coller » à l'effectif.
     /// </summary>
+    [Obsolete("Ne pas rescale les quotas à la génération — besoin prod figé.")]
     private static void RescaleShiftQuotasToEffectif(
         List<SubServiceShiftConfig> shiftConfigs, int employeeCount)
     {
-        if (shiftConfigs.Count == 0 || employeeCount <= 0) return;
-
-        var totalRequired = shiftConfigs.Sum(c => c.RequiredCount);
-        if (totalRequired == employeeCount) return;
-
-        if (totalRequired <= 0)
-        {
-            var baseCount = employeeCount / shiftConfigs.Count;
-            var rest = employeeCount % shiftConfigs.Count;
-            for (var i = 0; i < shiftConfigs.Count; i++)
-            {
-                shiftConfigs[i].RequiredCount = baseCount + (i < rest ? 1 : 0);
-                shiftConfigs[i].Percentage = employeeCount > 0
-                    ? Math.Round((decimal)shiftConfigs[i].RequiredCount / employeeCount * 100, 1)
-                    : 0;
-            }
-            return;
-        }
-
-        var allocated = 0;
-        for (var i = 0; i < shiftConfigs.Count; i++)
-        {
-            if (i == shiftConfigs.Count - 1)
-            {
-                shiftConfigs[i].RequiredCount = Math.Max(0, employeeCount - allocated);
-            }
-            else
-            {
-                var share = (int)Math.Floor(
-                    (decimal)shiftConfigs[i].RequiredCount / totalRequired * employeeCount);
-                shiftConfigs[i].RequiredCount = share;
-                allocated += share;
-            }
-        }
-
-        // Corriger si arrondis laissent un reste non placé sur le dernier (déjà fait)
-        // ou trop alloué avant le dernier
-        var sum = shiftConfigs.Sum(c => c.RequiredCount);
-        if (sum != employeeCount && shiftConfigs.Count > 0)
-        {
-            shiftConfigs[^1].RequiredCount = Math.Max(
-                0,
-                shiftConfigs[^1].RequiredCount + (employeeCount - sum));
-        }
-
-        foreach (var c in shiftConfigs)
-        {
-            c.Percentage = employeeCount > 0
-                ? Math.Round((decimal)c.RequiredCount / employeeCount * 100, 1)
-                : 0;
-        }
+        _ = shiftConfigs;
+        _ = employeeCount;
+        // No-op volontaire : 18 reste 18.
     }
 
     private void AssignBreakTimesFromConfig(
         List<ShiftAssignment> dayAssignments,
         List<SubServiceShiftConfig> shiftConfigs,
-        int totalEmployees)
+        int totalEmployees,
+        Dictionary<int, int>? extremeBreakCounts = null)
     {
+        _ = totalEmployees;
         if (!dayAssignments.Any()) return;
 
-        var breakSlotUsage = new Dictionary<TimeOnly, int>();
-        // Présence min = niveau cellule (même valeur sur tous les shifts)
+        extremeBreakCounts ??= new Dictionary<int, int>();
+        var configsById = shiftConfigs.ToDictionary(c => c.Id);
+
+        var presentCount = dayAssignments.Count;
         var cellMinPresence = shiftConfigs.Count > 0
             ? BreakSlotPlanner.ClampMinPresence(shiftConfigs.First().MinPresencePercent)
             : 70;
-        var cellMaxBreak = Math.Max(1, (int)Math.Floor(totalEmployees * (100 - cellMinPresence) / 100.0));
+        var cellMaxOnBreak = Math.Max(
+            0,
+            (int)Math.Floor(presentCount * (100 - cellMinPresence) / 100.0));
+        if (cellMaxOnBreak == 0 && presentCount > 1)
+            cellMaxOnBreak = 1;
 
-        var shiftGroups = dayAssignments
-            .GroupBy(a => a.SubServiceShiftConfigId)
+        var assignedBreaks = new List<TimeOnly>();
+        var breakDuration = BreakSlotPlanner.BreakDurationMinutes;
+
+        // Passage plateau unique (tous shifts) : maximiser non-extrêmes, sauts OK.
+        var ordered = dayAssignments
+            .Where(a => a.SubServiceShiftConfigId != null && configsById.ContainsKey(a.SubServiceShiftConfigId.Value))
+            .OrderByDescending(a => extremeBreakCounts.GetValueOrDefault(a.UserId))
+            .ThenBy(a => a.UserId)
             .ToList();
 
-        foreach (var group in shiftGroups)
+        foreach (var assignment in ordered)
         {
-            var config = shiftConfigs.FirstOrDefault(c => c.Id == group.Key);
-            if (config == null) continue;
+            var config = configsById[assignment.SubServiceShiftConfigId!.Value];
+            var duration = config.BreakDurationMinutes > 0
+                ? config.BreakDurationMinutes
+                : breakDuration;
 
-            var candidates = BreakSlotPlanner.ResolveBreakSlots(config);
-            if (candidates.Count == 0) continue;
-
-            var ideal = config.StartTime.AddHours(4);
-            var openOrder = config.IsCriticalCell
-                ? candidates
-                    .OrderBy(s => BreakSlotPlanner.DistanceMinutes(s, ideal))
-                    .ThenBy(s => s)
-                    .ToList()
-                : candidates;
-
-            if (!config.IsCriticalCell)
+            var preferred = BreakSlotPlanner.PreferredSlots(config.StartTime);
+            // Idéaux en tête pour le tie-break d'index
+            var preferredOrdered = new List<TimeOnly>
             {
-                var preferred = BreakSlotPlanner.BuildPreferredBreakSlots(config.StartTime, false);
-                openOrder = preferred
-                    .Where(s => candidates.Contains(s))
-                    .Concat(candidates.Where(s => !preferred.Contains(s)))
+                config.StartTime.AddHours(4),
+                config.StartTime.AddHours(4.5),
+            };
+            foreach (var s in preferred)
+            {
+                if (!preferredOrdered.Contains(s))
+                    preferredOrdered.Add(s);
+            }
+
+            var extremes = BreakSlotPlanner.ExtremeTier(config.StartTime);
+
+            // 1) Non-extrêmes : load-balance sous présence
+            var chosen = PickLoadBalancedBreak(
+                preferredOrdered, assignedBreaks, cellMaxOnBreak, duration);
+
+            // 2) Extrêmes seulement si la fenêtre préférée est saturée
+            if (chosen == null)
+            {
+                chosen = PickLoadBalancedBreak(
+                    extremes, assignedBreaks, cellMaxOnBreak, duration);
+            }
+
+            // 3) Dernier recours : min pic, préférer non-extrême
+            if (chosen == null)
+            {
+                chosen = preferredOrdered
+                    .Concat(extremes)
                     .Distinct()
-                    .ToList();
-                if (openOrder.Count == 0)
-                    openOrder = candidates;
+                    .OrderBy(s => PeakOnBreakIfAssigned(assignedBreaks, s, duration))
+                    .ThenBy(s => BreakSlotPlanner.IsExtremeCaseBreak(config.StartTime, s) ? 1 : 0)
+                    .ThenBy(s => preferredOrdered.Contains(s)
+                        ? preferredOrdered.IndexOf(s)
+                        : 100 + extremes.IndexOf(s))
+                    .Cast<TimeOnly?>()
+                    .FirstOrDefault()
+                    ?? config.StartTime.AddHours(4);
             }
 
-            var opened = new List<TimeOnly> { openOrder[0] };
+            assignment.BreakTime = chosen.Value;
+            assignedBreaks.Add(chosen.Value);
 
-            foreach (var assignment in group)
-            {
-                TimeOnly? bestSlot = FindBestOpenSlot(
-                    opened, breakSlotUsage, cellMaxBreak, ideal);
-
-                if (bestSlot == null)
-                {
-                    while (opened.Count < openOrder.Count)
-                    {
-                        TimeOnly next;
-                        if (config.IsCriticalCell)
-                        {
-                            next = openOrder
-                                .Where(s => !opened.Contains(s))
-                                .OrderBy(s => breakSlotUsage.GetValueOrDefault(s, 0))
-                                .ThenBy(s => BreakSlotPlanner.DistanceMinutes(s, ideal))
-                                .ThenBy(s => s)
-                                .First();
-                        }
-                        else
-                        {
-                            next = openOrder.First(s => !opened.Contains(s));
-                        }
-
-                        opened.Add(next);
-                        bestSlot = FindBestOpenSlot(
-                            opened, breakSlotUsage, cellMaxBreak, ideal);
-                        if (bestSlot != null)
-                            break;
-                    }
-                }
-
-                if (bestSlot == null)
-                {
-                    bestSlot = candidates
-                        .OrderBy(s => breakSlotUsage.GetValueOrDefault(s, 0))
-                        .ThenBy(s => BreakSlotPlanner.DistanceMinutes(s, ideal))
-                        .ThenBy(s => s)
-                        .First();
-                    if (!opened.Contains(bestSlot.Value))
-                        opened.Add(bestSlot.Value);
-                }
-
-                var chosen = bestSlot.Value;
-                assignment.BreakTime = chosen;
-                breakSlotUsage[chosen] = breakSlotUsage.GetValueOrDefault(chosen, 0) + 1;
-            }
+            if (BreakSlotPlanner.IsExtremeCaseBreak(config.StartTime, chosen.Value))
+                extremeBreakCounts[assignment.UserId] =
+                    extremeBreakCounts.GetValueOrDefault(assignment.UserId) + 1;
         }
     }
 
-    private static TimeOnly? FindBestOpenSlot(
-        List<TimeOnly> opened,
-        Dictionary<TimeOnly, int> breakSlotUsage,
-        int cellMaxBreak,
-        TimeOnly ideal)
+    /// <summary>
+    /// Parmi les candidats sous le plafond de présence, choisit celui au plus bas pic.
+    /// </summary>
+    private static TimeOnly? PickLoadBalancedBreak(
+        IReadOnlyList<TimeOnly> candidates,
+        List<TimeOnly> alreadyAssigned,
+        int maxOnBreak,
+        int durationMinutes)
     {
-        return opened
-            .Where(s => breakSlotUsage.GetValueOrDefault(s, 0) < cellMaxBreak)
-            .OrderBy(s => breakSlotUsage.GetValueOrDefault(s, 0))
-            .ThenBy(s => BreakSlotPlanner.DistanceMinutes(s, ideal))
-            .ThenBy(s => s)
-            .Cast<TimeOnly?>()
-            .FirstOrDefault();
+        TimeOnly? best = null;
+        var bestPeak = int.MaxValue;
+        var bestIndex = int.MaxValue;
+
+        for (var i = 0; i < candidates.Count; i++)
+        {
+            var slot = candidates[i];
+            var peak = PeakOnBreakIfAssigned(alreadyAssigned, slot, durationMinutes);
+            if (peak > maxOnBreak) continue;
+
+            if (peak < bestPeak || (peak == bestPeak && i < bestIndex))
+            {
+                bestPeak = peak;
+                bestIndex = i;
+                best = slot;
+            }
+        }
+
+        return best;
     }
+
+    /// <summary>
+    /// Échange les pauses extrêmes entre collègues du même niveau (même shift / même jour)
+    /// pour éviter qu'un pilote enchaîne les cas extrêmes pendant qu'un pair n'en a aucun.
+    /// </summary>
+    private static void RepairExtremeBreakFairness(
+        List<ShiftAssignment> assignments,
+        List<SubServiceShiftConfig> shiftConfigs,
+        IReadOnlyDictionary<int, User> usersById)
+    {
+        var configsById = shiftConfigs.ToDictionary(c => c.Id);
+        const int maxPasses = 40;
+
+        for (var pass = 0; pass < maxPasses; pass++)
+        {
+            var counts = CountExtremeBreaks(assignments, configsById);
+            var improved = false;
+
+            var dayGroups = assignments
+                .Where(a =>
+                    !a.IsOnLeave && !a.IsHoliday
+                    && a.SubServiceShiftConfigId != null
+                    && a.BreakTime.HasValue)
+                .GroupBy(a => a.AssignedDate)
+                .OrderBy(g => g.Key);
+
+            foreach (var day in dayGroups)
+            {
+                var dayList = day.ToList();
+
+                for (var i = 0; i < dayList.Count; i++)
+                {
+                    for (var j = i + 1; j < dayList.Count; j++)
+                    {
+                        var a = dayList[i];
+                        var b = dayList[j];
+                        if (!usersById.TryGetValue(a.UserId, out var ua)
+                            || !usersById.TryGetValue(b.UserId, out var ub)
+                            || ua.Level != ub.Level)
+                            continue;
+
+                        if (!configsById.TryGetValue(a.SubServiceShiftConfigId!.Value, out var cfgA)
+                            || !configsById.TryGetValue(b.SubServiceShiftConfigId!.Value, out var cfgB))
+                            continue;
+
+                        // Uniquement même shift (présence inchangée, fairness ciblée).
+                        if (a.SubServiceShiftConfigId != b.SubServiceShiftConfigId)
+                            continue;
+
+                        var aExt = BreakSlotPlanner.IsExtremeCaseBreak(cfgA.StartTime, a.BreakTime!.Value);
+                        var bExt = BreakSlotPlanner.IsExtremeCaseBreak(cfgB.StartTime, b.BreakTime!.Value);
+                        if (aExt == bExt) continue;
+
+                        var countA = counts.GetValueOrDefault(a.UserId);
+                        var countB = counts.GetValueOrDefault(b.UserId);
+
+                        ShiftAssignment high;
+                        ShiftAssignment low;
+                        if (aExt && countA > countB)
+                        {
+                            high = a; low = b;
+                        }
+                        else if (bExt && countB > countA)
+                        {
+                            high = b; low = a;
+                        }
+                        else
+                            continue;
+
+                        // Même shift : échange des heures absolues (présence inchangée, pas de saut)
+                        (high.BreakTime, low.BreakTime) = (low.BreakTime, high.BreakTime);
+                        counts[high.UserId] = counts.GetValueOrDefault(high.UserId) - 1;
+                        counts[low.UserId] = counts.GetValueOrDefault(low.UserId) + 1;
+                        improved = true;
+                    }
+                }
+            }
+
+            if (!improved) break;
+        }
+    }
+
+    private static Dictionary<int, int> CountExtremeBreaks(
+        List<ShiftAssignment> assignments,
+        IReadOnlyDictionary<int, SubServiceShiftConfig> configsById)
+    {
+        var counts = new Dictionary<int, int>();
+        foreach (var a in assignments)
+        {
+            if (!a.BreakTime.HasValue || a.SubServiceShiftConfigId == null) continue;
+            if (a.IsOnLeave || a.IsHoliday) continue;
+            if (!configsById.TryGetValue(a.SubServiceShiftConfigId.Value, out var cfg)) continue;
+            if (!BreakSlotPlanner.IsExtremeCaseBreak(cfg.StartTime, a.BreakTime.Value)) continue;
+            counts[a.UserId] = counts.GetValueOrDefault(a.UserId) + 1;
+        }
+
+        return counts;
+    }
+
+    /// <summary>Pic de personnes en pause si on ajoute un départ à <paramref name="candidate"/>.</summary>
+    private static int PeakOnBreakIfAssigned(
+        List<TimeOnly> alreadyAssigned,
+        TimeOnly candidate,
+        int durationMinutes)
+    {
+        var duration = durationMinutes > 0 ? durationMinutes : BreakSlotPlanner.BreakDurationMinutes;
+        var end = candidate.AddMinutes(duration);
+        var peak = 0;
+
+        // Échantillonner toutes les 5 min sur la fenêtre de la pause candidate
+        for (var t = candidate; t < end; t = t.AddMinutes(5))
+        {
+            var onBreak = CountOnBreakAt(alreadyAssigned, t, duration) + 1;
+            if (onBreak > peak)
+                peak = onBreak;
+        }
+
+        return peak;
+    }
+
+    private static int CountOnBreakAt(
+        List<TimeOnly> breakStarts,
+        TimeOnly instant,
+        int durationMinutes)
+    {
+        var duration = durationMinutes > 0 ? durationMinutes : BreakSlotPlanner.BreakDurationMinutes;
+        var n = 0;
+        foreach (var b in breakStarts)
+        {
+            // En pause sur [b, b+duration)
+            if (b <= instant && b.AddMinutes(duration) > instant)
+                n++;
+        }
+
+        return n;
+    }
+
+    // FindBestOpenSlot retiré : capacité basée sur chevauchements (PeakOnBreakIfAssigned).
 
     private static CoverageReportDto BuildCoverageReport(
         WeeklyPlanning planning,
@@ -2083,22 +2185,16 @@ public class PlanningService : IPlanningService
         var weekRotationViolators = new HashSet<int>();
         foreach (var (userId, ordered) in weekByUser)
         {
-            var consecutive = false;
+            // KPI rotation semaine : uniquement pas 2 jours travaillés d'affilée au même shift
+            // (le max 2× / semaine n'entre PAS dans le KPI).
             for (var k = 1; k < ordered.Count; k++)
             {
                 if (ordered[k].SubServiceShiftConfigId == ordered[k - 1].SubServiceShiftConfigId)
                 {
-                    consecutive = true;
+                    weekRotationViolators.Add(userId);
                     break;
                 }
             }
-
-            var overMax = ordered
-                .GroupBy(a => a.SubServiceShiftConfigId!.Value)
-                .Any(g => g.Count() > ShiftDispersionSelector.MaxSameShiftPerWeek);
-
-            if (consecutive || overMax)
-                weekRotationViolators.Add(userId);
         }
 
         var weekLevelOk = 0;
@@ -2133,23 +2229,37 @@ public class PlanningService : IPlanningService
                 : daySynth.AvailabilityTimeline.Min(p => p.AvailabilityPercent);
             dailyPlateauValues.Add(daySynth.PlateauAvailabilityPercent);
 
-            // Présence min cellule : pauses simultanées (Lun–Sam)
+            // Présence min cellule : pic de pauses qui se chevauchent (durée 1h)
             var cellPresenceIssue = false;
             if (dayPresent.Count > 1)
             {
                 var maxBreakAllowed = (int)Math.Floor(dayPresent.Count * (100 - cellMinPresence) / 100.0);
                 if (maxBreakAllowed == 0)
                     maxBreakAllowed = 1;
-                cellPresenceIssue = dayPresent
+
+                var breakStarts = dayPresent
                     .Where(a => a.BreakTime.HasValue)
-                    .GroupBy(a => a.BreakTime!.Value)
-                    .Any(g => g.Count() > maxBreakAllowed);
+                    .Select(a => a.BreakTime!.Value)
+                    .ToList();
+                var breakDur = breakDurationMinutes;
+                var peak = 0;
+                foreach (var start in breakStarts.Distinct())
+                {
+                    for (var t = start; t < start.AddMinutes(breakDur); t = t.AddMinutes(5))
+                    {
+                        var onBreak = breakStarts.Count(b =>
+                            b <= t && b.AddMinutes(breakDur) > t);
+                        if (onBreak > peak) peak = onBreak;
+                    }
+                }
+
+                cellPresenceIssue = peak > maxBreakAllowed;
 
                 if (cellPresenceIssue)
                 {
                     report.HasUnderstaffing = true;
                     report.Warnings.Add(
-                        $"{dayName} {date:dd/MM} — trop de pauses simultanées (présence min cellule {cellMinPresence} %)");
+                        $"{dayName} {date:dd/MM} — trop de pauses simultanées (présence min cellule {cellMinPresence} %, pic {peak}/{dayPresent.Count})");
                 }
             }
 
@@ -2281,6 +2391,24 @@ public class PlanningService : IPlanningService
                 daySynth.RotationCompliancePercent = 100m;
             }
 
+            // Cas extrêmes : pauses +3h / +5h (tous shifts, relatif au start)
+            var configsByIdForBreaks = shiftConfigs.ToDictionary(c => c.Id);
+            var extreme = 0;
+            var extremeTier = 0;
+            foreach (var a in dayPresent.Where(x => x.BreakTime.HasValue && x.SubServiceShiftConfigId != null))
+            {
+                if (!configsByIdForBreaks.TryGetValue(a.SubServiceShiftConfigId!.Value, out var cfg))
+                    continue;
+                var bt = a.BreakTime!.Value;
+                if (BreakSlotPlanner.IsExtremeCaseBreak(cfg.StartTime, bt))
+                    extreme++;
+                if (BreakSlotPlanner.IsExtremeBreak(cfg.StartTime, bt))
+                    extremeTier++;
+            }
+
+            daySynth.ExtremeBreakCount = extreme;
+            daySynth.ExtremeTierBreakCount = extremeTier;
+
             report.DaySynthesis.Add(daySynth);
         }
 
@@ -2299,7 +2427,84 @@ public class PlanningService : IPlanningService
                 (decimal)(weekByUser.Count - weekRotationViolators.Count) / weekByUser.Count * 100,
                 1);
 
+        report.ExtremeBreakCount = report.DaySynthesis.Sum(d => d.ExtremeBreakCount);
+        report.ExtremeTierBreakCount = report.DaySynthesis.Sum(d => d.ExtremeTierBreakCount);
+
+        // Rotation cas extrêmes : équité par niveau (écart max−min ≤ 1)
+        ComputeExtremeRotationKpis(report, weekByUser, shiftConfigs, usersById);
+
         return report;
+    }
+
+    /// <summary>
+    /// KPI fairness cas extrêmes : dans chaque niveau, si max−min des comptes +3h/+5h &gt; 1,
+    /// les employés au-dessus du min du groupe sont des violators.
+    /// </summary>
+    private static void ComputeExtremeRotationKpis(
+        CoverageReportDto report,
+        Dictionary<int, List<ShiftAssignment>> weekByUser,
+        List<SubServiceShiftConfig> shiftConfigs,
+        IReadOnlyDictionary<int, User>? usersById)
+    {
+        if (usersById == null || usersById.Count == 0 || weekByUser.Count == 0)
+        {
+            report.ExtremeRotationCompliancePercent = 100m;
+            report.ExtremeRotationEmployeesCount = weekByUser.Count;
+            report.ExtremeRotationViolatorsCount = 0;
+            return;
+        }
+
+        var configsById = shiftConfigs.ToDictionary(c => c.Id);
+        var extremeCounts = new Dictionary<int, int>();
+        foreach (var (userId, days) in weekByUser)
+        {
+            var n = 0;
+            foreach (var a in days)
+            {
+                if (!a.BreakTime.HasValue || a.SubServiceShiftConfigId == null) continue;
+                if (!configsById.TryGetValue(a.SubServiceShiftConfigId.Value, out var cfg)) continue;
+                if (BreakSlotPlanner.IsExtremeCaseBreak(cfg.StartTime, a.BreakTime.Value))
+                    n++;
+            }
+
+            extremeCounts[userId] = n;
+        }
+
+        var violators = new HashSet<int>();
+        var evaluated = new HashSet<int>();
+
+        foreach (var levelGroup in weekByUser.Keys
+                     .Where(id => usersById.ContainsKey(id))
+                     .GroupBy(id => usersById[id].Level))
+        {
+            var members = levelGroup.ToList();
+            if (members.Count == 0) continue;
+
+            foreach (var id in members)
+                evaluated.Add(id);
+
+            if (members.Count == 1)
+                continue;
+
+            var minC = members.Min(id => extremeCounts.GetValueOrDefault(id));
+            var maxC = members.Max(id => extremeCounts.GetValueOrDefault(id));
+            if (maxC - minC <= 1)
+                continue;
+
+            foreach (var id in members)
+            {
+                if (extremeCounts.GetValueOrDefault(id) > minC)
+                    violators.Add(id);
+            }
+        }
+
+        report.ExtremeRotationEmployeesCount = evaluated.Count;
+        report.ExtremeRotationViolatorsCount = violators.Count;
+        report.ExtremeRotationCompliancePercent = evaluated.Count == 0
+            ? 100m
+            : Math.Round(
+                (decimal)(evaluated.Count - violators.Count) / evaluated.Count * 100,
+                1);
     }
 
     private static List<DayAvailabilityPointDto> BuildDayAvailabilityTimeline(
@@ -2367,7 +2572,8 @@ public class PlanningService : IPlanningService
     }
 
     /// <summary>
-    /// Violation locale : même shift que la veille, ou déjà &gt; max× ce shift en cumul semaine à ce jour.
+    /// Violation locale KPI : même shift que le jour travaillé précédent uniquement
+    /// (le max 2× / semaine n'entre PAS dans le KPI).
     /// </summary>
     private static bool HasLocalRotationViolation(
         ShiftAssignment assignment,
@@ -2382,12 +2588,7 @@ public class PlanningService : IPlanningService
             return false;
 
         var prev = ordered.LastOrDefault(a => a.AssignedDate < date);
-        if (prev?.SubServiceShiftConfigId == shiftId)
-            return true;
-
-        var countUpToDay = ordered.Count(a =>
-            a.AssignedDate <= date && a.SubServiceShiftConfigId == shiftId);
-        return countUpToDay > ShiftDispersionSelector.MaxSameShiftPerWeek;
+        return prev?.SubServiceShiftConfigId == shiftId;
     }
 
     private static List<TimeOnly> GenerateBreakSlots(TimeOnly rangeStart, TimeOnly rangeEnd)

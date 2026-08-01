@@ -1,11 +1,11 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Planning.Domain.Entities;
 
 namespace Planning.Infrastructure.Services;
 
 /// <summary>
-/// Break slots: 1h duration, ideal around start+4h.
-/// Normal: only +4h / +4h30. Extremes [+3h,+5h] only if IsCriticalCell.
+/// Break slots: 1h, idéal start+4h. Packing anti-extrême pour TOUS les shifts.
+/// Fenêtre préférée +3h30…+4h30 (15 min) ; +3h/+5h en dernier recours.
 /// </summary>
 public static class BreakSlotPlanner
 {
@@ -17,23 +17,99 @@ public static class BreakSlotPlanner
         PropertyNameCaseInsensitive = true
     };
 
-    public static List<TimeOnly> BuildPreferredBreakSlots(TimeOnly shiftStart, bool isCriticalCell)
-    {
-        if (isCriticalCell)
-        {
-            return new List<TimeOnly>
-            {
-                shiftStart.AddHours(3.5),
-                shiftStart.AddHours(4),
-                shiftStart.AddHours(4.5)
-            };
-        }
+    /// <summary>8h/9h → tôt ; 10h/11h → tard (midi biologique).</summary>
+    public static bool IsEarlyShift(TimeOnly shiftStart) => shiftStart.Hour < 10;
 
-        return new List<TimeOnly>
+    public static List<TimeOnly> NormalTier(TimeOnly shiftStart) =>
+        new()
         {
             shiftStart.AddHours(4),
             shiftStart.AddHours(4.5)
         };
+
+    public static List<TimeOnly> ExtendedTier(TimeOnly shiftStart) =>
+        new() { shiftStart.AddHours(3.5) };
+
+    public static List<TimeOnly> ExtremeTier(TimeOnly shiftStart) =>
+        IsEarlyShift(shiftStart)
+            ? new List<TimeOnly> { shiftStart.AddHours(5), shiftStart.AddHours(3) }
+            : new List<TimeOnly> { shiftStart.AddHours(3), shiftStart.AddHours(5) };
+
+    /// <summary>
+    /// Fenêtre non extrême : +3h30 → +4h30 par pas de 15 min (sauts tolérés entre créneaux).
+    /// </summary>
+    public static List<TimeOnly> PreferredSlots(TimeOnly shiftStart)
+    {
+        var slots = new List<TimeOnly>();
+        var start = shiftStart.AddHours(3.5);
+        var end = shiftStart.AddHours(4.5);
+        for (var t = start; t <= end; t = t.AddMinutes(15))
+            slots.Add(t);
+        return slots;
+    }
+
+    /// <summary>
+    /// Ordre packing : idéaux +4/+4h30 puis reste préféré, puis extrêmes.
+    /// Sauts autorisés — objectif = minimiser +3h/+5h.
+    /// </summary>
+    public static List<TimeOnly> ProgressiveOpenOrder(TimeOnly shiftStart)
+    {
+        var order = new List<TimeOnly>
+        {
+            shiftStart.AddHours(4),
+            shiftStart.AddHours(4.5),
+        };
+        foreach (var s in PreferredSlots(shiftStart))
+        {
+            if (!order.Contains(s))
+                order.Add(s);
+        }
+
+        foreach (var s in ExtremeTier(shiftStart))
+        {
+            if (!order.Contains(s))
+                order.Add(s);
+        }
+
+        return order;
+    }
+
+    public static List<List<TimeOnly>> BreakTiers(TimeOnly shiftStart) =>
+        new()
+        {
+            PreferredSlots(shiftStart),
+            ExtremeTier(shiftStart),
+        };
+
+    public static List<TimeOnly> BuildPreferredBreakSlots(TimeOnly shiftStart, bool isCriticalCell)
+    {
+        var progressive = ProgressiveOpenOrder(shiftStart);
+        if (isCriticalCell)
+            return progressive.Take(MaxSlots).ToList();
+
+        return progressive.Take(2).ToList();
+    }
+
+    public static List<TimeOnly> BuildBreakAssignmentOrder(SubServiceShiftConfig config) =>
+        ProgressiveOpenOrder(config.StartTime);
+
+    public static List<List<TimeOnly>> BuildBreakTiers(SubServiceShiftConfig config) =>
+        BreakTiers(config.StartTime);
+
+    public static bool IsExtremeBreak(TimeOnly shiftStart, TimeOnly breakStart) =>
+        ExtremeTier(shiftStart).Contains(breakStart);
+
+    public static bool IsExtendedBreak(TimeOnly shiftStart, TimeOnly breakStart) =>
+        ExtendedTier(shiftStart).Contains(breakStart);
+
+    public static bool IsNonNormalBreak(TimeOnly shiftStart, TimeOnly breakStart) =>
+        IsExtremeBreak(shiftStart, breakStart) || IsExtendedBreak(shiftStart, breakStart);
+
+    /// <summary>Cas extrême métier : pause à +3h ou +5h du start (tous shifts).</summary>
+    public static bool IsExtremeCaseBreak(TimeOnly shiftStart, TimeOnly breakStart)
+    {
+        var hours = (breakStart - shiftStart).TotalHours;
+        return Math.Abs(hours - 3.0) < 0.001 || Math.Abs(hours - 5.0) < 0.001;
     }
 
     public static TimeOnly WindowStart(TimeOnly shiftStart, bool isCriticalCell) =>
@@ -93,7 +169,6 @@ public static class BreakSlotPlanner
                 fromJson.Select(t => t.ToString("HH:mm")));
         }
 
-        // Legacy: derive up to 3 slots from the saved range, within the allowed window
         var allowed = AllowedStarts(config.StartTime, config.IsCriticalCell).ToHashSet();
         var fromRange = new List<TimeOnly>();
         var current = config.BreakRangeStart;
@@ -158,10 +233,14 @@ public static class BreakSlotPlanner
 
     public static List<TimeOnly> OrderByIdeal(IEnumerable<TimeOnly> slots, TimeOnly shiftStart)
     {
-        var ideal = shiftStart.AddHours(4);
+        var priority = ProgressiveOpenOrder(shiftStart);
         return slots
             .Distinct()
-            .OrderBy(s => DistanceMinutes(s, ideal))
+            .OrderBy(s =>
+            {
+                var idx = priority.IndexOf(s);
+                return idx >= 0 ? idx : 1000 + DistanceMinutes(s, shiftStart.AddHours(4));
+            })
             .ThenBy(s => s)
             .Take(MaxSlots)
             .ToList();

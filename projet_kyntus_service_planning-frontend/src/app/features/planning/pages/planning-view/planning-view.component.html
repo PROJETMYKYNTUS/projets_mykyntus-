@@ -134,10 +134,21 @@
           <span class="perf-hint">créneaux sans débutant seul</span>
         </div>
         <div class="perf-card" [attr.data-tone]="kpiTone(wk.rotation)">
-          <span class="perf-label">Rotation</span>
+          <span class="perf-label">Rotation shifts</span>
           <span class="perf-value">{{ formatKpiPct(wk.rotation) }}</span>
-          <span class="perf-hint" *ngIf="wk.rotationTotal">{{ wk.rotationOk }}/{{ wk.rotationTotal }} employés OK</span>
-          <span class="perf-hint" *ngIf="!wk.rotationTotal">dispersion shifts</span>
+          <span class="perf-hint" *ngIf="wk.rotationTotal">{{ wk.rotationOk }}/{{ wk.rotationTotal }} OK · pas 2 j. identiques d’affilée</span>
+          <span class="perf-hint" *ngIf="!wk.rotationTotal">jours travaillés consécutifs</span>
+        </div>
+        <div class="perf-card" [attr.data-tone]="extremeTone(wk.extremeBreaks)">
+          <span class="perf-label">Cas extrêmes</span>
+          <span class="perf-value">{{ wk.extremeBreaks }}</span>
+          <span class="perf-hint">pauses +3h / +5h</span>
+        </div>
+        <div class="perf-card" [attr.data-tone]="kpiTone(wk.extremeRotation)">
+          <span class="perf-label">Rotation extrêmes</span>
+          <span class="perf-value">{{ formatKpiPct(wk.extremeRotation) }}</span>
+          <span class="perf-hint" *ngIf="wk.extremeRotationTotal">{{ wk.extremeRotationOk }}/{{ wk.extremeRotationTotal }} OK · équité même niveau</span>
+          <span class="perf-hint" *ngIf="!wk.extremeRotationTotal">répartition +3h/+5h</span>
         </div>
       </div>
     </div>
@@ -250,15 +261,19 @@
                     {{ getDateForDay(planning.weekStartDate, day) }}
                   </span>
                   <span class="th-day-kpis" *ngIf="daySynthesisFor(day) as syn"
-                        [title]="'Plateau · Niveau · Rotation'">
+                        [title]="'Plateau · Niveau · Rotation (≠ veille) · Cas extrêmes'">
                     <span class="th-kpi" [attr.data-tone]="kpiTone(syn.plateauAvailabilityPercent, { plateauTarget: planning.coverageReport?.plateauAvailabilityTargetPercent ?? 70 })">
                       P {{ formatKpiPct(syn.plateauAvailabilityPercent) }}
                     </span>
                     <span class="th-kpi" [attr.data-tone]="kpiTone(syn.levelBalancePercent)">
                       N {{ formatKpiPct(syn.levelBalancePercent) }}
                     </span>
-                    <span class="th-kpi" [attr.data-tone]="kpiTone(syn.rotationCompliancePercent)">
+                    <span class="th-kpi" [attr.data-tone]="kpiTone(syn.rotationCompliancePercent)"
+                          title="Rotation jour : pas le même shift que le jour travaillé précédent">
                       R {{ formatKpiPct(syn.rotationCompliancePercent) }}
+                    </span>
+                    <span class="th-kpi" [attr.data-tone]="extremeTone(syn.extremeBreakCount)">
+                      X {{ syn.extremeBreakCount ?? 0 }}
                     </span>
                   </span>
                   <span class="th-day-meta" *ngIf="daySynthesisFor(day) as syn" [title]="daySynthTooltip(day)">
@@ -463,6 +478,9 @@
           </span>
           <span class="insights-kpi" [attr.data-tone]="kpiTone(syn.rotationCompliancePercent)">
             Rotation {{ formatKpiPct(syn.rotationCompliancePercent) }}
+          </span>
+          <span class="insights-kpi" [attr.data-tone]="extremeTone(syn.extremeBreakCount)">
+            Extrêmes {{ syn.extremeBreakCount ?? 0 }}
           </span>
         </div>
 

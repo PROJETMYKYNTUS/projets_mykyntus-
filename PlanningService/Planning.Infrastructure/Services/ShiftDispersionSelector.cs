@@ -82,7 +82,9 @@ public static class ShiftDispersionSelector
     }
 
     /// <summary>
-    /// Choisit un shift : plafond 2 dur, équité perso + même niveau, quotas jour.
+    /// Choisit un shift : remplit d'abord les quotas prod (RequiredCount),
+    /// puis max2 / non-consécutif / équité. Ne dépasse un quota que si
+    /// tous les sièges requis sont déjà pourvus (surplus d'effectif).
     /// </summary>
     public static SelectionResult Select(
         IReadOnlyList<SubServiceShiftConfig> orderedShifts,
@@ -103,6 +105,13 @@ public static class ShiftDispersionSelector
             ? me.Level
             : 0;
 
+        bool UnderQuota(SubServiceShiftConfig s) =>
+            s.RequiredCount <= 0
+            || shiftCountToday.GetValueOrDefault(s.Id, 0) < s.RequiredCount;
+
+        bool UnderMax(SubServiceShiftConfig s) =>
+            CountThisWeek(weekAssignmentsByUser, userId, s.Id) < maxSame;
+
         SubServiceShiftConfig RankPick(IEnumerable<SubServiceShiftConfig> candidates) =>
             candidates
                 .OrderBy(s => CountThisWeek(weekAssignmentsByUser, userId, s.Id))
@@ -111,25 +120,33 @@ public static class ShiftDispersionSelector
                 .ThenBy(s => preferred.IndexOf(s))
                 .First();
 
-        // 1) Strict : quota + non-consécutif + max2 + équité
+        // 1) Strict : siège libre + non-consécutif + max2 + équité
         var strict = preferred.Where(s =>
-            shiftCountToday.GetValueOrDefault(s.Id, 0) < s.RequiredCount
-            && s.Id != yesterdayId
-            && CountThisWeek(weekAssignmentsByUser, userId, s.Id) < maxSame).ToList();
+            UnderQuota(s) && s.Id != yesterdayId && UnderMax(s)).ToList();
         if (strict.Count > 0)
             return new SelectionResult { Shift = RankPick(strict) };
 
-        // 2) Relax consécutif seulement (garde max2)
-        var noMaxBreach = preferred.Where(s =>
-            shiftCountToday.GetValueOrDefault(s.Id, 0) < s.RequiredCount
-            && CountThisWeek(weekAssignmentsByUser, userId, s.Id) < maxSame).ToList();
-        if (noMaxBreach.Count > 0)
-            return new SelectionResult { Shift = RankPick(noMaxBreach), SoftConsecutiveAllowed = true };
+        // 2) Siège libre + max2 (autorise consécutif)
+        var underQuotaMax = preferred.Where(s => UnderQuota(s) && UnderMax(s)).ToList();
+        if (underQuotaMax.Count > 0)
+            return new SelectionResult
+            {
+                Shift = RankPick(underQuotaMax),
+                SoftConsecutiveAllowed = true
+            };
 
-        // 3) Soft quota : jamais au-delà de max2 — parmi ceux sous le plafond, le moins chargé
-        var underCap = preferred
-            .Where(s => CountThisWeek(weekAssignmentsByUser, userId, s.Id) < maxSame)
-            .ToList();
+        // 3) Siège libre prioritaire sur max2 (besoin prod > dispersion)
+        var underQuotaAny = preferred.Where(UnderQuota).ToList();
+        if (underQuotaAny.Count > 0)
+            return new SelectionResult
+            {
+                Shift = RankPick(underQuotaAny),
+                SoftConsecutiveAllowed = true,
+                SoftQuotaExceeded = false
+            };
+
+        // 4) Tous les quotas sont remplis → surplus d'effectif (autorise dépassement sous max2)
+        var underCap = preferred.Where(UnderMax).ToList();
         if (underCap.Count > 0)
         {
             var chosen = RankPick(underCap);
@@ -141,7 +158,7 @@ public static class ShiftDispersionSelector
             };
         }
 
-        // 4) Un seul shift possible dans la cellule : forcer
+        // 5) Un seul shift possible
         return new SelectionResult
         {
             Shift = RankPick(preferred),
@@ -172,6 +189,13 @@ public static class ShiftDispersionSelector
             : 0;
         shiftCountToday ??= new Dictionary<int, int>();
 
+        bool UnderQuota(SubServiceShiftConfig s) =>
+            s.RequiredCount <= 0
+            || shiftCountToday.GetValueOrDefault(s.Id, 0) < s.RequiredCount;
+
+        bool UnderMax(SubServiceShiftConfig s) =>
+            CountThisWeek(weekAssignmentsByUser, userId, s.Id) < maxSame;
+
         SubServiceShiftConfig RankPick(IEnumerable<SubServiceShiftConfig> candidates) =>
             candidates
                 .OrderBy(s => CountThisWeek(weekAssignmentsByUser, userId, s.Id))
@@ -180,25 +204,24 @@ public static class ShiftDispersionSelector
                 .ThenBy(s => preferred.IndexOf(s))
                 .First();
 
-        // 1) Strict : ≠ vendredi + max2 + quota jour (soft) + équité niveau
+        // 1) Strict : ≠ vendredi + max2 + siège libre + équité niveau
         var strict = preferred.Where(s =>
-            s.Id != fridayShiftId
-            && CountThisWeek(weekAssignmentsByUser, userId, s.Id) < maxSame
-            && shiftCountToday.GetValueOrDefault(s.Id, 0) < Math.Max(1, s.RequiredCount)).ToList();
+            s.Id != fridayShiftId && UnderMax(s) && UnderQuota(s)).ToList();
         if (strict.Count > 0)
             return RankPick(strict);
 
-        // 2) Relâche quota jour, garde ≠ ven + max2
-        var noFriMax = preferred.Where(s =>
-            s.Id != fridayShiftId
-            && CountThisWeek(weekAssignmentsByUser, userId, s.Id) < maxSame).ToList();
-        if (noFriMax.Count > 0)
-            return RankPick(noFriMax);
+        // 2) Siège libre + max2 (autorise = vendredi)
+        var underQuotaMax = preferred.Where(s => UnderQuota(s) && UnderMax(s)).ToList();
+        if (underQuotaMax.Count > 0)
+            return RankPick(underQuotaMax);
 
-        // 3) Relâche consécutif ven, garde max2
-        var underCap = preferred
-            .Where(s => CountThisWeek(weekAssignmentsByUser, userId, s.Id) < maxSame)
-            .ToList();
+        // 3) Siège libre prioritaire (besoin prod)
+        var underQuotaAny = preferred.Where(UnderQuota).ToList();
+        if (underQuotaAny.Count > 0)
+            return RankPick(underQuotaAny);
+
+        // 4) Quotas remplis → surplus sous max2
+        var underCap = preferred.Where(UnderMax).ToList();
         if (underCap.Count > 0)
             return RankPick(underCap);
 

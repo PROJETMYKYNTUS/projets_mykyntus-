@@ -82,10 +82,23 @@ public class CoverageReportDto
     public int PlateauAvailabilityTargetPercent { get; set; } = 70;
     /// <summary>% créneaux sans anomalie débutant seul.</summary>
     public decimal LevelBalancePercent { get; set; } = 100;
-    /// <summary>% employés respectant les règles de rotation / dispersion.</summary>
+    /// <summary>% employés sans même shift deux jours travaillés d'affilée (KPI, hors max 2×).</summary>
     public decimal RotationCompliancePercent { get; set; } = 100;
     public int RotationViolatorsCount { get; set; }
     public int RotationEmployeesCount { get; set; }
+
+    /// <summary>Nombre de pauses à +3h ou +5h du start (cas extrêmes) sur la semaine.</summary>
+    public int ExtremeBreakCount { get; set; }
+    /// <summary>Pauses du dernier palier uniquement.</summary>
+    public int ExtremeTierBreakCount { get; set; }
+
+    /// <summary>
+    /// % employés dont la charge de cas extrêmes est équitable vs collègues même niveau
+    /// (écart max−min ≤ 1 dans le niveau).
+    /// </summary>
+    public decimal ExtremeRotationCompliancePercent { get; set; } = 100;
+    public int ExtremeRotationViolatorsCount { get; set; }
+    public int ExtremeRotationEmployeesCount { get; set; }
 }
 
 public class PlanningAnomalyDto
@@ -117,6 +130,11 @@ public class DaySynthesisDto
     public decimal PlateauAvailabilityPercent { get; set; } = 100;
     public decimal LevelBalancePercent { get; set; } = 100;
     public decimal RotationCompliancePercent { get; set; } = 100;
+
+    /// <summary>Nombre de pauses à +3h ou +5h du start (cas extrêmes) ce jour.</summary>
+    public int ExtremeBreakCount { get; set; }
+    /// <summary>Pauses du dernier palier uniquement ce jour.</summary>
+    public int ExtremeTierBreakCount { get; set; }
 
     /// <summary>Disponibilité plateau par créneau 5 min (pour diagramme jour).</summary>
     public List<DayAvailabilityPointDto> AvailabilityTimeline { get; set; } = new();

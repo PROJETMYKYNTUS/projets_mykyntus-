@@ -350,11 +350,17 @@ selectedHolidayShiftId      = 0;
     rotation: number;
     rotationOk: number;
     rotationTotal: number;
+    extremeBreaks: number;
+    extremeRotation: number;
+    extremeRotationOk: number;
+    extremeRotationTotal: number;
   } | null {
     const r = this.planning?.coverageReport;
     if (!r || r.plateauAvailabilityPercent == null) return null;
     const total = r.rotationEmployeesCount ?? 0;
     const violators = r.rotationViolatorsCount ?? 0;
+    const extTotal = r.extremeRotationEmployeesCount ?? total;
+    const extViolators = r.extremeRotationViolatorsCount ?? 0;
     return {
       plateau: r.plateauAvailabilityPercent,
       plateauTarget: r.plateauAvailabilityTargetPercent ?? 70,
@@ -362,6 +368,10 @@ selectedHolidayShiftId      = 0;
       rotation: r.rotationCompliancePercent ?? 100,
       rotationOk: Math.max(0, total - violators),
       rotationTotal: total,
+      extremeBreaks: r.extremeBreakCount ?? 0,
+      extremeRotation: r.extremeRotationCompliancePercent ?? 100,
+      extremeRotationOk: Math.max(0, extTotal - extViolators),
+      extremeRotationTotal: extTotal,
     };
   }
 
@@ -376,6 +386,14 @@ selectedHolidayShiftId      = 0;
     }
     if (v >= 90) return 'ok';
     if (v >= 70) return 'warn';
+    return 'bad';
+  }
+
+  /** Cas extrêmes : 0 = vert, 1–2 = ambre, ≥3 = rouge. */
+  extremeTone(count: number | null | undefined): 'ok' | 'warn' | 'bad' {
+    const n = count ?? 0;
+    if (n <= 0) return 'ok';
+    if (n <= 2) return 'warn';
     return 'bad';
   }
 

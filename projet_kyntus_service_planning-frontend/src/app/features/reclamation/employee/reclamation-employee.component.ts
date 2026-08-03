@@ -3,6 +3,8 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 import { KyntusToastService } from '../../../shared/components/ui/kyntus-toast.service';
+import { KyntusFormDraftService } from '../../../core/drafts/kyntus-form-draft.service';
+import { KyntusObjectDraftBinder } from '../../../core/drafts/kyntus-object-draft.binder';
 import { Subscription } from 'rxjs';
 import { ReclamationService } from '../../../core/services/reclamation.service';
 import { PropositionService } from '../../../core/services/proposition.service';
@@ -26,6 +28,13 @@ type SubView = 'list' | 'new' | 'detail';
 export class ReclamationEmployeeComponent implements OnInit, OnDestroy {
 
   private readonly toastSvc = inject(KyntusToastService);
+  private readonly formDrafts = inject(KyntusFormDraftService);
+  private draftBinder?: KyntusObjectDraftBinder<{
+    mainTab: MainTab;
+    subView: SubView;
+    newRec: CreateReclamationPayload;
+    newProp: CreatePropositionPayload;
+  }>;
 
   // ── State ────────────────────────────────────────
   mainTab: MainTab = 'reclamations';
@@ -71,13 +80,37 @@ export class ReclamationEmployeeComponent implements OnInit, OnDestroy {
 
   // ─────────────────────────────────────────────────
   ngOnInit(): void {
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'reclamation-employee-forms',
+      () => ({
+        mainTab: this.mainTab,
+        subView: this.subView,
+        newRec: { ...this.newRec },
+        newProp: { ...this.newProp },
+      }),
+      (s) => {
+        if (s.newRec) this.newRec = { ...this.newRec, ...s.newRec };
+        if (s.newProp) this.newProp = { ...this.newProp, ...s.newProp };
+        if (s.mainTab) this.mainTab = s.mainTab;
+        if (s.subView === 'new' && (s.newRec?.titre || s.newProp?.titre)) {
+          this.subView = 'new';
+        }
+      },
+    );
+    this.draftBinder.start();
     this.loadReclamations();
     this.listenNotifications();
   }
 
   ngOnDestroy(): void {
+    this.draftBinder?.destroy();
     // ✅ Juste unsubscribe — pas de hub.stop() (le hub est géré par NotificationService)
     this.notifSub?.unsubscribe();
+  }
+
+  touchDraft(): void {
+    this.draftBinder?.touch();
   }
 
   // ── Écoute les notifications via le service partagé ──
@@ -142,6 +175,7 @@ private listenNotifications(): void {
         this.submitting = false;
         this.newRec     = { titre: '', description: '', type: 'Administrative' };
         this.subView    = 'list';
+        this.draftBinder?.clear();
         this.showToast('Réclamation soumise avec succès');
         this.loadReclamations();
       },
@@ -182,6 +216,7 @@ private listenNotifications(): void {
         this.submitting = false;
         this.newProp    = { titre: '', description: '', beneficeAttendu: '' };
         this.subView    = 'list';
+        this.draftBinder?.clear();
         this.showToast('Proposition soumise avec succès');
         this.loadPropositions();
       },

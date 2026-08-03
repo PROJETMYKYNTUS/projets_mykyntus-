@@ -120,6 +120,8 @@ export interface DayAssignment {
   endTime:           string;
   isSaturday:        boolean;
   isManagerOverride: boolean;
+  /** Demande exceptionnelle appliquée sur ce créneau. */
+  isExceptionalRequest?: boolean;
   breakTime?:        string;
   isOnLeave:         boolean;
   isHalfDaySaturday: boolean;
@@ -151,6 +153,17 @@ export interface WeeklyPlanningResponse {
   shiftConfigs:    ShiftConfig[];
   assignments:     EmployeePlanning[];
   coverageReport?: CoverageReport | null;
+}
+
+/** Liste légère Planning Équipe (sans grille / coverage). */
+export interface EquipePlanningSummary {
+  id: number;
+  weekCode: string;
+  weekStartDate: string;
+  status: string;
+  subServiceId: number;
+  subServiceName: string;
+  employeeCount: number;
 }
 
 export interface CreatePlanningDto {
@@ -459,8 +472,8 @@ export class PlanningService {
     );
   }
 
-  getEquipePlannings(authUserId: number): Observable<WeeklyPlanningResponse[]> {
-    return this.http.get<WeeklyPlanningResponse[]>(
+  getEquipePlannings(authUserId: number): Observable<EquipePlanningSummary[]> {
+    return this.http.get<EquipePlanningSummary[]>(
       `${this.api}/planning/equipe?authUserId=${authUserId}`,
       { headers: this.getHeaders() }
     );
@@ -521,11 +534,18 @@ export class PlanningService {
     return this.http.post(`${this.base}/saturday-history`, dto);
   }
 
-  // ── Demandes de changement (RH) ───────────────────
-  getChangeRequests(status?: string, weekCode?: string): Observable<any[]> {
+  // ── Demandes de changement (RH / Superviseur) ───────────────────
+  getChangeRequests(
+    status?: string,
+    weekCode?: string,
+    authUserId?: number,
+    requesterUserId?: number,
+  ): Observable<any[]> {
     const params: string[] = [];
     if (status) params.push(`status=${encodeURIComponent(status)}`);
     if (weekCode) params.push(`weekCode=${encodeURIComponent(weekCode)}`);
+    if (authUserId) params.push(`authUserId=${authUserId}`);
+    if (requesterUserId) params.push(`requesterUserId=${requesterUserId}`);
     const qs = params.length ? `?${params.join('&')}` : '';
     return this.http.get<any[]>(`${this.base}/change-requests${qs}`);
   }
@@ -543,6 +563,57 @@ export class PlanningService {
     return this.http.post(
       `${this.base}/change-requests/${id}/reject?authUserId=${authUserId}`,
       { reason: reason || null },
+    );
+  }
+
+  // ── Demandes exceptionnelles (Superviseur / RH) ───────────────────
+  getExceptionalRequests(
+    status?: string,
+    weekCode?: string,
+    authUserId?: number,
+    requesterUserId?: number,
+  ): Observable<any[]> {
+    const params: string[] = [];
+    if (status) params.push(`status=${encodeURIComponent(status)}`);
+    if (weekCode) params.push(`weekCode=${encodeURIComponent(weekCode)}`);
+    if (authUserId) params.push(`authUserId=${authUserId}`);
+    if (requesterUserId) params.push(`requesterUserId=${requesterUserId}`);
+    const qs = params.length ? `?${params.join('&')}` : '';
+    return this.http.get<any[]>(`${this.base}/exceptional-requests${qs}`);
+  }
+
+  supervisorApproveExceptionalRequest(id: number, authUserId: number): Observable<any> {
+    return this.http.post(
+      `${this.base}/exceptional-requests/${id}/supervisor-approve?authUserId=${authUserId}`,
+      {},
+    );
+  }
+
+  supervisorRejectExceptionalRequest(id: number, authUserId: number, reason?: string): Observable<any> {
+    return this.http.post(
+      `${this.base}/exceptional-requests/${id}/supervisor-reject?authUserId=${authUserId}`,
+      { reason: reason || null },
+    );
+  }
+
+  rhApproveExceptionalRequest(id: number, authUserId: number): Observable<any> {
+    return this.http.post(
+      `${this.base}/exceptional-requests/${id}/rh-approve?authUserId=${authUserId}`,
+      {},
+    );
+  }
+
+  rhRejectExceptionalRequest(id: number, authUserId: number, reason?: string): Observable<any> {
+    return this.http.post(
+      `${this.base}/exceptional-requests/${id}/rh-reject?authUserId=${authUserId}`,
+      { reason: reason || null },
+    );
+  }
+
+  downloadExceptionalJustification(id: number, authUserId: number): Observable<Blob> {
+    return this.http.get(
+      `${this.base}/exceptional-requests/${id}/justification?authUserId=${authUserId}`,
+      { responseType: 'blob' },
     );
   }
 

@@ -7,7 +7,7 @@ import { RouterLink } from '@angular/router';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 
 import { EMPLOYEE_IMPORT_HOST } from './employee-import-host.context';
-import { KYNTUS_PUBLIC_URLS } from '../../../../config/kyntus-public-urls';
+import { redirectToAuthLogin } from '../../../../core/session/kyntus-auth-refresh.service';
 
 import {
 
@@ -465,7 +465,7 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
         if (err?.status === 401) {
           this.analyzeError =
             'Session expirée ou non authentifié. Reconnectez-vous avec un compte RH ou Admin, puis relancez l\'import.';
-          window.location.replace(`${KYNTUS_PUBLIC_URLS.authLogin}?returnUrl=${encodeURIComponent(KYNTUS_PUBLIC_URLS.planningSpa)}`);
+          redirectToAuthLogin('/import');
           return;
         }
 

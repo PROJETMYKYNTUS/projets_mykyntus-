@@ -49,10 +49,40 @@ const routes: Routes = [
   {
     path: 'change-requests',
     canActivate: [AuthGuard],
-    data: { roles: ['Admin', 'RH'] },
+    data: {
+      roles: [
+        'Admin',
+        'RH',
+        'Superviseur',
+        'Manager',
+        'Référent technique',
+        'Coach',
+        'Chef de projet',
+        'RP',
+      ],
+    },
     loadComponent: () =>
       import('./pages/planning-change-requests/planning-change-requests.component')
         .then(m => m.PlanningChangeRequestsComponent),
+  },
+  {
+    path: 'exceptional-requests',
+    canActivate: [AuthGuard],
+    data: {
+      roles: [
+        'Admin',
+        'RH',
+        'Superviseur',
+        'Manager',
+        'Référent technique',
+        'Coach',
+        'Chef de projet',
+        'RP',
+      ],
+    },
+    loadComponent: () =>
+      import('./pages/planning-exceptional-requests/planning-exceptional-requests.component')
+        .then(m => m.PlanningExceptionalRequestsComponent),
   },
 ];
 

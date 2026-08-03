@@ -1,0 +1,29 @@
+<div class="floor-form" *ngIf="!loading; else loadingTpl">
+  <h2>{{ isEditMode ? 'Modifier l\'étage' : 'Nouvel étage' }}</h2>
+  <p class="error" *ngIf="error">{{ error }}</p>
+
+  <form [formGroup]="form" [kyntusFormDraft]="draftKey" (ngSubmit)="submit()">
+    <label>
+      Numéro
+      <input type="number" formControlName="floorNumber" />
+    </label>
+    <label>
+      Nom
+      <input type="text" formControlName="name" />
+    </label>
+    <label>
+      Description
+      <textarea formControlName="description" rows="3"></textarea>
+    </label>
+    <div class="actions">
+      <button type="button" (click)="goBack()">Annuler</button>
+      <button type="submit" [disabled]="submitting || form.invalid">
+        {{ submitting ? 'Enregistrement…' : 'Enregistrer' }}
+      </button>
+    </div>
+  </form>
+</div>
+
+<ng-template #loadingTpl>
+  <p>Chargement…</p>
+</ng-template>

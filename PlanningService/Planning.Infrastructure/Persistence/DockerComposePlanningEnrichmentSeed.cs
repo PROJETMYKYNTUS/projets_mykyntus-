@@ -195,7 +195,7 @@ internal static class DockerComposePlanningEnrichmentSeed
             WeekCode = week.WeekCode,
             RequesterUserId = employee.Id,
             CurrentAssignmentId = assignment.Id,
-            Status = PlanningChangeRequestStatus.Pending,
+            Status = PlanningChangeRequestStatus.PendingPartner,
             Reason = $"Ajustement créneau matin — {MarkerAction}",
             CreatedAt = DateTime.UtcNow.AddDays(-1),
         });

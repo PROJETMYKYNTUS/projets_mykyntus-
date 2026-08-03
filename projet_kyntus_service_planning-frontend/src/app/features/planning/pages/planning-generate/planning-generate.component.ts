@@ -1,12 +1,14 @@
 // features/planning/pages/planning-generator/planning-generator.component.ts
 
-import { Component, OnInit, ViewEncapsulation, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewEncapsulation, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
+import { KyntusFormDraftService } from '../../../../core/drafts/kyntus-form-draft.service';
+import { KyntusObjectDraftBinder } from '../../../../core/drafts/kyntus-object-draft.binder';
 import {
   PlanningService,
   WeeklyPlanningResponse
@@ -49,7 +51,15 @@ type SubServiceOption = {
   styleUrls: ['./planning-generate.component.css'],
   encapsulation: ViewEncapsulation.None
 })
-export class PlanningGenerateComponent implements OnInit {
+export class PlanningGenerateComponent implements OnInit, OnDestroy {
+  private readonly formDrafts = inject(KyntusFormDraftService);
+  private draftBinder?: KyntusObjectDraftBinder<{
+    subServiceId: number;
+    weekStartDate: string;
+    weekCode: string;
+    totalEffectif: number;
+  }>;
+
   readonly icons = {
     calendar: Calendar,
     chart: BarChart3,
@@ -98,7 +108,27 @@ export class PlanningGenerateComponent implements OnInit {
 
   ngOnInit(): void {
     this.initCurrentWeek();
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'planning-generate',
+      () => ({
+        subServiceId: this.subServiceId,
+        weekStartDate: this.weekStartDate,
+        weekCode: this.weekCode,
+        totalEffectif: this.totalEffectif,
+      }),
+      (s) => {
+        this.subServiceId = s.subServiceId ?? this.subServiceId;
+        this.weekStartDate = s.weekStartDate || this.weekStartDate;
+        this.weekCode = s.weekCode || this.weekCode;
+        this.totalEffectif = s.totalEffectif ?? this.totalEffectif;
+      },
+    );
     this.loadSubServices();
+  }
+
+  ngOnDestroy(): void {
+    this.draftBinder?.destroy();
   }
 
   initCurrentWeek(): void {
@@ -126,8 +156,11 @@ export class PlanningGenerateComponent implements OnInit {
         this.unassignedPoles = overview.unassignedPoles ?? [];
         this.legacyDepartments = departments?.length ? departments : (overview.departments ?? []);
         this.subServiceOptions = this.buildSubServiceOptions(subServices ?? []);
+        this.draftBinder?.start();
         if (this.subServiceOptions.length > 0) {
-          this.subServiceId = this.subServiceOptions[0].id;
+          if (!this.subServiceId || !this.subServiceOptions.some((s) => s.id === this.subServiceId)) {
+            this.subServiceId = this.subServiceOptions[0].id;
+          }
           this.onSubServiceChange();
         }
         this.cdr.detectChanges();
@@ -186,6 +219,7 @@ export class PlanningGenerateComponent implements OnInit {
     ) {
       this.totalEffectif = this.serviceEmployeeCount;
     }
+    this.draftBinder?.touch();
     this.loadPlannings();
   }
 
@@ -197,6 +231,7 @@ export class PlanningGenerateComponent implements OnInit {
     this.weekDateAdjusted = mondayStr !== this.weekStartDate;
     this.weekStartDate = mondayStr;
     this.weekCode = this.getWeekCode(monday);
+    this.draftBinder?.touch();
     this.cdr.detectChanges();
   }
 
@@ -207,6 +242,7 @@ export class PlanningGenerateComponent implements OnInit {
     if (this.totalEffectif < 1) {
       this.totalEffectif = 1;
     }
+    this.draftBinder?.touch();
   }
 
   get canGenerate(): boolean {
@@ -251,6 +287,7 @@ export class PlanningGenerateComponent implements OnInit {
         }).subscribe({
           next: result => {
             this.generating = false;
+            this.draftBinder?.clear();
             this.successMsg = `Planning ${result.weekCode} généré avec succès !`;
             this.loadPlannings();
             this.cdr.detectChanges();

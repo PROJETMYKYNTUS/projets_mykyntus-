@@ -141,11 +141,13 @@ export const MICROSERVICES: Microservice[] = [
     roles: ALL_ROLES,
     children: [
       { label: 'Mes plannings', route: '/mes-plannings', roles: PLANNING_SELF_SERVICE_ROLES },
-      { label: 'Demandes de changement', route: '/mes-plannings', roles: PLANNING_SELF_SERVICE_ROLES },
+      { label: 'Demandes de changement', route: '/mes-demandes-changement', roles: PLANNING_SELF_SERVICE_ROLES },
+      { label: 'Demandes exceptionnelles', route: '/mes-demandes-exceptionnelles', roles: PLANNING_SELF_SERVICE_ROLES },
       // Masqué temporairement — génération manuelle legacy (« Algorithme intelligent… »)
       // { label: 'Plannings', route: '/planning', roles: PLANNING_MANAGER_ROLES },
       { label: 'Validation plannings', route: '/planning/validation', roles: ['Admin', 'RH'] },
-      { label: 'Gestion des demandes', route: '/planning/change-requests', roles: ADMIN_RH },
+      { label: 'Gestion des demandes', route: '/planning/change-requests', roles: [...ADMIN_RH, 'Superviseur', 'Manager', 'Référent technique', 'Coach', 'Chef de projet', 'RP'] },
+      { label: 'Gestion demandes exceptionnelles', route: '/planning/exceptional-requests', roles: [...ADMIN_RH, 'Superviseur', 'Manager', 'Référent technique', 'Coach', 'Chef de projet', 'RP'] },
       { label: 'Planning Équipe', route: '/planning/equipe', roles: ['Manager', 'Coach', 'Référent technique', 'Superviseur'] },
       { label: 'Absences planning', route: '/absences-planning', roles: MANAGER_ROLES },
       { label: 'Configuration Shifts', route: '/planning/shift-config', roles: ADMIN_RH },

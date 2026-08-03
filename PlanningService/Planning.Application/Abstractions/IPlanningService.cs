@@ -57,7 +57,7 @@ public interface IPlanningService
     Task<DayAssignmentDto> OverrideSaturdayShiftAsync(OverrideSaturdayDto dto);
     Task SetSaturdayOffAsync(int weeklyPlanningId, int userId);
 
-    Task<IReadOnlyList<WeeklyPlanningResponseDto>> GetEquipePlanningsByAuthUserIdAsync(int authUserId);
+    Task<IReadOnlyList<EquipePlanningSummaryDto>> GetEquipePlanningsByAuthUserIdAsync(int authUserId);
 
     // -- Notifications --
     Task<IEnumerable<PlanningNotificationDto>> GetMyNotificationsAsync(int authUserId);

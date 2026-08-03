@@ -140,6 +140,7 @@ public class ImportExecutionJournalTests
         public Task<UserDto?> UpdateUserAsync(int id, UpdateUserDto dto) => throw new NotImplementedException();
         public Task<bool> DeleteUserAsync(int id) => throw new NotImplementedException();
         public Task SyncMissingAuthUsersAsync() => Task.CompletedTask;
+        public Task SyncUserRoleToAuthAsync(int userId, CancellationToken ct = default) => Task.CompletedTask;
         public Task<UserDto?> GetUserByAuthIdAsync(int authUserId) => Task.FromResult<UserDto?>(null);
         public Task<UserDto?> GetUserByEmailAsync(string email) => Task.FromResult<UserDto?>(null);
         public Task<UserDto?> GetOrLinkUserForAuthAsync(int authUserId, string? email) => Task.FromResult<UserDto?>(null);

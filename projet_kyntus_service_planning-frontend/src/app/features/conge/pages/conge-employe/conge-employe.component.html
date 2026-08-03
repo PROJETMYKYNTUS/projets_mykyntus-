@@ -87,7 +87,7 @@
         </div>
         <div class="ce-field" *ngIf="isExceptionnel()">
           <label>Événement</label>
-          <select class="ky-input" [(ngModel)]="form.typeExceptionnel">
+          <select class="ky-input" [(ngModel)]="form.typeExceptionnel" (ngModelChange)="touchDraft()">
             <option [ngValue]="null">-- Sélectionner --</option>
             <option *ngFor="let e of typesExceptionnels" [ngValue]="e.value">{{ e.label }}</option>
           </select>
@@ -96,16 +96,16 @@
         <div class="ce-row">
           <div class="ce-field">
             <label>Date début</label>
-            <input class="ky-input" type="date" [(ngModel)]="form.dateDebut" />
+            <input class="ky-input" type="date" [(ngModel)]="form.dateDebut" (ngModelChange)="touchDraft()" />
           </div>
           <div class="ce-field" *ngIf="isDateFinManuelle()">
             <label>Date fin</label>
-            <input class="ky-input" type="date" [(ngModel)]="form.dateFin" />
+            <input class="ky-input" type="date" [(ngModel)]="form.dateFin" (ngModelChange)="touchDraft()" />
           </div>
         </div>
         <div class="ce-field">
           <label>Motif <small>(optionnel)</small></label>
-          <textarea class="ky-input" [(ngModel)]="form.motif" rows="3" placeholder="Motif…"></textarea>
+          <textarea class="ky-input" [(ngModel)]="form.motif" (ngModelChange)="touchDraft()" rows="3" placeholder="Motif…"></textarea>
         </div>
         <div class="ce-info-solde" *ngIf="solde && form.typeConge === TypeConge.Annuel">
           Solde disponible : <strong>{{ solde.soldeRestant }} jours</strong>

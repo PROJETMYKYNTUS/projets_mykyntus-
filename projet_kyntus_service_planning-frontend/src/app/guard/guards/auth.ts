@@ -3,6 +3,7 @@ import { CanActivate, ActivatedRouteSnapshot, Router } from '@angular/router';
 import { KYNTUS_JWT_CLAIMS } from '../../core/session/kyntus-session.constants';
 import { clearStoredTokens, isJwtExpired, readStoredAccessToken, readStoredRefreshToken } from '../../core/session/kyntus-auth-token.util';
 import { redirectToAuthLogin } from '../../core/session/kyntus-auth-refresh.service';
+import { currentAppReturnUrl } from '../../core/session/kyntus-return-url.util';
 import { roleNamesMatch } from '../../core/org/org-role-assignment';
 
 @Injectable({ providedIn: 'root' })
@@ -15,14 +16,14 @@ export class AuthGuard implements CanActivate {
     if (!token && !refresh) {
       clearStoredTokens();
       localStorage.removeItem('user');
-      redirectToAuthLogin();
+      redirectToAuthLogin(currentAppReturnUrl() ?? undefined);
       return false;
     }
     // Access expiré : on laisse passer si un refresh existe (renouvellement via interceptor).
     if (token && isJwtExpired(token) && !refresh) {
       clearStoredTokens();
       localStorage.removeItem('user');
-      redirectToAuthLogin();
+      redirectToAuthLogin(currentAppReturnUrl() ?? undefined);
       return false;
     }
 

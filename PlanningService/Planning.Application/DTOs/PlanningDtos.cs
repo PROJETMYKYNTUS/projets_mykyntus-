@@ -67,6 +67,18 @@ public class WeeklyPlanningResponseDto
     public CoverageReportDto? CoverageReport { get; set; }
 }
 
+/// <summary>Liste légère pour Planning Équipe (superviseur) — sans grille ni coverage.</summary>
+public class EquipePlanningSummaryDto
+{
+    public int Id { get; set; }
+    public string WeekCode { get; set; } = string.Empty;
+    public DateOnly WeekStartDate { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public int SubServiceId { get; set; }
+    public string SubServiceName { get; set; } = string.Empty;
+    public int EmployeeCount { get; set; }
+}
+
 public class CoverageReportDto
 {
     public bool HasUnderstaffing { get; set; }
@@ -220,6 +232,8 @@ public class DayAssignmentDto
     public string StartTime { get; set; } = string.Empty;
     public bool IsSaturday { get; set; }
     public bool IsManagerOverride { get; set; }
+    /// <summary>True si le créneau vient d'une demande exceptionnelle appliquée.</summary>
+    public bool IsExceptionalRequest { get; set; }
     public string EndTime { get; set; } = string.Empty;
     public string? BreakTime { get; set; }
     public bool IsOnLeave { get; set; }

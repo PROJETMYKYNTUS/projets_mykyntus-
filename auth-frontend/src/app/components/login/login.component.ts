@@ -1,12 +1,27 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { KyntusThemeService } from '../../core/kyntus-theme.service';
 import { brandLogoSrc } from '../../core/brand-logo';
 import { KYNTUS_PUBLIC_URLS } from '../../config/kyntus-public-urls';
 import { ThemeToggleButtonComponent } from '../../core/theme-toggle-button.component';
+
+/** Accepte uniquement un chemin relatif SPA (anti open-redirect). */
+function sanitizeReturnUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let value = raw.trim();
+  if (!value) return null;
+  try {
+    value = decodeURIComponent(value);
+  } catch {
+    // déjà décodé
+  }
+  if (!value.startsWith('/') || value.startsWith('//')) return null;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) return null;
+  return value;
+}
 
 @Component({
   selector: 'app-login',
@@ -17,10 +32,13 @@ import { ThemeToggleButtonComponent } from '../../core/theme-toggle-button.compo
 })
 export class LoginComponent implements OnInit {
   readonly theme = inject(KyntusThemeService);
+  private readonly route = inject(ActivatedRoute);
   loginForm!: FormGroup;
   errorMessage: string = '';
   loading: boolean = false;
   showPassword: boolean = false;
+  /** Conservé hors localStorage (clear tokens ne l’efface pas). */
+  private returnUrl: string | null = null;
 
   /** Logo selon thème (page login entièrement claire en mode light) */
   get logoSrc(): string {
@@ -34,6 +52,8 @@ export class LoginComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.returnUrl = sanitizeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'));
+
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
@@ -102,8 +122,11 @@ export class LoginComponent implements OnInit {
   }));
 
   // Rediriger vers planning (encode : les refresh tokens Base64 peuvent contenir + / =)
-  window.location.href =
+  const callback =
     `${KYNTUS_PUBLIC_URLS.planningAuthCallback}?token=${encodeURIComponent(response.accessToken)}&refresh=${encodeURIComponent(response.refreshToken)}`;
+  window.location.href = this.returnUrl
+    ? `${callback}&returnUrl=${encodeURIComponent(this.returnUrl)}`
+    : callback;
 },
       error: (error: any) => {
         console.error('Erreur de connexion', error);

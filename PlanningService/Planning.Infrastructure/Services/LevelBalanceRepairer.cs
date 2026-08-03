@@ -112,7 +112,8 @@ public static class LevelBalanceRepairer
         List<ShiftAssignment> deficientGroup)
     {
         var beginner = deficientGroup.FirstOrDefault(a =>
-            LevelBalanceEvaluator.IsBeginner(usersById, a.UserId));
+            !a.IsManagerOverride
+            && LevelBalanceEvaluator.IsBeginner(usersById, a.UserId));
         if (beginner == null) return false;
 
         var donor = FindSwapDonor(assignments, usersById, configsById, date, deficientShiftId);
@@ -139,7 +140,10 @@ public static class LevelBalanceRepairer
 
         foreach (var g in WorkingByShift(assignments, date, deficientShiftId))
         {
-            var seniors = g.Where(a => LevelBalanceEvaluator.IsSenior(usersById, a.UserId)).ToList();
+            var seniors = g.Where(a =>
+                    !a.IsManagerOverride
+                    && LevelBalanceEvaluator.IsSenior(usersById, a.UserId))
+                .ToList();
             if (seniors.Count < 2) continue;
 
             var isStandard = configsById.TryGetValue(g.Key, out var cfg)
@@ -172,7 +176,10 @@ public static class LevelBalanceRepairer
 
         foreach (var g in WorkingByShift(assignments, date, deficientShiftId))
         {
-            var seniors = g.Where(a => LevelBalanceEvaluator.IsSenior(usersById, a.UserId)).ToList();
+            var seniors = g.Where(a =>
+                    !a.IsManagerOverride
+                    && LevelBalanceEvaluator.IsSenior(usersById, a.UserId))
+                .ToList();
             var beginners = g.Count(a => LevelBalanceEvaluator.IsBeginner(usersById, a.UserId));
 
             foreach (var senior in seniors)
@@ -211,7 +218,8 @@ public static class LevelBalanceRepairer
         List<ShiftAssignment> deficientGroup)
     {
         var beginner = deficientGroup.FirstOrDefault(a =>
-            LevelBalanceEvaluator.IsBeginner(usersById, a.UserId));
+            !a.IsManagerOverride
+            && LevelBalanceEvaluator.IsBeginner(usersById, a.UserId));
         if (beginner == null) return false;
 
         var middleTarget = PickMiddleTarget(assignments, shiftConfigs, date, deficientShiftId);
@@ -266,6 +274,7 @@ public static class LevelBalanceRepairer
                 && a.SubServiceShiftConfigId != null
                 && a.SubServiceShiftConfigId != excludeShiftId
                 && !a.IsOnLeave
-                && !a.IsHoliday)
+                && !a.IsHoliday
+                && !a.IsManagerOverride)
             .GroupBy(a => a.SubServiceShiftConfigId!.Value);
 }

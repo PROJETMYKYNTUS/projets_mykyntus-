@@ -5,23 +5,23 @@ namespace Planning.UnitTests;
 public class ChangeRequestDeadlineTests
 {
     [Fact]
-    public void EnsureCreationDeadline_allows_before_wednesday_of_planning_week()
+    public void EnsureCreationDeadline_allows_before_day_before_assignment()
     {
-        // Planning week starts Monday 2026-07-20 → deadline Wed 2026-07-22 23:59 Casablanca
-        var weekStart = new DateOnly(2026, 7, 20);
-        // Monday morning UTC of the planning week
-        var before = new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc);
-        PlanningChangeRequestService.EnsureCreationDeadline(weekStart, before);
+        // Jour concerné = mercredi 2026-07-22 → deadline mardi 2026-07-21 23:59 Casablanca
+        var assignmentDate = new DateOnly(2026, 7, 22);
+        var before = new DateTime(2026, 7, 21, 10, 0, 0, DateTimeKind.Utc);
+        PlanningChangeRequestService.EnsureCreationDeadline(assignmentDate, before);
     }
 
     [Fact]
-    public void EnsureCreationDeadline_blocks_after_wednesday_of_planning_week()
+    public void EnsureCreationDeadline_blocks_after_day_before_assignment()
     {
-        var weekStart = new DateOnly(2026, 7, 20);
-        // Thursday after Wednesday deadline
-        var after = new DateTime(2026, 7, 23, 12, 0, 0, DateTimeKind.Utc);
+        var assignmentDate = new DateOnly(2026, 7, 22);
+        // Mercredi matin = après la veille 23:59
+        var after = new DateTime(2026, 7, 22, 8, 0, 0, DateTimeKind.Utc);
         var ex = Assert.Throws<InvalidOperationException>(
-            () => PlanningChangeRequestService.EnsureCreationDeadline(weekStart, after));
+            () => PlanningChangeRequestService.EnsureCreationDeadline(assignmentDate, after));
         Assert.Contains("Délai dépassé", ex.Message);
+        Assert.Contains("veille", ex.Message);
     }
 }

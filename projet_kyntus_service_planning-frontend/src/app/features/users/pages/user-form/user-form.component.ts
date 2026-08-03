@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -8,6 +8,8 @@ import { retry, switchMap, map, catchError } from 'rxjs/operators';
 import { formatHttpErrorMessage } from '../../../../core/lib/http-error-message.util';
 import { copyTextToClipboard } from '../../../../core/lib/clipboard.util';
 import { resolveUserGuid } from '../../../../core/lib/user-guid.util';
+import { KyntusFormDraftService } from '../../../../core/drafts/kyntus-form-draft.service';
+import { KyntusObjectDraftBinder } from '../../../../core/drafts/kyntus-object-draft.binder';
 import { UserService } from '../../services/user.service';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
 import { ServiceService } from '../../../services/services/service';
@@ -146,7 +148,15 @@ type WizardStepId = 'identity' | 'position' | 'pathway' | 'finalize';
   templateUrl: './user-form.component.html',
   styleUrls: ['./user-form.component.css']
 })
-export class UserFormComponent implements OnInit {
+export class UserFormComponent implements OnInit, OnDestroy {
+  private readonly formDrafts = inject(KyntusFormDraftService);
+  private draftBinder?: KyntusObjectDraftBinder<{
+    form: UserFormComponent['form'];
+    hrProfile: UserFormComponent['hrProfile'];
+    contractDraft: ContractFieldsModel;
+    customFieldValues: Record<string, string>;
+  }>;
+
   readonly icons = { lock: LockKeyhole, search: Search, detect: Sparkles };
   isEditMode = false;
   userId: number | null = null;
@@ -381,7 +391,46 @@ export class UserFormComponent implements OnInit {
       this.isEditMode = true;
       this.userId = Number(id);
       this.loadUser(this.userId);
+    } else {
+      this.startFormDraft();
     }
+  }
+
+  ngOnDestroy(): void {
+    this.draftBinder?.destroy();
+  }
+
+  private draftKey(): string {
+    return this.isEditMode && this.userId
+      ? `user-form-edit-${this.userId}`
+      : 'user-form-create';
+  }
+
+  private startFormDraft(): void {
+    this.draftBinder?.destroy();
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      this.draftKey(),
+      () => ({
+        form: { ...this.form },
+        hrProfile: { ...this.hrProfile },
+        contractDraft: { ...this.contractDraft },
+        customFieldValues: { ...this.customFieldValues },
+      }),
+      (s) => {
+        if (s.form) this.form = { ...this.form, ...s.form };
+        if (s.hrProfile) this.hrProfile = { ...this.hrProfile, ...s.hrProfile };
+        if (s.contractDraft) this.contractDraft = { ...this.contractDraft, ...s.contractDraft };
+        if (s.customFieldValues) {
+          this.customFieldValues = { ...this.customFieldValues, ...s.customFieldValues };
+        }
+      },
+    );
+    this.draftBinder.start();
+  }
+
+  touchDraft(): void {
+    this.draftBinder?.touch();
   }
 
   private preloadHtelTechniciens(): void {
@@ -1315,6 +1364,7 @@ export class UserFormComponent implements OnInit {
   }
 
   onContractDraftChange(model: ContractFieldsModel): void {
+    this.touchDraft();
     this.contractDraft = model;
     this.cdr.detectChanges();
   }
@@ -2328,6 +2378,7 @@ export class UserFormComponent implements OnInit {
         if (this.operationalDepartments.length > 0 || this.unassignedPoles.length > 0) {
           this.reconcileOrgPickerAfterLoad();
         }
+        this.startFormDraft();
         this.loading = false;
         this.cdr.detectChanges();
       },
@@ -2891,7 +2942,10 @@ export class UserFormComponent implements OnInit {
         }),
         switchMap(() => this.saveContract$(this.userId!)),
       ).subscribe({
-        next: () => this.router.navigate(['/users', this.userId]),
+        next: () => {
+          this.draftBinder?.clear();
+          void this.router.navigate(['/users', this.userId]);
+        },
         error: (err) => {
           this.error = formatHttpErrorMessage(err, 'Échec de la mise à jour employé ou contrat.');
           this.submitting = false;
@@ -3001,6 +3055,7 @@ export class UserFormComponent implements OnInit {
           this.showCreatedPassword = false;
           this.createSuccessMessage = message;
           this.showCreateSuccess = true;
+          this.draftBinder?.clear();
           this.submitting = false;
           this.toastService.success(this.createSuccessMessage);
           this.cdr.detectChanges();

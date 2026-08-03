@@ -251,12 +251,14 @@ public static class ShiftDispersionSelector
 
             foreach (var a in dayGroup)
             {
+                if (a.IsManagerOverride) continue;
                 if (!NeedsRepair(a, assignments, prevDate, shiftConfigs.Count))
                     continue;
 
                 foreach (var b in dayGroup)
                 {
                     if (b.UserId == a.UserId) continue;
+                    if (b.IsManagerOverride) continue;
                     if (b.SubServiceShiftConfigId == a.SubServiceShiftConfigId) continue;
                     // Ne pas mélanger demi-journée débutant / journée pleine
                     if (a.IsHalfDaySaturday != b.IsHalfDaySaturday) continue;
@@ -306,6 +308,7 @@ public static class ShiftDispersionSelector
                     {
                         var a = dayGroup[i];
                         var b = dayGroup[j];
+                        if (a.IsManagerOverride || b.IsManagerOverride) continue;
                         if (a.SubServiceShiftConfigId == b.SubServiceShiftConfigId) continue;
                         if (a.IsHalfDaySaturday != b.IsHalfDaySaturday) continue;
 

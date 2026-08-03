@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import type { DocumentationRole } from '../interfaces/documentation-role';
@@ -8,6 +8,8 @@ import { AdminShellComponent } from '../components/admin-shell/admin-shell.compo
 import { AdminToggleComponent } from '../components/admin-toggle/admin-toggle.component';
 import { DocumentAdminService } from '../services/document-admin.service';
 import { DocumentationNavigationService } from '../services/documentation-navigation.service';
+import { KyntusFormDraftService } from '../../../core/drafts/kyntus-form-draft.service';
+import { KyntusObjectDraftBinder } from '../../../core/drafts/kyntus-object-draft.binder';
 
 function normalizeFileTypes(input: string): string[] {
   return input
@@ -22,8 +24,13 @@ function normalizeFileTypes(input: string): string[] {
   imports: [CommonModule, FormsModule, AdminShellComponent, AdminToggleComponent],
   templateUrl: './admin-config-page.component.html',
 })
-export class AdminConfigPageComponent implements OnInit {
+export class AdminConfigPageComponent implements OnInit, OnDestroy {
   readonly role$ = this.nav.role$;
+  private readonly formDrafts = inject(KyntusFormDraftService);
+  private draftBinder?: KyntusObjectDraftBinder<{
+    draft: AdminGeneralConfig;
+    allowedTypesText: string;
+  }>;
 
   loading = true;
   draft: AdminGeneralConfig | null = null;
@@ -41,10 +48,27 @@ export class AdminConfigPageComponent implements OnInit {
     void this.load();
   }
 
+  ngOnDestroy(): void {
+    this.draftBinder?.destroy();
+  }
+
   private async load(): Promise<void> {
     const cfg = await this.admin.getGeneralConfig();
     this.draft = cfg;
     this.allowedTypesText = cfg.allowedFileTypes.join(', ');
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'documentation-admin-config',
+      () => ({
+        draft: this.draft as AdminGeneralConfig,
+        allowedTypesText: this.allowedTypesText,
+      }),
+      (s) => {
+        if (s.draft) this.draft = { ...cfg, ...s.draft };
+        if (typeof s.allowedTypesText === 'string') this.allowedTypesText = s.allowedTypesText;
+      },
+    );
+    this.draftBinder.start();
     this.loading = false;
   }
 
@@ -87,6 +111,7 @@ export class AdminConfigPageComponent implements OnInit {
       };
       await this.admin.saveGeneralConfig(next);
       this.draft = next;
+      this.draftBinder?.clear();
       this.successMessage = 'Configuration sauvegardée.';
     } finally {
       this.saving = false;
@@ -113,11 +138,13 @@ export class AdminConfigPageComponent implements OnInit {
   patchDraft(partial: Partial<AdminGeneralConfig>): void {
     if (!this.draft) return;
     this.draft = { ...this.draft, ...partial };
+    this.draftBinder?.touch();
   }
 
   patchSecurity(partial: Partial<AdminGeneralConfig['security']>): void {
     if (!this.draft) return;
     this.draft = { ...this.draft, security: { ...this.draft.security, ...partial } };
+    this.draftBinder?.touch();
   }
 
   patchNotifications(partial: Partial<AdminGeneralConfig['notifications']>): void {

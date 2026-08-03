@@ -118,6 +118,20 @@ public class UserService : IUserService
         var orgCtx = await LoadOrgNameContextAsync();
         return ToDto(user, customByUser.GetValueOrDefault(user.Id), orgCtx, hrProfile);
     }
+    public async Task SyncUserRoleToAuthAsync(int userId, CancellationToken ct = default)
+    {
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (user is null)
+        {
+            _logger.LogWarning("SyncUserRoleToAuth: utilisateur Planning {UserId} introuvable", userId);
+            return;
+        }
+
+        await SyncToAuthServiceAsync(user);
+    }
+
     public async Task SyncMissingAuthUsersAsync()
     {
         var users = await _context.Users

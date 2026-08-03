@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -23,6 +23,8 @@ import {
   validateAllowanceAmount,
 } from '../../lib/allowance-status';
 import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
+import { KyntusFormDraftService } from '../../../../core/drafts/kyntus-form-draft.service';
+import { KyntusObjectDraftBinder } from '../../../../core/drafts/kyntus-object-draft.binder';
 
 type KpiFilter = 'pending' | 'validated' | 'rejected';
 interface AllowanceKpi {
@@ -157,11 +159,11 @@ interface AllowanceKpi {
       [period]="formPeriod"
       [amount]="formAmount"
       [reason]="formReason"
-      (employeeIdChange)="formEmployeeId = $event"
+      (employeeIdChange)="formEmployeeId = $event; touchDraft()"
       (typeIdChange)="onTypeIdChange($event)"
-      (periodChange)="formPeriod = $event"
-      (amountChange)="formAmount = $event"
-      (reasonChange)="formReason = $event"
+      (periodChange)="formPeriod = $event; touchDraft()"
+      (amountChange)="formAmount = $event; touchDraft()"
+      (reasonChange)="formReason = $event; touchDraft()"
       (submitted)="saveForm()"
       (cancelled)="closeForm()"
     />
@@ -368,12 +370,22 @@ interface AllowanceKpi {
     @keyframes allowance-spin { to { transform: rotate(360deg); } }
   `],
 })
-export class AllowancesRequestsPageComponent implements OnInit {
+export class AllowancesRequestsPageComponent implements OnInit, OnDestroy {
   private readonly api = inject(AllowanceApiService);
   private readonly dept = inject(DepartmentContextService);
   private readonly role = inject(RoleService);
   private readonly nav = inject(PrimeNavRequestService);
   private readonly toast = inject(KyntusToastService);
+  private readonly formDrafts = inject(KyntusFormDraftService);
+  private draftBinder?: KyntusObjectDraftBinder<{
+    showForm: boolean;
+    editingId: string | null;
+    formEmployeeId: string;
+    formTypeId: string;
+    formPeriod: string;
+    formAmount: number;
+    formReason: string;
+  }>;
 
   readonly loading = signal(true);
   readonly loadError = signal('');
@@ -441,7 +453,40 @@ export class AllowancesRequestsPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'allowance-request-form',
+      () => ({
+        showForm: this.showForm(),
+        editingId: this.editingId(),
+        formEmployeeId: this.formEmployeeId,
+        formTypeId: this.formTypeId,
+        formPeriod: this.formPeriod,
+        formAmount: this.formAmount,
+        formReason: this.formReason,
+      }),
+      (s) => {
+        if (typeof s.formEmployeeId === 'string') this.formEmployeeId = s.formEmployeeId;
+        if (typeof s.formTypeId === 'string') this.formTypeId = s.formTypeId;
+        if (typeof s.formPeriod === 'string') this.formPeriod = s.formPeriod;
+        if (typeof s.formAmount === 'number') this.formAmount = s.formAmount;
+        if (typeof s.formReason === 'string') this.formReason = s.formReason;
+        if (s.editingId) this.editingId.set(s.editingId);
+        if (s.showForm && (s.formReason || s.formEmployeeId || s.formTypeId)) {
+          this.showForm.set(true);
+        }
+      },
+    );
+    this.draftBinder.start();
     void this.load();
+  }
+
+  ngOnDestroy(): void {
+    this.draftBinder?.destroy();
+  }
+
+  touchDraft(): void {
+    this.draftBinder?.touch();
   }
 
   constructor() {
@@ -494,6 +539,7 @@ export class AllowancesRequestsPageComponent implements OnInit {
     if (t?.defaultAmount != null && !this.editingId()) {
       this.formAmount = t.defaultAmount;
     }
+    this.draftBinder?.touch();
   }
 
   openCreateForm(): void {
@@ -576,6 +622,7 @@ export class AllowancesRequestsPageComponent implements OnInit {
         });
         this.toast.success('Demande créée — soumettez-la au RH quand vous êtes prêt');
       }
+      this.draftBinder?.clear();
       this.closeForm();
       await this.reloadList();
     } catch (e: unknown) {

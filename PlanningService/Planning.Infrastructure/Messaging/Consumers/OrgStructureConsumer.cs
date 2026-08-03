@@ -1,13 +1,17 @@
 using Kyntus.Messaging.Contracts;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Planning.Application.Abstractions;
 using Planning.Infrastructure.Persistence;
 using Planning.Domain.Entities;
 using Planning.Infrastructure.Services;
 
 namespace Planning.Infrastructure.Messaging.Consumers;
 
-public sealed class OrgStructureConsumer(AppDbContext db, ILogger<OrgStructureConsumer> logger) :
+public sealed class OrgStructureConsumer(
+    AppDbContext db,
+    IUserService userService,
+    ILogger<OrgStructureConsumer> logger) :
     IConsumer<OrgNodeCreatedMessage>,
     IConsumer<OrgNodeRenamedMessage>,
     IConsumer<OrgAssignmentChangedMessage>
@@ -115,6 +119,8 @@ public sealed class OrgStructureConsumer(AppDbContext db, ILogger<OrgStructureCo
             msg.Kind,
             user.Id,
             roleName);
+
+        await userService.SyncUserRoleToAuthAsync(user.Id, context.CancellationToken);
     }
 
     private static string ResolveRoleName(OrgAssignmentChangedMessage msg)

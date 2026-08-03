@@ -135,3 +135,8 @@ body {
   font-family: var(--font-sans, 'Inter', ui-sans-serif, system-ui, sans-serif);
   transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+/* Locked while a body-portaled modal overlay is open (appBodyPortal). */
+body.ky-body-modal-open {
+  overflow: hidden;
+}

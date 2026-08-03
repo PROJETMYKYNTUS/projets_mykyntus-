@@ -17,11 +17,35 @@ import {
   SetSaturdayHistoryDto
 } from '../../services/planning.service';
 import { contractLevelLabel } from '../../../../core/hr/user-hr-display.util';
+import { BodyPortalDirective } from '../../../../shared/directives/body-portal.directive';
+
+/** Normalise une clé jour (EN technique ou FR affichage). */
+function normalizeDayKey(day: string | null | undefined): string {
+  return (day ?? '').trim().toLowerCase();
+}
+
+/** Alias EN/FR pour retrouver une affectation dans la grille. */
+function dayKeyAliases(day: string): Set<string> {
+  const groups = [
+    ['monday', 'lundi'],
+    ['tuesday', 'mardi'],
+    ['wednesday', 'mercredi'],
+    ['thursday', 'jeudi'],
+    ['friday', 'vendredi'],
+    ['saturday', 'samedi'],
+    ['sunday', 'dimanche'],
+  ];
+  const key = normalizeDayKey(day);
+  for (const g of groups) {
+    if (g.includes(key)) return new Set(g);
+  }
+  return new Set([key]);
+}
 
 @Component({
   selector: 'app-planning-view',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, BodyPortalDirective],
   templateUrl: './planning-view.component.html',
   styleUrls: ['./planning-view.component.css'],
   encapsulation: ViewEncapsulation.None
@@ -37,6 +61,11 @@ export class PlanningViewComponent implements OnInit {
   hasConsulted  = false;
   consulting    = false;
   canValidate   = false;
+  /** Édition grille (overrides, commentaires) — Admin/RH + brouillon uniquement. */
+  canEdit = false;
+  /** Provenance navigation (retour liste). */
+  fromSource: 'validation' | 'equipe' | 'other' = 'other';
+  readOnlyBanner = false;
   coverageOpen  = false;
   error         = '';
   successMsg    = '';
@@ -126,6 +155,11 @@ selectedHolidayShiftId      = 0;
     this.canValidate = role === 'Admin' || role === 'RH';
 
     const qp = this.route.snapshot.queryParamMap;
+    const from = (qp.get('from') || '').toLowerCase();
+    this.fromSource =
+      from === 'equipe' ? 'equipe' : from === 'validation' ? 'validation' : 'other';
+    this.readOnlyBanner = this.fromSource === 'equipe' || !this.canValidate;
+
     const ha = Number(qp.get('highlightAssignmentId'));
     const hu = Number(qp.get('highlightUserId'));
     const cr = Number(qp.get('changeRequestId'));
@@ -169,6 +203,7 @@ selectedHolidayShiftId      = 0;
       next: data => {
         this.planning = data;
         this.loading  = false;
+        this.canEdit = this.canValidate && data.status === 'Draft';
         this.buildShiftColorMap(data);
 
         if (data.subServiceId && data.weekCode) {
@@ -340,7 +375,8 @@ selectedHolidayShiftId      = 0;
   }
 
   daySynthesisFor(day: string) {
-    return this.planning?.coverageReport?.daySynthesis?.find(d => d.day === day) ?? null;
+    return this.planning?.coverageReport?.daySynthesis?.find(d =>
+      dayKeyAliases(day).has(normalizeDayKey(d.day))) ?? null;
   }
 
   get weekPerfKpis(): {
@@ -590,7 +626,8 @@ selectedHolidayShiftId      = 0;
   }
 
   getAssignment(employee: EmployeePlanning, day: string): DayAssignment | null {
-    return employee.days.find(d => d.day === day) ?? null;
+    const aliases = dayKeyAliases(day);
+    return employee.days.find(d => aliases.has(normalizeDayKey(d.day))) ?? null;
   }
 
   isHighlightedAssignment(a: DayAssignment | null): boolean {
@@ -643,6 +680,7 @@ selectedHolidayShiftId      = 0;
   // ── Override SHIFT (lun–ven) ──────────────────────
   openOverride(employee: EmployeePlanning, day: string, event: Event): void {
     event.stopPropagation();
+    if (!this.canEdit) return;
     if (day === 'Saturday') return;
     const assignment = this.getAssignment(employee, day);
     if (!assignment || assignment.isOnLeave) return;
@@ -683,6 +721,7 @@ selectedHolidayShiftId      = 0;
   // ── Override PAUSE ────────────────────────────────
   openBreakOverride(employee: EmployeePlanning, day: string, event: Event): void {
     event.stopPropagation();
+    if (!this.canEdit) return;
     const assignment = this.getAssignment(employee, day);
     if (!assignment || assignment.isOnLeave || !assignment.breakTime) return;
 
@@ -750,6 +789,7 @@ selectedHolidayShiftId      = 0;
   // ── Override SAMEDI ───────────────────────────────
   openSaturdayOverride(employee: EmployeePlanning, event: Event): void {
     event.stopPropagation();
+    if (!this.canEdit) return;
     if (!this.planning || this.planning.status !== 'Draft') return;
 
     const assignment = this.getAssignment(employee, 'Saturday');
@@ -866,6 +906,7 @@ selectedHolidayShiftId      = 0;
 // ── Override FÉRIÉ ─── (ajouter avec les autres méthodes)
 openHolidayOverride(employee: EmployeePlanning, day: string, event: Event): void {
   event.stopPropagation();
+  if (!this.canEdit) return;
   if (!this.planning || this.planning.status !== 'Draft') return;
 
   const assignment = this.getAssignment(employee, day);
@@ -932,6 +973,7 @@ confirmHolidayOverride(): void {
   // ── COMMENTAIRE ───────────────────────────────────
   openCommentModal(employee: EmployeePlanning, event: Event): void {
     event.stopPropagation();
+    if (!this.canEdit) return;
     this.commentEmployeeId   = employee.userId;
     this.commentEmployeeName = employee.fullName;
     this.commentText         = employee.managerComment ?? '';
@@ -987,7 +1029,7 @@ confirmHolidayOverride(): void {
 
   deleteComment(employee: EmployeePlanning, event: Event): void {
     event.stopPropagation();
-    if (!this.planning) return;
+    if (!this.canEdit || !this.planning) return;
     if (!confirm(`Supprimer le commentaire pour ${employee.fullName} ?`)) return;
 
     this.planningService.deleteComment(this.planning.id, employee.userId)
@@ -1018,7 +1060,7 @@ confirmHolidayOverride(): void {
   // ── Navigation ────────────────────────────────────
   goBack(): void { this.goBackToWeekList(); }
 
-  /** Retour à la liste des plannings de la semaine (validation). */
+  /** Retour à la liste selon la provenance (validation RH ou Planning Équipe). */
   goBackToWeekList(): void {
     const qp = this.route.snapshot.queryParamMap;
     const weekCode =
@@ -1027,6 +1069,11 @@ confirmHolidayOverride(): void {
       undefined;
     const weekStartRaw = this.planning?.weekStartDate;
     const weekStart = weekStartRaw ? weekStartRaw.split('T')[0] : undefined;
+
+    if (this.fromSource === 'equipe') {
+      void this.router.navigate(['/planning/equipe']);
+      return;
+    }
 
     void this.router.navigate(['/planning/validation'], {
       queryParams: {

@@ -236,6 +236,7 @@
               <input
                 type="number"
                 [(ngModel)]="minPresencePercent"
+                (ngModelChange)="touchDraft()"
                 min="50"
                 max="100"
                 class="ky-input input-presence" />
@@ -285,7 +286,7 @@
                 <tr *ngFor="let shift of shifts; let i = index" class="shift-row">
                   <td class="td-order">{{ i + 1 }}</td>
                   <td class="td-label">
-                    <input type="text" [(ngModel)]="shift.label" placeholder="Ex: Matin" class="ky-input input-label" />
+                    <input type="text" [(ngModel)]="shift.label" (ngModelChange)="touchDraft()" placeholder="Ex: Matin" class="ky-input input-label" />
                   </td>
                   <td class="td-start">
                     <select

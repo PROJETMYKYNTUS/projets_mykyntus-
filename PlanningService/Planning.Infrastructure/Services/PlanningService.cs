@@ -479,6 +479,10 @@ public class PlanningService : IPlanningService
             cumulative++;
         }
 
+        // Demandes exceptionnelles Approved → pin (userId, date) → snapshot shift
+        var exceptionalPins = await LoadExceptionalShiftPinsAsync(
+            weekCode, planning.SubServiceId, orderedShifts);
+
         // ------------------------------------------------
         // GÉNÉRATION Lun → Ven (dispersion max2 + non-consécutif)
         // ------------------------------------------------
@@ -543,20 +547,32 @@ public class PlanningService : IPlanningService
 
             foreach (var emp in availableEmployees)
             {
-                var startIdx = employeeStartShiftIndex.ContainsKey(emp.Id)
-                    ? employeeStartShiftIndex[emp.Id]
-                    : 0;
+                SubServiceShiftConfig finalShift;
+                var isPinned = exceptionalPins.TryGetValue((emp.Id, date), out var pinnedShift)
+                               && pinnedShift != null;
 
-                var selected = ShiftDispersionSelector.Select(
-                    orderedShifts,
-                    startIdx,
-                    dayIdx,
-                    emp.Id,
-                    weekShiftHistoryByUser,
-                    shiftCountToday,
-                    usersByIdForSelect);
+                if (isPinned)
+                {
+                    finalShift = pinnedShift!;
+                }
+                else
+                {
+                    var startIdx = employeeStartShiftIndex.ContainsKey(emp.Id)
+                        ? employeeStartShiftIndex[emp.Id]
+                        : 0;
 
-                var finalShift = selected.Shift;
+                    var selected = ShiftDispersionSelector.Select(
+                        orderedShifts,
+                        startIdx,
+                        dayIdx,
+                        emp.Id,
+                        weekShiftHistoryByUser,
+                        shiftCountToday,
+                        usersByIdForSelect);
+
+                    finalShift = selected.Shift;
+                }
+
                 shiftCountToday[finalShift.Id] = shiftCountToday.GetValueOrDefault(finalShift.Id, 0) + 1;
 
                 if (!weekShiftHistoryByUser.TryGetValue(emp.Id, out var hist))
@@ -576,7 +592,9 @@ public class PlanningService : IPlanningService
                     IsSaturday = false,
                     IsOnLeave = false,
                     IsHoliday = false,
-                    IsNewEmployee = IsBeginnerLevel(emp)
+                    IsNewEmployee = IsBeginnerLevel(emp),
+                    IsManagerOverride = isPinned,
+                    IsExceptionalRequest = isPinned
                 });
             }
 
@@ -638,6 +656,33 @@ public class PlanningService : IPlanningService
                         IsHoliday = false,
                         IsNewEmployee = IsBeginnerLevel(employee)
                     });
+                }
+                else if (exceptionalPins.TryGetValue((employee.Id, saturdayDate), out var satPinned)
+                         && satPinned != null)
+                {
+                    assignments.Add(new ShiftAssignment
+                    {
+                        WeeklyPlanningId = planning.Id,
+                        UserId = employee.Id,
+                        SubServiceShiftConfigId = satPinned.Id,
+                        AssignedDate = saturdayDate,
+                        DayOfWeek = DayOfWeekEnum.Saturday,
+                        IsSaturday = true,
+                        IsOnLeave = false,
+                        IsHoliday = false,
+                        IsNewEmployee = IsBeginnerLevel(employee),
+                        IsManagerOverride = true,
+                        IsExceptionalRequest = true
+                    });
+                    saturdayWorkers.Add(employee.Id);
+                    saturdayShiftCountToday[satPinned.Id] =
+                        saturdayShiftCountToday.GetValueOrDefault(satPinned.Id, 0) + 1;
+                    if (!weekShiftHistoryByUser.TryGetValue(employee.Id, out var hist))
+                    {
+                        hist = new List<int>();
+                        weekShiftHistoryByUser[employee.Id] = hist;
+                    }
+                    hist.Add(satPinned.Id);
                 }
                 else
                 {
@@ -1048,24 +1093,11 @@ public class PlanningService : IPlanningService
     }
     public async Task<MyPlanningDto?> GetMyCurrentPlanningAsync(int userId)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        Console.WriteLine($"TODAY: {today}, userId: {userId}");
+        // Semaine calendaire courante (Casablanca), pas le dernier planning généré par RH.
+        var today = GetCasablancaToday();
 
-        // Test 1 : tous les plannings publi�s
-        var allPublished = await _context.WeeklyPlannings
-            .Where(p => p.Status == PlanningStatus.Published)
-            .ToListAsync();
-        Console.WriteLine($"Plannings publi�s: {allPublished.Count}");
-        foreach (var p in allPublished)
-            Console.WriteLine($"  -> Id={p.Id} WeekCode={p.WeekCode} WeekStart={p.WeekStartDate}");
-
-        // Test 2 : assignments pour cet userId
-        var assignments = await _context.ShiftAssignments
-            .Where(a => a.UserId == userId)
-            .ToListAsync();
-        Console.WriteLine($"Assignments pour userId={userId}: {assignments.Count}");
-
-        var planning = await _context.WeeklyPlannings
+        // Chercher parmi les plannings publiés proches (pas seulement le dernier généré).
+        var candidates = await _context.WeeklyPlannings
             .Include(p => p.SubService)
             .Include(p => p.ShiftAssignments)
                 .ThenInclude(a => a.Shift)
@@ -1074,11 +1106,23 @@ public class PlanningService : IPlanningService
             .Where(p => p.Status == PlanningStatus.Published
                      && p.ShiftAssignments.Any(a => a.UserId == userId))
             .OrderByDescending(p => p.WeekStartDate)
-            .FirstOrDefaultAsync();
+            .Take(20)
+            .ToListAsync();
 
-        Console.WriteLine($"Planning trouv�: {planning?.Id.ToString() ?? "NULL"}");
+        var planning = candidates.FirstOrDefault(p =>
+        {
+            var end = p.WeekStartDate.AddDays(6);
+            return today >= p.WeekStartDate && today <= end;
+        });
+
+        // Fallback : affectation datée aujourd'hui
+        planning ??= candidates.FirstOrDefault(p =>
+            p.ShiftAssignments.Any(a => a.UserId == userId && a.AssignedDate == today));
 
         if (planning == null) return null;
+
+        var exceptionalApplied = await LoadExceptionalAppliedKeysAsync(
+            planning.WeekCode, planning.SubServiceId);
 
         return new MyPlanningDto
         {
@@ -1088,7 +1132,7 @@ public class PlanningService : IPlanningService
             Days = planning.ShiftAssignments
                 .Where(a => a.UserId == userId)
                 .OrderBy(a => a.AssignedDate)
-                .Select(a => MapToDayDtoNew(a))
+                .Select(a => MapToDayDtoNew(a, null, exceptionalApplied))
                 .ToList()
         };
     }
@@ -1323,6 +1367,9 @@ public class PlanningService : IPlanningService
 
         if (planning == null) return null;
 
+        var exceptionalApplied = await LoadExceptionalAppliedKeysAsync(
+            planning.WeekCode, planning.SubServiceId);
+
         return new MyPlanningDto
         {
             WeekCode = planning.WeekCode,
@@ -1331,7 +1378,7 @@ public class PlanningService : IPlanningService
             Days = planning.ShiftAssignments
                 .Where(a => a.UserId == userId)
                 .OrderBy(a => a.AssignedDate)
-                .Select(a => MapToDayDtoNew(a))
+                .Select(a => MapToDayDtoNew(a, null, exceptionalApplied))
                 .ToList()
         };
     }
@@ -1347,19 +1394,25 @@ public class PlanningService : IPlanningService
             .Where(p => p.ShiftAssignments.Any(a => a.UserId == userId) &&
                         p.Status == PlanningStatus.Published)
             .OrderByDescending(p => p.WeekStartDate)
-            .Take(10)
+            .Take(52)
             .ToListAsync();
 
-        return plannings.Select(p => new MyPlanningDto
+        var result = new List<MyPlanningDto>();
+        foreach (var p in plannings)
         {
-            WeekCode = p.WeekCode,
-            WeekStartDate = p.WeekStartDate,
-            SubServiceName = p.SubService.Name,
-            Days = p.ShiftAssignments
-                .OrderBy(a => a.AssignedDate)
-                .Select(a => MapToDayDtoNew(a))
-                .ToList()
-        });
+            var exceptionalApplied = await LoadExceptionalAppliedKeysAsync(p.WeekCode, p.SubServiceId);
+            result.Add(new MyPlanningDto
+            {
+                WeekCode = p.WeekCode,
+                WeekStartDate = p.WeekStartDate,
+                SubServiceName = p.SubService.Name,
+                Days = p.ShiftAssignments
+                    .OrderBy(a => a.AssignedDate)
+                    .Select(a => MapToDayDtoNew(a, null, exceptionalApplied))
+                    .ToList()
+            });
+        }
+        return result;
     }
 
     // ----------------------------------------------------
@@ -1447,6 +1500,8 @@ public class PlanningService : IPlanningService
     public async Task<WeeklyPlanningResponseDto?> GetPlanningByIdAsync(int id)
     {
         var planning = await _context.WeeklyPlannings
+            .AsNoTracking()
+            .AsSplitQuery()
             .Include(p => p.SubService)
             .Include(p => p.WeeklyShiftConfigs).ThenInclude(c => c.Shift)
             .Include(p => p.ShiftAssignments).ThenInclude(a => a.Shift)
@@ -1514,6 +1569,9 @@ public class PlanningService : IPlanningService
             .ToDictionary(g => g.Key, g => g.First()!);
         var coverage = BuildCoverageReport(planning, subConfigs, usersForCoverage);
 
+        var exceptionalApplied = await LoadExceptionalAppliedKeysAsync(
+            planning.WeekCode, planning.SubServiceId);
+
         return new WeeklyPlanningResponseDto
         {
             Id = planning.Id,
@@ -1536,7 +1594,7 @@ public class PlanningService : IPlanningService
                     Level = g.First().User.Level,
                     ManagerComment = comments.FirstOrDefault(c => c.UserId == g.Key)?.Comment,
                     Days = g.OrderBy(a => a.AssignedDate)
-                             .Select(a => MapToDayDtoNew(a, conges))
+                             .Select(a => MapToDayDtoNew(a, conges, exceptionalApplied))
                              .ToList()
                 }).ToList()
         };
@@ -1834,6 +1892,62 @@ public class PlanningService : IPlanningService
         var c1 = counts.GetValueOrDefault(1, 0);
         var c2 = counts.GetValueOrDefault(2, 0);
         return c1 <= c2 ? 1 : 2;
+    }
+
+    /// <summary>
+    /// Clés (userId, date) des demandes exceptionnelles Approved — pour tag DE à l'affichage.
+    /// </summary>
+    private async Task<HashSet<(int UserId, DateOnly Date)>> LoadExceptionalAppliedKeysAsync(
+        string weekCode,
+        int subServiceId)
+    {
+        var rows = await _context.PlanningExceptionalRequests
+            .AsNoTracking()
+            .Where(r =>
+                r.WeekCode == weekCode
+                && r.SubServiceId == subServiceId
+                && r.Status == PlanningExceptionalRequestStatus.Approved)
+            .Select(r => new { r.RequesterUserId, r.RequestedDate })
+            .ToListAsync();
+
+        return rows.Select(r => (r.RequesterUserId, r.RequestedDate)).ToHashSet();
+    }
+
+    /// <summary>
+    /// Charge les demandes exceptionnelles Approved et résout template → snapshot semaine.
+    /// </summary>
+    private async Task<Dictionary<(int UserId, DateOnly Date), SubServiceShiftConfig?>> LoadExceptionalShiftPinsAsync(
+        string weekCode,
+        int subServiceId,
+        List<SubServiceShiftConfig> weekSnapshots)
+    {
+        var result = new Dictionary<(int UserId, DateOnly Date), SubServiceShiftConfig?>();
+
+        var approved = await _context.PlanningExceptionalRequests
+            .AsNoTracking()
+            .Include(r => r.RequestedShiftTemplate)
+            .Where(r =>
+                r.WeekCode == weekCode
+                && r.SubServiceId == subServiceId
+                && r.Status == PlanningExceptionalRequestStatus.Approved)
+            .ToListAsync();
+
+        if (approved.Count == 0)
+            return result;
+
+        foreach (var req in approved)
+        {
+            var template = req.RequestedShiftTemplate;
+            var snapshot = weekSnapshots.FirstOrDefault(s =>
+                                s.StartTime == template.StartTime
+                                && string.Equals(s.Label, template.Label, StringComparison.OrdinalIgnoreCase))
+                           ?? weekSnapshots.FirstOrDefault(s => s.StartTime == template.StartTime)
+                           ?? weekSnapshots.FirstOrDefault(s => s.DisplayOrder == template.DisplayOrder);
+
+            result[(req.RequesterUserId, req.RequestedDate)] = snapshot;
+        }
+
+        return result;
     }
 
     private static bool IsBeginnerLevel(User employee) => employee.Level == 1;
@@ -2608,7 +2722,8 @@ public class PlanningService : IPlanningService
 
     private static DayAssignmentDto MapToDayDtoNew(
      ShiftAssignment a,
-     List<Conge>? conges = null) // ? param�tre optionnel
+     List<Conge>? conges = null,
+     HashSet<(int UserId, DateOnly Date)>? exceptionalApplied = null)
     {
         var label = a.IsHoliday ? "F�RI�"
                   : a.IsOnLeave ? "CONG�"
@@ -2633,6 +2748,13 @@ public class PlanningService : IPlanningService
             absenceType = conge?.AbsenceType.ToString();
         }
 
+        var isExceptional = a.IsExceptionalRequest
+            || (exceptionalApplied != null
+                && !a.IsOnLeave
+                && !a.IsHoliday
+                && a.SubServiceShiftConfigId != null
+                && exceptionalApplied.Contains((a.UserId, a.AssignedDate)));
+
         return new DayAssignmentDto
         {
             AssignmentId = a.Id,
@@ -2643,6 +2765,7 @@ public class PlanningService : IPlanningService
             EndTime = endTime,
             IsSaturday = a.IsSaturday,
             IsManagerOverride = a.IsManagerOverride,
+            IsExceptionalRequest = isExceptional,
             BreakTime = a.BreakTime?.ToString("HH:mm"),
             IsOnLeave = a.IsOnLeave,
             AbsenceType = absenceType, // ? NOUVEAU
@@ -2874,12 +2997,23 @@ public class PlanningService : IPlanningService
             (DayOfWeekEnum.Friday,    weekStart.AddDays(4)),
         };
 
-    public async Task<IReadOnlyList<WeeklyPlanningResponseDto>> GetEquipePlanningsByAuthUserIdAsync(int authUserId)
+    public async Task<IReadOnlyList<EquipePlanningSummaryDto>> GetEquipePlanningsByAuthUserIdAsync(int authUserId)
     {
+        // Prefer AuthUserId; fall back to planning User.Id (legacy session id).
         var manager = await _context.Users
+            .AsNoTracking()
             .Include(u => u.ManagedSubServices)
             .Include(u => u.ManagedServices)
             .FirstOrDefaultAsync(u => u.AuthUserId == authUserId);
+
+        if (manager is null)
+        {
+            manager = await _context.Users
+                .AsNoTracking()
+                .Include(u => u.ManagedSubServices)
+                .Include(u => u.ManagedServices)
+                .FirstOrDefaultAsync(u => u.Id == authUserId);
+        }
 
         if (manager is null)
             return [];
@@ -2893,6 +3027,7 @@ public class PlanningService : IPlanningService
             .ToList();
 
         var subServicesFromServices = await _context.SubServices
+            .AsNoTracking()
             .Where(ss => serviceIds.Contains(ss.ServiceId))
             .Select(ss => ss.Id)
             .ToListAsync();
@@ -2902,26 +3037,31 @@ public class PlanningService : IPlanningService
             .Distinct()
             .ToList();
 
+        // Fallback: own cellule when no managed perimeter is linked yet.
+        if (subServiceIds.Count == 0 && manager.SubServiceId is int ownSub && ownSub > 0)
+            subServiceIds.Add(ownSub);
+
         if (subServiceIds.Count == 0)
             return [];
 
-        var planningIds = await _context.WeeklyPlannings
+        // One light query — no GetPlanningByIdAsync / coverage / timelines.
+        return await _context.WeeklyPlannings
+            .AsNoTracking()
             .Where(p => subServiceIds.Contains(p.SubServiceId)
                         && p.Status == PlanningStatus.Published)
             .OrderByDescending(p => p.WeekStartDate)
             .Take(10)
-            .Select(p => p.Id)
+            .Select(p => new EquipePlanningSummaryDto
+            {
+                Id = p.Id,
+                WeekCode = p.WeekCode,
+                WeekStartDate = p.WeekStartDate,
+                Status = p.Status.ToString(),
+                SubServiceId = p.SubServiceId,
+                SubServiceName = p.SubService != null ? p.SubService.Name : string.Empty,
+                EmployeeCount = p.ShiftAssignments.Select(a => a.UserId).Distinct().Count()
+            })
             .ToListAsync();
-
-        var result = new List<WeeklyPlanningResponseDto>();
-        foreach (var id in planningIds)
-        {
-            var dto = await GetPlanningByIdAsync(id);
-            if (dto is not null)
-                result.Add(dto);
-        }
-
-        return result;
     }
 
     // ----------------------------------------------------
@@ -3168,5 +3308,28 @@ public class PlanningService : IPlanningService
         var week = int.Parse(parts[1].Replace("W", "", StringComparison.OrdinalIgnoreCase));
         return DateOnly.FromDateTime(System.Globalization.ISOWeek.ToDateTime(year, week, DayOfWeek.Monday));
     }
+
+    private static DateOnly GetCasablancaToday()
+    {
+        TimeZoneInfo tz;
+        try
+        {
+            tz = TimeZoneInfo.FindSystemTimeZoneById("Africa/Casablanca");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            try
+            {
+                tz = TimeZoneInfo.FindSystemTimeZoneById("Morocco Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                tz = TimeZoneInfo.Utc;
+            }
+        }
+
+        return DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz));
+    }
+
 
 }

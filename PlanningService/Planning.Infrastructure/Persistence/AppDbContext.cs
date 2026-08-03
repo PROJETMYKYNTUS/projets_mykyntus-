@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
     public DbSet<PlanningConsultation> PlanningConsultations { get; set; } = null!;
     public DbSet<PlanningAutoGenerateSettings> PlanningAutoGenerateSettings { get; set; } = null!;
     public DbSet<PlanningChangeRequest> PlanningChangeRequests { get; set; } = null!;
+    public DbSet<PlanningExceptionalRequest> PlanningExceptionalRequests { get; set; } = null!;
     public DbSet<Reclamation> Reclamations { get; set; } = null!;
     public DbSet<ReclamationHistorique> ReclamationHistoriques { get; set; } = null!;
     public DbSet<Proposition> Propositions { get; set; } = null!;
@@ -265,6 +266,49 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.ProposedSwapUser)
                 .WithMany()
                 .HasForeignKey(e => e.ProposedSwapUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.ProcessedBy)
+                .WithMany()
+                .HasForeignKey(e => e.ProcessedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.SupervisorProcessedBy)
+                .WithMany()
+                .HasForeignKey(e => e.SupervisorProcessedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<PlanningExceptionalRequest>(entity =>
+        {
+            entity.Property(e => e.WeekCode).IsRequired().HasMaxLength(16);
+            entity.Property(e => e.Reason).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.RejectionReason).HasMaxLength(1000);
+            entity.Property(e => e.JustificationFileName).HasMaxLength(260);
+            entity.Property(e => e.JustificationContentType).HasMaxLength(128);
+            entity.Property(e => e.Status).HasConversion<int>();
+            entity.HasIndex(e => new { e.WeekCode, e.SubServiceId, e.Status });
+            entity.HasIndex(e => new { e.RequesterUserId, e.CreatedAt });
+            entity.HasIndex(e => new { e.RequesterUserId, e.RequestedDate })
+                .IsUnique()
+                .HasFilter("\"Status\" IN (0, 1, 2)");
+            entity.HasOne(e => e.Requester)
+                .WithMany()
+                .HasForeignKey(e => e.RequesterUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.SubService)
+                .WithMany()
+                .HasForeignKey(e => e.SubServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.RequestedShiftTemplate)
+                .WithMany()
+                .HasForeignKey(e => e.RequestedShiftTemplateId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.SupervisorProcessedBy)
+                .WithMany()
+                .HasForeignKey(e => e.SupervisorProcessedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.RhProcessedBy)
+                .WithMany()
+                .HasForeignKey(e => e.RhProcessedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
             entity.HasOne(e => e.ProcessedBy)
                 .WithMany()

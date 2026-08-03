@@ -36,14 +36,8 @@ public class PlanningController(IPlanningService planningService, IUserService u
     [HttpGet("equipe")]
     public async Task<IActionResult> GetEquipePlannings([FromQuery] int authUserId)
     {
+        // Always 200: empty list = no published plannings / no perimeter (not a missing route).
         var result = await _planningService.GetEquipePlanningsByAuthUserIdAsync(authUserId);
-        if (result.Count == 0)
-        {
-            var manager = await _userService.GetUserByAuthIdAsync(authUserId);
-            if (manager is null)
-                return NotFound();
-        }
-
         return Ok(result);
     }
 
@@ -306,8 +300,9 @@ public class PlanningController(IPlanningService planningService, IUserService u
         if (user is null)
             return NotFound(new { message = "Utilisateur introuvable." });
 
+        // Pas de planning publié cette semaine ≠ erreur : 204 pour éviter un 404 bruyant côté UI.
         var result = await _planningService.GetMyCurrentPlanningAsync(user.Id);
-        return result == null ? NotFound() : Ok(result);
+        return result == null ? NoContent() : Ok(result);
     }
 
     [HttpGet("my/history")]

@@ -1,12 +1,16 @@
 using Kyntus.Messaging.Contracts;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Planning.Application.Abstractions;
 using Planning.Infrastructure.Persistence;
 using Planning.Domain.Entities;
 
 namespace Planning.Infrastructure.Messaging.Consumers;
 
-public sealed class DirectoryEmployeeProjectionConsumer(AppDbContext db) :
+public sealed class DirectoryEmployeeProjectionConsumer(
+    AppDbContext db,
+    IUserService userService,
+    ILogger<DirectoryEmployeeProjectionConsumer> logger) :
     IConsumer<DirectoryEmployeeChangedMessage>
 {
     public async Task Consume(ConsumeContext<DirectoryEmployeeChangedMessage> context)
@@ -37,6 +41,9 @@ public sealed class DirectoryEmployeeProjectionConsumer(AppDbContext db) :
         if (role is null)
             role = await db.Roles.FirstOrDefaultAsync(r => r.Name == "Employee", context.CancellationToken);
 
+        var roleChanged = false;
+        var isNew = false;
+
         if (user is null)
         {
             if (role is null) return;
@@ -66,6 +73,8 @@ public sealed class DirectoryEmployeeProjectionConsumer(AppDbContext db) :
                 user.SubServiceId = null;
             }
             db.Users.Add(user);
+            isNew = true;
+            roleChanged = true;
         }
         else
         {
@@ -76,8 +85,16 @@ public sealed class DirectoryEmployeeProjectionConsumer(AppDbContext db) :
             user.IsActive = msg.IsActive;
             user.IdTechnicien = msg.IdTechnicien;
             user.HtelCode = msg.HtelCode;
-            if (role is not null && !IsStructureRole(user.Role?.Name))
-                user.RoleId = role.Id;
+            // Promotions structurelles toujours appliquées ; ne pas écraser un rôle structure
+            // par un message non structurel (évite les régressions Employee/Pilote).
+            if (role is not null && (IsStructureRole(role.Name) || !IsStructureRole(user.Role?.Name)))
+            {
+                if (user.RoleId != role.Id)
+                {
+                    user.RoleId = role.Id;
+                    roleChanged = true;
+                }
+            }
             if (!string.IsNullOrWhiteSpace(msg.ServiceId))
             {
                 var sub = await db.SubServices.FirstOrDefaultAsync(
@@ -95,6 +112,16 @@ public sealed class DirectoryEmployeeProjectionConsumer(AppDbContext db) :
 
         await SyncManagerIdsAsync(user, msg.ChefDeProjetId, msg.SuperviseurId, msg.ReferentTechniqueId, context.CancellationToken);
         await db.SaveChangesAsync(context.CancellationToken);
+
+        if (roleChanged || isNew)
+        {
+            await userService.SyncUserRoleToAuthAsync(user.Id, context.CancellationToken);
+            logger.LogInformation(
+                "Directory employee {Email} projeté → Auth sync (new={IsNew}, roleChanged={RoleChanged})",
+                user.Email,
+                isNew,
+                roleChanged);
+        }
     }
 
     private async Task SyncManagerIdsAsync(

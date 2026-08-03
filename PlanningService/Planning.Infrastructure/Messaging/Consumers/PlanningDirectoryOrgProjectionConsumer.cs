@@ -1,6 +1,7 @@
 using Kyntus.Messaging.Contracts;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Planning.Application.Abstractions;
 using Planning.Infrastructure.Persistence;
 using Planning.Domain.Entities;
 using Planning.Infrastructure.Services;
@@ -10,6 +11,7 @@ namespace Planning.Infrastructure.Messaging.Consumers;
 /// <summary>Projection org canonique Directory → miroir Planning (Floor/Service/SubService).</summary>
 public sealed class PlanningDirectoryOrgProjectionConsumer(
     AppDbContext db,
+    IUserService userService,
     ILogger<PlanningDirectoryOrgProjectionConsumer> logger) :
     IConsumer<DirectoryOrgNodeChangedMessage>,
     IConsumer<DirectoryAssignmentChangedMessage>
@@ -116,6 +118,9 @@ public sealed class PlanningDirectoryOrgProjectionConsumer(
 
         await db.SaveChangesAsync(context.CancellationToken);
         logger.LogInformation("Planning Directory assignment {Kind} applied to user {UserId}", msg.Kind, user.Id);
+
+        // Toujours pousser Auth : corrige aussi les désync JWT (rôle Planning déjà à jour).
+        await userService.SyncUserRoleToAuthAsync(user.Id, context.CancellationToken);
     }
 
     private async Task HandleRemovalAsync(DirectoryAssignmentChangedMessage msg, CancellationToken ct)

@@ -1,8 +1,10 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
+import { KyntusFormDraftService } from '../../../../core/drafts/kyntus-form-draft.service';
+import { KyntusObjectDraftBinder } from '../../../../core/drafts/kyntus-object-draft.binder';
 import {
   PlanningService,
   ShiftConfigItem,
@@ -54,7 +56,15 @@ type SubServiceOption = {
   templateUrl: './shift-config.component.html',
   styleUrls: ['./shift-config.component.css'],
 })
-export class ShiftConfigComponent implements OnInit {
+export class ShiftConfigComponent implements OnInit, OnDestroy {
+  private readonly formDrafts = inject(KyntusFormDraftService);
+  private draftBinder?: KyntusObjectDraftBinder<{
+    subServiceId: number;
+    isCriticalCell: boolean;
+    minPresencePercent: number;
+    shifts: ShiftConfigItem[];
+  }>;
+
   readonly icons = {
     settings: Settings,
     coffee: Coffee,
@@ -117,6 +127,32 @@ export class ShiftConfigComponent implements OnInit {
     this.startOptions = this.planningService.getShiftStartOptions();
     this.breakSlotOptions = this.planningService.getBreakSlotOptions();
     this.initShifts();
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'shift-config',
+      () => ({
+        subServiceId: this.subServiceId,
+        isCriticalCell: this.isCriticalCell,
+        minPresencePercent: this.minPresencePercent,
+        shifts: this.shifts,
+      }),
+      (s) => {
+        if (typeof s.subServiceId === 'number') this.subServiceId = s.subServiceId;
+        if (typeof s.isCriticalCell === 'boolean') this.isCriticalCell = s.isCriticalCell;
+        if (typeof s.minPresencePercent === 'number') this.minPresencePercent = s.minPresencePercent;
+        if (Array.isArray(s.shifts) && s.shifts.length) this.shifts = s.shifts;
+      },
+    );
+    this.draftBinder.start();
+  }
+
+  ngOnDestroy(): void {
+    this.draftBinder?.destroy();
+  }
+
+  /** Persiste le brouillon après édition locale. */
+  touchDraft(): void {
+    this.draftBinder?.touch();
   }
 
   initShifts(): void {
@@ -207,6 +243,7 @@ export class ShiftConfigComponent implements OnInit {
       s.breakSlots = this.buildAutoBreakSlots(s.startTime, this.isCriticalCell);
       s.breakDurationMinutes = 60;
     }
+    this.touchDraft();
   }
 
   isBreakSlotSelected(shift: ShiftConfigItem, slot: string): boolean {
@@ -463,6 +500,7 @@ export class ShiftConfigComponent implements OnInit {
     this.selectedServiceName = opt.name;
     this.serviceEmployeeCount = opt.employeesCount;
     this.savedConfig = null;
+    this.touchDraft();
     this.loadExistingConfig();
   }
 
@@ -482,12 +520,14 @@ export class ShiftConfigComponent implements OnInit {
     this.shifts.push(
       this.createShift(`Shift ${this.shifts.length + 1}`, '08:00', this.shifts.length + 1),
     );
+    this.touchDraft();
   }
 
   removeShift(index: number): void {
     if (this.shifts.length <= 1) return;
     this.shifts.splice(index, 1);
     this.shifts.forEach((s, i) => (s.displayOrder = i + 1));
+    this.touchDraft();
   }
 
   getEndTime(shift: ShiftConfigItem): string {
@@ -604,6 +644,7 @@ export class ShiftConfigComponent implements OnInit {
       next: (result) => {
         this.savedConfig = result;
         this.saving = false;
+        this.draftBinder?.clear();
         this.successMsg = `Modèle sauvegardé — ${result.totalEffectif} employés sur ${result.shifts.length} shifts (toutes les semaines)`;
         const opt = this.subServiceOptions.find((s) => s.id === this.subServiceId);
         if (opt) opt.hasTemplate = true;

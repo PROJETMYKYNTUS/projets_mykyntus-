@@ -35,6 +35,8 @@ public static class PlanningStartup
                     await PlanningSchemaPatches.EnsureShiftKindColumnAsync(db);
                     await PlanningSchemaPatches.EnsureBreakSlotsAndCriticalCellAsync(db);
                     await PlanningSchemaPatches.EnsurePlanningChangeRequestsTableAsync(db);
+                    await PlanningSchemaPatches.EnsurePlanningExceptionalRequestsTableAsync(db);
+                    await PlanningSchemaPatches.EnsureShiftAssignmentExceptionalFlagAsync(db);
                     await PlanningSchemaPatches.EnsureEmployeeImportSourceFileColumnsAsync(db);
                     await PlanningSchemaPatches.EnsureUserHtelColumnsAsync(db);
                     Console.WriteLine("✅ Migrations appliquées avec succès.");

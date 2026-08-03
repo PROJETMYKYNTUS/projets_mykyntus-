@@ -4,7 +4,8 @@ public class CreatePlanningChangeRequestDto
 {
     public int CurrentAssignmentId { get; set; }
     public string Reason { get; set; } = string.Empty;
-    public int? ProposedSwapUserId { get; set; }
+    /// <summary>Obligatoire : id du collègue pour le switch.</summary>
+    public int ProposedSwapUserId { get; set; }
 }
 
 public class RejectPlanningChangeRequestDto
@@ -27,6 +28,9 @@ public class PlanningChangeRequestDto
     public string? ProposedSwapUserName { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    public DateTime? PartnerRespondedAt { get; set; }
+    public int? SupervisorProcessedByUserId { get; set; }
+    public string? SupervisorProcessedByName { get; set; }
     public int? ProcessedByUserId { get; set; }
     public string? ProcessedByName { get; set; }
     public DateTime? ProcessedAt { get; set; }
@@ -34,6 +38,10 @@ public class PlanningChangeRequestDto
     public int SubServiceId { get; set; }
     public string SubServiceName { get; set; } = string.Empty;
     public int WeeklyPlanningId { get; set; }
+    /// <summary>True si le viewer courant est le partenaire proposé.</summary>
+    public bool ViewerIsPartner { get; set; }
+    /// <summary>True si le viewer courant est le demandeur.</summary>
+    public bool ViewerIsRequester { get; set; }
 }
 
 public class SwapCandidateDto

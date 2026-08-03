@@ -46,11 +46,18 @@ getMyCurrentPlanning(userId: number): Observable<any> {
     );
   }
 
+  getPlanningById(id: number): Observable<any> {
+    return this.http.get(
+      `${this.api}/planning/${id}`,
+      { headers: this.getHeaders() }
+    );
+  }
+
   // ── Demandes de changement ─────────────────
   createChangeRequest(authUserId: number, dto: {
     currentAssignmentId: number;
     reason: string;
-    proposedSwapUserId?: number | null;
+    proposedSwapUserId: number;
   }): Observable<any> {
     return this.http.post(
       `${this.api}/planning/change-requests?authUserId=${authUserId}`,
@@ -78,6 +85,82 @@ getMyCurrentPlanning(userId: number): Observable<any> {
       `${this.api}/planning/change-requests/${id}/cancel?authUserId=${authUserId}`,
       {},
       { headers: this.getHeaders() }
+    );
+  }
+
+  partnerAcceptChangeRequest(id: number, authUserId: number): Observable<any> {
+    return this.http.post(
+      `${this.api}/planning/change-requests/${id}/partner-accept?authUserId=${authUserId}`,
+      {},
+      { headers: this.getHeaders() }
+    );
+  }
+
+  partnerRejectChangeRequest(id: number, authUserId: number, reason?: string): Observable<any> {
+    return this.http.post(
+      `${this.api}/planning/change-requests/${id}/partner-reject?authUserId=${authUserId}`,
+      { reason: reason || null },
+      { headers: this.getHeaders() }
+    );
+  }
+
+  // ── Demandes exceptionnelles ─────────────────
+  createExceptionalRequest(
+    authUserId: number,
+    data: {
+      requestedDate: string;
+      requestedShiftTemplateId: number;
+      reason: string;
+      file?: File | null;
+    },
+  ): Observable<any> {
+    const fd = new FormData();
+    fd.append('requestedDate', data.requestedDate);
+    fd.append('requestedShiftTemplateId', String(data.requestedShiftTemplateId));
+    fd.append('reason', data.reason);
+    if (data.file) {
+      fd.append('file', data.file, data.file.name);
+    }
+    return this.http.post(
+      `${this.api}/planning/exceptional-requests?authUserId=${authUserId}`,
+      fd,
+      { headers: this.getHeaders() },
+    );
+  }
+
+  getMyExceptionalRequests(authUserId: number): Observable<any[]> {
+    return this.http.get<any[]>(
+      `${this.api}/planning/exceptional-requests/my?authUserId=${authUserId}`,
+      { headers: this.getHeaders() },
+    );
+  }
+
+  getExceptionalQuota(authUserId: number): Observable<any> {
+    return this.http.get(
+      `${this.api}/planning/exceptional-requests/quota?authUserId=${authUserId}`,
+      { headers: this.getHeaders() },
+    );
+  }
+
+  getExceptionalAvailableShifts(authUserId: number): Observable<any[]> {
+    return this.http.get<any[]>(
+      `${this.api}/planning/exceptional-requests/available-shifts?authUserId=${authUserId}`,
+      { headers: this.getHeaders() },
+    );
+  }
+
+  getExceptionalTargetWeek(): Observable<any> {
+    return this.http.get(
+      `${this.api}/planning/exceptional-requests/target-week`,
+      { headers: this.getHeaders() },
+    );
+  }
+
+  cancelExceptionalRequest(id: number, authUserId: number): Observable<any> {
+    return this.http.post(
+      `${this.api}/planning/exceptional-requests/${id}/cancel?authUserId=${authUserId}`,
+      {},
+      { headers: this.getHeaders() },
     );
   }
 

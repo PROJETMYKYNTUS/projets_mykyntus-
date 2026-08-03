@@ -55,6 +55,8 @@ export class DashboardEmployeeComponent implements OnInit, OnDestroy {
   // ── User & plannings équipe ──
   equipePlannings: any[] = [];
   equipeLoading = false;
+  equipeDetailLoading = false;
+  selectedEquipeId: number | null = null;
   selectedEquipePlanning: any = null;
   planning: MyPlanning | null = null;
   history: MyPlanning[] = [];
@@ -191,15 +193,37 @@ navigateConges(sub: 'mes-conges' | 'equipe'): void {
   // ── Planning équipe ───────────────────────────────────────────────────────
   loadEquipePlannings(): void {
     this.equipeLoading = true;
+    this.selectedEquipePlanning = null;
+    this.selectedEquipeId = null;
     this.planningService.getEquipePlannings(this.userId).subscribe({
       next: (data) => {
-        this.equipePlannings = data;
+        this.equipePlannings = data ?? [];
         this.equipeLoading = false;
-        if (data.length > 0) this.selectedEquipePlanning = data[0];
+        if (this.equipePlannings.length > 0) {
+          this.selectEquipePlanning(this.equipePlannings[0]);
+        }
       },
       error: () => {
         this.equipePlannings = [];
         this.equipeLoading = false;
+      }
+    });
+  }
+
+  selectEquipePlanning(summary: { id: number }): void {
+    this.selectedEquipeId = summary.id;
+    this.equipeDetailLoading = true;
+    this.planningService.getPlanningById(summary.id).subscribe({
+      next: (full) => {
+        if (this.selectedEquipeId !== summary.id) return;
+        this.selectedEquipePlanning = full;
+        this.equipeDetailLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        if (this.selectedEquipeId !== summary.id) return;
+        this.selectedEquipePlanning = null;
+        this.equipeDetailLoading = false;
       }
     });
   }

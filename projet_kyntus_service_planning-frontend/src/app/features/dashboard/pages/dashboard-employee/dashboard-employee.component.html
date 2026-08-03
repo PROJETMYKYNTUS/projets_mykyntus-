@@ -617,13 +617,18 @@
             <button *ngFor="let p of equipePlannings"
                     type="button"
                     class="emp-equipe-chip"
-                    [class.active]="selectedEquipePlanning?.id === p.id"
-                    (click)="selectedEquipePlanning = p">
+                    [class.active]="selectedEquipeId === p.id"
+                    (click)="selectEquipePlanning(p)">
               {{ p.weekCode }} — {{ p.subServiceName }}
             </button>
           </div>
 
-          <ng-container *ngIf="selectedEquipePlanning">
+          <div class="emp-loading" *ngIf="equipeDetailLoading">
+            <div class="emp-spinner"></div>
+            <p>Chargement de la grille…</p>
+          </div>
+
+          <ng-container *ngIf="!equipeDetailLoading && selectedEquipePlanning">
             <div class="emp-card">
               <div class="emp-card-head">
                 <span class="emp-card-title">

@@ -1,0 +1,108 @@
+<div class="ky-page-shell">
+  <app-kyntus-page-header
+    title="Demandes exceptionnelles"
+    subtitle="Validation superviseur puis RH — pin du shift à la génération du planning">
+  </app-kyntus-page-header>
+
+  <div class="mdc-toast" *ngIf="toast">{{ toast }}</div>
+
+  <section class="mdc-card mdc-filters">
+    <label>
+      Statut
+      <select [(ngModel)]="filterStatus" (ngModelChange)="reload()">
+        <option value="">Tous</option>
+        <option value="Pending">En attente (tous)</option>
+        <option value="PendingSupervisor">Superviseur</option>
+        <option value="PendingRh">RH</option>
+        <option value="Approved">Approuvées</option>
+        <option value="Rejected">Refusées</option>
+        <option value="Cancelled">Annulées</option>
+      </select>
+    </label>
+    <label>
+      Semaine (ex. 2026-S32)
+      <input type="text" [(ngModel)]="filterWeek" placeholder="2026-S32" (keyup.enter)="reload()" />
+    </label>
+    <button type="button" class="mdc-btn" (click)="reload()">Filtrer</button>
+  </section>
+
+  <div class="mdc-loading" *ngIf="loading">
+    <div class="mdc-spinner"></div><p>Chargement…</p>
+  </div>
+  <div class="mdc-error" *ngIf="!loading && error">{{ error }}</div>
+
+  <section class="mdc-card" *ngIf="!loading && !error">
+    <div class="mdc-empty" *ngIf="requests.length === 0">
+      <h3>Aucune demande</h3>
+      <p>Aucune demande exceptionnelle pour ces filtres.</p>
+    </div>
+
+    <table class="mdc-table" *ngIf="requests.length > 0">
+      <thead>
+        <tr>
+          <th>Employé</th>
+          <th>Cellule</th>
+          <th>Semaine</th>
+          <th>Jour</th>
+          <th>Shift</th>
+          <th>Motif</th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of requests">
+          <td>{{ r.requesterName || r.RequesterName }}</td>
+          <td>{{ r.subServiceName || r.SubServiceName }}</td>
+          <td>{{ formatWeekLabel(r.weekCode || r.WeekCode) }}</td>
+          <td>{{ (r.requestedDate || r.RequestedDate) | date:'dd/MM/yyyy' }}</td>
+          <td>
+            {{ r.shiftLabel || r.ShiftLabel }}
+            <small *ngIf="r.shiftStartTime || r.ShiftStartTime">
+              ({{ r.shiftStartTime || r.ShiftStartTime }})
+            </small>
+          </td>
+          <td>
+            {{ r.reason || r.Reason || '—' }}
+            <button
+              type="button"
+              class="mdc-link"
+              *ngIf="r.hasJustification || r.HasJustification"
+              (click)="downloadJustification(r.id || r.Id)">
+              Justificatif
+            </button>
+          </td>
+          <td>
+            <span class="mdc-status" [attr.data-status]="r.status || r.Status">
+              {{ statusLabel(r.status || r.Status) }}
+            </span>
+            <small class="mdc-reject" *ngIf="r.rejectionReason || r.RejectionReason">
+              {{ r.rejectionReason || r.RejectionReason }}
+            </small>
+          </td>
+          <td class="mdc-actions">
+            <ng-container *ngIf="canSupervisorApprove(r)">
+              <button type="button" class="mdc-link mdc-ok" (click)="supervisorApprove(r.id || r.Id)">Valider</button>
+              <button type="button" class="mdc-link mdc-bad" (click)="openReject(r.id || r.Id)">Refuser</button>
+            </ng-container>
+            <ng-container *ngIf="canRhApprove(r)">
+              <button type="button" class="mdc-link mdc-ok" (click)="rhApprove(r.id || r.Id)">Approuver RH</button>
+              <button type="button" class="mdc-link mdc-bad" (click)="openReject(r.id || r.Id)">Refuser</button>
+            </ng-container>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div class="mdc-modal" *ngIf="rejectId !== null">
+    <div class="mdc-modal-card">
+      <h3>Motif de refus</h3>
+      <textarea [(ngModel)]="rejectReason" rows="4" maxlength="1000" placeholder="Obligatoire…"></textarea>
+      <div class="mdc-modal-actions">
+        <button type="button" class="mdc-btn mdc-btn-ghost" (click)="closeReject()">Annuler</button>
+        <button type="button" class="mdc-btn mdc-btn-danger" (click)="confirmReject()">Confirmer le refus</button>
+      </div>
+    </div>
+  </div>
+</div>

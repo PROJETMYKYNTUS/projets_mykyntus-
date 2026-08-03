@@ -321,12 +321,20 @@ export class KyntusNotificationHubService {
         return { route: n.deepLink };
       }
       const sub = (n.subServiceName ?? '').toLowerCase();
+      if (sub.includes('exceptionnelle')) {
+        const r = jwtRole.trim().toLowerCase();
+        if (r === 'admin' || r === 'rh' || r === 'superviseur' || r === 'manager'
+            || r.includes('référent') || r.includes('referent') || r === 'chef de projet') {
+          return { route: '/planning/exceptional-requests' };
+        }
+        return { route: '/mes-demandes-exceptionnelles' };
+      }
       if (sub.includes('demande')) {
         const r = jwtRole.trim().toLowerCase();
         if (r === 'admin' || r === 'rh') {
           return { route: '/planning/change-requests' };
         }
-        return { route: '/mes-plannings' };
+        return { route: '/mes-demandes-changement' };
       }
       // Les employés n'ont pas accès à /planning (vue manager) — uniquement /mes-plannings.
       const r = jwtRole.trim().toLowerCase();

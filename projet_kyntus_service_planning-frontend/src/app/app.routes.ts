@@ -336,6 +336,22 @@ export const routes: Routes = [
             .then(m => m.MesPlanningsComponent),
       },
       {
+        path: 'mes-demandes-changement',
+        canActivate: [AuthGuard],
+        data: { roles: ROLE_SETS.planningSelfService },
+        loadComponent: () =>
+          import('./features/planning/pages/mes-demandes-changement/mes-demandes-changement.component')
+            .then(m => m.MesDemandesChangementComponent),
+      },
+      {
+        path: 'mes-demandes-exceptionnelles',
+        canActivate: [AuthGuard],
+        data: { roles: ROLE_SETS.planningSelfService },
+        loadComponent: () =>
+          import('./features/planning/pages/mes-demandes-exceptionnelles/mes-demandes-exceptionnelles.component')
+            .then(m => m.MesDemandesExceptionnellesComponent),
+      },
+      {
         path: 'planning',
         canActivate: [AuthGuard],
         data: { roles: ROLE_SETS.planningManagers },

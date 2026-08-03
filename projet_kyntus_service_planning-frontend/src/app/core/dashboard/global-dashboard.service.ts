@@ -324,9 +324,10 @@ export class GlobalDashboardService {
       );
     }
 
-    if (['employee', 'superviseur'].includes(cluster) && ctx.userId) {
+    // /planning/my/current attend AuthUserId (pas l'id Planning).
+    if (['employee', 'superviseur'].includes(cluster) && ctx.authId) {
       priority.planning = this.dashCall(
-        this.planningService.getMyCurrentPlanning(ctx.userId),
+        this.planningService.getMyCurrentPlanning(ctx.authId),
         null,
       );
     }

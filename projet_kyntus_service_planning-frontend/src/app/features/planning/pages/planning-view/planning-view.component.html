@@ -19,7 +19,7 @@
       <div class="header-left">
         <button type="button" class="ky-btn-secondary btn-back" (click)="goBackToWeekList()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          Retourner à la liste des plannings
+          {{ fromSource === 'equipe' ? 'Retour au Planning Équipe' : 'Retourner à la liste des plannings' }}
         </button>
         <div class="header-divider" aria-hidden="true"></div>
         <div class="header-meta">
@@ -71,6 +71,11 @@
           {{ markingChangeRequest ? 'Enregistrement…' : 'Marquer comme traitée' }}
         </button>
       </div>
+    </div>
+
+    <div class="pv-readonly-banner" *ngIf="readOnlyBanner && planning.status === 'Published'">
+      <strong>Mode lecture seule</strong>
+      <span>Consultation du planning publié — aucune modification possible.</span>
     </div>
 
     <!-- ── Actions RH (Valider / Régénérer) ── -->
@@ -309,7 +314,7 @@
                       <span class="cr-emp-tag" *ngIf="isHighlightedEmployee(emp)">À modifier</span>
                     </div>
                     <!-- Actions commentaire -->
-                    <div class="emp-actions" *ngIf="planning!.status === 'Draft'">
+                    <div class="emp-actions" *ngIf="canEdit">
                       <button class="act-btn act-comment"
                               (click)="openCommentModal(emp, $event)"
                               [title]="emp.managerComment ? 'Modifier la note' : 'Ajouter une note'">
@@ -336,22 +341,24 @@
               <td *ngFor="let day of days"
                   class="td-shift"
                   [class.td-saturday]="day === 'Saturday'"
-                  [class.cell-change-request-highlight]="isHighlightedAssignment(getAssignment(emp, day))">
+                  [class.cell-change-request-highlight]="isHighlightedAssignment(getAssignment(emp, day))"
+                  [class.cell-exceptional]="getAssignment(emp, day)?.isExceptionalRequest">
 
                 <ng-container *ngIf="getAssignment(emp, day) as a; else noShift">
 
                   <div class="cr-cell-tag" *ngIf="isHighlightedAssignment(a)">Demande</div>
+                  <div class="de-cell-tag" *ngIf="a.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</div>
 
                   <!-- Congé -->
                 <div class="cell-conge"
-     [class.cell-clickable]="day === 'Saturday' && planning!.status === 'Draft'"
-     (click)="day === 'Saturday' && planning!.status === 'Draft' ? openSaturdayOverride(emp, $event) : null"
+     [class.cell-clickable]="day === 'Saturday' && canEdit"
+     (click)="day === 'Saturday' && canEdit ? openSaturdayOverride(emp, $event) : null"
      *ngIf="a.isOnLeave">
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M17.5 19H9a7 7 0 117-7v1"/><path d="M17 9l4-4-4-4M21 5H9"/>
   </svg>
   <span>{{ getAbsenceLabel(a.absenceType) }}</span>
-  <span class="cell-edit-icon" *ngIf="day === 'Saturday' && planning!.status === 'Draft'">
+  <span class="cell-edit-icon" *ngIf="day === 'Saturday' && canEdit">
     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
       <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -363,15 +370,14 @@
                   <!-- Férié — REMPLACER l'ancien bloc -->
 <div class="cell-ferie"
      *ngIf="a.isHoliday"
-     [class.cell-clickable]="planning!.status === 'Draft'"
-     (click)="planning!.status === 'Draft' ? openHolidayOverride(emp, day, $event) : null">
+     [class.cell-clickable]="canEdit"
+     (click)="canEdit ? openHolidayOverride(emp, day, $event) : null">
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
   </svg>
   <span>Férié</span>
   <span class="ferie-name" *ngIf="a.holidayName">{{ a.holidayName }}</span>
-  <!-- icône crayon visible en Draft -->
-  <span class="cell-edit-icon" *ngIf="planning!.status === 'Draft'">
+  <span class="cell-edit-icon" *ngIf="canEdit">
     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
       <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -383,16 +389,18 @@
                   <ng-container *ngIf="!a.isOnLeave && !a.isHoliday">
                     <div class="shift-pill"
                          [ngClass]="getShiftColor(a.shiftLabel)"
-                         (click)="day === 'Saturday' ? openSaturdayOverride(emp, $event) : openOverride(emp, day, $event)">
+                         [class.shift-pill-exceptional]="a.isExceptionalRequest"
+                         (click)="canEdit ? (day === 'Saturday' ? openSaturdayOverride(emp, $event) : openOverride(emp, day, $event)) : null">
                       <span class="sp-time">{{ a.startTime }}</span>
   <span class="sp-label">{{ getShiftNumber(a.shiftLabel) }}</span>
-                      <span class="sp-edited" *ngIf="a.isManagerOverride" title="Modifié manuellement">
+                      <span class="sp-de" *ngIf="a.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</span>
+                      <span class="sp-edited" *ngIf="a.isManagerOverride && !a.isExceptionalRequest" title="Modifié manuellement">
                         <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       </span>
                     </div>
                     <div class="break-pill"
                          *ngIf="a.breakTime"
-                         (click)="openBreakOverride(emp, day, $event)">
+                         (click)="canEdit ? openBreakOverride(emp, day, $event) : null">
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
                       {{ a.breakTime }}
                     </div>
@@ -401,10 +409,10 @@
                 </ng-container>
                 <ng-template #noShift>
                   <div class="shift-off"
-                       [class.shift-off-saturday]="day === 'Saturday' && planning!.status === 'Draft'"
-                       (click)="day === 'Saturday' && planning!.status === 'Draft' ? openSaturdayOverride(emp, $event) : null">
+                       [class.shift-off-saturday]="day === 'Saturday' && canEdit"
+                       (click)="day === 'Saturday' && canEdit ? openSaturdayOverride(emp, $event) : null">
                     <span>—</span>
-                    <svg class="off-edit" *ngIf="day === 'Saturday' && planning!.status === 'Draft'" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <svg class="off-edit" *ngIf="day === 'Saturday' && canEdit" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </div>
                 </ng-template>
 
@@ -418,7 +426,7 @@
   </ng-container>
 
   <!-- ══════════════ MODAL — OVERRIDE SHIFT ══════════════ -->
-  <div class="modal-bg" *ngIf="showOverride" (click)="closeOverride()">
+  <div class="modal-bg" *ngIf="showOverride" appBodyPortal (click)="closeOverride()">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <div class="modal-icon modal-icon-blue">
@@ -453,7 +461,7 @@
   </div>
 
   <!-- ══════════════ MODAL — INSIGHTS JOUR ══════════════ -->
-  <div class="modal-bg" *ngIf="showDayInsights" (click)="closeDayInsights()">
+  <div class="modal-bg" *ngIf="showDayInsights" appBodyPortal (click)="closeDayInsights()">
     <div class="modal modal-insights" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <div class="modal-icon modal-icon-blue">
@@ -628,7 +636,7 @@
   </div>
 
   <!-- ══════════════ MODAL — OVERRIDE SAMEDI ══════════════ -->
-  <div class="modal-bg" *ngIf="showSaturdayOverride" (click)="closeSaturdayOverride()">
+  <div class="modal-bg" *ngIf="showSaturdayOverride" appBodyPortal (click)="closeSaturdayOverride()">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <div class="modal-icon modal-icon-indigo">
@@ -674,7 +682,7 @@
   </div>
 
   <!-- ══════════════ MODAL — PAUSE ══════════════ -->
-  <div class="modal-bg" *ngIf="showBreakOverride" (click)="closeBreakOverride()">
+  <div class="modal-bg" *ngIf="showBreakOverride" appBodyPortal (click)="closeBreakOverride()">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <div class="modal-icon modal-icon-amber">
@@ -708,7 +716,7 @@
   </div>
 
   <!-- ══════════════ MODAL — COMMENTAIRE ══════════════ -->
-  <div class="modal-bg" *ngIf="showCommentModal" (click)="closeCommentModal()">
+  <div class="modal-bg" *ngIf="showCommentModal" appBodyPortal (click)="closeCommentModal()">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <div class="modal-icon modal-icon-purple">
@@ -749,7 +757,7 @@
     </div>
   </div>
 <!-- ══════════════ MODAL — OVERRIDE FÉRIÉ ══════════════ -->
-<div class="modal-bg" *ngIf="showHolidayOverride" (click)="closeHolidayOverride()">
+<div class="modal-bg" *ngIf="showHolidayOverride" appBodyPortal (click)="closeHolidayOverride()">
   <div class="modal" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <div class="modal-icon modal-icon-amber">

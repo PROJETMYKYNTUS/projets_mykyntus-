@@ -17,6 +17,8 @@ public class ShiftAssignment
     public bool IsSaturday { get; set; } = false;
     public bool IsNewEmployee { get; set; } = false;
     public bool IsManagerOverride { get; set; } = false; // manager a modifié manuellement
+    /// <summary>Shift issu d'une demande exceptionnelle approuvée (pin à la génération).</summary>
+    public bool IsExceptionalRequest { get; set; } = false;
     public TimeOnly? BreakTime { get; set; }  // ex: 12:00, 13:00, 14:00
     public bool IsOnLeave { get; set; } = false;  // ? En conge
     public bool IsHalfDaySaturday { get; set; } = false; // ? Nouveau employe 4h

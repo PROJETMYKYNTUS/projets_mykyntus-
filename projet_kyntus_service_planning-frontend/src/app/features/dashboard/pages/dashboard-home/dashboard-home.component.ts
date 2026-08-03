@@ -56,7 +56,7 @@ export class DashboardHomeComponent implements OnInit {
   }
 
   logout(): void {
-    redirectToAuthLogin();
+    redirectToAuthLogin(undefined, { clearReturnUrl: true });
   }
 
   openDocumentationRhApp(): void {

@@ -193,6 +193,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
       return;
     }
 
+
     this.notifInit.connectIfAuthenticated();
 
     void this.deptContext.load().finally(() => this.refreshGroups());
@@ -471,7 +472,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
 
   logout(): void {
-    redirectToAuthLogin();
+    redirectToAuthLogin(undefined, { clearReturnUrl: true });
   }
 
   ngOnDestroy(): void {

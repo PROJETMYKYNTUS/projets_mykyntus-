@@ -226,7 +226,7 @@ public static class PlanningSchemaPatches
             ct);
     }
 
-    /// <summary>Table PlanningChangeRequests (idempotent).</summary>
+    /// <summary>Table PlanningChangeRequests (idempotent) + colonnes workflow switch.</summary>
     public static async Task EnsurePlanningChangeRequestsTableAsync(AppDbContext db, CancellationToken ct = default)
     {
         await db.Database.ExecuteSqlRawAsync(
@@ -240,6 +240,8 @@ public static class PlanningSchemaPatches
                 "ProposedSwapUserId" integer NULL,
                 "Status" integer NOT NULL DEFAULT 0,
                 "CreatedAt" timestamp with time zone NOT NULL DEFAULT now(),
+                "PartnerRespondedAt" timestamp with time zone NULL,
+                "SupervisorProcessedByUserId" integer NULL,
                 "ProcessedByUserId" integer NULL,
                 "ProcessedAt" timestamp with time zone NULL,
                 "RejectionReason" character varying(1000) NULL,
@@ -256,6 +258,11 @@ public static class PlanningSchemaPatches
               ON "PlanningChangeRequests" ("RequesterUserId", "WeekCode");
             CREATE INDEX IF NOT EXISTS "IX_PlanningChangeRequests_Status_WeekCode"
               ON "PlanningChangeRequests" ("Status", "WeekCode");
+
+            ALTER TABLE "PlanningChangeRequests"
+              ADD COLUMN IF NOT EXISTS "PartnerRespondedAt" timestamp with time zone NULL;
+            ALTER TABLE "PlanningChangeRequests"
+              ADD COLUMN IF NOT EXISTS "SupervisorProcessedByUserId" integer NULL;
             """,
             ct);
     }
@@ -291,6 +298,67 @@ public static class PlanningSchemaPatches
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_Users_IdTechnicien"
                 ON "Users" ("IdTechnicien")
                 WHERE "IdTechnicien" IS NOT NULL;
+            """,
+            ct);
+    }
+
+    /// <summary>Table PlanningExceptionalRequests (idempotent).</summary>
+    public static async Task EnsurePlanningExceptionalRequestsTableAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "PlanningExceptionalRequests" (
+                "Id" serial PRIMARY KEY,
+                "WeekCode" character varying(16) NOT NULL,
+                "RequestedDate" date NOT NULL,
+                "RequesterUserId" integer NOT NULL,
+                "SubServiceId" integer NOT NULL,
+                "RequestedShiftTemplateId" integer NOT NULL,
+                "Reason" character varying(1000) NOT NULL,
+                "Status" integer NOT NULL DEFAULT 0,
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT now(),
+                "JustificationRequired" boolean NOT NULL DEFAULT false,
+                "JustificationFileName" character varying(260) NULL,
+                "JustificationContentType" character varying(128) NULL,
+                "JustificationContent" bytea NULL,
+                "SupervisorProcessedByUserId" integer NULL,
+                "SupervisorProcessedAt" timestamp with time zone NULL,
+                "RhProcessedByUserId" integer NULL,
+                "RhProcessedAt" timestamp with time zone NULL,
+                "ProcessedByUserId" integer NULL,
+                "ProcessedAt" timestamp with time zone NULL,
+                "RejectionReason" character varying(1000) NULL,
+                CONSTRAINT "FK_PlanningExceptionalRequests_Users_Requester"
+                    FOREIGN KEY ("RequesterUserId") REFERENCES "Users" ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_PlanningExceptionalRequests_SubServices"
+                    FOREIGN KEY ("SubServiceId") REFERENCES "SubServices" ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_PlanningExceptionalRequests_ShiftTemplate"
+                    FOREIGN KEY ("RequestedShiftTemplateId") REFERENCES "SubServiceShiftConfigs" ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_PlanningExceptionalRequests_Users_Supervisor"
+                    FOREIGN KEY ("SupervisorProcessedByUserId") REFERENCES "Users" ("Id") ON DELETE SET NULL,
+                CONSTRAINT "FK_PlanningExceptionalRequests_Users_Rh"
+                    FOREIGN KEY ("RhProcessedByUserId") REFERENCES "Users" ("Id") ON DELETE SET NULL,
+                CONSTRAINT "FK_PlanningExceptionalRequests_Users_Processed"
+                    FOREIGN KEY ("ProcessedByUserId") REFERENCES "Users" ("Id") ON DELETE SET NULL
+            );
+            CREATE INDEX IF NOT EXISTS "IX_PlanningExceptionalRequests_Week_Sub_Status"
+              ON "PlanningExceptionalRequests" ("WeekCode", "SubServiceId", "Status");
+            CREATE INDEX IF NOT EXISTS "IX_PlanningExceptionalRequests_Requester_Created"
+              ON "PlanningExceptionalRequests" ("RequesterUserId", "CreatedAt");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_PlanningExceptionalRequests_Active_User_Date"
+              ON "PlanningExceptionalRequests" ("RequesterUserId", "RequestedDate")
+              WHERE "Status" IN (0, 1, 2);
+            """,
+            ct);
+    }
+
+    /// <summary>Colonne ShiftAssignments.IsExceptionalRequest (tag DE sur la grille).</summary>
+    public static async Task EnsureShiftAssignmentExceptionalFlagAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE "ShiftAssignments"
+              ADD COLUMN IF NOT EXISTS "IsExceptionalRequest" boolean NOT NULL DEFAULT false;
             """,
             ct);
     }

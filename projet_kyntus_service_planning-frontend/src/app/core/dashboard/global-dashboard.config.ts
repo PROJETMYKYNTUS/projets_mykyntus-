@@ -1,13 +1,22 @@
 import type { KyntusNotificationSource } from '../notifications/kyntus-notification-hub.service';
+import { canonicalizeRole } from '../org/org-role-assignment';
 import type { GlobalKpiKey, RoleCluster, RoleDashboardConfig } from './global-dashboard.model';
 
 export function resolveRoleCluster(role: string): RoleCluster {
-  const r = role.trim();
-  if (['Admin', 'RH'].includes(r)) return 'adminRh';
-  if (['Manager', 'Coach', 'RP', 'Equipe_Formation', 'Formateur'].includes(r)) return 'manager';
-  if (r === 'Superviseur') return 'superviseur';
-  if (['Employee', 'Pilote'].includes(r)) return 'employee';
-  if (r === 'Audit') return 'audit';
+  const r = canonicalizeRole(role);
+  if (r === 'admin' || r === 'rh') return 'adminRh';
+  if (
+    r === 'manager' ||
+    r === 'coach' ||
+    r === 'rp' ||
+    r === 'equipeformation' ||
+    r === 'formateur'
+  ) {
+    return 'manager';
+  }
+  if (r === 'superviseur') return 'superviseur';
+  if (r === 'pilote' || r === 'employee') return 'employee';
+  if (r === 'audit') return 'audit';
   return 'unknown';
 }
 

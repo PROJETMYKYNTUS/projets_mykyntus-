@@ -21,6 +21,13 @@ public interface IUserService
     Task<UserDto?> UpdateUserAsync(int id, UpdateUserDto dto);
     Task<bool> DeleteUserAsync(int id);
     Task SyncMissingAuthUsersAsync();
+
+    /// <summary>
+    /// Pousse le rôle Planning courant vers Auth (JWT).
+    /// À appeler après une projection d'affectation structurelle Directory → Planning.
+    /// </summary>
+    Task SyncUserRoleToAuthAsync(int userId, CancellationToken ct = default);
+
     Task<UserDto?> GetUserByAuthIdAsync(int authUserId);
     Task<UserDto?> GetUserByEmailAsync(string email);
     Task<UserDto?> GetOrLinkUserForAuthAsync(int authUserId, string? email);

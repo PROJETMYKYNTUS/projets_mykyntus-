@@ -6,6 +6,7 @@ import { DocumentationIdentityService } from '../../core/services/documentation-
 import { KyntusNotificationInitService } from '../../core/notifications/kyntus-notification-init.service';
 import { persistAccessTokens, clearStoredTokens } from '../../core/session/kyntus-auth-token.util';
 import { redirectToAuthLogin } from '../../core/session/kyntus-auth-refresh.service';
+import { persistReturnUrl } from '../../core/session/kyntus-return-url.util';
 import { KyntusThemeService, type KyntusTheme } from '../../core/theme/kyntus-theme.service';
 
 @Component({
@@ -65,13 +66,15 @@ export class AuthCallbackComponent implements OnInit {
   ngOnInit(): void {
     const token   = this.route.snapshot.queryParams['token'];
     const refresh = this.route.snapshot.queryParams['refresh'];
+    const returnUrl = this.route.snapshot.queryParams['returnUrl'] as string | undefined;
+    persistReturnUrl(returnUrl);
     const themeParam = this.route.snapshot.queryParams['theme'];
     if (themeParam === 'light' || themeParam === 'dark') {
       this.themeService.setTheme(themeParam as KyntusTheme);
     }
 
     if (!token) {
-      redirectToAuthLogin();
+      redirectToAuthLogin(returnUrl);
       return;
     }
 
@@ -106,16 +109,17 @@ export class AuthCallbackComponent implements OnInit {
       this.documentationIdentity.syncFromJwtSession();
       this.notificationInit.connectIfAuthenticated();
 
-      // Retire tokens de l’URL / historique avant atterrissage /home (replaceUrl).
+      // Retire tokens de l’URL / historique avant navigation (replaceUrl).
+      // returnUrl est déjà capturé depuis la query avant ce scrub.
       if (typeof history !== 'undefined') {
         history.replaceState(null, '', '/auth-callback');
       }
-      setTimeout(() => this.redirectService.redirectAfterLogin(), 100);
+      setTimeout(() => this.redirectService.redirectAfterLogin(returnUrl), 100);
 
     } catch (e) {
       console.warn('Impossible de décoder le token JWT :', e);
       clearStoredTokens();
-      redirectToAuthLogin();
+      redirectToAuthLogin(returnUrl);
     }
   }
 }

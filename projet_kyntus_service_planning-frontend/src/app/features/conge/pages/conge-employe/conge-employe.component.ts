@@ -1,8 +1,10 @@
-import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
+import { KyntusFormDraftService } from '../../../../core/drafts/kyntus-form-draft.service';
+import { KyntusObjectDraftBinder } from '../../../../core/drafts/kyntus-object-draft.binder';
 import { CongeService } from '../../../../core/services/conge.service';
 import { UserService } from '../../../users/services/user.service';  // ← AJOUTER
 import { AuthService }  from '../../../../core/services/auth.service';   // ← AJOUTER
@@ -19,9 +21,14 @@ import {
   templateUrl: './conge-employe.component.html',
   styleUrls: ['./conge-employe.component.css']
 })
-export class CongeEmployeComponent implements OnInit {
+export class CongeEmployeComponent implements OnInit, OnDestroy {
 
   private readonly toastSvc = inject(KyntusToastService);
+  private readonly formDrafts = inject(KyntusFormDraftService);
+  private draftBinder?: KyntusObjectDraftBinder<{
+    showModal: boolean;
+    form: DemanderCongeCommand;
+  }>;
 
   demandes:  DemandeCongeDto[] = [];
   solde:     SoldeCongeDto | null = null;
@@ -59,15 +66,37 @@ export class CongeEmployeComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'conge-employe-request',
+      () => ({ showModal: this.showModal, form: { ...this.form } }),
+      (s) => {
+        if (s.form) this.form = { ...this.form, ...s.form };
+        if (s.showModal && (s.form?.dateDebut || s.form?.motif)) {
+          this.showModal = true;
+        }
+      },
+    );
+    this.draftBinder.start();
+
    this.userSvc.getCurrentUser().subscribe({
       next: (user) => {
         this.employeId = user.guid;
+        this.form.employeId = user.guid;
         console.log('✅ employeId GUID :', this.employeId);
         this.loadSolde();
         this.loadDemandes();
       },
       error: () => this.showToast('Impossible de récupérer le profil.', 'error')
     });
+  }
+
+  ngOnDestroy(): void {
+    this.draftBinder?.destroy();
+  }
+
+  touchDraft(): void {
+    this.draftBinder?.touch();
   }
 
   loadSolde(): void {
@@ -93,11 +122,13 @@ export class CongeEmployeComponent implements OnInit {
       dateDebut: '', dateFin: '', motif: null, typeExceptionnel: null
     };
     this.showModal = true;
+    this.touchDraft();
   }
 
   onTypeCongeChange(): void {
     if (this.form.typeConge !== TypeConge.Exceptionnel) this.form.typeExceptionnel = null;
     this.form.dateFin = '';
+    this.touchDraft();
   }
 
   isExceptionnel(): boolean    { return this.form.typeConge === TypeConge.Exceptionnel; }
@@ -131,6 +162,7 @@ export class CongeEmployeComponent implements OnInit {
     this.svc.demanderConge(cmd).subscribe({
       next: () => {
         this.showModal = false;
+        this.draftBinder?.clear();
         this.loadDemandes();
         this.loadSolde();
         this.showToast('Demande envoyée !', 'success');

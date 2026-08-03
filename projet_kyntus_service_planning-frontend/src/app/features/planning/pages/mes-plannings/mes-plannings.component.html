@@ -1,7 +1,7 @@
 <div class="ky-page-shell">
   <app-kyntus-page-header
     title="Mes plannings"
-    subtitle="Consultez votre planning publié et demandez un changement de créneau">
+    subtitle="Consultez vos plannings publiés et demandez un switch de créneau">
   </app-kyntus-page-header>
 
   <div class="mp-toast" *ngIf="toast">{{ toast }}</div>
@@ -13,7 +13,7 @@
   <div class="mp-error" *ngIf="!loading && errorMsg">{{ errorMsg }}</div>
 
   <ng-container *ngIf="!loading && !errorMsg">
-    <div class="mp-empty" *ngIf="!current && pastWeeks.length === 0">
+    <div class="mp-empty" *ngIf="!current && upcomingWeeks.length === 0 && pastWeeks.length === 0">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       <h3>Aucun planning publié</h3>
       <p>Vous serez notifié dès qu’un planning vous concernant sera publié.</p>
@@ -23,18 +23,14 @@
       <div class="mp-card-head">
         <div>
           <span class="mp-badge mp-badge-current">Semaine courante</span>
-          <h3>{{ current.weekCode }}</h3>
+          <h3>{{ formatWeekLabel(current.weekCode) }}</h3>
           <p class="mp-sub">{{ current.subServiceName }} · début {{ current.weekStartDate | date:'dd/MM/yyyy' }}</p>
-          <p class="mp-deadline-ok" *ngIf="!changeDeadlinePassed && changeDeadlineLabel">
-            Demandes de changement possibles jusqu’au {{ changeDeadlineLabel }}.
-          </p>
-          <p class="mp-deadline-passed" *ngIf="changeDeadlinePassed">
-            Délai dépassé : les demandes de changement se ferment le mercredi 23:59 de la semaine du planning.
-          </p>
+          <p class="mp-deadline-ok" *ngIf="changeDeadlineHint">{{ changeDeadlineHint }}</p>
         </div>
       </div>
       <div class="mp-week-grid">
-        <div class="mp-day" *ngFor="let d of current.days" [ngClass]="shiftClass(d)">
+        <div class="mp-day" *ngFor="let d of current.days" [ngClass]="shiftClass(d)" [class.mp-day-exceptional]="d.isExceptionalRequest">
+          <span class="mp-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</span>
           <span class="mp-day-name">{{ d.day }}</span>
           <span class="mp-day-date">{{ d.assignedDate | date:'dd/MM' }}</span>
           <span class="mp-day-shift">{{ cellLabel(d) }}</span>
@@ -45,51 +41,53 @@
                   class="mp-change-btn"
                   *ngIf="canRequestChange(d)"
                   (click)="openChangeModal(d)">
-            Demander un changement
+            Demander un switch
           </button>
         </div>
       </div>
     </section>
 
-    <section class="mp-card" id="mes-demandes" *ngIf="myRequests.length > 0">
-      <h4 class="mp-history-title">Mes demandes de changement</h4>
-      <table class="mp-req-table">
-        <thead>
-          <tr>
-            <th>Semaine</th>
-            <th>Jour</th>
-            <th>Shift</th>
-            <th>Switch</th>
-            <th>Statut</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let r of myRequests">
-            <td>{{ r.weekCode }}</td>
-            <td>{{ r.assignmentDate | date:'dd/MM' }}</td>
-            <td>{{ r.shiftLabel }}</td>
-            <td>{{ r.proposedSwapUserName || '—' }}</td>
-            <td><span class="mp-status" [attr.data-status]="r.status">{{ statusLabel(r.status) }}</span></td>
-            <td>
-              <button type="button" class="mp-link" *ngIf="r.status === 'Pending'" (click)="cancelRequest(r.id)">
-                Annuler
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="mp-empty mp-empty-inline" *ngIf="!current && (upcomingWeeks.length > 0 || pastWeeks.length > 0)">
+      <p>Aucun planning publié pour la <strong>semaine en cours</strong>. Les autres semaines publiées sont ci-dessous.</p>
+    </div>
+
+    <section class="mp-history" *ngIf="upcomingWeeks.length > 0">
+      <h4 class="mp-history-title">Semaines à venir</h4>
+      <details class="mp-card mp-history-item" *ngFor="let p of upcomingWeeks" open>
+        <summary>
+          <span class="mp-badge mp-badge-upcoming">{{ formatWeekLabel(p.weekCode) }}</span>
+          <span class="mp-sub">{{ p.subServiceName }} · {{ p.weekStartDate | date:'dd/MM/yyyy' }}</span>
+        </summary>
+        <div class="mp-week-grid">
+          <div class="mp-day" *ngFor="let d of p.days" [ngClass]="shiftClass(d)" [class.mp-day-exceptional]="d.isExceptionalRequest">
+            <span class="mp-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</span>
+            <span class="mp-day-name">{{ d.day }}</span>
+            <span class="mp-day-date">{{ d.assignedDate | date:'dd/MM' }}</span>
+            <span class="mp-day-shift">{{ cellLabel(d) }}</span>
+            <span class="mp-day-hours" *ngIf="!d.isOnLeave && !d.isHoliday && d.startTime">
+              {{ d.startTime }}<ng-container *ngIf="d.endTime"> – {{ d.endTime }}</ng-container>
+            </span>
+            <button type="button"
+                    class="mp-change-btn"
+                    *ngIf="canRequestChange(d)"
+                    (click)="openChangeModal(d)">
+              Demander un switch
+            </button>
+          </div>
+        </div>
+      </details>
     </section>
 
     <section class="mp-history" *ngIf="pastWeeks.length > 0">
       <h4 class="mp-history-title">Historique</h4>
       <details class="mp-card mp-history-item" *ngFor="let p of pastWeeks">
         <summary>
-          <span class="mp-badge">{{ p.weekCode }}</span>
+          <span class="mp-badge">{{ formatWeekLabel(p.weekCode) }}</span>
           <span class="mp-sub">{{ p.subServiceName }} · {{ p.weekStartDate | date:'dd/MM/yyyy' }}</span>
         </summary>
         <div class="mp-week-grid">
-          <div class="mp-day" *ngFor="let d of p.days" [ngClass]="shiftClass(d)">
+          <div class="mp-day" *ngFor="let d of p.days" [ngClass]="shiftClass(d)" [class.mp-day-exceptional]="d.isExceptionalRequest">
+            <span class="mp-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</span>
             <span class="mp-day-name">{{ d.day }}</span>
             <span class="mp-day-date">{{ d.assignedDate | date:'dd/MM' }}</span>
             <span class="mp-day-shift">{{ cellLabel(d) }}</span>
@@ -102,34 +100,42 @@
     </section>
   </ng-container>
 
-  <div class="mp-modal-backdrop" *ngIf="showModal" (click)="closeModal()">
+  <div class="mp-modal-backdrop" *ngIf="showModal" appBodyPortal (click)="closeModal()">
     <div class="mp-modal" (click)="$event.stopPropagation()">
-      <h3>Demande de changement</h3>
+      <h3>Demande de switch</h3>
       <p class="mp-sub" *ngIf="selectedDay">
         {{ selectedDay.day }} {{ selectedDay.assignedDate | date:'dd/MM' }} — {{ selectedDay.shiftLabel }}
+      </p>
+      <p class="mp-deadline-ok" *ngIf="selectedDayDeadlineLabel && !selectedDayDeadlinePassed">
+        Délai : jusqu’au {{ selectedDayDeadlineLabel }} (veille du jour).
       </p>
 
       <label class="mp-field">
         Motif <span class="req">*</span>
-        <textarea [(ngModel)]="reason" rows="3" placeholder="Expliquez votre demande…"></textarea>
+        <textarea [(ngModel)]="reason" (ngModelChange)="touchDraft()" rows="3" placeholder="Expliquez votre demande…"></textarea>
       </label>
 
       <label class="mp-field">
-        Proposer un switch (même niveau)
-        <select [(ngModel)]="proposedSwapUserId">
-          <option [ngValue]="null">— Aucun —</option>
+        Collègue pour le switch (même niveau) <span class="req">*</span>
+        <select [(ngModel)]="proposedSwapUserId" (ngModelChange)="touchDraft()">
+          <option [ngValue]="null" disabled>Choisir un collègue…</option>
           <option *ngFor="let c of candidates" [ngValue]="c.userId">
             {{ c.fullName }} ({{ c.shiftLabel }})
           </option>
         </select>
       </label>
+      <p class="mp-modal-error" *ngIf="candidates.length === 0 && !modalError">
+        Aucun collègue éligible ce jour (même niveau, autre shift).
+      </p>
 
       <p class="mp-modal-error" *ngIf="modalError">{{ modalError }}</p>
 
       <div class="mp-modal-actions">
         <button type="button" class="mp-btn-secondary" (click)="closeModal()">Fermer</button>
-        <button type="button" class="mp-btn-primary" [disabled]="saving" (click)="submitChangeRequest()">
-          {{ saving ? 'Envoi…' : 'Envoyer' }}
+        <button type="button" class="mp-btn-primary"
+                [disabled]="saving || !proposedSwapUserId || candidates.length === 0"
+                (click)="submitChangeRequest()">
+          {{ saving ? 'Envoi…' : 'Envoyer au collègue' }}
         </button>
       </div>
     </div>

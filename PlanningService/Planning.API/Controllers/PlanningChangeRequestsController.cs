@@ -20,7 +20,6 @@ public class PlanningChangeRequestsController(
         if (user is not null)
             return user.Id;
 
-        // Provisionne / lie la fiche Planning depuis le JWT (ex. RH jamais synchronisé).
         var ensured = await _userService.GetOrEnsureUserForAuthAsync(
             authUserId,
             User.GetEmail()?.Trim(),
@@ -67,9 +66,24 @@ public class PlanningChangeRequestsController(
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] string? status,
-        [FromQuery] string? weekCode)
+        [FromQuery] string? weekCode,
+        [FromQuery] int? authUserId = null,
+        [FromQuery] int? requesterUserId = null)
     {
-        var result = await _service.GetAllAsync(status, weekCode);
+        int? viewerId = null;
+        if (authUserId is > 0)
+        {
+            try
+            {
+                viewerId = await ResolvePlanningUserIdAsync(authUserId.Value);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        var result = await _service.GetAllAsync(status, weekCode, viewerId, requesterUserId);
         return Ok(result);
     }
 
@@ -89,6 +103,39 @@ public class PlanningChangeRequestsController(
         {
             var requesterId = await ResolvePlanningUserIdAsync(authUserId);
             var result = await _service.GetSwapCandidatesAsync(assignmentId, requesterId);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:int}/partner-accept")]
+    public async Task<IActionResult> PartnerAccept(int id, [FromQuery] int authUserId)
+    {
+        try
+        {
+            var partnerId = await ResolvePlanningUserIdAsync(authUserId);
+            var result = await _service.PartnerAcceptAsync(id, partnerId);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:int}/partner-reject")]
+    public async Task<IActionResult> PartnerReject(
+        int id,
+        [FromQuery] int authUserId,
+        [FromBody] RejectPlanningChangeRequestDto? dto)
+    {
+        try
+        {
+            var partnerId = await ResolvePlanningUserIdAsync(authUserId);
+            var result = await _service.PartnerRejectAsync(id, partnerId, dto?.Reason);
             return Ok(result);
         }
         catch (InvalidOperationException ex)

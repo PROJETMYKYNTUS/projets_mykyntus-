@@ -19,12 +19,18 @@ public class PlanningChangeRequest
     [Required, MaxLength(1000)]
     public string Reason { get; set; } = string.Empty;
 
+    /// <summary>Partenaire de switch obligatoire (création).</summary>
     public int? ProposedSwapUserId { get; set; }
     public User? ProposedSwapUser { get; set; }
 
-    public PlanningChangeRequestStatus Status { get; set; } = PlanningChangeRequestStatus.Pending;
+    public PlanningChangeRequestStatus Status { get; set; } = PlanningChangeRequestStatus.PendingPartner;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public DateTime? PartnerRespondedAt { get; set; }
+
+    public int? SupervisorProcessedByUserId { get; set; }
+    public User? SupervisorProcessedBy { get; set; }
 
     public int? ProcessedByUserId { get; set; }
     public User? ProcessedBy { get; set; }

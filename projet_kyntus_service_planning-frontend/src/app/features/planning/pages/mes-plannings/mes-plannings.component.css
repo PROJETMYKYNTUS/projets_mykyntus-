@@ -66,6 +66,14 @@
   color: var(--info-text);
 }
 .mp-badge-current { background: var(--success-bg); color: var(--success-text); }
+.mp-badge-upcoming { background: var(--soft-blue-bg, #e0f2fe); color: var(--soft-blue, #0369a1); }
+
+.mp-empty-inline {
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  align-items: flex-start;
+  text-align: left;
+}
 
 .mp-week-grid {
   display: grid;
@@ -82,6 +90,27 @@
   border-radius: var(--radius-md, 0.5rem);
   border: 1px solid var(--border-color);
   background: var(--bg-input);
+  position: relative;
+}
+
+.mp-day-exceptional {
+  border-color: #dc2626;
+  box-shadow: inset 0 0 0 1px #dc2626;
+  background: color-mix(in srgb, #dc2626 7%, var(--bg-input));
+}
+
+.mp-de-tag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
 }
 .mp-day-name  { font-weight: 600; font-size: 0.82rem; color: var(--text-primary); text-transform: capitalize; }
 .mp-day-date  { font-size: 0.72rem; color: var(--text-muted); }
@@ -135,8 +164,13 @@
 }
 .mp-status { font-weight: 700; font-size: 0.75rem; }
 .mp-status[data-status='Pending'] { color: #b45309; }
+.mp-status[data-status='PendingPartner'] { color: #b45309; }
+.mp-status[data-status='PendingSupervisor'] { color: #1d4ed8; }
 .mp-status[data-status='Approved'] { color: #15803d; }
 .mp-status[data-status='Rejected'] { color: #b91c1c; }
+.mp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mp-link-ok { color: #15803d !important; }
+.mp-link-bad { color: #b91c1c !important; }
 .mp-link {
   background: none;
   border: none;
@@ -151,7 +185,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 40;
+  z-index: 10000;
 }
 .mp-modal {
   background: #fff;

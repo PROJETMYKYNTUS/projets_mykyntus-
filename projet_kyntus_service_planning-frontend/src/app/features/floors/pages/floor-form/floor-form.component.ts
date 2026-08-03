@@ -1,29 +1,35 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FloorService } from '../../services/floor.service';
+import { KyntusFormDraftDirective } from '../../../../core/drafts/kyntus-form-draft.directive';
+import { KyntusFormDraftService } from '../../../../core/drafts/kyntus-form-draft.service';
 
 @Component({
   selector: 'app-floor-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, KyntusFormDraftDirective],
   templateUrl: './floor-form.component.html',
   styleUrls: ['./floor-form.component.css']
 })
 export class FloorFormComponent implements OnInit {
+  @ViewChild(KyntusFormDraftDirective) private draftDir?: KyntusFormDraftDirective;
+
   form!: FormGroup;
   isEditMode = false;
   floorId: number | null = null;
   loading = false;
   submitting = false;
   error: string | null = null;
+  draftKey = 'floor-form-create';
 
   constructor(
     private fb: FormBuilder,
     private route: ActivatedRoute,
     private router: Router,
-    private floorService: FloorService
+    private floorService: FloorService,
+    private readonly formDrafts: KyntusFormDraftService,
   ) {}
 
   ngOnInit(): void {
@@ -37,7 +43,8 @@ export class FloorFormComponent implements OnInit {
     if (id) {
       this.isEditMode = true;
       this.floorId = Number(id);
-      setTimeout(() => this.loadFloor(this.floorId!), 0);  // ← setTimeout
+      this.draftKey = `floor-form-edit-${id}`;
+      setTimeout(() => this.loadFloor(this.floorId!), 0);
     }
   }
 
@@ -45,11 +52,16 @@ export class FloorFormComponent implements OnInit {
     this.loading = true;
     this.floorService.getFloorById(id).subscribe({
       next: (floor: any) => {
+        const draft = this.formDrafts.load<Record<string, unknown>>(this.draftKey);
         this.form.patchValue({
           floorNumber: floor.floorNumber,
           name:        floor.name,
           description: floor.description
         });
+        if (draft && typeof draft === 'object') {
+          this.form.patchValue(draft);
+          this.form.markAsDirty();
+        }
         this.loading = false;
       },
       error: (err: any) => {
@@ -73,6 +85,7 @@ export class FloorFormComponent implements OnInit {
 
     request$.subscribe({
       next: () => {
+        this.draftDir?.markSaved();
         this.submitting = false;
         this.router.navigate(['/floors']);
       },

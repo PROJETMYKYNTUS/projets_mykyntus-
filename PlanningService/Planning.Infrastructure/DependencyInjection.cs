@@ -68,6 +68,7 @@ public static class DependencyInjection
         services.AddScoped<IOrgReconciliationService, OrgReconciliationService>();
         services.AddScoped<IPlanningService, PlanningServiceImpl>();
         services.AddScoped<IPlanningChangeRequestService, PlanningChangeRequestService>();
+        services.AddScoped<IPlanningExceptionalRequestService, PlanningExceptionalRequestService>();
         services.AddHostedService<WeeklyPlanningAutoGeneratorHostedService>();
         services.AddScoped<IPlanningOrgMirrorService, PlanningOrgMirrorService>();
         services.AddScoped<IDirectoryOrgWriteClient, DirectoryOrgWriteClient>();

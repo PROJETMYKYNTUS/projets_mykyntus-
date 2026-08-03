@@ -1,9 +1,15 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { PlanningService } from '../../../../core/services/planning.service';
 import { KyntusSessionService } from '../../../../core/session/kyntus-session.service';
+import { KyntusFormDraftService } from '../../../../core/drafts/kyntus-form-draft.service';
+import { KyntusObjectDraftBinder } from '../../../../core/drafts/kyntus-object-draft.binder';
+import { formatWeekLabel } from '../../utils/week-code.util';
+import { BodyPortalDirective } from '../../../../shared/directives/body-portal.directive';
 
 interface DayAssignment {
   assignmentId?: number;
@@ -19,6 +25,7 @@ interface DayAssignment {
   holidayName: string;
   absenceType?: string | null;
   slotLabel: string;
+  isExceptionalRequest?: boolean;
 }
 
 interface MyPlanning {
@@ -26,18 +33,6 @@ interface MyPlanning {
   weekStartDate: string;
   subServiceName: string;
   days: DayAssignment[];
-}
-
-interface ChangeRequest {
-  id: number;
-  weekCode: string;
-  assignmentDate: string;
-  shiftLabel: string;
-  reason: string;
-  proposedSwapUserName?: string | null;
-  status: string;
-  createdAt: string;
-  rejectionReason?: string | null;
 }
 
 interface SwapCandidate {
@@ -48,12 +43,12 @@ interface SwapCandidate {
   shiftLabel: string;
 }
 
-/** Mercredi 23:59 (jour local) de la semaine du planning — aligné backend Casablanca. */
-function changeRequestDeadlineLocal(weekStartDate: string): Date | null {
-  const start = parseDateOnly(weekStartDate);
-  if (!start) return null;
-  const deadline = new Date(start);
-  deadline.setDate(deadline.getDate() + 2);
+/** Deadline J-1 : veille du jour à 23:59 local (= pas le jour même). */
+function changeRequestDeadlineForDay(assignedDate: string): Date | null {
+  const day = parseDateOnly(assignedDate);
+  if (!day) return null;
+  const deadline = new Date(day);
+  deadline.setDate(deadline.getDate() - 1);
   deadline.setHours(23, 59, 59, 999);
   return deadline;
 }
@@ -68,6 +63,33 @@ function parseDateOnly(value: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function startOfLocalDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function mondayOf(d: Date): Date {
+  const day = startOfLocalDay(d);
+  const diff = (day.getDay() + 6) % 7; // Monday = 0
+  day.setDate(day.getDate() - diff);
+  return day;
+}
+
+function weekStartOfPlanning(p: MyPlanning): Date | null {
+  const fromField = parseDateOnly(p.weekStartDate);
+  if (fromField) return mondayOf(fromField);
+  const firstDay = p.days.map((d) => parseDateOnly(d.assignedDate)).find(Boolean);
+  return firstDay ? mondayOf(firstDay) : null;
+}
+
+function coversToday(p: MyPlanning, today: Date): boolean {
+  const start = weekStartOfPlanning(p);
+  if (!start) return false;
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const t = startOfLocalDay(today);
+  return t >= start && t <= end;
+}
+
 function apiMessage(err: unknown): string {
   const e = err as { error?: { message?: string } | string; message?: string };
   if (typeof e?.error === 'string' && e.error.trim()) return e.error;
@@ -76,23 +98,53 @@ function apiMessage(err: unknown): string {
   return '';
 }
 
+const EN_DAY_TO_FR: Record<string, string> = {
+  monday: 'Lundi',
+  tuesday: 'Mardi',
+  wednesday: 'Mercredi',
+  thursday: 'Jeudi',
+  friday: 'Vendredi',
+  saturday: 'Samedi',
+  sunday: 'Dimanche',
+};
+
+/** Libellé jour FR (API FR ou repli depuis date / anglais). */
+function frenchDayLabel(day: string, assignedDate: string): string {
+  const key = (day || '').trim().toLowerCase();
+  if (EN_DAY_TO_FR[key]) return EN_DAY_TO_FR[key];
+  if (/^(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)$/i.test(day.trim())) {
+    return day.trim().charAt(0).toUpperCase() + day.trim().slice(1).toLowerCase();
+  }
+  const d = parseDateOnly(assignedDate);
+  if (!d) return day || '—';
+  const names = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  return names[d.getDay()] ?? day;
+}
+
 @Component({
   selector: 'app-mes-plannings',
   standalone: true,
-  imports: [CommonModule, FormsModule, KyntusPageHeaderComponent],
+  imports: [CommonModule, FormsModule, KyntusPageHeaderComponent, BodyPortalDirective],
   templateUrl: './mes-plannings.component.html',
   styleUrls: ['./mes-plannings.component.css'],
 })
-export class MesPlanningsComponent implements OnInit {
+export class MesPlanningsComponent implements OnInit, OnDestroy {
+  private readonly formDrafts = inject(KyntusFormDraftService);
+  private draftBinder?: KyntusObjectDraftBinder<{
+    reason: string;
+    proposedSwapUserId: number | null;
+    assignmentId: number | null;
+    assignedDate: string | null;
+  }>;
+
   current: MyPlanning | null = null;
-  history: MyPlanning[] = [];
-  myRequests: ChangeRequest[] = [];
+  upcomingWeeks: MyPlanning[] = [];
+  pastWeeks: MyPlanning[] = [];
   loading = true;
   errorMsg = '';
   toast = '';
   authUserId = 0;
-  changeDeadlinePassed = false;
-  changeDeadlineLabel = '';
+  changeDeadlineHint = '';
 
   showModal = false;
   saving = false;
@@ -101,6 +153,10 @@ export class MesPlanningsComponent implements OnInit {
   proposedSwapUserId: number | null = null;
   candidates: SwapCandidate[] = [];
   modalError = '';
+  selectedDayDeadlineLabel = '';
+  selectedDayDeadlinePassed = false;
+
+  readonly formatWeekLabel = formatWeekLabel;
 
   constructor(
     private planningSvc: PlanningService,
@@ -109,6 +165,22 @@ export class MesPlanningsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'planning-change-request-create',
+      () => ({
+        reason: this.reason,
+        proposedSwapUserId: this.proposedSwapUserId,
+        assignmentId: this.selectedDay?.assignmentId ?? null,
+        assignedDate: this.selectedDay?.assignedDate ?? null,
+      }),
+      (s) => {
+        if (typeof s.reason === 'string') this.reason = s.reason;
+        if (s.proposedSwapUserId != null) this.proposedSwapUserId = s.proposedSwapUserId;
+      },
+    );
+    this.draftBinder.start();
+
     const authUserId = this.session.getAuthUserId();
     if (!authUserId) {
       this.loading = false;
@@ -116,53 +188,42 @@ export class MesPlanningsComponent implements OnInit {
       return;
     }
     this.authUserId = authUserId;
+    this.changeDeadlineHint =
+      'Demande de switch possible tant que ce n’est pas le jour même (jusqu’à la veille 23:59).';
 
-    this.planningSvc.getMyCurrentPlanning(authUserId).subscribe({
-      next: (p) => {
-        this.current = this.normalizePlanning(p);
-        this.refreshDeadlineState();
+    this.loadPlannings();
+  }
+
+  private loadPlannings(): void {
+    this.loading = true;
+    // Histoire = source principale (tous les plannings publiés) ; current en complément.
+    forkJoin({
+      current: this.planningSvc.getMyCurrentPlanning(this.authUserId).pipe(
+        catchError(() => of(null)),
+      ),
+      history: this.planningSvc.getMyHistory(this.authUserId).pipe(
+        catchError(() => of([])),
+      ),
+    }).subscribe({
+      next: ({ current, history }) => {
+        let all: MyPlanning[] = [];
+        const hist = Array.isArray(history) ? history : [];
+        for (const raw of hist) {
+          const norm = this.normalizePlanning(raw);
+          if (norm) all = this.mergePlanning(all, norm);
+        }
+        const cur = this.normalizePlanning(current);
+        if (cur) all = this.mergePlanning(all, cur);
+        this.reconcileWeeks(all);
         this.loading = false;
         this.cdr.detectChanges();
       },
       error: () => {
-        this.current = null;
         this.loading = false;
+        this.errorMsg = 'Impossible de charger vos plannings.';
         this.cdr.detectChanges();
       },
     });
-
-    this.planningSvc.getMyHistory(authUserId).subscribe({
-      next: (list) => {
-        this.history = Array.isArray(list)
-          ? list.map((p) => this.normalizePlanning(p)!).filter(Boolean)
-          : [];
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.history = [];
-        this.cdr.detectChanges();
-      },
-    });
-
-    this.loadMyRequests();
-  }
-
-  loadMyRequests(): void {
-    this.planningSvc.getMyChangeRequests(this.authUserId).subscribe({
-      next: (list) => {
-        this.myRequests = Array.isArray(list) ? list : [];
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.myRequests = [];
-        this.cdr.detectChanges();
-      },
-    });
-  }
-
-  get pastWeeks(): MyPlanning[] {
-    if (!this.current) return this.history;
-    return this.history.filter((p) => p.weekCode !== this.current!.weekCode);
   }
 
   shiftClass(d: DayAssignment): string {
@@ -179,25 +240,55 @@ export class MesPlanningsComponent implements OnInit {
     return '—';
   }
 
+  /** Switch autorisé tant que ce n’est pas le jour même (deadline J-1 23:59). */
   canRequestChange(d: DayAssignment): boolean {
-    return (
-      !!d.assignmentId &&
-      !d.isOnLeave &&
-      !d.isHoliday &&
-      !!d.shiftLabel &&
-      d.shiftLabel !== '—' &&
-      !this.changeDeadlinePassed
-    );
+    if (
+      !d.assignmentId ||
+      d.isOnLeave ||
+      d.isHoliday ||
+      !d.shiftLabel ||
+      d.shiftLabel === '—'
+    ) {
+      return false;
+    }
+    const deadline = changeRequestDeadlineForDay(d.assignedDate);
+    if (!deadline) return false;
+    return Date.now() <= deadline.getTime();
+  }
+
+  ngOnDestroy(): void {
+    this.draftBinder?.destroy();
+  }
+
+  touchDraft(): void {
+    this.draftBinder?.touch();
   }
 
   openChangeModal(d: DayAssignment): void {
     if (!this.canRequestChange(d) || !d.assignmentId) return;
     this.selectedDay = d;
-    this.reason = '';
-    this.proposedSwapUserId = null;
+    const draft = this.formDrafts.load<{
+      reason?: string;
+      proposedSwapUserId?: number | null;
+      assignmentId?: number | null;
+    }>('planning-change-request-create');
+    const reuseDraft = draft?.assignmentId === d.assignmentId;
+    this.reason = reuseDraft && draft?.reason ? draft.reason : '';
+    this.proposedSwapUserId = reuseDraft ? (draft?.proposedSwapUserId ?? null) : null;
     this.candidates = [];
     this.modalError = '';
     this.showModal = true;
+    const deadline = changeRequestDeadlineForDay(d.assignedDate);
+    this.selectedDayDeadlinePassed = !deadline || Date.now() > deadline.getTime();
+    this.selectedDayDeadlineLabel = deadline
+      ? deadline.toLocaleString('fr-FR', {
+          weekday: 'long',
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '';
     this.planningSvc.getSwapCandidates(d.assignmentId, this.authUserId).subscribe({
       next: (list) => {
         this.candidates = (Array.isArray(list) ? list : []).map((c) => ({
@@ -207,6 +298,9 @@ export class MesPlanningsComponent implements OnInit {
           assignmentId: Number(c.assignmentId ?? c.AssignmentId ?? 0),
           shiftLabel: String(c.shiftLabel ?? c.ShiftLabel ?? ''),
         }));
+        if (this.candidates.length === 1) {
+          this.proposedSwapUserId = this.candidates[0].userId;
+        }
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -226,25 +320,33 @@ export class MesPlanningsComponent implements OnInit {
       this.modalError = 'Le motif est obligatoire.';
       return;
     }
+    if (!this.proposedSwapUserId || this.proposedSwapUserId <= 0) {
+      this.modalError = 'Choisissez un collègue pour le switch (obligatoire).';
+      return;
+    }
+    if (this.candidates.length === 0) {
+      this.modalError = 'Aucun collègue éligible pour un switch ce jour.';
+      return;
+    }
     this.saving = true;
     this.modalError = '';
     this.planningSvc
       .createChangeRequest(this.authUserId, {
         currentAssignmentId: this.selectedDay.assignmentId,
         reason: this.reason.trim(),
-        proposedSwapUserId: this.proposedSwapUserId || null,
+        proposedSwapUserId: this.proposedSwapUserId,
       })
       .subscribe({
         next: () => {
           this.saving = false;
           this.showModal = false;
-          this.toast = 'Demande envoyée.';
-          this.loadMyRequests();
+          this.draftBinder?.clear();
+          this.toast = 'Demande envoyée — suivez-la dans « Demandes de changement ».';
           this.cdr.detectChanges();
           setTimeout(() => {
             this.toast = '';
             this.cdr.detectChanges();
-          }, 3000);
+          }, 3500);
         },
         error: (err) => {
           this.saving = false;
@@ -254,44 +356,44 @@ export class MesPlanningsComponent implements OnInit {
       });
   }
 
-  cancelRequest(id: number): void {
-    if (!confirm('Annuler cette demande ?')) return;
-    this.planningSvc.cancelChangeRequest(id, this.authUserId).subscribe({
-      next: () => this.loadMyRequests(),
-      error: (err) => {
-        this.toast = apiMessage(err) || 'Annulation impossible.';
-        this.cdr.detectChanges();
-      },
-    });
-  }
-
-  statusLabel(status: string): string {
-    const map: Record<string, string> = {
-      Pending: 'En attente',
-      Approved: 'Approuvée',
-      Rejected: 'Rejetée',
-      Cancelled: 'Annulée',
-    };
-    return map[status] ?? status;
-  }
-
-  private refreshDeadlineState(): void {
-    const deadline = this.current
-      ? changeRequestDeadlineLocal(this.current.weekStartDate)
-      : null;
-    if (!deadline) {
-      this.changeDeadlinePassed = false;
-      this.changeDeadlineLabel = '';
-      return;
+  /** Affiche la semaine calendaire en détail ; le reste en à venir / historique. */
+  private reconcileWeeks(allPlannings: MyPlanning[]): void {
+    const today = new Date();
+    const byCode = new Map<string, MyPlanning>();
+    for (const p of allPlannings) {
+      if (p.weekCode) byCode.set(p.weekCode, p);
     }
-    this.changeDeadlinePassed = Date.now() > deadline.getTime();
-    this.changeDeadlineLabel = deadline.toLocaleString('fr-FR', {
-      weekday: 'long',
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const list = [...byCode.values()];
+
+    this.current = list.find((p) => coversToday(p, today)) ?? null;
+
+    const currentCode = this.current?.weekCode;
+    const rest = list.filter((p) => p.weekCode !== currentCode);
+    const mondayToday = mondayOf(today).getTime();
+
+    this.upcomingWeeks = rest
+      .filter((p) => {
+        const start = weekStartOfPlanning(p);
+        return !!start && start.getTime() > mondayToday;
+      })
+      .sort((a, b) => (weekStartOfPlanning(a)?.getTime() ?? 0) - (weekStartOfPlanning(b)?.getTime() ?? 0));
+
+    this.pastWeeks = rest
+      .filter((p) => {
+        const start = weekStartOfPlanning(p);
+        return !!start && start.getTime() < mondayToday;
+      })
+      .sort((a, b) => (weekStartOfPlanning(b)?.getTime() ?? 0) - (weekStartOfPlanning(a)?.getTime() ?? 0));
+  }
+
+  private mergePlanning(list: MyPlanning[], item: MyPlanning): MyPlanning[] {
+    const idx = list.findIndex((p) => p.weekCode === item.weekCode);
+    if (idx >= 0) {
+      const copy = [...list];
+      copy[idx] = item;
+      return copy;
+    }
+    return [...list, item];
   }
 
   private normalizePlanning(raw: unknown): MyPlanning | null {
@@ -312,10 +414,11 @@ export class MesPlanningsComponent implements OnInit {
   private normalizeDay(raw: unknown): DayAssignment {
     const d = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
     const id = Number(d['assignmentId'] ?? d['AssignmentId'] ?? 0);
+    const assignedDate = String(d['assignedDate'] ?? d['AssignedDate'] ?? '');
     return {
       assignmentId: id > 0 ? id : undefined,
-      day: String(d['day'] ?? d['Day'] ?? ''),
-      assignedDate: String(d['assignedDate'] ?? d['AssignedDate'] ?? ''),
+      day: frenchDayLabel(String(d['day'] ?? d['Day'] ?? ''), assignedDate),
+      assignedDate,
       shiftLabel: String(d['shiftLabel'] ?? d['ShiftLabel'] ?? ''),
       startTime: String(d['startTime'] ?? d['StartTime'] ?? ''),
       endTime: String(d['endTime'] ?? d['EndTime'] ?? ''),
@@ -326,6 +429,7 @@ export class MesPlanningsComponent implements OnInit {
       holidayName: String(d['holidayName'] ?? d['HolidayName'] ?? ''),
       absenceType: (d['absenceType'] ?? d['AbsenceType'] ?? null) as string | null,
       slotLabel: String(d['slotLabel'] ?? d['SlotLabel'] ?? ''),
+      isExceptionalRequest: Boolean(d['isExceptionalRequest'] ?? d['IsExceptionalRequest']),
     };
   }
 }

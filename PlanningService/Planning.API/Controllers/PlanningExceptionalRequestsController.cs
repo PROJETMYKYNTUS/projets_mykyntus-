@@ -82,6 +82,9 @@ public class PlanningExceptionalRequestsController(
     public async Task<IActionResult> GetAll(
         [FromQuery] string? status,
         [FromQuery] string? weekCode,
+        [FromQuery] string? period = null,
+        [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null,
         [FromQuery] int? authUserId = null,
         [FromQuery] int? requesterUserId = null)
     {
@@ -98,7 +101,14 @@ public class PlanningExceptionalRequestsController(
             }
         }
 
-        return Ok(await _service.GetAllAsync(status, weekCode, viewerId, requesterUserId));
+        DateOnly? rangeFrom = null;
+        DateOnly? rangeTo = null;
+        if (string.IsNullOrWhiteSpace(weekCode)
+            && (!string.IsNullOrWhiteSpace(period) || from.HasValue || to.HasValue))
+            (rangeFrom, rangeTo) = Planning.Application.Common.PeriodRange.Resolve(period, from, to);
+
+        return Ok(await _service.GetAllAsync(
+            status, weekCode, viewerId, requesterUserId, rangeFrom, rangeTo));
     }
 
     [HttpGet("quota")]

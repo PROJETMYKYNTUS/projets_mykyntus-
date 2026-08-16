@@ -26,6 +26,7 @@ import type {
 import { findOperationalSelectionByServiceId } from '../../../../core/org/operational-org-picker';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 import {
   ChevronDown,
   ChevronRight,
@@ -58,6 +59,7 @@ type SubServiceOption = {
 })
 export class ShiftConfigComponent implements OnInit, OnDestroy {
   private readonly formDrafts = inject(KyntusFormDraftService);
+  private readonly confirmService = inject(KyntusConfirmService);
   private draftBinder?: KyntusObjectDraftBinder<{
     subServiceId: number;
     isCriticalCell: boolean;
@@ -106,11 +108,12 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
   error = '';
   successMsg = '';
 
-  /** Extrêmes +3h/+5h seulement si cellule critique ; normal = +4h/+4h30. */
+  /** Extrêmes +3h/+5h si cellule critique ; normal = +4h/+4h30. Plafond +5h. */
   isCriticalCell = false;
 
-  /** Présence min plateau de toute la cellule (défaut 70). */
+  /** Présence min plateau de toute la cellule (0 = désactivée ; défaut 70). */
   minPresencePercent = 70;
+  enforceMinPresence = true;
 
   shifts: ShiftConfigItem[] = [];
 
@@ -153,6 +156,49 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
   /** Persiste le brouillon après édition locale. */
   touchDraft(): void {
     this.draftBinder?.touch();
+  }
+
+  async resetDraftForm(): Promise<void> {
+    const ok = await this.confirmService.confirm({
+      title: 'Réinitialiser',
+      message: 'Réinitialiser la configuration de shifts et le brouillon ?',
+      confirmLabel: 'Réinitialiser',
+    });
+    if (!ok) return;
+    this.draftBinder?.discard();
+    this.error = '';
+    this.successMsg = '';
+    if (this.subServiceId > 0) {
+      this.loadExistingConfig();
+    } else {
+      this.initShifts();
+      this.isCriticalCell = false;
+      this.enforceMinPresence = true;
+      this.minPresencePercent = 70;
+    }
+    this.restartDraftBinder();
+    this.cdr.detectChanges();
+  }
+
+  private restartDraftBinder(): void {
+    this.draftBinder?.destroy();
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'shift-config',
+      () => ({
+        subServiceId: this.subServiceId,
+        isCriticalCell: this.isCriticalCell,
+        minPresencePercent: this.minPresencePercent,
+        shifts: this.shifts,
+      }),
+      (s) => {
+        if (typeof s.subServiceId === 'number') this.subServiceId = s.subServiceId;
+        if (typeof s.isCriticalCell === 'boolean') this.isCriticalCell = s.isCriticalCell;
+        if (typeof s.minPresencePercent === 'number') this.minPresencePercent = s.minPresencePercent;
+        if (Array.isArray(s.shifts) && s.shifts.length) this.shifts = s.shifts;
+      },
+    );
+    this.draftBinder.start();
   }
 
   initShifts(): void {
@@ -216,7 +262,7 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
     const early = Math.floor(startMin / 60) < 10;
     const offsets = this.isCriticalCell
       ? (early
-          ? [4, 4.5, 3.5, 5, 3]
+          ? [4, 4.5, 3.5, 5, 3] // Opening : max +5h
           : [4, 4.5, 3.5, 3, 5])
       : [4, 4.5];
     return offsets.map(h => this.formatMinutes(startMin + h * 60));
@@ -242,6 +288,14 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
     for (const s of this.shifts) {
       s.breakSlots = this.buildAutoBreakSlots(s.startTime, this.isCriticalCell);
       s.breakDurationMinutes = 60;
+    }
+    this.touchDraft();
+  }
+
+  onEnforceMinPresenceChange(enabled: boolean): void {
+    this.enforceMinPresence = enabled;
+    if (enabled && (this.minPresencePercent == null || this.minPresencePercent < 50)) {
+      this.minPresencePercent = 70;
     }
     this.touchDraft();
   }
@@ -615,7 +669,7 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
       }
     }
     const p = this.minPresencePercent ?? 70;
-    if (p < 50 || p > 100) {
+    if (this.enforceMinPresence && (p < 50 || p > 100)) {
       this.error = 'Présence min cellule invalide (50–100 %).';
       return;
     }
@@ -629,7 +683,7 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
       weekCode: null,
       weekStartDate: null,
       isCriticalCell: this.isCriticalCell,
-      minPresencePercent: this.minPresencePercent,
+      minPresencePercent: this.enforceMinPresence ? this.minPresencePercent : 0,
       shifts: this.shifts.map((s) => ({
         ...s,
         breakDurationMinutes: 60,
@@ -667,10 +721,17 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
       next: (config) => {
         this.savedConfig = config;
         this.isCriticalCell = !!config.isCriticalCell;
-        this.minPresencePercent =
-          config.minPresencePercent && config.minPresencePercent > 0
+        const rawPresence =
+          typeof config.minPresencePercent === 'number'
             ? config.minPresencePercent
-            : config.shifts[0]?.minPresencePercent ?? 70;
+            : (config.shifts[0]?.minPresencePercent ?? 70);
+        if (rawPresence <= 0) {
+          this.enforceMinPresence = false;
+          this.minPresencePercent = 70;
+        } else {
+          this.enforceMinPresence = true;
+          this.minPresencePercent = rawPresence;
+        }
         this.shifts = config.shifts.map((s) => {
           const slots =
             s.breakSlots?.length
@@ -692,6 +753,7 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
       error: () => {
         this.savedConfig = null;
         this.isCriticalCell = false;
+        this.enforceMinPresence = true;
         this.minPresencePercent = 70;
         this.initShifts();
         this.loading = false;

@@ -140,3 +140,12 @@ body {
 body.ky-body-modal-open {
   overflow: hidden;
 }
+
+/* Viewport-anchored overlay (applied by appBodyPortal; survives encapsulation).
+   Does not force flex centering — drawers use justify-end; dialogs keep their own CSS. */
+.ky-viewport-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
+  box-sizing: border-box;
+}

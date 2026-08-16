@@ -16,6 +16,8 @@
 .ce-progress-bar { height: 6px; background: var(--navy-700); border-radius: 99px; margin-top: 6px; }
 .ce-progress-fill { height: 100%; background: var(--blue-600); border-radius: 99px; transition: width .4s; }
 .ce-filters { margin-bottom: 16px; }
+.ce-forbid-hint { font-size: 13px; color: var(--text-muted); margin: 0 0 16px; }
+.ce-disponibilite-error { color: var(--danger-text); font-size: 13px; margin: 0; }
 .ce-loading { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px; color: var(--text-muted); }
 .ce-spinner { width: 36px; height: 36px; border: 3px solid var(--border-color); border-top-color: var(--blue-600); border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

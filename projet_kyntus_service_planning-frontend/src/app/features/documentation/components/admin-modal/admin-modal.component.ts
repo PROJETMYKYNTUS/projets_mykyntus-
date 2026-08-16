@@ -1,8 +1,10 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { BodyPortalDirective } from '../../../../shared/directives/body-portal.directive';
 
 @Component({
   standalone: true,
   selector: 'app-admin-modal',
+  imports: [BodyPortalDirective],
   templateUrl: './admin-modal.component.html',
 })
 export class AdminModalComponent {

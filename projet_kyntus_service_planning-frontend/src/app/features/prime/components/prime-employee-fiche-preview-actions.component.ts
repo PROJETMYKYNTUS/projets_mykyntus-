@@ -6,6 +6,7 @@ import {
   PrimeEmployeeFichePreviewService,
   previewHttpError,
 } from '../services/prime-employee-fiche-preview.service';
+import { KyntusToastService } from '../../../shared/components/ui/kyntus-toast.service';
 
 @Component({
   selector: 'app-prime-employee-fiche-preview-actions',
@@ -46,6 +47,7 @@ import {
 })
 export class PrimeEmployeeFichePreviewActionsComponent {
   private readonly previewSvc = inject(PrimeEmployeeFichePreviewService);
+  private readonly toast = inject(KyntusToastService);
 
   readonly ficheId = input<string | null>(null);
   readonly employeeLabel = input('');
@@ -91,16 +93,16 @@ export class PrimeEmployeeFichePreviewActionsComponent {
         void this.previewSvc
           .downloadXlsxFromContext(ctx, this.fileNameBase())
           .then((err) => {
-            if (err) window.alert(err);
+            if (err) this.toast.error(err);
             this.downloadBusy.set(false);
           })
           .catch((e: unknown) => {
-            window.alert(previewHttpError(e));
+            this.toast.error(previewHttpError(e));
             this.downloadBusy.set(false);
           });
       },
       error: (e) => {
-        window.alert(previewHttpError(e));
+        this.toast.error(previewHttpError(e));
         this.downloadBusy.set(false);
       },
     });

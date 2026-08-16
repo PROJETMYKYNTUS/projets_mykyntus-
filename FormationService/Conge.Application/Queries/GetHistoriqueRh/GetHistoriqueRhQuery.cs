@@ -1,4 +1,5 @@
 using Conge.Application.DTOs;
+using Conge.Application.Queries.GetDemandesByManager;
 using Conge.Domain.Interfaces;
 using MediatR;
 
@@ -27,22 +28,13 @@ public class GetHistoriqueRhHandler : IRequestHandler<GetHistoriqueRhQuery, IEnu
         foreach (var d in demandes)
         {
             var employe = await _employeRepo.GetByEmployeIdAsync(d.EmployeId, ct);
-            result.Add(new DemandeCongeDto(
-                d.Id,
-                d.EmployeId,
-                d.ManagerId,
-                d.TypeConge,
-                d.TypeExceptionnel,
-                d.DateDebut,
-                d.DateFin,
-                d.NombreJours,
-                d.Statut,
-                d.Motif,
-                d.CommentaireManager,
-                d.DateDemande,
-                d.DateDecision,
-                employe?.Nom,
-                employe?.Prenom));
+            string? supNom = null;
+            string? rhNom = null;
+            if (d.SuperviseurDecideurId is { } sid)
+                supNom = (await _employeRepo.GetByEmployeIdAsync(sid, ct))?.NomComplet;
+            if (d.RhDecideurId is { } rid)
+                rhNom = (await _employeRepo.GetByEmployeIdAsync(rid, ct))?.NomComplet;
+            result.Add(GetDemandesByManagerHandler.Map(d, employe, supNom, rhNom));
         }
 
         return result.OrderByDescending(r => r.DateDemande);

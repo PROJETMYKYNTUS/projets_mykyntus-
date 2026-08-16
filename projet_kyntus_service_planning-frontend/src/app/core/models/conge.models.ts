@@ -7,10 +7,11 @@ export enum TypeConge {
 }
 
 export enum StatutDemande {
-  EnAttente = 1,
-  Validee   = 2,
-  Refusee   = 3,
-  Annulee   = 4
+  EnAttente   = 1,
+  Validee     = 2,
+  Refusee     = 3,
+  Annulee     = 4,
+  EnAttenteRh = 5
 }
 
 export enum TypeCongeExceptionnel {
@@ -30,10 +31,11 @@ export const TypeCongeLabels: Record<TypeConge, string> = {
 };
 
 export const StatutDemandeLabels: Record<StatutDemande, string> = {
-  [StatutDemande.EnAttente]: 'En attente',
-  [StatutDemande.Validee]:   'Validée',
-  [StatutDemande.Refusee]:   'Refusée',
-  [StatutDemande.Annulee]:   'Annulée'
+  [StatutDemande.EnAttente]:   'En attente superviseur',
+  [StatutDemande.Validee]:     'Validée',
+  [StatutDemande.Refusee]:     'Refusée',
+  [StatutDemande.Annulee]:     'Annulée',
+  [StatutDemande.EnAttenteRh]: 'En attente RH'
 };
 
 export const TypeCongeExceptionnelLabels: Record<TypeCongeExceptionnel, string> = {
@@ -42,6 +44,12 @@ export const TypeCongeExceptionnelLabels: Record<TypeCongeExceptionnel, string> 
   [TypeCongeExceptionnel.DecesParent]:   'Décès parent (2 jours)',
   [TypeCongeExceptionnel.Naissance]:     'Naissance (3 jours)',
   [TypeCongeExceptionnel.Maternite]:     'Maternité (98 jours)'
+};
+
+export const MOIS_LABELS: Record<number, string> = {
+  1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril',
+  5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
+  9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
 };
 
 export interface DemandeCongeDto {
@@ -59,7 +67,14 @@ export interface DemandeCongeDto {
   dateDemande:        string;
   dateDecision:       string | null;
   nomEmploye?: string;
-prenomEmploye?: string;
+  prenomEmploye?: string;
+  commentaireRh?: string | null;
+  dateValidationSuperviseur?: string | null;
+  superviseurDecideurId?: string | null;
+  rhDecideurId?: string | null;
+  superviseurDecideurNom?: string | null;
+  rhDecideurNom?: string | null;
+  validationNodeId?: string | null;
 }
 
 export interface SoldeCongeDto {
@@ -74,17 +89,48 @@ export interface DemanderCongeCommand {
   employeId:        string;
   typeConge:        TypeConge;
   dateDebut:        string;
-    dateFin: string | null; 
+  dateFin: string | null;
   motif:            string | null;
   typeExceptionnel: TypeCongeExceptionnel | null;
 }
 
 export interface ValiderCongeRequest {
-  managerId:   string;
   commentaire: string | null;
 }
 
 export interface RefuserCongeRequest {
-  managerId:   string;
   commentaire: string;
+}
+
+export interface PeriodesInterditesDto {
+  mois: number[];
+  updatedAt: string;
+}
+
+export interface QuotaCongeServiceDto {
+  serviceId: string;
+  serviceNom: string;
+  maxAbsentsSimultanes: number | null;
+  effectif: number;
+}
+
+export interface CongeDisponibiliteDto {
+  ok: boolean;
+  motif: string | null;
+  moisInterdits: number[];
+  joursSatures: string[];
+}
+
+/** Normalise un statut API (nombre ou nom enum string). */
+export function normalizeStatutDemande(raw: StatutDemande | string | number): StatutDemande {
+  if (typeof raw === 'number') return raw as StatutDemande;
+  if (typeof raw === 'string') {
+    const n = Number(raw);
+    if (!Number.isNaN(n) && n in StatutDemandeLabels) return n as StatutDemande;
+    const key = raw as keyof typeof StatutDemande;
+    if (key in StatutDemande && typeof StatutDemande[key] === 'number') {
+      return StatutDemande[key] as StatutDemande;
+    }
+  }
+  return StatutDemande.EnAttente;
 }

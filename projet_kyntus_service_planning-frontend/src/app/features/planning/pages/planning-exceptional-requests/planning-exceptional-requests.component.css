@@ -69,6 +69,41 @@
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
   min-width: 10rem;
+  max-width: 18rem;
+}
+
+.mdc-recap {
+  margin-top: 12px;
+}
+.mdc-recap-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.mdc-recap-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.mdc-recap-scope {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 0.2rem 0.55rem;
+  border-radius: 0.4rem;
+}
+.mdc-recap-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  font-size: 0.85rem;
+  color: #475569;
+}
+.mdc-recap-stats strong {
+  color: #0f172a;
+  margin-right: 0.2rem;
 }
 
 .mdc-btn {

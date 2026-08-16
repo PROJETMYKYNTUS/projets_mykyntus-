@@ -59,6 +59,8 @@ export class UserDetailComponent implements OnInit {
   user: User | null = null;
   lifecycle: EmployeeLifecycleStatus | null = null;
   detailSections: EmployeeDetailSection[] = [];
+  /** Masque les champs « — » pour alléger la fiche (recommandé). */
+  hideEmptyFields = true;
   linkedReferral: Referral | null = null;
   perimeter: UserOrgPerimeterView = { operationalDepartment: null, pole: null, cellule: null, service: null };
   rotationHistoryOpen = false;
@@ -208,7 +210,7 @@ export class UserDetailComponent implements OnInit {
     if (!this.user) return;
     const guid = resolveUserGuid(this.user);
     if (!guid) {
-      alert('Identifiant employé (GUID) introuvable — historique indisponible.');
+      this.toastService.error('Identifiant employé (GUID) introuvable — historique indisponible.');
       return;
     }
     this.rotationHistoryEmployeeId = guid;
@@ -237,6 +239,28 @@ export class UserDetailComponent implements OnInit {
   getAnciennete(): string {
     if (!this.user) return '—';
     return formatSeniorityDuration(seniorityReferenceDate(this.user));
+  }
+
+  /** Sections affichées : champs vides filtrés / triés pour une lecture plus confortable. */
+  get visibleDetailSections(): EmployeeDetailSection[] {
+    return this.detailSections.map((section) => {
+      const rows = this.hideEmptyFields
+        ? section.rows.filter((r) => r.value !== '—')
+        : [...section.rows].sort((a, b) => Number(a.value === '—') - Number(b.value === '—'));
+      return { ...section, rows };
+    });
+  }
+
+  isWideField(label: string): boolean {
+    const wide = new Set([
+      'Adresse',
+      'Intitulés études',
+      'Mail interne',
+      'GUID employé',
+      'Services supervisés',
+      'Sous-services supervisés',
+    ]);
+    return wide.has(label);
   }
 
   goBack(): void { this.router.navigate(['/users']); }
@@ -310,14 +334,19 @@ export class UserDetailComponent implements OnInit {
     }
   }
 
-  deleteUser(): void {
+  async deleteUser(): Promise<void> {
     if (!this.user) return;
-    if (confirm('Supprimer cet employé ?')) {
-      this.userService.deleteUser(this.user.id).subscribe({
-        next: () => this.router.navigate(['/users']),
-        error: (err) => alert(`Erreur: ${err.error?.message}`)
-      });
-    }
+    const ok = await this.confirmService.confirm({
+      title: 'Supprimer l\'employé',
+      message: 'Supprimer cet employé ?',
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    this.userService.deleteUser(this.user.id).subscribe({
+      next: () => this.router.navigate(['/users']),
+      error: (err) => this.toastService.error(`Erreur: ${err.error?.message}`),
+    });
   }
 
   private fallbackLifecycle(user: User): EmployeeLifecycleStatus {

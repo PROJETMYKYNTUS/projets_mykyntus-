@@ -14,12 +14,16 @@ public interface ICongeEventPublisher
         double nombreJours,
         string typeConge,
         string? typeExceptionnel = null,
+        Guid? validateurId = null,
+        string? validateurNom = null,
         CancellationToken ct = default);
 
     Task PublishCongeRefuseAsync(
         Guid employeId,
         Guid demandeId,
         string motif,
+        Guid? validateurId = null,
+        string? validateurNom = null,
         CancellationToken ct = default);
 
     Task PublishCongeDemandeAsync(

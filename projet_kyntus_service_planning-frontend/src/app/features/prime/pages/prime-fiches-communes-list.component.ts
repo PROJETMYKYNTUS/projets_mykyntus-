@@ -36,6 +36,7 @@ import {
   type SupervisorSynthesisTrackingItemDto,
 } from '../services/prime-global-pool-api.service';
 import { RoleService } from '../state/role.service';
+import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 interface PeriodGroup {
   period: string;
@@ -490,6 +491,7 @@ export class PrimeFichesCommunesListComponent implements OnInit {
   readonly session = inject(PrimeFicheSessionService);
   readonly role = inject(RoleService);
   private readonly nav = inject(PrimeNavRequestService);
+  private readonly confirmService = inject(KyntusConfirmService);
 
   readonly icons = {
     plus: Plus,
@@ -700,10 +702,14 @@ export class PrimeFichesCommunesListComponent implements OnInit {
   async onDelete(item: SupervisorPolePrimeDraftListItemDto): Promise<void> {
     const u = this.role.currentUser();
     if (!u?.id) return;
-    const ok = window.confirm(
-      `Supprimer la fiche commune de la période ${item.period} (« ${item.templateDisplayName || '—'} ») ?\n` +
+    const ok = await this.confirmService.confirm({
+      title: 'Supprimer la fiche commune',
+      message:
+        `Supprimer la fiche commune de la période ${item.period} (« ${item.templateDisplayName || '—'} ») ?\n` +
         `Toutes les saisies cellules associées seront également supprimées.`,
-    );
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    });
     if (!ok) return;
     this.busyDraftId.set(item.id);
     this.banner.set(null);

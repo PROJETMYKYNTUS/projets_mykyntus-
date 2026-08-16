@@ -19,7 +19,12 @@ public sealed record TrainingCatalogItemDto(
     int LessonCount,
     int ResourceCount,
     TrainingCatalogAudienceDto? Audience = null,
-    IReadOnlyList<TrainingModuleDto>? Modules = null);
+    IReadOnlyList<TrainingModuleDto>? Modules = null,
+    bool SelfServiceEnabled = false,
+    CatalogDueMode DueMode = CatalogDueMode.None,
+    DateTime? DueDate = null,
+    int? DueInDays = null,
+    Guid? DefaultQuizTemplateId = null);
 
 public sealed record TrainingCatalogAudienceDto(
     CatalogAudienceMatchMode MatchMode,
@@ -68,6 +73,11 @@ public sealed class UpsertTrainingCatalogItemRequest
     public LearningGateMode DefaultGateMode { get; set; } = LearningGateMode.Content;
     public CatalogAudienceMatchMode AudienceMatchMode { get; set; } = CatalogAudienceMatchMode.MatchAny;
     public string CreatedByUserId { get; set; } = string.Empty;
+    public bool SelfServiceEnabled { get; set; }
+    public CatalogDueMode DueMode { get; set; } = CatalogDueMode.None;
+    public DateTime? DueDate { get; set; }
+    public int? DueInDays { get; set; }
+    public Guid? DefaultQuizTemplateId { get; set; }
 }
 
 public sealed class UpsertTrainingCatalogAudienceRequest
@@ -103,6 +113,67 @@ public sealed class UpsertTrainingResourceRequest
     public int? DurationMinutes { get; set; }
 }
 
+/// <summary>Remplacement atomique de l'arbre modules → leçons → ressources (hors fichiers en attente d'upload).</summary>
+public sealed class ReplaceCatalogStructureRequest
+{
+    public IReadOnlyList<StructureModuleRequest> Modules { get; set; } = Array.Empty<StructureModuleRequest>();
+}
+
+public sealed class StructureModuleRequest
+{
+    public string ClientKey { get; set; } = string.Empty;
+    public Guid? Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
+    public IReadOnlyList<StructureLessonRequest> Lessons { get; set; } = Array.Empty<StructureLessonRequest>();
+}
+
+public sealed class StructureLessonRequest
+{
+    public string ClientKey { get; set; } = string.Empty;
+    public Guid? Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
+    public bool IsRequired { get; set; } = true;
+    public IReadOnlyList<StructureResourceRequest> Resources { get; set; } = Array.Empty<StructureResourceRequest>();
+}
+
+public sealed class StructureResourceRequest
+{
+    public string ClientKey { get; set; } = string.Empty;
+    public Guid? Id { get; set; }
+    public TrainingResourceType Type { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? Url { get; set; }
+    public string? TextContent { get; set; }
+    public int SortOrder { get; set; }
+    public int? DurationMinutes { get; set; }
+}
+
+public sealed record ReplaceCatalogStructureResponse(
+    Guid CatalogItemId,
+    IReadOnlyList<StructureModuleResultDto> Modules);
+
+public sealed record StructureModuleResultDto(
+    string ClientKey,
+    Guid Id,
+    IReadOnlyList<StructureLessonResultDto> Lessons);
+
+public sealed record StructureLessonResultDto(
+    string ClientKey,
+    Guid Id,
+    IReadOnlyList<StructureResourceResultDto> Resources);
+
+public sealed record StructureResourceResultDto(
+    string ClientKey,
+    Guid Id);
+
+public sealed record ResourceAccessTokenDto(
+    string Url,
+    DateTime ExpiresAt);
+
 public sealed class LinkSessionCatalogRequest
 {
     public Guid? CatalogItemId { get; set; }
@@ -119,8 +190,9 @@ public sealed class CompleteLessonRequest
 
 public sealed record CatalogPlayerDto(
     Guid CatalogItemId,
-    Guid SessionId,
-    Guid AssignmentId,
+    Guid? SessionId,
+    Guid? AssignmentId,
+    Guid EnrollmentId,
     string Title,
     string Description,
     string Category,
@@ -130,7 +202,24 @@ public sealed record CatalogPlayerDto(
     int RequiredLessonsDone,
     bool CanTakeQuiz,
     string? QuizBlockedReason,
-    IReadOnlyList<TrainingModuleDto> Modules);
+    IReadOnlyList<TrainingModuleDto> Modules,
+    DateTime? DueAt = null,
+    CatalogEnrollmentStatus EnrollmentStatus = CatalogEnrollmentStatus.NotStarted,
+    Guid? DefaultQuizTemplateId = null);
+
+public sealed record MySelfServiceCatalogItemDto(
+    Guid CatalogItemId,
+    string Title,
+    string Description,
+    string Category,
+    Guid EnrollmentId,
+    CatalogEnrollmentStatus Status,
+    DateTime? DueAt,
+    decimal ProgressPercent,
+    int RequiredLessonsTotal,
+    int RequiredLessonsDone,
+    DateTime? StartedAt,
+    DateTime? CompletedAt);
 
 public sealed record LearningQuizStatsDto(
     int CatalogCount,
@@ -144,6 +233,7 @@ public sealed record LearningQuizStatsDto(
 
 public sealed record LearningQuizStatsBySessionDto(
     Guid SessionId,
+    Guid? CatalogItemId,
     string Title,
     string? Category,
     int QuestionCount,
@@ -157,7 +247,9 @@ public sealed record LearningQuizResultExportRowDto(
     string Email,
     string Role,
     string StructureKey,
+    Guid? SessionId,
     string SessionTitle,
+    Guid? CatalogItemId,
     decimal? Score,
     bool? Passed,
     int AttemptNumber,

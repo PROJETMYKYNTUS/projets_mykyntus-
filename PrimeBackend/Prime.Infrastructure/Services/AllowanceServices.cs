@@ -538,8 +538,11 @@ public sealed class AllowanceTeamPilotageService(
     private async Task<List<EmployeeEntity>> LoadTeamMembersAsync(
         string managerUserId, string? deptId, CancellationToken ct)
     {
+        var managedIds = await scope.GetDirectReportIdsAsync(managerUserId, ct);
+        if (managedIds.Count == 0) return [];
+
         var query = db.Employees.AsNoTracking()
-            .Where(e => e.ParentId == managerUserId && e.BusinessDepartmentKind == "Support");
+            .Where(e => managedIds.Contains(e.Id) && e.BusinessDepartmentKind == "Support");
         if (!string.IsNullOrWhiteSpace(deptId))
             query = query.Where(e => e.BusinessDepartmentId == deptId);
         return await query.OrderBy(e => e.LastName).ThenBy(e => e.FirstName).ToListAsync(ct);
@@ -574,7 +577,10 @@ public sealed class AllowanceTeamPilotageService(
     }
 }
 
-public sealed class AllowanceRuleEngineService(PrimeDbContext db, AllowanceRequestService requests)
+public sealed class AllowanceRuleEngineService(
+    PrimeDbContext db,
+    AllowanceRequestService requests,
+    AllowanceScopeService scope)
 {
     private static readonly HashSet<string> PlanningTypeCodes = ["HOURS_OT", "HOURS_NIGHT"];
     private static readonly HashSet<string> CongesTypeCodes = ["ATTENDANCE"];
@@ -588,10 +594,13 @@ public sealed class AllowanceRuleEngineService(PrimeDbContext db, AllowanceReque
             .ToListAsync(ct);
         if (rules.Count == 0) return 0;
 
+        var managedIds = await scope.GetDirectReportIdsAsync(actorUserId, ct);
+        if (managedIds.Count == 0) return 0;
+
         var employees = await db.Employees.AsNoTracking()
             .Where(e => e.BusinessDepartmentId == businessDepartmentId
                         && e.BusinessDepartmentKind == "Support"
-                        && e.ParentId == actorUserId)
+                        && managedIds.Contains(e.Id))
             .ToListAsync(ct);
 
         var created = 0;

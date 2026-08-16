@@ -140,7 +140,7 @@ public class StructuralAssignmentsReconcileTests : IDisposable
     }
 
     [Fact]
-    public async Task Reconcile_evicts_other_incumbent_on_added_node()
+    public async Task Reconcile_allows_co_titulars_on_same_node()
     {
         var alice = Guid.NewGuid();
         var bob = Guid.NewGuid();
@@ -157,32 +157,32 @@ public class StructuralAssignmentsReconcileTests : IDisposable
             ["pole-a"],
             "pole-a",
             null,
-            "take pole-a");
+            "co-titulaire pole-a");
 
-        Assert.Contains(result.RevokedOnNode, r => r.EmployeeId == alice.ToString() && r.NodeId == "pole-a");
+        Assert.Empty(result.RevokedOnNode);
 
         var activeOnPoleA = await _db.OrgAssignments
             .Where(a => a.Kind == DomainAssignmentKind.ChefDeProjet
                         && a.NodeId == "pole-a"
                         && a.EffectiveTo == null)
+            .Select(a => a.EmployeeId)
+            .OrderBy(x => x)
             .ToListAsync();
-        Assert.Single(activeOnPoleA);
-        Assert.Equal(bob, activeOnPoleA[0].EmployeeId);
+        Assert.Equal(2, activeOnPoleA.Count);
+        Assert.Contains(alice, activeOnPoleA);
+        Assert.Contains(bob, activeOnPoleA);
 
-        // Alice conserve son autre pôle (multi-périmètre personne autorisé).
+        // Alice conserve ses deux pôles.
         var aliceActive = await _db.OrgAssignments
             .Where(a => a.EmployeeId == alice && a.EffectiveTo == null)
             .Select(a => a.NodeId)
+            .OrderBy(x => x)
             .ToListAsync();
-        Assert.Equal(["pole-b"], aliceActive);
-
-        var aliceEmp = await _db.Employees.FirstAsync(e => e.Id == alice);
-        Assert.Equal(KyntusRoleNames.ChefDeProjet, aliceEmp.Role);
-        Assert.Equal("pole-b", aliceEmp.PoleId);
+        Assert.Equal(["pole-a", "pole-b"], aliceActive);
     }
 
     [Fact]
-    public async Task Assign_evicts_other_incumbent_without_revokeEmployeeIds()
+    public async Task Assign_allows_co_titular_without_revokeEmployeeIds()
     {
         var alice = Guid.NewGuid();
         var bob = Guid.NewGuid();
@@ -196,7 +196,37 @@ public class StructuralAssignmentsReconcileTests : IDisposable
             "pole-a",
             bob,
             null,
-            "replace without client revoke list");
+            "add co-responsable");
+
+        Assert.Empty(result.RevokedOnNode);
+
+        var active = await _db.OrgAssignments
+            .Where(a => a.NodeId == "pole-a" && a.EffectiveTo == null)
+            .Select(a => a.EmployeeId)
+            .OrderBy(x => x)
+            .ToListAsync();
+        Assert.Equal(2, active.Count);
+        Assert.Contains(alice, active);
+        Assert.Contains(bob, active);
+    }
+
+    [Fact]
+    public async Task Assign_explicit_revokeEmployeeIds_evicts_named_incumbent()
+    {
+        var alice = Guid.NewGuid();
+        var bob = Guid.NewGuid();
+        SeedEmployee(alice, KyntusRoleNames.ChefDeProjet, poleId: "pole-a");
+        SeedEmployee(bob, KyntusRoleNames.Employee);
+        SeedPole("pole-a", "Pôle A");
+        SeedAssignment(alice, DomainAssignmentKind.ChefDeProjet, "pole-a", DomainNodeLevel.Pole);
+
+        var result = await _write.AssignStructureRoleAsync(
+            "ChefDeProjet",
+            "pole-a",
+            bob,
+            null,
+            "replace alice",
+            revokeEmployeeIds: [alice]);
 
         Assert.Contains(result.RevokedOnNode, r => r.EmployeeId == alice.ToString());
 
@@ -205,6 +235,60 @@ public class StructuralAssignmentsReconcileTests : IDisposable
             .ToListAsync();
         Assert.Single(active);
         Assert.Equal(bob, active[0].EmployeeId);
+    }
+
+    [Fact]
+    public async Task Assign_idempotent_when_already_on_node()
+    {
+        var alice = Guid.NewGuid();
+        SeedEmployee(alice, KyntusRoleNames.ChefDeProjet, poleId: "pole-a");
+        SeedPole("pole-a", "Pôle A");
+        SeedAssignment(alice, DomainAssignmentKind.ChefDeProjet, "pole-a", DomainNodeLevel.Pole);
+
+        var result = await _write.AssignStructureRoleAsync(
+            "ChefDeProjet",
+            "pole-a",
+            alice,
+            null,
+            "noop");
+
+        Assert.Empty(result.Revoked);
+        var count = await _db.OrgAssignments.CountAsync(
+            a => a.EmployeeId == alice && a.NodeId == "pole-a" && a.EffectiveTo == null);
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public async Task Resolver_union_managed_employees_across_two_cellules()
+    {
+        var sup = Guid.NewGuid();
+        var empA = Guid.NewGuid();
+        var empB = Guid.NewGuid();
+        SeedEmployee(sup, KyntusRoleNames.Superviseur, poleId: "pole-1");
+        SeedEmployee(empA, KyntusRoleNames.Pilote);
+        SeedEmployee(empB, KyntusRoleNames.Pilote);
+        SeedPole("pole-1", "Pôle 1");
+        _db.OrgCellules.Add(new OrgCellule { Id = "cell-a", Name = "Cell A", PoleId = "pole-1" });
+        _db.OrgCellules.Add(new OrgCellule { Id = "cell-b", Name = "Cell B", PoleId = "pole-1" });
+        _db.SaveChanges();
+
+        var empAEntity = await _db.Employees.FirstAsync(e => e.Id == empA);
+        empAEntity.CelluleId = "cell-a";
+        empAEntity.PoleId = "pole-1";
+        var empBEntity = await _db.Employees.FirstAsync(e => e.Id == empB);
+        empBEntity.CelluleId = "cell-b";
+        empBEntity.PoleId = "pole-1";
+        _db.SaveChanges();
+
+        SeedAssignment(sup, DomainAssignmentKind.Superviseur, "cell-a", DomainNodeLevel.Cellule);
+        SeedAssignment(sup, DomainAssignmentKind.Superviseur, "cell-b", DomainNodeLevel.Cellule);
+
+        var resolver = new OrgResponsibilityResolver(_db);
+        var managed = await resolver.GetManagedEmployeeIdsAsync(sup);
+        Assert.Contains(empA, managed);
+        Assert.Contains(empB, managed);
+        Assert.True(await resolver.CanActOnAsync(sup, empA));
+        Assert.True(await resolver.CanActOnAsync(sup, empB));
     }
 
     private void SeedEmployee(Guid id, string role, string? poleId = null)

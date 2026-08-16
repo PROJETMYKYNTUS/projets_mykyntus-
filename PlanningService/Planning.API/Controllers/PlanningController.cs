@@ -7,10 +7,14 @@ namespace Planning.API.Controllers;
 
 [ApiController]
 [Route("api/planning")]
-public class PlanningController(IPlanningService planningService, IUserService userService) : ControllerBase
+public class PlanningController(
+    IPlanningService planningService,
+    IUserService userService,
+    IPlanningPendingRequestsAlertService pendingAlerts) : ControllerBase
 {
     private readonly IPlanningService _planningService = planningService;
     private readonly IUserService _userService = userService;
+    private readonly IPlanningPendingRequestsAlertService _pendingAlerts = pendingAlerts;
 
     // ----------------------------------------------------
     // CRUD PLANNING
@@ -90,7 +94,10 @@ public class PlanningController(IPlanningService planningService, IUserService u
         }
         catch (Exception ex)
         {
-            return BadRequest(new { message = ex.Message });
+            var message = ex.InnerException?.Message is { Length: > 0 } inner
+                ? $"{ex.Message} ({inner})"
+                : ex.Message;
+            return BadRequest(new { message });
         }
     }
 
@@ -165,12 +172,35 @@ public class PlanningController(IPlanningService planningService, IUserService u
         try
         {
             var result = await _planningService.AutoGenerateWeekAsync(weekCode, force);
+            try
+            {
+                await _pendingAlerts.SendValidationRemindersAsync(weekCode);
+            }
+            catch
+            {
+                // rappel non bloquant
+            }
             return Ok(result);
         }
         catch (Exception ex)
         {
             return BadRequest(new { message = ex.Message });
         }
+    }
+
+    /// <summary>Synthèse des demandes switch / exceptionnelles non traitées (scoped viewer).</summary>
+    [HttpGet("pending-requests-summary")]
+    public async Task<IActionResult> GetPendingRequestsSummary([FromQuery] int? authUserId = null)
+    {
+        int? viewerId = null;
+        if (authUserId is > 0)
+        {
+            var user = await _userService.GetUserByAuthIdAsync(authUserId.Value);
+            viewerId = user?.Id;
+        }
+
+        var summary = await _pendingAlerts.GetSummaryAsync(viewerId);
+        return Ok(summary);
     }
 
     // ----------------------------------------------------
@@ -275,7 +305,72 @@ public class PlanningController(IPlanningService planningService, IUserService u
     public async Task<IActionResult> SetSaturdayGroup([FromBody] SetSaturdayGroupDto dto)
     {
         await _planningService.SetSaturdayGroupAsync(dto);
-        return Ok(new { message = "Groupe samedi configur�." });
+        return Ok(new { message = "Groupe samedi configuré." });
+    }
+
+    // PUT api/planning/saturday-mode
+    [HttpPut("saturday-mode")]
+    public async Task<IActionResult> SetSaturdayWorkMode([FromBody] SetSaturdayWorkModeDto dto)
+    {
+        try
+        {
+            await _planningService.SetSaturdayWorkModeAsync(dto);
+            return Ok(new { message = "Mode samedi configuré." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // PUT api/planning/special-case
+    [HttpPut("special-case")]
+    public async Task<IActionResult> SetEmployeeSpecialCase([FromBody] SetEmployeeSpecialCaseDto dto)
+    {
+        try
+        {
+            await _planningService.SetEmployeeSpecialCaseAsync(dto);
+            return Ok(new { message = "Cas particulier enregistré." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // PUT api/planning/plateau-training
+    [HttpPut("plateau-training")]
+    public async Task<IActionResult> SetEmployeePlateauTraining([FromBody] SetEmployeePlateauTrainingDto dto)
+    {
+        try
+        {
+            await _planningService.SetEmployeePlateauTrainingAsync(dto);
+            return Ok(new { message = "Ticket formation plateau enregistré." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // GET api/planning/saturday-balance/3
+    [HttpGet("saturday-balance/{subServiceId:int}")]
+    public async Task<IActionResult> GetSaturdayBalance(int subServiceId)
+    {
+        var result = await _planningService.GetSaturdayBalanceAsync(subServiceId);
+        return Ok(result);
+    }
+
+    // POST api/planning/saturday-balance/3/notify?authUserId=12
+    [HttpPost("saturday-balance/{subServiceId:int}/notify")]
+    public async Task<IActionResult> NotifySaturdayImbalance(
+        int subServiceId,
+        [FromQuery] int authUserId)
+    {
+        if (authUserId <= 0)
+            return BadRequest(new { message = "authUserId requis." });
+        var count = await _planningService.NotifySaturdayImbalanceAsync(subServiceId, authUserId);
+        return Ok(new { notified = count });
     }
 
     // GET api/planning/saturday-groups/3
@@ -316,6 +411,21 @@ public class PlanningController(IPlanningService planningService, IUserService u
         return Ok(result);
     }
 
+    /// <summary>Historique des plannings d'un agent (id planning interne) — superviseur / RH.</summary>
+    [HttpGet("agent/{planningUserId:int}/history")]
+    public async Task<IActionResult> GetAgentPlanningHistory(
+        int planningUserId,
+        [FromQuery] string? period = null,
+        [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null)
+    {
+        var (rangeFrom, rangeTo) = Planning.Application.Common.PeriodRange.Resolve(
+            period ?? "thisMonth", from, to);
+        var result = await _planningService.GetAgentPlanningHistoryAsync(
+            planningUserId, rangeFrom, rangeTo);
+        return Ok(result);
+    }
+
     [HttpGet("my/{weekCode}")]
     public async Task<IActionResult> GetMyPlanning(string weekCode, [FromQuery] int userId)
     {
@@ -326,9 +436,6 @@ public class PlanningController(IPlanningService planningService, IUserService u
         var result = await _planningService.GetMyPlanningAsync(user.Id, weekCode);
         return result == null ? NotFound() : Ok(result);
     }
-
-    // GET api/planning/my/history?userId=5
-
     // ----------------------------------------------------
     // NOTIFICATIONS DE PUBLICATION (persistées)
     // ----------------------------------------------------

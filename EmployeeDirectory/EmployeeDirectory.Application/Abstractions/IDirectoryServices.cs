@@ -18,10 +18,21 @@ public interface IDirectoryReadService
     Task<bool> IsEmailUsedAsync(string email, Guid? excludeEmployeeId = null, CancellationToken ct = default);
 }
 
+/// <summary>Résolution multi-responsables depuis OrgAssignment (source d'autorité).</summary>
+public interface IOrgResponsibilityResolver
+{
+    Task<IReadOnlyList<ResponsibleEmployeeDto>> GetResponsiblesAsync(string kind, string nodeId, CancellationToken ct = default);
+    Task<IReadOnlyList<ManagedNodeDto>> GetManagedNodesDetailedAsync(Guid employeeId, string? kind = null, CancellationToken ct = default);
+    Task<IReadOnlyList<Guid>> GetManagedEmployeeIdsAsync(Guid actorId, CancellationToken ct = default);
+    Task<bool> CanActOnAsync(Guid actorId, Guid targetEmployeeId, CancellationToken ct = default);
+    Task<bool> CanActOnNodeAsync(Guid actorId, string kind, string nodeId, CancellationToken ct = default);
+}
+
 public interface IDirectoryWriteService
 {
     Task<EmployeeDto> CreateEmployeeAsync(CreateEmployeeRequest request, Guid? changedBy, CancellationToken ct = default);
     Task<EmployeeDto?> UpdateEmployeeAsync(Guid id, UpdateEmployeeRequest request, Guid? changedBy, CancellationToken ct = default);
+    Task<EmployeeDto?> ClearOrgPlacementAsync(Guid id, ClearOrgPlacementRequest request, Guid? changedBy, CancellationToken ct = default);
     Task<bool> DeleteEmployeeAsync(Guid id, Guid? changedBy, CancellationToken ct = default);
     Task<StructuralRoleAssignmentResult> AssignStructureRoleAsync(
         string kind,

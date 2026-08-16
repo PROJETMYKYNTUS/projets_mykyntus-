@@ -172,7 +172,7 @@
   </div>
 
   @if (levelModalOpen && levelModalUser) {
-    <div class="level-modal-backdrop" (click)="closeLevelModal()">
+    <div class="level-modal-backdrop" appBodyPortal (click)="closeLevelModal()">
       <div class="level-modal" (click)="$event.stopPropagation()">
         <h3>Niveau contractuel</h3>
         <p class="level-modal-sub">
@@ -206,7 +206,7 @@
   }
 
   @if (resetCredentials) {
-    <div class="level-modal-backdrop" (click)="closeResetCredentials()">
+    <div class="level-modal-backdrop" appBodyPortal (click)="closeResetCredentials()">
       <div class="level-modal" (click)="$event.stopPropagation()">
         <h3>Nouveau mot de passe (une seule fois)</h3>
         <p class="level-modal-sub">{{ resetCredentials.email }}</p>

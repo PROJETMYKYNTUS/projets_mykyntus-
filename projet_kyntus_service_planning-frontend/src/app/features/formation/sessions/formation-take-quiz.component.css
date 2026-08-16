@@ -208,3 +208,11 @@
 .mb-2 {
   margin-bottom: 0.5rem;
 }
+
+.history-table-wrap { margin: 1rem 0; text-align: left; }
+.history-title { font-size: 0.95rem; margin-bottom: 0.5rem; }
+.history-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.history-table th, .history-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}

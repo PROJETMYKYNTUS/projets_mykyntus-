@@ -207,7 +207,15 @@
               [disabled]="saving"
               class="px-6 py-3 rounded-lg font-bold text-primary border border-default hover:bg-input/50 transition-all"
             >
-              Réinitialiser
+              Réinitialiser (usine)
+            </button>
+            <button
+              type="button"
+              (click)="resetDraftForm()"
+              [disabled]="saving"
+              class="px-6 py-3 rounded-lg font-bold text-primary border border-default hover:bg-input/50 transition-all"
+            >
+              Recharger sauvegardé
             </button>
           </div>
           <div class="text-xs text-muted">

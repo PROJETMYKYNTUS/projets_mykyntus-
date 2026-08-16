@@ -34,6 +34,11 @@ public interface IPlanningService
 
     // -- Publication --
     Task<WeeklyPlanningResponseDto> PublishPlanningAsync(int planningId, int validatorId);
+    /// <summary>
+    /// Notification soft après régénération d'un planning déjà Published (statut inchangé).
+    /// Agents + superviseurs + alerte RH.
+    /// </summary>
+    Task NotifyPlanningRepublishedAsync(int planningId, string? reason = null);
 
     // -- Override manager --
     Task<DayAssignmentDto> OverrideShiftAsync(OverrideShiftDto dto);
@@ -42,12 +47,21 @@ public interface IPlanningService
 
     // -- Samedi --
     Task SetSaturdayGroupAsync(SetSaturdayGroupDto dto);
+    Task SetSaturdayWorkModeAsync(SetSaturdayWorkModeDto dto);
+    Task SetEmployeeSpecialCaseAsync(SetEmployeeSpecialCaseDto dto);
+
+    Task SetEmployeePlateauTrainingAsync(SetEmployeePlateauTrainingDto dto);
+    Task<SaturdayBalanceDto> GetSaturdayBalanceAsync(int subServiceId);
+    /// <summary>Crée/actualise une notification superviseur si déséquilibre (idempotent).</summary>
+    Task<int> NotifySaturdayImbalanceAsync(int subServiceId, int authUserId);
     Task<IEnumerable<object>> GetSaturdayGroupsAsync(int subServiceId);
     Task SyncNewEmployeesAsync();
 
     // -- Vue employé --
     Task<MyPlanningDto?> GetMyPlanningAsync(int userId, string weekCode);
     Task<IEnumerable<MyPlanningDto>> GetMyPlanningHistoryAsync(int userId);
+    Task<IReadOnlyList<MyPlanningDto>> GetAgentPlanningHistoryAsync(
+        int planningUserId, DateOnly? from, DateOnly? to);
     Task<PlanningCommentDto> SaveCommentAsync(SavePlanningCommentDto dto);
     Task DeleteCommentAsync(int planningId, int userId);
     Task<IEnumerable<PlanningCommentDto>> GetCommentsAsync(int planningId);

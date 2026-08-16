@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { X } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
+import { BodyPortalDirective } from '@/shared/directives/body-portal.directive';
 import type { JournalRow } from '../../audit/audit-types';
 
 interface TimelineItem {
@@ -13,10 +14,10 @@ interface TimelineItem {
 @Component({
   selector: 'app-user-timeline-modal',
   standalone: true,
-  imports: [LucideIconComponent],
+  imports: [LucideIconComponent, BodyPortalDirective],
   template: `
     @if (open) {
-      <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-app/70" (click)="close.emit()" role="presentation">
+      <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-app/70" appBodyPortal (click)="close.emit()" role="presentation">
         <div class="card-navy w-full max-w-lg max-h-[85vh] flex flex-col border border-default shadow-xl duration-200" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
           <div class="flex items-center justify-between p-4 border-b border-default">
             <div>

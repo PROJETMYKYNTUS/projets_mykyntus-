@@ -67,9 +67,14 @@ public static class DependencyInjection
         services.AddScoped<IPlanningOrgMirrorService, PlanningOrgMirrorService>();
         services.AddScoped<IOrgReconciliationService, OrgReconciliationService>();
         services.AddScoped<IPlanningService, PlanningServiceImpl>();
+        services.AddScoped<IPlanningLeaveImpactService, PlanningLeaveImpactService>();
+        services.AddScoped<IPlanningPerimeterResolver, PlanningPerimeterResolver>();
         services.AddScoped<IPlanningChangeRequestService, PlanningChangeRequestService>();
         services.AddScoped<IPlanningExceptionalRequestService, PlanningExceptionalRequestService>();
+        services.AddScoped<IPlanningReinforcementRequestService, PlanningReinforcementRequestService>();
+        services.AddScoped<IPlanningPendingRequestsAlertService, PlanningPendingRequestsAlertService>();
         services.AddHostedService<WeeklyPlanningAutoGeneratorHostedService>();
+        services.AddHostedService<PendingRequestsReminderHostedService>();
         services.AddScoped<IPlanningOrgMirrorService, PlanningOrgMirrorService>();
         services.AddScoped<IDirectoryOrgWriteClient, DirectoryOrgWriteClient>();
 
@@ -117,6 +122,14 @@ public static class DependencyInjection
                 x.AddConsumer<TrainingSessionAnimatorAssignedConsumer>();
                 x.AddConsumer<TrainingSessionStartedConsumer>();
                 x.AddConsumer<InitialTrainingMissingDocumentsAlertConsumer>();
+                x.AddConsumer<TrainingQuizPublishedConsumer>();
+                x.AddConsumer<TrainingQuizAttemptSubmittedConsumer>();
+                x.AddConsumer<TrainingQuizNeedsGradingConsumer>();
+                x.AddConsumer<TrainingQuizValidatedConsumer>();
+                x.AddConsumer<TrainingQuizRejectedConsumer>();
+                x.AddConsumer<TrainingQuizResultReadyConsumer>();
+                x.AddConsumer<CatalogEnrollmentDeadlineReminderConsumer>();
+                x.AddConsumer<CatalogFormationAvailableConsumer>();
 
                 x.UsingRabbitMq((ctx, cfg) =>
                 {
@@ -150,6 +163,22 @@ public static class DependencyInjection
                         e.ConfigureConsumer<TrainingSessionStartedConsumer>(ctx));
                     cfg.ReceiveEndpoint("planning-initial-training-missing-docs", e =>
                         e.ConfigureConsumer<InitialTrainingMissingDocumentsAlertConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-training-quiz-published", e =>
+                        e.ConfigureConsumer<TrainingQuizPublishedConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-training-quiz-attempt-submitted", e =>
+                        e.ConfigureConsumer<TrainingQuizAttemptSubmittedConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-training-quiz-needs-grading", e =>
+                        e.ConfigureConsumer<TrainingQuizNeedsGradingConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-training-quiz-validated", e =>
+                        e.ConfigureConsumer<TrainingQuizValidatedConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-training-quiz-rejected", e =>
+                        e.ConfigureConsumer<TrainingQuizRejectedConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-training-quiz-result-ready", e =>
+                        e.ConfigureConsumer<TrainingQuizResultReadyConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-catalog-enrollment-deadline", e =>
+                        e.ConfigureConsumer<CatalogEnrollmentDeadlineReminderConsumer>(ctx));
+                    cfg.ReceiveEndpoint("planning-catalog-formation-available", e =>
+                        e.ConfigureConsumer<CatalogFormationAvailableConsumer>(ctx));
 
                     cfg.ConfigureEndpoints(ctx);
                 });

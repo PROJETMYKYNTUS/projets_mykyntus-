@@ -83,6 +83,16 @@ public sealed class UpdateEmployeeCommandHandler(IDirectoryWriteService write)
         write.UpdateEmployeeAsync(request.Id, request.Body, request.ChangedBy, ct);
 }
 
+public record ClearOrgPlacementCommand(Guid Id, ClearOrgPlacementRequest Body, Guid? ChangedBy)
+    : IRequest<EmployeeDto?>;
+
+public sealed class ClearOrgPlacementCommandHandler(IDirectoryWriteService write)
+    : IRequestHandler<ClearOrgPlacementCommand, EmployeeDto?>
+{
+    public Task<EmployeeDto?> Handle(ClearOrgPlacementCommand request, CancellationToken ct) =>
+        write.ClearOrgPlacementAsync(request.Id, request.Body, request.ChangedBy, ct);
+}
+
 public record DeleteEmployeeCommand(Guid Id, Guid? ChangedBy) : IRequest<bool>;
 
 public sealed class DeleteEmployeeCommandHandler(IDirectoryWriteService write)

@@ -29,6 +29,33 @@ public sealed class PutServicePrimeIndicatorItem
     public string? TemplateStableId { get; set; }
 }
 
+public sealed class ServicePoleLinePonderationDto
+{
+    public Guid Id { get; init; }
+    public string ServiceId { get; init; } = "";
+    public string TemplateStableId { get; init; } = "";
+    public string Label { get; init; } = "";
+    public int SortOrder { get; init; }
+    public decimal? PonderationPrimePct { get; init; }
+    public decimal? PonderationChallengePct { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset? UpdatedAt { get; init; }
+}
+
+public sealed class PutServicePoleLinePonderationsRequest
+{
+    public List<PutServicePoleLinePonderationItem> Items { get; set; } = [];
+}
+
+public sealed class PutServicePoleLinePonderationItem
+{
+    public string TemplateStableId { get; set; } = "";
+    public string Label { get; set; } = "";
+    public int SortOrder { get; set; }
+    public decimal? PonderationPrimePct { get; set; }
+    public decimal? PonderationChallengePct { get; set; }
+}
+
 public sealed class SupervisorCellulePrimeDraftResponseDto
 {
     public Guid Id { get; init; }

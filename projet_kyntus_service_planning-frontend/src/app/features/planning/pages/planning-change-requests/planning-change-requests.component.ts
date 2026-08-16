@@ -7,7 +7,7 @@ import { PlanningService } from '../../services/planning.service';
 import { KyntusSessionService } from '../../../../core/session/kyntus-session.service';
 import { KyntusRoleNames } from '../../../../core/org/kyntus-role-names';
 import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
-import { formatWeekLabel, toApiWeekCode } from '../../utils/week-code.util';
+import { formatWeekLabel, toApiWeekCode, buildWeekSelectOptions, REQUEST_PERIOD_OPTIONS, type RequestFilterPeriod, type WeekSelectOption } from '../../utils/week-code.util';
 import { BodyPortalDirective } from '../../../../shared/directives/body-portal.directive';
 
 @Component({
@@ -24,6 +24,9 @@ export class PlanningChangeRequestsComponent implements OnInit {
   toast = '';
   filterStatus = 'PendingSupervisor';
   filterWeek = '';
+  filterPeriod: RequestFilterPeriod = 'thisMonth';
+  readonly periodOptions = REQUEST_PERIOD_OPTIONS;
+  readonly weekOptions: WeekSelectOption[] = buildWeekSelectOptions(20, 4);
   authUserId = 0;
   rejectId: number | null = null;
   rejectReason = '';
@@ -41,6 +44,29 @@ export class PlanningChangeRequestsComponent implements OnInit {
   historyRejected = 0;
 
   readonly formatWeekLabel = formatWeekLabel;
+
+  get recapTotal(): number {
+    return this.requests.length;
+  }
+
+  get recapPending(): number {
+    return this.requests.filter((r) => this.isPendingStatus(r?.status)).length;
+  }
+
+  get recapApproved(): number {
+    return this.requests.filter((r) => r?.status === 'Approved').length;
+  }
+
+  get recapRejected(): number {
+    return this.requests.filter((r) => r?.status === 'Rejected').length;
+  }
+
+  get filterScopeLabel(): string {
+    if (this.filterWeek) {
+      return formatWeekLabel(this.filterWeek);
+    }
+    return this.periodOptions.find((o) => o.value === this.filterPeriod)?.label ?? 'Tout';
+  }
 
   constructor(
     private planning: PlanningService,
@@ -77,12 +103,28 @@ export class PlanningChangeRequestsComponent implements OnInit {
     this.reload();
   }
 
+  onPeriodChange(): void {
+    this.filterWeek = '';
+    this.reload();
+  }
+
+  onWeekChange(): void {
+    this.reload();
+  }
+
   reload(): void {
     this.loading = true;
     this.error = '';
     const weekApi = this.filterWeek ? toApiWeekCode(this.filterWeek) : undefined;
+    const period = weekApi ? undefined : this.filterPeriod;
     this.planning
-      .getChangeRequests(this.filterStatus || undefined, weekApi || undefined, this.authUserId)
+      .getChangeRequests(
+        this.filterStatus || undefined,
+        weekApi || undefined,
+        this.authUserId,
+        undefined,
+        period,
+      )
       .subscribe({
         next: (list) => {
           this.requests = list ?? [];
@@ -101,43 +143,25 @@ export class PlanningChangeRequestsComponent implements OnInit {
     return this.canManage && r?.status === 'PendingSupervisor';
   }
 
+  private isPendingStatus(status: string | undefined): boolean {
+    return (
+      status === 'PendingPartner' ||
+      status === 'PendingSupervisor' ||
+      status === 'Pending'
+    );
+  }
+
   openEmployeeHistory(stat: {
     userId?: number;
     UserId?: number;
     fullName?: string;
     FullName?: string;
-    totalRequests?: number;
-    TotalRequests?: number;
-    pendingCount?: number;
-    PendingCount?: number;
-    approvedCount?: number;
-    ApprovedCount?: number;
-    rejectedCount?: number;
-    RejectedCount?: number;
   }): void {
     const userId = Number(stat.userId ?? stat.UserId ?? 0);
     if (!userId) return;
     this.historyName = String(stat.fullName ?? stat.FullName ?? `#${userId}`);
     this.historyOpen = true;
     this.historyError = '';
-
-    const hasCounts =
-      stat.totalRequests != null ||
-      stat.TotalRequests != null ||
-      stat.approvedCount != null ||
-      stat.ApprovedCount != null;
-
-    if (hasCounts) {
-      this.historyLoading = false;
-      this.historyTotal = Number(stat.totalRequests ?? stat.TotalRequests ?? 0);
-      this.historyPending = Number(stat.pendingCount ?? stat.PendingCount ?? 0);
-      this.historyApproved = Number(stat.approvedCount ?? stat.ApprovedCount ?? 0);
-      this.historyRejected = Number(stat.rejectedCount ?? stat.RejectedCount ?? 0);
-      this.cdr.detectChanges();
-      return;
-    }
-
-    // Depuis la liste : charger le récap agrégé (sans afficher le détail ligne à ligne)
     this.historyLoading = true;
     this.historyTotal = 0;
     this.historyPending = 0;
@@ -145,27 +169,28 @@ export class PlanningChangeRequestsComponent implements OnInit {
     this.historyRejected = 0;
     this.cdr.detectChanges();
 
-    this.planning.getChangeRequests(undefined, undefined, this.authUserId, userId).subscribe({
-      next: (list) => {
-        const rows = Array.isArray(list) ? list : [];
-        this.historyTotal = rows.length;
-        this.historyPending = rows.filter(
-          (r) =>
-            r.status === 'PendingPartner' ||
-            r.status === 'PendingSupervisor' ||
-            r.status === 'Pending',
-        ).length;
-        this.historyApproved = rows.filter((r) => r.status === 'Approved').length;
-        this.historyRejected = rows.filter((r) => r.status === 'Rejected').length;
-        this.historyLoading = false;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.historyLoading = false;
-        this.historyError = 'Impossible de charger le récapitulatif.';
-        this.cdr.detectChanges();
-      },
-    });
+    const weekApi = this.filterWeek ? toApiWeekCode(this.filterWeek) : undefined;
+    const period = weekApi ? undefined : this.filterPeriod;
+
+    // Récap agent calé sur la même période / semaine que la liste
+    this.planning
+      .getChangeRequests(undefined, weekApi || undefined, this.authUserId, userId, period)
+      .subscribe({
+        next: (list) => {
+          const rows = Array.isArray(list) ? list : [];
+          this.historyTotal = rows.length;
+          this.historyPending = rows.filter((r) => this.isPendingStatus(r.status)).length;
+          this.historyApproved = rows.filter((r) => r.status === 'Approved').length;
+          this.historyRejected = rows.filter((r) => r.status === 'Rejected').length;
+          this.historyLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.historyLoading = false;
+          this.historyError = 'Impossible de charger le récapitulatif.';
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   closeEmployeeHistory(): void {

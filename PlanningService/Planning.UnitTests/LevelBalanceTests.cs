@@ -20,7 +20,7 @@ public class LevelBalanceTests
     }
 
     private static PlanningService CreateService(AppDbContext db) =>
-        new(db, new FakePlanningHubContext());
+        new(db, new FakePlanningHubContext(), new PlanningPerimeterResolver(db));
 
     private static async Task SeedBaseAsync(AppDbContext db)
     {
@@ -364,7 +364,7 @@ public class LevelBalanceTests
     }
 
     [Fact]
-    public void Repair_does_not_force_off_confirmed_to_work_saturday()
+    public void Repair_saturday_does_not_force_off_senior_on()
     {
         var saturday = new DateOnly(2026, 7, 25);
         var monday = saturday.AddDays(-5);
@@ -382,7 +382,6 @@ public class LevelBalanceTests
             SubServiceId = 1,
             WeekCode = "2026-W30"
         };
-        // Débutant seul samedi ; Confirmé volontairement Off (pas d'assignation travaillée)
         var assignments = new List<ShiftAssignment>
         {
             new()
@@ -394,19 +393,72 @@ public class LevelBalanceTests
                 IsSaturday = true,
                 IsHalfDaySaturday = true,
                 SaturdaySlot = 1
+            },
+            new()
+            {
+                WeeklyPlanningId = 10,
+                UserId = 2,
+                AssignedDate = saturday,
+                SubServiceShiftConfigId = null,
+                IsSaturday = true,
+                IsOnLeave = false,
+                IsHoliday = false
             }
         };
 
         LevelBalanceRepairer.Repair(assignments, [cfg], users, users.Values.ToList(), planning);
 
-        Assert.DoesNotContain(assignments, a => a.UserId == 2 && a.SubServiceShiftConfigId != null);
-        var anomalies = LevelBalanceEvaluator.Evaluate(assignments, [cfg], users, users.Values.ToList());
-        Assert.Single(anomalies);
-        Assert.True(anomalies[0].IsForced);
+        var senior = assignments.First(a => a.UserId == 2);
+        Assert.Null(senior.SubServiceShiftConfigId);
+        Assert.Single(LevelBalanceEvaluator.Evaluate(assignments, [cfg], users, users.Values.ToList()));
     }
 
     [Fact]
-    public async Task Generate_with_only_beginners_succeeds_with_forced_anomaly()
+    public void Dispersion_swap_refuses_creating_beginner_alone()
+    {
+        var monday = new DateOnly(2026, 7, 20);
+        var tuesday = monday.AddDays(1);
+        var opening = new SubServiceShiftConfig
+        {
+            Id = 1, Label = "Open", StartTime = new TimeOnly(8, 0), ShiftKind = ShiftKind.Opening, DisplayOrder = 1
+        };
+        var closing = new SubServiceShiftConfig
+        {
+            Id = 2, Label = "Close", StartTime = new TimeOnly(11, 0), ShiftKind = ShiftKind.Closing, DisplayOrder = 2
+        };
+        var users = new Dictionary<int, User>
+        {
+            [1] = MakeUser(1, "b@t.ma", 1),
+            [2] = MakeUser(2, "c@t.ma", 2),
+            [3] = MakeUser(3, "c2@t.ma", 2),
+        };
+        // Mardi équilibré : débutant+senior en close, senior en open.
+        // Un swap débutant↔senior d'open créerait débutant seul en open → refusé.
+        var assignments = new List<ShiftAssignment>
+        {
+            new() { UserId = 1, AssignedDate = monday, SubServiceShiftConfigId = 2, IsManagerOverride = false },
+            new() { UserId = 2, AssignedDate = monday, SubServiceShiftConfigId = 1, IsManagerOverride = false },
+            new() { UserId = 1, AssignedDate = tuesday, SubServiceShiftConfigId = 2, IsManagerOverride = false },
+            new() { UserId = 2, AssignedDate = tuesday, SubServiceShiftConfigId = 2, IsManagerOverride = false },
+            new() { UserId = 3, AssignedDate = tuesday, SubServiceShiftConfigId = 1, IsManagerOverride = false },
+        };
+
+        var day = assignments.Where(a => a.AssignedDate == tuesday).ToList();
+        var a = day.First(x => x.UserId == 1);
+        var b = day.First(x => x.UserId == 3);
+        Assert.False(ShiftDispersionSelector.SwapPreservesBeginnerRule(a, b, day, users, isSaturday: false));
+
+        ShiftDispersionSelector.RepairWeekdayDispersion(assignments, [opening, closing], users);
+
+        var tueOpen = assignments.Where(x => x.AssignedDate == tuesday && x.SubServiceShiftConfigId == 1).ToList();
+        var tueClose = assignments.Where(x => x.AssignedDate == tuesday && x.SubServiceShiftConfigId == 2).ToList();
+        Assert.False(LevelBalanceEvaluator.HasBeginnerAlone(tueOpen, users));
+        Assert.False(LevelBalanceEvaluator.HasBeginnerAlone(tueClose, users));
+        Assert.Equal(2, assignments.First(x => x.UserId == 1 && x.AssignedDate == tuesday).SubServiceShiftConfigId);
+    }
+
+    [Fact]
+    public async Task Generate_with_only_beginners_moves_alone_to_middle()
     {
         await using var db = CreateDb();
         await SeedBaseAsync(db);
@@ -420,7 +472,8 @@ public class LevelBalanceTests
             Shifts =
             [
                 new ShiftConfigItemDto { Label = "8h", StartTime = "08:00", WorkHours = 8, RequiredCount = 1, DisplayOrder = 1 },
-                new ShiftConfigItemDto { Label = "10h", StartTime = "10:00", WorkHours = 8, RequiredCount = 0, DisplayOrder = 2 },
+                new ShiftConfigItemDto { Label = "9h", StartTime = "09:00", WorkHours = 8, RequiredCount = 0, DisplayOrder = 2 },
+                new ShiftConfigItemDto { Label = "10h", StartTime = "10:00", WorkHours = 8, RequiredCount = 0, DisplayOrder = 3 },
             ]
         });
 
@@ -441,8 +494,16 @@ public class LevelBalanceTests
         });
 
         Assert.NotNull(result);
-        Assert.True(result.CoverageReport!.HasLevelBalanceAnomaly);
-        Assert.All(result.CoverageReport.LevelBalanceAnomalies, a => Assert.True(a.IsForced));
+        // Sans senior : LevelBalance déplace le débutant Opening/Closing → Standard (milieu).
+        // Pas de skip / sous-remplissage.
+        var weekdayAnomalies = (result.CoverageReport?.LevelBalanceAnomalies ?? [])
+            .Where(a => !string.Equals(a.Day, "Saturday", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        Assert.DoesNotContain(weekdayAnomalies, a =>
+            a.Message.Contains("ouverture", StringComparison.OrdinalIgnoreCase)
+            || a.Message.Contains("fermeture", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(weekdayAnomalies, a =>
+            a.Message.Contains("plateau", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

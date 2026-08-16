@@ -7,7 +7,7 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { firstValueFrom, forkJoin, of } from 'rxjs';
+import { firstValueFrom, forkJoin, from, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { NgxEchartsDirective, provideEchartsCore } from 'ngx-echarts';
 import { FormationTrainingService } from '../../../core/services/formation-training.service';
@@ -20,6 +20,7 @@ import { KyntusSelectSyncDirective } from '../../../shared/directives/kyntus-sel
 import { UserService } from '../../users/services/user.service';
 import { SubServiceService } from '../../sub-services/services/sub-service.service';
 import { PrimeOrgApiService } from '../../prime/services/prime-org-api.service';
+import { PrimeService } from '../../prime/services/prime.service';
 import type { Department } from '../../prime/models';
 import type { OperationalDepartmentNode } from '../../prime/models/org-tree.types';
 import {
@@ -312,16 +313,53 @@ export class FormationDashboardComponent implements OnInit {
 
   private async loadOrgAndEmployees(): Promise<void> {
     try {
-      const { users, departments, overview, subServices } = await firstValueFrom(
+      const { users, departments, overview, subServices, orgTree } = await firstValueFrom(
         forkJoin({
           users: this.usersApi.getAllUsers(),
           departments: this.http.get<Department[]>('/api/prime/departments').pipe(catchError(() => of([]))),
           overview: this.orgApi.loadOverview().pipe(catchError(() => of(null))),
           subServices: this.subServiceService.getAllSubServices().pipe(catchError(() => of([]))),
+          orgTree: from(PrimeService.getOperationalOrgTree()).pipe(
+            catchError(() => of({ operationalDepartments: [], unassignedPoles: [] })),
+          ),
         }),
       );
 
-      this.operationalDepartments = overview?.operationalDepartments ?? [];
+      const overviewOps = overview?.operationalDepartments ?? [];
+      const treeOps = orgTree?.operationalDepartments ?? [];
+      const unassigned = overview?.unassignedPoles ?? orgTree?.unassignedPoles ?? [];
+      const legacy = overview?.departments?.length ? overview.departments : departments ?? [];
+
+      if (overviewOps.length) {
+        this.operationalDepartments = overviewOps;
+      } else if (treeOps.length) {
+        this.operationalDepartments = treeOps;
+      } else if (unassigned.length) {
+        this.operationalDepartments = [
+          { id: 'unassigned', code: '', name: 'Sans département', poles: unassigned },
+        ];
+      } else if (legacy.length) {
+        this.operationalDepartments = [
+          {
+            id: 'legacy-org',
+            code: '',
+            name: 'Organisation',
+            poles: legacy.map((d) => ({
+              id: d.id,
+              name: d.name,
+              cellules: (d.poles ?? []).map((p) => ({
+                id: p.id,
+                name: p.name,
+                services: (p.cells ?? (p as { cellules?: { id: string; name: string }[] }).cellules ?? []).map(
+                  (c) => ({ id: c.id, name: c.name }),
+                ),
+              })),
+            })),
+          },
+        ];
+      } else {
+        this.operationalDepartments = [];
+      }
       this.refreshOrgFilterOptions();
 
       const active = (users ?? []).filter((u) => u.isActive && !!resolveUserGuid(u));
@@ -333,6 +371,16 @@ export class FormationDashboardComponent implements OnInit {
         );
       }
       this.employeeRows = buildEmployeePickerRows(active, perimeterById);
+
+      if (!this.operationalDepartmentOptions.length) {
+        const rows = this.employeeRows;
+        this.operationalDepartmentOptions = [
+          ...new Set(rows.map((r) => r.perimeter.operationalDepartment).filter((v): v is string => !!v?.trim())),
+        ].sort((a, b) => a.localeCompare(b, 'fr'));
+        this.poleOptions = [
+          ...new Set(rows.map((r) => r.perimeter.pole).filter((v): v is string => !!v?.trim())),
+        ].sort((a, b) => a.localeCompare(b, 'fr'));
+      }
     } catch {
       this.employeeRows = [];
       this.operationalDepartments = [];

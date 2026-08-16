@@ -92,11 +92,16 @@
           <div class="kpi-value">{{ s.sessionCount }}</div>
           <div class="text-xs text-muted">{{ s.programCount }} programme(s)</div>
         </div>
-        <div class="card-navy kpi-card">
-          <div class="text-xs text-muted">À traiter</div>
-          <div class="kpi-value">{{ s.quizzesPendingValidation + s.missingReports }}</div>
-          <div class="text-xs text-muted">quiz + CR</div>
-        </div>
+        <a routerLink="/mes-sessions" class="card-navy kpi-card kpi-link">
+          <div class="text-xs text-muted">CR manquants</div>
+          <div class="kpi-value">{{ s.missingReports }}</div>
+          <div class="text-xs text-muted">Mes séances →</div>
+        </a>
+        <a routerLink="/mes-sessions" class="card-navy kpi-card kpi-link">
+          <div class="text-xs text-muted">Quiz à valider</div>
+          <div class="kpi-value">{{ s.quizzesPendingValidation }}</div>
+          <div class="text-xs text-muted">Mes séances →</div>
+        </a>
       </div>
 
       <div class="fd-charts">

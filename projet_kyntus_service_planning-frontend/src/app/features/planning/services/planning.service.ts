@@ -111,6 +111,31 @@ export interface SaturdayYtd {
   workedPercent: number;
 }
 
+export interface SaturdayEmployeeMode {
+  userId: number;
+  guid: string;
+  fullName: string;
+  level: number;
+  saturdayWorkMode: number | null;
+  effectiveMode: number;
+  groupNumber: number;
+  isSpecialCase?: boolean;
+  specialCaseDescription?: string | null;
+  isPlateauTraining?: boolean;
+}
+
+export interface SaturdayBalance {
+  subServiceId: number;
+  alwaysOnCount: number;
+  group1Count: number;
+  group2Count: number;
+  projectedSaturdayGroup1: number;
+  projectedSaturdayGroup2: number;
+  isImbalanced: boolean;
+  imbalanceDelta: number;
+  employees: SaturdayEmployeeMode[];
+}
+
 export interface DayAssignment {
   assignmentId:      number;
   day:               string;
@@ -122,6 +147,8 @@ export interface DayAssignment {
   isManagerOverride: boolean;
   /** Demande exceptionnelle appliquée sur ce créneau. */
   isExceptionalRequest?: boolean;
+  /** Renfort samedi (n'impacte pas SaturdayHistory). */
+  isReinforcement?: boolean;
   breakTime?:        string;
   isOnLeave:         boolean;
   isHalfDaySaturday: boolean;
@@ -164,7 +191,55 @@ export interface EquipePlanningSummary {
   subServiceId: number;
   subServiceName: string;
   employeeCount: number;
+  /** UserIds distincts affectés sur ce planning. */
+  assignedUserIds?: number[];
 }
+
+export interface AgentPlanningDay {
+  day: string;
+  assignedDate: string;
+  shiftLabel: string;
+  startTime: string;
+  endTime: string;
+  isSaturday: boolean;
+  isOnLeave: boolean;
+  isHoliday: boolean;
+  holidayName: string;
+  absenceType?: string | null;
+  isExceptionalRequest?: boolean;
+  slotLabel?: string;
+}
+
+/** Vue plannings agent (même forme que Mes plannings). */
+export interface AgentPlanningWeek {
+  weeklyPlanningId?: number;
+  weekCode: string;
+  weekStartDate: string;
+  status?: string;
+  subServiceName: string;
+  days: AgentPlanningDay[];
+}
+
+/** @deprecated Prefer AgentPlanningWeek */
+export interface AgentPlanningHistoryItem {
+  weeklyPlanningId: number;
+  weekCode: string;
+  weekStartDate: string;
+  status: string;
+  subServiceId: number;
+  subServiceName: string;
+  workedDays: number;
+  leaveDays: number;
+  holidayDays: number;
+  offSaturdayCount: number;
+}
+
+export type AgentHistoryPeriod =
+  | 'thisMonth'
+  | 'lastMonth'
+  | 'last3Months'
+  | 'thisYear'
+  | 'all';
 
 export interface CreatePlanningDto {
   subServiceId:  number;
@@ -294,6 +369,8 @@ export interface GeneratePlanningFromConfigDto {
   subServiceId:     number;
   weekCode?:        string;
   weeklyPlanningId: number;
+  regenerateFromDate?: string;
+  republishReason?: string;
 }
 
 export interface PlanningWeekItem {
@@ -306,6 +383,8 @@ export interface PlanningWeekItem {
   hasTemplate: boolean;
   coverageOk: boolean;
   hasConsulted: boolean;
+  /** UserIds distincts affectés (si planning généré). */
+  assignedUserIds?: number[];
 }
 
 export interface PlanningWeekList {
@@ -331,6 +410,26 @@ export interface AutoGenerateWeekResult {
   skipped: number;
   errors: number;
   messages: string[];
+}
+
+export interface PendingRequestsSummary {
+  changePendingCount: number;
+  exceptionalPendingCount: number;
+  totalPendingCount: number;
+  changePendingPartner: number;
+  changePendingSupervisor: number;
+  exceptionalPendingSupervisor: number;
+  exceptionalPendingRh: number;
+  items?: Array<{
+    id: number;
+    type: string;
+    weekCode: string;
+    subServiceId: number;
+    subServiceName: string;
+    status: string;
+    requesterName: string;
+    createdAt: string;
+  }>;
 }
 
 export interface SaturdayHistoryEntry {
@@ -450,6 +549,11 @@ export class PlanningService {
       `${this.base}/week/${weekCode}/auto-generate?force=${force}`, {});
   }
 
+  getPendingRequestsSummary(authUserId?: number): Observable<PendingRequestsSummary> {
+    const q = authUserId != null ? `?authUserId=${authUserId}` : '';
+    return this.http.get<PendingRequestsSummary>(`${this.base}/pending-requests-summary${q}`);
+  }
+
   // ── Vue Employé ───────────────────────────────────
   getMyCurrentPlanning(userId: number): Observable<any> {
     return this.http.get(
@@ -476,6 +580,15 @@ export class PlanningService {
     return this.http.get<EquipePlanningSummary[]>(
       `${this.api}/planning/equipe?authUserId=${authUserId}`,
       { headers: this.getHeaders() }
+    );
+  }
+
+  getAgentPlanningHistory(
+    planningUserId: number,
+    period: AgentHistoryPeriod = 'thisMonth',
+  ): Observable<AgentPlanningWeek[]> {
+    return this.http.get<AgentPlanningWeek[]>(
+      `${this.base}/agent/${planningUserId}/history?period=${encodeURIComponent(period)}`,
     );
   }
 
@@ -511,6 +624,41 @@ export class PlanningService {
     return this.http.post(`${this.base}/saturday-group`, dto);
   }
 
+  setSaturdayWorkMode(dto: {
+    userId: number;
+    saturdayWorkMode: number | null;
+    groupNumber?: number | null;
+    authUserId?: number | null;
+  }): Observable<any> {
+    return this.http.put(`${this.base}/saturday-mode`, dto);
+  }
+
+  setEmployeeSpecialCase(dto: {
+    userId: number;
+    isSpecialCase: boolean;
+    description?: string | null;
+  }): Observable<any> {
+    return this.http.put(`${this.base}/special-case`, dto);
+  }
+
+  setEmployeePlateauTraining(dto: {
+    userId: number;
+    isPlateauTraining: boolean;
+  }): Observable<any> {
+    return this.http.put(`${this.base}/plateau-training`, dto);
+  }
+
+  getSaturdayBalance(subServiceId: number): Observable<SaturdayBalance> {
+    return this.http.get<SaturdayBalance>(`${this.base}/saturday-balance/${subServiceId}`);
+  }
+
+  notifySaturdayImbalance(subServiceId: number, authUserId: number): Observable<{ notified: number }> {
+    return this.http.post<{ notified: number }>(
+      `${this.base}/saturday-balance/${subServiceId}/notify?authUserId=${authUserId}`,
+      {},
+    );
+  }
+
   setSaturdayOff(weeklyPlanningId: number, userId: number): Observable<any> {
     return this.http.delete(`${this.base}/${weeklyPlanningId}/saturday/${userId}/off`);
   }
@@ -540,18 +688,27 @@ export class PlanningService {
     weekCode?: string,
     authUserId?: number,
     requesterUserId?: number,
+    period?: string,
   ): Observable<any[]> {
     const params: string[] = [];
     if (status) params.push(`status=${encodeURIComponent(status)}`);
     if (weekCode) params.push(`weekCode=${encodeURIComponent(weekCode)}`);
     if (authUserId) params.push(`authUserId=${authUserId}`);
     if (requesterUserId) params.push(`requesterUserId=${requesterUserId}`);
+    if (period && period !== 'all' && !weekCode) {
+      params.push(`period=${encodeURIComponent(period)}`);
+    }
     const qs = params.length ? `?${params.join('&')}` : '';
     return this.http.get<any[]>(`${this.base}/change-requests${qs}`);
   }
 
-  getChangeRequestStats(weekCode?: string): Observable<any[]> {
-    const qs = weekCode ? `?weekCode=${encodeURIComponent(weekCode)}` : '';
+  getChangeRequestStats(weekCode?: string, period?: string): Observable<any[]> {
+    const params: string[] = [];
+    if (weekCode) params.push(`weekCode=${encodeURIComponent(weekCode)}`);
+    if (period && period !== 'all' && !weekCode) {
+      params.push(`period=${encodeURIComponent(period)}`);
+    }
+    const qs = params.length ? `?${params.join('&')}` : '';
     return this.http.get<any[]>(`${this.base}/change-requests/stats-by-employee${qs}`);
   }
 
@@ -572,12 +729,16 @@ export class PlanningService {
     weekCode?: string,
     authUserId?: number,
     requesterUserId?: number,
+    period?: string,
   ): Observable<any[]> {
     const params: string[] = [];
     if (status) params.push(`status=${encodeURIComponent(status)}`);
     if (weekCode) params.push(`weekCode=${encodeURIComponent(weekCode)}`);
     if (authUserId) params.push(`authUserId=${authUserId}`);
     if (requesterUserId) params.push(`requesterUserId=${requesterUserId}`);
+    if (period && period !== 'all' && !weekCode) {
+      params.push(`period=${encodeURIComponent(period)}`);
+    }
     const qs = params.length ? `?${params.join('&')}` : '';
     return this.http.get<any[]>(`${this.base}/exceptional-requests${qs}`);
   }
@@ -614,6 +775,95 @@ export class PlanningService {
     return this.http.get(
       `${this.base}/exceptional-requests/${id}/justification?authUserId=${authUserId}`,
       { responseType: 'blob' },
+    );
+  }
+
+  // ── Demandes de renfort samedi ───────────────────────
+  getReinforcementRequests(
+    status?: string,
+    weekCode?: string,
+    authUserId?: number,
+    period?: string,
+  ): Observable<any[]> {
+    const params: string[] = [];
+    if (status) params.push(`status=${encodeURIComponent(status)}`);
+    if (weekCode) params.push(`weekCode=${encodeURIComponent(weekCode)}`);
+    if (authUserId) params.push(`authUserId=${authUserId}`);
+    if (period && period !== 'all' && !weekCode) {
+      params.push(`period=${encodeURIComponent(period)}`);
+    }
+    const qs = params.length ? `?${params.join('&')}` : '';
+    return this.http.get<any[]>(`${this.base}/reinforcement-requests${qs}`);
+  }
+
+  getReinforcementContributorStats(
+    authUserId: number,
+    period?: string,
+    subServiceId?: number | null,
+  ): Observable<any[]> {
+    const params: string[] = [`authUserId=${authUserId}`];
+    if (period && period !== 'all') {
+      params.push(`period=${encodeURIComponent(period)}`);
+    }
+    if (subServiceId != null && subServiceId > 0) {
+      params.push(`subServiceId=${subServiceId}`);
+    }
+    return this.http.get<any[]>(
+      `${this.base}/reinforcement-requests/contributor-stats?${params.join('&')}`,
+    );
+  }
+
+  getReinforcementRequest(id: number, authUserId: number): Observable<any> {
+    return this.http.get<any>(
+      `${this.base}/reinforcement-requests/${id}?authUserId=${authUserId}`,
+    );
+  }
+
+  getMyReinforcementRequests(authUserId: number): Observable<any[]> {
+    return this.http.get<any[]>(
+      `${this.base}/reinforcement-requests/my?authUserId=${authUserId}`,
+    );
+  }
+
+  createReinforcementRequest(
+    authUserId: number,
+    dto: { subServiceId: number; saturdayDate: string; slotsNeeded: number; reason: string },
+  ): Observable<any> {
+    return this.http.post(
+      `${this.base}/reinforcement-requests?authUserId=${authUserId}`,
+      dto,
+    );
+  }
+
+  volunteerAcceptReinforcement(id: number, authUserId: number): Observable<any> {
+    return this.http.post(
+      `${this.base}/reinforcement-requests/${id}/volunteer-accept?authUserId=${authUserId}`,
+      {},
+    );
+  }
+
+  volunteerDeclineReinforcement(id: number, authUserId: number): Observable<any> {
+    return this.http.post(
+      `${this.base}/reinforcement-requests/${id}/volunteer-decline?authUserId=${authUserId}`,
+      {},
+    );
+  }
+
+  selectReinforcementVolunteers(
+    id: number,
+    authUserId: number,
+    dto: { userIds: number[]; shiftConfigId: number },
+  ): Observable<any> {
+    return this.http.post(
+      `${this.base}/reinforcement-requests/${id}/select?authUserId=${authUserId}`,
+      dto,
+    );
+  }
+
+  cancelReinforcementRequest(id: number, authUserId: number): Observable<any> {
+    return this.http.post(
+      `${this.base}/reinforcement-requests/${id}/cancel?authUserId=${authUserId}`,
+      {},
     );
   }
 

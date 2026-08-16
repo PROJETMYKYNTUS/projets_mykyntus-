@@ -24,6 +24,7 @@ public class ServiceEntity
     public string CelluleId { get; set; } = "";
     public CelluleEntity Cellule { get; set; } = null!;
     public ICollection<ServicePrimeIndicatorEntity> PrimeIndicators { get; set; } = new List<ServicePrimeIndicatorEntity>();
+    public ICollection<ServicePoleLinePonderationEntity> PoleLinePonderations { get; set; } = new List<ServicePoleLinePonderationEntity>();
 }
 
 /// <summary>Indicateur PRIME propre à un service (libellé, pondérations, ordre).</summary>
@@ -38,6 +39,21 @@ public class ServicePrimeIndicatorEntity
     public decimal? PonderationChallengePct { get; set; }
     public bool IsActive { get; set; } = true;
     public string? TemplateStableId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+}
+
+/// <summary>Pondération Prime/Challenge d'une ligne RACC/SAV du gabarit, par service.</summary>
+public class ServicePoleLinePonderationEntity
+{
+    public Guid Id { get; set; }
+    public string ServiceId { get; set; } = "";
+    public ServiceEntity Service { get; set; } = null!;
+    public string TemplateStableId { get; set; } = "";
+    public string Label { get; set; } = "";
+    public int SortOrder { get; set; }
+    public decimal? PonderationPrimePct { get; set; }
+    public decimal? PonderationChallengePct { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
 }

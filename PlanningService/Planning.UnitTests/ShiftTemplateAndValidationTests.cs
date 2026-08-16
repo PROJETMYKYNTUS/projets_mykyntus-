@@ -20,7 +20,7 @@ public class ShiftTemplateAndValidationTests
     }
 
     private static PlanningService CreateService(AppDbContext db) =>
-        new(db, new FakePlanningHubContext());
+        new(db, new FakePlanningHubContext(), new PlanningPerimeterResolver(db));
 
     private static async Task SeedSubServiceAsync(AppDbContext db)
     {
@@ -75,6 +75,63 @@ public class ShiftTemplateAndValidationTests
     }
 
     [Fact]
+    public async Task SaveShiftTemplate_preserves_ids_when_exceptional_request_references_template()
+    {
+        await using var db = CreateDb();
+        await SeedSubServiceAsync(db);
+        var svc = CreateService(db);
+
+        await svc.SaveShiftTemplateAsync(new SaveShiftConfigDto
+        {
+            SubServiceId = 1,
+            Shifts =
+            [
+                new ShiftConfigItemDto { Label = "Shift 1", StartTime = "08:00", WorkHours = 8, RequiredCount = 19, DisplayOrder = 1 },
+                new ShiftConfigItemDto { Label = "Shift 2", StartTime = "09:00", WorkHours = 8, RequiredCount = 10, DisplayOrder = 2 },
+            ]
+        });
+
+        var templateId = await db.SubServiceShiftConfigs
+            .Where(c => c.IsTemplate && c.Label == "Shift 1")
+            .Select(c => c.Id)
+            .SingleAsync();
+
+        db.PlanningExceptionalRequests.Add(new PlanningExceptionalRequest
+        {
+            WeekCode = "2026-W32",
+            RequestedDate = new DateOnly(2026, 8, 4),
+            RequesterUserId = 10,
+            SubServiceId = 1,
+            RequestedShiftTemplateId = templateId,
+            Reason = "Contrainte personnelle",
+            Status = PlanningExceptionalRequestStatus.PendingSupervisor,
+            CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        // Même labels / autre répartition — ne doit plus échouer (FK RESTRICT)
+        await svc.SaveShiftTemplateAsync(new SaveShiftConfigDto
+        {
+            SubServiceId = 1,
+            IsCriticalCell = true,
+            MinPresencePercent = 85,
+            Shifts =
+            [
+                new ShiftConfigItemDto { Label = "Shift 1", StartTime = "08:00", WorkHours = 8, RequiredCount = 20, DisplayOrder = 1 },
+                new ShiftConfigItemDto { Label = "Shift 2", StartTime = "09:00", WorkHours = 8, RequiredCount = 9, DisplayOrder = 2 },
+            ]
+        });
+
+        var shift1 = await db.SubServiceShiftConfigs
+            .SingleAsync(c => c.IsTemplate && c.Label == "Shift 1");
+        Assert.Equal(templateId, shift1.Id);
+        Assert.Equal(20, shift1.RequiredCount);
+        Assert.True(shift1.IsCriticalCell);
+        Assert.Equal(85, shift1.MinPresencePercent);
+        Assert.True(await db.PlanningExceptionalRequests.AnyAsync(r => r.RequestedShiftTemplateId == templateId));
+    }
+
+    [Fact]
     public async Task EnsureWeekSnapshot_clones_template_and_is_idempotent()
     {
         await using var db = CreateDb();
@@ -100,6 +157,48 @@ public class ShiftTemplateAndValidationTests
         Assert.Single(snaps);
         Assert.Equal("Matin", snaps[0].Label);
         Assert.Equal(monday, snaps[0].WeekStartDate);
+    }
+
+    [Fact]
+    public async Task SaveShiftTemplate_propagates_MinPresencePercent_to_existing_week_snapshots()
+    {
+        await using var db = CreateDb();
+        await SeedSubServiceAsync(db);
+        var svc = CreateService(db);
+
+        await svc.SaveShiftTemplateAsync(new SaveShiftConfigDto
+        {
+            SubServiceId = 1,
+            MinPresencePercent = 70,
+            Shifts =
+            [
+                new ShiftConfigItemDto { Label = "Matin", StartTime = "08:00", WorkHours = 8, RequiredCount = 3, DisplayOrder = 1 },
+            ]
+        });
+
+        var monday = new DateOnly(2026, 8, 10);
+        await svc.EnsureWeekSnapshotAsync(1, "2026-W33", monday);
+
+        var snapBefore = await db.SubServiceShiftConfigs
+            .SingleAsync(c => !c.IsTemplate && c.WeekCode == "2026-W33");
+        Assert.Equal(70, snapBefore.MinPresencePercent);
+
+        await svc.SaveShiftTemplateAsync(new SaveShiftConfigDto
+        {
+            SubServiceId = 1,
+            MinPresencePercent = 85,
+            Shifts =
+            [
+                new ShiftConfigItemDto { Label = "Matin", StartTime = "08:00", WorkHours = 8, RequiredCount = 3, DisplayOrder = 1 },
+            ]
+        });
+
+        var snapAfter = await db.SubServiceShiftConfigs
+            .SingleAsync(c => !c.IsTemplate && c.WeekCode == "2026-W33");
+        Assert.Equal(85, snapAfter.MinPresencePercent);
+
+        var template = await svc.GetShiftTemplateAsync(1);
+        Assert.Equal(85, template!.MinPresencePercent);
     }
 
     [Fact]

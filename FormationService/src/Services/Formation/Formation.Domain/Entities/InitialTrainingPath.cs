@@ -15,7 +15,9 @@ public class InitialTrainingPath
     public string? QuizRecordedBy { get; set; }
     public string? FormateurComment { get; set; }
     public DateTime? FormateurValidatedAt { get; set; }
+    public Guid? FormateurValidatedBy { get; set; }
     public DateTime? RhValidatedAt { get; set; }
+    public Guid? RhValidatedBy { get; set; }
     public string? RejectedBy { get; set; }
     public string? RejectReason { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

@@ -32,6 +32,60 @@ public class SetSaturdayGroupDto
     public bool IsNewEmployee { get; set; } = false;
 }
 
+/// <summary>
+/// Mode samedi par employé. SaturdayWorkMode null = défaut selon Niveau ;
+/// 1 = tous les samedis 4h ; 2 = alternance 8h. GroupNumber requis si mode alternance.
+/// </summary>
+public class SetSaturdayWorkModeDto
+{
+    public int UserId { get; set; }
+    public int? SaturdayWorkMode { get; set; }
+    public int? GroupNumber { get; set; }
+    /// <summary>Auth userId du superviseur (pour notification déséquilibre).</summary>
+    public int? AuthUserId { get; set; }
+}
+
+/// <summary>Tag cas particulier (exclusion pauses extrêmes +3h/+5h).</summary>
+public class SetEmployeeSpecialCaseDto
+{
+    public int UserId { get; set; }
+    public bool IsSpecialCase { get; set; }
+    /// <summary>Obligatoire si IsSpecialCase (ex. diabétique, expatrié).</summary>
+    public string? Description { get; set; }
+}
+
+/// <summary>Ticket formation plateau : jamais ouverture/fermeture.</summary>
+public class SetEmployeePlateauTrainingDto
+{
+    public int UserId { get; set; }
+    public bool IsPlateauTraining { get; set; }
+}
+
+public record SaturdayEmployeeModeDto(
+    int UserId,
+    Guid Guid,
+    string FullName,
+    int Level,
+    int? SaturdayWorkMode,
+    int EffectiveMode,
+    int GroupNumber,
+    bool IsSpecialCase = false,
+    string? SpecialCaseDescription = null,
+    bool IsPlateauTraining = false
+);
+
+public record SaturdayBalanceDto(
+    int SubServiceId,
+    int AlwaysOnCount,
+    int Group1Count,
+    int Group2Count,
+    int ProjectedSaturdayGroup1,
+    int ProjectedSaturdayGroup2,
+    bool IsImbalanced,
+    int ImbalanceDelta,
+    IReadOnlyList<SaturdayEmployeeModeDto> Employees
+);
+
 public record SetSaturdayHistoryDto(
     int SubServiceId,
     string WeekCode,
@@ -77,6 +131,8 @@ public class EquipePlanningSummaryDto
     public int SubServiceId { get; set; }
     public string SubServiceName { get; set; } = string.Empty;
     public int EmployeeCount { get; set; }
+    /// <summary>UserIds distincts présents dans les ShiftAssignments du planning.</summary>
+    public List<int> AssignedUserIds { get; set; } = new();
 }
 
 public class CoverageReportDto
@@ -234,6 +290,7 @@ public class DayAssignmentDto
     public bool IsManagerOverride { get; set; }
     /// <summary>True si le créneau vient d'une demande exceptionnelle appliquée.</summary>
     public bool IsExceptionalRequest { get; set; }
+    public bool IsReinforcement { get; set; }
     public string EndTime { get; set; } = string.Empty;
     public string? BreakTime { get; set; }
     public bool IsOnLeave { get; set; }
@@ -248,10 +305,27 @@ public class DayAssignmentDto
 // -- Vue employ� (son propre planning) --
 public class MyPlanningDto
 {
+    public int WeeklyPlanningId { get; set; }
     public string WeekCode { get; set; } = string.Empty;
     public DateOnly WeekStartDate { get; set; }
+    public string Status { get; set; } = string.Empty;
     public string SubServiceName { get; set; } = string.Empty;
     public List<DayAssignmentDto> Days { get; set; } = new();
+}
+
+/// <summary>Ancien DTO résumé — préférer MyPlanningDto (vue jours).</summary>
+public class AgentPlanningHistoryItemDto
+{
+    public int WeeklyPlanningId { get; set; }
+    public string WeekCode { get; set; } = string.Empty;
+    public DateOnly WeekStartDate { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public int SubServiceId { get; set; }
+    public string SubServiceName { get; set; } = string.Empty;
+    public int WorkedDays { get; set; }
+    public int LeaveDays { get; set; }
+    public int HolidayDays { get; set; }
+    public int OffSaturdayCount { get; set; }
 }
 
 // -- Notification de publication de planning (persistée) --
@@ -275,7 +349,7 @@ public class SaveShiftConfigDto
     /// <summary>Vide = sauvegarde du modèle permanent.</summary>
     public string? WeekCode { get; set; }
     public DateOnly? WeekStartDate { get; set; }
-    /// <summary>Extrêmes pause +3h/+5h et ouverture bidirectionnelle.</summary>
+    /// <summary>Extrêmes pause +3h/+5h (plafond métier) et ouverture bidirectionnelle.</summary>
     public bool IsCriticalCell { get; set; }
     /// <summary>Présence min plateau de toute la cellule (défaut 70).</summary>
     public int MinPresencePercent { get; set; } = 70;
@@ -361,6 +435,16 @@ public class GeneratePlanningFromConfigDto
     public int SubServiceId { get; set; }
     public string? WeekCode { get; set; }
     public int WeeklyPlanningId { get; set; }
+
+    /// <summary>
+    /// Si renseigné : ne régénère que les jours &gt;= cette date (jours antérieurs figés).
+    /// Si null et planning Published : calculé via cutoff 15h.
+    /// Si null et Draft : semaine entière (génération initiale).
+    /// </summary>
+    public DateOnly? RegenerateFromDate { get; set; }
+
+    /// <summary>Motif pour les notifications de republication soft.</summary>
+    public string? RepublishReason { get; set; }
 }
 
 public class PlanningWeekItemDto
@@ -374,6 +458,8 @@ public class PlanningWeekItemDto
     public bool HasTemplate { get; set; }
     public bool CoverageOk { get; set; } = true;
     public bool HasConsulted { get; set; }
+    /// <summary>UserIds distincts affectés (si planning généré).</summary>
+    public List<int> AssignedUserIds { get; set; } = new();
 }
 
 public class PlanningWeekListDto

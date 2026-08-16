@@ -20,15 +20,17 @@ import {
   triggerDownloadFromHttpResponse,
 } from '../../lib/documentation-download.util';
 import { DocIconComponent } from '../doc-icon/doc-icon.component';
+import { BodyPortalDirective } from '../../../../shared/directives/body-portal.directive';
 
 @Component({
   selector: 'app-generated-document-preview-modal',
   standalone: true,
-  imports: [CommonModule, DocIconComponent],
+  imports: [CommonModule, DocIconComponent, BodyPortalDirective],
   template: `
     @if (open) {
       <div
         class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
+        appBodyPortal
         role="dialog"
         aria-modal="true"
         (click)="onClose()"

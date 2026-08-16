@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ServiceService } from '../../services/service';
 import { ServiceDetail } from '../../services-module';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
+import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
 
 @Component({
   selector: 'app-service-detail',
@@ -20,6 +22,8 @@ export class ServiceDetailComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private serviceService: ServiceService,
+    private confirmService: KyntusConfirmService,
+    private toastService: KyntusToastService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -53,13 +57,18 @@ export class ServiceDetailComponent implements OnInit {
     this.router.navigate(['/services']);
   }
 
-  deleteService(): void {
+  async deleteService(): Promise<void> {
     if (!this.service) return;
-    if (confirm('Supprimer ce service ?')) {
-      this.serviceService.deleteService(this.service.id).subscribe({
-        next: () => this.router.navigate(['/services']),
-        error: (err: any) => alert(`Erreur: ${err.error?.message}`)
-      });
-    }
+    const ok = await this.confirmService.confirm({
+      title: 'Supprimer le service',
+      message: 'Supprimer ce service ?',
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    this.serviceService.deleteService(this.service.id).subscribe({
+      next: () => this.router.navigate(['/services']),
+      error: (err: any) => this.toastService.error(`Erreur: ${err.error?.message}`),
+    });
   }
 }

@@ -12,6 +12,7 @@ namespace Formation.API.Controllers;
 [Authorize]
 public sealed class TrainingCatalogController(
     LearningCatalogService catalog,
+    TrainingWorkflowService training,
     IConfiguration configuration) : ControllerBase
 {
     [HttpGet]
@@ -93,6 +94,17 @@ public sealed class TrainingCatalogController(
         CancellationToken ct)
     {
         try { return Ok(await catalog.UpsertAudienceAsync(id, body, ct)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPut("{id:guid}/structure")]
+    [Authorize(Policy = "CanPlanContinue")]
+    public async Task<ActionResult<ReplaceCatalogStructureResponse>> ReplaceStructure(
+        Guid id,
+        [FromBody] ReplaceCatalogStructureRequest body,
+        CancellationToken ct)
+    {
+        try { return Ok(await catalog.ReplaceStructureAsync(id, body, ct)); }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
@@ -197,6 +209,7 @@ public sealed class TrainingCatalogController(
         IFormFile file,
         [FromForm] string? title,
         [FromForm] TrainingResourceType? type,
+        [FromForm] int? sortOrder,
         CancellationToken ct)
     {
         try
@@ -213,7 +226,8 @@ public sealed class TrainingCatalogController(
                 configuration["Formation:Learning:RootPath"],
                 inferred,
                 title,
-                ct));
+                ct,
+                sortOrder));
         }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
@@ -230,27 +244,153 @@ public sealed class TrainingCatalogController(
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    [HttpPost("resources/{resourceId:guid}/access")]
+    public async Task<ActionResult<ResourceAccessTokenDto>> IssueResourceAccess(
+        Guid resourceId,
+        CancellationToken ct)
+    {
+        var info = await catalog.GetResourceFileInfoAsync(resourceId, ct);
+        if (info is null) return NotFound();
+        var key = ResolveSigningKey();
+        var (token, expires) = LearningResourceAccessToken.Issue(resourceId, key);
+        var url = $"/api/formations/catalog/resources/file/{resourceId}?t={Uri.EscapeDataString(token)}";
+        return Ok(new ResourceAccessTokenDto(url, expires));
+    }
+
     [HttpGet("resources/file/{resourceId:guid}")]
     [AllowAnonymous]
-    public async Task<IActionResult> DownloadResource(Guid resourceId, CancellationToken ct)
+    public async Task<IActionResult> DownloadResource(
+        Guid resourceId,
+        [FromQuery] string? t,
+        CancellationToken ct)
     {
-        var result = await catalog.GetResourceFileAsync(resourceId, ct);
-        if (result is null) return NotFound();
-        var (resource, bytes) = result.Value;
-        return File(bytes, resource.ContentType ?? "application/octet-stream", resource.FileName ?? "resource");
+        var key = ResolveSigningKey();
+        var tokenOk = LearningResourceAccessToken.TryValidate(resourceId, t, key);
+        if (!tokenOk && !(User.Identity?.IsAuthenticated ?? false))
+            return Unauthorized();
+
+        var info = await catalog.GetResourceFileInfoAsync(resourceId, ct);
+        if (info is null) return NotFound();
+        var (resource, fullPath, length, lastWrite) = info.Value;
+
+        var etag = $"\"{resourceId:N}-{length}-{lastWrite.Ticks}\"";
+        Response.Headers.ETag = etag;
+        Response.Headers.LastModified = lastWrite.ToString("R");
+        Response.Headers.CacheControl = "private, max-age=3600";
+
+        if (Request.Headers.TryGetValue("If-None-Match", out var inm) && inm == etag)
+            return StatusCode(StatusCodes.Status304NotModified);
+
+        var stream = new FileStream(
+            fullPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 64 * 1024,
+            options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+        return File(
+            stream,
+            resource.ContentType ?? "application/octet-stream",
+            fileDownloadName: resource.FileName ?? "resource",
+            enableRangeProcessing: true);
+    }
+
+    private string ResolveSigningKey() =>
+        configuration["JwtSettings:Secret"]
+        ?? configuration["Jwt:Key"]
+        ?? "kyntus-learning-media-dev-key";
+
+    [HttpGet("me/self-service")]
+    public async Task<ActionResult<IReadOnlyList<MySelfServiceCatalogItemDto>>> MySelfService(CancellationToken ct)
+    {
+        var employeeId = User.GetSubjectId() ?? Guid.Empty;
+        var email = User.GetEmail();
+        if (employeeId == Guid.Empty && string.IsNullOrWhiteSpace(email))
+            return BadRequest(new { error = "Identifiant utilisateur manquant dans le jeton." });
+        return Ok(await catalog.ListMySelfServiceCatalogAsync(employeeId, ct, email));
+    }
+
+    [HttpGet("{catalogItemId:guid}/player")]
+    public async Task<ActionResult<CatalogPlayerDto>> PlayerByCatalog(
+        Guid catalogItemId,
+        CancellationToken ct)
+    {
+        try
+        {
+            var employeeId = User.GetSubjectId() ?? Guid.Empty;
+            return Ok(await catalog.GetPlayerByCatalogAsync(catalogItemId, employeeId, ct, User.GetEmail()));
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("{catalogItemId:guid}/lessons/{lessonId:guid}/complete")]
+    public async Task<ActionResult<TrainingLessonDto>> CompleteLessonByCatalog(
+        Guid catalogItemId,
+        Guid lessonId,
+        [FromBody] CompleteLessonRequest body,
+        CancellationToken ct)
+    {
+        try
+        {
+            body.EmployeeId = User.GetSubjectId() ?? Guid.Empty;
+            return Ok(await catalog.CompleteLessonByCatalogAsync(catalogItemId, lessonId, body, ct, User.GetEmail()));
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpGet("{catalogItemId:guid}/quiz/for-employee")]
+    public async Task<ActionResult<TrainingQuizForEmployeeDto>> QuizForCatalogEmployee(
+        Guid catalogItemId,
+        CancellationToken ct)
+    {
+        try
+        {
+            var employeeId = User.GetSubjectId() ?? Guid.Empty;
+            return Ok(await training.GetPublishedQuizForCatalogEmployeeAsync(
+                catalogItemId, employeeId, ct, User.GetEmail()));
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("{catalogItemId:guid}/quiz/attempts")]
+    public async Task<ActionResult<TrainingQuizAttemptDto>> SubmitCatalogAttempt(
+        Guid catalogItemId,
+        [FromBody] SubmitTrainingQuizAttemptRequest body,
+        CancellationToken ct)
+    {
+        try
+        {
+            body.EmployeeId = User.GetSubjectId() ?? Guid.Empty;
+            return Ok(await training.SubmitCatalogQuizAttemptAsync(
+                catalogItemId, body, ct, User.GetEmail()));
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpGet("{catalogItemId:guid}/quiz/my-attempts")]
+    public async Task<ActionResult<IReadOnlyList<TrainingQuizAttemptDto>>> ListMyCatalogAttempts(
+        Guid catalogItemId,
+        CancellationToken ct)
+    {
+        try
+        {
+            var employeeId = User.GetSubjectId() ?? Guid.Empty;
+            return Ok(await training.ListMyCatalogQuizAttemptsAsync(
+                catalogItemId, employeeId, ct, User.GetEmail()));
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
     [HttpGet("sessions/{sessionId:guid}/player")]
     public async Task<ActionResult<CatalogPlayerDto>> Player(
         Guid sessionId,
-        [FromQuery] Guid employeeId,
         CancellationToken ct)
     {
         try
         {
-            if (employeeId == Guid.Empty)
-                employeeId = User.GetSubjectId() ?? Guid.Empty;
-            return Ok(await catalog.GetPlayerAsync(sessionId, employeeId, ct));
+            var employeeId = User.GetSubjectId() ?? Guid.Empty;
+            return Ok(await catalog.GetPlayerAsync(sessionId, employeeId, ct, User.GetEmail()));
         }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
@@ -264,9 +404,8 @@ public sealed class TrainingCatalogController(
     {
         try
         {
-            if (body.EmployeeId == Guid.Empty)
-                body.EmployeeId = User.GetSubjectId() ?? Guid.Empty;
-            return Ok(await catalog.CompleteLessonAsync(sessionId, lessonId, body, ct));
+            body.EmployeeId = User.GetSubjectId() ?? Guid.Empty;
+            return Ok(await catalog.CompleteLessonAsync(sessionId, lessonId, body, ct, User.GetEmail()));
         }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
@@ -289,21 +428,27 @@ public sealed class TrainingCatalogController(
 
     [HttpGet("stats")]
     [Authorize(Policy = "CanPlanContinue")]
-    public async Task<ActionResult<LearningQuizStatsDto>> Stats(CancellationToken ct) =>
-        Ok(await catalog.GetLearningStatsAsync(ct));
+    public async Task<ActionResult<LearningQuizStatsDto>> Stats(
+        [FromQuery] Guid? catalogItemId,
+        CancellationToken ct) =>
+        Ok(await catalog.GetLearningStatsAsync(catalogItemId, ct));
 
     [HttpGet("results/export")]
     [Authorize(Policy = "CanPlanContinue")]
     public async Task<ActionResult<IReadOnlyList<LearningQuizResultExportRowDto>>> Export(
         [FromQuery] Guid? sessionId,
+        [FromQuery] Guid? catalogItemId,
         CancellationToken ct) =>
-        Ok(await catalog.ExportResultsAsync(sessionId, ct));
+        Ok(await catalog.ExportResultsAsync(sessionId, catalogItemId, ct));
 
     private static TrainingResourceType InferType(string fileName, string? contentType)
     {
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
         if (ext is ".mp4" or ".webm" or ".mov" or ".avi" or ".mkv")
             return TrainingResourceType.Video;
+        if (ext is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp" or ".bmp" or ".svg"
+            || (contentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? false))
+            return TrainingResourceType.Image;
         if (ext == ".pdf" || (contentType?.Contains("pdf", StringComparison.OrdinalIgnoreCase) ?? false))
             return TrainingResourceType.Pdf;
         return TrainingResourceType.Pdf;

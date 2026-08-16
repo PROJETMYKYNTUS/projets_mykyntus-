@@ -144,7 +144,7 @@ public class ExceptionalRequestPinRepairTests
         };
 
         ShiftDispersionSelector.RepairFairness(assignments, shifts, users);
-        ShiftDispersionSelector.RepairWeekdayDispersion(assignments, shifts);
+        ShiftDispersionSelector.RepairWeekdayDispersion(assignments, shifts, users);
 
         var pinned = assignments.First(a => a.UserId == 10 && a.AssignedDate == monday);
         Assert.True(pinned.IsManagerOverride);

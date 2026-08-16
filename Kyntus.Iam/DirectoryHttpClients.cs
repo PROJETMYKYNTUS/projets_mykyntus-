@@ -36,8 +36,43 @@ public sealed class DirectoryHttpRebacClient(HttpClient http) : IRebacClient
         return resp?.NodeIds ?? [];
     }
 
+    public async Task<IReadOnlyList<Guid>> GetManagedEmployeeIdsAsync(Guid actorId, CancellationToken ct = default)
+    {
+        var url = $"/api/directory/rebac/managed-employees?employeeId={actorId}";
+        var resp = await http.GetFromJsonAsync<ManagedEmployeesResponse>(url, ct);
+        return resp?.EmployeeIds?.Select(ParseGuid).Where(g => g != Guid.Empty).ToList() ?? [];
+    }
+
+    public async Task<bool> CanActOnAsync(Guid actorId, Guid targetEmployeeId, CancellationToken ct = default)
+    {
+        var resp = await http.PostAsJsonAsync("/api/directory/rebac/can-act", new
+        {
+            actorId,
+            targetEmployeeId,
+        }, ct);
+        if (!resp.IsSuccessStatusCode) return false;
+        var body = await resp.Content.ReadFromJsonAsync<CanActResponse>(cancellationToken: ct);
+        return body?.Allowed == true;
+    }
+
+    public async Task<IReadOnlyList<Guid>> GetResponsibleIdsAsync(string kind, string nodeId, CancellationToken ct = default)
+    {
+        var url =
+            $"/api/directory/rebac/responsibles?kind={Uri.EscapeDataString(kind)}&nodeId={Uri.EscapeDataString(nodeId)}";
+        var resp = await http.GetFromJsonAsync<ResponsiblesResponse>(url, ct);
+        return resp?.Responsibles?.Select(r => ParseGuid(r.EmployeeId)).Where(g => g != Guid.Empty).ToList()
+               ?? [];
+    }
+
+    private static Guid ParseGuid(string? value) =>
+        Guid.TryParse(value, out var g) ? g : Guid.Empty;
+
     private sealed record IsDescendantResponse(bool IsDescendant);
     private sealed record ManagedNodesResponse(IReadOnlyList<string> NodeIds);
+    private sealed record ManagedEmployeesResponse(IReadOnlyList<string> EmployeeIds);
+    private sealed record CanActResponse(bool Allowed);
+    private sealed record ResponsibleItem(string EmployeeId);
+    private sealed record ResponsiblesResponse(IReadOnlyList<ResponsibleItem> Responsibles);
 }
 
 /// <summary>Évalue les policies via POST /api/iam/evaluate (forward JWT utilisateur).</summary>

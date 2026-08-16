@@ -169,6 +169,12 @@ public record UpdateEmployeeRequest(
     EmployeeHrProfileDto? HrProfile = null,
     int? IdTechnicien = null);
 
+/// <summary>
+/// Détache un employé d'un périmètre organisationnel (pole / cellule / service).
+/// Level : service | cellule | pole | all.
+/// </summary>
+public record ClearOrgPlacementRequest(string? Level = null, string? NodeId = null);
+
 public record OrgAssignmentAsOfDto(
     DateTime AsOf,
     IReadOnlyList<ActiveAssignmentDto> Assignments);
@@ -221,6 +227,22 @@ public record PilotRotationEligibilityDto(
 
 public record RebacSubtreeDto(string EmployeeId, IReadOnlyList<string> DescendantIds);
 public record RebacManagedNodesDto(string EmployeeId, string Kind, IReadOnlyList<string> NodeIds);
+
+public record ResponsibleEmployeeDto(
+    string EmployeeId,
+    string FirstName,
+    string LastName,
+    string Email,
+    string Kind,
+    string NodeId);
+
+public record ManagedNodeDto(
+    string Kind,
+    string NodeId,
+    string NodeLevel,
+    string? Label);
+
+public record CanActOnResultDto(bool Allowed, string ActorId, string TargetEmployeeId);
 
 public record EffectivePermissionsDto(
     string SubjectId,

@@ -79,10 +79,12 @@
     </div>
 
     <!-- ── Actions RH (Valider / Régénérer) ── -->
-    <div class="pv-decision-bar" *ngIf="planning.status === 'Draft' && canValidate">
+    <div class="pv-decision-bar" *ngIf="canValidate && (planning.status === 'Draft' || planning.status === 'Published')">
       <div class="pv-decision-copy">
-        <strong>Aperçu brouillon</strong>
-        <span>Contrôlez la grille, puis validez ou régénérez.</span>
+        <strong *ngIf="planning.status === 'Draft'">Aperçu brouillon</strong>
+        <strong *ngIf="planning.status === 'Published'">Planning publié</strong>
+        <span *ngIf="planning.status === 'Draft'">Contrôlez la grille, puis validez ou régénérez.</span>
+        <span *ngIf="planning.status === 'Published'">Régénérer les jours restants (cutoff 15h) — le planning repassera en brouillon à revalider.</span>
       </div>
       <div class="pv-decision-actions">
         <button type="button"
@@ -100,6 +102,7 @@
         </button>
         <button type="button"
                 class="btn-validate-lg"
+                *ngIf="planning.status === 'Draft'"
                 [disabled]="publishing || regenerating"
                 (click)="publishPlanning()">
           <ng-container *ngIf="!publishing">
@@ -147,13 +150,13 @@
         <div class="perf-card" [attr.data-tone]="extremeTone(wk.extremeBreaks)">
           <span class="perf-label">Cas extrêmes</span>
           <span class="perf-value">{{ wk.extremeBreaks }}</span>
-          <span class="perf-hint">pauses +3h / +5h</span>
+          <span class="perf-hint">critique : 11→12→13 / +5h · rotation +3/+4/+5</span>
         </div>
         <div class="perf-card" [attr.data-tone]="kpiTone(wk.extremeRotation)">
           <span class="perf-label">Rotation extrêmes</span>
           <span class="perf-value">{{ formatKpiPct(wk.extremeRotation) }}</span>
           <span class="perf-hint" *ngIf="wk.extremeRotationTotal">{{ wk.extremeRotationOk }}/{{ wk.extremeRotationTotal }} OK · équité même niveau</span>
-          <span class="perf-hint" *ngIf="!wk.extremeRotationTotal">répartition +3h/+5h</span>
+          <span class="perf-hint" *ngIf="!wk.extremeRotationTotal">équité +3h/+4h/+5h même niveau</span>
         </div>
       </div>
     </div>
@@ -230,6 +233,20 @@
           Grille hebdomadaire
         </div>
         <div class="toolbar-right">
+          <button type="button"
+                  class="ky-btn-secondary btn-export"
+                  [disabled]="exporting"
+                  (click)="exportPlanningWeek()"
+                  title="Télécharger le planning de la semaine (Excel)">
+            <ng-container *ngIf="!exporting">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exporter
+            </ng-container>
+            <ng-container *ngIf="exporting">
+              <span class="btn-spinner"></span>
+              Export…
+            </ng-container>
+          </button>
           <!-- Légende compacte -->
           <div class="legend-inline">
             <div class="legend-item" *ngFor="let label of getUniqueShiftLabels()">
@@ -342,12 +359,14 @@
                   class="td-shift"
                   [class.td-saturday]="day === 'Saturday'"
                   [class.cell-change-request-highlight]="isHighlightedAssignment(getAssignment(emp, day))"
-                  [class.cell-exceptional]="getAssignment(emp, day)?.isExceptionalRequest">
+                  [class.cell-exceptional]="getAssignment(emp, day)?.isExceptionalRequest"
+                  [class.cell-reinforcement]="getAssignment(emp, day)?.isReinforcement">
 
                 <ng-container *ngIf="getAssignment(emp, day) as a; else noShift">
 
                   <div class="cr-cell-tag" *ngIf="isHighlightedAssignment(a)">Demande</div>
                   <div class="de-cell-tag" *ngIf="a.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</div>
+                  <div class="ren-cell-tag" *ngIf="a.isReinforcement && !a.isExceptionalRequest" title="Renfort samedi">REN</div>
 
                   <!-- Congé -->
                 <div class="cell-conge"
@@ -394,7 +413,8 @@
                       <span class="sp-time">{{ a.startTime }}</span>
   <span class="sp-label">{{ getShiftNumber(a.shiftLabel) }}</span>
                       <span class="sp-de" *ngIf="a.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</span>
-                      <span class="sp-edited" *ngIf="a.isManagerOverride && !a.isExceptionalRequest" title="Modifié manuellement">
+                      <span class="sp-ren" *ngIf="a.isReinforcement && !a.isExceptionalRequest" title="Renfort samedi">REN</span>
+                      <span class="sp-edited" *ngIf="a.isManagerOverride && !a.isExceptionalRequest && !a.isReinforcement" title="Modifié manuellement">
                         <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       </span>
                     </div>

@@ -211,7 +211,9 @@ export class KyntusNotificationHubService {
               ? 'Réclamation'
               : src === 'formation'
                 ? 'Formation'
-                : (n.subServiceName ?? '').toLowerCase().includes('demande')
+                : (n.weekCode ?? '').toUpperCase().startsWith('SAT-IMBALANCE-')
+                  ? 'Déséquilibre samedi'
+                  : (n.subServiceName ?? '').toLowerCase().includes('demande')
                   ? 'Demande de changement'
                   : 'Planning',
         body: n.message,
@@ -317,10 +319,22 @@ export class KyntusNotificationHubService {
       return { route: resolveFormationDeepLink(n.weekCode ?? '', n.deepLink) };
     }
     if (src === 'planning') {
+      if ((n.weekCode ?? '').toUpperCase().startsWith('SAT-IMBALANCE-')) {
+        return { route: n.deepLink?.startsWith('/') ? n.deepLink : '/prime' };
+      }
       if (n.deepLink?.startsWith('/')) {
         return { route: n.deepLink };
       }
       const sub = (n.subServiceName ?? '').toLowerCase();
+      if (sub.includes('renfort')) {
+        const r = jwtRole.trim().toLowerCase();
+        if (r === 'admin' || r === 'rh' || r === 'superviseur' || r === 'manager'
+            || r.includes('référent') || r.includes('referent') || r === 'chef de projet'
+            || r === 'coach' || r === 'rp') {
+          return { route: '/planning/demandes-renfort' };
+        }
+        return { route: '/mes-renforts' };
+      }
       if (sub.includes('exceptionnelle')) {
         const r = jwtRole.trim().toLowerCase();
         if (r === 'admin' || r === 'rh' || r === 'superviseur' || r === 'manager'

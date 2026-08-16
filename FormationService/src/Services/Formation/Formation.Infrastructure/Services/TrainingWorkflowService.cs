@@ -1,4 +1,5 @@
 using Formation.Application.DTOs;
+using Formation.Domain;
 using Formation.Domain.Entities;
 using Formation.Domain.Enums;
 using Formation.Infrastructure.Persistence;
@@ -16,60 +17,48 @@ public sealed partial class TrainingWorkflowService(
     LearningCatalogService learningCatalog,
     ILogger<TrainingWorkflowService> logger)
 {
-    /// <summary>Seuil de réussite du quiz de formation initiale (note sur 100).</summary>
-    public const decimal QuizPassThreshold = 70m;
-
+    /// <summary>
+    /// Crée une séance unique via <see cref="CreateProgramAsync"/> (mode Single)
+    /// pour éviter toute divergence de règles avec les programmes multi-séances.
+    /// </summary>
     public async Task<TrainingSessionDto> CreateSessionAsync(CreateTrainingSessionRequest request, CancellationToken ct)
     {
-        ValidateSessionAnimator(request);
-        if (request.Capacity < 1)
-            throw new InvalidOperationException("La capacité doit être au moins 1.");
-
-        var plannedStart = ToUtc(request.PlannedStart);
-        var plannedEnd = ToUtc(request.PlannedEnd);
-        if (plannedEnd <= plannedStart)
-            throw new InvalidOperationException("La date de fin doit être postérieure au début.");
-
-        var session = new TrainingSession
+        var program = await CreateProgramAsync(new CreateTrainingProgramRequest
         {
-            Title = request.Title.Trim(),
-            Description = request.Description?.Trim() ?? string.Empty,
-            Type = TrainingSessionType.Continue,
-            SequenceNumber = 1,
+            Title = request.Title,
+            Description = request.Description,
+            Mode = TrainingProgramMode.Single,
+            SessionCount = 1,
             AnimatorKind = request.AnimatorKind,
-            AnimatorUserId = request.AnimatorKind == AnimatorKind.Internal ? request.AnimatorUserId : null,
-            ExternalAnimatorName = request.AnimatorKind == AnimatorKind.External ? request.ExternalAnimatorName?.Trim() : null,
-            ExternalAnimatorOrganization = request.AnimatorKind == AnimatorKind.External ? request.ExternalAnimatorOrganization?.Trim() : null,
-            ExternalAnimatorEmail = request.AnimatorKind == AnimatorKind.External ? request.ExternalAnimatorEmail?.Trim() : null,
-            ExternalAnimatorPhone = request.AnimatorKind == AnimatorKind.External ? request.ExternalAnimatorPhone?.Trim() : null,
-            PlannedStart = plannedStart,
-            PlannedEnd = plannedEnd,
+            AnimatorUserId = request.AnimatorUserId,
+            ExternalAnimatorName = request.ExternalAnimatorName,
+            ExternalAnimatorOrganization = request.ExternalAnimatorOrganization,
+            ExternalAnimatorEmail = request.ExternalAnimatorEmail,
+            ExternalAnimatorPhone = request.ExternalAnimatorPhone,
             Capacity = request.Capacity,
-            Status = request.Publish
-                ? ResolveStatusFromSchedule(plannedStart, plannedEnd, DateTime.UtcNow)
-                : TrainingSessionStatus.Draft,
             CreatedByUserId = request.CreatedByUserId,
-        };
-        db.TrainingSessions.Add(session);
-        await db.SaveChangesAsync(ct);
+            Publish = request.Publish,
+            Sessions =
+            [
+                new TrainingProgramSessionSlot
+                {
+                    PlannedStart = request.PlannedStart,
+                    PlannedEnd = request.PlannedEnd,
+                },
+            ],
+        }, ct);
 
-        if (request.Publish
-            && session.AnimatorKind == AnimatorKind.Internal
-            && session.AnimatorUserId is Guid animatorId
-            && animatorId != Guid.Empty)
-        {
-            await publish.Publish(new TrainingSessionAnimatorAssignedMessage
-            {
-                SessionId = session.Id,
-                Title = session.Title,
-                PlannedStart = session.PlannedStart,
-                PlannedEnd = session.PlannedEnd,
-                AnimatorUserId = animatorId,
-                AssignedAt = DateTime.UtcNow,
-            }, ct);
-        }
+        return program.Sessions[0];
+    }
 
-        return ToSessionDto(session, 0);
+    /// <summary>DTO enrichi d'une séance (counts, quiz, gates présence/CR).</summary>
+    public async Task<TrainingSessionDto?> GetSessionDtoAsync(Guid sessionId, CancellationToken ct)
+    {
+        var session = await db.TrainingSessions.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == sessionId, ct);
+        if (session is null) return null;
+        var mapped = await MapSessionsAsync([session], ct);
+        return mapped.FirstOrDefault();
     }
 
     public async Task<TrainingSessionDto?> UpdateSessionStatusAsync(Guid id, TrainingSessionStatus status, CancellationToken ct)
@@ -119,36 +108,49 @@ public sealed partial class TrainingWorkflowService(
 
     public async Task<IReadOnlyList<MyAssignedTrainingSessionDto>> ListMyAssignedSessionsAsync(
         Guid employeeId,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? email = null)
     {
         await SyncPublishedSessionStatusesAsync(ct);
+
+        var aliases = await FormationEmployeeIdentity.ResolveAliasesAsync(db, employeeId, email, ct);
+        if (aliases.Count == 0)
+            return [];
 
         var rows = await (
             from a in db.TrainingAssignments.AsNoTracking()
             join s in db.TrainingSessions.AsNoTracking() on a.SessionId equals s.Id
-            where a.EmployeeId == employeeId && s.Type == TrainingSessionType.Continue
+            where aliases.Contains(a.EmployeeId) && s.Type == TrainingSessionType.Continue
             orderby s.PlannedStart descending
             select new { a, s }
         ).ToListAsync(ct);
 
         var sessionIds = rows.Select(r => r.s.Id).ToList();
         var quizzes = await db.TrainingQuizzes.AsNoTracking()
-            .Where(q => sessionIds.Contains(q.SessionId))
-            .ToDictionaryAsync(q => q.SessionId, ct);
+            .Where(q => q.SessionId != null && sessionIds.Contains(q.SessionId.Value))
+            .ToDictionaryAsync(q => q.SessionId!.Value, ct);
         var quizIds = quizzes.Values.Select(q => q.Id).ToList();
         var attemptRows = await db.TrainingQuizAttempts.AsNoTracking()
-            .Where(t => quizIds.Contains(t.QuizId) && t.EmployeeId == employeeId)
+            .Where(t => quizIds.Contains(t.QuizId) && aliases.Contains(t.EmployeeId))
             .ToListAsync(ct);
         var attempts = attemptRows
             .GroupBy(t => t.QuizId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.AttemptNumber).First());
 
         var assignmentIds = rows.Select(r => r.a.Id).ToList();
-        var progresses = await db.TrainingLessonProgresses.AsNoTracking()
-            .Where(p => assignmentIds.Contains(p.AssignmentId) && p.CompletedAt != null)
+        var catalogIds = rows.Where(r => r.s.CatalogItemId != null).Select(r => r.s.CatalogItemId!.Value).Distinct().ToList();
+        var employeeIds = rows.Select(r => r.a.EmployeeId).Distinct().ToList();
+        var enrollments = await db.TrainingCatalogEnrollments.AsNoTracking()
+            .Where(e =>
+                (e.AssignmentId != null && assignmentIds.Contains(e.AssignmentId.Value))
+                || (employeeIds.Contains(e.EmployeeId) && catalogIds.Contains(e.CatalogItemId)))
             .ToListAsync(ct);
 
-        var catalogIds = rows.Where(r => r.s.CatalogItemId != null).Select(r => r.s.CatalogItemId!.Value).Distinct().ToList();
+        var enrollmentIds = enrollments.Select(e => e.Id).ToList();
+        var progresses = await db.TrainingLessonProgresses.AsNoTracking()
+            .Where(p => enrollmentIds.Contains(p.EnrollmentId) && p.CompletedAt != null)
+            .ToListAsync(ct);
+
         var requiredByCatalog = await (
             from l in db.TrainingLessons.AsNoTracking()
             join m in db.TrainingModules.AsNoTracking() on l.ModuleId equals m.Id
@@ -163,11 +165,17 @@ public sealed partial class TrainingWorkflowService(
             if (quiz is not null)
                 attempts.TryGetValue(quiz.Id, out attempt);
 
-            var requiredLessonIds = r.s.CatalogItemId is Guid cid
-                ? requiredByCatalog.Where(x => x.CatalogItemId == cid).Select(x => x.Id).ToList()
+            var enrollment = enrollments.FirstOrDefault(e =>
+                e.AssignmentId == r.a.Id
+                || (r.s.CatalogItemId is Guid cid && e.CatalogItemId == cid && e.EmployeeId == r.a.EmployeeId));
+
+            var requiredLessonIds = r.s.CatalogItemId is Guid cid2
+                ? requiredByCatalog.Where(x => x.CatalogItemId == cid2).Select(x => x.Id).ToList()
                 : [];
-            var done = progresses.Count(p =>
-                p.AssignmentId == r.a.Id && requiredLessonIds.Contains(p.LessonId));
+            var done = enrollment is null
+                ? 0
+                : progresses.Count(p =>
+                    p.EnrollmentId == enrollment.Id && requiredLessonIds.Contains(p.LessonId));
             var progressPercent = requiredLessonIds.Count == 0
                 ? (r.s.CatalogItemId is null ? 0m : 100m)
                 : Math.Round((decimal)done / requiredLessonIds.Count * 100m, 1);
@@ -291,12 +299,11 @@ public sealed partial class TrainingWorkflowService(
         await SyncPublishedSessionStatusesAsync(ct);
         var session = await RequireAnimatorContinueSessionAsync(sessionId, request.AnimatorUserId, ct);
 
-        if (session.Status is TrainingSessionStatus.Draft or TrainingSessionStatus.Cancelled)
-            throw new InvalidOperationException("Impossible de pointer les présences sur une session brouillon ou annulée.");
-
-        if (session.Status is not TrainingSessionStatus.InProgress and not TrainingSessionStatus.Completed
-            and not TrainingSessionStatus.Scheduled)
-            throw new InvalidOperationException("Le pointage n’est pas autorisé pour ce statut de session.");
+        TrainingSessionDtoMapper.ResolveAttendanceGate(
+            session, DateTime.UtcNow, out var canMark, out var attendanceBlocked);
+        if (!canMark)
+            throw new InvalidOperationException(
+                attendanceBlocked ?? "Le pointage n’est pas autorisé pour cette séance.");
 
         var attendance = (request.Attendance ?? string.Empty).Trim();
         var nextStatus = attendance.ToLowerInvariant() switch
@@ -377,11 +384,18 @@ public sealed partial class TrainingWorkflowService(
         return rows.Select(p => ToInitialDto(p, summaries.GetValueOrDefault(p.Id))).ToList();
     }
 
-    public async Task<IReadOnlyList<InitialTrainingPathDto>> ListInitialByEmployeeAsync(Guid employeeId, CancellationToken ct)
+    public async Task<IReadOnlyList<InitialTrainingPathDto>> ListInitialByEmployeeAsync(
+        Guid employeeId,
+        CancellationToken ct,
+        string? email = null)
     {
+        var aliases = await FormationEmployeeIdentity.ResolveAliasesAsync(db, employeeId, email, ct);
+        if (aliases.Count == 0)
+            return [];
+
         var rows = await db.InitialTrainingPaths.AsNoTracking()
             .Include(p => p.QuizResults)
-            .Where(p => p.EmployeeId == employeeId)
+            .Where(p => aliases.Contains(p.EmployeeId))
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync(ct);
         var summaries = await documentChecklist.LoadSummariesAsync(rows.Select(r => r.Id).ToList(), ct);
@@ -412,7 +426,7 @@ public sealed partial class TrainingWorkflowService(
         if (request.Score is < 0 or > 100)
             throw new InvalidOperationException("La note du quiz doit être entre 0 et 100.");
 
-        var passed = request.Score >= QuizPassThreshold;
+        var passed = request.Score >= TrainingQuizDefaults.PassThreshold;
         var result = new InitialTrainingQuizResult
         {
             Id = Guid.NewGuid(),
@@ -470,7 +484,7 @@ public sealed partial class TrainingWorkflowService(
         return ToInitialDto(path);
     }
 
-    public async Task<InitialTrainingPathDto?> FormateurValidateAsync(Guid id, CancellationToken ct)
+    public async Task<InitialTrainingPathDto?> FormateurValidateAsync(Guid id, Guid? validatedBy, CancellationToken ct)
     {
         var path = await db.InitialTrainingPaths
             .Include(p => p.QuizResults)
@@ -486,6 +500,7 @@ public sealed partial class TrainingWorkflowService(
 
         path.Status = InitialTrainingStatus.AttenteValidationRh;
         path.FormateurValidatedAt = DateTime.UtcNow;
+        path.FormateurValidatedBy = validatedBy is Guid g && g != Guid.Empty ? g : null;
         path.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
         return ToInitialDto(path);
@@ -500,7 +515,7 @@ public sealed partial class TrainingWorkflowService(
         return await RejectPathAsync(path, request.RejectedBy, request.Reason, ct);
     }
 
-    public async Task<InitialTrainingPathDto?> RhValidateAsync(Guid id, CancellationToken ct)
+    public async Task<InitialTrainingPathDto?> RhValidateAsync(Guid id, Guid? validatedBy, CancellationToken ct)
     {
         var path = await db.InitialTrainingPaths
             .Include(p => p.QuizResults)
@@ -519,6 +534,7 @@ public sealed partial class TrainingWorkflowService(
 
         path.Status = InitialTrainingStatus.EnProduction;
         path.RhValidatedAt = DateTime.UtcNow;
+        path.RhValidatedBy = validatedBy is Guid g && g != Guid.Empty ? g : null;
         path.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
@@ -652,6 +668,7 @@ public sealed partial class TrainingWorkflowService(
         path.DateFinPrevue = newEnd;
         // Traçabilité quiz conservée ; on réouvre le parcours côté formateur.
         path.FormateurValidatedAt = null;
+        path.FormateurValidatedBy = null;
         if (path.Status == InitialTrainingStatus.AttenteValidationRh)
             path.Status = InitialTrainingStatus.EnCours;
         path.UpdatedAt = DateTime.UtcNow;
@@ -818,8 +835,8 @@ public sealed partial class TrainingWorkflowService(
             .Select(r => r.SessionId)
             .ToListAsync(ct)).ToHashSet();
         var quizzes = await db.TrainingQuizzes.AsNoTracking()
-            .Where(q => ids.Contains(q.SessionId))
-            .ToDictionaryAsync(q => q.SessionId, ct);
+            .Where(q => q.SessionId != null && ids.Contains(q.SessionId.Value))
+            .ToDictionaryAsync(q => q.SessionId!.Value, ct);
 
         return sessions.Select(s =>
         {
@@ -856,29 +873,7 @@ public sealed partial class TrainingWorkflowService(
         bool hasReport = false,
         Guid? quizId = null,
         string? quizStatus = null) =>
-        new(
-            session.Id,
-            session.Title,
-            session.Description,
-            session.Type,
-            session.AnimatorKind,
-            session.AnimatorUserId,
-            session.ExternalAnimatorName,
-            session.ExternalAnimatorOrganization,
-            session.ExternalAnimatorEmail,
-            session.ExternalAnimatorPhone,
-            session.PlannedStart,
-            session.PlannedEnd,
-            session.Capacity,
-            session.Status,
-            assignmentCount,
-            session.ProgramId,
-            session.SequenceNumber,
-            hasReport,
-            quizId,
-            quizStatus,
-            session.CatalogItemId,
-            session.LearningGateMode?.ToString());
+        TrainingSessionDtoMapper.ToDto(session, assignmentCount, hasReport, quizId, quizStatus);
 
     private static InitialTrainingPathDto ToInitialDto(
         InitialTrainingPath path,
@@ -926,7 +921,9 @@ public sealed partial class TrainingWorkflowService(
             docs?.ReceivedCount ?? 0,
             docs?.TotalCount ?? 0,
             docs?.MissingTitles ?? Array.Empty<string>(),
-            daysUntilEnd);
+            daysUntilEnd,
+            path.FormateurValidatedBy,
+            path.RhValidatedBy);
     }
 
     /// <summary>Moyenne des notes quiz (0–100), pas le taux de réussite.</summary>

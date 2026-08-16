@@ -14,6 +14,8 @@ public record CongeValideMessage
     /// <summary>Annuel, Exceptionnel, Maternite, Paternite, Maladie.</summary>
     public string TypeConge { get; init; } = "Annuel";
     public string? TypeExceptionnel { get; init; }
+    public Guid? ValidateurId { get; init; }
+    public string? ValidateurNom { get; init; }
 }
 
 /// <summary>
@@ -36,4 +38,6 @@ public record CongeRefuseMessage
     public Guid DemandeId { get; init; }
     public Guid EmployeId { get; init; }
     public string Motif { get; init; } = string.Empty;
+    public Guid? ValidateurId { get; init; }
+    public string? ValidateurNom { get; init; }
 }

@@ -1,3 +1,4 @@
+using Conge.Domain.Entities;
 using Conge.Application.Commands.InitialiserSolde;
 using Conge.Domain.Interfaces;
 using Kyntus.Messaging.Contracts;
@@ -28,13 +29,15 @@ public sealed class DirectoryEmployeeCongeProjectionConsumer(
         }
 
         var managerId = msg.SuperviseurId ?? msg.ParentId ?? Guid.Empty;
+        // Legacy Guid ServiceId : parse si possible ; sinon conserver Empty (OrgServiceId porte l'ID Directory).
         var serviceId = Guid.TryParse(msg.ServiceId, out var parsedSvc) ? parsedSvc : Guid.Empty;
+        var orgServiceId = msg.ServiceId;
         var serviceNom = msg.ServiceId ?? string.Empty;
         var isNew = snapshot is null;
 
         if (isNew)
         {
-            snapshot = Conge.Domain.Entities.EmployeSnapshot.Creer(
+            snapshot = EmployeSnapshot.Creer(
                 msg.EmployeeId,
                 msg.LastName,
                 msg.FirstName,
@@ -44,12 +47,28 @@ public sealed class DirectoryEmployeeCongeProjectionConsumer(
                 serviceNom,
                 msg.HireDate ?? DateTime.UtcNow,
                 false,
-                msg.Role);
+                msg.Role,
+                msg.PoleId,
+                msg.CelluleId,
+                orgServiceId,
+                msg.BusinessDepartmentId);
             await employeRepo.AddAsync(snapshot, context.CancellationToken);
         }
         else
         {
-            snapshot!.MettreAJour(msg.LastName, msg.FirstName, msg.Email, managerId, serviceId, serviceNom, msg.Role, msg.HireDate);
+            snapshot!.MettreAJour(
+                msg.LastName,
+                msg.FirstName,
+                msg.Email,
+                managerId,
+                serviceId,
+                serviceNom,
+                msg.Role,
+                msg.HireDate,
+                msg.PoleId,
+                msg.CelluleId,
+                orgServiceId,
+                msg.BusinessDepartmentId);
             employeRepo.Update(snapshot);
         }
 

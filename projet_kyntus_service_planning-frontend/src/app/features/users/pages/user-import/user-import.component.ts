@@ -4,6 +4,7 @@ import { Component, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../../environments/environment';
+import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
 
 interface ImportResult {
   totalLignes: number;
@@ -30,7 +31,8 @@ export class UserImportComponent {
 
   constructor(
     private http: HttpClient,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private toastService: KyntusToastService,
   ) {}
 
   // ── Template ──
@@ -70,7 +72,7 @@ export class UserImportComponent {
     const allowed = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                      'application/vnd.ms-excel', 'text/csv'];
     if (!allowed.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/i)) {
-      alert('Format non supporté. Utilisez .xlsx, .xls ou .csv');
+      this.toastService.error('Format non supporté. Utilisez .xlsx, .xls ou .csv');
       return;
     }
     this.selectedFile  = file;

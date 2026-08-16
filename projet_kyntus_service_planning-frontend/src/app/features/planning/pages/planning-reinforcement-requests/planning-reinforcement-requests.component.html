@@ -1,0 +1,219 @@
+<div class="ky-page-shell">
+  <app-kyntus-page-header
+    title="Demandes de renfort"
+    subtitle="Appelez des agents OFF un samedi donné, puis validez parmi les volontaires — sans casser la rotation.">
+  </app-kyntus-page-header>
+
+  <div class="mdc-toast" *ngIf="toast">{{ toast }}</div>
+
+  <section class="mdc-card mdc-filters">
+    <label>
+      Statut
+      <select [(ngModel)]="filterStatus" (ngModelChange)="reload()">
+        <option value="">Tous</option>
+        <option value="Open">Ouvertes</option>
+        <option value="Filled">Pourvues</option>
+        <option value="Cancelled">Annulées</option>
+      </select>
+    </label>
+    <label>
+      Période
+      <select [(ngModel)]="filterPeriod" (ngModelChange)="reload()">
+        <option *ngFor="let opt of periodOptions" [value]="opt.value">{{ opt.label }}</option>
+      </select>
+    </label>
+    <button type="button" class="mdc-btn" (click)="reload()">Filtrer</button>
+    <button type="button" class="mdc-btn" *ngIf="canManage" (click)="openCreate()">Nouvelle demande</button>
+  </section>
+
+  <section class="mdc-card" *ngIf="showCreate && canManage">
+    <h3>Nouvelle demande de renfort</h3>
+    <p class="mdc-hint" *ngIf="subServices.length === 0">Aucune cellule dans votre périmètre.</p>
+    <div class="mdc-form-grid" *ngIf="subServices.length > 0">
+      <label>
+        Cellule
+        <select [(ngModel)]="createSubServiceId">
+          <option *ngFor="let s of subServices" [ngValue]="s.id">{{ s.name }}</option>
+        </select>
+      </label>
+      <label>
+        Samedi
+        <select [(ngModel)]="createSaturday">
+          <option *ngFor="let o of saturdayOptions" [value]="o.value">{{ o.label }}</option>
+        </select>
+      </label>
+      <label>
+        Postes
+        <input type="number" min="1" max="20" [(ngModel)]="createSlots" />
+      </label>
+      <label class="mdc-span-2">
+        Motif
+        <textarea [(ngModel)]="createReason" rows="2" maxlength="1000" placeholder="Ex. déséquilibre G1/G2, absences…"></textarea>
+      </label>
+    </div>
+    <div class="mdc-modal-actions">
+      <button type="button" class="mdc-btn mdc-btn-ghost" (click)="showCreate = false">Fermer</button>
+      <button type="button" class="mdc-btn" [disabled]="creating" (click)="submitCreate()">
+        {{ creating ? 'Publication…' : 'Publier aux agents OFF' }}
+      </button>
+    </div>
+  </section>
+
+  <section class="mdc-card">
+    <h3>Contribution aux renforts</h3>
+    <p class="mdc-hint">Agents qui acceptent et sont retenus le plus souvent (tous statuts de demande).</p>
+    <div class="mdc-filters">
+      <label>
+        Période
+        <select [(ngModel)]="statsPeriod" (ngModelChange)="reloadStats()">
+          <option *ngFor="let opt of periodOptions" [value]="opt.value">{{ opt.label }}</option>
+        </select>
+      </label>
+      <label>
+        Cellule
+        <select [(ngModel)]="statsSubServiceId" (ngModelChange)="reloadStats()">
+          <option [ngValue]="null">Toutes</option>
+          <option *ngFor="let s of subServices" [ngValue]="s.id">{{ s.name }}</option>
+        </select>
+      </label>
+      <button type="button" class="mdc-btn" (click)="reloadStats()">Appliquer</button>
+    </div>
+    <div class="mdc-loading mdc-loading-compact" *ngIf="statsLoading">
+      <div class="mdc-spinner"></div>
+      <p>Chargement du récap…</p>
+    </div>
+    <div class="mdc-error" *ngIf="!statsLoading && statsError">{{ statsError }}</div>
+    <div class="mdc-empty mdc-empty-compact" *ngIf="!statsLoading && !statsError && contributors.length === 0">
+      <p>Aucune contribution sur cette période.</p>
+    </div>
+    <table class="mdc-table" *ngIf="!statsLoading && !statsError && contributors.length > 0">
+      <thead>
+        <tr>
+          <th>Agent</th>
+          <th>Cellule</th>
+          <th>Sollicité</th>
+          <th>Accepté</th>
+          <th>Sélectionné</th>
+          <th>Refusé</th>
+          <th>Taux accept.</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let c of contributors">
+          <td>{{ c.fullName }}</td>
+          <td>{{ c.subServiceName || '—' }}</td>
+          <td>{{ c.solicited }}</td>
+          <td>{{ c.accepted }}</td>
+          <td><strong>{{ c.selected }}</strong></td>
+          <td>{{ c.declined }}</td>
+          <td>{{ c.acceptanceRate }} %</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div class="mdc-loading" *ngIf="loading"><div class="mdc-spinner"></div><p>Chargement…</p></div>
+  <div class="mdc-error" *ngIf="!loading && error">{{ error }}</div>
+
+  <section class="mdc-card" *ngIf="!loading && !error">
+    <div class="mdc-empty" *ngIf="requests.length === 0">
+      <h3>Aucune demande</h3>
+      <p>Créez un appel au renfort pour un samedi sous-effectif.</p>
+    </div>
+
+    <table class="mdc-table" *ngIf="requests.length > 0">
+      <thead>
+        <tr>
+          <th>Samedi</th>
+          <th>Semaine</th>
+          <th>Cellule</th>
+          <th>Postes</th>
+          <th>Volontaires</th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of requests">
+          <td>{{ r.saturdayDate | date:'dd/MM/yyyy' }}</td>
+          <td>{{ formatWeekLabel(r.weekCode) }}</td>
+          <td>{{ r.subServiceName }}</td>
+          <td>{{ r.slotsNeeded }}</td>
+          <td>{{ r.acceptedCount }} / {{ r.eligibleCount }}</td>
+          <td><span class="mdc-status" [attr.data-status]="r.status">{{ statusLabel(r.status) }}</span></td>
+          <td class="mdc-actions">
+            <button type="button" class="mdc-link" (click)="openDetail(r.id)">Détail</button>
+            <button
+              type="button"
+              class="mdc-link mdc-bad"
+              *ngIf="canManage && r.status === 'Open'"
+              (click)="cancelRequest(r.id)">
+              Annuler
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div class="mdc-modal" *ngIf="detail || detailLoading">
+    <div class="mdc-modal-card mdc-modal-wide" *ngIf="detailLoading"><p>Chargement…</p></div>
+    <div class="mdc-modal-card mdc-modal-wide" *ngIf="!detailLoading && detail as d">
+      <h3>Renfort — {{ d.saturdayDate | date:'dd/MM/yyyy' }}</h3>
+      <p class="mdc-hint">{{ d.subServiceName }} · {{ formatWeekLabel(d.weekCode) }} · {{ d.slotsNeeded }} poste(s)</p>
+      <p class="mdc-hint">{{ d.reason }}</p>
+
+      <h4>Volontaires acceptés</h4>
+      <p class="mdc-hint" *ngIf="acceptedVolunteers(d).length === 0">Aucun accepté pour le moment.</p>
+      <table class="mdc-table" *ngIf="acceptedVolunteers(d).length > 0">
+        <thead>
+          <tr>
+            <th *ngIf="d.status === 'Open' && canManage"></th>
+            <th>Agent</th>
+            <th>Heures semaine</th>
+            <th>Heures mois</th>
+            <th>Projeté + renfort</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let v of acceptedVolunteers(d)" [class.mdc-row-selected]="selectedUserIds.has(v.userId)">
+            <td *ngIf="d.status === 'Open' && canManage">
+              <input
+                type="checkbox"
+                [checked]="selectedUserIds.has(v.userId)"
+                (change)="toggleSelect(v.userId)" />
+            </td>
+            <td>{{ v.fullName }}</td>
+            <td>{{ v.scheduledHoursWeek }} h</td>
+            <td>{{ v.scheduledHoursMonth }} h</td>
+            <td>{{ projectedWeek(v) }} h / {{ projectedMonth(v) }} h</td>
+            <td>{{ volunteerStatusLabel(v.status) }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="mdc-form-grid" *ngIf="d.status === 'Open' && canManage && acceptedVolunteers(d).length > 0">
+        <label>
+          Créneau samedi
+          <select [(ngModel)]="selectedShiftId">
+            <option [ngValue]="null" disabled>Choisir…</option>
+            <option *ngFor="let s of shiftOptions" [ngValue]="s.id">{{ s.label }} — {{ s.workHours }}h</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="mdc-modal-actions">
+        <button type="button" class="mdc-btn mdc-btn-ghost" (click)="closeDetail()">Fermer</button>
+        <button
+          type="button"
+          class="mdc-btn"
+          *ngIf="d.status === 'Open' && canManage"
+          [disabled]="selecting || selectedUserIds.size === 0 || !selectedShiftId"
+          (click)="confirmSelect()">
+          {{ selecting ? 'Validation…' : 'Valider la sélection' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

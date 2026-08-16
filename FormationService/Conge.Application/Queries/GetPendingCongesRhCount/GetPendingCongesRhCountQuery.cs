@@ -17,7 +17,7 @@ public class GetPendingCongesRhCountHandler : IRequestHandler<GetPendingCongesRh
 
     public async Task<int> Handle(GetPendingCongesRhCountQuery request, CancellationToken ct)
     {
-        var pending = await _demandeRepo.GetByStatutAsync(StatutDemande.EnAttente, ct);
+        var pending = await _demandeRepo.GetByStatutAsync(StatutDemande.EnAttenteRh, ct);
         return pending.Count();
     }
 }

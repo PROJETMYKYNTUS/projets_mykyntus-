@@ -1,0 +1,213 @@
+<div class="fqe-root">
+  <div class="fqe-questions">
+    @for (q of questions(); track trackByIndex($index); let i = $index) {
+      <article class="fqe-card">
+        <header class="fqe-card__head">
+          <span class="fqe-index">Question {{ i + 1 }}</span>
+          <div class="fqe-card__actions">
+            <button
+              type="button"
+              class="fqe-icon-btn"
+              [disabled]="i === 0 || disabled()"
+              (click)="moveQuestion(i, -1)"
+              title="Monter"
+            >
+              <app-lucide-icon [icon]="icons.up" className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              class="fqe-icon-btn"
+              [disabled]="i === questions().length - 1 || disabled()"
+              (click)="moveQuestion(i, 1)"
+              title="Descendre"
+            >
+              <app-lucide-icon [icon]="icons.down" className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              class="fqe-icon-btn fqe-icon-btn--danger"
+              [disabled]="questions().length <= minQuestions() || disabled()"
+              (click)="removeQuestion(i)"
+              title="Supprimer"
+            >
+              <app-lucide-icon [icon]="icons.remove" className="w-4 h-4" />
+            </button>
+          </div>
+        </header>
+
+        <div class="fqe-type-switch">
+          <label>
+            <input
+              type="radio"
+              name="fqe-type-{{ i }}"
+              [checked]="q.type === 'Qcm'"
+              [disabled]="disabled()"
+              (change)="onTypeChange(q, 'Qcm')"
+            />
+            QCM
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="fqe-type-{{ i }}"
+              [checked]="q.type === 'FreeText'"
+              [disabled]="disabled()"
+              (change)="onTypeChange(q, 'FreeText')"
+            />
+            Réponse libre
+          </label>
+          <label class="fqe-points">
+            Points
+            <input
+              class="ky-input fqe-points-input"
+              type="number"
+              min="1"
+              [(ngModel)]="q.points"
+              [disabled]="disabled()"
+            />
+          </label>
+        </div>
+
+        <label class="fqe-field">
+          <span class="fqe-label">Énoncé</span>
+          <textarea
+            class="ky-input"
+            rows="2"
+            [(ngModel)]="q.prompt"
+            [disabled]="disabled()"
+            placeholder="Saisissez la question…"
+          ></textarea>
+        </label>
+        <div class="fqe-field">
+          <span class="fqe-label">Média (image ou vidéo)</span>
+          <input
+            class="ky-input"
+            [(ngModel)]="q.imageUrl"
+            [disabled]="disabled()"
+            placeholder="URL https://… (optionnel)"
+          />
+          @if (mediaUploadTarget()) {
+            <label class="fqe-upload">
+              <span class="fqe-label">Ou fichier</span>
+              <input
+                type="file"
+                accept="image/*,video/mp4,video/webm,video/ogg,video/quicktime,.mp4,.webm,.ogg,.mov"
+                [disabled]="!canUpload(q) || uploadingQuestionId() === q.id"
+                (change)="onMediaFileSelected(q, $event)"
+              />
+              @if (!q.id) {
+                <span class="fqe-muted">Enregistrez une première fois pour activer l’upload.</span>
+              } @else if (uploadingQuestionId() === q.id) {
+                <span class="fqe-muted">Upload en cours…</span>
+              }
+            </label>
+          }
+          @if (uploadError()) {
+            <p class="fqe-error">{{ uploadError() }}</p>
+          }
+          @if (q.imageUrl) {
+            <div class="fqe-preview-wrap">
+              @if (isVideo(q)) {
+                <video [src]="q.imageUrl" class="fqe-preview" controls preload="metadata"></video>
+              } @else {
+                <img [src]="q.imageUrl" alt="" class="fqe-preview" />
+              }
+              <button
+                type="button"
+                class="ky-btn-ghost text-xs"
+                [disabled]="disabled()"
+                (click)="clearMedia(q)"
+              >
+                Retirer
+              </button>
+            </div>
+          }
+        </div>
+        <label class="fqe-field">
+          <span class="fqe-label">Explication pédagogique</span>
+          <textarea
+            class="ky-input"
+            rows="2"
+            [(ngModel)]="q.explanation"
+            [disabled]="disabled()"
+            placeholder="Pourquoi cette réponse…"
+          ></textarea>
+        </label>
+
+        @if (q.type === 'Qcm') {
+          <div class="fqe-options">
+            <label class="fqe-multi">
+              <input
+                type="checkbox"
+                [checked]="q.allowMultiple"
+                [disabled]="disabled()"
+                (change)="toggleAllowMultiple(q, $any($event.target).checked)"
+              />
+              <span>
+                <strong>QCM multi-choix</strong>
+                <span class="fqe-muted">Le bénéficiaire pourra cocher plusieurs options</span>
+              </span>
+            </label>
+            <span class="fqe-label">
+              Options —
+              {{ q.allowMultiple ? 'cochez toutes les bonnes réponses' : 'cochez la seule bonne réponse' }}
+            </span>
+            @for (opt of q.options; track trackByIndex($index); let oi = $index) {
+              <div class="fqe-option-row">
+                @if (q.allowMultiple) {
+                  <input
+                    type="checkbox"
+                    [checked]="isCorrectIndex(q, oi)"
+                    [disabled]="disabled()"
+                    (change)="toggleCorrectMulti(q, oi, $any($event.target).checked)"
+                    title="Bonne réponse"
+                  />
+                } @else {
+                  <input
+                    type="radio"
+                    name="fqe-correct-{{ i }}"
+                    [checked]="isCorrectIndex(q, oi)"
+                    [disabled]="disabled()"
+                    (change)="setCorrectSingle(q, oi)"
+                    title="Bonne réponse"
+                  />
+                }
+                <input
+                  class="ky-input fqe-flex"
+                  [(ngModel)]="q.options[oi]"
+                  [disabled]="disabled()"
+                  [placeholder]="'Option ' + (oi + 1)"
+                />
+                <button
+                  type="button"
+                  class="fqe-icon-btn"
+                  [disabled]="q.options.length <= 2 || disabled()"
+                  (click)="removeOption(q, oi)"
+                  title="Retirer l’option"
+                >
+                  <app-lucide-icon [icon]="icons.remove" className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            }
+            <button
+              type="button"
+              class="ky-btn-secondary"
+              [disabled]="disabled()"
+              (click)="addOption(q)"
+            >
+              <app-lucide-icon [icon]="icons.add" className="w-3.5 h-3.5" />
+              Ajouter une option
+            </button>
+          </div>
+        } @else {
+          <p class="fqe-muted">Réponse libre : notation manuelle après soumission.</p>
+        }
+      </article>
+    }
+  </div>
+
+  <button type="button" class="ky-btn-secondary" [disabled]="disabled()" (click)="addQuestion()">
+    <app-lucide-icon [icon]="icons.add" className="w-4 h-4" />
+    Ajouter une question
+  </button>
+</div>

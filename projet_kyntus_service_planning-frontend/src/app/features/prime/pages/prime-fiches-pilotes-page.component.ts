@@ -20,6 +20,7 @@ import {
 } from 'lucide';
 import { catchError, forkJoin, map, of, type Observable } from 'rxjs';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
+import { BodyPortalDirective } from '@/shared/directives/body-portal.directive';
 import {
   PrimeCellSaisieBlockComponent,
   type CellSaisieSaveResult,
@@ -50,6 +51,7 @@ import {
   mergedFicheActionsDisabledHint,
   mergedFicheActionsEnabled,
 } from '../lib/prime-fiche-distribution-access';
+import { KyntusToastService } from '../../../shared/components/ui/kyntus-toast.service';
 
 function httpErr(err: unknown): string {
   if (err instanceof HttpErrorResponse) {
@@ -97,7 +99,7 @@ interface PilotageCelluleGroup {
 @Component({
   selector: 'app-prime-fiches-pilotes-page',
   standalone: true,
-  imports: [LucideIconComponent, PrimeCellSaisieBlockComponent],
+  imports: [LucideIconComponent, PrimeCellSaisieBlockComponent, BodyPortalDirective],
   template: `
     <div class="p-4 sm:p-6 pb-20 bg-app min-h-full">
       <div class="max-w-[1600px] mx-auto space-y-5">
@@ -108,7 +110,7 @@ interface PilotageCelluleGroup {
               Fiches PRIME — pilotage
             </h1>
             <p class="text-muted mt-2 max-w-2xl text-sm leading-relaxed">
-              Choisissez la <strong class="text-primary">période</strong> : le brouillon pôle (partie commune RACC/SAV)
+              Choisissez la <strong class="text-primary">période</strong> : le brouillon (partie commune RACC/SAV)
               s’applique à toute la cellule. À gauche : <strong class="text-primary">Pôle → Cellule → Service → Pilote</strong>
               (pilotes uniquement, depuis les affectations RH). À droite : saisie du pilote sélectionné.
             </p>
@@ -366,6 +368,7 @@ interface PilotageCelluleGroup {
     @if (previewOpen()) {
       <div
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+        appBodyPortal
         role="dialog"
         aria-modal="true"
         aria-labelledby="prime-pilot-preview-title"
@@ -434,6 +437,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
   private readonly role = inject(RoleService);
   private readonly nav = inject(PrimeNavRequestService);
   private readonly cellCtx = inject(PrimeCellSaisieContextService);
+  private readonly toast = inject(KyntusToastService);
 
   readonly icons = {
     board: ClipboardList,
@@ -700,8 +704,9 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
       draft: this.api.getPoleDraft(u.id, cell.celluleId.trim(), this.period(), tid),
       fiche: this.api.getFicheForEmployee(u.id, emp.employeeId, this.period(), tid),
       inds: this.api.getIndicators(emp.serviceId, u.id),
+      polePonds: this.api.getPoleLinePonderations(emp.serviceId, u.id).pipe(catchError(() => of([]))),
     }).pipe(
-      map(({ draft, fiche, inds }) => {
+      map(({ draft, fiche, inds, polePonds }) => {
         const schema = parsePrimeSchemaFromDraftJson(draft.schemaJson);
         return computeMergedEmployeeFichePreview({
           schema,
@@ -709,6 +714,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
           cellSaisieJson: ficheResponseSaisieJson(fiche),
           templateCalcSnapshotJson: draft.templateCalcSnapshotJson,
           indicators: inds,
+          poleLinePonderations: polePonds,
           templateId: tid,
         });
       }),
@@ -786,15 +792,15 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
       next: (res) => {
         this.persistMergedTotals(emp, res);
         if (res.missingSnapshot) {
-          window.alert(MERGED_PREVIEW_MISSING_SNAPSHOT_HINT);
+          this.toast.error(MERGED_PREVIEW_MISSING_SNAPSHOT_HINT);
           return;
         }
         if (!res.rows.length) {
-          window.alert(res.errors[0] ?? 'Export impossible — grille vide.');
+          this.toast.error(res.errors[0] ?? 'Export impossible — grille vide.');
           return;
         }
         if (!res.effectiveSchema) {
-          window.alert('Schéma indisponible : impossible de générer le livrable stylé.');
+          this.toast.error('Schéma indisponible : impossible de générer le livrable stylé.');
           return;
         }
         const sheetName =
@@ -803,9 +809,9 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
           `${emp.lastName}_${emp.firstName}_${this.period()}`.replace(/[<>:"/\\|?*]+/g, '_').trim() || 'fiche';
         void buildStyledMergedFicheWorkbook(res.rows, res.effectiveSchema, sheetName)
           .then((wb) => downloadStyledFicheWorkbook(wb, `PRIME_fiche_${safe}.xlsx`))
-          .catch((e: unknown) => window.alert(httpErr(e)));
+          .catch((e: unknown) => this.toast.error(httpErr(e)));
       },
-      error: (e) => window.alert(httpErr(e)),
+      error: (e) => this.toast.error(httpErr(e)),
     });
   }
 

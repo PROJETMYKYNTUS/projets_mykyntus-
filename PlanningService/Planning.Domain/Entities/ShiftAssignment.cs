@@ -16,9 +16,11 @@ public class ShiftAssignment
     // ? NOUVEAU
     public bool IsSaturday { get; set; } = false;
     public bool IsNewEmployee { get; set; } = false;
-    public bool IsManagerOverride { get; set; } = false; // manager a modifié manuellement
-    /// <summary>Shift issu d'une demande exceptionnelle approuvée (pin à la génération).</summary>
+    public bool IsManagerOverride { get; set; } = false; // manager a modifiï¿½ manuellement
+    /// <summary>Shift issu d'une demande exceptionnelle approuvï¿½e (pin ï¿½ la gï¿½nï¿½ration).</summary>
     public bool IsExceptionalRequest { get; set; } = false;
+    /// <summary>Shift issu d'un renfort samedi (n'impacte pas SaturdayHistory).</summary>
+    public bool IsReinforcement { get; set; } = false;
     public TimeOnly? BreakTime { get; set; }  // ex: 12:00, 13:00, 14:00
     public bool IsOnLeave { get; set; } = false;  // ? En conge
     public bool IsHalfDaySaturday { get; set; } = false; // ? Nouveau employe 4h
@@ -26,7 +28,7 @@ public class ShiftAssignment
     public bool IsHoliday { get; set; } = false;
 
     public ICollection<Declaration> Declarations { get; set; }
-    // ? NOUVEAU — FK vers SubServiceShiftConfig
+    // ? NOUVEAU ï¿½ FK vers SubServiceShiftConfig
     public int? SubServiceShiftConfigId { get; set; }
     public SubServiceShiftConfig? SubServiceShiftConfig { get; set; }
 }

@@ -58,6 +58,11 @@ public sealed class LearningCatalogService(
             CreatedByUserId = request.CreatedByUserId,
             Status = CatalogItemStatus.Draft,
             IsActive = true,
+            SelfServiceEnabled = request.SelfServiceEnabled,
+            DueMode = request.DueMode,
+            DueDate = request.DueMode == CatalogDueMode.Absolute ? request.DueDate : null,
+            DueInDays = request.DueMode == CatalogDueMode.RelativeDays ? request.DueInDays : null,
+            DefaultQuizTemplateId = request.DefaultQuizTemplateId,
         };
         db.TrainingCatalogItems.Add(item);
         // Empty audience rule = public.
@@ -80,6 +85,11 @@ public sealed class LearningCatalogService(
         item.Category = request.Category?.Trim() ?? "";
         item.DefaultGateMode = request.DefaultGateMode;
         item.AudienceMatchMode = request.AudienceMatchMode;
+        item.SelfServiceEnabled = request.SelfServiceEnabled;
+        item.DueMode = request.DueMode;
+        item.DueDate = request.DueMode == CatalogDueMode.Absolute ? request.DueDate : null;
+        item.DueInDays = request.DueMode == CatalogDueMode.RelativeDays ? request.DueInDays : null;
+        item.DefaultQuizTemplateId = request.DefaultQuizTemplateId;
         item.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
         return (await GetAsync(item.Id, ct))!;
@@ -95,6 +105,7 @@ public sealed class LearningCatalogService(
         item.ArchivedAt = null;
         item.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+        await NotifyAudienceCatalogAvailableAsync(item.Id, item.Title, ct);
         return (await GetAsync(item.Id, ct))!;
     }
 
@@ -156,6 +167,8 @@ public sealed class LearningCatalogService(
 
         await db.SaveChangesAsync(ct);
         var beneficiaries = await ResolveAudienceAsync(item.Id, ct);
+        if (item.Status == CatalogItemStatus.Published)
+            await NotifyAudienceCatalogAvailableAsync(item.Id, item.Title, ct, beneficiaries);
         return new TrainingCatalogAudienceDto(
             item.AudienceMatchMode,
             ParseStringList(rule.RolesJson),
@@ -212,6 +225,185 @@ public sealed class LearningCatalogService(
         db.TrainingModules.Remove(module);
         await TouchCatalogAsync(catalogItemId, ct);
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Remplace l'arbre modules/leçons/ressources en une transaction.
+    /// Les fichiers locaux déjà en base sont conservés s'ils sont présents par Id ; les nouveaux fichiers s'uploadent ensuite.
+    /// </summary>
+    public async Task<ReplaceCatalogStructureResponse> ReplaceStructureAsync(
+        Guid catalogItemId,
+        ReplaceCatalogStructureRequest request,
+        CancellationToken ct)
+    {
+        var item = await db.TrainingCatalogItems
+            .Include(c => c.Modules).ThenInclude(m => m.Lessons).ThenInclude(l => l.Resources)
+            .FirstOrDefaultAsync(c => c.Id == catalogItemId, ct)
+            ?? throw new InvalidOperationException("Formation catalogue introuvable.");
+        if (item.Status == CatalogItemStatus.Archived)
+            throw new InvalidOperationException("Impossible de modifier une formation archivée.");
+
+        var modulesReq = request.Modules ?? Array.Empty<StructureModuleRequest>();
+        var keepModuleIds = modulesReq.Where(m => m.Id is Guid).Select(m => m.Id!.Value).ToHashSet();
+        var keepLessonIds = modulesReq.SelectMany(m => m.Lessons ?? Array.Empty<StructureLessonRequest>())
+            .Where(l => l.Id is Guid).Select(l => l.Id!.Value).ToHashSet();
+        var keepResourceIds = modulesReq.SelectMany(m => m.Lessons ?? Array.Empty<StructureLessonRequest>())
+            .SelectMany(l => l.Resources ?? Array.Empty<StructureResourceRequest>())
+            .Where(r => r.Id is Guid).Select(r => r.Id!.Value).ToHashSet();
+
+        foreach (var module in item.Modules.Where(m => !keepModuleIds.Contains(m.Id)).ToList())
+        {
+            foreach (var res in module.Lessons.SelectMany(l => l.Resources))
+                TryDeleteFile(res.StoragePath);
+            db.TrainingModules.Remove(module);
+        }
+
+        foreach (var module in item.Modules.Where(m => keepModuleIds.Contains(m.Id)).ToList())
+        {
+            foreach (var lesson in module.Lessons.Where(l => !keepLessonIds.Contains(l.Id)).ToList())
+            {
+                foreach (var res in lesson.Resources)
+                    TryDeleteFile(res.StoragePath);
+                db.TrainingLessons.Remove(lesson);
+            }
+
+            foreach (var lesson in module.Lessons.Where(l => keepLessonIds.Contains(l.Id)).ToList())
+            {
+                foreach (var res in lesson.Resources.Where(r => !keepResourceIds.Contains(r.Id)).ToList())
+                {
+                    TryDeleteFile(res.StoragePath);
+                    db.TrainingResources.Remove(res);
+                }
+            }
+        }
+
+        var moduleResults = new List<StructureModuleResultDto>();
+
+        foreach (var modReq in modulesReq.OrderBy(m => m.SortOrder))
+        {
+            if (string.IsNullOrWhiteSpace(modReq.Title))
+                throw new InvalidOperationException("Le titre du module est obligatoire.");
+
+            TrainingModule module;
+            if (modReq.Id is Guid mid)
+            {
+                module = item.Modules.FirstOrDefault(m => m.Id == mid)
+                    ?? throw new InvalidOperationException($"Module {mid} introuvable.");
+                module.Title = modReq.Title.Trim();
+                module.Description = modReq.Description?.Trim() ?? "";
+                module.SortOrder = modReq.SortOrder;
+            }
+            else
+            {
+                module = new TrainingModule
+                {
+                    CatalogItemId = catalogItemId,
+                    Title = modReq.Title.Trim(),
+                    Description = modReq.Description?.Trim() ?? "",
+                    SortOrder = modReq.SortOrder,
+                };
+                db.TrainingModules.Add(module);
+            }
+
+            var lessonResults = new List<StructureLessonResultDto>();
+            foreach (var lesReq in (modReq.Lessons ?? Array.Empty<StructureLessonRequest>()).OrderBy(l => l.SortOrder))
+            {
+                if (string.IsNullOrWhiteSpace(lesReq.Title))
+                    throw new InvalidOperationException("Le titre de la leçon est obligatoire.");
+
+                TrainingLesson lesson;
+                if (lesReq.Id is Guid lid)
+                {
+                    lesson = module.Lessons.FirstOrDefault(l => l.Id == lid)
+                        ?? await db.TrainingLessons.Include(l => l.Resources)
+                            .FirstOrDefaultAsync(l => l.Id == lid && l.ModuleId == module.Id, ct)
+                        ?? throw new InvalidOperationException($"Leçon {lid} introuvable.");
+                    lesson.Title = lesReq.Title.Trim();
+                    lesson.Description = lesReq.Description?.Trim() ?? "";
+                    lesson.SortOrder = lesReq.SortOrder;
+                    lesson.IsRequired = lesReq.IsRequired;
+                    if (lesson.ModuleId != module.Id)
+                        lesson.ModuleId = module.Id;
+                }
+                else
+                {
+                    lesson = new TrainingLesson
+                    {
+                        ModuleId = module.Id,
+                        Title = lesReq.Title.Trim(),
+                        Description = lesReq.Description?.Trim() ?? "",
+                        SortOrder = lesReq.SortOrder,
+                        IsRequired = lesReq.IsRequired,
+                    };
+                    db.TrainingLessons.Add(lesson);
+                }
+
+                var resourceResults = new List<StructureResourceResultDto>();
+                foreach (var resReq in (lesReq.Resources ?? Array.Empty<StructureResourceRequest>()).OrderBy(r => r.SortOrder))
+                {
+                    if (string.IsNullOrWhiteSpace(resReq.Title))
+                        throw new InvalidOperationException("Le titre de la ressource est obligatoire.");
+
+                    TrainingResource resource;
+                    if (resReq.Id is Guid rid)
+                    {
+                        resource = lesson.Resources.FirstOrDefault(r => r.Id == rid)
+                            ?? await db.TrainingResources.FirstOrDefaultAsync(r => r.Id == rid && r.LessonId == lesson.Id, ct)
+                            ?? throw new InvalidOperationException($"Ressource {rid} introuvable.");
+                        resource.Type = resReq.Type;
+                        resource.Title = resReq.Title.Trim();
+                        resource.SortOrder = resReq.SortOrder;
+                        resource.DurationMinutes = resReq.DurationMinutes;
+                        // Ne pas écraser un fichier stocké avec une URL vide.
+                        if (string.IsNullOrWhiteSpace(resource.StoragePath))
+                        {
+                            resource.Url = resReq.Url?.Trim();
+                            resource.TextContent = resReq.TextContent;
+                        }
+                        else if (!string.IsNullOrWhiteSpace(resReq.Url))
+                        {
+                            resource.Url = resReq.Url.Trim();
+                        }
+                        if (resReq.Type == TrainingResourceType.Text)
+                            resource.TextContent = resReq.TextContent;
+                    }
+                    else
+                    {
+                        resource = new TrainingResource
+                        {
+                            LessonId = lesson.Id,
+                            Type = resReq.Type,
+                            Title = resReq.Title.Trim(),
+                            Url = resReq.Url?.Trim(),
+                            TextContent = resReq.TextContent,
+                            SortOrder = resReq.SortOrder,
+                            DurationMinutes = resReq.DurationMinutes,
+                        };
+                        db.TrainingResources.Add(resource);
+                    }
+
+                    resourceResults.Add(new StructureResourceResultDto(
+                        string.IsNullOrWhiteSpace(resReq.ClientKey) ? resource.Id.ToString() : resReq.ClientKey,
+                        resource.Id));
+                }
+
+                lessonResults.Add(new StructureLessonResultDto(
+                    string.IsNullOrWhiteSpace(lesReq.ClientKey) ? lesson.Id.ToString() : lesReq.ClientKey,
+                    lesson.Id,
+                    resourceResults));
+            }
+
+            moduleResults.Add(new StructureModuleResultDto(
+                string.IsNullOrWhiteSpace(modReq.ClientKey) ? module.Id.ToString() : modReq.ClientKey,
+                module.Id,
+                lessonResults));
+        }
+
+        item.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        // Assurer que les nouveaux modules/leçons ont bien leurs Id après SaveChanges.
+        return new ReplaceCatalogStructureResponse(catalogItemId, moduleResults);
     }
 
     public async Task<TrainingLessonDto> UpsertLessonAsync(
@@ -320,7 +512,8 @@ public sealed class LearningCatalogService(
         string? rootPath,
         TrainingResourceType type,
         string? title,
-        CancellationToken ct)
+        CancellationToken ct,
+        int? sortOrder = null)
     {
         var lesson = await db.TrainingLessons.Include(l => l.Module)
             .FirstOrDefaultAsync(l => l.Id == lessonId, ct)
@@ -336,6 +529,20 @@ public sealed class LearningCatalogService(
         await using (var fs = File.Create(fullPath))
             await content.CopyToAsync(fs, ct);
 
+        int order;
+        if (sortOrder is int so)
+        {
+            order = so;
+        }
+        else
+        {
+            var maxOrder = await db.TrainingResources
+                .Where(r => r.LessonId == lessonId)
+                .Select(r => (int?)r.SortOrder)
+                .MaxAsync(ct) ?? -1;
+            order = maxOrder + 1;
+        }
+
         var resource = new TrainingResource
         {
             LessonId = lessonId,
@@ -344,6 +551,7 @@ public sealed class LearningCatalogService(
             StoragePath = fullPath,
             FileName = fileName,
             ContentType = string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType,
+            SortOrder = order,
             Url = $"/api/formations/catalog/resources/file/{Guid.Empty}", // patched after save
         };
         db.TrainingResources.Add(resource);
@@ -355,14 +563,26 @@ public sealed class LearningCatalogService(
         return MapResource(resource);
     }
 
-    public async Task<(TrainingResource Resource, byte[] Bytes)?> GetResourceFileAsync(Guid resourceId, CancellationToken ct)
+    /// <summary>Métadonnées + chemin disque pour streaming HTTP (range).</summary>
+    public async Task<(TrainingResource Resource, string FullPath, long Length, DateTime LastWriteUtc)?> GetResourceFileInfoAsync(
+        Guid resourceId,
+        CancellationToken ct)
     {
         var resource = await db.TrainingResources.AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == resourceId, ct);
         if (resource is null || string.IsNullOrWhiteSpace(resource.StoragePath) || !File.Exists(resource.StoragePath))
             return null;
-        var bytes = await File.ReadAllBytesAsync(resource.StoragePath, ct);
-        return (resource, bytes);
+        var info = new FileInfo(resource.StoragePath);
+        return (resource, resource.StoragePath, info.Length, info.LastWriteTimeUtc);
+    }
+
+    [Obsolete("Prefer GetResourceFileInfoAsync for streaming.")]
+    public async Task<(TrainingResource Resource, byte[] Bytes)?> GetResourceFileAsync(Guid resourceId, CancellationToken ct)
+    {
+        var info = await GetResourceFileInfoAsync(resourceId, ct);
+        if (info is null) return null;
+        var bytes = await File.ReadAllBytesAsync(info.Value.FullPath, ct);
+        return (info.Value.Resource, bytes);
     }
 
     public async Task DeleteResourceAsync(Guid lessonId, Guid resourceId, CancellationToken ct)
@@ -417,29 +637,12 @@ public sealed class LearningCatalogService(
         var quiz = await db.TrainingQuizzes.AsNoTracking()
             .FirstOrDefaultAsync(q => q.SessionId == sessionId, ct);
         var hasReport = await db.TrainingSessionReports.AnyAsync(r => r.SessionId == sessionId, ct);
-        return new TrainingSessionDto(
-            mapped.Id,
-            mapped.Title,
-            mapped.Description,
-            mapped.Type,
-            mapped.AnimatorKind,
-            mapped.AnimatorUserId,
-            mapped.ExternalAnimatorName,
-            mapped.ExternalAnimatorOrganization,
-            mapped.ExternalAnimatorEmail,
-            mapped.ExternalAnimatorPhone,
-            mapped.PlannedStart,
-            mapped.PlannedEnd,
-            mapped.Capacity,
-            mapped.Status,
+        return TrainingSessionDtoMapper.ToDto(
+            mapped,
             count,
-            mapped.ProgramId,
-            mapped.SequenceNumber,
             hasReport,
             quiz?.Id,
-            quiz?.Status.ToString(),
-            mapped.CatalogItemId,
-            mapped.LearningGateMode?.ToString());
+            quiz?.Status.ToString());
     }
 
     public async Task<int> AssignAudienceToSessionAsync(Guid sessionId, Guid catalogItemId, CancellationToken ct)
@@ -499,7 +702,20 @@ public sealed class LearningCatalogService(
         return newly.Count;
     }
 
-    public async Task EnsureCanAccessCatalogAsync(Guid catalogItemId, Guid employeeId, CancellationToken ct)
+    public async Task EnsureCanAccessCatalogAsync(
+        Guid catalogItemId,
+        Guid employeeId,
+        CancellationToken ct,
+        string? email = null)
+    {
+        var aliases = await FormationEmployeeIdentity.ResolveAliasesAsync(db, employeeId, email, ct);
+        await EnsureCanAccessCatalogForAliasesAsync(catalogItemId, aliases, ct);
+    }
+
+    private async Task EnsureCanAccessCatalogForAliasesAsync(
+        Guid catalogItemId,
+        IReadOnlyCollection<Guid> aliases,
+        CancellationToken ct)
     {
         var beneficiaries = await ResolveAudienceAsync(catalogItemId, ct);
         // Empty audience = public.
@@ -511,12 +727,177 @@ public sealed class LearningCatalogService(
         if (roles.Count == 0 && structures.Count == 0 && users.Count == 0)
             return;
 
-        if (beneficiaries.All(b => b.EmployeId != employeeId))
+        if (beneficiaries.All(b => !aliases.Contains(b.EmployeId)))
             throw new InvalidOperationException("Vous n'êtes pas dans l'audience de cette formation.");
     }
 
-    public async Task<CatalogPlayerDto> GetPlayerAsync(Guid sessionId, Guid employeeId, CancellationToken ct)
+    public async Task<TrainingCatalogEnrollment> EnsureEnrollmentAsync(
+        Guid catalogItemId,
+        Guid employeeId,
+        CatalogEnrollmentSource source,
+        Guid? sessionId,
+        Guid? assignmentId,
+        CancellationToken ct,
+        IReadOnlyCollection<Guid>? aliases = null)
     {
+        var matchIds = aliases is { Count: > 0 }
+            ? aliases
+            : (IReadOnlyCollection<Guid>)new[] { employeeId };
+
+        var existing = await db.TrainingCatalogEnrollments
+            .FirstOrDefaultAsync(e => e.CatalogItemId == catalogItemId && matchIds.Contains(e.EmployeeId), ct);
+        if (existing is not null)
+        {
+            if (source == CatalogEnrollmentSource.Session)
+            {
+                existing.SessionId ??= sessionId;
+                existing.AssignmentId ??= assignmentId;
+                if (existing.Source == CatalogEnrollmentSource.SelfService)
+                    existing.Source = CatalogEnrollmentSource.Session;
+                existing.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(ct);
+            }
+
+            return existing;
+        }
+
+        var catalog = await db.TrainingCatalogItems.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == catalogItemId, ct)
+            ?? throw new InvalidOperationException("Formation catalogue introuvable.");
+
+        var now = DateTime.UtcNow;
+        var enrollment = new TrainingCatalogEnrollment
+        {
+            CatalogItemId = catalogItemId,
+            EmployeeId = employeeId,
+            Source = source,
+            SessionId = sessionId,
+            AssignmentId = assignmentId,
+            DueAt = ComputeDueAt(catalog, now),
+            Status = CatalogEnrollmentStatus.NotStarted,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+        db.TrainingCatalogEnrollments.Add(enrollment);
+        await db.SaveChangesAsync(ct);
+        return enrollment;
+    }
+
+    public async Task<IReadOnlyList<MySelfServiceCatalogItemDto>> ListMySelfServiceCatalogAsync(
+        Guid employeeId,
+        CancellationToken ct,
+        string? email = null)
+    {
+        var aliases = await FormationEmployeeIdentity.ResolveAliasesAsync(db, employeeId, email, ct);
+        if (aliases.Count == 0)
+            return [];
+
+        var candidates = await db.TrainingCatalogItems.AsNoTracking()
+            .Where(c => c.Status == CatalogItemStatus.Published
+                        && c.IsActive
+                        && c.SelfServiceEnabled)
+            .OrderByDescending(c => c.UpdatedAt)
+            .ToListAsync(ct);
+
+        var result = new List<MySelfServiceCatalogItemDto>();
+        foreach (var item in candidates)
+        {
+            try
+            {
+                await EnsureCanAccessCatalogForAliasesAsync(item.Id, aliases, ct);
+            }
+            catch (InvalidOperationException)
+            {
+                continue;
+            }
+
+            var enrollment = await db.TrainingCatalogEnrollments.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.CatalogItemId == item.Id && aliases.Contains(e.EmployeeId), ct);
+
+            var requiredLessonIds = await (
+                from l in db.TrainingLessons.AsNoTracking()
+                join m in db.TrainingModules.AsNoTracking() on l.ModuleId equals m.Id
+                where m.CatalogItemId == item.Id && l.IsRequired
+                select l.Id).ToListAsync(ct);
+
+            var done = 0;
+            if (enrollment is not null && requiredLessonIds.Count > 0)
+            {
+                done = await db.TrainingLessonProgresses.AsNoTracking()
+                    .CountAsync(p => p.EnrollmentId == enrollment.Id
+                                     && requiredLessonIds.Contains(p.LessonId)
+                                     && p.CompletedAt != null, ct);
+            }
+
+            var percent = requiredLessonIds.Count == 0
+                ? 100m
+                : Math.Round((decimal)done / requiredLessonIds.Count * 100m, 1);
+
+            var status = enrollment?.Status ?? CatalogEnrollmentStatus.NotStarted;
+            if (enrollment?.DueAt is DateTime due
+                && status != CatalogEnrollmentStatus.Completed
+                && due < DateTime.UtcNow)
+                status = CatalogEnrollmentStatus.Overdue;
+
+            result.Add(new MySelfServiceCatalogItemDto(
+                item.Id,
+                item.Title,
+                item.Description,
+                item.Category,
+                enrollment?.Id ?? Guid.Empty,
+                status,
+                enrollment?.DueAt ?? ComputeDueAt(item, DateTime.UtcNow),
+                percent,
+                requiredLessonIds.Count,
+                done,
+                enrollment?.StartedAt,
+                enrollment?.CompletedAt));
+        }
+
+        return result;
+    }
+
+    public async Task<CatalogPlayerDto> GetPlayerByCatalogAsync(
+        Guid catalogItemId,
+        Guid employeeId,
+        CancellationToken ct,
+        string? email = null)
+    {
+        var aliases = await FormationEmployeeIdentity.ResolveAliasesAsync(db, employeeId, email, ct);
+        await EnsureCanAccessCatalogForAliasesAsync(catalogItemId, aliases, ct);
+
+        var catalog = await db.TrainingCatalogItems.AsNoTracking()
+            .Include(c => c.Modules).ThenInclude(m => m.Lessons).ThenInclude(l => l.Resources)
+            .FirstOrDefaultAsync(c => c.Id == catalogItemId, ct)
+            ?? throw new InvalidOperationException("Formation catalogue introuvable.");
+
+        if (!catalog.SelfServiceEnabled)
+            throw new InvalidOperationException("Cette formation n'est pas disponible en libre accès.");
+
+        if (catalog.Status != CatalogItemStatus.Published)
+            throw new InvalidOperationException("Cette formation n'est pas publiée.");
+
+        var canonicalId = FormationEmployeeIdentity.PreferCanonicalEmployeeId(aliases, employeeId);
+        var enrollment = await EnsureEnrollmentAsync(
+            catalogItemId, canonicalId, CatalogEnrollmentSource.SelfService, null, null, ct, aliases);
+
+        return await BuildPlayerDtoAsync(
+            catalog,
+            enrollment,
+            sessionId: null,
+            assignment: null,
+            gate: catalog.DefaultGateMode,
+            ct);
+    }
+
+    public async Task<CatalogPlayerDto> GetPlayerAsync(
+        Guid sessionId,
+        Guid employeeId,
+        CancellationToken ct,
+        string? email = null)
+    {
+        var aliases = await FormationEmployeeIdentity.ResolveAliasesAsync(db, employeeId, email, ct);
+
         var session = await db.TrainingSessions.AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == sessionId, ct)
             ?? throw new InvalidOperationException("Session introuvable.");
@@ -524,70 +905,68 @@ public sealed class LearningCatalogService(
             throw new InvalidOperationException("Cette session n'a pas de contenu e-learning lié.");
 
         var assignment = await db.TrainingAssignments.AsNoTracking()
-            .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.EmployeeId == employeeId, ct)
+            .FirstOrDefaultAsync(a => a.SessionId == sessionId && aliases.Contains(a.EmployeeId), ct)
             ?? throw new InvalidOperationException("Vous n'êtes pas affecté à cette séance.");
 
-        await EnsureCanAccessCatalogAsync(session.CatalogItemId.Value, employeeId, ct);
+        await EnsureCanAccessCatalogForAliasesAsync(session.CatalogItemId.Value, aliases, ct);
 
         var catalog = await db.TrainingCatalogItems.AsNoTracking()
             .Include(c => c.Modules).ThenInclude(m => m.Lessons).ThenInclude(l => l.Resources)
             .FirstOrDefaultAsync(c => c.Id == session.CatalogItemId, ct)
             ?? throw new InvalidOperationException("Formation catalogue introuvable.");
 
-        var progress = await db.TrainingLessonProgresses.AsNoTracking()
-            .Where(p => p.AssignmentId == assignment.Id)
-            .ToDictionaryAsync(p => p.LessonId, ct);
-
-        var modules = catalog.Modules.OrderBy(m => m.SortOrder).Select(m => new TrainingModuleDto(
-            m.Id,
-            m.CatalogItemId,
-            m.Title,
-            m.Description,
-            m.SortOrder,
-            m.Lessons.OrderBy(l => l.SortOrder).Select(l =>
-            {
-                progress.TryGetValue(l.Id, out var p);
-                return new TrainingLessonDto(
-                    l.Id,
-                    l.ModuleId,
-                    l.Title,
-                    l.Description,
-                    l.SortOrder,
-                    l.IsRequired,
-                    l.Resources.OrderBy(r => r.SortOrder).Select(MapResource).ToList(),
-                    p?.CompletedAt is not null,
-                    p?.ProgressPercent ?? 0m);
-            }).ToList())).ToList();
-
-        var required = modules.SelectMany(m => m.Lessons).Where(l => l.IsRequired).ToList();
-        var done = required.Count(l => l.IsCompleted);
-        var percent = required.Count == 0 ? 100m : Math.Round((decimal)done / required.Count * 100m, 1);
-
-        var gate = session.LearningGateMode ?? catalog.DefaultGateMode;
-        var (canTake, reason) = await EvaluateQuizGateAsync(session, assignment, catalog.Id, ct);
-
-        return new CatalogPlayerDto(
-            catalog.Id,
+        var enrollment = await EnsureEnrollmentAsync(
+            session.CatalogItemId.Value,
+            assignment.EmployeeId,
+            CatalogEnrollmentSource.Session,
             session.Id,
             assignment.Id,
-            catalog.Title,
-            catalog.Description,
-            catalog.Category,
-            gate,
-            percent,
-            required.Count,
-            done,
-            canTake,
-            reason,
-            modules);
+            ct,
+            aliases);
+
+        var gate = session.LearningGateMode ?? catalog.DefaultGateMode;
+        return await BuildPlayerDtoAsync(catalog, enrollment, session.Id, assignment, gate, ct);
+    }
+
+    public async Task<TrainingLessonDto> CompleteLessonByCatalogAsync(
+        Guid catalogItemId,
+        Guid lessonId,
+        CompleteLessonRequest request,
+        CancellationToken ct,
+        string? email = null)
+    {
+        var aliases = await FormationEmployeeIdentity.ResolveAliasesAsync(db, request.EmployeeId, email, ct);
+        await EnsureCanAccessCatalogForAliasesAsync(catalogItemId, aliases, ct);
+
+        var catalog = await db.TrainingCatalogItems.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == catalogItemId, ct)
+            ?? throw new InvalidOperationException("Formation catalogue introuvable.");
+        if (!catalog.SelfServiceEnabled)
+            throw new InvalidOperationException("Cette formation n'est pas disponible en libre accès.");
+
+        var lesson = await db.TrainingLessons.AsNoTracking()
+            .Include(l => l.Module)
+            .FirstOrDefaultAsync(l => l.Id == lessonId, ct)
+            ?? throw new InvalidOperationException("Leçon introuvable.");
+        if (lesson.Module!.CatalogItemId != catalogItemId)
+            throw new InvalidOperationException("Leçon hors catalogue.");
+
+        var canonicalId = FormationEmployeeIdentity.PreferCanonicalEmployeeId(aliases, request.EmployeeId);
+        var enrollment = await EnsureEnrollmentAsync(
+            catalogItemId, canonicalId, CatalogEnrollmentSource.SelfService, null, null, ct, aliases);
+
+        return await CompleteLessonForEnrollmentAsync(enrollment, lessonId, request.LastResourceId, ct);
     }
 
     public async Task<TrainingLessonDto> CompleteLessonAsync(
         Guid sessionId,
         Guid lessonId,
         CompleteLessonRequest request,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? email = null)
     {
+        var aliases = await FormationEmployeeIdentity.ResolveAliasesAsync(db, request.EmployeeId, email, ct);
+
         var session = await db.TrainingSessions.AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == sessionId, ct)
             ?? throw new InvalidOperationException("Session introuvable.");
@@ -595,7 +974,7 @@ public sealed class LearningCatalogService(
             throw new InvalidOperationException("Session sans catalogue.");
 
         var assignment = await db.TrainingAssignments
-            .FirstOrDefaultAsync(a => a.SessionId == sessionId && a.EmployeeId == request.EmployeeId, ct)
+            .FirstOrDefaultAsync(a => a.SessionId == sessionId && aliases.Contains(a.EmployeeId), ct)
             ?? throw new InvalidOperationException("Affectation introuvable.");
 
         var lesson = await db.TrainingLessons.AsNoTracking()
@@ -605,24 +984,16 @@ public sealed class LearningCatalogService(
         if (lesson.Module!.CatalogItemId != session.CatalogItemId)
             throw new InvalidOperationException("Leçon hors catalogue de la session.");
 
-        var progress = await db.TrainingLessonProgresses
-            .FirstOrDefaultAsync(p => p.AssignmentId == assignment.Id && p.LessonId == lessonId, ct);
-        if (progress is null)
-        {
-            progress = new TrainingLessonProgress
-            {
-                AssignmentId = assignment.Id,
-                LessonId = lessonId,
-                StartedAt = DateTime.UtcNow,
-            };
-            db.TrainingLessonProgresses.Add(progress);
-        }
+        var enrollment = await EnsureEnrollmentAsync(
+            session.CatalogItemId.Value,
+            assignment.EmployeeId,
+            CatalogEnrollmentSource.Session,
+            session.Id,
+            assignment.Id,
+            ct,
+            aliases);
 
-        progress.LastResourceId = request.LastResourceId;
-        progress.ProgressPercent = 100m;
-        progress.CompletedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
-        return await MapLessonAsync(lessonId, ct, assignment.Id);
+        return await CompleteLessonForEnrollmentAsync(enrollment, lessonId, request.LastResourceId, ct);
     }
 
     public async Task<(bool CanTake, string? Reason)> EvaluateQuizGateAsync(
@@ -650,10 +1021,16 @@ public sealed class LearningCatalogService(
 
                 if (requiredLessonIds.Count > 0)
                 {
-                    var done = await db.TrainingLessonProgresses.AsNoTracking()
-                        .CountAsync(p => p.AssignmentId == assignment.Id
-                            && requiredLessonIds.Contains(p.LessonId)
-                            && p.CompletedAt != null, ct);
+                    var enrollment = await db.TrainingCatalogEnrollments.AsNoTracking()
+                        .FirstOrDefaultAsync(e =>
+                            e.CatalogItemId == catalogItemId && e.EmployeeId == assignment.EmployeeId, ct);
+
+                    var done = enrollment is null
+                        ? 0
+                        : await db.TrainingLessonProgresses.AsNoTracking()
+                            .CountAsync(p => p.EnrollmentId == enrollment.Id
+                                             && requiredLessonIds.Contains(p.LessonId)
+                                             && p.CompletedAt != null, ct);
                     contentOk = done >= requiredLessonIds.Count;
                 }
             }
@@ -673,18 +1050,193 @@ public sealed class LearningCatalogService(
         };
     }
 
-    public async Task<LearningQuizStatsDto> GetLearningStatsAsync(CancellationToken ct)
+    private async Task<CatalogPlayerDto> BuildPlayerDtoAsync(
+        TrainingCatalogItem catalog,
+        TrainingCatalogEnrollment enrollment,
+        Guid? sessionId,
+        TrainingAssignment? assignment,
+        LearningGateMode gate,
+        CancellationToken ct)
+    {
+        var progress = await db.TrainingLessonProgresses.AsNoTracking()
+            .Where(p => p.EnrollmentId == enrollment.Id)
+            .ToDictionaryAsync(p => p.LessonId, ct);
+
+        var modules = catalog.Modules.OrderBy(m => m.SortOrder).Select(m => new TrainingModuleDto(
+            m.Id,
+            m.CatalogItemId,
+            m.Title,
+            m.Description,
+            m.SortOrder,
+            m.Lessons.OrderBy(l => l.SortOrder).Select(l =>
+            {
+                progress.TryGetValue(l.Id, out var p);
+                return new TrainingLessonDto(
+                    l.Id,
+                    l.ModuleId,
+                    l.Title,
+                    l.Description,
+                    l.SortOrder,
+                    l.IsRequired,
+                    l.Resources.OrderBy(r => r.SortOrder).Select(MapResource).ToList(),
+                    p?.CompletedAt is not null,
+                    p?.ProgressPercent ?? 0m);
+            }).ToList())).ToList();
+
+        var required = modules.SelectMany(m => m.Lessons).Where(l => l.IsRequired).ToList();
+        var done = required.Count(l => l.IsCompleted);
+        var percent = required.Count == 0 ? 100m : Math.Round((decimal)done / required.Count * 100m, 1);
+
+        bool canTake;
+        string? reason;
+        var hasQuiz = catalog.DefaultQuizTemplateId is Guid || sessionId is not null;
+        if (assignment is not null && sessionId is Guid sid)
+        {
+            var session = await db.TrainingSessions.AsNoTracking()
+                .FirstAsync(s => s.Id == sid, ct);
+            (canTake, reason) = await EvaluateQuizGateAsync(session, assignment, catalog.Id, ct);
+        }
+        else if (catalog.DefaultQuizTemplateId is Guid)
+        {
+            canTake = percent >= 100m;
+            reason = canTake ? null : "Terminez les leçons obligatoires avant de passer le quiz.";
+            if (canTake)
+            {
+                var catalogQuiz = await db.TrainingQuizzes.AsNoTracking()
+                    .FirstOrDefaultAsync(q => q.CatalogItemId == catalog.Id, ct);
+                if (catalogQuiz is not null && !catalogQuiz.AllowMultipleAttempts)
+                {
+                    var alreadyTaken = await db.TrainingQuizAttempts.AsNoTracking()
+                        .AnyAsync(a => a.QuizId == catalogQuiz.Id && a.AssignmentId == enrollment.Id, ct);
+                    if (alreadyTaken)
+                    {
+                        canTake = false;
+                        reason = "Vous avez déjà passé ce quiz.";
+                    }
+                }
+            }
+        }
+        else
+        {
+            canTake = false;
+            reason = hasQuiz ? null : "Aucun quiz associé à cette formation.";
+        }
+
+        var status = enrollment.Status;
+        if (status != CatalogEnrollmentStatus.Completed
+            && enrollment.DueAt is DateTime due
+            && due < DateTime.UtcNow)
+            status = CatalogEnrollmentStatus.Overdue;
+
+        return new CatalogPlayerDto(
+            catalog.Id,
+            sessionId,
+            assignment?.Id ?? enrollment.AssignmentId,
+            enrollment.Id,
+            catalog.Title,
+            catalog.Description,
+            catalog.Category,
+            gate,
+            percent,
+            required.Count,
+            done,
+            canTake,
+            reason,
+            modules,
+            enrollment.DueAt,
+            status,
+            catalog.DefaultQuizTemplateId);
+    }
+
+    private async Task<TrainingLessonDto> CompleteLessonForEnrollmentAsync(
+        TrainingCatalogEnrollment enrollment,
+        Guid lessonId,
+        Guid? lastResourceId,
+        CancellationToken ct)
+    {
+        var progress = await db.TrainingLessonProgresses
+            .FirstOrDefaultAsync(p => p.EnrollmentId == enrollment.Id && p.LessonId == lessonId, ct);
+        if (progress is null)
+        {
+            progress = new TrainingLessonProgress
+            {
+                EnrollmentId = enrollment.Id,
+                LessonId = lessonId,
+                StartedAt = DateTime.UtcNow,
+            };
+            db.TrainingLessonProgresses.Add(progress);
+        }
+
+        progress.LastResourceId = lastResourceId;
+        progress.ProgressPercent = 100m;
+        progress.CompletedAt = DateTime.UtcNow;
+
+        var tracked = await db.TrainingCatalogEnrollments
+            .FirstAsync(e => e.Id == enrollment.Id, ct);
+        tracked.StartedAt ??= DateTime.UtcNow;
+        tracked.UpdatedAt = DateTime.UtcNow;
+        if (tracked.Status == CatalogEnrollmentStatus.NotStarted
+            || tracked.Status == CatalogEnrollmentStatus.Overdue)
+            tracked.Status = CatalogEnrollmentStatus.InProgress;
+
+        var requiredLessonIds = await (
+            from l in db.TrainingLessons.AsNoTracking()
+            join m in db.TrainingModules.AsNoTracking() on l.ModuleId equals m.Id
+            where m.CatalogItemId == tracked.CatalogItemId && l.IsRequired
+            select l.Id).ToListAsync(ct);
+
+        if (requiredLessonIds.Count > 0)
+        {
+            var doneIds = await db.TrainingLessonProgresses
+                .Where(p => p.EnrollmentId == tracked.Id
+                            && requiredLessonIds.Contains(p.LessonId)
+                            && p.CompletedAt != null)
+                .Select(p => p.LessonId)
+                .ToListAsync(ct);
+            if (!doneIds.Contains(lessonId) && requiredLessonIds.Contains(lessonId))
+                doneIds.Add(lessonId);
+
+            if (doneIds.Count >= requiredLessonIds.Count)
+            {
+                tracked.Status = CatalogEnrollmentStatus.Completed;
+                tracked.CompletedAt ??= DateTime.UtcNow;
+            }
+        }
+        else
+        {
+            tracked.Status = CatalogEnrollmentStatus.Completed;
+            tracked.CompletedAt ??= DateTime.UtcNow;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return await MapLessonAsync(lessonId, ct, tracked.Id);
+    }
+
+    private static DateTime? ComputeDueAt(TrainingCatalogItem catalog, DateTime fromUtc) =>
+        catalog.DueMode switch
+        {
+            CatalogDueMode.Absolute => catalog.DueDate,
+            CatalogDueMode.RelativeDays when catalog.DueInDays is int days && days >= 0
+                => fromUtc.AddDays(days),
+            _ => null,
+        };
+
+    public async Task<LearningQuizStatsDto> GetLearningStatsAsync(Guid? catalogItemId, CancellationToken ct)
     {
         var catalogs = await db.TrainingCatalogItems.AsNoTracking()
             .CountAsync(c => c.Status != CatalogItemStatus.Archived, ct);
-        var sessions = await db.TrainingSessions.AsNoTracking()
-            .Where(s => s.CatalogItemId != null)
+        var sessionsQuery = db.TrainingSessions.AsNoTracking()
+            .Where(s => s.CatalogItemId != null);
+        if (catalogItemId is Guid cidFilter)
+            sessionsQuery = sessionsQuery.Where(s => s.CatalogItemId == cidFilter);
+
+        var sessions = await sessionsQuery
             .Select(s => new { s.Id, s.Title, s.CatalogItemId })
             .ToListAsync(ct);
         var sessionIds = sessions.Select(s => s.Id).ToList();
         var quizzes = await db.TrainingQuizzes.AsNoTracking()
             .Include(q => q.Questions)
-            .Where(q => sessionIds.Contains(q.SessionId))
+            .Where(q => q.SessionId != null && sessionIds.Contains(q.SessionId.Value))
             .ToListAsync(ct);
         var quizIds = quizzes.Select(q => q.Id).ToList();
         var attempts = await db.TrainingQuizAttempts.AsNoTracking()
@@ -711,6 +1263,7 @@ public sealed class LearningCatalogService(
                 categories.TryGetValue(cid, out cat);
             return new LearningQuizStatsBySessionDto(
                 s.Id,
+                s.CatalogItemId,
                 s.Title,
                 cat,
                 quiz?.Questions.Count ?? 0,
@@ -733,6 +1286,7 @@ public sealed class LearningCatalogService(
 
     public async Task<IReadOnlyList<LearningQuizResultExportRowDto>> ExportResultsAsync(
         Guid? sessionId,
+        Guid? catalogItemId,
         CancellationToken ct)
     {
         var q = db.TrainingQuizAttempts.AsNoTracking().AsQueryable();
@@ -742,6 +1296,18 @@ public sealed class LearningCatalogService(
                 .FirstOrDefaultAsync(x => x.SessionId == sid, ct);
             if (quiz is null) return [];
             q = q.Where(a => a.QuizId == quiz.Id);
+        }
+        else if (catalogItemId is Guid cid)
+        {
+            var sessionIdsForCatalog = await db.TrainingSessions.AsNoTracking()
+                .Where(s => s.CatalogItemId == cid)
+                .Select(s => s.Id)
+                .ToListAsync(ct);
+            var quizIdsForCatalog = await db.TrainingQuizzes.AsNoTracking()
+                .Where(x => x.SessionId != null && sessionIdsForCatalog.Contains(x.SessionId.Value))
+                .Select(x => x.Id)
+                .ToListAsync(ct);
+            q = q.Where(a => quizIdsForCatalog.Contains(a.QuizId));
         }
 
         var attempts = await q.OrderByDescending(a => a.SubmittedAt).ToListAsync(ct);
@@ -768,7 +1334,9 @@ public sealed class LearningCatalogService(
                 emp?.Email ?? "",
                 emp?.Role ?? "",
                 emp?.StructureKey ?? "",
+                sess?.Id,
                 sess?.Title ?? "",
+                sess?.CatalogItemId,
                 a.FinalScore,
                 a.Passed,
                 a.AttemptNumber,
@@ -793,33 +1361,37 @@ public sealed class LearningCatalogService(
             return await db.EmployeAnnuaires.AsNoTracking().ToListAsync(ct);
 
         var all = await db.EmployeAnnuaires.AsNoTracking().ToListAsync(ct);
-        return all.Where(e => MatchesAudience(e, roles, structures, users, item.AudienceMatchMode)).ToList();
+        return all.Where(e => AudienceResolver.Matches(e, roles, structures, users, item.AudienceMatchMode)).ToList();
     }
 
-    private static bool MatchesAudience(
-        EmployeAnnuaire e,
-        IReadOnlyList<string> roles,
-        IReadOnlyList<string> structures,
-        IReadOnlyList<Guid> users,
-        CatalogAudienceMatchMode mode)
+    private async Task NotifyAudienceCatalogAvailableAsync(
+        Guid catalogItemId,
+        string catalogTitle,
+        CancellationToken ct,
+        IReadOnlyList<EmployeAnnuaire>? beneficiaries = null)
     {
-        var roleOk = roles.Count == 0
-            || roles.Any(r => e.Role.Equals(r, StringComparison.OrdinalIgnoreCase));
-        var structureOk = structures.Count == 0
-            || (!string.IsNullOrWhiteSpace(e.StructureKey)
-                && structures.Any(s => e.StructureKey!.Equals(s, StringComparison.OrdinalIgnoreCase)));
-        var userOk = users.Count == 0 || users.Contains(e.EmployeId);
-
-        // Dimensions with empty filter are ignored.
-        var checks = new List<bool>();
-        if (roles.Count > 0) checks.Add(roleOk);
-        if (structures.Count > 0) checks.Add(structureOk);
-        if (users.Count > 0) checks.Add(userOk);
-        if (checks.Count == 0) return true;
-
-        return mode == CatalogAudienceMatchMode.MatchAll
-            ? checks.All(x => x)
-            : checks.Any(x => x);
+        try
+        {
+            beneficiaries ??= await ResolveAudienceAsync(catalogItemId, ct);
+            var title = string.IsNullOrWhiteSpace(catalogTitle) ? "une formation" : catalogTitle.Trim();
+            var now = DateTime.UtcNow;
+            foreach (var emp in beneficiaries)
+            {
+                if (emp.EmployeId == Guid.Empty) continue;
+                await publish.Publish(new CatalogFormationAvailableMessage
+                {
+                    CatalogItemId = catalogItemId,
+                    CatalogTitle = title,
+                    EmployeeId = emp.EmployeId,
+                    EmployeeName = $"{emp.Prenom} {emp.Nom}".Trim(),
+                    PublishedAt = now,
+                }, ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Échec notification audience pour catalogue {CatalogItemId}.", catalogItemId);
+        }
     }
 
     private async Task<IReadOnlyList<TrainingCatalogItemDto>> MapListAsync(
@@ -895,7 +1467,12 @@ public sealed class LearningCatalogService(
                 itemLessons.Count,
                 itemResources.Count,
                 audience,
-                tree));
+                tree,
+                item.SelfServiceEnabled,
+                item.DueMode,
+                item.DueDate,
+                item.DueInDays,
+                item.DefaultQuizTemplateId));
         }
 
         return result;
@@ -922,17 +1499,17 @@ public sealed class LearningCatalogService(
                 l.Resources.OrderBy(r => r.SortOrder).Select(MapResource).ToList())).ToList());
     }
 
-    private async Task<TrainingLessonDto> MapLessonAsync(Guid lessonId, CancellationToken ct, Guid? assignmentId = null)
+    private async Task<TrainingLessonDto> MapLessonAsync(Guid lessonId, CancellationToken ct, Guid? enrollmentId = null)
     {
         var l = await db.TrainingLessons.AsNoTracking()
             .Include(x => x.Resources)
             .FirstAsync(x => x.Id == lessonId, ct);
         bool completed = false;
         decimal percent = 0m;
-        if (assignmentId is Guid aid)
+        if (enrollmentId is Guid eid)
         {
             var p = await db.TrainingLessonProgresses.AsNoTracking()
-                .FirstOrDefaultAsync(x => x.AssignmentId == aid && x.LessonId == lessonId, ct);
+                .FirstOrDefaultAsync(x => x.EnrollmentId == eid && x.LessonId == lessonId, ct);
             completed = p?.CompletedAt is not null;
             percent = p?.ProgressPercent ?? 0m;
         }

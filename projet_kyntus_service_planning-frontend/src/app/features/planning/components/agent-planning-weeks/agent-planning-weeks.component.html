@@ -1,0 +1,80 @@
+<div class="apw-root">
+  <div class="apw-empty" *ngIf="!current && upcomingWeeks.length === 0 && pastWeeks.length === 0">
+    <p>Aucun planning publié sur cette période.</p>
+  </div>
+
+  <section class="apw-card" *ngIf="current">
+    <div class="apw-card-head">
+      <span class="apw-badge apw-badge-current">Semaine courante</span>
+      <h3>{{ formatWeekLabel(current.weekCode) }}</h3>
+      <p class="apw-sub">
+        {{ current.subServiceName }} · début {{ current.weekStartDate | date:'dd/MM/yyyy' }}
+      </p>
+    </div>
+    <div class="apw-week-grid">
+      <div
+        class="apw-day"
+        *ngFor="let d of current.days"
+        [ngClass]="shiftClass(d)"
+        [class.apw-day-exceptional]="d.isExceptionalRequest"
+      >
+        <span class="apw-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle">DE</span>
+        <span class="apw-day-name">{{ d.day }} {{ d.assignedDate | date:'dd/MM' }}</span>
+        <span class="apw-day-shift">{{ cellLabel(d) }}</span>
+        <span class="apw-day-hours" *ngIf="!d.isOnLeave && !d.isHoliday && d.startTime">
+          {{ d.startTime }}<ng-container *ngIf="d.endTime"> – {{ d.endTime }}</ng-container>
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <section class="apw-section" *ngIf="upcomingWeeks.length > 0">
+    <h4 class="apw-section-title">Semaines à venir</h4>
+    <div class="apw-card" *ngFor="let p of upcomingWeeks">
+      <div class="apw-card-head apw-card-head-row">
+        <span class="apw-badge apw-badge-upcoming">{{ formatWeekLabel(p.weekCode) }}</span>
+        <span class="apw-sub">{{ p.subServiceName }} · début {{ p.weekStartDate | date:'dd/MM/yyyy' }}</span>
+      </div>
+      <div class="apw-week-grid">
+        <div
+          class="apw-day"
+          *ngFor="let d of p.days"
+          [ngClass]="shiftClass(d)"
+          [class.apw-day-exceptional]="d.isExceptionalRequest"
+        >
+          <span class="apw-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle">DE</span>
+          <span class="apw-day-name">{{ d.day }} {{ d.assignedDate | date:'dd/MM' }}</span>
+          <span class="apw-day-shift">{{ cellLabel(d) }}</span>
+          <span class="apw-day-hours" *ngIf="!d.isOnLeave && !d.isHoliday && d.startTime">
+            {{ d.startTime }}<ng-container *ngIf="d.endTime"> – {{ d.endTime }}</ng-container>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="apw-section" *ngIf="pastWeeks.length > 0">
+    <h4 class="apw-section-title">Historique</h4>
+    <details class="apw-card apw-history-item" *ngFor="let p of pastWeeks" open>
+      <summary>
+        <span class="apw-badge">{{ formatWeekLabel(p.weekCode) }}</span>
+        <span class="apw-sub">{{ p.subServiceName }} · début {{ p.weekStartDate | date:'dd/MM/yyyy' }}</span>
+      </summary>
+      <div class="apw-week-grid">
+        <div
+          class="apw-day"
+          *ngFor="let d of p.days"
+          [ngClass]="shiftClass(d)"
+          [class.apw-day-exceptional]="d.isExceptionalRequest"
+        >
+          <span class="apw-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle">DE</span>
+          <span class="apw-day-name">{{ d.day }} {{ d.assignedDate | date:'dd/MM' }}</span>
+          <span class="apw-day-shift">{{ cellLabel(d) }}</span>
+          <span class="apw-day-hours" *ngIf="!d.isOnLeave && !d.isHoliday && d.startTime">
+            {{ d.startTime }}<ng-container *ngIf="d.endTime"> – {{ d.endTime }}</ng-container>
+          </span>
+        </div>
+      </div>
+    </details>
+  </section>
+</div>

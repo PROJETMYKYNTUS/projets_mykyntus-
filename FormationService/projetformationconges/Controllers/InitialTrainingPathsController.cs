@@ -1,5 +1,6 @@
 using Formation.Application.DTOs;
 using Formation.Infrastructure.Services;
+using Kyntus.Identity.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -24,6 +25,17 @@ public sealed class InitialTrainingPathsController(TrainingWorkflowService train
     [HttpGet("overview")]
     public Task<IReadOnlyList<InitialTrainingPathDto>> Overview(CancellationToken ct) =>
         training.ListInitialOverviewAsync(ct);
+
+    [HttpGet("me")]
+    [Authorize]
+    public async Task<ActionResult<IReadOnlyList<InitialTrainingPathDto>>> Me(CancellationToken ct)
+    {
+        var employeeId = User.GetSubjectId() ?? Guid.Empty;
+        var email = User.GetEmail();
+        if (employeeId == Guid.Empty && string.IsNullOrWhiteSpace(email))
+            return BadRequest(new { error = "Identifiant utilisateur manquant dans le jeton." });
+        return Ok(await training.ListInitialByEmployeeAsync(employeeId, ct, email));
+    }
 
     [HttpGet("by-employee/{employeeId:guid}")]
     public Task<IReadOnlyList<InitialTrainingPathDto>> ByEmployee(Guid employeeId, CancellationToken ct) =>
@@ -70,11 +82,12 @@ public sealed class InitialTrainingPathsController(TrainingWorkflowService train
     }
 
     [HttpPost("{id:guid}/formateur-validate")]
+    [Authorize]
     public async Task<ActionResult<InitialTrainingPathDto>> FormateurValidate(Guid id, CancellationToken ct)
     {
         try
         {
-            var updated = await training.FormateurValidateAsync(id, ct);
+            var updated = await training.FormateurValidateAsync(id, User.GetSubjectId(), ct);
             return updated is null ? NotFound() : Ok(updated);
         }
         catch (InvalidOperationException ex)
@@ -84,11 +97,13 @@ public sealed class InitialTrainingPathsController(TrainingWorkflowService train
     }
 
     [HttpPost("{id:guid}/formateur-reject")]
+    [Authorize]
     public async Task<ActionResult<InitialTrainingPathDto>> FormateurReject(
         Guid id,
         [FromBody] RejectInitialTrainingRequest body,
         CancellationToken ct)
     {
+        PreferJwtSubjectAsRejectedBy(body);
         var updated = await training.FormateurRejectAsync(id, body, ct);
         return updated is null ? NotFound() : Ok(updated);
     }
@@ -111,11 +126,12 @@ public sealed class InitialTrainingPathsController(TrainingWorkflowService train
     }
 
     [HttpPost("{id:guid}/rh-validate")]
+    [Authorize]
     public async Task<ActionResult<InitialTrainingPathDto>> RhValidate(Guid id, CancellationToken ct)
     {
         try
         {
-            var updated = await training.RhValidateAsync(id, ct);
+            var updated = await training.RhValidateAsync(id, User.GetSubjectId(), ct);
             return updated is null ? NotFound() : Ok(updated);
         }
         catch (InvalidOperationException ex)
@@ -125,13 +141,22 @@ public sealed class InitialTrainingPathsController(TrainingWorkflowService train
     }
 
     [HttpPost("{id:guid}/rh-reject")]
+    [Authorize]
     public async Task<ActionResult<InitialTrainingPathDto>> RhReject(
         Guid id,
         [FromBody] RejectInitialTrainingRequest body,
         CancellationToken ct)
     {
+        PreferJwtSubjectAsRejectedBy(body);
         var updated = await training.RhRejectAsync(id, body, ct);
         return updated is null ? NotFound() : Ok(updated);
+    }
+
+    private void PreferJwtSubjectAsRejectedBy(RejectInitialTrainingRequest body)
+    {
+        var subjectId = User.GetSubjectId();
+        if (subjectId is Guid g && g != Guid.Empty)
+            body.RejectedBy = g.ToString();
     }
 
     [HttpGet("{id:guid}/checklist")]

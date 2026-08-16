@@ -66,8 +66,9 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db, IRebacClient? rebac
     }
 
     /// <summary>
-    /// Cellules du périmètre superviseur : union des nœuds managés Directory (ReBAC),
-    /// avec repli sur l’ancre primaire / pôle.
+    /// Cellules du périmètre superviseur : nœuds managés Directory (ReBAC) uniquement.
+    /// Pas de repli sur <c>emp.CelluleId</c> / <c>emp.PoleId</c> si ReBAC est vide.
+    /// Les nœuds pôle issus de ReBAC sont développés en cellules.
     /// </summary>
     public async Task<HashSet<string>> GetSupervisedCelluleIdsAsync(string supervisorUserId, CancellationToken ct = default)
     {
@@ -78,55 +79,60 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db, IRebacClient? rebac
         if (emp is null) return new HashSet<string>(StringComparer.Ordinal);
 
         var fromRebac = await TryGetManagedNodeIdsAsync(u, "Superviseur", ct);
-        if (fromRebac.Count > 0)
-            return fromRebac.ToHashSet(StringComparer.Ordinal);
-
-        var poleIds = new HashSet<string>(StringComparer.Ordinal);
-        if (!string.IsNullOrWhiteSpace(emp.PoleId))
-            poleIds.Add(emp.PoleId.Trim());
-
-        if (poleIds.Count == 0 && !string.IsNullOrWhiteSpace(emp.CelluleId))
-        {
-            var poleFromCell = await db.Cellules.AsNoTracking()
-                .Where(c => c.Id == emp.CelluleId.Trim())
-                .Select(c => c.PoleId)
-                .FirstOrDefaultAsync(ct);
-            if (!string.IsNullOrWhiteSpace(poleFromCell))
-                poleIds.Add(poleFromCell.Trim());
-        }
-
-        if (poleIds.Count == 0)
-        {
-            if (!string.IsNullOrWhiteSpace(emp.CelluleId))
-                return new HashSet<string>(StringComparer.Ordinal) { emp.CelluleId.Trim() };
+        if (fromRebac.Count == 0)
             return new HashSet<string>(StringComparer.Ordinal);
-        }
 
-        var celluleIds = await db.Cellules.AsNoTracking()
-            .Where(c => poleIds.Contains(c.PoleId))
-            .Select(c => c.Id)
-            .ToListAsync(ct);
-        return celluleIds.ToHashSet(StringComparer.Ordinal);
+        return await ExpandRebacNodesToCelluleIdsAsync(fromRebac, ct);
     }
 
     public async Task<IReadOnlyList<string>> GetManagedPoleIdsAsync(string chefUserId, CancellationToken ct = default)
     {
-        var fromRebac = await TryGetManagedNodeIdsAsync(chefUserId, "ChefDeProjet", ct);
-        if (fromRebac.Count > 0) return fromRebac;
-
-        if (db == null) return [];
-        var emp = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == chefUserId.Trim(), ct);
-        return string.IsNullOrWhiteSpace(emp?.PoleId) ? [] : [emp.PoleId.Trim()];
+        // ReBAC only — no scalar emp.PoleId fallback when empty.
+        return await TryGetManagedNodeIdsAsync(chefUserId, "ChefDeProjet", ct);
     }
 
     public async Task<IReadOnlyList<string>> GetManagedServiceIdsAsync(string referentUserId, CancellationToken ct = default)
     {
-        var fromRebac = await TryGetManagedNodeIdsAsync(referentUserId, "ReferentTechnique", ct);
-        if (fromRebac.Count > 0) return fromRebac;
+        // ReBAC only — no scalar emp.ServiceId fallback when empty.
+        return await TryGetManagedNodeIdsAsync(referentUserId, "ReferentTechnique", ct);
+    }
 
-        if (db == null) return [];
-        var emp = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == referentUserId.Trim(), ct);
-        return string.IsNullOrWhiteSpace(emp?.ServiceId) ? [] : [emp.ServiceId.Trim()];
+    /// <summary>
+    /// Interprète les nœuds ReBAC comme cellules et/ou pôles ; développe les pôles en cellules.
+    /// </summary>
+    private async Task<HashSet<string>> ExpandRebacNodesToCelluleIdsAsync(
+        IReadOnlyList<string> nodeIds,
+        CancellationToken ct)
+    {
+        if (db == null || nodeIds.Count == 0)
+            return new HashSet<string>(StringComparer.Ordinal);
+
+        var nodeSet = nodeIds
+            .Select(n => n.Trim())
+            .Where(n => n.Length > 0)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var asCellules = await db.Cellules.AsNoTracking()
+            .Where(c => nodeSet.Contains(c.Id))
+            .Select(c => c.Id)
+            .ToListAsync(ct);
+
+        var poleNodes = await db.Poles.AsNoTracking()
+            .Where(p => nodeSet.Contains(p.Id))
+            .Select(p => p.Id)
+            .ToListAsync(ct);
+
+        var fromPoles = poleNodes.Count == 0
+            ? []
+            : await db.Cellules.AsNoTracking()
+                .Where(c => poleNodes.Contains(c.PoleId))
+                .Select(c => c.Id)
+                .ToListAsync(ct);
+
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var id in asCellules) result.Add(id);
+        foreach (var id in fromPoles) result.Add(id);
+        return result;
     }
 
     private async Task<IReadOnlyList<string>> TryGetManagedNodeIdsAsync(
@@ -157,7 +163,8 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db, IRebacClient? rebac
     }
 
     /// <summary>
-    /// Périmètre validation RT : pilote direct (ParentId) ou pilote d’un RT du même superviseur / même cellule.
+    /// Périmètre validation RT : ReBAC <c>CanActOn</c>, sinon pilote direct (ParentId)
+    /// ou pilote d’un RT du même superviseur / même cellule.
     /// </summary>
     public async Task<bool> IsPiloteUnderReferentResponsibilityAsync(
         string referentUserId,
@@ -173,7 +180,27 @@ public sealed class PrimeOrgScopeService(PrimeDbContext? db, IRebacClient? rebac
             string.Equals(pilote.ReferentTechniqueId.Trim(), referentUserId, StringComparison.Ordinal))
             return true;
 
+        var canAct = await TryCanActOnAsync(referentUserId, pilotEmployeeId, ct);
+        if (canAct == true)
+            return true;
+
         return await IsPilotInReferentValidationScopeAsync(referentUserId, pilotEmployeeId, actingReferentRole, ct);
+    }
+
+    private async Task<bool?> TryCanActOnAsync(string actorId, string targetEmployeeId, CancellationToken ct)
+    {
+        if (rebac is null
+            || !Guid.TryParse(actorId, out var actor)
+            || !Guid.TryParse(targetEmployeeId, out var target))
+            return null;
+        try
+        {
+            return await rebac.CanActOnAsync(actor, target, ct);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public async Task<bool> IsPilotInReferentValidationScopeAsync(

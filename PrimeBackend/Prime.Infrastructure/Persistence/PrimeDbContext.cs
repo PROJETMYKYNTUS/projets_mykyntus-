@@ -12,6 +12,7 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
     public DbSet<EmployeeEntity> Employees => Set<EmployeeEntity>();
     public DbSet<SupervisorPrimeFicheEntity> SupervisorPrimeFiches => Set<SupervisorPrimeFicheEntity>();
     public DbSet<ServicePrimeIndicatorEntity> ServicePrimeIndicators => Set<ServicePrimeIndicatorEntity>();
+    public DbSet<ServicePoleLinePonderationEntity> ServicePoleLinePonderations => Set<ServicePoleLinePonderationEntity>();
     public DbSet<SupervisorCellulePrimeDraft> SupervisorCellulePrimeDrafts => Set<SupervisorCellulePrimeDraft>();
     public DbSet<EmployeePrimeServiceFiche> EmployeePrimeServiceFiches => Set<EmployeePrimeServiceFiche>();
     public DbSet<PrimeHistoricalFicheEntity> PrimeHistoricalFiches => Set<PrimeHistoricalFicheEntity>();
@@ -123,6 +124,24 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.HasIndex(x => new { x.ServiceId, x.SortOrder });
             e.HasOne(x => x.Service)
                 .WithMany(x => x.PrimeIndicators)
+                .HasForeignKey(x => x.ServiceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ServicePoleLinePonderationEntity>(e =>
+        {
+            e.ToTable("prime_service_pole_line_ponderation");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ServiceId).HasMaxLength(128);
+            e.Property(x => x.TemplateStableId).HasMaxLength(256);
+            e.Property(x => x.Label).HasMaxLength(512);
+            e.Property(x => x.PonderationPrimePct).HasPrecision(9, 4);
+            e.Property(x => x.PonderationChallengePct).HasPrecision(9, 4);
+            e.HasIndex(x => x.ServiceId);
+            e.HasIndex(x => new { x.ServiceId, x.TemplateStableId }).IsUnique();
+            e.HasIndex(x => new { x.ServiceId, x.SortOrder });
+            e.HasOne(x => x.Service)
+                .WithMany(x => x.PoleLinePonderations)
                 .HasForeignKey(x => x.ServiceId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

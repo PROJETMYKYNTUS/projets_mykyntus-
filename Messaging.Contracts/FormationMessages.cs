@@ -83,3 +83,103 @@ public record InitialTrainingMissingDocumentsAlertMessage
     public IReadOnlyList<string> MissingDocumentTitles { get; init; } = Array.Empty<string>();
     public DateTime AlertedAt { get; init; } = DateTime.UtcNow;
 }
+
+/// <summary>
+/// Rappel / escalade échéance catalogue e-learning (libre accès ou session).
+/// </summary>
+public record CatalogEnrollmentDeadlineReminderMessage
+{
+    public Guid EnrollmentId { get; init; }
+    public Guid CatalogItemId { get; init; }
+    public string CatalogTitle { get; init; } = string.Empty;
+    public Guid EmployeeId { get; init; }
+    public string EmployeeName { get; init; } = string.Empty;
+    public DateTime DueAt { get; init; }
+    public bool IsEscalation { get; init; }
+    public Guid? ManagerId { get; init; }
+    public DateTime AlertedAt { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Formation catalogue publiée (ou audience mise à jour alors qu’elle est déjà publiée) —
+/// une notif in-app par employé concerné.
+/// </summary>
+public record CatalogFormationAvailableMessage
+{
+    public Guid CatalogItemId { get; init; }
+    public string CatalogTitle { get; init; } = string.Empty;
+    public Guid EmployeeId { get; init; }
+    public string EmployeeName { get; init; } = string.Empty;
+    public DateTime PublishedAt { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>Quiz de séance continue publié — destinataires = affectations (pas filtré sur présence).</summary>
+public record TrainingQuizPublishedMessage
+{
+    public Guid SessionId { get; init; }
+    public Guid QuizId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public IReadOnlyList<Guid> EmployeeIds { get; init; } = Array.Empty<Guid>();
+    public DateTime PublishedAt { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>Tentative de quiz soumise par un employé.</summary>
+public record TrainingQuizAttemptSubmittedMessage
+{
+    public Guid SessionId { get; init; }
+    public Guid QuizId { get; init; }
+    public Guid AttemptId { get; init; }
+    public Guid EmployeeId { get; init; }
+    public string EmployeeName { get; init; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
+    public bool IsGraded { get; init; }
+    public DateTime SubmittedAt { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>Tentative avec réponses libres à noter — destinée à l'animateur.</summary>
+public record TrainingQuizNeedsGradingMessage
+{
+    public Guid SessionId { get; init; }
+    public Guid QuizId { get; init; }
+    public Guid AttemptId { get; init; }
+    public Guid AnimatorUserId { get; init; }
+    public Guid EmployeeId { get; init; }
+    public string EmployeeName { get; init; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
+    public DateTime SubmittedAt { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>Quiz validé par l'animateur.</summary>
+public record TrainingQuizValidatedMessage
+{
+    public Guid SessionId { get; init; }
+    public Guid QuizId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public IReadOnlyList<Guid> EmployeeIds { get; init; } = Array.Empty<Guid>();
+    public DateTime ValidatedAt { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>Quiz rejeté par l'animateur.</summary>
+public record TrainingQuizRejectedMessage
+{
+    public Guid SessionId { get; init; }
+    public Guid QuizId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string Reason { get; init; } = string.Empty;
+    public Guid? AnimatorUserId { get; init; }
+    public IReadOnlyList<Guid> EmployeeIds { get; init; } = Array.Empty<Guid>();
+    public DateTime RejectedAt { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>Résultat de tentative prêt (noté) — destinée à l'employé.</summary>
+public record TrainingQuizResultReadyMessage
+{
+    public Guid SessionId { get; init; }
+    public Guid QuizId { get; init; }
+    public Guid AttemptId { get; init; }
+    public Guid EmployeeId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public decimal? FinalScore { get; init; }
+    public bool? Passed { get; init; }
+    public DateTime ReadyAt { get; init; } = DateTime.UtcNow;
+}

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Planning.Application.Abstractions;
 using Planning.Application.DTOs;
 using Planning.Domain.Entities;
@@ -7,7 +8,10 @@ using Planning.Infrastructure.Persistence;
 
 namespace Planning.Infrastructure.Services;
 
-public sealed class PlanningCongeService(AppDbContext context) : IPlanningCongeService
+public sealed class PlanningCongeService(
+    AppDbContext context,
+    IPlanningLeaveImpactService leaveImpact,
+    ILogger<PlanningCongeService> logger) : IPlanningCongeService
 {
     public async Task<IReadOnlyList<PlanningCongeListItemDto>> GetBySubServiceAsync(
         int subServiceId,
@@ -102,6 +106,16 @@ public sealed class PlanningCongeService(AppDbContext context) : IPlanningCongeS
         context.Conges.Add(conge);
         await context.SaveChangesAsync(ct);
 
+        try
+        {
+            await leaveImpact.SyncAfterAbsenceChangeAsync(
+                conge.UserId, conge.StartDate, conge.EndDate, absenceRemoved: false, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Sync planning après absence manuelle {CongeId} échouée.", conge.Id);
+        }
+
         return new PlanningCongeListItemDto(
             conge.Id,
             conge.UserId,
@@ -119,8 +133,23 @@ public sealed class PlanningCongeService(AppDbContext context) : IPlanningCongeS
         if (conge is null)
             return false;
 
+        var userId = conge.UserId;
+        var start = conge.StartDate;
+        var end = conge.EndDate;
+
         context.Conges.Remove(conge);
         await context.SaveChangesAsync(ct);
+
+        try
+        {
+            await leaveImpact.SyncAfterAbsenceChangeAsync(
+                userId, start, end, absenceRemoved: true, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Sync planning après suppression absence {CongeId} échouée.", id);
+        }
+
         return true;
     }
 

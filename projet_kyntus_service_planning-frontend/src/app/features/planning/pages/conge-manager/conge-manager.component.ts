@@ -11,7 +11,8 @@ import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.servic
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusSelectSyncDirective } from '../../../../shared/directives/kyntus-select-sync.directive';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
-import { Inbox, Plus, Search } from 'lucide';
+import { BodyPortalDirective } from '../../../../shared/directives/body-portal.directive';
+import { Inbox, Plus, Search, Trash2, X } from 'lucide';
 import type { Department } from '../../../prime/models';
 import type { OperationalDepartmentNode, OrgPoleNode } from '../../../prime/models/org-tree.types';
 import type { SubService } from '../../../sub-services/sub-services-module';
@@ -31,16 +32,17 @@ import {
   filterEmployeePickerRows,
   type EmployeePickerRow,
 } from '../../../contract/lib/contract-employee-filter';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 @Component({
   selector: 'app-conge-manager',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective, KyntusPageHeaderComponent],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusSelectSyncDirective, KyntusPageHeaderComponent, BodyPortalDirective],
   templateUrl: './conge-manager.component.html',
   styleUrls: ['./conge-manager.component.css'],
 })
 export class CongeManagerComponent implements OnInit {
-  readonly icons = { inbox: Inbox, plus: Plus, search: Search };
+  readonly icons = { inbox: Inbox, plus: Plus, search: Search, trash: Trash2, close: X };
 
   operationalDepartments: OperationalDepartmentNode[] = [];
   unassignedPoles: OrgPoleNode[] = [];
@@ -100,6 +102,7 @@ export class CongeManagerComponent implements OnInit {
     private userService: UserService,
     private orgApi: PrimeOrgApiService,
     private http: HttpClient,
+    private confirmService: KyntusConfirmService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -439,8 +442,14 @@ export class CongeManagerComponent implements OnInit {
     return this.absenceTypes.find((t) => t.value === value)?.label ?? value;
   }
 
-  deleteConge(id: number): void {
-    if (!confirm('Supprimer cette absence ?')) return;
+  async deleteConge(id: number): Promise<void> {
+    const ok = await this.confirmService.confirm({
+      title: 'Supprimer l\'absence',
+      message: 'Supprimer cette absence ?',
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    });
+    if (!ok) return;
     this.congeService.delete(id).subscribe({
       next: () => {
         this.allConges = this.allConges.filter((c) => c.id !== id);

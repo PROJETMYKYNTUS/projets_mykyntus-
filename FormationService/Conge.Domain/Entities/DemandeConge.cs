@@ -11,10 +11,14 @@ namespace Conge.Domain.Entities;
 public class DemandeConge
 {
     private readonly List<object> _domainEvents = new();
+    private readonly List<DemandeCongeDecision> _decisions = new();
+
     public IReadOnlyCollection<object> DomainEvents => _domainEvents.AsReadOnly();
+    public IReadOnlyCollection<DemandeCongeDecision> Decisions => _decisions.AsReadOnly();
 
     public Guid Id { get; private set; }
     public Guid EmployeId { get; private set; }
+    /// <summary>Validateur historique (premier responsable / ManagerId snapshot) — compat.</summary>
     public Guid ManagerId { get; private set; }
     public TypeConge TypeConge { get; private set; }
     public TypeCongeExceptionnel? TypeExceptionnel { get; private set; }
@@ -24,8 +28,16 @@ public class DemandeConge
     public StatutDemande Statut { get; private set; }
     public string? Motif { get; private set; }
     public string? CommentaireManager { get; private set; }
+    public string? CommentaireRh { get; private set; }
     public DateTime DateDemande { get; private set; }
+    public DateTime? DateValidationSuperviseur { get; private set; }
     public DateTime? DateDecision { get; private set; }
+
+    /// <summary>Nœud org sur lequel la validation superviseur s'applique (cellule préférée).</summary>
+    public string? ValidationNodeId { get; private set; }
+    public string? ValidationNodeLevel { get; private set; }
+    public Guid? SuperviseurDecideurId { get; private set; }
+    public Guid? RhDecideurId { get; private set; }
 
     // EF Core constructor
     private DemandeConge() { }
@@ -40,9 +52,11 @@ public class DemandeConge
         DateTime dateFin,
         SoldeConge solde,
         EmployeSnapshot employe,
-        string? motif = null)
+        string? motif = null,
+        StatutDemande statutInitial = StatutDemande.EnAttente,
+        string? validationNodeId = null,
+        string? validationNodeLevel = null)
     {
-        // Règle : 6 mois d'ancienneté minimum
         if (!employe.EstEligibleCongeAnnuel())
             throw new EligibiliteException(employeId, "L'employé doit avoir au moins 6 mois d'ancienneté.");
 
@@ -54,9 +68,10 @@ public class DemandeConge
 
         var nombreJours = PolitiqueConge.CompterJoursOuvrables(dateDebut, dateFin);
 
-        // Règle : solde suffisant
         if (!solde.ASufficament(nombreJours))
             throw new SoldeInsuffisantException(employeId, nombreJours, solde.SoldeRestant);
+
+        EnsureStatutInitial(statutInitial);
 
         var demande = new DemandeConge
         {
@@ -67,9 +82,11 @@ public class DemandeConge
             DateDebut = dateDebut,
             DateFin = dateFin,
             NombreJours = nombreJours,
-            Statut = StatutDemande.EnAttente,
+            Statut = statutInitial,
             Motif = motif,
-            DateDemande = DateTime.UtcNow
+            DateDemande = DateTime.UtcNow,
+            ValidationNodeId = NormalizeNode(validationNodeId),
+            ValidationNodeLevel = NormalizeNode(validationNodeLevel)
         };
 
         demande._domainEvents.Add(new CongeDemandeEvent(demande.Id, employeId, managerId, TypeConge.Annuel, nombreJours));
@@ -84,10 +101,15 @@ public class DemandeConge
         Guid managerId,
         TypeCongeExceptionnel typeExceptionnel,
         DateTime dateDebut,
-        string? motif = null)
+        string? motif = null,
+        StatutDemande statutInitial = StatutDemande.EnAttente,
+        string? validationNodeId = null,
+        string? validationNodeLevel = null)
     {
         var duree = PolitiqueConge.GetDureeExceptionnelle(typeExceptionnel);
         var dateFin = dateDebut.AddDays(duree - 1);
+
+        EnsureStatutInitial(statutInitial);
 
         var demande = new DemandeConge
         {
@@ -99,61 +121,205 @@ public class DemandeConge
             DateDebut = dateDebut,
             DateFin = dateFin,
             NombreJours = duree,
-            Statut = StatutDemande.EnAttente,
+            Statut = statutInitial,
             Motif = motif,
-            DateDemande = DateTime.UtcNow
+            DateDemande = DateTime.UtcNow,
+            ValidationNodeId = NormalizeNode(validationNodeId),
+            ValidationNodeLevel = NormalizeNode(validationNodeLevel)
         };
 
         demande._domainEvents.Add(new CongeDemandeEvent(demande.Id, employeId, managerId, TypeConge.Exceptionnel, duree));
         return demande;
     }
 
-    /// <summary>
-    /// Validation par le manager.
-    /// </summary>
-    public void Valider(Guid managerId, string? commentaire = null)
+    public void AssignerNoeudValidation(string? validationNodeId, string? validationNodeLevel)
     {
-        if (Statut != StatutDemande.EnAttente)
-            throw new InvalidOperationException($"Impossible de valider une demande avec le statut '{Statut}'.");
+        ValidationNodeId = NormalizeNode(validationNodeId);
+        ValidationNodeLevel = NormalizeNode(validationNodeLevel);
+    }
 
-        Statut = StatutDemande.Validee;
+    private static void EnsureStatutInitial(StatutDemande statut)
+    {
+        if (statut is not (StatutDemande.EnAttente or StatutDemande.EnAttenteRh))
+            throw new ArgumentException("Statut initial invalide pour une nouvelle demande.");
+    }
+
+    /// <summary>Validation superviseur : EnAttente → EnAttenteRh.</summary>
+    public void ValiderParSuperviseur(
+        Guid superviseurId,
+        string? commentaire = null,
+        string? acteurNom = null,
+        string? acteurRole = null)
+    {
+        EnsureTransition(StatutDemande.EnAttente, "valider (superviseur)");
+
+        var avant = Statut;
+        Statut = StatutDemande.EnAttenteRh;
         CommentaireManager = commentaire;
-        DateDecision = DateTime.UtcNow;
+        DateValidationSuperviseur = DateTime.UtcNow;
+        SuperviseurDecideurId = superviseurId;
 
-        _domainEvents.Add(new CongeValideEvent(Id, EmployeId, managerId, NombreJours, TypeConge));
+        AppendDecision(
+            superviseurId,
+            acteurNom,
+            acteurRole ?? "Superviseur",
+            DemandeCongeDecisionActions.ValidationSuperviseur,
+            avant,
+            Statut,
+            commentaire);
+    }
+
+    /// <summary>Validation RH finale : EnAttenteRh → Validee.</summary>
+    public void ValiderParRh(
+        Guid rhId,
+        string? commentaire = null,
+        string? acteurNom = null,
+        string? acteurRole = null)
+    {
+        EnsureTransition(StatutDemande.EnAttenteRh, "valider (RH)");
+
+        var avant = Statut;
+        Statut = StatutDemande.Validee;
+        CommentaireRh = commentaire;
+        DateDecision = DateTime.UtcNow;
+        RhDecideurId = rhId;
+
+        AppendDecision(
+            rhId,
+            acteurNom,
+            acteurRole ?? "RH",
+            DemandeCongeDecisionActions.ValidationRh,
+            avant,
+            Statut,
+            commentaire);
+
+        _domainEvents.Add(new CongeValideEvent(Id, EmployeId, rhId, NombreJours, TypeConge));
     }
 
     /// <summary>
-    /// Refus par le manager.
+    /// Validation legacy (une étape). Conservée pour compatibilité tests — préfère ValiderParRh.
     /// </summary>
-    public void Refuser(Guid managerId, string commentaire)
+    [Obsolete("Utiliser ValiderParSuperviseur puis ValiderParRh.")]
+    public void Valider(Guid managerId, string? commentaire = null)
     {
-        if (Statut != StatutDemande.EnAttente)
-            throw new InvalidOperationException($"Impossible de refuser une demande avec le statut '{Statut}'.");
+        if (Statut == StatutDemande.EnAttente)
+            ValiderParSuperviseur(managerId, commentaire);
+        if (Statut == StatutDemande.EnAttenteRh)
+            ValiderParRh(managerId, commentaire);
+    }
+
+    /// <summary>Refus par le superviseur ou RH.</summary>
+    public void Refuser(
+        Guid acteurId,
+        string commentaire,
+        string? acteurNom = null,
+        string? acteurRole = null)
+    {
+        if (Statut is not (StatutDemande.EnAttente or StatutDemande.EnAttenteRh))
+            throw AlreadyDecidedOrInvalid("refuser");
 
         if (string.IsNullOrWhiteSpace(commentaire))
             throw new ArgumentException("Un motif de refus est obligatoire.");
 
+        var avant = Statut;
         Statut = StatutDemande.Refusee;
-        CommentaireManager = commentaire;
+        if (avant == StatutDemande.EnAttente)
+        {
+            CommentaireManager = commentaire;
+            SuperviseurDecideurId = acteurId;
+        }
+        else
+        {
+            CommentaireRh = commentaire;
+            RhDecideurId = acteurId;
+        }
+
         DateDecision = DateTime.UtcNow;
 
-        _domainEvents.Add(new CongeRefuseEvent(Id, EmployeId, managerId, commentaire));
+        AppendDecision(
+            acteurId,
+            acteurNom,
+            acteurRole ?? (avant == StatutDemande.EnAttente ? "Superviseur" : "RH"),
+            DemandeCongeDecisionActions.Refus,
+            avant,
+            Statut,
+            commentaire);
+
+        _domainEvents.Add(new CongeRefuseEvent(Id, EmployeId, acteurId, commentaire));
     }
 
-    /// <summary>
-    /// Annulation par l'employé (uniquement si encore en attente).
-    /// </summary>
-    public void Annuler()
+    /// <summary>Annulation employé tant que pas définitivement traitée.</summary>
+    public void Annuler(
+        Guid? acteurId = null,
+        string? acteurNom = null,
+        string? acteurRole = null)
     {
-        if (Statut != StatutDemande.EnAttente)
-            throw new InvalidOperationException("Seules les demandes en attente peuvent être annulées.");
+        if (Statut is not (StatutDemande.EnAttente or StatutDemande.EnAttenteRh))
+            throw AlreadyDecidedOrInvalid("annuler");
 
+        var avant = Statut;
         Statut = StatutDemande.Annulee;
         DateDecision = DateTime.UtcNow;
+
+        var id = acteurId is { } a && a != Guid.Empty ? a : EmployeId;
+        AppendDecision(
+            id,
+            acteurNom,
+            acteurRole ?? "Employee",
+            DemandeCongeDecisionActions.Annulation,
+            avant,
+            Statut,
+            null);
 
         _domainEvents.Add(new CongeAnnuleEvent(Id, EmployeId, NombreJours, TypeConge));
     }
 
     public void ClearDomainEvents() => _domainEvents.Clear();
+
+    private void EnsureTransition(StatutDemande expected, string actionLabel)
+    {
+        if (Statut == expected)
+            return;
+        throw AlreadyDecidedOrInvalid(actionLabel);
+    }
+
+    private InvalidOperationException AlreadyDecidedOrInvalid(string actionLabel)
+    {
+        if (Statut is StatutDemande.Validee or StatutDemande.Refusee or StatutDemande.Annulee
+            || (Statut == StatutDemande.EnAttenteRh && SuperviseurDecideurId.HasValue))
+        {
+            var decideur = RhDecideurId ?? SuperviseurDecideurId;
+            if (decideur.HasValue)
+            {
+                return new InvalidOperationException(
+                    $"Impossible de {actionLabel} : demande déjà traitée (statut '{Statut}') par {decideur.Value}.");
+            }
+        }
+
+        return new InvalidOperationException(
+            $"Impossible de {actionLabel} une demande avec le statut '{Statut}'.");
+    }
+
+    private void AppendDecision(
+        Guid acteurId,
+        string? acteurNom,
+        string? acteurRole,
+        string action,
+        StatutDemande avant,
+        StatutDemande apres,
+        string? commentaire)
+    {
+        _decisions.Add(DemandeCongeDecision.Creer(
+            Id,
+            acteurId,
+            acteurNom,
+            acteurRole,
+            action,
+            avant,
+            apres,
+            commentaire));
+    }
+
+    private static string? NormalizeNode(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

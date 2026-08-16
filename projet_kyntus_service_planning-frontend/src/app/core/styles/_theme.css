@@ -44,7 +44,9 @@ body.theme-dark {
   animation: ky-page-enter 0.25s var(--ease-out, ease-out);
 }
 
-/* Transition de route : chaque page activée par le router entre en fondu */
+/* Transition de route : chaque page activée par le router entre en fondu.
+   Important : le `to` doit finir en `transform: none` (pas translateY(0)),
+   sinon fill-mode `both` laisse un containing block qui décale position:fixed. */
 .ks-content > router-outlet + * {
   display: block;
   animation: ky-page-enter 0.25s var(--ease-out, ease-out) both;
@@ -57,7 +59,7 @@ body.theme-dark {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 

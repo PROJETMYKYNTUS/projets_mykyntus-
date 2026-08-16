@@ -8,6 +8,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\Messaging.Contracts\Messaging.Contracts.csproj" />
+		<ProjectReference Include="..\..\Kyntus.Iam\Kyntus.Iam.csproj" />
 		<!-- CQRS + Pipeline -->
 		<PackageReference Include="MediatR" Version="12.2.0" />
 

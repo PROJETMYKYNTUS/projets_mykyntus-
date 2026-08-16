@@ -11,7 +11,10 @@ import type {
   InitialTrainingPathDto,
   LearningQuizResultExportRowDto,
   LearningQuizStatsDto,
+  MyQuizAttemptHistoryItemDto,
+  MySelfServiceCatalogItemDto,
   MyAssignedTrainingSessionDto,
+  PromoteSessionQuizRequest,
   TrainingAssignmentDto,
   TrainingAttendance,
   TrainingCatalogAudienceDto,
@@ -22,9 +25,14 @@ import type {
   TrainingQuizAttemptDto,
   TrainingQuizDto,
   TrainingQuizForEmployeeDto,
+  TrainingQuizTemplateDto,
+  TrainingQuizTemplateListItemDto,
   TrainingResourceDto,
   TrainingSessionDto,
   TrainingSessionReportDto,
+  UpsertTrainingQuizTemplateRequest,
+  ReplaceCatalogStructureRequest,
+  ReplaceCatalogStructureResponse,
 } from '../models/formation-training.models';
 
 const PREFIX = '/api/formations';
@@ -45,11 +53,15 @@ export class FormationTrainingService {
     );
   }
 
-  listMyAssignedSessions(employeeId: string): Promise<MyAssignedTrainingSessionDto[]> {
+  listMyAssignedSessions(): Promise<MyAssignedTrainingSessionDto[]> {
     return firstValueFrom(
-      this.http.get<MyAssignedTrainingSessionDto[]>(`${PREFIX}/sessions/my-assigned`, {
-        params: { employeeId },
-      }),
+      this.http.get<MyAssignedTrainingSessionDto[]>(`${PREFIX}/sessions/my-assigned`),
+    );
+  }
+
+  listMyInitialPaths(): Promise<InitialTrainingPathDto[]> {
+    return firstValueFrom(
+      this.http.get<InitialTrainingPathDto[]>(`${PREFIX}/initial-paths/me`),
     );
   }
 
@@ -155,6 +167,14 @@ export class FormationTrainingService {
     });
   }
 
+  getCatalogQuizForEmployee(catalogItemId: string): Promise<TrainingQuizForEmployeeDto> {
+    return firstValueFrom(
+      this.http.get<TrainingQuizForEmployeeDto>(`${PREFIX}/catalog/${catalogItemId}/quiz/for-employee`),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Quiz indisponible'));
+    });
+  }
+
   submitQuizAttempt(
     sessionId: string,
     body: {
@@ -170,6 +190,26 @@ export class FormationTrainingService {
   ): Promise<TrainingQuizAttemptDto> {
     return firstValueFrom(
       this.http.post<TrainingQuizAttemptDto>(`${PREFIX}/sessions/${sessionId}/quiz/attempts`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec soumission quiz'));
+    });
+  }
+
+  submitCatalogQuizAttempt(
+    catalogItemId: string,
+    body: {
+      assignmentId: string;
+      employeeId: string;
+      answers: {
+        questionId: string;
+        selectedOptionIndex?: number | null;
+        selectedOptionIndexes?: number[] | null;
+        freeText?: string | null;
+      }[];
+    },
+  ): Promise<TrainingQuizAttemptDto> {
+    return firstValueFrom(
+      this.http.post<TrainingQuizAttemptDto>(`${PREFIX}/catalog/${catalogItemId}/quiz/attempts`, body),
     ).catch((err) => {
       throw new Error(extractError(err, 'Échec soumission quiz'));
     });
@@ -490,15 +530,65 @@ export class FormationTrainingService {
     });
   }
 
-  uploadCatalogResource(lessonId: string, file: File, title?: string, type?: string): Promise<TrainingResourceDto> {
+  updateCatalogResource(
+    lessonId: string,
+    resourceId: string,
+    body: Record<string, unknown>,
+  ): Promise<TrainingResourceDto> {
+    return firstValueFrom(
+      this.http.put<TrainingResourceDto>(
+        `${PREFIX}/catalog/lessons/${lessonId}/resources/${resourceId}`,
+        body,
+      ),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec ressource'));
+    });
+  }
+
+  uploadCatalogResource(
+    lessonId: string,
+    file: File,
+    title?: string,
+    type?: string,
+    sortOrder?: number,
+  ): Promise<TrainingResourceDto> {
     const fd = new FormData();
     fd.append('file', file);
     if (title) fd.append('title', title);
     if (type) fd.append('type', type);
+    if (sortOrder != null) fd.append('sortOrder', String(sortOrder));
     return firstValueFrom(
       this.http.post<TrainingResourceDto>(`${PREFIX}/catalog/lessons/${lessonId}/resources/upload`, fd),
     ).catch((err) => {
       throw new Error(extractError(err, 'Échec upload'));
+    });
+  }
+
+  replaceCatalogStructure(
+    catalogId: string,
+    body: ReplaceCatalogStructureRequest,
+  ): Promise<ReplaceCatalogStructureResponse> {
+    return firstValueFrom(
+      this.http.put<ReplaceCatalogStructureResponse>(`${PREFIX}/catalog/${catalogId}/structure`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec enregistrement structure'));
+    });
+  }
+
+  issueResourceAccess(resourceId: string): Promise<{ url: string; expiresAt: string }> {
+    return firstValueFrom(
+      this.http.post<{ url: string; expiresAt: string }>(`${PREFIX}/catalog/resources/${resourceId}/access`, {}),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec accès média'));
+    });
+  }
+
+  /** Fichier ressource authentifié (fallback si pas de jeton). */
+  downloadCatalogResourceBlob(resourceId: string): Promise<Blob> {
+    return firstValueFrom(
+      this.http.get(`${PREFIX}/catalog/resources/file/${resourceId}`, { responseType: 'blob' }),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec téléchargement ressource'));
     });
   }
 
@@ -519,11 +609,27 @@ export class FormationTrainingService {
     });
   }
 
-  getCatalogPlayer(sessionId: string, employeeId: string): Promise<CatalogPlayerDto> {
+  listMySelfServiceCatalog(): Promise<MySelfServiceCatalogItemDto[]> {
     return firstValueFrom(
-      this.http.get<CatalogPlayerDto>(`${PREFIX}/catalog/sessions/${sessionId}/player`, {
-        params: { employeeId },
-      }),
+      this.http.get<MySelfServiceCatalogItemDto[]>(`${PREFIX}/catalog/me/self-service`),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec e-learning libre accès'));
+    });
+  }
+
+  getCatalogPlayer(sessionId: string, employeeId?: string): Promise<CatalogPlayerDto> {
+    const params: Record<string, string> = {};
+    if (employeeId) params['employeeId'] = employeeId;
+    return firstValueFrom(
+      this.http.get<CatalogPlayerDto>(`${PREFIX}/catalog/sessions/${sessionId}/player`, { params }),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec lecteur'));
+    });
+  }
+
+  getCatalogPlayerByCatalog(catalogItemId: string): Promise<CatalogPlayerDto> {
+    return firstValueFrom(
+      this.http.get<CatalogPlayerDto>(`${PREFIX}/catalog/${catalogItemId}/player`),
     ).catch((err) => {
       throw new Error(extractError(err, 'Échec lecteur'));
     });
@@ -532,7 +638,7 @@ export class FormationTrainingService {
   completeLesson(
     sessionId: string,
     lessonId: string,
-    body: { employeeId: string; lastResourceId?: string | null },
+    body: { employeeId?: string; lastResourceId?: string | null },
   ): Promise<TrainingLessonDto> {
     return firstValueFrom(
       this.http.post<TrainingLessonDto>(
@@ -544,16 +650,70 @@ export class FormationTrainingService {
     });
   }
 
-  getLearningStats(): Promise<LearningQuizStatsDto> {
-    return firstValueFrom(this.http.get<LearningQuizStatsDto>(`${PREFIX}/catalog/stats`));
+  completeLessonByCatalog(
+    catalogItemId: string,
+    lessonId: string,
+    body: { employeeId?: string; lastResourceId?: string | null },
+  ): Promise<TrainingLessonDto> {
+    return firstValueFrom(
+      this.http.post<TrainingLessonDto>(
+        `${PREFIX}/catalog/${catalogItemId}/lessons/${lessonId}/complete`,
+        body,
+      ),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec progression'));
+    });
   }
 
-  exportLearningResults(sessionId?: string): Promise<LearningQuizResultExportRowDto[]> {
+  getLearningStats(catalogItemId?: string): Promise<LearningQuizStatsDto> {
+    const params: Record<string, string> = {};
+    if (catalogItemId) params['catalogItemId'] = catalogItemId;
+    return firstValueFrom(this.http.get<LearningQuizStatsDto>(`${PREFIX}/catalog/stats`, { params }));
+  }
+
+  exportLearningResults(sessionId?: string, catalogItemId?: string): Promise<LearningQuizResultExportRowDto[]> {
     const params: Record<string, string> = {};
     if (sessionId) params['sessionId'] = sessionId;
+    if (catalogItemId) params['catalogItemId'] = catalogItemId;
     return firstValueFrom(
       this.http.get<LearningQuizResultExportRowDto[]>(`${PREFIX}/catalog/results/export`, { params }),
     );
+  }
+
+  uploadQuizQuestionImage(
+    sessionId: string,
+    questionId: string,
+    file: File,
+    animatorUserId: string,
+  ): Promise<{ id: string; imageUrl?: string | null }> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('animatorUserId', animatorUserId);
+    return firstValueFrom(
+      this.http.post<{ id: string; imageUrl?: string | null }>(
+        `${PREFIX}/sessions/${sessionId}/quiz/questions/${questionId}/image`,
+        form,
+      ),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec upload média question'));
+    });
+  }
+
+  uploadQuizTemplateQuestionMedia(
+    templateId: string,
+    questionId: string,
+    file: File,
+  ): Promise<{ id: string; imageUrl?: string | null; mediaKind?: string | null }> {
+    const form = new FormData();
+    form.append('file', file);
+    return firstValueFrom(
+      this.http.post<{ id: string; imageUrl?: string | null; mediaKind?: string | null }>(
+        `${PREFIX}/quiz-templates/${templateId}/questions/${questionId}/media`,
+        form,
+      ),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec upload média question'));
+    });
   }
 
   listMyQuizAttempts(sessionId: string, employeeId: string): Promise<TrainingQuizAttemptDto[]> {
@@ -562,6 +722,93 @@ export class FormationTrainingService {
         params: { employeeId },
       }),
     );
+  }
+
+  listMyCatalogQuizAttempts(catalogItemId: string): Promise<TrainingQuizAttemptDto[]> {
+    return firstValueFrom(
+      this.http.get<TrainingQuizAttemptDto[]>(`${PREFIX}/catalog/${catalogItemId}/quiz/my-attempts`),
+    );
+  }
+
+  listMyQuizHistory(employeeId: string): Promise<MyQuizAttemptHistoryItemDto[]> {
+    return firstValueFrom(
+      this.http.get<MyQuizAttemptHistoryItemDto[]>(`${PREFIX}/employees/me/quiz-attempts`, {
+        params: { employeeId },
+      }),
+    );
+  }
+
+  // ─── Bibliothèque quiz (modèles) ─────────────────────────
+
+  listQuizTemplates(includeArchived = false): Promise<TrainingQuizTemplateListItemDto[]> {
+    return firstValueFrom(
+      this.http.get<TrainingQuizTemplateListItemDto[]>(`${PREFIX}/quiz-templates`, {
+        params: { includeArchived: String(includeArchived) },
+      }),
+    );
+  }
+
+  getQuizTemplate(id: string): Promise<TrainingQuizTemplateDto> {
+    return firstValueFrom(this.http.get<TrainingQuizTemplateDto>(`${PREFIX}/quiz-templates/${id}`));
+  }
+
+  createQuizTemplate(body: UpsertTrainingQuizTemplateRequest): Promise<TrainingQuizTemplateDto> {
+    return firstValueFrom(
+      this.http.post<TrainingQuizTemplateDto>(`${PREFIX}/quiz-templates`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec création modèle quiz'));
+    });
+  }
+
+  updateQuizTemplate(id: string, body: UpsertTrainingQuizTemplateRequest): Promise<TrainingQuizTemplateDto> {
+    return firstValueFrom(
+      this.http.put<TrainingQuizTemplateDto>(`${PREFIX}/quiz-templates/${id}`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec mise à jour modèle quiz'));
+    });
+  }
+
+  publishQuizTemplate(id: string): Promise<TrainingQuizTemplateDto> {
+    return firstValueFrom(
+      this.http.post<TrainingQuizTemplateDto>(`${PREFIX}/quiz-templates/${id}/publish`, {}),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec publication modèle'));
+    });
+  }
+
+  archiveQuizTemplate(id: string): Promise<TrainingQuizTemplateDto> {
+    return firstValueFrom(
+      this.http.post<TrainingQuizTemplateDto>(`${PREFIX}/quiz-templates/${id}/archive`, {}),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec archivage modèle'));
+    });
+  }
+
+  duplicateQuizTemplate(id: string): Promise<TrainingQuizTemplateDto> {
+    return firstValueFrom(
+      this.http.post<TrainingQuizTemplateDto>(`${PREFIX}/quiz-templates/${id}/duplicate`, {}),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec duplication modèle'));
+    });
+  }
+
+  instantiateQuizTemplate(
+    id: string,
+    body: { sessionId: string; actorUserId?: string },
+  ): Promise<TrainingQuizDto> {
+    return firstValueFrom(
+      this.http.post<TrainingQuizDto>(`${PREFIX}/quiz-templates/${id}/instantiate`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec instantiation modèle'));
+    });
+  }
+
+  promoteSessionQuiz(body: PromoteSessionQuizRequest): Promise<TrainingQuizTemplateDto> {
+    return firstValueFrom(
+      this.http.post<TrainingQuizTemplateDto>(`${PREFIX}/quiz-templates/promote`, body),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec promotion en modèle'));
+    });
   }
 }
 

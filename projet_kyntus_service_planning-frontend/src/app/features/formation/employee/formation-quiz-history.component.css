@@ -1,0 +1,6 @@
+.fhist-page { display: flex; flex-direction: column; gap: 1rem; }
+.fhist-table-wrap { overflow: auto; }
+.state-box, .state-empty {
+  text-align: center; padding: 2rem 1rem; color: var(--muted, #64748b);
+}
+.state-empty h3 { margin: .75rem 0 .35rem; color: inherit; }

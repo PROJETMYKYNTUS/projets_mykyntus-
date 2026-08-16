@@ -1,0 +1,275 @@
+<fieldset class="kap-fieldset">
+  <legend>{{ displayLegend() }}</legend>
+
+  @if (loading()) {
+    <p class="kap-muted">Chargement de l’organisation…</p>
+  } @else if (loadError()) {
+    <p class="kap-error">{{ loadError() }}</p>
+  }
+
+  @if (rolesEnabled()) {
+    <div class="kap-roles">
+      <span class="kap-section-label">Rôles</span>
+      <div class="kap-chips">
+        @for (r of selectedRoles(); track r) {
+          <button type="button" class="kap-chip" (click)="removeRole(r)">
+            {{ r }}
+            <app-lucide-icon [icon]="icons.remove" className="w-3 h-3" />
+          </button>
+        }
+      </div>
+      <div class="kap-inline">
+        <select class="ky-input" [(ngModel)]="rolePick">
+          <option value="">Tous les rôles</option>
+          @for (r of normalizedRoles(); track r.name) {
+            <option [value]="r.name">{{ r.name }}</option>
+          }
+        </select>
+        <button type="button" class="ky-btn-secondary text-xs" (click)="addRole()" [disabled]="!rolePick">
+          Ajouter
+        </button>
+      </div>
+    </div>
+  }
+
+  <div class="kap-org-filters">
+    <select
+      class="ky-input kap-filter"
+      [kyntusSelectSync]="filterOperationalDepartment"
+      (kyntusSelectSyncChange)="patchFilterOperationalDepartment($event)"
+    >
+      <option value="">Département</option>
+      @for (d of operationalDepartmentOptions; track d) {
+        <option [value]="d">{{ d }}</option>
+      }
+    </select>
+
+    <select
+      class="ky-input kap-filter"
+      [kyntusSelectSync]="filterPole"
+      (kyntusSelectSyncChange)="patchFilterPole($event)"
+    >
+      <option value="">Pôle</option>
+      @for (p of poleOptions; track p) {
+        <option [value]="p">{{ p }}</option>
+      }
+    </select>
+
+    <select
+      class="ky-input kap-filter"
+      [kyntusSelectSync]="filterCellule"
+      (kyntusSelectSyncChange)="patchFilterCellule($event)"
+    >
+      <option value="">Cellule</option>
+      @for (c of celluleOptions; track c) {
+        <option [value]="c">{{ c }}</option>
+      }
+    </select>
+
+    <select
+      class="ky-input kap-filter"
+      [kyntusSelectSync]="filterService"
+      (kyntusSelectSyncChange)="patchFilterService($event)"
+    >
+      <option value="">Service</option>
+      @for (s of serviceOptions; track s) {
+        <option [value]="s">{{ s }}</option>
+      }
+    </select>
+
+    @if (!rolesEnabled()) {
+      <select
+        class="ky-input kap-filter"
+        [kyntusSelectSync]="filterRole"
+        (kyntusSelectSyncChange)="patchFilterRole($event)"
+      >
+        <option value="">Rôle</option>
+        @for (r of roleFilterOptions; track r) {
+          <option [value]="r">{{ r }}</option>
+        }
+      </select>
+    }
+
+    <button type="button" class="ky-btn-secondary text-xs" (click)="clearOrgFilters()">Réinitialiser</button>
+  </div>
+
+  @if (structureKeysEnabled()) {
+    <div class="kap-structures">
+      <span class="kap-section-label">Structures</span>
+      <div class="kap-chips">
+        @for (k of selectedStructureKeys(); track k) {
+          <button type="button" class="kap-chip" (click)="removeStructureKey(k)">
+            {{ structureLabel(k) }}
+            <app-lucide-icon [icon]="icons.remove" className="w-3 h-3" />
+          </button>
+        }
+      </div>
+      <div class="kap-inline">
+        <button
+          type="button"
+          class="ky-btn-secondary text-xs"
+          [disabled]="!currentStructureSelection()"
+          (click)="addCurrentStructureKey()"
+        >
+          Ajouter la structure sélectionnée
+          @if (currentStructureSelection(); as sel) {
+            <span class="kap-hint">({{ sel.label }})</span>
+          }
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (mode === 'beneficiaries') {
+    <p class="kap-hint-text">
+      Filtrez par organisation et/ou rôle, cochez les employés, puis
+      <strong>Ajouter à la liste</strong>. Vous pouvez enchaîner plusieurs périmètres.
+      @if (capacity != null) {
+        Liste cumulée : {{ beneficiaryList().length }}/{{ capacity }}.
+      } @else {
+        Liste cumulée : {{ beneficiaryList().length }}.
+      }
+    </p>
+  } @else {
+    <p class="kap-hint-text">
+      Sans filtre org : tous les collaborateurs (ou ceux des rôles choisis). Affinez par structure si besoin.
+      Liste nominative vide = tout le monde dans le périmètre défini.
+    </p>
+  }
+
+  @if (hasOrgSelection() || mode === 'audience') {
+    @if (perimeterChecklist().length) {
+      <div class="kap-checklist-toolbar">
+        <button type="button" class="ky-btn-secondary text-xs" (click)="selectAllChecklist(true)">Tout cocher</button>
+        <button type="button" class="ky-btn-secondary text-xs" (click)="selectAllChecklist(false)">Tout décocher</button>
+        <div class="kap-search search-box">
+          <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
+          <input
+            class="ky-input search-input"
+            type="search"
+            placeholder="Rechercher dans le périmètre…"
+            [ngModel]="checklistSearch"
+            (ngModelChange)="onChecklistSearchChange($event)"
+          />
+        </div>
+      </div>
+      <div class="kap-employee-options">
+        @for (item of visiblePerimeterChecklist(); track item.row.user.id) {
+          <label class="kap-employee-row" [class.kap-row-locked]="isAlreadySelected(item.row)">
+            <input
+              type="checkbox"
+              [checked]="item.checked"
+              [disabled]="isAlreadySelected(item.row)"
+              (change)="toggleChecklist(userGuid(item.row.user), $any($event.target).checked)"
+            />
+            <span>
+              <span class="kap-name">
+                {{ item.row.displayName }}
+                @if (isAlreadySelected(item.row)) {
+                  <span class="kap-badge">déjà ajouté</span>
+                }
+              </span>
+              <span class="kap-meta"
+                >{{ item.row.user.email }} · {{ item.row.user.roleName }} · {{ perimeterLabel(item.row) }}</span
+              >
+            </span>
+          </label>
+        } @empty {
+          <p class="kap-muted kap-pad">
+            @if (checklistSearch.trim()) {
+              Aucun employé ne correspond à « {{ checklistSearch }} ».
+            } @else {
+              Aucun employé dans ce périmètre.
+            }
+          </p>
+        }
+      </div>
+      <div class="kap-add-row">
+        <button
+          type="button"
+          class="ky-btn-primary"
+          [disabled]="checkedInPerimeter().length === 0"
+          (click)="addCheckedToSelection()"
+        >
+          <app-lucide-icon [icon]="icons.add" className="w-4 h-4" />
+          @if (mode === 'audience') {
+            Ajouter aux collaborateurs ciblés
+          } @else {
+            Ajouter à la liste des bénéficiaires
+          }
+          @if (checkedInPerimeter().length > 0) {
+            <span>({{ checkedInPerimeter().length }})</span>
+          }
+        </button>
+      </div>
+    } @else if (!loading()) {
+      <p class="kap-muted">
+        @if (hasOrgSelection()) {
+          Aucun employé dans ce périmètre.
+        } @else {
+          Aucun collaborateur chargé pour l’instant.
+        }
+      </p>
+    }
+  } @else {
+    <p class="kap-muted">Choisissez un département, pôle, cellule ou service pour affiner le périmètre.</p>
+  }
+
+  @if (mode === 'beneficiaries') {
+    <div class="kap-selected-block">
+      <div class="kap-selected-header">
+        <h3>
+          Liste des bénéficiaires
+          <span class="kap-count">{{ beneficiaryList().length }}</span>
+        </h3>
+        @if (beneficiaryList().length > 0) {
+          <button type="button" class="ky-btn-secondary text-xs" (click)="clearBeneficiaryList()">Vider</button>
+        }
+      </div>
+      @if (beneficiaryList().length === 0) {
+        <p class="kap-muted m-0">Aucun bénéficiaire pour l’instant.</p>
+      } @else {
+        <div class="kap-chips kap-chips-wrap">
+          @for (row of beneficiaryList(); track row.user.id) {
+            <button
+              type="button"
+              class="kap-chip"
+              [title]="row.user.email + ' · ' + (row.user.roleName || '') + ' · ' + perimeterLabel(row)"
+              (click)="removeBeneficiary(row)"
+            >
+              {{ row.displayName }}
+              <app-lucide-icon [icon]="icons.remove" className="w-3 h-3" />
+            </button>
+          }
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="kap-selected-block">
+      <div class="kap-selected-header">
+        <h3>
+          Collaborateurs ciblés
+          <span class="kap-count">{{ audienceCoverageLabel() }}</span>
+          @if (selectedUserIds().length === 0 && estimatedAudienceCount() != null) {
+            <span class="kap-est">(≈ {{ estimatedAudienceCount() }})</span>
+          }
+        </h3>
+        @if (selectedUserIds().length > 0) {
+          <button type="button" class="ky-btn-secondary text-xs" (click)="clearUserIds()">Vider</button>
+        }
+      </div>
+      @if (selectedUserIds().length === 0) {
+        <p class="kap-muted m-0">{{ audienceCoverageHint() }}</p>
+      } @else {
+        <div class="kap-chips">
+          @for (id of selectedUserIds(); track id) {
+            <button type="button" class="kap-chip" (click)="removeUserId(id)">
+              {{ userLabel(id) }}
+              <app-lucide-icon [icon]="icons.remove" className="w-3 h-3" />
+            </button>
+          }
+        </div>
+      }
+    </div>
+  }
+</fieldset>

@@ -12,14 +12,21 @@ public class EmployeSnapshot
     public string Prenom { get; private set; } = string.Empty;
     public string Email { get; private set; } = string.Empty;
     public Guid ManagerId { get; private set; }
+    /// <summary>Legacy Guid service (compat quota / anciennes projections).</summary>
     public Guid ServiceId { get; private set; }
     public string ServiceNom { get; private set; } = string.Empty;
     public DateTime DateEmbauche { get; private set; }
     public bool EstMineur { get; private set; }
     public DateTime DerniereModification { get; private set; }
 
-    // ✅ AJOUT
     public string Role { get; private set; } = string.Empty;
+
+    /// <summary>IDs Directory (périmètre org multi-responsables).</summary>
+    public string? PoleId { get; private set; }
+    public string? CelluleId { get; private set; }
+    /// <summary>ID nœud service Directory (string), distinct du legacy <see cref="ServiceId"/>.</summary>
+    public string? OrgServiceId { get; private set; }
+    public Guid? BusinessDepartmentId { get; private set; }
 
     private EmployeSnapshot() { }
 
@@ -33,7 +40,11 @@ public class EmployeSnapshot
         string serviceNom,
         DateTime dateEmbauche,
         bool estMineur = false,
-        string role = "Employee")  // ✅ AJOUT
+        string role = "Employee",
+        string? poleId = null,
+        string? celluleId = null,
+        string? orgServiceId = null,
+        Guid? businessDepartmentId = null)
     {
         return new EmployeSnapshot
         {
@@ -47,7 +58,11 @@ public class EmployeSnapshot
             ServiceNom = serviceNom,
             DateEmbauche = dateEmbauche,
             EstMineur = estMineur,
-            Role = role,          // ✅ AJOUT
+            Role = role,
+            PoleId = NormalizeId(poleId),
+            CelluleId = NormalizeId(celluleId),
+            OrgServiceId = NormalizeId(orgServiceId),
+            BusinessDepartmentId = businessDepartmentId,
             DerniereModification = DateTime.UtcNow
         };
     }
@@ -60,7 +75,11 @@ public class EmployeSnapshot
         Guid serviceId,
         string serviceNom,
         string role = "Employee",
-        DateTime? dateEmbauche = null)
+        DateTime? dateEmbauche = null,
+        string? poleId = null,
+        string? celluleId = null,
+        string? orgServiceId = null,
+        Guid? businessDepartmentId = null)
     {
         Nom = nom;
         Prenom = prenom;
@@ -71,6 +90,20 @@ public class EmployeSnapshot
         Role = role;
         if (dateEmbauche.HasValue)
             DateEmbauche = dateEmbauche.Value;
+        MettreAJourPerimetre(poleId, celluleId, orgServiceId, businessDepartmentId);
+        DerniereModification = DateTime.UtcNow;
+    }
+
+    public void MettreAJourPerimetre(
+        string? poleId,
+        string? celluleId,
+        string? orgServiceId,
+        Guid? businessDepartmentId)
+    {
+        PoleId = NormalizeId(poleId);
+        CelluleId = NormalizeId(celluleId);
+        OrgServiceId = NormalizeId(orgServiceId);
+        BusinessDepartmentId = businessDepartmentId;
         DerniereModification = DateTime.UtcNow;
     }
 
@@ -117,4 +150,9 @@ public class EmployeSnapshot
     {
         return DateTime.Today >= DateEmbauche.AddMonths(6);
     }
+
+    public string NomComplet => $"{Prenom} {Nom}".Trim();
+
+    private static string? NormalizeId(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

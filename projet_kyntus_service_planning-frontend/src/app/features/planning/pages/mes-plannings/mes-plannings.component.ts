@@ -10,6 +10,7 @@ import { KyntusFormDraftService } from '../../../../core/drafts/kyntus-form-draf
 import { KyntusObjectDraftBinder } from '../../../../core/drafts/kyntus-object-draft.binder';
 import { formatWeekLabel } from '../../utils/week-code.util';
 import { BodyPortalDirective } from '../../../../shared/directives/body-portal.directive';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 interface DayAssignment {
   assignmentId?: number;
@@ -26,6 +27,7 @@ interface DayAssignment {
   absenceType?: string | null;
   slotLabel: string;
   isExceptionalRequest?: boolean;
+  isReinforcement?: boolean;
 }
 
 interface MyPlanning {
@@ -130,6 +132,7 @@ function frenchDayLabel(day: string, assignedDate: string): string {
 })
 export class MesPlanningsComponent implements OnInit, OnDestroy {
   private readonly formDrafts = inject(KyntusFormDraftService);
+  private readonly confirmService = inject(KyntusConfirmService);
   private draftBinder?: KyntusObjectDraftBinder<{
     reason: string;
     proposedSwapUserId: number | null;
@@ -262,6 +265,40 @@ export class MesPlanningsComponent implements OnInit, OnDestroy {
 
   touchDraft(): void {
     this.draftBinder?.touch();
+  }
+
+  async resetDraftForm(): Promise<void> {
+    if (!this.showModal) return;
+    const ok = await this.confirmService.confirm({
+      title: 'Effacer la saisie',
+      message: 'Effacer la saisie et le brouillon de cette demande de changement ?',
+      confirmLabel: 'Effacer',
+    });
+    if (!ok) return;
+    this.draftBinder?.discard();
+    this.reason = '';
+    this.proposedSwapUserId = null;
+    this.modalError = '';
+    this.restartDraftBinder();
+  }
+
+  private restartDraftBinder(): void {
+    this.draftBinder?.destroy();
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'planning-change-request-create',
+      () => ({
+        reason: this.reason,
+        proposedSwapUserId: this.proposedSwapUserId,
+        assignmentId: this.selectedDay?.assignmentId ?? null,
+        assignedDate: this.selectedDay?.assignedDate ?? null,
+      }),
+      (s) => {
+        if (typeof s.reason === 'string') this.reason = s.reason;
+        if (s.proposedSwapUserId != null) this.proposedSwapUserId = s.proposedSwapUserId;
+      },
+    );
+    this.draftBinder.start();
   }
 
   openChangeModal(d: DayAssignment): void {
@@ -430,6 +467,7 @@ export class MesPlanningsComponent implements OnInit, OnDestroy {
       absenceType: (d['absenceType'] ?? d['AbsenceType'] ?? null) as string | null,
       slotLabel: String(d['slotLabel'] ?? d['SlotLabel'] ?? ''),
       isExceptionalRequest: Boolean(d['isExceptionalRequest'] ?? d['IsExceptionalRequest']),
+      isReinforcement: Boolean(d['isReinforcement'] ?? d['IsReinforcement']),
     };
   }
 }

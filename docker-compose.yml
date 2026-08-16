@@ -24,7 +24,10 @@ services:
 
   # ─── DATABASE UNIQUE ──────────────────────────────────
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: ./init
+      dockerfile: postgres/Dockerfile
+    image: projets_mykyntus--postgres:16
     container_name: kyntus_db
     restart: unless-stopped
     environment:
@@ -40,7 +43,6 @@ services:
       KYNTUS_DB_PASSWORD_DIRECTORY: ${KYNTUS_DB_PASSWORD_DIRECTORY:?Définir KYNTUS_DB_PASSWORD_DIRECTORY dans .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
     ports:
       - "8433:5432"
     healthcheck:

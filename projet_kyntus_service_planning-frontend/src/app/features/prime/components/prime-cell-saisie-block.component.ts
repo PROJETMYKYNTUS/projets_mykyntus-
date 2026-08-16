@@ -94,7 +94,7 @@ export interface CellSaisieSaveResult {
             Saisie — partie cellule
           </h2>
           <p class="text-sm text-muted max-w-prose leading-relaxed">
-            Grille alignée sur le gabarit partie « Cellule » du brouillon pôle. Les pondérations % proviennent de la
+            Grille alignée sur le gabarit partie service. Les pondérations % proviennent de la
             configuration indicateurs (lecture seule).
           </p>
         </header>
@@ -137,7 +137,7 @@ export interface CellSaisieSaveResult {
       } @else if (hasNoActiveIndicators()) {
         <app-prime-card
           title="Aucun indicateur configuré"
-          description="Configurez d’abord les indicateurs pour le service de cet employé (écran « Indicateurs PRIME »)."
+            description="Configurez d’abord les indicateurs pour le service de cet employé (écran « Indicateurs & pondérations »)."
         >
           <button
             type="button"
@@ -587,7 +587,7 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
       const warnings: string[] = [];
       if (usedIndexFallback && !(ind.templateStableId ?? '').trim()) {
         warnings.push(
-          `Indicateur « ${ind.label} » non rattaché à une ligne précise du gabarit : association par ordre d’apparition. Associez-le à une ligne dans « Indicateurs PRIME ».`,
+          `Indicateur « ${ind.label} » non rattaché à une ligne précise du gabarit : association par ordre d’apparition. Associez-le à une ligne dans « Indicateurs & pondérations ».`,
         );
       }
       let row = ligneDynamicFromTemplateLine(tl);

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewEncapsulation, inject, ElementRef, ViewChild, HostListener, effect } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewEncapsulation, inject, ElementRef, ViewChild, HostListener, effect, signal } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
 
@@ -7,7 +7,7 @@ import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 import { filter } from 'rxjs/operators';
-import { Bell, Moon, Settings, Sun } from 'lucide';
+import { Bell, CircleHelp, Moon, Settings, Sun } from 'lucide';
 
 import { Microservice, MenuItem } from '../../core/navigation/microservices.config';
 
@@ -109,7 +109,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   readonly notifInit = inject(KyntusNotificationInitService);
   readonly shellUi = inject(KyntusShellUiService);
 
-  readonly icons = { bell: Bell, settings: Settings, moon: Moon, sun: Sun };
+  readonly icons = { bell: Bell, help: CircleHelp, settings: Settings, moon: Moon, sun: Sun };
 
   currentUser: any = null;
 
@@ -125,7 +125,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
       : '/assets/brand/logo-mode-claire.png?v=icon3';
   }
 
-  moduleContentClass = '';
+  moduleContentClass = signal('');
 
 
 
@@ -135,9 +135,9 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
 
 
-  groups: Microservice[] = [];
+  readonly groups = signal<Microservice[]>([]);
 
-  openGroups = new Set<string>();
+  readonly openGroups = signal(new Set<string>());
 
   private subDocRole?: { unsubscribe(): void };
 
@@ -224,7 +224,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
     void this.inboxBadge.refreshForRole(this.role).finally(() => {
 
-      this.groups = this.menuService.buildVisibleGroups(this.role);
+      this.groups.set(this.menuService.buildVisibleGroups(this.role));
 
       this.openGroupForUrl(this.router.url);
 
@@ -239,18 +239,18 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     const path = url.split('?')[0];
 
     if (/^\/prime(\/|$)/.test(path)) {
-      this.moduleContentClass = 'module-prime';
+      this.moduleContentClass.set('module-prime');
     } else if (/^\/parrainage(\/|$)/.test(path)) {
 
-      this.moduleContentClass = 'module-parrainage';
+      this.moduleContentClass.set('module-parrainage');
 
     } else if (/^\/documentation(\/|$)/.test(path)) {
 
-      this.moduleContentClass = 'module-documentation';
+      this.moduleContentClass.set('module-documentation');
 
     } else {
 
-      this.moduleContentClass = '';
+      this.moduleContentClass.set('');
 
     }
 
@@ -260,38 +260,62 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
   private openGroupForUrl(url: string): void {
     const path = url.split('?')[0];
-    this.openGroups.clear();
+    const next = new Set<string>();
+    const groups = this.groups();
 
-    for (const g of this.groups) {
+    // /prime est partagé (ex. entrée « Périmètre superviseur ») : ouvrir le groupe
+    // dont l’enfant correspond à la vue Prime active, pas le premier route=/prime.
+    if (path.startsWith('/prime')) {
+      const activePrime = this.primeNav.activePath();
+      const byPrimePath = groups.find((g) =>
+        g.children.some((c) => c.primePath !== undefined && c.primePath === activePrime),
+      );
+      if (byPrimePath) {
+        next.add(byPrimePath.id);
+        this.openGroups.set(next);
+        return;
+      }
+      if (groups.some((g) => g.id === 'prime')) {
+        next.add('prime');
+        this.openGroups.set(next);
+        return;
+      }
+    }
+
+    for (const g of groups) {
       const matchChild = g.children.some((c) => {
+        if (c.primePath !== undefined || c.parrainageView !== undefined) return false;
         if (c.route && path.startsWith(c.route)) return true;
         return false;
       });
 
       if (
         matchChild ||
-        (g.id === 'prime' && path.startsWith('/prime')) ||
         (g.id === 'parrainage' && path.startsWith('/parrainage')) ||
         (g.id === 'documentation' && path.startsWith('/documentation'))
       ) {
-        this.openGroups.add(g.id);
+        next.add(g.id);
         break; // une seule section ouverte → pas de surcharge visuelle
       }
     }
+    this.openGroups.set(next);
   }
 
   toggleGroup(id: string): void {
-    if (this.openGroups.has(id)) {
-      this.openGroups.delete(id);
+    const next = new Set(this.openGroups());
+    if (next.has(id)) {
+      next.delete(id);
+      this.openGroups.set(next);
       return;
     }
     // Accordion : ouvrir un groupe ferme automatiquement les autres
-    this.openGroups.clear();
-    this.openGroups.add(id);
+    next.clear();
+    next.add(id);
+    this.openGroups.set(next);
   }
 
   isOpen(id: string): boolean {
-    return this.openGroups.has(id);
+    return this.openGroups().has(id);
   }
 
 
@@ -455,6 +479,12 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     this.sidebarOpen = false;
     this.shellUi.closeDropdown();
     void this.router.navigate(['/notifications']);
+  }
+
+  openAssistance(): void {
+    this.sidebarOpen = false;
+    this.shellUi.closeDropdown();
+    void this.router.navigate(['/assistance']);
   }
 
   openSettings(): void {

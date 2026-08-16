@@ -5,9 +5,10 @@ using Planning.Domain.Enums;
 namespace Planning.Infrastructure.Services;
 
 /// <summary>
-/// Règle plateau : un débutant (Level 1) ne doit pas être seul sur un créneau —
-/// au moins un Confirmé/Expert (Level &gt;= 2) sur le même shift (Lun–Ven, tous ShiftKind).
-/// Samedi : sur l'ensemble des présents du jour (demi-journées incluses).
+/// Règle plateau : un débutant (Level 1) ne doit pas être seul —
+/// au moins un Confirmé/Expert (Level &gt;= 2) sur le même créneau (Lun–Ven),
+/// ou parmi les présents du jour (Samedi, demi-journées incluses).
+/// Priorité production sur couverture / permutations.
 /// </summary>
 public static class LevelBalanceEvaluator
 {

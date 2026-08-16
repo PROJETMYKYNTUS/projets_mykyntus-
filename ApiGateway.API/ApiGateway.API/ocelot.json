@@ -361,6 +361,32 @@
       ]
     },
     {
+      "UpstreamPathTemplate": "/api/Conges/{id}/valider-superviseur",
+      "UpstreamHttpMethod": [ "PUT" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/{id}/valider-superviseur",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "conge-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/Conges/{id}/valider-rh",
+      "UpstreamHttpMethod": [ "PUT" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/{id}/valider-rh",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "conge-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
       "UpstreamPathTemplate": "/api/Conges/{id}/refuser",
       "UpstreamHttpMethod": [ "PUT" ],
       "RouteIsCaseSensitive": false,
@@ -378,6 +404,19 @@
       "UpstreamHttpMethod": [ "PUT" ],
       "RouteIsCaseSensitive": false,
       "DownstreamPathTemplate": "/api/Conges/{id}/annuler",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "conge-backend",
+          "Port": 8080
+        }
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/api/Conges/{everything}",
+      "UpstreamHttpMethod": [ "GET", "PUT", "POST" ],
+      "RouteIsCaseSensitive": false,
+      "DownstreamPathTemplate": "/api/Conges/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {

@@ -16,8 +16,8 @@ const RH_ITEMS: ParrainageMenuDef[] = [
 ];
 
 const PILOTE_ITEMS: ParrainageMenuDef[] = [
-  { label: 'Tableau de bord', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-dashboard', parrainageRoles: ['PILOTE'] },
   { label: 'Soumettre un parrainage', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-submit', parrainageRoles: ['PILOTE'] },
+  { label: 'Tableau de bord', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-dashboard', parrainageRoles: ['PILOTE'] },
   { label: 'Suivi des parrainages', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-referrals', parrainageRoles: ['PILOTE'] },
   { label: 'Suivi des primes', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-bonus', parrainageRoles: ['PILOTE'] },
 ];
@@ -44,7 +44,7 @@ const COMPTA_ITEMS: ParrainageMenuDef[] = [
 
 const AUDIT_ITEMS: ParrainageMenuDef[] = [
   {
-    label: 'Dashboard audit',
+    label: 'Tableau de bord audit',
     route: PARRAINAGE_ROUTE,
     parrainageView: 'admin-audit',
     parrainageAuditSection: 'dashboard',

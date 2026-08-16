@@ -20,6 +20,25 @@
   color: var(--text-muted, #64748b);
 }
 
+.equipe-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.equipe-filters .ky-input {
+  flex: 1;
+  min-width: 140px;
+}
+
+.equipe-empty-filter {
+  padding: 1rem 0;
+  font-size: 0.9rem;
+  color: var(--text-muted, #64748b);
+}
+
 .equipe-list {
   display: flex;
   flex-direction: column;

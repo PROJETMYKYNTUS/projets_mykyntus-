@@ -35,7 +35,7 @@ public class AnnulerCongeHandler : IRequestHandler<AnnulerCongeCommand, bool>
 
         var ancienStatut = demande.Statut;
 
-        demande.Annuler();
+        demande.Annuler(request.EmployeId);
 
         if (ancienStatut == StatutDemande.Validee && demande.TypeConge == TypeConge.Annuel)
         {
@@ -58,6 +58,8 @@ public class AnnulerCongeHandler : IRequestHandler<AnnulerCongeCommand, bool>
                 demande.EmployeId,
                 demande.Id,
                 "Annulation après validation",
+                request.EmployeId,
+                null,
                 ct);
         }
 

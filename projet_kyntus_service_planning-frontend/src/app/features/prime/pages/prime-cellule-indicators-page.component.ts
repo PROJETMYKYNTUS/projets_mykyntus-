@@ -24,18 +24,25 @@ import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { KyntusSelectSyncDirective } from '@/shared/directives/kyntus-select-sync.directive';
 import { PrimeCardComponent } from '../components/prime-card.component';
 import { getCellTemplateLinesOrDerived, parsePrimeSchemaFromDraftJson } from '../lib/prime-cell-schema-merge';
+import { isPoleContract } from '../lib/prime-pole-saisie-filter';
 import {
+  draftListOrganizationalKey,
   PrimeCellPrimeApiService,
+  type PutServicePoleLinePonderationItem,
   type PutServicePrimeIndicatorItem,
+  type ServicePoleLinePonderationDto,
   type ServicePrimeIndicatorDto,
+  type SupervisorPolePrimeDraftListItemDto,
 } from '../services/prime-cell-prime-api.service';
 import {
   PrimeOrgApiService,
   type SupervisorOrgScopeCellule,
   type SupervisorOrgScopePole,
 } from '../services/prime-org-api.service';
+import { PrimeNavRequestService } from '../services/prime-nav-request.service';
 import { reconcileSelectModel } from '../lib/prime-select-options';
 import { RoleService } from '../state/role.service';
+import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 function httpErr(err: unknown): string {
   if (err instanceof HttpErrorResponse) {
@@ -48,6 +55,20 @@ function httpErr(err: unknown): string {
 
 type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
 
+type PolePondRow = {
+  templateStableId: string;
+  label: string;
+  sortOrder: number;
+  contract: string;
+  ponderationPrimePct: number | null;
+  ponderationChallengePct: number | null;
+};
+
+function isSummaryLikeIndicator(label: string): boolean {
+  const t = (label ?? '').trim();
+  return /^somme\b/i.test(t) || /^total\b/i.test(t);
+}
+
 @Component({
   selector: 'app-prime-cellule-indicators-page',
   standalone: true,
@@ -57,28 +78,58 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-primary sm:text-3xl flex items-center gap-2">
           <app-lucide-icon [icon]="icons.sliders" className="w-8 h-8 text-blue-600 shrink-0" />
-          Indicateurs PRIME — par service
+          Indicateurs &amp; pondérations PRIME
         </h1>
         <p class="text-muted mt-2 max-w-2xl text-sm">
-          Choisissez la <strong>cellule</strong> puis le <strong>service</strong> de votre pôle superviseur : les
-          indicateurs sont enregistrés pour ce service. La saisie pilote affiche ceux du service de l’employé choisi.
-          « Appliquer à toute la cellule » duplique la grille sur tous les services de la cellule courante.
+          Enregistrement au niveau <strong>service</strong> (source de vérité). La
+          <strong>cellule</strong> sert à naviguer et à propager : « Appliquer à toute la cellule »
+          copie indicateurs partie service + pondérations RACC/SAV sur tous les services, pour éviter
+          de resaisir quand c’est identique.
         </p>
       </div>
 
       <app-prime-card
-        title="Cellule et service"
-        description="Périmètre = pôle d’affectation du superviseur (défini en RH). Les lignes de gabarit proviennent du modèle Excel de ce pôle pour la période de référence."
+        title="Cellule, service et période"
+        description="Service = enregistrement. Cellule = navigation / propagation. Période = modèle partie commune uploadé (lignes RACC/SAV)."
       >
         @if (supervisorPole(); as pole) {
-          <p class="mb-4 text-sm text-primary">
-            <span class="text-muted">Pôle superviseur :</span>
-            <strong class="ml-1">{{ pole.name }}</strong>
-          </p>
+          <div class="mb-4 flex flex-wrap items-end gap-3">
+            @if (scopePoles().length > 1) {
+              <label class="text-sm text-muted flex flex-col gap-1 min-w-[12rem]">
+                <span>Pôle actif</span>
+                <select
+                  class="rounded-lg border border-default bg-card px-3 py-2 text-sm text-primary"
+                  [kyntusSelectSync]="selectedPoleId()"
+                  (kyntusSelectSyncChange)="onPoleChange($event)"
+                >
+                  @for (p of scopePoles(); track p.id) {
+                    <option [value]="p.id">{{ p.name }}</option>
+                  }
+                </select>
+              </label>
+            } @else {
+              <p class="text-sm text-primary m-0">
+                <span class="text-muted">Pôle superviseur :</span>
+                <strong class="ml-1">{{ pole.name }}</strong>
+              </p>
+            }
+          </div>
         } @else if (scopePoles().length === 0 && !scopeLoading()) {
           <p class="mb-4 text-sm text-muted">Aucun pôle dans votre périmètre (vérifiez le rôle Superviseur).</p>
         }
         <div class="flex flex-wrap gap-4 items-end">
+          <div class="min-w-[10rem]">
+            <label class="block text-sm font-medium text-muted mb-1">Période</label>
+            <select
+              [kyntusSelectSync]="period()"
+              (kyntusSelectSyncChange)="onPeriodChange($event)"
+              class="w-full rounded-lg border border-default bg-input px-3 py-2 text-sm text-primary"
+            >
+              @for (p of periodOptions(); track p) {
+                <option [value]="p">{{ p }}</option>
+              }
+            </select>
+          </div>
           <div class="flex-1 min-w-[12rem]">
             <label class="block text-sm font-medium text-muted mb-1">Cellule</label>
             @if (rhCelluleReadOnly(); as cellName) {
@@ -145,6 +196,12 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
             Appliquer à toute la cellule
           </button>
         </div>
+        @if (uploadedModelHint()) {
+          <p class="mt-3 text-xs text-muted">
+            Modèle source RACC/SAV :
+            <strong class="text-primary">{{ uploadedModelHint() }}</strong>
+          </p>
+        }
       </app-prime-card>
 
       @if (banner()) {
@@ -154,7 +211,10 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
       }
 
       @if (selectedServiceId() && rows().length) {
-        <app-prime-card title="Indicateurs" description="Ordre = colonne « ordre » (tri croissant)">
+        <app-prime-card
+          title="Partie service — indicateurs"
+          description="Indicateurs propres au service (saisie pilote). Ordre = colonne « ordre » (tri croissant)."
+        >
           <div class="overflow-x-auto rounded-lg border border-default">
             <table class="w-full text-sm text-left min-w-[720px]">
               <thead class="bg-input text-muted text-xs uppercase">
@@ -250,9 +310,71 @@ type DraftRow = PutServicePrimeIndicatorItem & { localId: string };
         </app-prime-card>
       }
 
+      @if (selectedServiceId()) {
+        <app-prime-card
+          title="Colonne Pondération — RACC / SAV (modèle uploadé)"
+          description="Une ligne = un KPI du modèle partie commune. Saisir Pondération Prime et Pondération Challenge (séparées) pour le service sélectionné. Résultats / seuils restent dans la saisie partie commune."
+        >
+          @if (polePondRows().length === 0) {
+            <p class="text-sm text-muted">
+              Uploadez d’abord un modèle partie commune pour la période
+              <strong class="text-primary">{{ period() }}</strong>, puis revenez ici pour saisir les pondérations par
+              KPI.
+            </p>
+          } @else {
+            <div class="overflow-x-auto rounded-lg border border-default">
+              <table class="w-full text-sm text-left min-w-[640px]">
+                <thead class="bg-input text-muted text-xs uppercase">
+                  <tr>
+                    <th class="px-3 py-2">Contrat</th>
+                    <th class="px-3 py-2">Indicateur (KPI)</th>
+                    <th class="px-3 py-2">Pondération Prime</th>
+                    <th class="px-3 py-2">Pondération Challenge</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-default">
+                  @for (r of polePondRows(); track r.templateStableId) {
+                    <tr>
+                      <td class="px-3 py-2 text-xs font-semibold text-muted">{{ r.contract }}</td>
+                      <td class="px-3 py-2 text-primary">{{ r.label }}</td>
+                      <td class="px-3 py-2">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          [value]="r.ponderationPrimePct ?? ''"
+                          (input)="patchPolePond(r.templateStableId, { ponderationPrimePct: parsePct($any($event.target).value) })"
+                          class="w-24 rounded border border-default bg-input px-2 py-1 text-primary"
+                          placeholder="—"
+                          title="Colonne Pondération — bande Prime"
+                        />
+                      </td>
+                      <td class="px-3 py-2">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          [value]="r.ponderationChallengePct ?? ''"
+                          (input)="patchPolePond(r.templateStableId, { ponderationChallengePct: parsePct($any($event.target).value) })"
+                          class="w-24 rounded border border-default bg-input px-2 py-1 text-primary"
+                          placeholder="—"
+                          title="Colonne Pondération — bande Challenge"
+                        />
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </app-prime-card>
+      }
+
       <app-prime-card
         title="Aperçu des services"
-        description="Services de votre périmètre superviseur. Dépliez pour voir les indicateurs ou « Modifier » pour éditer."
+        description="Services de votre périmètre superviseur. Dépliez pour voir les indicateurs partie service ou « Modifier » pour éditer."
       >
         @if (previewEntries().length === 0) {
           <p class="text-sm text-muted">Aucune cellule ou service dans votre périmètre (vérifiez le rôle Superviseur).</p>
@@ -391,6 +513,8 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
   private readonly api = inject(PrimeCellPrimeApiService);
   private readonly orgApi = inject(PrimeOrgApiService);
   private readonly role = inject(RoleService);
+  private readonly nav = inject(PrimeNavRequestService);
+  private readonly confirmService = inject(KyntusConfirmService);
 
   readonly icons = {
     sliders: SlidersHorizontal,
@@ -406,11 +530,15 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
 
   readonly scopePoles = signal<SupervisorOrgScopePole[]>([]);
   readonly scopeLoading = signal(true);
+  readonly selectedPoleId = signal('');
   readonly period = signal(this.defaultPeriod());
+  readonly activeDrafts = signal<SupervisorPolePrimeDraftListItemDto[]>([]);
+  readonly uploadedModelHint = signal<string | null>(null);
   readonly templateStableOptions = signal<{ value: string; label: string }[]>([]);
   readonly selectedRhCelluleId = signal('');
   readonly selectedServiceId = signal('');
   readonly rows = signal<DraftRow[]>([]);
+  readonly polePondRows = signal<PolePondRow[]>([]);
   readonly saving = signal(false);
   readonly bulkApplying = signal(false);
   readonly banner = signal<string | null>(null);
@@ -420,10 +548,23 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
   readonly cellIndicatorsLoading = signal<ReadonlySet<string>>(new Set<string>());
   readonly cellIndicatorsMap = signal<ReadonlyMap<string, ServicePrimeIndicatorDto[]>>(new Map());
 
-  /** Pôle d’affectation du superviseur (un seul périmètre côté API). */
-  readonly supervisorPole = computed(() => this.scopePoles()[0] ?? null);
+  /** Pôle d’affectation du superviseur (sélection persistée si multi). */
+  readonly supervisorPole = computed(() => {
+    const poles = this.scopePoles();
+    if (poles.length === 0) return null;
+    const sel = this.selectedPoleId().trim();
+    return poles.find((p) => p.id === sel) ?? poles[0] ?? null;
+  });
 
   readonly rhCelluleOptions = computed(() => this.supervisorPole()?.cellules ?? []);
+
+  readonly periodOptions = computed(() => {
+    const fromDrafts = this.activeDrafts()
+      .map((d) => (d.period ?? '').trim())
+      .filter((p) => /^\d{4}-\d{2}$/.test(p));
+    const set = new Set<string>([this.period(), this.defaultPeriod(), ...fromDrafts]);
+    return [...set].sort((a, b) => b.localeCompare(a));
+  });
 
   /** Une seule cellule dans le périmètre → affichage lecture seule (nom RH). */
   readonly rhCelluleReadOnly = computed((): string | null => {
@@ -481,6 +622,11 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    const requested = this.nav.requestedPeriod();
+    if (requested && /^\d{4}-\d{2}$/.test(requested)) {
+      this.period.set(requested);
+      this.nav.clearRequestedPeriod();
+    }
     this.reloadScope();
   }
 
@@ -509,10 +655,30 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
     this.cellIndicatorsMap.set(new Map());
     this.cellIndicatorsLoading.set(new Set());
     this.expandedCellIds.set(new Set());
-    this.orgApi.getSupervisorScope(u.id).subscribe({
-      next: (poles) => {
+    forkJoin({
+      poles: this.orgApi.getSupervisorScope(u.id).pipe(catchError(() => of([] as SupervisorOrgScopePole[]))),
+      drafts: this.api.listActivePoleDrafts(u.id).pipe(catchError(() => of([] as SupervisorPolePrimeDraftListItemDto[]))),
+    }).subscribe({
+      next: ({ poles, drafts }) => {
         this.scopePoles.set(poles);
-        const pole = poles[0];
+        this.activeDrafts.set(drafts);
+        const userId = this.role.currentUser().id;
+        const poleIds = poles.map((p) => p.id);
+        let stored = '';
+        try {
+          stored = (localStorage.getItem(`kyntus.scope.pole.${userId.trim().toLowerCase()}`) ?? '').trim();
+        } catch {
+          stored = '';
+        }
+        const activePoleId =
+          (this.selectedPoleId().trim() && poleIds.includes(this.selectedPoleId().trim())
+            ? this.selectedPoleId().trim()
+            : null) ||
+          (stored && poleIds.includes(stored) ? stored : null) ||
+          poleIds[0] ||
+          '';
+        this.selectedPoleId.set(activePoleId);
+        const pole = poles.find((p) => p.id === activePoleId) ?? poles[0];
         const serviceIds = pole
           ? pole.cellules.flatMap((c) => c.services.map((s) => s.id))
           : [];
@@ -523,11 +689,15 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
           this.selectedRhCelluleId.set('');
           this.selectedServiceId.set('');
           this.rows.set([]);
+          this.polePondRows.set([]);
           this.templateStableOptions.set([]);
+          this.uploadedModelHint.set(null);
         } else if (curSvc && !serviceIds.includes(curSvc)) {
           this.selectedServiceId.set('');
           this.rows.set([]);
+          this.polePondRows.set([]);
           this.templateStableOptions.set([]);
+          this.uploadedModelHint.set(null);
         }
         this.applyDefaultRhCelluleSelection();
         this.preloadAllCellIndicators(serviceIds);
@@ -535,9 +705,43 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
       },
       error: () => {
         this.scopePoles.set([]);
+        this.activeDrafts.set([]);
         this.scopeLoading.set(false);
       },
     });
+  }
+
+  onPoleChange(poleId: string): void {
+    const id = (poleId ?? '').trim();
+    if (!id || id === this.selectedPoleId()) return;
+    this.selectedPoleId.set(id);
+    const userId = this.role.currentUser().id;
+    try {
+      localStorage.setItem(`kyntus.scope.pole.${userId.trim().toLowerCase()}`, id);
+    } catch {
+      /* ignore */
+    }
+    this.selectedRhCelluleId.set('');
+    this.selectedServiceId.set('');
+    this.rows.set([]);
+    this.polePondRows.set([]);
+    this.templateStableOptions.set([]);
+    this.uploadedModelHint.set(null);
+    this.banner.set(null);
+    this.applyDefaultRhCelluleSelection();
+    const pole = this.supervisorPole();
+    const serviceIds = pole ? pole.cellules.flatMap((c) => c.services.map((s) => s.id)) : [];
+    this.preloadAllCellIndicators(serviceIds);
+  }
+
+  onPeriodChange(period: string): void {
+    const next = reconcileSelectModel((period ?? '').trim(), this.periodOptions());
+    if (!next || next === this.period()) return;
+    this.period.set(next);
+    this.banner.set(null);
+    this.uploadedModelHint.set(null);
+    const svc = this.selectedServiceId().trim();
+    if (svc) this.loadIndicatorsAndStableLines(svc);
   }
 
   /** Présélection : cellule d’affectation du superviseur, sinon unique cellule du périmètre. */
@@ -592,6 +796,7 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
     if (!nextCell) {
       this.selectedServiceId.set('');
       this.rows.set([]);
+      this.polePondRows.set([]);
       this.templateStableOptions.set([]);
       return;
     }
@@ -614,6 +819,7 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
     this.banner.set(null);
     if (!serviceId) {
       this.rows.set([]);
+      this.polePondRows.set([]);
       this.templateStableOptions.set([]);
       return;
     }
@@ -665,49 +871,132 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
 
   private loadIndicatorsAndStableLines(serviceId: string): void {
     const u = this.role.currentUser();
-    this.api.getIndicators(serviceId, u.id).subscribe({
-      next: (list) => {
-        this.rows.set(list.map((x) => this.fromDto(x)));
-        this.api.cellsSummary(u.id, this.period()).subscribe({
-          next: (summaries) => {
-            const s = summaries.find((x) => x.serviceId === serviceId);
-            const rhCell = this.findRhCelluleForService(serviceId);
-            const tid = (s?.linkedTemplateId ?? '').trim();
-            const pole = (rhCell?.rootPoleId ?? s?.celluleId ?? '').trim();
-            if (!tid || !pole) {
+    const period = this.period();
+    forkJoin({
+      indicators: this.api.getIndicators(serviceId, u.id).pipe(catchError(() => of([] as ServicePrimeIndicatorDto[]))),
+      polePonds: this.api
+        .getPoleLinePonderations(serviceId, u.id)
+        .pipe(catchError(() => of([] as ServicePoleLinePonderationDto[]))),
+      drafts: this.api
+        .listActivePoleDrafts(u.id)
+        .pipe(catchError(() => of([] as SupervisorPolePrimeDraftListItemDto[]))),
+      summaries: this.api.cellsSummary(u.id, period).pipe(catchError(() => of([]))),
+    }).subscribe({
+      next: ({ indicators, polePonds, drafts, summaries }) => {
+        this.rows.set(indicators.map((x) => this.fromDto(x)));
+        this.activeDrafts.set(drafts);
+
+        const rhCell = this.findRhCelluleForService(serviceId);
+        const celluleId = (rhCell?.id ?? this.selectedRhCelluleId() ?? '').trim();
+        const summary = summaries.find((x) => x.serviceId === serviceId);
+        const draftForPeriod = this.resolveDraftForPeriod(drafts, period, celluleId);
+
+        const tid = (draftForPeriod?.templateId ?? summary?.linkedTemplateId ?? '').trim();
+        const orgKey = draftForPeriod
+          ? draftListOrganizationalKey(draftForPeriod)
+          : (rhCell?.rootPoleId ?? summary?.celluleId ?? celluleId).trim();
+
+        if (!tid || !orgKey) {
+          this.templateStableOptions.set([]);
+          this.polePondRows.set(this.mergePolePondRows([], polePonds));
+          this.uploadedModelHint.set(null);
+          return;
+        }
+
+        this.api
+          .getPoleDraft(u.id, orgKey, period, tid)
+          .pipe(catchError(() => of(null)))
+          .subscribe((draft) => {
+            if (!draft?.schemaJson) {
               this.templateStableOptions.set([]);
+              this.polePondRows.set(this.mergePolePondRows([], polePonds));
+              this.uploadedModelHint.set(null);
               return;
             }
-            this.api
-              .getPoleDraft(u.id, pole, this.period(), tid)
-              .pipe(catchError(() => of(null)))
-              .subscribe((draft) => {
-                if (!draft?.schemaJson) {
-                  this.templateStableOptions.set([]);
-                  return;
-                }
-                const schema = parsePrimeSchemaFromDraftJson(draft.schemaJson);
-                const optActives = this.rows()
-                  .filter((r) => r.isActive && r.label.trim())
-                  .map((r) => this.toIndicatorDtoStub(serviceId, r));
-                const lines = getCellTemplateLinesOrDerived(schema, optActives);
-                this.templateStableOptions.set(
-                  lines.map((l) => ({
-                    value: l.stableId,
-                    label: (l.indicator ?? '').trim() || '(sans libellé)',
-                  })),
-                );
-              });
-          },
-          error: () => this.templateStableOptions.set([]),
-        });
+            const schema = parsePrimeSchemaFromDraftJson(draft.schemaJson);
+            const name = (draft.templateDisplayName || draftForPeriod?.templateDisplayName || tid).trim();
+            this.uploadedModelHint.set(`${period} · ${name}`);
+            const optActives = this.rows()
+              .filter((r) => r.isActive && r.label.trim())
+              .map((r) => this.toIndicatorDtoStub(serviceId, r));
+            const lines = getCellTemplateLinesOrDerived(schema, optActives);
+            this.templateStableOptions.set(
+              lines.map((l) => ({
+                value: l.stableId,
+                label: (l.indicator ?? '').trim() || '(sans libellé)',
+              })),
+            );
+            const poleLines =
+              schema?.lines.filter(
+                (ln) =>
+                  isPoleContract(ln.contract) &&
+                  !isSummaryLikeIndicator(ln.indicator ?? '') &&
+                  (ln.stableId ?? '').trim().length > 0,
+              ) ?? [];
+            this.polePondRows.set(this.mergePolePondRows(poleLines, polePonds));
+          });
       },
       error: (e) => {
         this.rows.set([]);
+        this.polePondRows.set([]);
+        this.uploadedModelHint.set(null);
         this.banner.set(httpErr(e));
         this.bannerIsError.set(true);
       },
     });
+  }
+
+  /** Brouillon partie commune pour la période (préférence cellule courante). */
+  private resolveDraftForPeriod(
+    drafts: ReadonlyArray<SupervisorPolePrimeDraftListItemDto>,
+    period: string,
+    celluleId: string,
+  ): SupervisorPolePrimeDraftListItemDto | null {
+    const forPeriod = drafts.filter((d) => (d.period ?? '').trim() === period);
+    if (!forPeriod.length) return null;
+    if (celluleId) {
+      const hit = forPeriod.find((d) => draftListOrganizationalKey(d) === celluleId);
+      if (hit) return hit;
+    }
+    return forPeriod[0] ?? null;
+  }
+
+  private mergePolePondRows(
+    templateLines: ReadonlyArray<{ stableId: string; indicator?: string; contract: string }>,
+    saved: ReadonlyArray<ServicePoleLinePonderationDto>,
+  ): PolePondRow[] {
+    const bySid = new Map(saved.map((x) => [x.templateStableId.trim(), x]));
+    if (templateLines.length) {
+      return templateLines.map((ln, idx) => {
+        const sid = ln.stableId.trim();
+        const hit = bySid.get(sid);
+        return {
+          templateStableId: sid,
+          label: (ln.indicator ?? '').trim() || hit?.label || sid,
+          sortOrder: hit?.sortOrder ?? idx,
+          contract: (ln.contract || '').trim().toUpperCase() || 'RACC',
+          ponderationPrimePct: hit?.ponderationPrimePct ?? null,
+          ponderationChallengePct: hit?.ponderationChallengePct ?? null,
+        };
+      });
+    }
+    return saved
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((x) => ({
+        templateStableId: x.templateStableId,
+        label: x.label || x.templateStableId,
+        sortOrder: x.sortOrder,
+        contract: '—',
+        ponderationPrimePct: x.ponderationPrimePct,
+        ponderationChallengePct: x.ponderationChallengePct,
+      }));
+  }
+
+  patchPolePond(templateStableId: string, patch: Partial<PolePondRow>): void {
+    this.polePondRows.update((rs) =>
+      rs.map((r) => (r.templateStableId === templateStableId ? { ...r, ...patch } : r)),
+    );
   }
 
   private toIndicatorDtoStub(serviceId: string, r: DraftRow): ServicePrimeIndicatorDto {
@@ -803,6 +1092,18 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
       }));
   }
 
+  private rowsToPutPolePonderations(): PutServicePoleLinePonderationItem[] {
+    return this.polePondRows()
+      .filter((r) => r.templateStableId.trim().length > 0)
+      .map((r, idx) => ({
+        templateStableId: r.templateStableId.trim(),
+        label: r.label.trim(),
+        sortOrder: r.sortOrder ?? idx,
+        ponderationPrimePct: r.ponderationPrimePct,
+        ponderationChallengePct: r.ponderationChallengePct,
+      }));
+  }
+
   /** Met à jour le cache indicateurs après un PUT réussi pour un ou plusieurs services. */
   private mergeIndicatorsIntoCache(updates: ReadonlyArray<{ serviceId: string; list: ServicePrimeIndicatorDto[] }>): void {
     if (!updates.length) return;
@@ -815,32 +1116,39 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
     });
   }
 
-  applyToAllServicesInCell(): void {
+  async applyToAllServicesInCell(): Promise<void> {
     if (!this.canBulkApplyToCell()) return;
     const services = this.serviceOptions();
     const u = this.role.currentUser();
     if (!u?.id) return;
     const svcLines = services.map((s) => `• ${(s.name || '').trim() || s.id}`);
-    const confirmed = window.confirm(
-      [
-        `Répliquer la grille affichée (service « source » sélectionné) sur les ${services.length} services suivants ?`,
+    const confirmed = await this.confirmService.confirm({
+      title: 'Répliquer sur la cellule',
+      message: [
+        `Répliquer indicateurs partie service + pondérations RACC/SAV du service source sur les ${services.length} services suivants ?`,
         '',
         ...svcLines,
         '',
-        'Les listes d’indicateurs existantes pour chaque service seront remplacées.',
+        'Les configurations existantes pour chaque service seront remplacées.',
       ].join('\n'),
-    );
+      confirmLabel: 'Répliquer',
+      variant: 'warning',
+    });
     if (!confirmed) return;
 
-    const payload = this.rowsToPutIndicators();
+    const indPayload = this.rowsToPutIndicators();
+    const polePayload = this.rowsToPutPolePonderations();
     const targetIds = services.map((s) => s.id);
     this.bulkApplying.set(true);
     this.banner.set(null);
 
     forkJoin(
       targetIds.map((serviceId) =>
-        this.api.putIndicators(serviceId, u.id, payload).pipe(
-          map((list) => ({ ok: true as const, serviceId, list })),
+        forkJoin({
+          list: this.api.putIndicators(serviceId, u.id, indPayload),
+          pole: this.api.putPoleLinePonderations(serviceId, u.id, polePayload),
+        }).pipe(
+          map(({ list }) => ({ ok: true as const, serviceId, list })),
           catchError((err: unknown) => of({ ok: false as const, serviceId, err })),
         ),
       ),
@@ -852,7 +1160,7 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
         this.bulkApplying.set(false);
         if (failures.length === 0) {
           this.banner.set(
-            `Indicateurs uniformisés sur ${ok.length} service${ok.length > 1 ? 's' : ''} dans la cellule.`,
+            `Indicateurs & pondérations uniformisés sur ${ok.length} service${ok.length > 1 ? 's' : ''} dans la cellule.`,
           );
           this.bannerIsError.set(false);
           return;
@@ -877,15 +1185,26 @@ export class PrimeCelluleIndicatorsPageComponent implements OnInit {
     const cellId = this.selectedServiceId();
     if (!cellId) return;
     const u = this.role.currentUser();
+    if (!u?.id) return;
     const indicators = this.rowsToPutIndicators();
+    const poleItems = this.rowsToPutPolePonderations();
     this.saving.set(true);
     this.banner.set(null);
-    this.api.putIndicators(cellId, u.id, indicators).subscribe({
-      next: (list) => {
+    forkJoin({
+      list: this.api.putIndicators(cellId, u.id, indicators),
+      pole: this.api.putPoleLinePonderations(cellId, u.id, poleItems),
+    }).subscribe({
+      next: ({ list, pole }) => {
         this.rows.set(list.map((x) => this.fromDto(x)));
         this.mergeIndicatorsIntoCache([{ serviceId: cellId, list }]);
+        this.polePondRows.update((rows) =>
+          this.mergePolePondRows(
+            rows.map((r) => ({ stableId: r.templateStableId, indicator: r.label, contract: r.contract })),
+            pole,
+          ),
+        );
         this.saving.set(false);
-        this.banner.set('Indicateurs enregistrés.');
+        this.banner.set('Indicateurs & pondérations enregistrés pour ce service.');
         this.bannerIsError.set(false);
       },
       error: (e) => {

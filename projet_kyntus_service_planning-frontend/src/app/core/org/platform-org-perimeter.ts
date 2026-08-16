@@ -10,29 +10,58 @@ export interface PlatformOrgLabels {
   service: string;
 }
 
-/** Pôle du Chef de projet : managerEtage puis poleId employé. */
+/** Tous les pôles du Chef de projet (co-titulaire multi). */
+export function resolveChefProjetPoleIds(
+  userGuid: string,
+  employee: Pick<Employee, 'poleId' | 'departementId'>,
+  overview: OrgAssignmentsOverview | null,
+): string[] {
+  const guid = userGuid.trim().toLowerCase();
+  const fromOverview = (overview?.managerEtage ?? [])
+    .filter((a) => a.userId.trim().toLowerCase() === guid)
+    .map((a) => (a.etageId ?? '').trim())
+    .filter(Boolean);
+  if (fromOverview.length > 0) {
+    return [...new Set(fromOverview)];
+  }
+  const fallback = (employee.poleId ?? employee.departementId ?? '').trim();
+  return fallback ? [fallback] : [];
+}
+
+/** Pôle du Chef de projet : premier de la liste (compat). */
 export function resolveChefProjetPoleId(
   userGuid: string,
   employee: Pick<Employee, 'poleId' | 'departementId'>,
   overview: OrgAssignmentsOverview | null,
 ): string {
-  const guid = userGuid.trim().toLowerCase();
-  const mgr = overview?.managerEtage?.find((a) => a.userId.trim().toLowerCase() === guid);
-  if (mgr?.etageId?.trim()) return mgr.etageId.trim();
-  return (employee.poleId ?? employee.departementId ?? '').trim();
+  return resolveChefProjetPoleIds(userGuid, employee, overview)[0] ?? '';
 }
 
-/** Pôle du Superviseur : supervisorService / celluleId employé. */
+/** Toutes les cellules du Superviseur (co-titulaire multi). */
+export function resolveSuperviseurCelluleIds(
+  userGuid: string,
+  employee: Pick<Employee, 'celluleId'>,
+  overview: OrgAssignmentsOverview | null,
+): string[] {
+  const guid = userGuid.trim().toLowerCase();
+  const fromOverview = (overview?.supervisorService ?? [])
+    .filter((a) => a.userId.trim().toLowerCase() === guid)
+    .map((a) => (a.celluleId ?? a.serviceId ?? '').trim())
+    .filter(Boolean);
+  if (fromOverview.length > 0) {
+    return [...new Set(fromOverview)];
+  }
+  const fallback = (employee.celluleId ?? '').trim();
+  return fallback ? [fallback] : [];
+}
+
+/** Cellule du Superviseur : premier de la liste (compat). */
 export function resolveSuperviseurCelluleId(
   userGuid: string,
   employee: Pick<Employee, 'celluleId'>,
   overview: OrgAssignmentsOverview | null,
 ): string {
-  const guid = userGuid.trim().toLowerCase();
-  const sup = overview?.supervisorService?.find((a) => a.userId.trim().toLowerCase() === guid);
-  const cellId = (sup?.celluleId ?? sup?.serviceId ?? '').trim();
-  if (cellId) return cellId;
-  return (employee.celluleId ?? '').trim();
+  return resolveSuperviseurCelluleIds(userGuid, employee, overview)[0] ?? '';
 }
 
 /** Libellés org avec fallback enrichUserOrgPerimeter + arbre legacy. */

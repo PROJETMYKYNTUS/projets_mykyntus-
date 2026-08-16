@@ -179,19 +179,29 @@ export function enrichUserOrgPerimeter(
 ): UserOrgPerimeterView {
   const guid = (user.guid ?? '').trim();
   let view: UserOrgPerimeterView;
+  let trustEmptyDirectoryPlacement = false;
 
   if (overview && guid) {
     const fromOverview = enrichFromOrgOverview(user, departments, overview, subServices);
-    if (
+    const hasOverviewPlacement = !!(
       fromOverview.operationalDepartment?.trim() ||
       fromOverview.pole?.trim() ||
       fromOverview.cellule?.trim() ||
       fromOverview.service?.trim()
-    ) {
+    );
+    const directoryKnowsEmployee = overview.employees?.some(
+      (e) => e.id.trim().toLowerCase() === guid.toLowerCase(),
+    );
+    if (hasOverviewPlacement) {
       view = fromOverview;
+    } else if (directoryKnowsEmployee) {
+      // Directory a l’employé sans pôle/cellule/service (ex. pilote retiré) :
+      // ne pas ressusciter le SubServiceId Planning obsolète.
+      view = fromOverview;
+      trustEmptyDirectoryPlacement = true;
     } else {
       const base = orgPerimeterFromUser(user);
-      view = base.pole?.trim() ? base : enrichFromOrgOverview(user, departments, overview, subServices);
+      view = base.pole?.trim() ? base : fromOverview;
     }
   } else {
     view = orgPerimeterFromUser(user);
@@ -205,6 +215,9 @@ export function enrichUserOrgPerimeter(
   );
   view = applyOperationalBusinessDepartmentToPerimeter(view, directoryEmployee, businessDepartments);
   view = applySupportDepartmentToPerimeter(view, directoryEmployee, businessDepartments);
+  if (trustEmptyDirectoryPlacement && !view.isSupport) {
+    return view;
+  }
   return mergePerimeterWithApiFields(view, user);
 }
 
@@ -369,6 +382,16 @@ function enrichFromOrgOverview(
   if (primeEmployee?.serviceId?.trim()) {
     const resolved = resolveServiceId(primeEmployee.serviceId);
     if (resolved) return resolved;
+  }
+
+  // Employé présent dans Directory sans ancrage org → ne pas utiliser Planning.subServiceId.
+  if (
+    primeEmployee &&
+    !primeEmployee.serviceId?.trim() &&
+    !primeEmployee.celluleId?.trim() &&
+    !primeEmployee.poleId?.trim()
+  ) {
+    return base;
   }
 
   if (user.subServiceId) {

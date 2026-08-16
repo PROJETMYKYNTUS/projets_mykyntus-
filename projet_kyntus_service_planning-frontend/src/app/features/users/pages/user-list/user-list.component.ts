@@ -14,6 +14,7 @@ import type { Department } from '../../../prime/models';
 import type { OrgAssignmentsOverview } from '../../../prime/services/prime-org-api.service';
 import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
 import { PilotRotationHistoryModalComponent } from '../../../prime/components/pilot-rotation-history-modal.component';
+import { BodyPortalDirective } from '../../../../shared/directives/body-portal.directive';
 import type { SubService } from '../../../sub-services/sub-services-module';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
 import {
@@ -34,6 +35,8 @@ import {
   userMatchesSearch,
 } from '../../../../core/hr/user-hr-display.util';
 import { resolveUserGuid } from '../../../../core/lib/user-guid.util';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
+import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
 
 @Component({
   selector: 'app-user-list',
@@ -44,6 +47,7 @@ import { resolveUserGuid } from '../../../../core/lib/user-guid.util';
     LucideIconComponent,
     KyntusPageHeaderComponent,
     PilotRotationHistoryModalComponent,
+    BodyPortalDirective,
   ],
   templateUrl: './user-list.component.html',
   styleUrls: ['./user-list.component.css']
@@ -94,6 +98,8 @@ export class UserListComponent implements OnInit {
     private orgApi: PrimeOrgApiService,
     private http: HttpClient,
     private router: Router,
+    private confirmService: KyntusConfirmService,
+    private toastService: KyntusToastService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -186,7 +192,7 @@ export class UserListComponent implements OnInit {
     event?.stopPropagation();
     const guid = resolveUserGuid(user);
     if (!guid) {
-      alert('Identifiant employé (GUID) introuvable — historique indisponible.');
+      this.toastService.error('Identifiant employé (GUID) introuvable — historique indisponible.');
       return;
     }
     this.rotationHistoryEmployeeId = guid;
@@ -236,19 +242,29 @@ export class UserListComponent implements OnInit {
     });
   }
 
-  deleteUser(id: number): void {
-    if (confirm('Supprimer cet employé ?')) {
-      this.userService.deleteUser(id).subscribe({
-        next: () => this.loadUsers(),
-        error: (err) => alert(`Erreur: ${err.error?.message}`)
-      });
-    }
+  async deleteUser(id: number): Promise<void> {
+    const ok = await this.confirmService.confirm({
+      title: 'Supprimer l\'employé',
+      message: 'Supprimer cet employé ?',
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    this.userService.deleteUser(id).subscribe({
+      next: () => this.loadUsers(),
+      error: (err) => this.toastService.error(`Erreur: ${err.error?.message}`),
+    });
   }
 
-  resetPassword(user: User, event?: Event): void {
+  async resetPassword(user: User, event?: Event): Promise<void> {
     event?.stopPropagation();
     if (this.resettingUserId != null) return;
-    if (!confirm(`Réinitialiser le mot de passe de ${user.email} ?`)) return;
+    const ok = await this.confirmService.confirm({
+      title: 'Réinitialiser le mot de passe',
+      message: `Réinitialiser le mot de passe de ${user.email} ?`,
+      confirmLabel: 'Réinitialiser',
+    });
+    if (!ok) return;
     this.resettingUserId = user.id;
     this.userService.resetPassword(user.id).subscribe({
       next: (result) => {
@@ -264,7 +280,7 @@ export class UserListComponent implements OnInit {
       },
       error: (err) => {
         this.resettingUserId = null;
-        alert(err?.error?.message ?? 'Échec de la réinitialisation.');
+        this.toastService.error(err?.error?.message ?? 'Échec de la réinitialisation.');
         this.cdr.detectChanges();
       },
     });
@@ -281,7 +297,7 @@ export class UserListComponent implements OnInit {
       await copyTextToClipboard(this.resetCredentials.password);
     } catch (err) {
       console.error('copyResetPassword', err);
-      alert('Impossible de copier le mot de passe.');
+      this.toastService.error('Impossible de copier le mot de passe.');
     }
   }
 
@@ -302,7 +318,7 @@ export class UserListComponent implements OnInit {
         { fileNamePrefix: 'identifiants-mykyntus-reinit' },
       );
     } catch {
-      alert('Échec du téléchargement Excel.');
+      this.toastService.error('Échec du téléchargement Excel.');
     } finally {
       this.downloadingCredentialsExcel = false;
       this.cdr.detectChanges();

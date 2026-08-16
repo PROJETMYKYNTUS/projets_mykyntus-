@@ -7,17 +7,26 @@ import {
   PlanningWeekItem,
   PlanningWeekList,
   AutoGenerateSettings,
+  PendingRequestsSummary,
 } from '../../services/planning.service';
 import { UserService } from '../../../users/services/user.service';
+import type { User } from '../../../users/users-module';
 import { KyntusSessionService } from '../../../../core/session/kyntus-session.service';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { Calendar, ChevronLeft, ChevronRight, RefreshCw, Settings } from 'lucide';
+import { RouterLink } from '@angular/router';
+import { KyntusRoleNames } from '../../../../core/org/kyntus-role-names';
+
+interface AgentOption {
+  id: number;
+  label: string;
+}
 
 @Component({
   selector: 'app-planning-validation',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent],
+  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent, RouterLink],
   templateUrl: './planning-validation.component.html',
   styleUrls: ['./planning-validation.component.css'],
 })
@@ -40,6 +49,9 @@ export class PlanningValidationComponent implements OnInit {
   successMsg = '';
   statusFilter: 'all' | 'draft' | 'published' | 'missing' = 'all';
   search = '';
+  agentFilterId: number | null = null;
+  agentSearch = '';
+  private usersById = new Map<number, User>();
 
   showSettings = false;
   settings: AutoGenerateSettings = {
@@ -51,9 +63,12 @@ export class PlanningValidationComponent implements OnInit {
     target: 'NextWeek',
   };
 
+  pendingSummary: PendingRequestsSummary | null = null;
+
   readonly dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 
   private planningUserId: number | null = null;
+  private authUserId: number | null = null;
 
   constructor(
     private planningService: PlanningService,
@@ -66,15 +81,45 @@ export class PlanningValidationComponent implements OnInit {
 
   ngOnInit(): void {
     this.initWeekFromRouteOrDefault();
+    this.authUserId = this.session.getAuthUserId() ?? null;
+    this.userService.getAllUsers().subscribe({
+      next: (users) => {
+        this.usersById = new Map(users.filter((u) => u.isActive).map((u) => [u.id, u]));
+        this.cdr.detectChanges();
+      },
+    });
     this.userService.getCurrentUser().subscribe({
       next: (u) => {
         this.planningUserId = u?.id ?? null;
         this.loadWeek();
         this.loadSettings();
+        this.loadPendingSummary();
       },
       error: () => {
         this.loadWeek();
         this.loadSettings();
+        this.loadPendingSummary();
+      },
+    });
+  }
+
+  get canSeePendingBanner(): boolean {
+    const role = this.session.getRole() ?? '';
+    return role === KyntusRoleNames.Admin || role === KyntusRoleNames.RH;
+  }
+
+  loadPendingSummary(): void {
+    if (!this.canSeePendingBanner) {
+      this.pendingSummary = null;
+      return;
+    }
+    this.planningService.getPendingRequestsSummary(this.authUserId ?? undefined).subscribe({
+      next: (s) => {
+        this.pendingSummary = s;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.pendingSummary = null;
       },
     });
   }
@@ -206,6 +251,7 @@ export class PlanningValidationComponent implements OnInit {
         this.generating = false;
         this.successMsg = `Génération : ${r.created} créé(s), ${r.skipped} ignoré(s), ${r.errors} erreur(s).`;
         this.loadWeek();
+        this.loadPendingSummary();
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -218,9 +264,35 @@ export class PlanningValidationComponent implements OnInit {
 
   openItem(item: PlanningWeekItem): void {
     if (!item.planningId) return;
-    this.router.navigate(['/planning/view', item.planningId], {
-      queryParams: { from: 'validation', weekCode: this.weekCode },
-    });
+    const qp: Record<string, string | number> = {
+      from: 'validation',
+      weekCode: this.weekCode,
+    };
+    if (this.agentFilterId != null) {
+      qp['highlightUserId'] = this.agentFilterId;
+    }
+    this.router.navigate(['/planning/view', item.planningId], { queryParams: qp });
+  }
+
+  get agentOptions(): AgentOption[] {
+    const ids = new Set<number>();
+    for (const item of this.list?.items ?? []) {
+      for (const uid of item.assignedUserIds ?? []) ids.add(uid);
+    }
+    const q = this.agentSearch.trim().toLowerCase();
+    return [...ids]
+      .map((id) => {
+        const u = this.usersById.get(id);
+        const label = u ? `${u.firstName} ${u.lastName}`.trim() : `Agent #${id}`;
+        return { id, label };
+      })
+      .filter((o) => !q || o.label.toLowerCase().includes(q))
+      .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+  }
+
+  clearAgentFilter(): void {
+    this.agentFilterId = null;
+    this.agentSearch = '';
   }
 
   get filteredItems(): PlanningWeekItem[] {
@@ -232,6 +304,10 @@ export class PlanningValidationComponent implements OnInit {
           i.orgLabel.toLowerCase().includes(q) ||
           i.subServiceName.toLowerCase().includes(q),
       );
+    }
+    if (this.agentFilterId != null) {
+      const agentId = this.agentFilterId;
+      items = items.filter((i) => (i.assignedUserIds ?? []).includes(agentId));
     }
     switch (this.statusFilter) {
       case 'draft':

@@ -2,15 +2,17 @@ using Kyntus.Messaging.Contracts;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Planning.Application.Abstractions;
 using Planning.Infrastructure.Persistence;
 
 namespace Planning.Infrastructure.Messaging.Consumers;
 
 /// <summary>
-/// Congé refusé ou annulé après validation → retire l'absence Planning liée.
+/// Congé refusé ou annulé après validation → retire l'absence Planning + sync plannings.
 /// </summary>
 public sealed class CongeRefuseConsumer(
     AppDbContext db,
+    IPlanningLeaveImpactService leaveImpact,
     ILogger<CongeRefuseConsumer> logger) : IConsumer<CongeRefuseMessage>
 {
     public async Task Consume(ConsumeContext<CongeRefuseMessage> context)
@@ -24,6 +26,10 @@ public sealed class CongeRefuseConsumer(
 
         if (rows.Count == 0) return;
 
+        var userId = rows[0].UserId;
+        var start = rows.Min(c => c.StartDate);
+        var end = rows.Max(c => c.EndDate);
+
         db.Conges.RemoveRange(rows);
         await db.SaveChangesAsync(context.CancellationToken);
 
@@ -32,5 +38,19 @@ public sealed class CongeRefuseConsumer(
             msg.DemandeId,
             rows.Count,
             msg.Motif);
+
+        try
+        {
+            await leaveImpact.SyncAfterAbsenceChangeAsync(
+                userId, start, end, absenceRemoved: true, context.CancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Sync planning après congé refusé échouée (demande {DemandeId}, user {UserId}).",
+                msg.DemandeId,
+                userId);
+        }
     }
 }

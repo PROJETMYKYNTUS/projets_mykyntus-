@@ -18,6 +18,8 @@ import {
 } from '../../services/planning.service';
 import { contractLevelLabel } from '../../../../core/hr/user-hr-display.util';
 import { BodyPortalDirective } from '../../../../shared/directives/body-portal.directive';
+import { downloadPlanningWeekExcel } from '../../lib/planning-week-xlsx-export';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 /** Normalise une clé jour (EN technique ou FR affichage). */
 function normalizeDayKey(day: string | null | undefined): string {
@@ -58,6 +60,7 @@ export class PlanningViewComponent implements OnInit {
   loading       = false;
   publishing    = false;
   regenerating  = false;
+  exporting     = false;
   hasConsulted  = false;
   consulting    = false;
   canValidate   = false;
@@ -147,6 +150,7 @@ selectedHolidayShiftId      = 0;
     private planningService: PlanningService,
     private userService: UserService,
     private session: KyntusSessionService,
+    private confirmService: KyntusConfirmService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -273,7 +277,7 @@ selectedHolidayShiftId      = 0;
   }
 
   // ── Validation ────────────────────────────────────
-  publishPlanning(): void {
+  async publishPlanning(): Promise<void> {
     if (!this.planning || !this.canValidate) return;
 
     const under = this.planning.coverageReport?.hasUnderstaffing;
@@ -282,9 +286,11 @@ selectedHolidayShiftId      = 0;
         .filter(w => !w.includes('débutant'))
         .slice(0, 5)
         .join('\n');
-      const ok = confirm(
-        `Points de couverture à vérifier.\n\n${details}\n\nValider quand même ?`,
-      );
+      const ok = await this.confirmService.confirm({
+        title: 'Valider le planning',
+        message: `Points de couverture à vérifier.\n\n${details}\n\nValider quand même ?`,
+        confirmLabel: 'Valider quand même',
+      });
       if (!ok) return;
     }
 
@@ -320,12 +326,22 @@ selectedHolidayShiftId      = 0;
     });
   }
 
-  /** Régénère le brouillon à partir du modèle de shifts (écrase les overrides). */
-  regeneratePlanning(): void {
-    if (!this.planning || !this.canValidate || this.planning.status !== 'Draft') return;
-    const ok = confirm(
-      'Régénérer ce planning ?\n\nLes affectations et modifications manuelles de ce brouillon seront recalculées depuis le modèle de shifts.',
-    );
+  /** Régénère le brouillon (semaine entière) ou un Published (jours restants → Draft à revalider). */
+  async regeneratePlanning(): Promise<void> {
+    if (!this.planning || !this.canValidate) return;
+    const isPublished = this.planning.status === 'Published';
+    if (this.planning.status !== 'Draft' && !isPublished) return;
+
+    const ok = await this.confirmService.confirm({
+      title: 'Régénérer le planning',
+      message: isPublished
+        ? 'Régénérer les jours restants de ce planning publié ?\n\n' +
+          'Les jours passés et aujourd’hui restent figés. Après 15h, demain est aussi figé.\n' +
+          'Le planning repassera en brouillon : vous devrez le revalider pour le publier à l’équipe.'
+        : 'Régénérer ce planning ?\n\nLes affectations et modifications manuelles de ce brouillon seront recalculées depuis le modèle de shifts.',
+      confirmLabel: 'Régénérer',
+      variant: 'warning',
+    });
     if (!ok) return;
 
     this.regenerating = true;
@@ -339,9 +355,11 @@ selectedHolidayShiftId      = 0;
     }).subscribe({
       next: () => {
         this.regenerating = false;
-        this.successMsg = 'Planning régénéré.';
+        this.successMsg = isPublished
+          ? 'Planning régénéré — brouillon à revalider avant publication.'
+          : 'Planning régénéré.';
         this.loadPlanning(this.planning!.id);
-        setTimeout(() => { this.successMsg = ''; this.cdr.detectChanges(); }, 3000);
+        setTimeout(() => { this.successMsg = ''; this.cdr.detectChanges(); }, 4000);
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -675,6 +693,24 @@ selectedHolidayShiftId      = 0;
 
   goToChangeRequests(): void {
     void this.router.navigate(['/planning/change-requests']);
+  }
+
+  async exportPlanningWeek(): Promise<void> {
+    if (!this.planning || this.exporting) return;
+    this.exporting = true;
+    this.error = '';
+    try {
+      await downloadPlanningWeekExcel(this.planning, {
+        getAbsenceLabel: (v) => this.getAbsenceLabel(v),
+      });
+      this.successMsg = `Export Excel — ${this.planning.weekCode}`;
+    } catch (err) {
+      console.error(err);
+      this.error = 'Impossible d’exporter le planning.';
+    } finally {
+      this.exporting = false;
+      this.cdr.detectChanges();
+    }
   }
 
   // ── Override SHIFT (lun–ven) ──────────────────────
@@ -1027,10 +1063,16 @@ confirmHolidayOverride(): void {
     });
   }
 
-  deleteComment(employee: EmployeePlanning, event: Event): void {
+  async deleteComment(employee: EmployeePlanning, event: Event): Promise<void> {
     event.stopPropagation();
     if (!this.canEdit || !this.planning) return;
-    if (!confirm(`Supprimer le commentaire pour ${employee.fullName} ?`)) return;
+    const ok = await this.confirmService.confirm({
+      title: 'Supprimer le commentaire',
+      message: `Supprimer le commentaire pour ${employee.fullName} ?`,
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     this.planningService.deleteComment(this.planning.id, employee.userId)
       .subscribe({

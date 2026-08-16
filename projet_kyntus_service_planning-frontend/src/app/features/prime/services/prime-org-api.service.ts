@@ -252,6 +252,7 @@ export class PrimeOrgApiService {
     return this.assignStructureRole('ReferentTechnique', sousServiceId, userId, revokeEmployeeIds);
   }
 
+  /** Sans revokeEmployeeIds : ajoute un co-titulaire. Avec liste : remplace les titulaires listés. */
   assignStructureRole(
     kind: 'ChefDeProjet' | 'Superviseur' | 'ReferentTechnique' | 'Pilote',
     nodeId: string,
@@ -262,6 +263,7 @@ export class PrimeOrgApiService {
       `${orgBase}/assignments/${kind}/${encodeURIComponent(nodeId)}`,
       {
         employeeId,
+        // Ne pas envoyer revokeEmployeeIds à l’ajout d’un co-responsable.
         revokeEmployeeIds: revokeEmployeeIds?.length ? revokeEmployeeIds : undefined,
       },
     );
@@ -463,5 +465,35 @@ export class PrimeOrgApiService {
         name: name.trim(),
       })
       .pipe(map((r) => ({ id: r.id, name: name.trim() })));
+  }
+
+  renameStructurePole(poleId: string, name: string): Observable<unknown> {
+    return this.http.put(`${orgBase}/structure/poles/${encodeURIComponent(poleId)}`, {
+      name: name.trim(),
+    });
+  }
+
+  renameStructureCellule(poleId: string, celluleId: string, name: string): Observable<unknown> {
+    return this.http.put(
+      `${orgBase}/structure/poles/${encodeURIComponent(poleId)}/cellules/${encodeURIComponent(celluleId)}`,
+      { name: name.trim() },
+    );
+  }
+
+  renameStructureService(celluleId: string, serviceId: string, name: string): Observable<unknown> {
+    return this.http.put(
+      `${orgBase}/structure/cellules/${encodeURIComponent(celluleId)}/services/${encodeURIComponent(serviceId)}`,
+      { name: name.trim() },
+    );
+  }
+
+  clearEmployeeOrgPlacement(
+    employeeId: string,
+    options?: { level?: 'service' | 'cellule' | 'pole' | 'all'; nodeId?: string },
+  ): Observable<unknown> {
+    return this.http.post(`${directoryBase}/employees/${encodeURIComponent(employeeId)}/clear-org-placement`, {
+      level: options?.level ?? 'all',
+      nodeId: options?.nodeId ?? null,
+    });
   }
 }

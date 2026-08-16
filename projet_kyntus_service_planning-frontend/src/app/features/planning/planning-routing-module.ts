@@ -84,6 +84,25 @@ const routes: Routes = [
       import('./pages/planning-exceptional-requests/planning-exceptional-requests.component')
         .then(m => m.PlanningExceptionalRequestsComponent),
   },
+  {
+    path: 'demandes-renfort',
+    canActivate: [AuthGuard],
+    data: {
+      roles: [
+        'Admin',
+        'RH',
+        'Superviseur',
+        'Manager',
+        'Référent technique',
+        'Coach',
+        'Chef de projet',
+        'RP',
+      ],
+    },
+    loadComponent: () =>
+      import('./pages/planning-reinforcement-requests/planning-reinforcement-requests.component')
+        .then(m => m.PlanningReinforcementRequestsComponent),
+  },
 ];
 
 @NgModule({

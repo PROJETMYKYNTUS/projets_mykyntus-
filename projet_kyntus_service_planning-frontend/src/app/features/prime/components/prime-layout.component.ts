@@ -112,7 +112,8 @@ export class PrimeLayoutComponent implements OnInit {
   private readonly permissions = inject(PrimeUiPermissionsService);
   private readonly deptContext = inject(DepartmentContextService);
 
-  readonly currentView = signal('/');
+  /** Initialise depuis une navigation menu déjà demandée (ex. Périmètre → /superviseur/scope). */
+  readonly currentView = signal(this.navRequest.pendingPath() ?? '/');
 
   readonly effectiveView = computed(() => {
     if (this.role.currentRole() === 'Pilote' && this.currentView() === '/') {
@@ -211,26 +212,29 @@ export class PrimeLayoutComponent implements OnInit {
       const userId = this.role.currentUser().id;
       const key = identityKey(role, userId);
       if (this.lastDeveloperIdentityKey !== null && this.lastDeveloperIdentityKey !== key) {
-        this.navigateToIdentityHome(role);
+        const prevRole = this.lastDeveloperIdentityKey.split('|')[0];
+        // Un changement d’userId seul (chargement annuaire / match email) ne doit pas
+        // écraser une navigation menu (ex. Périmètre superviseur → dashboard).
+        if (prevRole !== role) {
+          this.navigateToIdentityHome(role);
+        }
       }
       this.lastDeveloperIdentityKey = key;
     });
 
     effect(() => {
       const path = this.navRequest.pendingPath();
-      if (path) {
-        const role = this.role.currentRole();
-        const deptKind = this.deptContext.departmentKind();
-        const managerNav = buildPrimeDepartmentManagerNav(this.deptContext);
-        if (
-          isPrimePathAllowedForRole(path, role, deptKind, managerNav)
-          && this.permissions.canViewPath(role, path, managerNav)
-        ) {
-          this.currentView.set(path);
-          this.navRequest.setActivePath(path);
-        }
-        this.navRequest.clearPending();
+      if (!path) return;
+      const role = this.role.currentRole();
+      const deptKind = this.deptContext.departmentKind();
+      const managerNav = buildPrimeDepartmentManagerNav(this.deptContext);
+      // Le menu latéral est déjà filtré par rôle : ne pas bloquer silencieusement
+      // sur la matrice RBAC (sinon /superviseur/scope retombe sur le dashboard).
+      if (isPrimePathAllowedForRole(path, role, deptKind, managerNav)) {
+        this.currentView.set(path);
+        this.navRequest.setActivePath(path);
       }
+      this.navRequest.clearPending();
     });
 
     effect(() => {

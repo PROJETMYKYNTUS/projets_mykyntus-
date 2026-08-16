@@ -1,6 +1,7 @@
 using Formation.Application.DTOs;
 using Formation.Domain.Enums;
 using Formation.Infrastructure.Services;
+using Kyntus.Identity.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,6 +9,7 @@ namespace Formation.API.Controllers;
 
 [ApiController]
 [Route("api/formations/sessions")]
+[Authorize]
 public sealed class TrainingSessionsController(TrainingWorkflowService training) : ControllerBase
 {
     [HttpGet]
@@ -15,14 +17,23 @@ public sealed class TrainingSessionsController(TrainingWorkflowService training)
         training.ListSessionsAsync(ct);
 
     [HttpGet("my-animated")]
-    public Task<IReadOnlyList<TrainingSessionDto>> MyAnimated([FromQuery] Guid animatorUserId, CancellationToken ct) =>
-        training.ListAnimatedSessionsAsync(animatorUserId, ct);
+    public async Task<ActionResult<IReadOnlyList<TrainingSessionDto>>> MyAnimated(CancellationToken ct)
+    {
+        var animatorUserId = User.GetSubjectId() ?? Guid.Empty;
+        if (animatorUserId == Guid.Empty)
+            return BadRequest(new { error = "Identifiant utilisateur manquant dans le jeton." });
+        return Ok(await training.ListAnimatedSessionsAsync(animatorUserId, ct));
+    }
 
     [HttpGet("my-assigned")]
-    public Task<IReadOnlyList<MyAssignedTrainingSessionDto>> MyAssigned(
-        [FromQuery] Guid employeeId,
-        CancellationToken ct) =>
-        training.ListMyAssignedSessionsAsync(employeeId, ct);
+    public async Task<ActionResult<IReadOnlyList<MyAssignedTrainingSessionDto>>> MyAssigned(CancellationToken ct)
+    {
+        var employeeId = User.GetSubjectId() ?? Guid.Empty;
+        var email = User.GetEmail();
+        if (employeeId == Guid.Empty && string.IsNullOrWhiteSpace(email))
+            return BadRequest(new { error = "Identifiant utilisateur manquant dans le jeton." });
+        return Ok(await training.ListMyAssignedSessionsAsync(employeeId, ct, email));
+    }
 
     [HttpPost]
     [Authorize(Policy = "CanPlanContinue")]
@@ -59,11 +70,13 @@ public sealed class TrainingSessionsController(TrainingWorkflowService training)
     [HttpGet("{id:guid}/assignments")]
     public async Task<ActionResult<IReadOnlyList<TrainingAssignmentDto>>> ListAssignments(
         Guid id,
-        [FromQuery] Guid animatorUserId,
         CancellationToken ct)
     {
         try
         {
+            var animatorUserId = User.GetSubjectId() ?? Guid.Empty;
+            if (animatorUserId == Guid.Empty)
+                return BadRequest(new { error = "Identifiant utilisateur manquant dans le jeton." });
             return Ok(await training.ListSessionAssignmentsAsync(id, animatorUserId, ct));
         }
         catch (InvalidOperationException ex)
@@ -81,6 +94,7 @@ public sealed class TrainingSessionsController(TrainingWorkflowService training)
     {
         try
         {
+            body.AnimatorUserId = User.GetSubjectId() ?? Guid.Empty;
             return Ok(await training.MarkAttendanceAsync(id, assignmentId, body, ct));
         }
         catch (InvalidOperationException ex)

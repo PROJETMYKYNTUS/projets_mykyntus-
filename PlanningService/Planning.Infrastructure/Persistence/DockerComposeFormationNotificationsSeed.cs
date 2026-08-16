@@ -69,16 +69,8 @@ internal static class DockerComposeFormationNotificationsSeed
             "La formation « Coaching qualité — équipe formation (en cours) » a démarré — ouvrez l'appel des présences.",
             now.AddMinutes(-90), ct);
 
-        added += await TryAddAsync(context, employee, "TRAINING-DEMO-ASN-01",
-            "Vous êtes inscrit à la formation « Atelier formateur — rituels d'accueil » (début prochain).",
-            now.AddHours(-4), ct);
-        added += await TryAddAsync(context, employee, "TRAINING-START-BEN-01",
-            "La formation « Coaching qualité — file formateur (en cours) » a démarré.",
-            now.AddMinutes(-50), ct);
-
-        added += await TryAddAsync(context, coach, "TRAINING-DEMO-ASN-02",
-            "Vous êtes inscrit à la formation « Qualité softphone — Agents 1er niveau ».",
-            now.AddDays(-1), ct);
+        // Pas de seed « Vous êtes inscrit » sans TrainingAssignment réelle
+        // (évite cloche OK / Mes formations vide).
 
         var markerUser = formateurGmail ?? formateurKyntus ?? employee ?? coach;
         if (markerUser?.AuthUserId is int authId)

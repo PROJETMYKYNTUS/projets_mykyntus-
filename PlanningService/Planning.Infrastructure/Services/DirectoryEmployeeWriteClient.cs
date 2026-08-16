@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Kyntus.Messaging.Contracts;
 using Microsoft.EntityFrameworkCore;
@@ -129,7 +130,8 @@ public sealed class DirectoryEmployeeWriteClient(
 
         try
         {
-            var client = CreateClient();
+            // Bulk séquentiel côté Directory : 30s est trop court pour des lots denses.
+            var client = CreateClient(timeout: TimeSpan.FromMinutes(5));
             using var request = new HttpRequestMessage(HttpMethod.Post, "api/directory/employees/bulk")
             {
                 Content = JsonContent.Create(new { items = bulkPayload }),
@@ -174,6 +176,15 @@ public sealed class DirectoryEmployeeWriteClient(
                     r.Error,
                     Retryable: !r.Success && string.IsNullOrWhiteSpace(r.Error));
             }).ToList();
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            // Timeout HttpClient : ne pas rejouer le lot en individuel (cascade « Email déjà utilisé »
+            // si Directory a déjà créé une partie des employés côté serveur).
+            logger.LogWarning(ex, "Directory bulk timeout ({Count} item(s)), pas de repli individuel.", items.Count);
+            const string timeoutMessage = "Timeout création Directory (lot). Relancez l'import.";
+            return items.Select(_ => new DirectoryEmployeeCreateResult(
+                Guid.Empty, false, timeoutMessage, Retryable: false)).ToList();
         }
         catch (Exception ex)
         {
@@ -364,6 +375,9 @@ public sealed class DirectoryEmployeeWriteClient(
         T failureValue,
         CancellationToken ct)
     {
+        T? lastResult = default;
+        var hasLastResult = false;
+
         for (var attempt = 1; attempt <= MaxRetries; attempt++)
         {
             try
@@ -371,10 +385,13 @@ public sealed class DirectoryEmployeeWriteClient(
                 var result = await action();
                 if (result is bool b && !b)
                 {
-                    // continue retry
+                    lastResult = result;
+                    hasLastResult = true;
                 }
                 else if (result is DirectoryEmployeeCreateResult r && !r.Success)
                 {
+                    lastResult = result;
+                    hasLastResult = true;
                     if (!r.Retryable)
                         return result;
                 }
@@ -386,6 +403,12 @@ public sealed class DirectoryEmployeeWriteClient(
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Directory {Label} tentative {Attempt}/{Max}", label, attempt, MaxRetries);
+                if (failureValue is DirectoryEmployeeCreateResult)
+                {
+                    lastResult = (T)(object)new DirectoryEmployeeCreateResult(
+                        Guid.Empty, false, ex.Message, Retryable: true);
+                    hasLastResult = true;
+                }
             }
 
             if (attempt < MaxRetries)
@@ -393,10 +416,10 @@ public sealed class DirectoryEmployeeWriteClient(
         }
 
         logger.LogError("Directory {Label} échoué après {Max} tentatives", label, MaxRetries);
-        return failureValue;
+        return hasLastResult && lastResult is not null ? lastResult : failureValue;
     }
 
-    private HttpClient CreateClient()
+    private HttpClient CreateClient(TimeSpan? timeout = null)
     {
         var baseUrl = configuration["Directory:BaseUrl"]?.Trim()
             ?? "http://employee-directory-backend:8080/";
@@ -404,7 +427,7 @@ public sealed class DirectoryEmployeeWriteClient(
 
         var client = httpClientFactory.CreateClient("DirectorySync");
         client.BaseAddress = new Uri(baseUrl);
-        client.Timeout = TimeSpan.FromSeconds(30);
+        client.Timeout = timeout ?? TimeSpan.FromSeconds(60);
         return client;
     }
 
@@ -440,12 +463,17 @@ public sealed class DirectoryEmployeeWriteClient(
         public string? Message { get; set; }
     }
 
+    private static readonly JsonSerializerOptions ErrorJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
+
     private static string? TryParseDirectoryError(string body)
     {
         if (string.IsNullOrWhiteSpace(body)) return null;
         try
         {
-            var parsed = System.Text.Json.JsonSerializer.Deserialize<DirectoryErrorJson>(body);
+            var parsed = JsonSerializer.Deserialize<DirectoryErrorJson>(body, ErrorJsonOptions);
             return parsed?.Error ?? parsed?.Message;
         }
         catch

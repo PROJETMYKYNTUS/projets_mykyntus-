@@ -11,6 +11,7 @@ import {
   NewsletterResponse,
   NewsletterService
 } from '../../core/services/newsletter.service';
+import { KyntusConfirmService } from '../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 type AdminView = 'list' | 'create' | 'campaigns' | 'analytics';
 
@@ -23,6 +24,7 @@ type AdminView = 'list' | 'create' | 'campaigns' | 'analytics';
 })
 export class NewsletterAdminComponent implements OnInit, OnDestroy {
   private readonly toastSvc = inject(KyntusToastService);
+  private readonly confirmService = inject(KyntusConfirmService);
 
   currentView: AdminView = 'list';
   private destroy$ = new Subject<void>();
@@ -204,10 +206,14 @@ export class NewsletterAdminComponent implements OnInit, OnDestroy {
     this.coverImageFileName = '';
   }
 
-  deleteNewsletter(id: number): void {
-    if (!confirm('Supprimer cette newsletter ?')) {
-      return;
-    }
+  async deleteNewsletter(id: number): Promise<void> {
+    const ok = await this.confirmService.confirm({
+      title: 'Supprimer la newsletter',
+      message: 'Supprimer cette newsletter ?',
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     this.newsletterSvc.deleteNewsletter(id)
       .pipe(takeUntil(this.destroy$))
@@ -257,10 +263,13 @@ export class NewsletterAdminComponent implements OnInit, OnDestroy {
       });
   }
 
-  publishCampaign(id: number): void {
-    if (!confirm('Publier cette campagne maintenant ?')) {
-      return;
-    }
+  async publishCampaign(id: number): Promise<void> {
+    const ok = await this.confirmService.confirm({
+      title: 'Publier la campagne',
+      message: 'Publier cette campagne maintenant ?',
+      confirmLabel: 'Publier',
+    });
+    if (!ok) return;
 
     this.newsletterSvc.publishCampaign(id)
       .pipe(takeUntil(this.destroy$))
@@ -276,10 +285,14 @@ export class NewsletterAdminComponent implements OnInit, OnDestroy {
       });
   }
 
-  cancelCampaign(id: number): void {
-    if (!confirm('Annuler cette campagne ?')) {
-      return;
-    }
+  async cancelCampaign(id: number): Promise<void> {
+    const ok = await this.confirmService.confirm({
+      title: 'Annuler la campagne',
+      message: 'Annuler cette campagne ?',
+      confirmLabel: 'Annuler',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     this.newsletterSvc.cancelCampaign(id)
       .pipe(takeUntil(this.destroy$))

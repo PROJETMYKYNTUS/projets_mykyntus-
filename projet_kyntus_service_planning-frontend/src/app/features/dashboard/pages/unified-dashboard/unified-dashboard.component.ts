@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewEncapsulation, computed, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewEncapsulation, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -32,35 +32,35 @@ import { KyntusNotificationHubService } from '../../../../core/notifications/kyn
   template: `
     <div class="ud-root ky-page-enter">
       <app-kyntus-role-dashboard
-        [title]="dashboardTitle"
-        [subtitle]="dashboardSubtitle"
-        [greeting]="greetingLine"
-        [roleBadge]="role"
+        [title]="dashboardTitle()"
+        [subtitle]="dashboardSubtitle()"
+        [greeting]="greetingLine()"
+        [roleBadge]="role()"
         [loading]="false"
-        [kpiLoading]="loadingKpis"
-        [kpiItems]="kpiItems"
-        [kpiColumns]="kpiColumns"
-        [quickActions]="quickActions"
+        [kpiLoading]="loadingKpis()"
+        [kpiItems]="kpiItems()"
+        [kpiColumns]="kpiColumns()"
+        [quickActions]="quickActions()"
       >
-        @if (!loadingKpis && alerts.length > 0) {
-          <app-kyntus-dashboard-alerts dashboard-alerts [alerts]="alerts" />
+        @if (!loadingKpis() && alerts().length > 0) {
+          <app-kyntus-dashboard-alerts dashboard-alerts [alerts]="alerts()" />
         }
 
-        @if (!loadingDetails) {
+        @if (!loadingDetails()) {
           <app-kyntus-action-inbox
             recentList
             title="File d'actions prioritaires"
-            [items]="actionItems"
+            [items]="actionItems()"
             viewAllRoute="/notifications"
             viewAllLabel="Centre notifications"
           />
         }
 
-        @if (!loadingKpis && planningPreview) {
+        @if (!loadingKpis() && planningPreview(); as preview) {
           <div charts class="ud-planning-preview">
-            <h3>Ma semaine — {{ planningPreview.weekCode }}</h3>
+            <h3>Ma semaine — {{ preview.weekCode }}</h3>
             <div class="ud-planning-days">
-              @for (day of planningPreview.days; track day.label) {
+              @for (day of preview.days; track day.label) {
                 <div class="ud-planning-day" [class.off]="day.off">
                   <span class="ud-planning-day-label">{{ day.label }}</span>
                   <span class="ud-planning-day-shift">{{ day.shift }}</span>
@@ -70,15 +70,15 @@ import { KyntusNotificationHubService } from '../../../../core/notifications/kyn
           </div>
         }
 
-        @if (!loadingDetails) {
+        @if (!loadingDetails()) {
           <app-kyntus-module-health-panel
             contextPanel
             title="Santé des modules"
-            [items]="moduleHealth"
+            [items]="moduleHealth()"
           />
         }
 
-        @if (!loadingKpis) {
+        @if (!loadingKpis()) {
           <app-kyntus-dashboard-recent-list
             class="ud-recent-activity"
             title="Activité récente"
@@ -116,20 +116,23 @@ export class UnifiedDashboardComponent implements OnInit, OnDestroy {
   private sub = new Subscription();
   private loadStartedAt = 0;
 
-  role = '';
-  username = '';
-  greetingLine = '';
-  kpiColumns = 3;
-  dashboardTitle = 'Tableau de bord';
-  dashboardSubtitle = '';
-  kpiItems: KyntusKpiItem[] = [];
-  quickActions: KyntusQuickAction[] = [];
-  alerts: KyntusDashboardAlert[] = [];
-  actionItems: GlobalActionItem[] = [];
-  moduleHealth: ModuleHealthStatus[] = [];
-  loadingKpis = true;
-  loadingDetails = true;
-  planningPreview: { weekCode: string; days: { label: string; shift: string; off: boolean }[] } | null = null;
+  readonly role = signal('');
+  readonly username = signal('');
+  readonly greetingLine = signal('');
+  readonly kpiColumns = signal(3);
+  readonly dashboardTitle = signal('Tableau de bord');
+  readonly dashboardSubtitle = signal('');
+  readonly kpiItems = signal<KyntusKpiItem[]>([]);
+  readonly quickActions = signal<KyntusQuickAction[]>([]);
+  readonly alerts = signal<KyntusDashboardAlert[]>([]);
+  readonly actionItems = signal<GlobalActionItem[]>([]);
+  readonly moduleHealth = signal<ModuleHealthStatus[]>([]);
+  readonly loadingKpis = signal(true);
+  readonly loadingDetails = signal(true);
+  readonly planningPreview = signal<{
+    weekCode: string;
+    days: { label: string; shift: string; off: boolean }[];
+  } | null>(null);
 
   readonly recentActivity = computed(() =>
     this.notifHub.notifications().slice(0, 5).map((n) => ({
@@ -146,9 +149,9 @@ export class UnifiedDashboardComponent implements OnInit, OnDestroy {
     } catch {
       user = null;
     }
-    this.username = user?.username || 'Utilisateur';
-    this.role = (this.auth.getRole() || user?.role || '').trim();
-    this.greetingLine = `Bonjour, ${this.username}`;
+    this.username.set(user?.username || 'Utilisateur');
+    this.role.set((this.auth.getRole() || user?.role || '').trim());
+    this.greetingLine.set(`Bonjour, ${this.username()}`);
     this.loadSnapshot();
   }
 
@@ -163,45 +166,47 @@ export class UnifiedDashboardComponent implements OnInit, OnDestroy {
 
   private loadSnapshot(): void {
     const authId = this.auth.getAuthUserId();
-    this.loadingKpis = true;
-    this.loadingDetails = true;
+    this.loadingKpis.set(true);
+    this.loadingDetails.set(true);
     this.loadStartedAt = performance.now();
     performance.mark('kyntus-dashboard-load-start');
     let emission = 0;
     this.sub.add(
-      this.globalDashboard.loadSnapshot(this.role, authId).subscribe({
+      this.globalDashboard.loadSnapshot(this.role(), authId).subscribe({
         next: (snapshot) => {
           emission += 1;
           const kpiMs = Math.round(performance.now() - this.loadStartedAt);
           if (emission === 1) {
             performance.mark('kyntus-dashboard-kpis-ready');
             performance.measure('kyntus-dashboard-kpis', 'kyntus-dashboard-load-start', 'kyntus-dashboard-kpis-ready');
-            console.info(`[Kyntus /home] KPIs prêts en ${kpiMs} ms (rôle: ${this.role || 'inconnu'})`);
-            this.loadingKpis = false;
+            console.info(`[Kyntus /home] KPIs prêts en ${kpiMs} ms (rôle: ${this.role() || 'inconnu'})`);
+            this.loadingKpis.set(false);
           } else {
             console.info(`[Kyntus /home] Détails complets en ${kpiMs} ms`);
-            this.loadingDetails = false;
+            this.loadingDetails.set(false);
           }
-          this.dashboardTitle = snapshot.title;
-          this.dashboardSubtitle = snapshot.subtitle;
-          this.kpiItems = snapshot.kpis;
-          this.kpiColumns = snapshot.kpis.length > 4 ? 3 : Math.min(snapshot.kpis.length, 4) || 3;
-          this.alerts = snapshot.alerts;
-          this.actionItems = snapshot.actionItems;
-          this.moduleHealth = snapshot.moduleHealth;
-          this.quickActions = snapshot.quickActions.map((qa) => ({
-            label: qa.label,
-            route: qa.route,
-            action: qa.action,
-          }));
-          this.planningPreview = snapshot.planningPreview ?? null;
+          this.dashboardTitle.set(snapshot.title);
+          this.dashboardSubtitle.set(snapshot.subtitle);
+          this.kpiItems.set(snapshot.kpis);
+          this.kpiColumns.set(snapshot.kpis.length > 4 ? 3 : Math.min(snapshot.kpis.length, 4) || 3);
+          this.alerts.set(snapshot.alerts);
+          this.actionItems.set(snapshot.actionItems);
+          this.moduleHealth.set(snapshot.moduleHealth);
+          this.quickActions.set(
+            snapshot.quickActions.map((qa) => ({
+              label: qa.label,
+              route: qa.route,
+              action: qa.action,
+            })),
+          );
+          this.planningPreview.set(snapshot.planningPreview ?? null);
           if (emission === 1) {
-            this.loadingDetails = false;
+            this.loadingDetails.set(false);
           }
         },
         error: () => {
-          this.loadingKpis = false;
-          this.loadingDetails = false;
+          this.loadingKpis.set(false);
+          this.loadingDetails.set(false);
         },
       }),
     );

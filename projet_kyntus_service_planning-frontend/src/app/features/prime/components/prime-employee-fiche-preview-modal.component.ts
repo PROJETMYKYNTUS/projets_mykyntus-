@@ -1,21 +1,24 @@
 import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal } from '@angular/core';
 import { Download } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
+import { BodyPortalDirective } from '@/shared/directives/body-portal.directive';
 import { MERGED_PREVIEW_MISSING_SNAPSHOT_HINT } from '../lib/prime-employee-fiche-merged-preview';
 import {
   PrimeEmployeeFichePreviewService,
   previewHttpError,
 } from '../services/prime-employee-fiche-preview.service';
+import { KyntusToastService } from '../../../shared/components/ui/kyntus-toast.service';
 
 @Component({
   selector: 'app-prime-employee-fiche-preview-modal',
   standalone: true,
-  imports: [LucideIconComponent],
+  imports: [LucideIconComponent, BodyPortalDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (open()) {
       <div
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+        appBodyPortal
         role="dialog"
         aria-modal="true"
         [attr.aria-labelledby]="dialogTitleId"
@@ -95,6 +98,7 @@ import {
 })
 export class PrimeEmployeeFichePreviewModalComponent {
   private readonly previewSvc = inject(PrimeEmployeeFichePreviewService);
+  private readonly toast = inject(KyntusToastService);
 
   readonly open = input(false);
   readonly ficheId = input<string | null>(null);
@@ -136,11 +140,11 @@ export class PrimeEmployeeFichePreviewModalComponent {
     void this.previewSvc
       .downloadXlsxFromContext(this.loadedContext, this.fileNameBase() ?? undefined)
       .then((err) => {
-        if (err) window.alert(err);
+        if (err) this.toast.error(err);
         this.downloadBusy.set(false);
       })
       .catch((e: unknown) => {
-        window.alert(previewHttpError(e));
+        this.toast.error(previewHttpError(e));
         this.downloadBusy.set(false);
       });
   }

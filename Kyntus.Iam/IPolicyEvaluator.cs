@@ -19,6 +19,9 @@ public interface IRebacClient
 {
     Task<bool> IsDescendantAsync(Guid viewerId, Guid targetId, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetManagedNodeIdsAsync(Guid employeeId, string kind, CancellationToken ct = default);
+    Task<IReadOnlyList<Guid>> GetManagedEmployeeIdsAsync(Guid actorId, CancellationToken ct = default);
+    Task<bool> CanActOnAsync(Guid actorId, Guid targetEmployeeId, CancellationToken ct = default);
+    Task<IReadOnlyList<Guid>> GetResponsibleIdsAsync(string kind, string nodeId, CancellationToken ct = default);
 }
 
 public interface IPermissionCatalog

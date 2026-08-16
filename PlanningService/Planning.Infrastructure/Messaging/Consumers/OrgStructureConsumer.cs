@@ -57,7 +57,7 @@ public sealed class OrgStructureConsumer(
     public async Task Consume(ConsumeContext<OrgAssignmentChangedMessage> context)
     {
         var msg = context.Message;
-        if (msg.Removed || string.IsNullOrWhiteSpace(msg.EmployeeId))
+        if (string.IsNullOrWhiteSpace(msg.EmployeeId))
             return;
 
         var user = await ResolveUserAsync(msg, context.CancellationToken);
@@ -70,20 +70,61 @@ public sealed class OrgStructureConsumer(
             return;
         }
 
+        var ct = context.CancellationToken;
+
+        if (msg.Removed)
+        {
+            if (msg.Kind == OrgAssignmentKind.Superviseur && !string.IsNullOrWhiteSpace(msg.NodeId))
+            {
+                var planningService = await db.Services
+                    .FirstOrDefaultAsync(s => s.PrimeCelluleId == msg.NodeId.Trim(), ct);
+                if (planningService is not null)
+                {
+                    var links = await db.UserManagedServices
+                        .Where(us => us.UserId == user.Id && us.ServiceId == planningService.Id)
+                        .ToListAsync(ct);
+                    if (links.Count > 0)
+                        db.UserManagedServices.RemoveRange(links);
+                }
+            }
+            else if (msg.Kind == OrgAssignmentKind.ReferentTechnique && !string.IsNullOrWhiteSpace(msg.NodeId))
+            {
+                var sub = await db.SubServices
+                    .FirstOrDefaultAsync(s => s.PrimeServiceId == msg.NodeId.Trim(), ct);
+                if (sub is not null)
+                {
+                    var links = await db.UserSubServices
+                        .Where(us => us.UserId == user.Id && us.SubServiceId == sub.Id)
+                        .ToListAsync(ct);
+                    if (links.Count > 0)
+                        db.UserSubServices.RemoveRange(links);
+                    if (user.SubServiceId == sub.Id)
+                        user.SubServiceId = null;
+                }
+            }
+
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation(
+                "Planning miroir OrgAssignment Removed {Kind} user={UserId}",
+                msg.Kind,
+                user.Id);
+            return;
+        }
+
         var roleName = ResolveRoleName(msg);
-        var role = await db.Roles.FirstOrDefaultAsync(r => r.Name == roleName, context.CancellationToken);
+        var role = await db.Roles.FirstOrDefaultAsync(r => r.Name == roleName, ct);
         if (role is not null)
             user.RoleId = role.Id;
 
         if (msg.Kind == OrgAssignmentKind.Superviseur && !string.IsNullOrWhiteSpace(msg.NodeId))
         {
             var planningService = await db.Services
-                .FirstOrDefaultAsync(s => s.PrimeCelluleId == msg.NodeId.Trim(), context.CancellationToken);
+                .FirstOrDefaultAsync(s => s.PrimeCelluleId == msg.NodeId.Trim(), ct);
             if (planningService is not null)
             {
                 var alreadyLinked = await db.UserManagedServices.AnyAsync(
                     us => us.UserId == user.Id && us.ServiceId == planningService.Id,
-                    context.CancellationToken);
+                    ct);
                 if (!alreadyLinked)
                 {
                     db.UserManagedServices.Add(new UserManagedService
@@ -97,13 +138,13 @@ public sealed class OrgStructureConsumer(
         else if (msg.Kind == OrgAssignmentKind.ReferentTechnique && !string.IsNullOrWhiteSpace(msg.NodeId))
         {
             var sub = await db.SubServices
-                .FirstOrDefaultAsync(s => s.PrimeServiceId == msg.NodeId.Trim(), context.CancellationToken);
+                .FirstOrDefaultAsync(s => s.PrimeServiceId == msg.NodeId.Trim(), ct);
             if (sub is not null)
             {
                 user.SubServiceId = sub.Id;
                 var alreadyLinked = await db.UserSubServices.AnyAsync(
                     us => us.UserId == user.Id && us.SubServiceId == sub.Id,
-                    context.CancellationToken);
+                    ct);
                 if (!alreadyLinked)
                     db.UserSubServices.Add(new UserSubService { UserId = user.Id, SubServiceId = sub.Id });
             }
@@ -113,14 +154,14 @@ public sealed class OrgStructureConsumer(
             user.SubServiceId = null;
         }
 
-        await db.SaveChangesAsync(context.CancellationToken);
+        await db.SaveChangesAsync(ct);
         logger.LogInformation(
             "Planning miroir OrgAssignment {Kind} user={UserId} rôle={Role}",
             msg.Kind,
             user.Id,
             roleName);
 
-        await userService.SyncUserRoleToAuthAsync(user.Id, context.CancellationToken);
+        await userService.SyncUserRoleToAuthAsync(user.Id, ct);
     }
 
     private static string ResolveRoleName(OrgAssignmentChangedMessage msg)

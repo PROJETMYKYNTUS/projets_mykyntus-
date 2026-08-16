@@ -1,11 +1,12 @@
 import { Directive, ElementRef, OnDestroy, OnInit, inject } from '@angular/core';
 
 const BODY_CLASS = 'ky-body-modal-open';
+const OVERLAY_CLASS = 'ky-viewport-overlay';
 let openCount = 0;
 
 /**
  * Moves the host element to document.body so position:fixed is viewport-relative,
- * and locks body scroll while at least one such overlay is open.
+ * adds ky-viewport-overlay (global CSS), and locks body scroll while open.
  */
 @Directive({
   selector: '[appBodyPortal]',
@@ -17,6 +18,7 @@ export class BodyPortalDirective implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     const node = this.el.nativeElement;
+    node.classList.add(OVERLAY_CLASS);
     if (node.parentElement !== document.body) {
       document.body.appendChild(node);
     }
@@ -27,6 +29,15 @@ export class BodyPortalDirective implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (!this.locked) return;
+    const node = this.el.nativeElement;
+    node.classList.remove(OVERLAY_CLASS);
+    if (node.parentElement === document.body) {
+      try {
+        document.body.removeChild(node);
+      } catch {
+        // Angular may already have detached the node.
+      }
+    }
     openCount = Math.max(0, openCount - 1);
     if (openCount === 0) {
       document.body.classList.remove(BODY_CLASS);

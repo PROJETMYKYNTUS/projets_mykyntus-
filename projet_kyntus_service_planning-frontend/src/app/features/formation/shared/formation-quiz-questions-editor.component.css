@@ -1,0 +1,151 @@
+.fqe-root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.fqe-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.fqe-card {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 0.75rem;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: color-mix(in srgb, var(--border, #e2e8f0) 12%, transparent);
+}
+
+.fqe-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fqe-index {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.fqe-card__actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.fqe-icon-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.35rem;
+  color: var(--muted, #64748b);
+}
+
+.fqe-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fqe-icon-btn--danger {
+  color: #be123c;
+}
+
+.fqe-type-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.fqe-type-switch label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+.fqe-points {
+  margin-left: auto;
+}
+
+.fqe-points-input {
+  width: 4.5rem;
+  margin-left: 0.35rem;
+}
+
+.fqe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fqe-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted, #64748b);
+}
+
+.fqe-muted {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted, #64748b);
+  font-weight: 400;
+}
+
+.fqe-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fqe-multi {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.fqe-option-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fqe-flex {
+  flex: 1;
+}
+
+.fqe-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+.fqe-preview-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.fqe-preview {
+  max-width: 280px;
+  max-height: 160px;
+  object-fit: contain;
+  border-radius: 0.35rem;
+  background: #0f172a0a;
+}
+
+.fqe-error {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: #be123c;
+}

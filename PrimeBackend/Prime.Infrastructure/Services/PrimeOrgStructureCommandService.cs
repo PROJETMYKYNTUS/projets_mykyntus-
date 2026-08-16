@@ -223,8 +223,16 @@ public sealed class PrimeOrgStructureCommandService(PrimeDbContext db, IRebacCli
 
     public async Task RemovePilotFromServiceAsync(string employeeId, string serviceId, CancellationToken ct = default)
     {
-        var emp = await db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId.Trim() && e.ServiceId == serviceId.Trim(), ct);
+        var emp = await db.Employees.FirstOrDefaultAsync(
+            e => e.Id == employeeId.Trim()
+                 && (e.ServiceId == serviceId.Trim()
+                     || e.CelluleId == serviceId.Trim()),
+            ct);
         if (emp is null) throw new KeyNotFoundException("Pilote introuvable.");
+        emp.Role = KyntusRoleNames.Employee;
+        emp.ServiceId = null;
+        emp.CelluleId = null;
+        emp.PoleId = null;
         emp.ParentId = null;
         await db.SaveChangesAsync(ct);
     }

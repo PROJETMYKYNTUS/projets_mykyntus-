@@ -18,18 +18,15 @@ public sealed class TrainingSessionExtrasController(
     public async Task<ActionResult<TrainingSessionReportDto>> UploadReport(
         Guid sessionId,
         IFormFile file,
-        [FromForm] Guid uploadedByUserId,
         CancellationToken ct)
     {
         try
         {
             if (file is null || file.Length == 0)
                 return BadRequest(new { error = "Fichier manquant." });
-            var actor = uploadedByUserId != Guid.Empty
-                ? uploadedByUserId
-                : User.GetSubjectId() ?? Guid.Empty;
+            var actor = User.GetSubjectId() ?? Guid.Empty;
             if (actor == Guid.Empty)
-                return BadRequest(new { error = "uploadedByUserId requis." });
+                return BadRequest(new { error = "Identifiant utilisateur manquant dans le jeton." });
 
             await using var stream = file.OpenReadStream();
             var dto = await training.UploadSessionReportAsync(
@@ -49,7 +46,6 @@ public sealed class TrainingSessionExtrasController(
     }
 
     [HttpGet("report")]
-    [AllowAnonymous]
     public async Task<IActionResult> DownloadReport(Guid sessionId, CancellationToken ct)
     {
         var result = await training.GetSessionReportAsync(sessionId, ct);
@@ -61,8 +57,9 @@ public sealed class TrainingSessionExtrasController(
     [HttpGet("quiz")]
     public async Task<ActionResult<TrainingQuizDto>> GetQuiz(Guid sessionId, CancellationToken ct)
     {
-        var quiz = await training.GetQuizForSessionAsync(sessionId, ct);
-        return quiz is null ? NotFound() : Ok(quiz);
+        var actor = User.GetSubjectId() ?? Guid.Empty;
+        if (actor == Guid.Empty) return BadRequest(new { error = "Identifiant utilisateur manquant dans le jeton." });
+        return Ok(await training.GetQuizForAnimatorAsync(sessionId, actor, ct));
     }
 
     [HttpPut("quiz")]
@@ -73,8 +70,7 @@ public sealed class TrainingSessionExtrasController(
     {
         try
         {
-            if (body.AnimatorUserId == Guid.Empty)
-                body.AnimatorUserId = User.GetSubjectId() ?? Guid.Empty;
+            body.AnimatorUserId = User.GetSubjectId() ?? Guid.Empty;
             return Ok(await training.UpsertQuizAsync(sessionId, body, ct));
         }
         catch (InvalidOperationException ex)
@@ -91,7 +87,7 @@ public sealed class TrainingSessionExtrasController(
     {
         try
         {
-            var actor = body.ActorUserId != Guid.Empty ? body.ActorUserId : User.GetSubjectId() ?? Guid.Empty;
+            var actor = User.GetSubjectId() ?? Guid.Empty;
             return Ok(await training.PublishQuizAsync(sessionId, actor, ct));
         }
         catch (InvalidOperationException ex)
@@ -103,11 +99,11 @@ public sealed class TrainingSessionExtrasController(
     [HttpGet("quiz/for-employee")]
     public async Task<ActionResult<TrainingQuizForEmployeeDto>> QuizForEmployee(
         Guid sessionId,
-        [FromQuery] Guid employeeId,
         CancellationToken ct)
     {
         try
         {
+            var employeeId = User.GetSubjectId() ?? Guid.Empty;
             return Ok(await training.GetPublishedQuizForEmployeeAsync(sessionId, employeeId, ct));
         }
         catch (InvalidOperationException ex)
@@ -124,6 +120,7 @@ public sealed class TrainingSessionExtrasController(
     {
         try
         {
+            body.EmployeeId = User.GetSubjectId() ?? Guid.Empty;
             return Ok(await training.SubmitQuizAttemptAsync(sessionId, body, ct));
         }
         catch (InvalidOperationException ex)
@@ -135,12 +132,11 @@ public sealed class TrainingSessionExtrasController(
     [HttpGet("quiz/attempts")]
     public async Task<ActionResult<IReadOnlyList<TrainingQuizAttemptDto>>> ListAttempts(
         Guid sessionId,
-        [FromQuery] Guid animatorUserId,
         CancellationToken ct)
     {
         try
         {
-            var actor = animatorUserId != Guid.Empty ? animatorUserId : User.GetSubjectId() ?? Guid.Empty;
+            var actor = User.GetSubjectId() ?? Guid.Empty;
             return Ok(await training.ListQuizAttemptsAsync(sessionId, actor, ct));
         }
         catch (InvalidOperationException ex)
@@ -149,21 +145,83 @@ public sealed class TrainingSessionExtrasController(
         }
     }
 
+    /// <summary>
+    /// Tentatives de l'employé pour cette séance uniquement (détail réponses).
+    /// Historique multi-séances : GET api/formations/employees/me/quiz-attempts.
+    /// </summary>
     [HttpGet("quiz/my-attempts")]
     public async Task<ActionResult<IReadOnlyList<TrainingQuizAttemptDto>>> ListMyAttempts(
         Guid sessionId,
-        [FromQuery] Guid employeeId,
         CancellationToken ct)
     {
         try
         {
-            var actor = employeeId != Guid.Empty ? employeeId : User.GetSubjectId() ?? Guid.Empty;
+            var actor = User.GetSubjectId() ?? Guid.Empty;
             return Ok(await training.ListMyQuizAttemptsAsync(sessionId, actor, ct));
         }
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { error = ex.Message });
         }
+    }
+
+    [HttpPost("quiz/questions/{questionId:guid}/image")]
+    [RequestSizeLimit(50_000_000)]
+    public async Task<ActionResult<TrainingQuizQuestionDto>> UploadQuestionImage(
+        Guid sessionId,
+        Guid questionId,
+        IFormFile file,
+        CancellationToken ct)
+    {
+        try
+        {
+            if (file is null || file.Length == 0)
+                return BadRequest(new { error = "Fichier manquant." });
+            var actor = User.GetSubjectId() ?? Guid.Empty;
+            if (actor == Guid.Empty)
+                return BadRequest(new { error = "Identifiant utilisateur manquant dans le jeton." });
+
+            await using var stream = file.OpenReadStream();
+            var dto = await training.UploadQuizQuestionImageAsync(
+                sessionId,
+                questionId,
+                actor,
+                file.FileName,
+                file.ContentType ?? "application/octet-stream",
+                stream,
+                configuration["Formation:QuizImages:RootPath"],
+                ct);
+            return Ok(dto);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("quiz/questions/{questionId:guid}/image")]
+    public async Task<IActionResult> DownloadQuestionImage(
+        Guid sessionId,
+        Guid questionId,
+        CancellationToken ct)
+    {
+        var result = await training.GetQuizQuestionImageAsync(sessionId, questionId, ct);
+        if (result is null) return NotFound();
+        var (question, bytes) = result.Value;
+        var ext = Path.GetExtension(question.ImageStoragePath ?? "").ToLowerInvariant();
+        var contentType = ext switch
+        {
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            ".mp4" => "video/mp4",
+            ".webm" => "video/webm",
+            ".ogg" => "video/ogg",
+            ".mov" => "video/quicktime",
+            _ => "image/jpeg",
+        };
+        return File(bytes, contentType);
     }
 
     [HttpPost("quiz/attempts/{attemptId:guid}/grade")]
@@ -175,8 +233,7 @@ public sealed class TrainingSessionExtrasController(
     {
         try
         {
-            if (body.AnimatorUserId == Guid.Empty)
-                body.AnimatorUserId = User.GetSubjectId() ?? Guid.Empty;
+            body.AnimatorUserId = User.GetSubjectId() ?? Guid.Empty;
             return Ok(await training.GradeQuizAttemptAsync(sessionId, attemptId, body, ct));
         }
         catch (InvalidOperationException ex)
@@ -194,8 +251,7 @@ public sealed class TrainingSessionExtrasController(
     {
         try
         {
-            if (body.AnimatorUserId == Guid.Empty)
-                body.AnimatorUserId = User.GetSubjectId() ?? Guid.Empty;
+            body.AnimatorUserId = User.GetSubjectId() ?? Guid.Empty;
             return Ok(await training.GradeFreeTextAnswerAsync(sessionId, attemptId, body, ct));
         }
         catch (InvalidOperationException ex)
@@ -212,8 +268,7 @@ public sealed class TrainingSessionExtrasController(
     {
         try
         {
-            if (body.ActorUserId == Guid.Empty)
-                body.ActorUserId = User.GetSubjectId() ?? Guid.Empty;
+            body.ActorUserId = User.GetSubjectId() ?? Guid.Empty;
             return Ok(await training.ValidateQuizAsync(sessionId, body, ct));
         }
         catch (InvalidOperationException ex)
@@ -230,8 +285,7 @@ public sealed class TrainingSessionExtrasController(
     {
         try
         {
-            if (body.ActorUserId == Guid.Empty)
-                body.ActorUserId = User.GetSubjectId() ?? Guid.Empty;
+            body.ActorUserId = User.GetSubjectId() ?? Guid.Empty;
             return Ok(await training.RejectQuizAsync(sessionId, body, ct));
         }
         catch (InvalidOperationException ex)

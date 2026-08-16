@@ -248,6 +248,12 @@ public partial class EmployeeFieldService(AppDbContext db) : IEmployeeFieldServi
             }
         }
 
+        foreach (var entry in db.ChangeTracker.Entries<User>().ToList())
+        {
+            if (entry.State == EntityState.Added)
+                entry.State = EntityState.Detached;
+        }
+
         await db.SaveChangesAsync(ct);
     }
 

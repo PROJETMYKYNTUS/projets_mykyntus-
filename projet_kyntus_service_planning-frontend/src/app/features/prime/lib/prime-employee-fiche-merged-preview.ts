@@ -1,5 +1,8 @@
 import * as XLSX from 'xlsx';
-import type { CellulePrimeIndicatorDto } from '../services/prime-cell-prime-api.service';
+import type {
+  CellulePrimeIndicatorDto,
+  ServicePoleLinePonderationDto,
+} from '../services/prime-cell-prime-api.service';
 import type { DetectedFormulaCell } from '../models/prime-template.model';
 import {
   PRIME_FICHE_TEMPLATE_FORMAT_V1,
@@ -530,16 +533,28 @@ function buildDynamicByStableId(
   parsedCell: ParsedCellSaisie,
   cellLines: PrimeFicheTemplateLine[],
   actives: CellulePrimeIndicatorDto[],
+  poleLinePonderations: ServicePoleLinePonderationDto[] = [],
 ): Map<string, PrimeFicheLigneDynamic> {
+  const pondBySid = new Map(
+    poleLinePonderations
+      .filter((p) => (p.templateStableId ?? '').trim().length > 0)
+      .map((p) => [p.templateStableId.trim(), p]),
+  );
   const m = new Map<string, PrimeFicheLigneDynamic>();
   for (const ln of schema.lines) {
     if (isPoleContract(ln.contract)) {
       const flat = poleLignes[ln.stableId];
+      let row: PrimeFicheLigneDynamic;
       if (flat && typeof flat === 'object' && !Array.isArray(flat)) {
-        m.set(ln.stableId, ligneDynamicFromFlatPayload(ln, flat as Record<string, unknown>));
+        row = ligneDynamicFromFlatPayload(ln, flat as Record<string, unknown>);
       } else {
-        m.set(ln.stableId, ligneDynamicFromTemplateLine(ln));
+        row = ligneDynamicFromTemplateLine(ln);
       }
+      const pond = pondBySid.get((ln.stableId ?? '').trim());
+      if (pond) {
+        applyIndicatorPonderationsToDynamic(row, pond.ponderationPrimePct, pond.ponderationChallengePct);
+      }
+      m.set(ln.stableId, row);
     } else if (isCellContract(ln.contract)) {
       m.set(ln.stableId, cellDynamicForSchemaLine(ln, cellLines, actives, parsedCell));
     } else {
@@ -588,6 +603,7 @@ export function computeMergedEmployeeFichePreview(params: {
   cellSaisieJson: string;
   templateCalcSnapshotJson: string | null | undefined;
   indicators: CellulePrimeIndicatorDto[];
+  poleLinePonderations?: ServicePoleLinePonderationDto[];
   templateId: string;
 }): MergedEmployeeFichePreviewResult {
   const snap = parseTemplateCalcSnapshotV1(params.templateCalcSnapshotJson ?? null);
@@ -630,7 +646,14 @@ export function computeMergedEmployeeFichePreview(params: {
   const actives = params.indicators.filter((i) => i.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
   const effectiveSchema = mergeSchemaWithDerivedCellLines(schema, actives);
   const cellLines = getCellTemplateLines(effectiveSchema);
-  const dynMap = buildDynamicByStableId(effectiveSchema, poleLignes, parsedCell, cellLines, actives);
+  const dynMap = buildDynamicByStableId(
+    effectiveSchema,
+    poleLignes,
+    parsedCell,
+    cellLines,
+    actives,
+    params.poleLinePonderations ?? [],
+  );
 
   const mainName = snap.previewSheetName || Object.keys(snap.calcSheets)[0]!;
   const origins = snap.calcSheetOrigins ?? {};

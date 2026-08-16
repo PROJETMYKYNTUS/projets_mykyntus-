@@ -77,6 +77,7 @@ public static class DependencyInjection
             services.AddScoped<IPrimeGlobalPoolStakeholderAppService, PrimeGlobalPoolStakeholderAppService>();
             services.AddScoped<IPrimeGlobalPoolScopeAppService, PrimeGlobalPoolScopeAppService>();
             services.AddScoped<IServicePrimeIndicatorsAppService, ServicePrimeIndicatorsAppService>();
+            services.AddScoped<IServicePoleLinePonderationsAppService, ServicePoleLinePonderationsAppService>();
             services.AddScoped<IPrimePeriodRecapReportsAppService, PrimePeriodRecapReportsAppService>();
             services.AddScoped<IPrimeFicheImportAppService, PrimeFicheImportAppService>();
             services.AddScoped<IPrimeCoreQueryAppService, PrimeCoreQueryAppService>();
@@ -96,7 +97,10 @@ public static class DependencyInjection
             services.AddScoped<IPrimeAbsenceSanctionConfigAppService, PrimeAbsenceSanctionConfigAppService>();
             services.AddScoped<PrimeFicheMergedPreviewAccessService>();
             services.AddScoped<PrimeFicheImportService>();
-            services.AddScoped<AllowanceScopeService>();
+            services.AddScoped<AllowanceScopeService>(sp =>
+                new AllowanceScopeService(
+                    sp.GetRequiredService<PrimeDbContext>(),
+                    sp.GetService<IRebacClient>()));
             services.AddScoped<AllowanceCatalogService>();
             services.AddScoped<AllowanceRequestService>();
             services.AddScoped<AllowanceTeamPilotageService>();

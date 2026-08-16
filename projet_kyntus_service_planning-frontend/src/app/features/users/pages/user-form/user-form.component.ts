@@ -433,6 +433,92 @@ export class UserFormComponent implements OnInit, OnDestroy {
     this.draftBinder?.touch();
   }
 
+  /** Annule une création partielle (Directory/Planning/Auth) après échec d'une étape post-create. */
+  private compensateFailedCreate$(userId: number, err: unknown, fallback: string): Observable<never> {
+    return this.userService.deleteUser(userId).pipe(
+      catchError(() => of(void 0)),
+      switchMap(() => throwError(() => new Error(formatHttpErrorMessage(err, fallback)))),
+    );
+  }
+
+  async resetDraftForm(): Promise<void> {
+    const ok = await this.confirmService.confirm({
+      title: 'Réinitialiser le formulaire',
+      message: this.isEditMode
+        ? 'Recharger les données enregistrées et ignorer les modifications non sauvegardées ?'
+        : 'Effacer toutes les saisies et le brouillon en cours ?',
+      confirmLabel: 'Réinitialiser',
+      cancelLabel: 'Annuler',
+      variant: 'warning',
+    });
+    if (!ok) return;
+
+    this.error = null;
+    this.draftBinder?.discard();
+
+    if (this.isEditMode && this.userId) {
+      this.loadUser(this.userId);
+      return;
+    }
+
+    this.resetCreateFormState();
+    this.startFormDraft();
+    this.cdr.detectChanges();
+  }
+
+  private resetCreateFormState(): void {
+    this.form = {
+      roleId: 0,
+      subServiceId: null,
+      firstName: '',
+      lastName: '',
+      email: '',
+      hireDate: this.toDateInputValue(new Date()),
+      isActive: true,
+      level: 1,
+      chefDeProjetId: '',
+      superviseurId: '',
+      referentTechniqueId: '',
+      niveauExpertiseMetier: null,
+    };
+    this.hrProfile = {
+      dateNaissance: '',
+      villeNaissance: '',
+      nationalite: '',
+      numeroCarteAutoentrepreneur: '',
+      sexe: '',
+      situationFamiliale: '',
+      nombreEnfants: null,
+      cin: '',
+      adresse: '',
+      emailPersonnel: '',
+      telephone1: '',
+      telephoneUrgence: '',
+      relationUrgence: '',
+      rib: '',
+      immatriculationInterne: '',
+      immatriculationCnss: '',
+      dateEntree: '',
+      dateAnciennete: '',
+      dateSortie: '',
+      dateEvolutionPoste: '',
+      ancienPoste: '',
+      ancienService: '',
+      niveauScolaire: '',
+      intitulesEtudes: '',
+      enFormation: false,
+      dateDebutFormation: '',
+      dateFinFormationPrevue: '',
+    };
+    this.contractDraft = createEmptyContractFields();
+    this.customFieldValues = {};
+    this.emailError = null;
+    this.personalEmailError = null;
+    this.currentWizardStep = 'identity';
+    this.clearOrgAssignment();
+    this.clearOrgFilters();
+  }
+
   private preloadHtelTechniciens(): void {
     this.htelApi.listTechniciens(true).subscribe({
       next: (rows) => {
@@ -2973,7 +3059,11 @@ export class UserFormComponent implements OnInit, OnDestroy {
           return this.completeReferralOnboarding$(guid).pipe(
             map((referralResult) => ({ user, referralResult })),
             catchError((err) =>
-              throwError(() => new Error(formatHttpErrorMessage(err, 'Employé créé mais échec de la finalisation parrainage.'))),
+              this.compensateFailedCreate$(
+                user.id,
+                err,
+                'Échec de la finalisation parrainage. Aucun employé n’a été conservé.',
+              ),
             ),
           );
         }),
@@ -2994,14 +3084,10 @@ export class UserFormComponent implements OnInit, OnDestroy {
           ).pipe(
             map(() => ({ user, referralResult })),
             catchError((err) =>
-              throwError(
-                () =>
-                  new Error(
-                    formatHttpErrorMessage(
-                      err,
-                      'Employé créé mais échec de l’enregistrement du parcours formation initiale.',
-                    ),
-                  ),
+              this.compensateFailedCreate$(
+                user.id,
+                err,
+                'Échec de l’enregistrement du parcours formation. Aucun employé n’a été conservé.',
               ),
             ),
           );
@@ -3010,11 +3096,10 @@ export class UserFormComponent implements OnInit, OnDestroy {
           this.saveContract$(user.id).pipe(
             map(() => ({ user, referralResult })),
             catchError((err) =>
-              throwError(
-                () =>
-                  new Error(
-                    formatHttpErrorMessage(err, 'Employé créé mais échec de l’enregistrement du contrat.'),
-                  ),
+              this.compensateFailedCreate$(
+                user.id,
+                err,
+                'Échec de l’enregistrement du contrat. Aucun employé n’a été conservé.',
               ),
             ),
           ),
@@ -3204,6 +3289,12 @@ export class UserFormComponent implements OnInit, OnDestroy {
         this.hrProfile.dateDebutFormation < this.hrProfile.dateEntree
       ) {
         return 'La date de début de formation doit être postérieure ou égale à la date d\'entrée.';
+      }
+      if (
+        this.form.hireDate.trim() &&
+        this.hrProfile.dateFinFormationPrevue < this.form.hireDate
+      ) {
+        return 'La date de fin de formation doit être postérieure ou égale à la date d\'embauche.';
       }
       if (this.isEditMode || !this.canShowContractFields) return null;
     }

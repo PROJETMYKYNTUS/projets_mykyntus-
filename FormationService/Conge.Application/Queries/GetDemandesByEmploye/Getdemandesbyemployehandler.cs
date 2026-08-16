@@ -1,6 +1,7 @@
 ﻿// Conge.Application/Queries/GetDemandesByEmploye/GetDemandesByEmployeQueryHandler.cs
 
 using Conge.Application.DTOs;
+using Conge.Application.Queries.GetDemandesByManager;
 using Conge.Domain.Interfaces;
 using MediatR;
 
@@ -10,39 +11,37 @@ public class GetDemandesByEmployeQueryHandler
     : IRequestHandler<GetDemandesByEmployeQuery, IEnumerable<DemandeCongeDto>>
 {
     private readonly IDemandeCongeRepository _repo;
+    private readonly IEmployeSnapshotRepository _employeRepo;
 
-    public GetDemandesByEmployeQueryHandler(IDemandeCongeRepository repo)
+    public GetDemandesByEmployeQueryHandler(
+        IDemandeCongeRepository repo,
+        IEmployeSnapshotRepository employeRepo)
     {
         _repo = repo;
+        _employeRepo = employeRepo;
     }
 
     public async Task<IEnumerable<DemandeCongeDto>> Handle(
         GetDemandesByEmployeQuery request,
         CancellationToken cancellationToken)
     {
-        // Récupère toutes les demandes de l'employé
         var demandes = await _repo.GetByEmployeIdAsync(request.EmployeId, cancellationToken);
 
-        // Filtre par statut si fourni
         if (request.Statut.HasValue)
             demandes = demandes.Where(d => d.Statut == request.Statut.Value);
 
-        return demandes.Select(d => new DemandeCongeDto(
-           d.Id,
-           d.EmployeId,
-           d.ManagerId,
-           d.TypeConge,
-           d.TypeExceptionnel,
-           d.DateDebut,
-           d.DateFin,
-           d.NombreJours,
-           d.Statut,
-           d.Motif,
-           d.CommentaireManager,
-           d.DateDemande,
-           d.DateDecision,
-           null,   // ✅ NomEmploye
-           null    // ✅ PrenomEmploye
-       ));
+        var result = new List<DemandeCongeDto>();
+        foreach (var d in demandes)
+        {
+            string? supNom = null;
+            string? rhNom = null;
+            if (d.SuperviseurDecideurId is { } sid)
+                supNom = (await _employeRepo.GetByEmployeIdAsync(sid, cancellationToken))?.NomComplet;
+            if (d.RhDecideurId is { } rid)
+                rhNom = (await _employeRepo.GetByEmployeIdAsync(rid, cancellationToken))?.NomComplet;
+            result.Add(GetDemandesByManagerHandler.Map(d, null, supNom, rhNom));
+        }
+
+        return result;
     }
 }

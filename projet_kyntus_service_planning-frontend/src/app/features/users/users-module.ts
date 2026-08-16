@@ -62,6 +62,13 @@ export interface User {
   isActive: boolean;
   createdAt: string;
   level: number;
+  /** null = défaut Niveau ; 1 = tous samedis 4h ; 2 = alternance 8h */
+  saturdayWorkMode?: number | null;
+  /** Cas particulier — exclus des pauses extrêmes +3h/+5h. */
+  isSpecialCase?: boolean;
+  specialCaseDescription?: string | null;
+  /** Ticket formation plateau — jamais Opening/Closing. */
+  isPlateauTraining?: boolean;
   chefDeProjetId?: string | null;
   superviseurId?: string | null;
   referentTechniqueId?: string | null;

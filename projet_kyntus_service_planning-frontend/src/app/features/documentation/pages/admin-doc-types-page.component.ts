@@ -13,6 +13,7 @@ import { DocumentAdminService } from '../services/document-admin.service';
 import { DocumentationNavigationService } from '../services/documentation-navigation.service';
 import { DocumentationNotificationService } from '../../../core/services/documentation-notification.service';
 import { formatDocumentationUxMessage } from '../../../core/lib/documentation-ux-messages';
+import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 type DocTypeForm = Omit<AdminDocType, 'id'>;
 
@@ -62,6 +63,7 @@ export class AdminDocTypesPageComponent implements OnInit {
     private readonly nav: DocumentationNavigationService,
     private readonly admin: DocumentAdminService,
     private readonly notify: DocumentationNotificationService,
+    private readonly confirmService: KyntusConfirmService,
   ) {}
 
   ngOnInit(): void {
@@ -160,7 +162,12 @@ export class AdminDocTypesPageComponent implements OnInit {
   }
 
   async onDelete(id: string): Promise<void> {
-    const ok = window.confirm('Supprimer ce type de document ? Cette action est irreversible.');
+    const ok = await this.confirmService.confirm({
+      title: 'Supprimer le type de document',
+      message: 'Supprimer ce type de document ? Cette action est irreversible.',
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    });
     if (!ok) return;
     this.deletingId = id;
     try {

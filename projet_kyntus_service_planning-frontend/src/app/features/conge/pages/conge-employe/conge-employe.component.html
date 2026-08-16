@@ -33,12 +33,18 @@
   <div class="ce-filters">
     <select class="ky-input" [(ngModel)]="filtreStatut" (change)="loadDemandes()">
       <option value="">Tous les statuts</option>
-      <option [value]="StatutDemande.EnAttente">En attente</option>
+      <option [value]="StatutDemande.EnAttente">En attente superviseur</option>
+      <option [value]="StatutDemande.EnAttenteRh">En attente RH</option>
       <option [value]="StatutDemande.Validee">Validée</option>
       <option [value]="StatutDemande.Refusee">Refusée</option>
       <option [value]="StatutDemande.Annulee">Annulée</option>
     </select>
   </div>
+
+  <p class="ce-forbid-hint" *ngIf="moisInterdits.length">
+    Mois interdits aux congés :
+    <strong>{{ moisInterditsLabel }}</strong>
+  </p>
 
   <div class="ce-loading" *ngIf="loading"><div class="ce-spinner"></div><p>Chargement…</p></div>
 
@@ -62,17 +68,17 @@
           <td class="ce-td-date">{{ d.dateDebut | date:'dd/MM/yy' }} → {{ d.dateFin | date:'dd/MM/yy' }}</td>
           <td>{{ d.nombreJours }}</td>
           <td>{{ d.motif || '—' }}</td>
-          <td><span class="ce-badge" [ngClass]="getStatutClass(d.statut)">{{ statutLabels[d.statut] }}</span></td>
-          <td>{{ d.commentaireManager || '—' }}</td>
+          <td><span class="ce-badge" [ngClass]="getStatutClass(d.statut)">{{ statutLabels[d.statut] || d.statut }}</span></td>
+          <td>{{ d.commentaireRh || d.commentaireManager || '—' }}</td>
           <td class="ce-td-actions">
-            <button class="ce-btn-cancel" *ngIf="d.statut === StatutDemande.EnAttente" (click)="annuler(d)">Annuler</button>
+            <button class="ce-btn-cancel" *ngIf="canAnnuler(d)" (click)="annuler(d)">Annuler</button>
           </td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <div class="ce-modal-overlay" *ngIf="showModal" (click)="showModal = false">
+  <div class="ce-modal-overlay" *ngIf="showModal" appBodyPortal (click)="showModal = false">
     <div class="ce-modal" (click)="$event.stopPropagation()">
       <div class="ce-modal-head">
         <h3>Nouvelle demande de congé</h3>
@@ -96,13 +102,14 @@
         <div class="ce-row">
           <div class="ce-field">
             <label>Date début</label>
-            <input class="ky-input" type="date" [(ngModel)]="form.dateDebut" (ngModelChange)="touchDraft()" />
+            <input class="ky-input" type="date" [(ngModel)]="form.dateDebut" (ngModelChange)="checkDisponibilite()" />
           </div>
           <div class="ce-field" *ngIf="isDateFinManuelle()">
             <label>Date fin</label>
-            <input class="ky-input" type="date" [(ngModel)]="form.dateFin" (ngModelChange)="touchDraft()" />
+            <input class="ky-input" type="date" [(ngModel)]="form.dateFin" (ngModelChange)="checkDisponibilite()" />
           </div>
         </div>
+        <p class="ce-disponibilite-error" *ngIf="disponibiliteMotif">{{ disponibiliteMotif }}</p>
         <div class="ce-field">
           <label>Motif <small>(optionnel)</small></label>
           <textarea class="ky-input" [(ngModel)]="form.motif" (ngModelChange)="touchDraft()" rows="3" placeholder="Motif…"></textarea>
@@ -110,9 +117,13 @@
         <div class="ce-info-solde" *ngIf="solde && form.typeConge === TypeConge.Annuel">
           Solde disponible : <strong>{{ solde.soldeRestant }} jours</strong>
         </div>
+        <p class="ce-forbid-hint" *ngIf="moisInterdits.length">
+          Mois interdits : {{ moisInterditsLabel }}
+        </p>
       </div>
       <div class="ce-modal-foot">
         <button class="prime-btn-secondary" (click)="showModal = false">Annuler</button>
+        <button class="prime-btn-secondary" type="button" (click)="resetDraftForm()">Réinitialiser</button>
         <button class="ky-btn-primary" (click)="submit()">Envoyer la demande</button>
       </div>
     </div>

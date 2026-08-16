@@ -90,6 +90,94 @@ public sealed class ServicePrimeIndicatorsAppService(PrimeDbContext db, PrimeOrg
     }
 }
 
+public sealed class ServicePoleLinePonderationsAppService(PrimeDbContext db, PrimeOrgScopeService org)
+    : IServicePoleLinePonderationsAppService
+{
+    private static ServicePoleLinePonderationDto Map(ServicePoleLinePonderationEntity e) =>
+        new()
+        {
+            Id = e.Id,
+            ServiceId = e.ServiceId,
+            TemplateStableId = e.TemplateStableId,
+            Label = e.Label,
+            SortOrder = e.SortOrder,
+            PonderationPrimePct = e.PonderationPrimePct,
+            PonderationChallengePct = e.PonderationChallengePct,
+            CreatedAt = e.CreatedAt,
+            UpdatedAt = e.UpdatedAt,
+        };
+
+    public async Task<IReadOnlyList<ServicePoleLinePonderationDto>> GetAsync(
+        string serviceId,
+        string supervisorUserId,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(supervisorUserId))
+            throw new ArgumentException("supervisorUserId requis.");
+
+        var celluleId = await org.GetCelluleIdForServiceAsync(serviceId, ct)
+            ?? throw new KeyNotFoundException("Cellule introuvable.");
+        if (!await org.SupervisorOwnsCelluleAsync(supervisorUserId, celluleId, ct))
+            throw new UnauthorizedAccessException("Accès refusé pour ce périmètre.");
+
+        var list = await db.ServicePoleLinePonderations.AsNoTracking()
+            .Where(x => x.ServiceId == serviceId.Trim())
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.TemplateStableId)
+            .ToListAsync(ct);
+        return list.ConvertAll(Map);
+    }
+
+    public async Task<IReadOnlyList<ServicePoleLinePonderationDto>> PutAsync(
+        string serviceId,
+        string supervisorUserId,
+        PutServicePoleLinePonderationsRequest body,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(supervisorUserId))
+            throw new ArgumentException("supervisorUserId requis.");
+
+        var celluleId = await org.GetCelluleIdForServiceAsync(serviceId, ct)
+            ?? throw new KeyNotFoundException("Cellule introuvable.");
+        if (!await org.SupervisorOwnsCelluleAsync(supervisorUserId, celluleId, ct))
+            throw new UnauthorizedAccessException("Accès refusé pour ce périmètre.");
+
+        var cid = serviceId.Trim();
+        var now = DateTimeOffset.UtcNow;
+        var existing = await db.ServicePoleLinePonderations.Where(x => x.ServiceId == cid).ToListAsync(ct);
+        db.ServicePoleLinePonderations.RemoveRange(existing);
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in body.Items.OrderBy(i => i.SortOrder))
+        {
+            var sid = (item.TemplateStableId ?? "").Trim();
+            if (sid.Length == 0) continue;
+            if (!seen.Add(sid)) continue;
+
+            db.ServicePoleLinePonderations.Add(new ServicePoleLinePonderationEntity
+            {
+                Id = Guid.NewGuid(),
+                ServiceId = cid,
+                TemplateStableId = sid,
+                Label = (item.Label ?? "").Trim(),
+                SortOrder = item.SortOrder,
+                PonderationPrimePct = item.PonderationPrimePct,
+                PonderationChallengePct = item.PonderationChallengePct,
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+        var list = await db.ServicePoleLinePonderations.AsNoTracking()
+            .Where(x => x.ServiceId == cid)
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.TemplateStableId)
+            .ToListAsync(ct);
+        return list.ConvertAll(Map);
+    }
+}
+
 public sealed class PrimePeriodRecapReportsAppService(PrimeDbContext db) : IPrimePeriodRecapReportsAppService
 {
     public async Task<FileExportResultDto> DownloadPeriodRecapAsync(
@@ -202,8 +290,8 @@ public sealed class AllowanceQueryAppService(PrimeDbContext db, AllowanceScopeSe
         var emp = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == userId, ct);
         var managedDept = await db.BusinessDepartments.AsNoTracking()
             .FirstOrDefaultAsync(d => d.ManagerEmployeeId == userId && d.IsActive, ct);
-        var directReportCount = await db.Employees.AsNoTracking()
-            .CountAsync(e => e.ParentId == userId, ct);
+        var managedIds = await scope.GetDirectReportIdsAsync(userId, ct);
+        var directReportCount = managedIds.Count;
         return new AllowanceUserContextDto(
             userId,
             role,
@@ -223,8 +311,11 @@ public sealed class AllowanceQueryAppService(PrimeDbContext db, AllowanceScopeSe
         if (!await scope.IsSupportDepartmentManagerAsync(userId, ct))
             throw new UnauthorizedAccessException();
         var deptId = await scope.GetManagerDepartmentIdAsync(userId, ct);
+        var managedIds = await scope.GetDirectReportIdsAsync(userId, ct);
+        if (managedIds.Count == 0) return [];
+
         var query = db.Employees.AsNoTracking()
-            .Where(e => e.ParentId == userId && e.BusinessDepartmentKind == "Support");
+            .Where(e => managedIds.Contains(e.Id) && e.BusinessDepartmentKind == "Support");
         if (!string.IsNullOrWhiteSpace(deptId))
             query = query.Where(e => e.BusinessDepartmentId == deptId);
         var team = await query

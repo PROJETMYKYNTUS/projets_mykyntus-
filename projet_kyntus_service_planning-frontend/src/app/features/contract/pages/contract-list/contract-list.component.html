@@ -215,7 +215,7 @@
 </div>
 
 @if (showDeleteModal) {
-  <div class="modal-overlay" (click)="closeModal()">
+  <div class="modal-overlay" appBodyPortal (click)="closeModal()">
     <div class="modal-box confirm-modal ky-card" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>Confirmer la suppression</h2>

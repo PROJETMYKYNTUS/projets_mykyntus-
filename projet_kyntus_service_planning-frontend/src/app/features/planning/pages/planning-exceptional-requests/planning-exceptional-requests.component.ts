@@ -7,7 +7,7 @@ import { PlanningService } from '../../services/planning.service';
 import { KyntusSessionService } from '../../../../core/session/kyntus-session.service';
 import { KyntusRoleNames } from '../../../../core/org/kyntus-role-names';
 import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
-import { formatWeekLabel, toApiWeekCode } from '../../utils/week-code.util';
+import { formatWeekLabel, toApiWeekCode, buildWeekSelectOptions, REQUEST_PERIOD_OPTIONS, type RequestFilterPeriod, type WeekSelectOption } from '../../utils/week-code.util';
 
 function apiMessage(err: unknown): string {
   const e = err as { error?: { message?: string } | string; message?: string };
@@ -31,6 +31,9 @@ export class PlanningExceptionalRequestsComponent implements OnInit {
   toast = '';
   filterStatus = 'Pending';
   filterWeek = '';
+  filterPeriod: RequestFilterPeriod = 'thisMonth';
+  readonly periodOptions = REQUEST_PERIOD_OPTIONS;
+  readonly weekOptions: WeekSelectOption[] = buildWeekSelectOptions(20, 4);
   authUserId = 0;
   rejectId: number | null = null;
   rejectReason = '';
@@ -41,6 +44,30 @@ export class PlanningExceptionalRequestsComponent implements OnInit {
   canRhAct = false;
 
   readonly formatWeekLabel = formatWeekLabel;
+
+  get recapTotal(): number {
+    return this.requests.length;
+  }
+
+  get recapPending(): number {
+    return this.requests.filter((r) => {
+      const s = String(r?.status ?? r?.Status ?? '');
+      return s === 'PendingSupervisor' || s === 'PendingRh' || s === 'Pending';
+    }).length;
+  }
+
+  get recapApproved(): number {
+    return this.requests.filter((r) => String(r?.status ?? r?.Status) === 'Approved').length;
+  }
+
+  get recapRejected(): number {
+    return this.requests.filter((r) => String(r?.status ?? r?.Status) === 'Rejected').length;
+  }
+
+  get filterScopeLabel(): string {
+    if (this.filterWeek) return formatWeekLabel(this.filterWeek);
+    return this.periodOptions.find((o) => o.value === this.filterPeriod)?.label ?? 'Tout';
+  }
 
   constructor(
     private planning: PlanningService,
@@ -90,12 +117,28 @@ export class PlanningExceptionalRequestsComponent implements OnInit {
     this.reload();
   }
 
+  onPeriodChange(): void {
+    this.filterWeek = '';
+    this.reload();
+  }
+
+  onWeekChange(): void {
+    this.reload();
+  }
+
   reload(): void {
     this.loading = true;
     this.error = '';
     const weekApi = this.filterWeek ? toApiWeekCode(this.filterWeek) : undefined;
+    const period = weekApi ? undefined : this.filterPeriod;
     this.planning
-      .getExceptionalRequests(this.filterStatus || undefined, weekApi || undefined, this.authUserId)
+      .getExceptionalRequests(
+        this.filterStatus || undefined,
+        weekApi || undefined,
+        this.authUserId,
+        undefined,
+        period,
+      )
       .subscribe({
         next: (list) => {
           this.requests = list ?? [];

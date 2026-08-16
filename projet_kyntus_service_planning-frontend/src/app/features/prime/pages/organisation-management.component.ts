@@ -18,9 +18,11 @@ import {
   ChevronDown,
   ChevronRight,
   History,
+  Pencil,
   Plus,
   RefreshCw,
   Trash2,
+  X,
 } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { KyntusSelectSyncDirective } from '@/shared/directives/kyntus-select-sync.directive';
@@ -47,15 +49,12 @@ import {
 } from '../lib/org-name-uniqueness';
 import {
   buildCrossRoleOverwriteMessage,
-  buildStructureOverwriteMessage,
   employeeDisplayName,
   findConflictingStructuralRole,
   findStructureIncumbents,
-  shouldConfirmOverwrite,
-  shouldConfirmIncumbentChoice,
-  buildIncumbentChoiceMessage,
 } from '../../../core/org/org-structure-incumbent.util';
 import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
+import { KyntusPromptService } from '../../../shared/components/kyntus-prompt/kyntus-prompt.service';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 import { KyntusSessionService } from '../../../core/session/kyntus-session.service';
 import { evaluatePilotRotationEligibility } from '../../../core/directory/pilot-rotation-eligibility.util';
@@ -315,7 +314,7 @@ function httpErrMessage(err: unknown): string {
             </app-prime-card>
           }
           @case ('departments') {
-            <app-prime-card className="p-0" title="Pôles" description="Un chef de projet par pôle. Parent obligatoire : département métier.">
+            <app-prime-card className="p-0" title="Pôles" description="Chefs de projet (co-titulaires possibles) par pôle. Parent obligatoire : département métier.">
               <div
                 class="px-4 py-3 sm:px-6 border-b border-default bg-input/40 flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-end"
               >
@@ -368,8 +367,8 @@ function httpErrMessage(err: unknown): string {
                     <tr>
                       <th class="font-medium">Département</th>
                       <th class="font-medium max-w-[min(100%,20rem)]">Pôle</th>
-                      <th class="font-medium">Chef de projet actuel</th>
-                      <th class="font-medium min-w-[220px]">Nouveau chef de projet</th>
+                      <th class="font-medium">Chefs de projet</th>
+                      <th class="font-medium min-w-[220px]">Ajouter un chef de projet</th>
                       <th class="font-medium w-48 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -446,9 +445,9 @@ function httpErrMessage(err: unknown): string {
                                 type="button"
                                 (click)="saveDepartmentManagerRow(row.poleId)"
                                 [disabled]="saving() || !draftManagerDept(row.poleId)"
-                                class="ky-btn-primary px-2.5 py-1.5 text-xs"
+                                class="ky-btn-secondary px-2.5 py-1.5 text-xs"
                               >
-                                Enregistrer
+                                Ajouter
                               </button>
                               <button
                                 type="button"
@@ -539,8 +538,8 @@ function httpErrMessage(err: unknown): string {
                       <th class="font-medium">Département</th>
                       <th class="font-medium">Pôle</th>
                       <th class="font-medium">Cellule</th>
-                      <th class="px-4 py-2.5 font-medium">Superviseur actuel</th>
-                      <th class="px-4 py-2.5 font-medium min-w-[220px]">Nouveau superviseur</th>
+                      <th class="px-4 py-2.5 font-medium">Superviseurs</th>
+                      <th class="px-4 py-2.5 font-medium min-w-[220px]">Ajouter un superviseur</th>
                       <th class="px-4 py-2.5 font-medium w-40 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -589,9 +588,9 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="savePoleSupervisorRow(row.celluleId)"
                               [disabled]="saving() || !draftSupervisorPole(row.celluleId)"
-                              class="ky-btn-primary px-2.5 py-1.5 text-xs"
+                              class="ky-btn-secondary px-2.5 py-1.5 text-xs"
                             >
-                              Enregistrer
+                              Ajouter
                             </button>
                             <button
                               type="button"
@@ -701,8 +700,8 @@ function httpErrMessage(err: unknown): string {
                       <th class="px-4 py-2.5 font-medium">Pôle</th>
                       <th class="px-4 py-2.5 font-medium">Cellule</th>
                       <th class="px-4 py-2.5 font-medium">Service</th>
-                      <th class="px-4 py-2.5 font-medium">Réf. technique actuel</th>
-                      <th class="px-4 py-2.5 font-medium min-w-[220px]">Nouveau référent</th>
+                      <th class="px-4 py-2.5 font-medium">Référents techniques</th>
+                      <th class="px-4 py-2.5 font-medium min-w-[220px]">Ajouter un référent</th>
                       <th class="px-4 py-2.5 font-medium w-40 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -766,9 +765,9 @@ function httpErrMessage(err: unknown): string {
                               type="button"
                               (click)="saveCellCoachRow(row.celluleId)"
                               [disabled]="saving() || !draftCoachCell(row.celluleId)"
-                              class="ky-btn-primary px-2.5 py-1.5 text-xs"
+                              class="ky-btn-secondary px-2.5 py-1.5 text-xs"
                             >
-                              Enregistrer
+                              Ajouter
                             </button>
                             <button
                               type="button"
@@ -814,15 +813,11 @@ function httpErrMessage(err: unknown): string {
                                 <li class="px-3 py-3 text-sm text-muted">Aucun pilote</li>
                               }
                             </ul>
-                            @if (coachUserIds(row.celluleId).length === 0) {
-                              <p class="text-xs text-[var(--warning-text)] mb-2">Affectez un référent technique pour ajouter des pilotes.</p>
-                            }
                             <div class="flex flex-wrap gap-2 items-end max-w-lg">
                               <select
                                 class="flex-1 min-w-[160px] rounded-lg border border-default bg-card px-2 py-2 text-sm text-primary"
                                 [kyntusSelectSync]="draftPilotCell(row.celluleId)"
                                 (kyntusSelectSyncChange)="patchDraftPilotCell(row.celluleId, $event)"
-                                [disabled]="coachUserIds(row.celluleId).length === 0"
                               >
                                 <option value="">— Pilote —</option>
                                 @for (e of employeesForPilotRow(row.celluleId); track e.id) {
@@ -843,7 +838,7 @@ function httpErrMessage(err: unknown): string {
                               <button
                                 type="button"
                                 (click)="addPilotRow(row.celluleId)"
-                                [disabled]="saving() || coachUserIds(row.celluleId).length === 0 || !draftPilotCell(row.celluleId)"
+                                [disabled]="saving() || !draftPilotCell(row.celluleId)"
                                 class="ky-btn-secondary px-3 py-2 text-sm"
                               >
                                 Ajouter pilote
@@ -903,77 +898,115 @@ function httpErrMessage(err: unknown): string {
                           <div class="org-tree-children">
                             @for (pole of md.poles; track pole.id) {
                               <div class="org-tree-block">
-                                <button
-                                  type="button"
-                                  [class]="poleTreeRowClass(pole.id)"
-                                  (click)="togglePole(pole.id); selectPole(md, pole)"
-                                >
-                                  <span class="org-tree-chev">
-                                    <app-lucide-icon
-                                      [icon]="poleExpanded(pole.id) ? icons.chevDown : icons.chevRight"
-                                      className="w-3.5 h-3.5 text-muted"
-                                    />
-                                  </span>
-                                  <span class="org-tree-label text-sm font-medium text-primary">
-                                    <span class="org-badge org-badge--pole">Pôle</span>
-                                    <span class="org-tree-name" [attr.title]="pole.name">{{ pole.name }}</span>
-                                  </span>
-                                  <span
-                                    class="org-tree-assignee"
-                                    [attr.title]="structureBadgeTitle(managerBadge(pole.id), 'Chef de projet')"
-                                    >{{ managerBadge(pole.id) || '—' }}</span
+                                <div class="org-tree-row-wrap">
+                                  <button
+                                    type="button"
+                                    [class]="poleTreeRowClass(pole.id)"
+                                    (click)="togglePole(pole.id); selectPole(md, pole)"
                                   >
-                                </button>
+                                    <span class="org-tree-chev">
+                                      <app-lucide-icon
+                                        [icon]="poleExpanded(pole.id) ? icons.chevDown : icons.chevRight"
+                                        className="w-3.5 h-3.5 text-muted"
+                                      />
+                                    </span>
+                                    <span class="org-tree-label text-sm font-medium text-primary">
+                                      <span class="org-badge org-badge--pole">Pôle</span>
+                                      <span class="org-tree-name" [attr.title]="pole.name">{{ pole.name }}</span>
+                                    </span>
+                                    <span
+                                      class="org-tree-assignee"
+                                      [attr.title]="structureBadgeTitle(managerBadge(pole.id), 'Chef de projet')"
+                                      >{{ managerBadge(pole.id) || '—' }}</span
+                                    >
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="org-tree-rename"
+                                    title="Renommer le pôle"
+                                    (click)="$event.stopPropagation(); renameStructureNode('pole', pole.id, pole.name)"
+                                  >
+                                    <app-lucide-icon [icon]="icons.pencil" className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                                 @if (poleExpanded(pole.id)) {
                                   <div class="org-tree-children">
                                     @for (cell of pole.cellules; track cell.id) {
                                       <div class="org-tree-block">
-                                        <button
-                                          type="button"
-                                          [class]="celluleTreeRowClass(cell.id)"
-                                          (click)="toggleCelluleExpand(cell.id); selectCellule(md, pole, cell)"
-                                        >
-                                          <span class="org-tree-chev">
-                                            <app-lucide-icon
-                                              [icon]="celluleExpanded(cell.id) ? icons.chevDown : icons.chevRight"
-                                              className="w-3 h-3 text-muted"
-                                            />
-                                          </span>
-                                          <span class="org-tree-label text-sm text-muted">
-                                            <span class="org-badge org-badge--cell">Cell.</span>
-                                            <span class="org-tree-name" [attr.title]="cell.name">{{ cell.name }}</span>
-                                          </span>
-                                          <span
-                                            class="org-tree-assignee"
-                                            [attr.title]="
-                                              structureBadgeTitle(supervisorBadge(cell.id), 'Superviseur')
-                                            "
-                                            >{{ supervisorBadge(cell.id) || '—' }}</span
+                                        <div class="org-tree-row-wrap">
+                                          <button
+                                            type="button"
+                                            [class]="celluleTreeRowClass(cell.id)"
+                                            (click)="toggleCelluleExpand(cell.id); selectCellule(md, pole, cell)"
                                           >
-                                        </button>
+                                            <span class="org-tree-chev">
+                                              <app-lucide-icon
+                                                [icon]="celluleExpanded(cell.id) ? icons.chevDown : icons.chevRight"
+                                                className="w-3 h-3 text-muted"
+                                              />
+                                            </span>
+                                            <span class="org-tree-label text-sm text-muted">
+                                              <span class="org-badge org-badge--cell">Cell.</span>
+                                              <span class="org-tree-name" [attr.title]="cell.name">{{ cell.name }}</span>
+                                            </span>
+                                            <span
+                                              class="org-tree-assignee"
+                                              [attr.title]="
+                                                structureBadgeTitle(supervisorBadge(cell.id), 'Superviseur')
+                                              "
+                                              >{{ supervisorBadge(cell.id) || '—' }}</span
+                                            >
+                                          </button>
+                                          <button
+                                            type="button"
+                                            class="org-tree-rename"
+                                            title="Renommer la cellule"
+                                            (click)="
+                                              $event.stopPropagation();
+                                              renameStructureNode('cellule', cell.id, cell.name, { poleId: pole.id })
+                                            "
+                                          >
+                                            <app-lucide-icon [icon]="icons.pencil" className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
                                         @if (celluleExpanded(cell.id)) {
                                           <div class="org-tree-children org-tree-children--leaf">
                                             @for (svc of cell.services; track svc.id) {
-                                              <button
-                                                type="button"
-                                                [class]="serviceButtonClass(svc.id)"
-                                                (click)="selectService(md, pole, cell, svc)"
-                                              >
-                                                <span class="org-tree-chev" aria-hidden="true"></span>
-                                                <span class="org-tree-label text-sm text-muted">
-                                                  <span class="org-badge org-badge--svc">Svc.</span>
-                                                  <span class="org-tree-name" [attr.title]="svc.name">{{
-                                                    svc.name
-                                                  }}</span>
-                                                </span>
-                                                <span
-                                                  class="org-tree-assignee"
-                                                  [attr.title]="
-                                                    structureBadgeTitle(coachBadge(svc.id), 'Référent technique')
-                                                  "
-                                                  >{{ coachBadge(svc.id) || '—' }}</span
+                                              <div class="org-tree-row-wrap">
+                                                <button
+                                                  type="button"
+                                                  [class]="serviceButtonClass(svc.id)"
+                                                  (click)="selectService(md, pole, cell, svc)"
                                                 >
-                                              </button>
+                                                  <span class="org-tree-chev" aria-hidden="true"></span>
+                                                  <span class="org-tree-label text-sm text-muted">
+                                                    <span class="org-badge org-badge--svc">Svc.</span>
+                                                    <span class="org-tree-name" [attr.title]="svc.name">{{
+                                                      svc.name
+                                                    }}</span>
+                                                  </span>
+                                                  <span
+                                                    class="org-tree-assignee"
+                                                    [attr.title]="
+                                                      structureBadgeTitle(coachBadge(svc.id), 'Référent technique')
+                                                    "
+                                                    >{{ coachBadge(svc.id) || '—' }}</span
+                                                  >
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  class="org-tree-rename"
+                                                  title="Renommer le service"
+                                                  (click)="
+                                                    $event.stopPropagation();
+                                                    renameStructureNode('service', svc.id, svc.name, {
+                                                      celluleId: cell.id,
+                                                    })
+                                                  "
+                                                >
+                                                  <app-lucide-icon [icon]="icons.pencil" className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
                                             }
                                           </div>
                                         }
@@ -1108,12 +1141,27 @@ function httpErrMessage(err: unknown): string {
 
                       @if (sel.kind === 'pole') {
                         <div class="space-y-3">
-                          <label class="text-sm font-medium text-muted block">Titulaires du poste — chef de projet</label>
+                          <div class="flex flex-wrap items-center justify-between gap-2">
+                            <label class="text-sm font-medium text-muted block m-0">Titulaires — chef de projet</label>
+                            @if (!structureRolePickerOpen()) {
+                              <button
+                                type="button"
+                                class="ky-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                                (click)="openStructureRolePicker()"
+                              >
+                                <app-lucide-icon [icon]="icons.plus" className="w-3.5 h-3.5" />
+                                Ajouter un chef de projet
+                              </button>
+                            }
+                          </div>
                           @if (managerUserIds(sel.id).length > 0) {
                             <ul class="rounded-lg border border-default divide-y divide-default bg-input/40 max-h-32 overflow-y-auto">
                               @for (uid of managerUserIds(sel.id); track uid) {
                                 <li class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-primary">
-                                  <span>{{ employeeLabel(uid) }}</span>
+                                  <span class="inline-flex items-center gap-2">
+                                    <span class="org-role-dot org-role-dot--chef" aria-hidden="true"></span>
+                                    {{ employeeLabel(uid) }}
+                                  </span>
                                   <button
                                     type="button"
                                     (click)="removeDepartmentManagerIncumbent(sel.id, uid)"
@@ -1128,90 +1176,115 @@ function httpErrMessage(err: unknown): string {
                           } @else {
                             <p class="text-xs text-muted">Aucun titulaire sur ce poste.</p>
                           }
-                          <label class="text-sm font-medium text-muted block">Ajouter un chef de projet</label>
-                          @if (draftEmployeeId()) {
-                            <div
-                              class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5"
-                            >
-                              <span class="text-sm text-primary">
-                                <span class="text-muted">Sélection :</span>
-                                <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
-                              </span>
-                              <button
-                                type="button"
-                                (click)="beginRepickDetailEmployee()"
-                                class="text-xs font-medium org-link"
+                          @if (structureRolePickerOpen()) {
+                            <div class="space-y-3 rounded-lg border border-dashed border-default p-3">
+                              <div class="flex items-center justify-between">
+                                <span class="text-xs font-medium text-muted">Choisir un chef de projet</span>
+                                <button type="button" class="text-xs org-link" (click)="closeStructureRolePicker()">
+                                  Annuler
+                                </button>
+                              </div>
+                              @if (draftEmployeeId()) {
+                                <div
+                                  class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5"
+                                >
+                                  <span class="text-sm text-primary">
+                                    <span class="text-muted">Sélection :</span>
+                                    <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    (click)="beginRepickDetailEmployee()"
+                                    class="text-xs font-medium org-link"
+                                  >
+                                    Changer
+                                  </button>
+                                </div>
+                              }
+                              <input
+                                type="search"
+                                class="ky-input w-full"
+                                placeholder="Rechercher un employé (nom, rôle, e-mail)…"
+                                [value]="structureDetailEmpSearch()"
+                                (input)="setDetailEmpSearch($event)"
+                              />
+                              <ul
+                                class="max-h-56 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default"
                               >
-                                Changer
-                              </button>
-                            </div>
-                          }
-                          <input
-                            type="search"
-                            class="ky-input w-full"
-                            placeholder="Rechercher un employé (nom, rôle, e-mail)…"
-                            [value]="structureDetailEmpSearch()"
-                            (input)="setDetailEmpSearch($event)"
-                          />
-                          <ul
-                            class="max-h-56 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default"
-                          >
-                            @for (e of filteredDetailAssignables(); track e.id) {
-                              <li>
+                                @for (e of filteredDetailAssignables(); track e.id) {
+                                  <li>
+                                    <button
+                                      type="button"
+                                      (click)="pickDetailEmployee(e.id)"
+                                      class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-input/60 transition-colors"
+                                    >
+                                      <span
+                                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--info-bg)] text-xs font-semibold text-[var(--info-text)]"
+                                        >{{ employeeInitials(e) }}</span
+                                      >
+                                      <span class="min-w-0">
+                                        <span class="block font-medium text-primary truncate"
+                                          >{{ e.firstName }} {{ e.lastName }}</span
+                                        >
+                                        <span class="block text-xs text-muted truncate"
+                                          >{{ e.role }} · {{ e.email }}</span
+                                        >
+                                      </span>
+                                    </button>
+                                  </li>
+                                } @empty {
+                                  <li class="px-3 py-4 text-sm text-muted">Aucun résultat</li>
+                                }
+                              </ul>
+                              <div class="flex flex-wrap gap-3 pt-2">
                                 <button
                                   type="button"
-                                  (click)="pickDetailEmployee(e.id)"
-                                  class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-input/60 transition-colors"
+                                  (click)="saveDepartmentManager(sel.id)"
+                                  [disabled]="saving() || !draftEmployeeId()"
+                                  class="ky-btn-primary"
                                 >
-                                  <span
-                                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--info-bg)] text-xs font-semibold text-[var(--info-text)]"
-                                    >{{ employeeInitials(e) }}</span
-                                  >
-                                  <span class="min-w-0">
-                                    <span class="block font-medium text-primary truncate"
-                                      >{{ e.firstName }} {{ e.lastName }}</span
-                                    >
-                                    <span class="block text-xs text-muted truncate"
-                                      >{{ e.role }} · {{ e.email }}</span
-                                    >
-                                  </span>
+                                  <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
+                                  Ajouter
                                 </button>
-                              </li>
-                            } @empty {
-                              <li class="px-3 py-4 text-sm text-muted">Aucun résultat</li>
-                            }
-                          </ul>
-                          <div class="flex flex-wrap gap-3 pt-2">
-                            <button
-                              type="button"
-                              (click)="saveDepartmentManager(sel.id)"
-                              [disabled]="saving() || !draftEmployeeId()"
-                              class="ky-btn-primary"
-                            >
-                              <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
-                              Enregistrer
-                            </button>
+                              </div>
+                            </div>
+                          }
+                          @if (managerUserIds(sel.id).length > 0) {
                             <button
                               type="button"
                               (click)="clearDepartmentManager(sel.id)"
-                              [disabled]="saving() || managerUserIds(sel.id).length === 0"
-                              class="inline-flex items-center justify-center gap-2 rounded-lg border border-default px-4 py-2.5 text-sm text-muted hover:bg-input disabled:opacity-50"
+                              [disabled]="saving()"
+                              class="text-xs text-muted hover:text-[var(--danger-text)] disabled:opacity-50"
                             >
-                              <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
                               Retirer tous les titulaires
                             </button>
-                          </div>
+                          }
                         </div>
                       }
 
                       @if (sel.kind === 'cellule') {
                         <div class="space-y-3">
-                          <label class="text-sm font-medium text-muted block">Titulaires du poste — superviseur</label>
+                          <div class="flex flex-wrap items-center justify-between gap-2">
+                            <label class="text-sm font-medium text-muted block m-0">Titulaires — superviseur</label>
+                            @if (!structureRolePickerOpen()) {
+                              <button
+                                type="button"
+                                class="ky-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                                (click)="openStructureRolePicker()"
+                              >
+                                <app-lucide-icon [icon]="icons.plus" className="w-3.5 h-3.5" />
+                                Ajouter un superviseur
+                              </button>
+                            }
+                          </div>
                           @if (supervisorUserIds(sel.id).length > 0) {
                             <ul class="rounded-lg border border-default divide-y divide-default bg-input/40 max-h-32 overflow-y-auto">
                               @for (uid of supervisorUserIds(sel.id); track uid) {
                                 <li class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-primary">
-                                  <span>{{ employeeLabel(uid) }}</span>
+                                  <span class="inline-flex items-center gap-2">
+                                    <span class="org-role-dot org-role-dot--superviseur" aria-hidden="true"></span>
+                                    {{ employeeLabel(uid) }}
+                                  </span>
                                   <button
                                     type="button"
                                     (click)="removePoleSupervisorIncumbent(sel.id, uid)"
@@ -1226,91 +1299,119 @@ function httpErrMessage(err: unknown): string {
                           } @else {
                             <p class="text-xs text-muted">Aucun titulaire sur ce poste.</p>
                           }
-                          <label class="text-sm font-medium text-muted block">Ajouter un superviseur</label>
-                            @if (draftEmployeeId()) {
-                              <div
-                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5"
-                              >
-                                <span class="text-sm text-primary">
-                                  <span class="text-muted">Sélection :</span>
-                                  <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
-                                </span>
-                                <button
-                                  type="button"
-                                  (click)="beginRepickDetailEmployee()"
-                                  class="text-xs font-medium org-link"
-                                >
-                                  Changer
+                          @if (structureRolePickerOpen()) {
+                            <div class="space-y-3 rounded-lg border border-dashed border-default p-3">
+                              <div class="flex items-center justify-between">
+                                <span class="text-xs font-medium text-muted">Choisir un superviseur</span>
+                                <button type="button" class="text-xs org-link" (click)="closeStructureRolePicker()">
+                                  Annuler
                                 </button>
                               </div>
-                            }
-                            <input
-                              type="search"
-                              class="ky-input w-full"
-                              placeholder="Rechercher un employé (nom, rôle, e-mail)…"
-                              [value]="structureDetailEmpSearch()"
-                              (input)="setDetailEmpSearch($event)"
-                            />
-                            <ul
-                              class="max-h-48 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default"
-                            >
-                              @for (e of filteredDetailAssignables(); track e.id) {
-                                <li>
+                              @if (draftEmployeeId()) {
+                                <div
+                                  class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5"
+                                >
+                                  <span class="text-sm text-primary">
+                                    <span class="text-muted">Sélection :</span>
+                                    <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
+                                  </span>
                                   <button
                                     type="button"
-                                    (click)="pickDetailEmployee(e.id)"
-                                    class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-input/60 transition-colors"
+                                    (click)="beginRepickDetailEmployee()"
+                                    class="text-xs font-medium org-link"
                                   >
-                                    <span
-                                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--success-bg)] text-xs font-semibold text-[var(--success-text)]"
-                                      >{{ employeeInitials(e) }}</span
-                                    >
-                                    <span class="min-w-0">
-                                      <span class="block font-medium text-primary truncate"
-                                        >{{ e.firstName }} {{ e.lastName }}</span
-                                      >
-                                      <span class="block text-xs text-muted truncate"
-                                        >{{ e.role }} · {{ e.email }}</span
-                                      >
-                                    </span>
+                                    Changer
                                   </button>
-                                </li>
-                              } @empty {
-                                <li class="px-3 py-4 text-sm text-muted">Aucun résultat</li>
+                                </div>
                               }
-                            </ul>
-                            <div class="flex flex-wrap gap-3">
-                              <button
-                                type="button"
-                                (click)="savePoleSupervisor(sel.id)"
-                                [disabled]="saving() || !draftEmployeeId()"
-                                class="ky-btn-primary"
+                              <input
+                                type="search"
+                                class="ky-input w-full"
+                                placeholder="Rechercher un employé (nom, rôle, e-mail)…"
+                                [value]="structureDetailEmpSearch()"
+                                (input)="setDetailEmpSearch($event)"
+                              />
+                              <ul
+                                class="max-h-48 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default"
                               >
-                                <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
-                                Enregistrer
-                              </button>
-                              <button
-                                type="button"
-                                (click)="clearPoleSupervisor(sel.id)"
-                                [disabled]="saving() || supervisorUserIds(sel.id).length === 0"
-                                class="inline-flex items-center justify-center gap-2 rounded-lg border border-default px-4 py-2.5 text-sm text-muted hover:bg-input disabled:opacity-50"
-                              >
-                                <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
-                                Retirer tous les titulaires
-                              </button>
+                                @for (e of filteredDetailAssignables(); track e.id) {
+                                  <li>
+                                    <button
+                                      type="button"
+                                      (click)="pickDetailEmployee(e.id)"
+                                      class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-input/60 transition-colors"
+                                    >
+                                      <span
+                                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--success-bg)] text-xs font-semibold text-[var(--success-text)]"
+                                        >{{ employeeInitials(e) }}</span
+                                      >
+                                      <span class="min-w-0">
+                                        <span class="block font-medium text-primary truncate"
+                                          >{{ e.firstName }} {{ e.lastName }}</span
+                                        >
+                                        <span class="block text-xs text-muted truncate"
+                                          >{{ e.role }} · {{ e.email }}</span
+                                        >
+                                      </span>
+                                    </button>
+                                  </li>
+                                } @empty {
+                                  <li class="px-3 py-4 text-sm text-muted">Aucun résultat</li>
+                                }
+                              </ul>
+                              <div class="flex flex-wrap gap-3">
+                                <button
+                                  type="button"
+                                  (click)="savePoleSupervisor(sel.id)"
+                                  [disabled]="saving() || !draftEmployeeId()"
+                                  class="ky-btn-primary"
+                                >
+                                  <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
+                                  Ajouter
+                                </button>
+                              </div>
                             </div>
+                          }
+                          @if (supervisorUserIds(sel.id).length > 0) {
+                            <button
+                              type="button"
+                              (click)="clearPoleSupervisor(sel.id)"
+                              [disabled]="saving()"
+                              class="text-xs text-muted hover:text-[var(--danger-text)] disabled:opacity-50"
+                            >
+                              Retirer tous les titulaires
+                            </button>
+                          }
                         </div>
                       }
 
                       @if (sel.kind === 'service') {
-                        <div class="space-y-5 border-t border-default pt-5">
-                          <div class="space-y-3">
-                            <label class="text-sm font-medium text-muted block">Titulaires du poste — référent technique</label>
+                        <div class="space-y-6 border-t border-default pt-5">
+                          <div class="space-y-3 rounded-xl border border-default bg-input/20 p-4">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <h3 class="text-sm font-semibold text-primary">Référent technique</h3>
+                                <p class="text-xs text-muted mt-0.5">Titulaire du poste sur ce service</p>
+                              </div>
+                              @if (!structureRolePickerOpen()) {
+                                <button
+                                  type="button"
+                                  class="ky-btn-secondary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                                  (click)="openStructureRolePicker()"
+                                >
+                                  <app-lucide-icon [icon]="icons.plus" className="w-3.5 h-3.5" />
+                                  Ajouter un référent
+                                </button>
+                              }
+                            </div>
                             @if (coachUserIds(sel.id).length > 0) {
-                              <ul class="rounded-lg border border-default divide-y divide-default bg-input/40 max-h-32 overflow-y-auto">
+                              <ul class="rounded-lg border border-default divide-y divide-default bg-card max-h-32 overflow-y-auto">
                                 @for (uid of coachUserIds(sel.id); track uid) {
-                                  <li class="flex items-center justify-between gap-2 px-3 py-2 text-sm text-primary">
-                                    <span>{{ employeeLabel(uid) }}</span>
+                                  <li class="flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-primary">
+                                    <span class="inline-flex items-center gap-2 min-w-0">
+                                      <span class="org-role-dot org-role-dot--referent" aria-hidden="true"></span>
+                                      <span class="truncate">{{ employeeLabel(uid) }}</span>
+                                    </span>
                                     <button
                                       type="button"
                                       (click)="removeCellCoachIncumbent(sel.id, uid)"
@@ -1323,104 +1424,126 @@ function httpErrMessage(err: unknown): string {
                                 }
                               </ul>
                             } @else {
-                              <p class="text-xs text-muted">Aucun titulaire sur ce poste.</p>
+                              <p class="text-xs text-muted">Aucun référent technique sur ce service.</p>
                             }
-                            <label class="text-sm font-medium text-muted block">Ajouter un référent technique</label>
-                            @if (draftEmployeeId()) {
-                              <div
-                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5"
-                              >
-                                <span class="text-sm text-primary">
-                                  <span class="text-muted">Sélection :</span>
-                                  <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
-                                </span>
+                            @if (structureRolePickerOpen()) {
+                              <div class="space-y-3 rounded-lg border border-dashed border-default p-3 bg-card">
+                                <div class="flex items-center justify-between gap-2">
+                                  <span class="text-xs font-medium text-muted">Choisir un référent</span>
+                                  <button type="button" class="text-xs org-link" (click)="closeStructureRolePicker()">
+                                    Annuler
+                                  </button>
+                                </div>
+                                @if (draftEmployeeId()) {
+                                  <div
+                                    class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5"
+                                  >
+                                    <span class="text-sm text-primary">
+                                      <span class="text-muted">Sélection :</span>
+                                      <strong class="ml-1">{{ employeeLabel(draftEmployeeId()) }}</strong>
+                                    </span>
+                                    <button
+                                      type="button"
+                                      (click)="beginRepickDetailEmployee()"
+                                      class="text-xs font-medium org-link"
+                                    >
+                                      Changer
+                                    </button>
+                                  </div>
+                                }
+                                <input
+                                  type="search"
+                                  class="ky-input w-full"
+                                  placeholder="Rechercher un employé (nom, rôle, e-mail)…"
+                                  [value]="structureDetailEmpSearch()"
+                                  (input)="setDetailEmpSearch($event)"
+                                />
+                                <ul
+                                  class="max-h-40 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default"
+                                >
+                                  @for (e of filteredDetailAssignables(); track e.id) {
+                                    <li>
+                                      <button
+                                        type="button"
+                                        (click)="pickDetailEmployee(e.id)"
+                                        class="w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-input/60"
+                                      >
+                                        <span
+                                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--info-bg)] text-[11px] font-semibold text-[var(--info-text)]"
+                                          >{{ employeeInitials(e) }}</span
+                                        >
+                                        <span class="min-w-0">
+                                          <span class="block font-medium text-primary truncate"
+                                            >{{ e.firstName }} {{ e.lastName }}</span
+                                          >
+                                          <span class="block text-xs text-muted truncate">{{ e.role }}</span>
+                                        </span>
+                                      </button>
+                                    </li>
+                                  } @empty {
+                                    <li class="px-3 py-3 text-sm text-muted">Aucun résultat</li>
+                                  }
+                                </ul>
                                 <button
                                   type="button"
-                                  (click)="beginRepickDetailEmployee()"
-                                  class="text-xs font-medium org-link"
+                                  (click)="saveCellCoach(sel.id)"
+                                  [disabled]="saving() || !draftEmployeeId()"
+                                  class="ky-btn-primary w-full"
                                 >
-                                  Changer
+                                  <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
+                                  Ajouter le référent technique
                                 </button>
                               </div>
                             }
-                            <input
-                              type="search"
-                              class="ky-input w-full"
-                              placeholder="Rechercher un employé (nom, rôle, e-mail)…"
-                              [value]="structureDetailEmpSearch()"
-                              (input)="setDetailEmpSearch($event)"
-                            />
-                            <ul
-                              class="max-h-48 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default"
-                            >
-                              @for (e of filteredDetailAssignables(); track e.id) {
-                                <li>
-                                  <button
-                                    type="button"
-                                    (click)="pickDetailEmployee(e.id)"
-                                    class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-input/60 transition-colors"
-                                  >
-                                    <span
-                                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--info-bg)] text-xs font-semibold text-[var(--info-text)]"
-                                      >{{ employeeInitials(e) }}</span
-                                    >
-                                    <span class="min-w-0">
-                                      <span class="block font-medium text-primary truncate"
-                                        >{{ e.firstName }} {{ e.lastName }}</span
-                                      >
-                                      <span class="block text-xs text-muted truncate"
-                                        >{{ e.role }} · {{ e.email }}</span
-                                      >
-                                    </span>
-                                  </button>
-                                </li>
-                              } @empty {
-                                <li class="px-3 py-4 text-sm text-muted">Aucun résultat</li>
-                              }
-                            </ul>
-                            <div class="flex flex-wrap gap-3">
-                              <button
-                                type="button"
-                                (click)="saveCellCoach(sel.id)"
-                                [disabled]="saving() || !draftEmployeeId()"
-                                class="ky-btn-primary"
-                              >
-                                <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
-                                Enregistrer le référent technique
-                              </button>
+                            @if (coachUserIds(sel.id).length > 0) {
                               <button
                                 type="button"
                                 (click)="clearCellCoach(sel.id)"
-                                [disabled]="saving() || coachUserIds(sel.id).length === 0"
-                                class="inline-flex items-center justify-center gap-2 rounded-lg border border-default px-4 py-2.5 text-sm text-muted hover:bg-input disabled:opacity-50"
+                                [disabled]="saving()"
+                                class="text-xs text-muted hover:text-[var(--danger-text)] disabled:opacity-50"
                               >
-                                <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
-                                Retirer tous les titulaires
+                                Retirer tous les référents
                               </button>
-                            </div>
+                            }
                           </div>
 
-                          <div class="space-y-3">
-                            <label class="text-sm font-medium text-muted block">Pilotes</label>
-                            @if (coachUserIds(sel.id).length === 0) {
-                              <p class="text-sm text-[var(--warning-text)]">Affectez d’abord un référent technique.</p>
-                            }
+                          <div class="space-y-3 rounded-xl border-2 border-[var(--info-border)] bg-[color-mix(in_srgb,var(--info-bg)_35%,var(--bg-card))] p-4">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <h3 class="text-sm font-semibold text-primary">Pilotes du service</h3>
+                                <p class="text-xs text-muted mt-0.5">Liste des pilotes affectés à ce périmètre</p>
+                              </div>
+                              @if (!structurePilotPickerOpen()) {
+                                <button
+                                  type="button"
+                                  class="ky-btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                                  (click)="openStructurePilotPicker()"
+                                >
+                                  <app-lucide-icon [icon]="icons.plus" className="w-3.5 h-3.5" />
+                                  Ajouter un pilote
+                                </button>
+                              }
+                            </div>
                             <ul
-                              class="rounded-lg border border-default divide-y divide-default bg-input/40 max-h-48 overflow-y-auto"
+                              class="rounded-lg border border-default divide-y divide-default bg-card max-h-52 overflow-y-auto"
                             >
                               @for (p of pilotsInCell(sel.id); track p.id) {
                                 <li class="flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-primary">
-                                  <span class="min-w-0 truncate">{{ p.firstName }} {{ p.lastName }}</span>
+                                  <span class="inline-flex items-center gap-2 min-w-0">
+                                    <span class="org-role-dot org-role-dot--pilote" aria-hidden="true"></span>
+                                    <span class="min-w-0 truncate font-medium"
+                                      >{{ p.firstName }} {{ p.lastName }}</span
+                                    >
+                                  </span>
                                   <div class="shrink-0 flex items-center gap-2">
                                     <button
                                       type="button"
                                       (click)="openPilotRotationHistory(p)"
                                       title="Historique rotation"
-                                      aria-label="Historique rotation"
                                       class="inline-flex items-center gap-1 text-xs org-link"
                                     >
                                       <app-lucide-icon [icon]="icons.history" className="w-3.5 h-3.5" />
-                                      Historique rotation
+                                      Historique
                                     </button>
                                     <button
                                       type="button"
@@ -1434,84 +1557,89 @@ function httpErrMessage(err: unknown): string {
                                   </div>
                                 </li>
                               } @empty {
-                                <li class="px-3 py-4 text-sm text-muted">Aucun pilote</li>
+                                <li class="px-3 py-4 text-sm text-muted">Aucun pilote affecté</li>
                               }
                             </ul>
-                            <div class="space-y-3">
-                              <label class="text-sm text-muted">Ajouter un pilote</label>
-                              @if (draftPilotId()) {
-                                <div
-                                  class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5"
-                                >
-                                  <span class="text-sm text-primary">
-                                    <span class="text-muted">Sélection :</span>
-                                    <strong class="ml-1">{{ employeeLabel(draftPilotId()) }}</strong>
-                                  </span>
-                                  <button
-                                    type="button"
-                                    (click)="beginRepickPilotEmployee()"
-                                    class="text-xs font-medium org-link"
-                                  >
-                                    Changer
+                            @if (structurePilotPickerOpen()) {
+                              <div class="space-y-3 rounded-lg border border-dashed border-default p-3 bg-card">
+                                <div class="flex items-center justify-between gap-2">
+                                  <span class="text-xs font-medium text-muted">Choisir un nouveau pilote</span>
+                                  <button type="button" class="text-xs org-link" (click)="closeStructurePilotPicker()">
+                                    Annuler
                                   </button>
                                 </div>
-                              }
-                              <input
-                                type="search"
-                                class="ky-input w-full"
-                                placeholder="Rechercher un employé…"
-                                [value]="structurePilotEmpSearch()"
-                                (input)="setPilotEmpSearch($event)"
-                                [disabled]="coachUserIds(sel.id).length === 0"
-                              />
-                              <ul
-                                class="max-h-40 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default"
-                              >
-                                @for (e of filteredPilotAssignables(); track e.id) {
-                                  <li>
+                                @if (draftPilotId()) {
+                                  <div
+                                    class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-default bg-input/50 px-3 py-2.5"
+                                  >
+                                    <span class="text-sm text-primary">
+                                      <span class="text-muted">Sélection :</span>
+                                      <strong class="ml-1">{{ employeeLabel(draftPilotId()) }}</strong>
+                                    </span>
                                     <button
                                       type="button"
-                                      (click)="pickPilotEmployee(e.id)"
-                                      [disabled]="coachUserIds(sel.id).length === 0"
-                                      class="w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-input/60 disabled:opacity-40"
+                                      (click)="beginRepickPilotEmployee()"
+                                      class="text-xs font-medium org-link"
                                     >
-                                      <span
-                                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--bg-input)] text-[11px] font-semibold text-primary"
-                                        >{{ employeeInitials(e) }}</span
-                                      >
-                                      <span class="min-w-0">
-                                        <span class="block font-medium text-primary truncate"
-                                          >{{ e.firstName }} {{ e.lastName }}</span
-                                        >
-                                        <span class="block text-xs text-muted truncate">{{ e.role }}</span>
-                                      </span>
+                                      Changer
                                     </button>
-                                  </li>
-                                } @empty {
-                                  <li class="px-3 py-3 text-sm text-muted">Aucun résultat</li>
+                                  </div>
                                 }
-                              </ul>
-                              @if (teamsForCell(sel.id).length > 1) {
-                                <select
+                                <input
+                                  type="search"
                                   class="ky-input w-full"
-                                  [kyntusSelectSync]="draftPilotTeamId()"
-                                  (kyntusSelectSyncChange)="draftPilotTeamId.set($event)"
+                                  placeholder="Rechercher un employé…"
+                                  [value]="structurePilotEmpSearch()"
+                                  (input)="setPilotEmpSearch($event)"
+                                />
+                                <ul
+                                  class="max-h-40 overflow-y-auto rounded-lg border border-default bg-input/40 divide-y divide-default"
                                 >
-                                  @for (t of teamsForCell(sel.id); track t.id) {
-                                    <option [value]="t.id">{{ t.name }}</option>
+                                  @for (e of filteredPilotAssignables(); track e.id) {
+                                    <li>
+                                      <button
+                                        type="button"
+                                        (click)="pickPilotEmployee(e.id)"
+                                        class="w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-input/60"
+                                      >
+                                        <span
+                                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--bg-input)] text-[11px] font-semibold text-primary"
+                                          >{{ employeeInitials(e) }}</span
+                                        >
+                                        <span class="min-w-0">
+                                          <span class="block font-medium text-primary truncate"
+                                            >{{ e.firstName }} {{ e.lastName }}</span
+                                          >
+                                          <span class="block text-xs text-muted truncate">{{ e.role }}</span>
+                                        </span>
+                                      </button>
+                                    </li>
+                                  } @empty {
+                                    <li class="px-3 py-3 text-sm text-muted">Aucun résultat</li>
                                   }
-                                </select>
-                              }
-                              <button
-                                type="button"
-                                (click)="addPilot(sel.id)"
-                                [disabled]="saving() || coachUserIds(sel.id).length === 0 || !draftPilotId()"
-                                class="ky-btn-secondary w-full"
-                              >
-                                <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
-                                Ajouter le pilote
-                              </button>
-                            </div>
+                                </ul>
+                                @if (teamsForCell(sel.id).length > 1) {
+                                  <select
+                                    class="ky-input w-full"
+                                    [kyntusSelectSync]="draftPilotTeamId()"
+                                    (kyntusSelectSyncChange)="draftPilotTeamId.set($event)"
+                                  >
+                                    @for (t of teamsForCell(sel.id); track t.id) {
+                                      <option [value]="t.id">{{ t.name }}</option>
+                                    }
+                                  </select>
+                                }
+                                <button
+                                  type="button"
+                                  (click)="addPilot(sel.id)"
+                                  [disabled]="saving() || !draftPilotId()"
+                                  class="ky-btn-primary w-full"
+                                >
+                                  <app-lucide-icon [icon]="icons.check" className="w-4 h-4" />
+                                  Confirmer l’ajout du pilote
+                                </button>
+                              </div>
+                            }
                           </div>
                         </div>
                       }
@@ -1575,7 +1703,10 @@ function httpErrMessage(err: unknown): string {
                     <ul class="space-y-2">
                       @for (m of structureContextMembers(); track m.id) {
                         <li
-                          class="flex items-center gap-3 rounded-lg border border-default bg-input/40 px-3 py-2"
+                          class="flex items-center gap-3 rounded-lg border px-3 py-2"
+                          [class]="
+                            'org-member-card org-member-card--' + memberPerimeterRole(m)
+                          "
                         >
                           @if (m.avatar) {
                             <img
@@ -1585,7 +1716,7 @@ function httpErrMessage(err: unknown): string {
                             />
                           } @else {
                             <span
-                              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--info-bg)] text-xs font-semibold text-[var(--info-text)]"
+                              class="org-member-avatar flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
                               >{{ employeeInitials(m) }}</span
                             >
                           }
@@ -1593,8 +1724,26 @@ function httpErrMessage(err: unknown): string {
                             <span class="block text-sm font-medium text-primary truncate"
                               >{{ m.firstName }} {{ m.lastName }}</span
                             >
-                            <span class="block text-xs text-muted truncate">{{ m.role }}</span>
+                            <span
+                              class="org-role-badge mt-0.5 inline-flex"
+                              [attr.data-role]="memberPerimeterRole(m)"
+                              >{{ memberPerimeterRoleLabel(memberPerimeterRole(m)) }}</span
+                            >
                           </span>
+                          @if (selection(); as apercuSel) {
+                            @if (apercuSel.kind !== 'metierDepartment') {
+                              <button
+                                type="button"
+                                (click)="removeMemberFromPerimeter(m)"
+                                [disabled]="saving()"
+                                class="shrink-0 inline-flex items-center gap-1 text-xs text-[var(--danger-text)] hover:opacity-80 disabled:opacity-50"
+                                title="Retirer du périmètre"
+                              >
+                                <app-lucide-icon [icon]="icons.trash" className="w-3.5 h-3.5" />
+                                Retirer
+                              </button>
+                            }
+                          }
                         </li>
                       } @empty {
                         <li class="text-sm text-muted py-4 text-center">Aucun employé dans ce périmètre.</li>
@@ -1817,6 +1966,127 @@ function httpErrMessage(err: unknown): string {
         box-shadow: inset 0 0 0 1px color-mix(in srgb, #8b5cf6 40%, transparent);
       }
 
+      .org-tree-row-wrap {
+        display: flex;
+        align-items: stretch;
+        gap: 0.15rem;
+        width: 100%;
+      }
+
+      .org-tree-row-wrap > .org-tree-row,
+      .org-tree-row-wrap > button:first-child {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .org-tree-rename {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.75rem;
+        border-radius: 0.4rem;
+        border: 1px solid transparent;
+        color: var(--text-muted);
+        background: transparent;
+        opacity: 0.55;
+      }
+
+      .org-tree-row-wrap:hover .org-tree-rename,
+      .org-tree-rename:focus-visible {
+        opacity: 1;
+        border-color: var(--border-color);
+        background: color-mix(in srgb, var(--bg-input) 70%, transparent);
+      }
+
+      .org-role-dot {
+        width: 0.55rem;
+        height: 0.55rem;
+        border-radius: 999px;
+        flex-shrink: 0;
+      }
+
+      .org-role-dot--chef {
+        background: var(--warning-text, #d97706);
+      }
+      .org-role-dot--superviseur {
+        background: var(--success-text, #16a34a);
+      }
+      .org-role-dot--referent {
+        background: var(--info-text, #0284c7);
+      }
+      .org-role-dot--pilote {
+        background: #0d9488;
+      }
+
+      .org-member-card {
+        border-color: var(--border-color);
+        background: color-mix(in srgb, var(--bg-input) 40%, transparent);
+      }
+      .org-member-card--chef {
+        border-color: var(--warning-border);
+        background: color-mix(in srgb, var(--warning-bg) 55%, var(--bg-card));
+      }
+      .org-member-card--superviseur {
+        border-color: var(--success-border);
+        background: color-mix(in srgb, var(--success-bg) 55%, var(--bg-card));
+      }
+      .org-member-card--referent {
+        border-color: var(--info-border);
+        background: color-mix(in srgb, var(--info-bg) 55%, var(--bg-card));
+      }
+      .org-member-card--pilote {
+        border-color: color-mix(in srgb, #0d9488 45%, var(--border-color));
+        background: color-mix(in srgb, #0d9488 12%, var(--bg-card));
+      }
+      .org-member-card--autre {
+        border-color: var(--border-color);
+      }
+
+      .org-member-avatar {
+        background: var(--info-bg);
+        color: var(--info-text);
+      }
+      .org-member-card--chef .org-member-avatar {
+        background: var(--warning-bg);
+        color: var(--warning-text);
+      }
+      .org-member-card--superviseur .org-member-avatar {
+        background: var(--success-bg);
+        color: var(--success-text);
+      }
+      .org-member-card--pilote .org-member-avatar {
+        background: color-mix(in srgb, #0d9488 20%, transparent);
+        color: #0f766e;
+      }
+
+      .org-role-badge {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        padding: 0.1rem 0.4rem;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--bg-input) 80%, transparent);
+        color: var(--text-muted);
+      }
+      .org-role-badge[data-role='chef'] {
+        background: var(--warning-bg);
+        color: var(--warning-text);
+      }
+      .org-role-badge[data-role='superviseur'] {
+        background: var(--success-bg);
+        color: var(--success-text);
+      }
+      .org-role-badge[data-role='referent'] {
+        background: var(--info-bg);
+        color: var(--info-text);
+      }
+      .org-role-badge[data-role='pilote'] {
+        background: color-mix(in srgb, #0d9488 18%, transparent);
+        color: #0f766e;
+      }
+
       @media (max-width: 768px) {
         .org-tabs {
           width: 100%;
@@ -1837,6 +2107,7 @@ function httpErrMessage(err: unknown): string {
 export class OrganisationManagementComponent implements OnInit {
   private readonly orgApi = inject(PrimeOrgApiService);
   private readonly confirmService = inject(KyntusConfirmService);
+  private readonly promptService = inject(KyntusPromptService);
   private readonly session = inject(KyntusSessionService);
   private readonly role = inject(RoleService);
   private readonly route = inject(ActivatedRoute);
@@ -1853,6 +2124,8 @@ export class OrganisationManagementComponent implements OnInit {
     activity: Activity,
     building: Building2,
     plus: Plus,
+    pencil: Pencil,
+    close: X,
   };
 
   readonly rotationHistoryOpen = signal(false);
@@ -1919,6 +2192,9 @@ export class OrganisationManagementComponent implements OnInit {
   readonly structureDetailEmpSearch = signal('');
   readonly structurePilotEmpSearch = signal('');
   readonly structureActivityLog = signal<StructureLogEntry[]>([]);
+  /** Listes de choix masquées tant que l’utilisateur n’a pas cliqué « + ». */
+  readonly structureRolePickerOpen = signal(false);
+  readonly structurePilotPickerOpen = signal(false);
 
   readonly newMetierDeptNameConflict = computed((): string | null => {
     const name = this.newMetierDeptName().trim();
@@ -2568,25 +2844,31 @@ export class OrganisationManagementComponent implements OnInit {
 
   employeesForManagerRow(deptId: string): Employee[] {
     const emps = this.data()?.employees ?? [];
+    const taken = new Set(this.managerUserIds(deptId));
+    const draft = this.draftManagerDept(deptId);
     return employeesForOrgAssignmentSelect(
-      emps,
-      this.draftManagerDept(deptId) || this.managerUserId(deptId),
+      emps.filter((e) => !taken.has(e.id) || e.id === draft),
+      draft,
     );
   }
 
   employeesForSupervisorRow(poleId: string): Employee[] {
     const emps = this.data()?.employees ?? [];
+    const taken = new Set(this.supervisorUserIds(poleId));
+    const draft = this.draftSupervisorPole(poleId);
     return employeesForOrgAssignmentSelect(
-      emps,
-      this.draftSupervisorPole(poleId) || this.supervisorUserId(poleId),
+      emps.filter((e) => !taken.has(e.id) || e.id === draft),
+      draft,
     );
   }
 
   employeesForCoachRow(cellId: string): Employee[] {
     const emps = this.data()?.employees ?? [];
+    const taken = new Set(this.coachUserIds(cellId));
+    const draft = this.draftCoachCell(cellId);
     return employeesForOrgAssignmentSelect(
-      emps,
-      this.draftCoachCell(cellId) || this.coachUserId(cellId),
+      emps.filter((e) => !taken.has(e.id) || e.id === draft),
+      draft,
     );
   }
 
@@ -2735,11 +3017,7 @@ export class OrganisationManagementComponent implements OnInit {
 
   selectMetierDepartment(d: OperationalDepartmentNode): void {
     this.selection.set({ kind: 'metierDepartment', id: d.id, name: d.name, code: d.code });
-    this.draftEmployeeId.set('');
-    this.draftPilotId.set('');
-    this.draftPilotTeamId.set('');
-    this.structureDetailEmpSearch.set('');
-    this.structurePilotEmpSearch.set('');
+    this.resetStructureDrafts();
   }
 
   selectPole(md: OperationalDepartmentNode, p: OrgPoleNode): void {
@@ -2749,11 +3027,7 @@ export class OrganisationManagementComponent implements OnInit {
       name: p.name,
       metierDepartmentId: md.id,
     });
-    this.draftEmployeeId.set('');
-    this.draftPilotId.set('');
-    this.draftPilotTeamId.set('');
-    this.structureDetailEmpSearch.set('');
-    this.structurePilotEmpSearch.set('');
+    this.resetStructureDrafts();
   }
 
   selectCellule(md: OperationalDepartmentNode, p: OrgPoleNode, c: OrgCelluleNode): void {
@@ -2764,11 +3038,7 @@ export class OrganisationManagementComponent implements OnInit {
       poleId: p.id,
       metierDepartmentId: md.id,
     });
-    this.draftEmployeeId.set('');
-    this.draftPilotId.set('');
-    this.draftPilotTeamId.set('');
-    this.structureDetailEmpSearch.set('');
-    this.structurePilotEmpSearch.set('');
+    this.resetStructureDrafts();
   }
 
   selectService(
@@ -2785,11 +3055,42 @@ export class OrganisationManagementComponent implements OnInit {
       poleId: p.id,
       metierDepartmentId: md.id,
     });
-    this.draftEmployeeId.set('');
-    this.draftPilotId.set('');
+    this.resetStructureDrafts();
     const teams = this.teamsForCell(s.id);
     this.draftPilotTeamId.set(teams[0]?.id ?? '');
+  }
+
+  private resetStructureDrafts(): void {
+    this.draftEmployeeId.set('');
+    this.draftPilotId.set('');
+    this.draftPilotTeamId.set('');
     this.structureDetailEmpSearch.set('');
+    this.structurePilotEmpSearch.set('');
+    this.structureRolePickerOpen.set(false);
+    this.structurePilotPickerOpen.set(false);
+  }
+
+  openStructureRolePicker(): void {
+    this.structureRolePickerOpen.set(true);
+    this.draftEmployeeId.set('');
+    this.structureDetailEmpSearch.set('');
+  }
+
+  closeStructureRolePicker(): void {
+    this.structureRolePickerOpen.set(false);
+    this.draftEmployeeId.set('');
+    this.structureDetailEmpSearch.set('');
+  }
+
+  openStructurePilotPicker(): void {
+    this.structurePilotPickerOpen.set(true);
+    this.draftPilotId.set('');
+    this.structurePilotEmpSearch.set('');
+  }
+
+  closeStructurePilotPicker(): void {
+    this.structurePilotPickerOpen.set(false);
+    this.draftPilotId.set('');
     this.structurePilotEmpSearch.set('');
   }
 
@@ -2813,6 +3114,7 @@ export class OrganisationManagementComponent implements OnInit {
 
   beginRepickDetailEmployee(): void {
     this.draftEmployeeId.set('');
+    this.structureRolePickerOpen.set(true);
   }
 
   pickPilotEmployee(id: string): void {
@@ -2822,6 +3124,105 @@ export class OrganisationManagementComponent implements OnInit {
 
   beginRepickPilotEmployee(): void {
     this.draftPilotId.set('');
+    this.structurePilotPickerOpen.set(true);
+  }
+
+  async renameStructureNode(
+    kind: 'pole' | 'cellule' | 'service',
+    id: string,
+    currentName: string,
+    parents?: { poleId?: string; celluleId?: string },
+  ): Promise<void> {
+    const next = (
+      await this.promptService.prompt({
+        title: 'Nouveau nom',
+        message: `Renommer « ${currentName} »`,
+        defaultValue: currentName,
+        confirmLabel: 'Enregistrer',
+      })
+    )?.trim();
+    if (!next || orgNamesEqual(next, currentName)) return;
+
+    let obs: Observable<unknown>;
+    if (kind === 'pole') {
+      obs = this.orgApi.renameStructurePole(id, next);
+    } else if (kind === 'cellule') {
+      const poleId = parents?.poleId;
+      if (!poleId) return;
+      obs = this.orgApi.renameStructureCellule(poleId, id, next);
+    } else {
+      const celluleId = parents?.celluleId;
+      if (!celluleId) return;
+      obs = this.orgApi.renameStructureService(celluleId, id, next);
+    }
+
+    this.runMutation(obs, () => {
+      const sel = this.selection();
+      if (sel && sel.id === id) {
+        this.selection.set({ ...sel, name: next });
+      }
+    }, `${kind === 'pole' ? 'Pôle' : kind === 'cellule' ? 'Cellule' : 'Service'} renommé`);
+  }
+
+  memberPerimeterRole(m: Employee): 'chef' | 'superviseur' | 'referent' | 'pilote' | 'autre' {
+    const sel = this.selection();
+    if (!sel) return 'autre';
+    const id = m.id;
+
+    if (sel.kind === 'pole' && this.managerUserIds(sel.id).includes(id)) return 'chef';
+    if (sel.kind === 'cellule' && this.supervisorUserIds(sel.id).includes(id)) return 'superviseur';
+    if (sel.kind === 'service') {
+      if (this.coachUserIds(sel.id).includes(id)) return 'referent';
+      if (this.pilotsInCell(sel.id).some((p) => p.id === id)) return 'pilote';
+      // Hiérarchie : superviseur de la cellule parente / chef du pôle
+      if (sel.celluleId && this.supervisorUserIds(sel.celluleId).includes(id)) return 'superviseur';
+      if (sel.poleId && this.managerUserIds(sel.poleId).includes(id)) return 'chef';
+    }
+    if (sel.kind === 'cellule' && sel.poleId && this.managerUserIds(sel.poleId).includes(id)) {
+      return 'chef';
+    }
+
+    const role = (m.role ?? '').toLowerCase();
+    if (role.includes('référent') || role.includes('referent') || role.includes('coach')) return 'referent';
+    if (role.includes('pilote')) return 'pilote';
+    if (role.includes('superviseur')) return 'superviseur';
+    if (role.includes('chef') || role === 'rp') return 'chef';
+    return 'autre';
+  }
+
+  memberPerimeterRoleLabel(role: 'chef' | 'superviseur' | 'referent' | 'pilote' | 'autre'): string {
+    switch (role) {
+      case 'chef':
+        return 'Chef de projet';
+      case 'superviseur':
+        return 'Superviseur';
+      case 'referent':
+        return 'Référent technique';
+      case 'pilote':
+        return 'Pilote';
+      default:
+        return 'Rattaché';
+    }
+  }
+
+  async removeMemberFromPerimeter(m: Employee): Promise<void> {
+    const sel = this.selection();
+    if (!sel || sel.kind === 'metierDepartment') return;
+
+    const ok = await this.confirmService.confirm({
+      title: 'Retirer du périmètre',
+      message: `Retirer ${m.firstName} ${m.lastName} de « ${sel.name} » ? L’employé n’appartiendra plus à ce périmètre.`,
+      confirmLabel: 'Retirer',
+      cancelLabel: 'Annuler',
+    });
+    if (!ok) return;
+
+    const level = sel.kind === 'service' || sel.kind === 'cellule' || sel.kind === 'pole' ? sel.kind : 'all';
+    this.runMutation(
+      this.orgApi.clearEmployeeOrgPlacement(m.id, { level, nodeId: sel.id }),
+      undefined,
+      `${m.firstName} ${m.lastName} retiré du périmètre`,
+    );
   }
 
   private pushStructureLog(message: string, scopeIds?: string[]): void {
@@ -3177,39 +3578,6 @@ export class OrganisationManagementComponent implements OnInit {
     return messages;
   }
 
-  private async resolveIncumbentAssignment(
-    roleName: 'Chef de projet' | 'Superviseur' | 'Référent technique',
-    nodeId: string,
-    newUserId: string,
-  ): Promise<{ revokeIds?: string[]; cancelled: boolean }> {
-    const overview = this.data();
-    if (!overview) return { cancelled: false };
-    const nodeIds =
-      roleName === 'Chef de projet'
-        ? { orgPoleId: nodeId }
-        : roleName === 'Superviseur'
-          ? { orgCelluleId: nodeId }
-          : { orgServiceId: nodeId };
-    const incumbents = findStructureIncumbents(overview, roleName, nodeIds).filter(
-      (i) => i.userId !== newUserId,
-    );
-    if (!shouldConfirmIncumbentChoice(incumbents)) {
-      return { cancelled: false };
-    }
-
-    const replace = await this.confirmService.confirm({
-      title: 'Remplacer le titulaire',
-      message: buildIncumbentChoiceMessage(roleName, incumbents),
-      confirmLabel: 'Remplacer',
-      cancelLabel: 'Annuler',
-      variant: 'warning',
-    });
-    if (!replace) return { cancelled: true };
-
-    // L'API évince tous les titulaires du nœud ; on passe les IDs pour traçabilité UX.
-    return { revokeIds: incumbents.map((i) => i.userId), cancelled: false };
-  }
-
   removeDepartmentManagerIncumbent(poleId: string, employeeId: string): void {
     this.runMutation(
       this.orgApi.removeManagerIncumbent(poleId, employeeId),
@@ -3234,43 +3602,24 @@ export class OrganisationManagementComponent implements OnInit {
     );
   }
 
-  private async confirmStructureReplace(
-    roleName: 'Chef de projet' | 'Superviseur' | 'Référent technique',
-    incumbentUserId: string | undefined,
-    newUserId: string,
-  ): Promise<boolean> {
-    if (!shouldConfirmOverwrite(incumbentUserId, newUserId)) {
-      return true;
-    }
-    const employees = this.data()?.employees ?? [];
-    const incumbent = {
-      userId: incumbentUserId!,
-      displayName: employeeDisplayName(employees, incumbentUserId!),
-    };
-    return this.confirmService.confirm({
-      title: 'Remplacer le titulaire actuel',
-      message: buildStructureOverwriteMessage(incumbent, roleName),
-      confirmLabel: 'Écraser et continuer',
-      cancelLabel: 'Annuler',
-      variant: 'warning',
-    });
-  }
-
   async saveDepartmentManagerRow(departmentId: string): Promise<void> {
     const id = this.draftManagerByDept()[departmentId];
     if (!id) return;
+    if (this.managerUserIds(departmentId).includes(id)) {
+      this.patchDraftManager(departmentId, '');
+      return;
+    }
     if (!(await this.confirmCrossRoleAssignment(id, 'Chef de projet'))) {
       return;
     }
-    const choice = await this.resolveIncumbentAssignment('Chef de projet', departmentId, id);
-    if (choice.cancelled) return;
+    // Sans revokeEmployeeIds → ajoute un co-titulaire (ne remplace pas les titulaires existants).
     this.runMutation(
-      this.orgApi.setStructureManager(departmentId, id, choice.revokeIds),
+      this.orgApi.setStructureManager(departmentId, id),
       () => {
         this.clearRowDraftDirty('mgr', departmentId);
         this.patchDraftManager(departmentId, '');
       },
-      'Chef de projet enregistré (liste pôles)',
+      'Chef de projet ajouté (liste pôles)',
     );
   }
 
@@ -3285,16 +3634,18 @@ export class OrganisationManagementComponent implements OnInit {
   async savePoleSupervisorRow(poleId: string): Promise<void> {
     const id = this.draftSupervisorByPole()[poleId];
     if (!id) return;
+    if (this.supervisorUserIds(poleId).includes(id)) {
+      this.patchDraftSupervisor(poleId, '');
+      return;
+    }
     if (!(await this.confirmCrossRoleAssignment(id, 'Superviseur'))) return;
-    const choice = await this.resolveIncumbentAssignment('Superviseur', poleId, id);
-    if (choice.cancelled) return;
     this.runMutation(
-      this.orgApi.setStructureSupervisor(poleId, id, choice.revokeIds),
+      this.orgApi.setStructureSupervisor(poleId, id),
       () => {
         this.clearRowDraftDirty('sup', poleId);
         this.patchDraftSupervisor(poleId, '');
       },
-      'Superviseur enregistré (liste cellules)',
+      'Superviseur ajouté (liste cellules)',
     );
   }
 
@@ -3309,16 +3660,18 @@ export class OrganisationManagementComponent implements OnInit {
   async saveCellCoachRow(celluleId: string): Promise<void> {
     const id = this.draftCoachByCell()[celluleId];
     if (!id) return;
+    if (this.coachUserIds(celluleId).includes(id)) {
+      this.patchDraftCoach(celluleId, '');
+      return;
+    }
     if (!(await this.confirmCrossRoleAssignment(id, 'Référent technique'))) return;
-    const choice = await this.resolveIncumbentAssignment('Référent technique', celluleId, id);
-    if (choice.cancelled) return;
     this.runMutation(
-      this.orgApi.setStructureCoach(celluleId, id, choice.revokeIds),
+      this.orgApi.setStructureCoach(celluleId, id),
       () => {
         this.clearRowDraftDirty('coach', celluleId);
         this.patchDraftCoach(celluleId, '');
       },
-      'Référent technique enregistré (liste services)',
+      'Référent technique ajouté (liste services)',
     );
   }
 
@@ -3367,7 +3720,12 @@ export class OrganisationManagementComponent implements OnInit {
       });
       if (!force) return { proceed: false };
 
-      const reason = window.prompt('Motif de la dérogation (obligatoire) :');
+      const reason = await this.promptService.prompt({
+        title: 'Motif de dérogation',
+        message: 'Indiquez le motif obligatoire pour forcer la rotation (règle des 6 mois).',
+        placeholder: 'Motif…',
+        confirmLabel: 'Valider',
+      });
       if (!reason?.trim()) {
         this.error.set('Motif obligatoire pour une dérogation Admin.');
         return { proceed: false };
@@ -3429,15 +3787,17 @@ export class OrganisationManagementComponent implements OnInit {
   async saveDepartmentManager(departmentId: string): Promise<void> {
     const id = this.draftEmployeeId();
     if (!id) return;
+    if (this.managerUserIds(departmentId).includes(id)) {
+      this.closeStructureRolePicker();
+      return;
+    }
     if (!(await this.confirmCrossRoleAssignment(id, 'Chef de projet'))) {
       return;
     }
-    const choice = await this.resolveIncumbentAssignment('Chef de projet', departmentId, id);
-    if (choice.cancelled) return;
     this.runMutation(
-      this.orgApi.setStructureManager(departmentId, id, choice.revokeIds),
-      undefined,
-      'Chef de projet mis à jour (vue structure)',
+      this.orgApi.setStructureManager(departmentId, id),
+      () => this.closeStructureRolePicker(),
+      'Chef de projet ajouté (vue structure)',
     );
   }
 
@@ -3452,13 +3812,15 @@ export class OrganisationManagementComponent implements OnInit {
   async savePoleSupervisor(poleId: string): Promise<void> {
     const id = this.draftEmployeeId();
     if (!id) return;
+    if (this.supervisorUserIds(poleId).includes(id)) {
+      this.closeStructureRolePicker();
+      return;
+    }
     if (!(await this.confirmCrossRoleAssignment(id, 'Superviseur'))) return;
-    const choice = await this.resolveIncumbentAssignment('Superviseur', poleId, id);
-    if (choice.cancelled) return;
     this.runMutation(
-      this.orgApi.setStructureSupervisor(poleId, id, choice.revokeIds),
-      undefined,
-      'Superviseur mis à jour (vue structure)',
+      this.orgApi.setStructureSupervisor(poleId, id),
+      () => this.closeStructureRolePicker(),
+      'Superviseur ajouté (vue structure)',
     );
   }
 
@@ -3473,13 +3835,15 @@ export class OrganisationManagementComponent implements OnInit {
   async saveCellCoach(celluleId: string): Promise<void> {
     const id = this.draftEmployeeId();
     if (!id) return;
+    if (this.coachUserIds(celluleId).includes(id)) {
+      this.closeStructureRolePicker();
+      return;
+    }
     if (!(await this.confirmCrossRoleAssignment(id, 'Référent technique'))) return;
-    const choice = await this.resolveIncumbentAssignment('Référent technique', celluleId, id);
-    if (choice.cancelled) return;
     this.runMutation(
-      this.orgApi.setStructureCoach(celluleId, id, choice.revokeIds),
-      undefined,
-      'Référent technique mis à jour (vue structure)',
+      this.orgApi.setStructureCoach(celluleId, id),
+      () => this.closeStructureRolePicker(),
+      'Référent technique ajouté (vue structure)',
     );
   }
 
@@ -3541,6 +3905,8 @@ export class OrganisationManagementComponent implements OnInit {
         }
         this.draftEmployeeId.set('');
         this.draftPilotId.set('');
+        this.structureRolePickerOpen.set(false);
+        this.structurePilotPickerOpen.set(false);
         this.load(true);
       },
       error: (err: unknown) => this.error.set(httpErrMessage(err)),

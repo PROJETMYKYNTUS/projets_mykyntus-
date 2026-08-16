@@ -99,6 +99,24 @@ public sealed class PrimeFicheMergedPreviewAccessService(
             })
             .ToListAsync(ct);
 
+        var poleLinePonderations = await db.ServicePoleLinePonderations.AsNoTracking()
+            .Where(x => x.ServiceId == fiche.ServiceId)
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.TemplateStableId)
+            .Select(x => new ServicePoleLinePonderationDto
+            {
+                Id = x.Id,
+                ServiceId = x.ServiceId,
+                TemplateStableId = x.TemplateStableId,
+                Label = x.Label,
+                SortOrder = x.SortOrder,
+                PonderationPrimePct = x.PonderationPrimePct,
+                PonderationChallengePct = x.PonderationChallengePct,
+                CreatedAt = x.CreatedAt,
+                UpdatedAt = x.UpdatedAt,
+            })
+            .ToListAsync(ct);
+
         return new MergedFichePreviewContextDto
         {
             FicheId = fiche.Id,
@@ -111,6 +129,7 @@ public sealed class PrimeFicheMergedPreviewAccessService(
             CellSaisieJson = fiche.ServiceSaisieJson ?? "{}",
             TemplateCalcSnapshotJson = draft?.TemplateCalcSnapshotJson,
             Indicators = indicators,
+            PoleLinePonderations = poleLinePonderations,
             PreviewAvailable = unavailable is null,
             PreviewUnavailableReason = unavailable,
         };

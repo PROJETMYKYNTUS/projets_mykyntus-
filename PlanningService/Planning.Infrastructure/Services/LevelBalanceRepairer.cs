@@ -19,11 +19,61 @@ public static class LevelBalanceRepairer
         IReadOnlyList<User> roster,
         WeeklyPlanning planning)
     {
-        // Semaine uniquement. Samedi : ne jamais forcer un Confirmé/Expert « Off »
-        // (alternance ON/OFF préservée). Si débutants seuls → anomalie Warning non bloquante.
+        // Semaine uniquement pour débutants. Formation plateau : aussi samedi (créneau).
         RepairWeekdays(assignments, shiftConfigs, usersById);
+        RepairPlateauTrainingOffExtremes(assignments, shiftConfigs, usersById);
         _ = roster;
         _ = planning;
+    }
+
+    /// <summary>
+    /// Formation plateau : jamais Opening/Closing (même avec senior), hors pin manager.
+    /// </summary>
+    private static void RepairPlateauTrainingOffExtremes(
+        List<ShiftAssignment> assignments,
+        IReadOnlyList<SubServiceShiftConfig> shiftConfigs,
+        IReadOnlyDictionary<int, User> usersById)
+    {
+        var configsById = shiftConfigs.ToDictionary(c => c.Id);
+        var middle = PickMiddleTarget(assignments, shiftConfigs, default, excludeShiftId: -1);
+        if (middle == null) return;
+
+        var dates = assignments
+            .Where(a => a.SubServiceShiftConfigId != null && !a.IsOnLeave && !a.IsHoliday)
+            .Select(a => a.AssignedDate)
+            .Distinct()
+            .ToList();
+
+        foreach (var date in dates)
+        {
+            for (var pass = 0; pass < MaxPasses; pass++)
+            {
+                var moved = false;
+                foreach (var a in assignments.Where(x =>
+                             x.AssignedDate == date
+                             && x.SubServiceShiftConfigId != null
+                             && !x.IsOnLeave
+                             && !x.IsHoliday
+                             && !x.IsManagerOverride
+                             && !x.IsExceptionalRequest))
+                {
+                    if (!usersById.TryGetValue(a.UserId, out var u) || !u.IsPlateauTraining)
+                        continue;
+                    if (!configsById.TryGetValue(a.SubServiceShiftConfigId!.Value, out var cfg))
+                        continue;
+                    if (cfg.ShiftKind is not (ShiftKind.Opening or ShiftKind.Closing))
+                        continue;
+
+                    var target = PickMiddleTarget(assignments, shiftConfigs, date, cfg.Id) ?? middle;
+                    if (target.Id == a.SubServiceShiftConfigId) continue;
+                    a.SubServiceShiftConfigId = target.Id;
+                    moved = true;
+                    break;
+                }
+
+                if (!moved) break;
+            }
+        }
     }
 
     private static void RepairWeekdays(

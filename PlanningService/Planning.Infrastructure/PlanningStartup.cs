@@ -37,8 +37,13 @@ public static class PlanningStartup
                     await PlanningSchemaPatches.EnsurePlanningChangeRequestsTableAsync(db);
                     await PlanningSchemaPatches.EnsurePlanningExceptionalRequestsTableAsync(db);
                     await PlanningSchemaPatches.EnsureShiftAssignmentExceptionalFlagAsync(db);
+                    await PlanningSchemaPatches.EnsurePlanningReinforcementRequestsTableAsync(db);
+                    await PlanningSchemaPatches.EnsurePendingRequestReminderColumnsAsync(db);
                     await PlanningSchemaPatches.EnsureEmployeeImportSourceFileColumnsAsync(db);
                     await PlanningSchemaPatches.EnsureUserHtelColumnsAsync(db);
+                    await PlanningSchemaPatches.EnsureUserSaturdayWorkModeColumnAsync(db);
+                    await PlanningSchemaPatches.EnsureUserSpecialCaseColumnsAsync(db);
+                    await PlanningSchemaPatches.EnsureUserPlateauTrainingColumnAsync(db);
                     Console.WriteLine("✅ Migrations appliquées avec succès.");
                     break;
                 }

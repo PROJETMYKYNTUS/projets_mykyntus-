@@ -45,7 +45,8 @@ public class EmployeeImportExecutor(
     IEmployeeImportCredentialsStore credentialsStore,
     ILogger<EmployeeImportExecutor> logger) : IEmployeeImportExecutor
 {
-    private const int ChunkSize = 100;
+    // Lots plus petits : le bulk Directory est séquentiel et timeoutait à 30s (~100 créations).
+    private const int ChunkSize = 25;
     private const int ProgressPersistEvery = 50;
     private const int MaxParallelism = 8;
 
@@ -217,14 +218,15 @@ public class EmployeeImportExecutor(
                     }
                     catch (Exception ex)
                     {
-                        AddLine(job, report, lineNumber, email, "error", ex.Message);
+                        AddLine(job, report, lineNumber, email, "error", FormatImportPersistenceError(ex));
                     }
                 }
 
                 if (pendingCreates.Count > 0)
                 {
                     await ProcessCreateChunkAsync(
-                        job, report, pendingCreates, orgSnapshot, authHeader, pendingAssigns, activeFields, ct);
+                        job, report, pendingCreates, orgSnapshot, authHeader, pendingAssigns,
+                        activeFields, directoryOverview, ct);
                 }
 
                 if (pendingAssigns.Count > 0)
@@ -618,6 +620,36 @@ public class EmployeeImportExecutor(
         };
     }
 
+    /// <summary>
+    /// Ne convertit plus les users déjà projetés par Directory en « update ».
+    /// PersistImportUsersHandlingConflictsAsync les adopte comme créations (mot de passe + rapport).
+    /// </summary>
+    private Task<List<ImportChunkCreateItemDto>> SplitChunkAfterDirectoryProjectionAsync(
+        EmployeeImportJob job,
+        EmployeeImportReportDto report,
+        Dictionary<string, PendingImportCreate> preparedByEmail,
+        Dictionary<string, Guid> directoryGuidsByEmail,
+        List<ImportChunkCreateItemDto> chunkItems,
+        EmployeeImportOrgSnapshot orgSnapshot,
+        EmployeeImportOrgOverview? directoryOverview,
+        string? authHeader,
+        List<PendingStructureAssign> pendingAssigns,
+        List<EmployeeImportFieldConfigDto> activeFields,
+        CancellationToken ct)
+    {
+        _ = (job, report, directoryGuidsByEmail, orgSnapshot, directoryOverview, authHeader, pendingAssigns, activeFields, ct);
+
+        var stillToCreate = new List<ImportChunkCreateItemDto>(chunkItems.Count);
+        foreach (var item in chunkItems)
+        {
+            var email = item.Dto.Email.Trim().ToLowerInvariant();
+            if (preparedByEmail.ContainsKey(email))
+                stillToCreate.Add(item);
+        }
+
+        return Task.FromResult(stillToCreate);
+    }
+
     private async Task ProcessCreateChunkAsync(
         EmployeeImportJob job,
         EmployeeImportReportDto report,
@@ -626,6 +658,7 @@ public class EmployeeImportExecutor(
         string? authHeader,
         List<PendingStructureAssign> pendingAssigns,
         List<EmployeeImportFieldConfigDto> activeFieldsForCustom,
+        EmployeeImportOrgOverview? directoryOverview,
         CancellationToken ct)
     {
         DirectoryHttpAuthContext.AuthorizationHeader.Value = authHeader;
@@ -696,21 +729,39 @@ public class EmployeeImportExecutor(
         if (chunkItems.Count == 0)
             return;
 
+        var createItems = await SplitChunkAfterDirectoryProjectionAsync(
+            job,
+            report,
+            preparedByEmail,
+            directoryGuidsByEmail,
+            chunkItems,
+            orgSnapshot,
+            directoryOverview,
+            authHeader,
+            pendingAssigns,
+            activeFieldsForCustom,
+            ct);
+
+        if (createItems.Count == 0)
+            return;
+
         IReadOnlyList<ImportChunkCreateResultDto> chunkResults;
         try
         {
-            chunkResults = await userService.CreateUsersFromImportChunkAsync(chunkItems, ct);
+            chunkResults = await userService.CreateUsersFromImportChunkAsync(createItems, ct);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "CreateUsersFromImportChunkAsync a échoué pour {Count} lignes", chunkItems.Count);
+            var chunkError = FormatImportPersistenceError(ex);
+            var deleteDirectoryOnFailure = !IsPlanningEmailDuplicateMessage(chunkError);
             foreach (var pending in preparedByEmail.Values)
             {
-                if (directoryGuidsByEmail.TryGetValue(pending.Email, out var dirGuid))
+                if (deleteDirectoryOnFailure
+                    && directoryGuidsByEmail.TryGetValue(pending.Email, out var dirGuid))
                     await directoryEmployeeWrite.TryDeleteEmployeeAsync(dirGuid, ct);
 
-                AddLine(job, report, pending.LineNumber, pending.Email, "error",
-                    ex.InnerException?.Message ?? ex.Message);
+                AddLine(job, report, pending.LineNumber, pending.Email, "error", chunkError);
             }
 
             return;
@@ -724,11 +775,13 @@ public class EmployeeImportExecutor(
 
             if (!result.Success || result.PlanningUserId is null || result.EmployeeGuid is null)
             {
-                if (directoryGuidsByEmail.TryGetValue(pending.Email, out var dirGuid))
+                var errorMessage = result.ErrorMessage ?? "Création Planning/Auth échouée.";
+                // Doublon Planning : ne pas supprimer Directory (l'employé y est déjà, et souvent aussi en local).
+                if (!IsPlanningEmailDuplicateMessage(errorMessage)
+                    && directoryGuidsByEmail.TryGetValue(pending.Email, out var dirGuid))
                     await directoryEmployeeWrite.TryDeleteEmployeeAsync(dirGuid, ct);
 
-                AddLine(job, report, pending.LineNumber, pending.Email, "error",
-                    result.ErrorMessage ?? "Création Planning/Auth échouée.");
+                AddLine(job, report, pending.LineNumber, pending.Email, "error", errorMessage);
                 continue;
             }
 
@@ -766,7 +819,7 @@ public class EmployeeImportExecutor(
             catch (Exception lineEx)
             {
                 await journal.RollbackLastUserChangeAsync(ct);
-                AddLine(job, report, pending.LineNumber, pending.Email, "error", lineEx.Message);
+                AddLine(job, report, pending.LineNumber, pending.Email, "error", FormatImportPersistenceError(lineEx));
             }
         }
 
@@ -847,7 +900,7 @@ public class EmployeeImportExecutor(
                 catch (Exception lineEx)
                 {
                     await journal.RollbackLastUserChangeAsync(ct);
-                    AddLine(job, report, lineNumber, email, "error", lineEx.Message);
+                    AddLine(job, report, lineNumber, email, "error", FormatImportPersistenceError(lineEx));
                 }
             }
             else
@@ -1268,6 +1321,39 @@ public class EmployeeImportExecutor(
 
     private static bool IsEmptyRow(IReadOnlyList<string> row) =>
         row.All(c => string.IsNullOrWhiteSpace(c));
+
+    private static bool IsPlanningEmailDuplicateMessage(string? message) =>
+        !string.IsNullOrWhiteSpace(message)
+        && (message.Contains("IX_Users_Email", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Email déjà présent dans Planning", StringComparison.OrdinalIgnoreCase)
+            || (message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
+                && message.Contains("Email", StringComparison.OrdinalIgnoreCase)));
+
+    private static string FormatImportPersistenceError(Exception ex)
+    {
+        var current = ex;
+        while (current.InnerException is not null)
+            current = current.InnerException;
+
+        var msg = current.Message ?? ex.Message;
+        if (IsPlanningEmailDuplicateMessage(msg)
+            || msg.Contains("See the inner exception", StringComparison.OrdinalIgnoreCase))
+        {
+            // Remonter au message Postgres 23505 si disponible dans la chaîne.
+            for (var inner = ex; inner is not null; inner = inner.InnerException!)
+            {
+                var m = inner.Message ?? string.Empty;
+                if (m.Contains("IX_Users_Email", StringComparison.OrdinalIgnoreCase)
+                    || (m.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
+                        && m.Contains("Email", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return "Email déjà présent dans Planning. Relancez l'import : la ligne sera mise à jour.";
+                }
+            }
+        }
+
+        return msg;
+    }
 
     private static void AddLine(
         EmployeeImportJob job,

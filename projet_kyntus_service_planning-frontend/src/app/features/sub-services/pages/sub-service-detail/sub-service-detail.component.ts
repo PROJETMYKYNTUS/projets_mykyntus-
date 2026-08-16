@@ -4,6 +4,8 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { SubServiceService } from '../../services/sub-service.service';
 import { SubServiceDetail } from '../../sub-services-module';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
+import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
 import { Users } from 'lucide';
 
 @Component({
@@ -24,6 +26,8 @@ export class SubServiceDetailComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private subServiceService: SubServiceService,
+    private confirmService: KyntusConfirmService,
+    private toastService: KyntusToastService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -56,13 +60,18 @@ export class SubServiceDetailComponent implements OnInit {
 
   editSubService(): void { this.router.navigate(['/sub-services', 'edit', this.subService?.id]); }
 
-  deleteSubService(): void {
+  async deleteSubService(): Promise<void> {
     if (!this.subService) return;
-    if (confirm('Supprimer ce sous-service ?')) {
-      this.subServiceService.deleteSubService(this.subService.id).subscribe({
-        next: () => this.router.navigate(['/sub-services']),
-        error: (err: any) => alert(`Erreur: ${err.error?.message}`)
-      });
-    }
+    const ok = await this.confirmService.confirm({
+      title: 'Supprimer le sous-service',
+      message: 'Supprimer ce sous-service ?',
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    this.subServiceService.deleteSubService(this.subService.id).subscribe({
+      next: () => this.router.navigate(['/sub-services']),
+      error: (err: any) => this.toastService.error(`Erreur: ${err.error?.message}`),
+    });
   }
 }

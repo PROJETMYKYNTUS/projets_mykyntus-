@@ -1,15 +1,16 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
+import { BodyPortalDirective } from '@/shared/directives/body-portal.directive';
 import { X } from 'lucide';
 import { cn } from '@/lib/utils';
 
 @Component({
   selector: 'app-prime-modal',
   standalone: true,
-  imports: [LucideIconComponent],
+  imports: [LucideIconComponent, BodyPortalDirective],
   template: `
     @if (isOpen) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0" appBodyPortal>
         <div
           class="fixed inset-0 bg-card/50 backdrop-blur-sm transition-opacity"
           (click)="onClose.emit()"

@@ -101,6 +101,7 @@ export class AuthCallbackComponent implements OnInit {
         id: subjectId,
         authUserId,
         subjectId,
+        guid: subjectId,
         username,
         email,
         role

@@ -3,14 +3,17 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ArrowLeft, CheckCircle2 } from 'lucide';
+import { resolveCurrentUserGuid } from '../../../core/lib/user-guid.util';
 import { FormationTrainingService } from '../../../core/services/formation-training.service';
 import type {
+  CatalogPlayerDto,
   MyAssignedTrainingSessionDto,
   TrainingQuizAttemptDto,
   TrainingQuizForEmployeeDto,
 } from '../../../core/models/formation-training.models';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../shared/lucide-icon.component';
+import { isQuizMediaVideo } from '../shared/formation-quiz-draft.types';
 
 type Step = 'questions' | 'recap' | 'done' | 'review';
 
@@ -33,8 +36,11 @@ export class FormationTakeQuizComponent implements OnInit {
   readonly error = signal<string | null>(null);
 
   sessionId = '';
+  catalogItemId = '';
   userId = '';
+  enrollmentId = '';
   assigned: MyAssignedTrainingSessionDto | null = null;
+  player: CatalogPlayerDto | null = null;
   quiz: TrainingQuizForEmployeeDto | null = null;
   attempt: TrainingQuizAttemptDto | null = null;
   history: TrainingQuizAttemptDto[] = [];
@@ -42,10 +48,25 @@ export class FormationTakeQuizComponent implements OnInit {
   currentIndex = 0;
   answers: Record<string, { selectedOptionIndex?: number; selectedOptionIndexes?: number[]; freeText?: string }> = {};
 
+  get isSelfService(): boolean {
+    return !!this.catalogItemId && !this.sessionId;
+  }
+
+  get backLink(): string[] {
+    if (this.isSelfService) return ['/mes-formations', 'contenu', this.catalogItemId];
+    if (this.sessionId) return ['/mes-formations', this.sessionId, 'contenu'];
+    return ['/mes-formations'];
+  }
+
+  get pageTitle(): string {
+    return this.quiz?.title || this.assigned?.title || this.player?.title || 'Passer le quiz';
+  }
+
   ngOnInit(): void {
     this.sessionId = this.route.snapshot.paramMap.get('sessionId') ?? '';
-    this.userId = this.resolveUserId();
-    if (!this.sessionId || !this.userId) {
+    this.catalogItemId = this.route.snapshot.paramMap.get('catalogItemId') ?? '';
+    this.userId = resolveCurrentUserGuid();
+    if ((!this.sessionId && !this.catalogItemId) || !this.userId) {
       void this.router.navigate(['/mes-formations']);
       return;
     }
@@ -64,6 +85,10 @@ export class FormationTakeQuizComponent implements OnInit {
     if (!this.totalQuestions) return 0;
     if (this.step === 'recap' || this.step === 'done') return 100;
     return Math.round(((this.currentIndex + 1) / this.totalQuestions) * 100);
+  }
+
+  isMediaVideo(url: string | null | undefined, mediaKind?: string | null): boolean {
+    return isQuizMediaVideo(url, mediaKind);
   }
 
   isQcm(type: string | number): boolean {
@@ -162,21 +187,33 @@ export class FormationTakeQuizComponent implements OnInit {
   }
 
   async submit(): Promise<void> {
-    if (!this.quiz || !this.assigned) return;
+    if (!this.quiz) return;
     this.busy.set(true);
     this.error.set(null);
     try {
-      this.attempt = await this.api.submitQuizAttempt(this.sessionId, {
-        assignmentId: this.assigned.assignmentId,
-        employeeId: this.userId,
-        answers: Object.entries(this.answers).map(([questionId, a]) => ({
-          questionId,
-          selectedOptionIndex: a.selectedOptionIndex ?? null,
-          selectedOptionIndexes: a.selectedOptionIndexes?.length ? a.selectedOptionIndexes : null,
-          freeText: a.freeText ?? null,
-        })),
-      });
-      this.history = await this.api.listMyQuizAttempts(this.sessionId, this.userId);
+      const answers = Object.entries(this.answers).map(([questionId, a]) => ({
+        questionId,
+        selectedOptionIndex: a.selectedOptionIndex ?? null,
+        selectedOptionIndexes: a.selectedOptionIndexes?.length ? a.selectedOptionIndexes : null,
+        freeText: a.freeText ?? null,
+      }));
+
+      if (this.isSelfService) {
+        this.attempt = await this.api.submitCatalogQuizAttempt(this.catalogItemId, {
+          assignmentId: this.enrollmentId || this.quiz.enrollmentId || '',
+          employeeId: this.userId,
+          answers,
+        });
+        this.history = await this.api.listMyCatalogQuizAttempts(this.catalogItemId);
+      } else {
+        if (!this.assigned) return;
+        this.attempt = await this.api.submitQuizAttempt(this.sessionId, {
+          assignmentId: this.assigned.assignmentId,
+          employeeId: this.userId,
+          answers,
+        });
+        this.history = await this.api.listMyQuizAttempts(this.sessionId, this.userId);
+      }
       this.step = this.attempt.answers?.length ? 'review' : 'done';
     } catch (e) {
       this.error.set(e instanceof Error ? e.message : 'Échec soumission');
@@ -186,12 +223,14 @@ export class FormationTakeQuizComponent implements OnInit {
   }
 
   async restart(): Promise<void> {
-    if (!this.assigned?.allowMultipleAttempts && !this.quiz?.allowMultipleAttempts) return;
+    if (!this.quiz?.allowMultipleAttempts && !this.assigned?.allowMultipleAttempts) return;
     this.attempt = null;
     this.step = 'questions';
     this.currentIndex = 0;
     this.answers = {};
-    this.quiz = await this.api.getQuizForEmployee(this.sessionId, this.userId);
+    this.quiz = this.isSelfService
+      ? await this.api.getCatalogQuizForEmployee(this.catalogItemId)
+      : await this.api.getQuizForEmployee(this.sessionId, this.userId);
     for (const q of this.quiz.questions) this.answers[q.id] = {};
   }
 
@@ -199,42 +238,11 @@ export class FormationTakeQuizComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const list = await this.api.listMyAssignedSessions(this.userId);
-      this.assigned = list.find((s) => s.sessionId === this.sessionId) ?? null;
-      if (!this.assigned) {
-        this.error.set('Session introuvable dans vos affectations.');
-        return;
+      if (this.isSelfService) {
+        await this.loadSelfService();
+      } else {
+        await this.loadSession();
       }
-      this.history = await this.api.listMyQuizAttempts(this.sessionId, this.userId).catch(() => []);
-      if (this.assigned.attemptId && !this.assigned.canTakeQuiz) {
-        this.attempt = this.history[0] ?? {
-          id: this.assigned.attemptId,
-          quizId: this.assigned.quizId ?? '',
-          assignmentId: this.assigned.assignmentId,
-          employeeId: this.userId,
-          employeeName: '',
-          finalScore: this.assigned.finalScore,
-          passed: this.assigned.passed,
-          isGraded: !!this.assigned.attemptGraded,
-          submittedAt: '',
-        };
-        this.step = this.attempt.answers?.length ? 'review' : 'done';
-        return;
-      }
-      if (!this.assigned.canTakeQuiz) {
-        this.error.set(
-          this.assigned.quizBlockedReason ||
-            'Ce quiz n’est pas disponible (présence/contenu requis, ou déjà soumis / non publié).',
-        );
-        return;
-      }
-      this.quiz = await this.api.getQuizForEmployee(this.sessionId, this.userId);
-      this.answers = {};
-      for (const q of this.quiz.questions) {
-        this.answers[q.id] = {};
-      }
-      this.step = 'questions';
-      this.currentIndex = 0;
     } catch (e) {
       this.error.set(e instanceof Error ? e.message : 'Chargement impossible');
     } finally {
@@ -242,12 +250,70 @@ export class FormationTakeQuizComponent implements OnInit {
     }
   }
 
-  private resolveUserId(): string {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const rawId = user?.id;
-    if (typeof rawId === 'string' && rawId.includes('-')) return rawId;
-    if (user?.guid && String(user.guid).includes('-')) return String(user.guid);
-    const padded = String(rawId ?? '').padStart(12, '0');
-    return `00000000-0000-0000-0000-${padded}`;
+  private async loadSelfService(): Promise<void> {
+    this.player = await this.api.getCatalogPlayerByCatalog(this.catalogItemId);
+    this.enrollmentId = this.player.enrollmentId;
+    this.history = await this.api.listMyCatalogQuizAttempts(this.catalogItemId).catch(() => []);
+
+    if (!this.player.canTakeQuiz) {
+      if (this.history.length) {
+        this.attempt = this.history[0];
+        this.step = this.attempt.answers?.length ? 'review' : 'done';
+        return;
+      }
+      this.error.set(
+        this.player.quizBlockedReason ||
+          'Ce quiz n’est pas disponible (contenu requis, ou déjà soumis).',
+      );
+      return;
+    }
+
+    this.quiz = await this.api.getCatalogQuizForEmployee(this.catalogItemId);
+    this.enrollmentId = this.quiz.enrollmentId || this.enrollmentId;
+    this.answers = {};
+    for (const q of this.quiz.questions) {
+      this.answers[q.id] = {};
+    }
+    this.step = 'questions';
+    this.currentIndex = 0;
+  }
+
+  private async loadSession(): Promise<void> {
+    const list = await this.api.listMyAssignedSessions();
+    this.assigned = list.find((s) => s.sessionId === this.sessionId) ?? null;
+    if (!this.assigned) {
+      this.error.set('Session introuvable dans vos affectations.');
+      return;
+    }
+    this.history = await this.api.listMyQuizAttempts(this.sessionId, this.userId).catch(() => []);
+    if (this.assigned.attemptId && !this.assigned.canTakeQuiz) {
+      this.attempt = this.history[0] ?? {
+        id: this.assigned.attemptId,
+        quizId: this.assigned.quizId ?? '',
+        assignmentId: this.assigned.assignmentId,
+        employeeId: this.userId,
+        employeeName: '',
+        finalScore: this.assigned.finalScore,
+        passed: this.assigned.passed,
+        isGraded: !!this.assigned.attemptGraded,
+        submittedAt: '',
+      };
+      this.step = this.attempt.answers?.length ? 'review' : 'done';
+      return;
+    }
+    if (!this.assigned.canTakeQuiz) {
+      this.error.set(
+        this.assigned.quizBlockedReason ||
+          'Ce quiz n’est pas disponible (présence/contenu requis, ou déjà soumis / non publié).',
+      );
+      return;
+    }
+    this.quiz = await this.api.getQuizForEmployee(this.sessionId, this.userId);
+    this.answers = {};
+    for (const q of this.quiz.questions) {
+      this.answers[q.id] = {};
+    }
+    this.step = 'questions';
+    this.currentIndex = 0;
   }
 }

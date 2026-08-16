@@ -25,6 +25,8 @@ import {
 import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
 import { KyntusFormDraftService } from '../../../../core/drafts/kyntus-form-draft.service';
 import { KyntusObjectDraftBinder } from '../../../../core/drafts/kyntus-object-draft.binder';
+import { BodyPortalDirective } from '../../../../shared/directives/body-portal.directive';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 type KpiFilter = 'pending' | 'validated' | 'rejected';
 interface AllowanceKpi {
@@ -44,6 +46,7 @@ interface AllowanceKpi {
     AllowanceRequestFormModalComponent,
     AllowancesPageShellComponent,
     AllowanceStatusBadgeComponent,
+    BodyPortalDirective,
   ],
   template: `
     <div class="allowance-requests-page">
@@ -166,10 +169,11 @@ interface AllowanceKpi {
       (reasonChange)="formReason = $event; touchDraft()"
       (submitted)="saveForm()"
       (cancelled)="closeForm()"
+      (resetRequested)="resetDraftForm()"
     />
 
     @if (detailRow()) {
-      <div class="allowance-modal-backdrop" (click)="closeDetail()">
+      <div class="allowance-modal-backdrop" appBodyPortal (click)="closeDetail()">
         <div class="allowance-detail-modal" role="dialog" (click)="$event.stopPropagation()">
           <header class="allowance-detail-modal__header">
             <h2>Détail demande</h2>
@@ -376,6 +380,7 @@ export class AllowancesRequestsPageComponent implements OnInit, OnDestroy {
   private readonly role = inject(RoleService);
   private readonly nav = inject(PrimeNavRequestService);
   private readonly toast = inject(KyntusToastService);
+  private readonly confirmService = inject(KyntusConfirmService);
   private readonly formDrafts = inject(KyntusFormDraftService);
   private draftBinder?: KyntusObjectDraftBinder<{
     showForm: boolean;
@@ -487,6 +492,55 @@ export class AllowancesRequestsPageComponent implements OnInit, OnDestroy {
 
   touchDraft(): void {
     this.draftBinder?.touch();
+  }
+
+  async resetDraftForm(): Promise<void> {
+    if (!this.showForm()) return;
+    const ok = await this.confirmService.confirm({
+      title: 'Réinitialiser',
+      message: 'Réinitialiser le formulaire de demande et le brouillon ?',
+      confirmLabel: 'Réinitialiser',
+    });
+    if (!ok) return;
+    this.draftBinder?.discard();
+    const editId = this.editingId();
+    if (editId) {
+      const row = this.rows().find((r) => r.id === editId);
+      if (row) this.openEditForm(row);
+      else this.openCreateForm();
+    } else {
+      this.openCreateForm();
+    }
+    this.restartDraftBinder();
+  }
+
+  private restartDraftBinder(): void {
+    this.draftBinder?.destroy();
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'allowance-request-form',
+      () => ({
+        showForm: this.showForm(),
+        editingId: this.editingId(),
+        formEmployeeId: this.formEmployeeId,
+        formTypeId: this.formTypeId,
+        formPeriod: this.formPeriod,
+        formAmount: this.formAmount,
+        formReason: this.formReason,
+      }),
+      (s) => {
+        if (typeof s.formEmployeeId === 'string') this.formEmployeeId = s.formEmployeeId;
+        if (typeof s.formTypeId === 'string') this.formTypeId = s.formTypeId;
+        if (typeof s.formPeriod === 'string') this.formPeriod = s.formPeriod;
+        if (typeof s.formAmount === 'number') this.formAmount = s.formAmount;
+        if (typeof s.formReason === 'string') this.formReason = s.formReason;
+        if (s.editingId) this.editingId.set(s.editingId);
+        if (s.showForm && (s.formReason || s.formEmployeeId || s.formTypeId)) {
+          this.showForm.set(true);
+        }
+      },
+    );
+    this.draftBinder.start();
   }
 
   constructor() {

@@ -221,6 +221,10 @@ export class CongeHistoriqueComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
+  decideurLabel(d: DemandeCongeDto): string {
+    return (d.superviseurDecideurNom || d.rhDecideurNom || '').trim() || '—';
+  }
+
   employeDisplayName(d: DemandeCongeDto): string {
     const nom = [d.prenomEmploye, d.nomEmploye].filter(Boolean).join(' ').trim();
     return nom || d.employeId;
@@ -234,8 +238,9 @@ export class CongeHistoriqueComponent implements OnInit {
   }
 
   statutClass(statut: StatutDemande): string {
-    const map: Record<StatutDemande, string> = {
+    const map: Partial<Record<StatutDemande, string>> = {
       [StatutDemande.EnAttente]: 's-pending',
+      [StatutDemande.EnAttenteRh]: 's-pending',
       [StatutDemande.Validee]: 's-valid',
       [StatutDemande.Refusee]: 's-refused',
       [StatutDemande.Annulee]: 's-cancel',

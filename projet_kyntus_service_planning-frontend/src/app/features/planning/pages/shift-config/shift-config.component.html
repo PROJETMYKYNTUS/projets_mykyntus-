@@ -226,13 +226,23 @@
               Cellule critique
             </label>
             <span class="hint">
-              Autres créneaux (+3h / +5h) uniquement en cellule critique
+              Autres créneaux (+3h…+5h max) uniquement en cellule critique
             </span>
           </div>
 
           <div class="form-group presence-cell">
-            <label>Présence min cellule</label>
-            <div class="presence-input">
+            <label class="critical-label">
+              <input
+                type="checkbox"
+                [ngModel]="enforceMinPresence"
+                (ngModelChange)="onEnforceMinPresenceChange($event)" />
+              Exiger une présence min plateau
+            </label>
+            <span class="hint">
+              Décochez pour les cellules sans exigence de couverture plateau
+            </span>
+            <div class="presence-input" *ngIf="enforceMinPresence">
+              <label>Présence min cellule</label>
               <input
                 type="number"
                 [(ngModel)]="minPresencePercent"
@@ -242,7 +252,7 @@
                 class="ky-input input-presence" />
               <span class="hours-unit">%</span>
             </div>
-            <span class="hint">
+            <span class="hint" *ngIf="enforceMinPresence">
               % minimum du plateau encore au sol (ex. 70 → max 30 % en pause)
             </span>
           </div>
@@ -371,10 +381,11 @@
           <div class="rule-info">
             <app-lucide-icon [icon]="icons.info" className="w-4 h-4" />
             <span>
-              <strong>Présence min cellule</strong> : % minimum de pilotes encore au sol sur tout le plateau
+              <strong>Présence min cellule</strong> : optionnelle — décochez « Exiger une présence min plateau »
+              si la cellule n’a aucune exigence de couverture. Sinon % minimum de pilotes encore au sol
               (pas par shift). Pause durée <strong>1h</strong>.
               <span *ngIf="!isCriticalCell"> Cas normal : pause après <strong>4h</strong> ou <strong>4h30</strong> de travail uniquement.</span>
-              <span *ngIf="isCriticalCell"> Cellule critique : jusqu’à 3 créneaux dans +3h…+5h, tôt ou tard selon le plateau.</span>
+              <span *ngIf="isCriticalCell"> Cellule critique : Opening 11h→midi→13h, autres souvent +5h ; +4h dès que le plateau le permet (plafond +5h). Rotation +3h/+4h/+5h entre pilotes même niveau.</span>
               La somme des <strong>NB employés</strong> doit égaler l’effectif actif.
             </span>
           </div>
@@ -416,6 +427,13 @@
             (click)="distributeEvenly()">
             <app-lucide-icon [icon]="icons.users" className="w-4 h-4 inline" />
             Répartir l’effectif
+          </button>
+          <button
+            type="button"
+            class="ky-btn-secondary"
+            [disabled]="saving"
+            (click)="resetDraftForm()">
+            Réinitialiser
           </button>
           <button
             type="button"

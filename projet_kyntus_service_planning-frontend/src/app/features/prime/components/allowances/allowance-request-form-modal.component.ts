@@ -2,14 +2,15 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import type { AllowanceTeamMemberDto, AllowanceTypeDto } from '../../services/allowance-api.service';
+import { BodyPortalDirective } from '../../../../shared/directives/body-portal.directive';
 
 @Component({
   selector: 'app-allowance-request-form-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, BodyPortalDirective],
   template: `
     @if (open()) {
-      <div class="allowance-modal-backdrop" (click)="cancelled.emit()">
+      <div class="allowance-modal-backdrop" appBodyPortal (click)="cancelled.emit()">
         <div class="allowance-modal" role="dialog" aria-modal="true" aria-labelledby="allowance-modal-title" (click)="$event.stopPropagation()">
           <header class="allowance-modal__header">
             <div>
@@ -69,6 +70,7 @@ import type { AllowanceTeamMemberDto, AllowanceTypeDto } from '../../services/al
 
             <footer class="allowance-modal__footer">
               <button type="button" class="allowance-btn allowance-btn--ghost" (click)="cancelled.emit()">Annuler</button>
+              <button type="button" class="allowance-btn allowance-btn--ghost" (click)="resetRequested.emit()" [disabled]="saving()">Réinitialiser</button>
               <button type="submit" class="allowance-btn allowance-btn--primary" [disabled]="saving()">
                 @if (saving()) {
                   <span class="allowance-spinner" aria-hidden="true"></span>
@@ -234,6 +236,7 @@ export class AllowanceRequestFormModalComponent {
   readonly reasonChange = output<string>();
   readonly submitted = output<void>();
   readonly cancelled = output<void>();
+  readonly resetRequested = output<void>();
 
   memberLabel(m: AllowanceTeamMemberDto): string {
     return `${m.firstName} ${m.lastName}`.trim() || m.email || m.id;

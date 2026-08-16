@@ -6,6 +6,7 @@ public enum TrainingResourceType
     Video = 1,
     Link = 2,
     Text = 3,
+    Image = 4,
 }
 
 public enum CatalogAudienceMatchMode
@@ -26,4 +27,25 @@ public enum CatalogItemStatus
     Draft = 0,
     Published = 1,
     Archived = 2,
+}
+
+public enum CatalogDueMode
+{
+    None = 0,
+    Absolute = 1,
+    RelativeDays = 2,
+}
+
+public enum CatalogEnrollmentSource
+{
+    SelfService = 0,
+    Session = 1,
+}
+
+public enum CatalogEnrollmentStatus
+{
+    NotStarted = 0,
+    InProgress = 1,
+    Completed = 2,
+    Overdue = 3,
 }

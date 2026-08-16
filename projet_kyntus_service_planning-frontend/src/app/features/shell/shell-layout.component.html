@@ -30,7 +30,7 @@
 
       <span class="ks-nav-label" *ngIf="!sidebarCollapsed">Microservices</span>
 
-      <div class="ks-group" *ngFor="let g of groups">
+      <div class="ks-group" *ngFor="let g of groups()">
         <button type="button" class="ks-group-head" [class.open]="isOpen(g.id)" (click)="toggleGroup(g.id)">
           <span class="ks-ic" [innerHTML]="icon(g.icon)"></span>
           <span class="ks-group-label" *ngIf="!sidebarCollapsed">{{ g.label }}</span>
@@ -63,6 +63,10 @@
         <app-lucide-icon [icon]="icons.bell" className="w-4 h-4" />
         Notifications
         <app-shell-notification-badge [count]="notifHub.unreadCount()" />
+      </button>
+      <button type="button" class="ks-quick-btn" (click)="openAssistance()">
+        <app-lucide-icon [icon]="icons.help" className="w-4 h-4" />
+        Assistance
       </button>
       <button type="button" class="ks-quick-btn" (click)="openSettingsPage()">
         <app-lucide-icon [icon]="icons.settings" className="w-4 h-4" />
@@ -119,7 +123,7 @@
       </div>
     </header>
 
-    <main class="ks-content" [ngClass]="moduleContentClass">
+    <main class="ks-content" [ngClass]="moduleContentClass()">
       <router-outlet></router-outlet>
     </main>
   </div>

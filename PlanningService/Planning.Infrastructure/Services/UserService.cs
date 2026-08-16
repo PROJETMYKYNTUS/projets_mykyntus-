@@ -148,10 +148,11 @@ public class UserService : IUserService
         if (!await IsEmailUniqueAsync(dto.Email))
             throw new InvalidOperationException($"L'adresse email « {dto.Email.Trim()} » est déjà utilisée.");
 
+        ValidateCreateUserHrDates(dto);
         await _fieldService.ValidateCustomFieldsForCreateAsync(dto.CustomFields);
 
         if (IsDirectoryWriteMaster())
-            return await CreateUserDirectoryFirstAsync(dto, null);
+            return await CreateUserDirectoryFirstAsync(dto, null, requireAuthSuccess: true);
 
         var password = PasswordGenerator.Generate();
         var user = new User
@@ -348,6 +349,8 @@ public class UserService : IUserService
 
             try
             {
+                DetachPendingAddedUsers();
+
                 if (dto.CustomFields is { Count: > 0 })
                     await _fieldService.UpsertCustomFieldsAsync(user.Id, dto.CustomFields, isCreate: true);
 
@@ -388,16 +391,20 @@ public class UserService : IUserService
                 {
                     Email = user.Email.ToLowerInvariant(),
                     Success = false,
-                    ErrorMessage = ex.Message,
+                    ErrorMessage = FormatPersistenceError(ex),
                 });
             }
         }
 
         if (saturdayAssignments.Count > 0)
+        {
+            DetachPendingAddedUsers();
             await EnsureBalancedSaturdayGroupsBatchAsync(saturdayAssignments, ct);
+        }
 
         try
         {
+            DetachPendingAddedUsers();
             await _context.SaveChangesAsync(ct);
         }
         catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
@@ -478,7 +485,25 @@ public class UserService : IUserService
         }
 
         if (adoptedDirty)
-            await _context.SaveChangesAsync(ct);
+        {
+            try
+            {
+                await _context.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+            {
+                _logger.LogWarning(ex, "Conflit unique en adoptant {Count} user(s) d'import — repli un-par-un.", inserted.Count);
+                foreach (var entry in _context.ChangeTracker.Entries<User>().ToList())
+                {
+                    if (entry.State is EntityState.Added or EntityState.Modified)
+                        entry.State = EntityState.Detached;
+                }
+
+                var adopted = inserted.ToList();
+                inserted.Clear();
+                inserted.AddRange(await PersistImportUsersOneByOneAsync(adopted, results, ct));
+            }
+        }
 
         if (toAdd.Count == 0)
             return inserted;
@@ -619,7 +644,8 @@ public class UserService : IUserService
         existing.HireDate = imported.HireDate;
         existing.Level = imported.Level;
         existing.IsActive = imported.IsActive;
-        if (string.IsNullOrWhiteSpace(existing.PasswordHash))
+        // Toujours aligner le hash sur le MDP d'import (sinon Excel ≠ Auth après projection Directory).
+        if (!string.IsNullOrWhiteSpace(imported.PasswordHash))
             existing.PasswordHash = imported.PasswordHash;
     }
 
@@ -818,12 +844,37 @@ public class UserService : IUserService
         }
     }
 
+    private static void ValidateCreateUserHrDates(CreateUserDto dto)
+    {
+        var hr = dto.HrProfile;
+        if (hr is null || !hr.EnFormation)
+            return;
+
+        if (hr.DateDebutFormation is null)
+            throw new InvalidOperationException("La date de début de formation est obligatoire.");
+        if (hr.DateFinFormationPrevue is null)
+            throw new InvalidOperationException("La date de fin de formation prévue est obligatoire.");
+        if (hr.DateFinFormationPrevue < hr.DateDebutFormation)
+            throw new InvalidOperationException(
+                "La date de fin de formation doit être postérieure ou égale à la date de début.");
+        if (hr.DateEntree is not null && hr.DateDebutFormation < hr.DateEntree)
+            throw new InvalidOperationException(
+                "La date de début de formation doit être postérieure ou égale à la date d'entrée.");
+
+        var hire = DateOnly.FromDateTime(dto.HireDate.Date);
+        if (hr.DateFinFormationPrevue < hire)
+            throw new InvalidOperationException(
+                "La date de fin de formation doit être postérieure ou égale à la date d'embauche.");
+    }
+
     private async Task<UserDto> CreateUserDirectoryFirstCoreAsync(
         CreateUserDto dto,
         string? importPassword,
         bool requireAuthSuccess = false,
         bool isActive = true)
     {
+        ValidateCreateUserHrDates(dto);
+
         var role = await _context.Roles.AsNoTracking().FirstOrDefaultAsync(r => r.Id == dto.RoleId);
         var roleName = role?.Name ?? KyntusRoleNames.Employee;
 
@@ -851,57 +902,85 @@ public class UserService : IUserService
                     : directoryResult.ErrorMessage);
 
         var password = ResolveOrGeneratePassword(importPassword);
-        var user = new User
+        User? user = null;
+        var committed = false;
+
+        try
         {
-            Guid = directoryResult.EmployeeId,
-            RoleId = dto.RoleId,
-            SubServiceId = dto.SubServiceId,
-            FirstName = dto.FirstName,
-            LastName = dto.LastName,
-            Email = dto.Email,
-            HireDate = dto.HireDate,
-            Level = dto.Level,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
-            IsActive = isActive,
-            CreatedAt = DateTime.UtcNow
-        };
+            user = new User
+            {
+                Guid = directoryResult.EmployeeId,
+                RoleId = dto.RoleId,
+                SubServiceId = dto.SubServiceId,
+                FirstName = dto.FirstName,
+                LastName = dto.LastName,
+                Email = dto.Email,
+                HireDate = dto.HireDate,
+                Level = dto.Level,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                IsActive = isActive,
+                CreatedAt = DateTime.UtcNow
+            };
 
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
-        await _context.Entry(user).Reference(u => u.Role).LoadAsync();
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+            await _context.Entry(user).Reference(u => u.Role).LoadAsync();
 
-        await SyncToAuthServiceAsync(user, password);
+            await SyncToAuthServiceAsync(user, password);
 
-        if (requireAuthSuccess && !user.AuthUserId.HasValue)
-        {
-            await RollbackImportUserAsync(user);
-            throw new InvalidOperationException(
-                "La synchronisation Auth a échoué. L'employé n'a pas été conservé.");
+            if (requireAuthSuccess && !user.AuthUserId.HasValue)
+            {
+                throw new InvalidOperationException(
+                    "La synchronisation Auth a échoué. L'employé n'a pas été conservé.");
+            }
+
+            await _fieldService.UpsertCustomFieldsAsync(user.Id, dto.CustomFields, isCreate: true);
+            await UpsertLocalHrProfileAsync(user.Id, dto.ChefDeProjetId, dto.SuperviseurId, dto.ReferentTechniqueId, dto.HrProfile, dto.NiveauExpertiseMetier);
+
+            // Un seul write Directory supplémentaire seulement si mentors / formation à pousser.
+            var needsHrDirectorySync = dto.ChefDeProjetId.HasValue
+                || dto.SuperviseurId.HasValue
+                || dto.ReferentTechniqueId.HasValue
+                || dto.NiveauExpertiseMetier is not null
+                || dto.HrProfile is { EnFormation: true };
+            if (needsHrDirectorySync)
+                await _directoryEmployeeWrite.TryUpdateEmployeeAsync(user);
+
+            await PublishEmployeCreatedForUserAsync(user, dto.SubServiceId, skipRemoteSupervisorLookup: true);
+            await _context.SaveChangesAsync();
+
+            if (user.SubServiceId is int subId)
+                await EnsureBalancedSaturdayGroupAsync(user.Id, subId);
+
+            // Import hot path : pas de GetUserById / LoadOrgNameContext (GET all employees Directory).
+            var hrProfile = await _context.UserHrProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == user.Id);
+            var resultDto = ToDto(user, null, EmptyOrgNameContext, hrProfile);
+            resultDto.GeneratedPassword = password;
+            committed = true;
+            return resultDto;
         }
+        catch
+        {
+            if (!committed)
+            {
+                try
+                {
+                    if (user is { Id: > 0 })
+                        await RollbackImportCreatedUserCoreAsync(user);
+                    else
+                        await _directoryEmployeeWrite.TryDeleteEmployeeAsync(directoryResult.EmployeeId);
+                }
+                catch (Exception rollbackEx)
+                {
+                    _logger.LogWarning(
+                        rollbackEx,
+                        "Rollback create Directory-first échoué pour {Email}",
+                        dto.Email);
+                }
+            }
 
-        await _fieldService.UpsertCustomFieldsAsync(user.Id, dto.CustomFields, isCreate: true);
-        await UpsertLocalHrProfileAsync(user.Id, dto.ChefDeProjetId, dto.SuperviseurId, dto.ReferentTechniqueId, dto.HrProfile, dto.NiveauExpertiseMetier);
-
-        // Un seul write Directory supplémentaire seulement si mentors / formation à pousser.
-        var needsHrDirectorySync = dto.ChefDeProjetId.HasValue
-            || dto.SuperviseurId.HasValue
-            || dto.ReferentTechniqueId.HasValue
-            || dto.NiveauExpertiseMetier is not null
-            || dto.HrProfile is { EnFormation: true };
-        if (needsHrDirectorySync)
-            await _directoryEmployeeWrite.TryUpdateEmployeeAsync(user);
-
-        await PublishEmployeCreatedForUserAsync(user, dto.SubServiceId, skipRemoteSupervisorLookup: true);
-        await _context.SaveChangesAsync();
-
-        if (user.SubServiceId is int subId)
-            await EnsureBalancedSaturdayGroupAsync(user.Id, subId);
-
-        // Import hot path : pas de GetUserById / LoadOrgNameContext (GET all employees Directory).
-        var hrProfile = await _context.UserHrProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == user.Id);
-        var resultDto = ToDto(user, null, EmptyOrgNameContext, hrProfile);
-        resultDto.GeneratedPassword = password;
-        return resultDto;
+            throw;
+        }
     }
 
     private async Task SyncToAuthServiceAsync(User user, string? defaultPassword = null)
@@ -1670,6 +1749,10 @@ public class UserService : IUserService
             IsActive = u.IsActive,
             CreatedAt = u.CreatedAt,
             Level = u.Level,
+            SaturdayWorkMode = u.SaturdayWorkMode,
+            IsSpecialCase = u.IsSpecialCase,
+            SpecialCaseDescription = u.SpecialCaseDescription,
+            IsPlateauTraining = u.IsPlateauTraining,
             NiveauExpertiseMetier = hr?.NiveauExpertiseMetier,
             ChefDeProjetId = hr?.ChefDeProjetId,
             SuperviseurId = hr?.SuperviseurId,
@@ -1828,6 +1911,14 @@ public class UserService : IUserService
             dto,
             niveauExpertiseMetier);
 
+        // SaveChanges est global au DbContext : un User encore en Added (course Directory)
+        // ferait échouer tout le chunk avec « See the inner exception » / IX_Users_Email.
+        foreach (var entry in _context.ChangeTracker.Entries<User>().ToList())
+        {
+            if (entry.State == EntityState.Added)
+                entry.State = EntityState.Detached;
+        }
+
         try
         {
             await _context.SaveChangesAsync();
@@ -1913,6 +2004,40 @@ public class UserService : IUserService
         }
 
         return false;
+    }
+
+    private void DetachPendingAddedUsers()
+    {
+        foreach (var entry in _context.ChangeTracker.Entries<User>().ToList())
+        {
+            if (entry.State == EntityState.Added)
+                entry.State = EntityState.Detached;
+        }
+    }
+
+    private static string FormatPersistenceError(Exception ex)
+    {
+        for (var inner = ex; inner is not null; inner = inner.InnerException!)
+        {
+            var m = inner.Message ?? string.Empty;
+            if (m.Contains("IX_Users_Email", StringComparison.OrdinalIgnoreCase)
+                || (m.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
+                    && m.Contains("Email", StringComparison.OrdinalIgnoreCase)))
+            {
+                return "Email déjà présent dans Planning. Relancez l'import : la ligne sera mise à jour.";
+            }
+        }
+
+        var current = ex;
+        while (current.InnerException is not null)
+            current = current.InnerException;
+
+        var msg = current.Message ?? ex.Message;
+        if (msg.Contains("See the inner exception", StringComparison.OrdinalIgnoreCase)
+            && ex.InnerException is not null)
+            return FormatPersistenceError(ex.InnerException);
+
+        return msg;
     }
 
     public async Task<UserDto?> UpdateContractualLevelAsync(

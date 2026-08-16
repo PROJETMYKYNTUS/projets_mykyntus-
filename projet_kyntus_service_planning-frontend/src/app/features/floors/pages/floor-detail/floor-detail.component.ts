@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FloorService } from '../../services/floor.service';
 import { Floor } from '../../models/floor.model';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
+import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
 
 @Component({
   selector: 'app-floor-detail',
@@ -20,6 +22,8 @@ export class FloorDetailComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private floorService: FloorService,
+    private confirmService: KyntusConfirmService,
+    private toastService: KyntusToastService,
     private cdr: ChangeDetectorRef  // ← ajouter
   ) {}
 
@@ -53,13 +57,18 @@ export class FloorDetailComponent implements OnInit {
     this.router.navigate(['/floors']);
   }
 
-  deleteFloor(): void {
+  async deleteFloor(): Promise<void> {
     if (!this.floor) return;
-    if (confirm('Supprimer cet étage ?')) {
-      this.floorService.deleteFloor(this.floor.id).subscribe({
-        next: () => this.router.navigate(['/floors']),
-        error: (err: any) => alert(`Erreur: ${err.error?.message}`)
-      });
-    }
+    const ok = await this.confirmService.confirm({
+      title: 'Supprimer l\'étage',
+      message: 'Supprimer cet étage ?',
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    this.floorService.deleteFloor(this.floor.id).subscribe({
+      next: () => this.router.navigate(['/floors']),
+      error: (err: any) => this.toastService.error(`Erreur: ${err.error?.message}`),
+    });
   }
 }

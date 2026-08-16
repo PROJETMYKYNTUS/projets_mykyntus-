@@ -13,33 +13,59 @@ public class DemandeCongeRepository : IDemandeCongeRepository
     public DemandeCongeRepository(CongeDbContext context) => _context = context;
 
     public async Task<DemandeConge?> GetByIdAsync(Guid id, CancellationToken ct = default)
-        => await _context.DemandeConges.FindAsync(new object[] { id }, ct);
+        => await _context.DemandeConges
+            .Include(d => d.Decisions)
+            .FirstOrDefaultAsync(d => d.Id == id, ct);
 
     public async Task<IEnumerable<DemandeConge>> GetByEmployeIdAsync(Guid employeId, CancellationToken ct = default)
         => await _context.DemandeConges
+            .Include(d => d.Decisions)
             .Where(d => d.EmployeId == employeId)
             .OrderByDescending(d => d.DateDemande)
             .ToListAsync(ct);
 
-    public async Task<IEnumerable<DemandeConge>> GetByManagerIdAsync(Guid managerId, CancellationToken ct = default)
-        => await _context.DemandeConges
-            .Where(d => d.ManagerId == managerId)
-            .OrderByDescending(d => d.DateDemande)
-            .ToListAsync(ct);
+    public async Task<IEnumerable<DemandeConge>> GetByManagerIdAsync(
+        Guid managerId,
+        IEnumerable<string>? validationNodeIds = null,
+        CancellationToken ct = default)
+    {
+        var nodes = validationNodeIds?
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => n.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? new List<string>();
+
+        var q = _context.DemandeConges.Include(d => d.Decisions).AsQueryable();
+        if (nodes.Count > 0)
+        {
+            q = q.Where(d =>
+                d.ManagerId == managerId
+                || (d.ValidationNodeId != null && nodes.Contains(d.ValidationNodeId)));
+        }
+        else
+        {
+            q = q.Where(d => d.ManagerId == managerId);
+        }
+
+        return await q.OrderByDescending(d => d.DateDemande).ToListAsync(ct);
+    }
 
     public async Task<IEnumerable<DemandeConge>> GetByStatutAsync(StatutDemande statut, CancellationToken ct = default)
         => await _context.DemandeConges
+            .Include(d => d.Decisions)
             .Where(d => d.Statut == statut)
             .ToListAsync(ct);
 
     public async Task<IEnumerable<DemandeConge>> GetHistoriqueAsync(Guid employeId, int annee, CancellationToken ct = default)
         => await _context.DemandeConges
+            .Include(d => d.Decisions)
             .Where(d => d.EmployeId == employeId && d.DateDebut.Year == annee)
             .OrderByDescending(d => d.DateDemande)
             .ToListAsync(ct);
 
     public async Task<IEnumerable<DemandeConge>> GetByAnneeAsync(int annee, CancellationToken ct = default)
         => await _context.DemandeConges
+            .Include(d => d.Decisions)
             .Where(d => d.DateDebut.Year == annee || d.DateFin.Year == annee)
             .OrderByDescending(d => d.DateDemande)
             .ToListAsync(ct);
@@ -55,6 +81,29 @@ public class DemandeCongeRepository : IDemandeCongeRepository
             d.Statut != StatutDemande.Refusee &&
             d.Statut != StatutDemande.Annulee &&
             d.DateDebut <= fin && d.DateFin >= debut, ct);
+
+    public async Task<IReadOnlyList<DemandeConge>> GetOccupyingQuotaAsync(
+        IEnumerable<Guid> employeIds,
+        DateTime debut,
+        DateTime fin,
+        Guid? excludeDemandeId = null,
+        CancellationToken ct = default)
+    {
+        var ids = employeIds.Distinct().ToList();
+        if (ids.Count == 0) return Array.Empty<DemandeConge>();
+
+        var occupants = CongeQuotaStatuts.Occupants;
+        var q = _context.DemandeConges.Where(d =>
+            ids.Contains(d.EmployeId) &&
+            occupants.Contains(d.Statut) &&
+            d.DateDebut <= fin &&
+            d.DateFin >= debut);
+
+        if (excludeDemandeId.HasValue)
+            q = q.Where(d => d.Id != excludeDemandeId.Value);
+
+        return await q.ToListAsync(ct);
+    }
 }
 
 public class SoldeCongeRepository : ISoldeCongeRepository
@@ -111,6 +160,12 @@ public class EmployeSnapshotRepository : IEmployeSnapshotRepository
         => await _context.EmployeSnapshots
             .Where(e => e.ManagerId == managerId)
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<EmployeSnapshot>> GetByServiceIdAsync(Guid serviceId, CancellationToken ct = default)
+        => await _context.EmployeSnapshots
+            .Where(e => e.ServiceId == serviceId)
+            .ToListAsync(ct);
+
     public async Task<EmployeSnapshot?> GetAdminOuRhAsync(CancellationToken ct = default)
     {
         return await _context.EmployeSnapshots
@@ -129,4 +184,52 @@ public class EmployeSnapshotRepository : IEmployeSnapshotRepository
 
     public async Task<bool> ExistsAsync(Guid employeId, CancellationToken ct = default)
         => await _context.EmployeSnapshots.AnyAsync(e => e.EmployeId == employeId, ct);
+}
+
+public class PeriodeInterditeRepository : IPeriodeInterditeRepository
+{
+    private readonly CongeDbContext _context;
+
+    public PeriodeInterditeRepository(CongeDbContext context) => _context = context;
+
+    public async Task<PeriodeInterditeConge> GetOrCreateAsync(CancellationToken ct = default)
+    {
+        var row = await _context.PeriodesInterdites.FirstOrDefaultAsync(ct);
+        if (row is not null) return row;
+
+        row = PeriodeInterditeConge.CreerParDefaut();
+        await _context.PeriodesInterdites.AddAsync(row, ct);
+        await _context.SaveChangesAsync(ct);
+        return row;
+    }
+
+    public void Update(PeriodeInterditeConge config)
+        => _context.PeriodesInterdites.Update(config);
+}
+
+public class QuotaCongeServiceRepository : IQuotaCongeServiceRepository
+{
+    private readonly CongeDbContext _context;
+
+    public QuotaCongeServiceRepository(CongeDbContext context) => _context = context;
+
+    public async Task<QuotaCongeService?> GetByServiceIdAsync(Guid serviceId, CancellationToken ct = default)
+        => await _context.QuotasCongeService.FirstOrDefaultAsync(q => q.ServiceId == serviceId, ct);
+
+    public async Task<IReadOnlyList<QuotaCongeService>> GetByServiceIdsAsync(
+        IEnumerable<Guid> serviceIds,
+        CancellationToken ct = default)
+    {
+        var ids = serviceIds.Distinct().ToList();
+        if (ids.Count == 0) return Array.Empty<QuotaCongeService>();
+        return await _context.QuotasCongeService
+            .Where(q => ids.Contains(q.ServiceId))
+            .ToListAsync(ct);
+    }
+
+    public async Task AddAsync(QuotaCongeService quota, CancellationToken ct = default)
+        => await _context.QuotasCongeService.AddAsync(quota, ct);
+
+    public void Update(QuotaCongeService quota)
+        => _context.QuotasCongeService.Update(quota);
 }

@@ -20,9 +20,11 @@ import {
 } from '../../../core/models/formation-training.models';
 import { KyntusSessionService } from '../../../core/session/kyntus-session.service';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
+import { KyntusPromptService } from '../../../shared/components/kyntus-prompt/kyntus-prompt.service';
 import { LucideIconComponent } from '../../../shared/lucide-icon.component';
 
 type QuizDraftQuestion = {
+  id?: string;
   type: 'Qcm' | 'FreeText';
   prompt: string;
   options: string[];
@@ -32,6 +34,7 @@ type QuizDraftQuestion = {
   points: number;
   imageUrl: string;
   explanation: string;
+  mediaKind?: 'image' | 'video' | null;
 };
 
 type QuizTab = 'edit' | 'results';
@@ -56,6 +59,7 @@ export class FormationSessionQuizComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly api = inject(FormationTrainingService);
   private readonly session = inject(KyntusSessionService);
+  private readonly promptService = inject(KyntusPromptService);
 
   readonly loading = signal(true);
   readonly busy = signal(false);
@@ -145,6 +149,61 @@ export class FormationSessionQuizComponent implements OnInit {
         explanation: '',
       },
     ];
+  }
+
+  isQuestionMediaVideo(q: QuizDraftQuestion): boolean {
+    if (q.mediaKind === 'video') return true;
+    if (q.mediaKind === 'image') return false;
+    return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test((q.imageUrl ?? '').toLowerCase());
+  }
+
+  async uploadQuestionImage(q: QuizDraftQuestion, ev: Event): Promise<void> {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!q.id) {
+      this.error.set('Enregistrez d’abord le quiz pour obtenir un identifiant de question, puis uploadez le média.');
+      input.value = '';
+      return;
+    }
+    const animatorId = this.animatorId();
+    if (!animatorId) {
+      this.error.set('Animateur non identifié.');
+      input.value = '';
+      return;
+    }
+    this.busy.set(true);
+    this.error.set(null);
+    try {
+      const updated = await this.api.uploadQuizQuestionImage(this.sessionId, q.id, file, animatorId);
+      q.imageUrl = updated.imageUrl || q.imageUrl;
+      q.mediaKind = file.type.startsWith('video/') ? 'video' : 'image';
+      this.message.set(file.type.startsWith('video/') ? 'Vidéo uploadée.' : 'Image uploadée.');
+      const quiz = await this.api.getQuiz(this.sessionId);
+      this.applyQuiz(quiz);
+      // Conserver le kind après reload (API session sans mediaKind).
+      const reloaded = this.questions.find((x) => x.id === q.id);
+      if (reloaded) reloaded.mediaKind = q.mediaKind;
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : 'Upload média impossible');
+    } finally {
+      this.busy.set(false);
+      input.value = '';
+    }
+  }
+
+  async exportResultsXlsx(): Promise<void> {
+    this.busy.set(true);
+    this.error.set(null);
+    try {
+      const rows = await this.api.exportLearningResults(this.sessionId);
+      const { downloadLearningResultsExcel } = await import('../../../core/lib/learning-results-excel.util');
+      await downloadLearningResultsExcel(rows, { fileNamePrefix: `resultats_session_${this.sessionId.slice(0, 8)}` });
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : 'Export Excel impossible');
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   removeQuestion(index: number): void {
@@ -319,7 +378,7 @@ export class FormationSessionQuizComponent implements OnInit {
     try {
       const published = await this.api.publishQuiz(this.sessionId, animatorId);
       this.applyQuiz(published);
-      this.message.set('Quiz publié aux présents.');
+      this.message.set('Quiz publié.');
       await this.refreshSession();
     } catch (e) {
       this.error.set(e instanceof Error ? e.message : 'Erreur publication');
@@ -348,7 +407,15 @@ export class FormationSessionQuizComponent implements OnInit {
   async reject(): Promise<void> {
     const animatorId = this.animatorId();
     if (!animatorId) return;
-    const reason = this.rejectReason.trim() || window.prompt('Motif du rejet ?')?.trim();
+    let reason = this.rejectReason.trim();
+    if (!reason) {
+      reason = (await this.promptService.prompt({
+        title: 'Motif du rejet',
+        placeholder: 'Indiquez le motif…',
+        confirmLabel: 'Rejeter',
+        required: true,
+      }))?.trim() ?? '';
+    }
     if (!reason) return;
     this.busy.set(true);
     this.error.set(null);
@@ -360,6 +427,29 @@ export class FormationSessionQuizComponent implements OnInit {
       await this.refreshSession();
     } catch (e) {
       this.error.set(e instanceof Error ? e.message : 'Erreur rejet');
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  async promoteAsTemplate(): Promise<void> {
+    if (!this.quiz()) {
+      this.error.set('Enregistrez d’abord le quiz avant de le promouvoir en modèle.');
+      return;
+    }
+    const actorUserId = this.animatorId() ?? undefined;
+    this.busy.set(true);
+    this.error.set(null);
+    this.message.set(null);
+    try {
+      const tpl = await this.api.promoteSessionQuiz({
+        sessionId: this.sessionId,
+        actorUserId,
+        title: this.quizTitle.trim() || undefined,
+      });
+      this.message.set(`Modèle « ${tpl.title} » créé dans la bibliothèque formation.`);
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : 'Promotion impossible');
     } finally {
       this.busy.set(false);
     }
@@ -471,6 +561,7 @@ export class FormationSessionQuizComponent implements OnInit {
             ? [...q.correctOptionIndexes]
             : [q.correctOptionIndex ?? 0];
         return {
+          id: q.id,
           type: this.normalizeQuestionType(q.type),
           prompt: q.prompt,
           options: q.options?.length ? [...q.options] : ['', ''],
@@ -480,6 +571,8 @@ export class FormationSessionQuizComponent implements OnInit {
           points: q.points || 1,
           imageUrl: q.imageUrl || '',
           explanation: q.explanation || '',
+          mediaKind:
+            q.mediaKind === 'video' || q.mediaKind === 'image' ? q.mediaKind : null,
         };
       });
     if (this.questions.length === 0) {
@@ -500,6 +593,7 @@ export class FormationSessionQuizComponent implements OnInit {
   }
 
   private buildPayloadQuestions(): Array<{
+    id?: string | null;
     type: number;
     prompt: string;
     options: string[] | null;
@@ -516,6 +610,7 @@ export class FormationSessionQuizComponent implements OnInit {
         if (!prompt) return null;
         if (q.type === 'FreeText') {
           return {
+            id: q.id || null,
             type: 1,
             prompt,
             options: null,
@@ -539,6 +634,7 @@ export class FormationSessionQuizComponent implements OnInit {
           throw new Error(`QCM « ${prompt} » : indiquez au moins une bonne réponse.`);
         }
         return {
+          id: q.id || null,
           type: 0,
           prompt,
           options,

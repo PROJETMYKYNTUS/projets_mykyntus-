@@ -371,10 +371,10 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
             </button>
             <button
               type="button"
-              (click)="nav.requestView('/prime-cellule-indicateurs')"
+              (click)="goConfigureIndicatorsAndPonderations()"
               class="shrink-0 rounded-md border border-emerald-600/50 bg-card px-2 py-1 text-xs font-semibold text-primary hover:bg-input/40"
             >
-              Indicateurs par cellule
+              Indicateurs &amp; pondérations
             </button>
           </div>
         </div>
@@ -654,6 +654,13 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
             <div class="mt-6 flex flex-wrap gap-2">
               <button
                 type="button"
+                (click)="goConfigureIndicatorsAndPonderations()"
+                class="rounded-lg border border-emerald-600/50 bg-emerald-600/15 px-4 py-2 text-sm font-semibold text-primary hover:bg-emerald-600/25"
+              >
+                Configurer indicateurs &amp; pondérations RACC/SAV
+              </button>
+              <button
+                type="button"
                 (click)="session.restartWizard()"
                 class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
               >
@@ -727,7 +734,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                 [description]="
                   isSavContract(tl.contract)
                     ? 'Prime, Challenge et KPI additionnels — pas d’indicateur répartition RDV pour le contrat SAV.'
-                    : 'Répartition, Prime, Challenge et KPI additionnels définis dans le template Excel'
+                    : 'Répartition, Prime, Challenge et KPI (pondérations = config service)'
                 "
               >
                 <div class="space-y-8">
@@ -763,12 +770,26 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                           <div [class]="kpiGridClass">
                             @for (fl of primeFieldLabels; track fl.key) {
                               <div class="min-w-0">
-                                <label class="mb-1 block text-sm font-medium text-muted">{{ fl.label }}</label>
+                                <label class="mb-1 block text-sm font-medium text-muted">
+                                  {{ fl.label }}
+                                  @if (fl.key === 'ponderationPrime') {
+                                    <span class="normal-case font-normal text-[11px] text-muted">
+                                      (config service)
+                                    </span>
+                                  }
+                                </label>
                                 <input
                                   type="number"
                                   step="any"
                                   min="0"
                                   [class]="inputFieldClass"
+                                  [class.opacity-70]="fl.key === 'ponderationPrime'"
+                                  [readOnly]="fl.key === 'ponderationPrime'"
+                                  [title]="
+                                    fl.key === 'ponderationPrime'
+                                      ? 'Pondération définie dans Indicateurs & pondérations (par service)'
+                                      : ''
+                                  "
                                   [value]="dynSector(k, s.sectorIndex)[fl.key]"
                                   (input)="onDynSectorInput(k, s.sectorIndex, fl.key, $any($event.target).value)"
                                 />
@@ -785,12 +806,26 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                           <div [class]="kpiGridClass">
                             @for (fl of challengeFieldLabels; track fl.key) {
                               <div class="min-w-0">
-                                <label class="mb-1 block text-sm font-medium text-muted">{{ fl.label }}</label>
+                                <label class="mb-1 block text-sm font-medium text-muted">
+                                  {{ fl.label }}
+                                  @if (fl.key === 'ponderationChallenge') {
+                                    <span class="normal-case font-normal text-[11px] text-muted">
+                                      (config service)
+                                    </span>
+                                  }
+                                </label>
                                 <input
                                   type="number"
                                   step="any"
                                   min="0"
                                   [class]="inputFieldClass"
+                                  [class.opacity-70]="fl.key === 'ponderationChallenge'"
+                                  [readOnly]="fl.key === 'ponderationChallenge'"
+                                  [title]="
+                                    fl.key === 'ponderationChallenge'
+                                      ? 'Pondération définie dans Indicateurs & pondérations (par service)'
+                                      : ''
+                                  "
                                   [value]="dynSector(k, s.sectorIndex)[fl.key]"
                                   (input)="onDynSectorInput(k, s.sectorIndex, fl.key, $any($event.target).value)"
                                 />
@@ -832,7 +867,18 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
 
                 <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
                   @if (saveMessage()) {
-                    <p class="text-sm text-muted">{{ saveMessage() }}</p>
+                    <div class="space-y-2 max-w-xl">
+                      <p class="text-sm text-muted">{{ saveMessage() }}</p>
+                      @if (showPostUploadConfigCta()) {
+                        <button
+                          type="button"
+                          (click)="goConfigureIndicatorsAndPonderations()"
+                          class="inline-flex items-center rounded-lg border border-emerald-600/50 bg-emerald-600/15 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-emerald-600/25"
+                        >
+                          Configurer pondérations RACC/SAV par service
+                        </button>
+                      }
+                    </div>
                   } @else {
                     <span></span>
                   }
@@ -933,14 +979,18 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         />
                       </div>
                       <div class="min-w-0">
-                        <label class="mb-1 block text-sm font-medium text-muted">Pondération</label>
+                        <label class="mb-1 block text-sm font-medium text-muted">
+                          Pondération
+                          <span class="normal-case font-normal text-[11px] text-muted">(config service)</span>
+                        </label>
                         <input
                           type="number"
                           step="any"
                           min="0"
-                          [class]="inputFieldClass"
+                          [class]="inputFieldClass + ' opacity-70'"
+                          readOnly
+                          title="Pondération définie dans Indicateurs & pondérations (par service)"
                           [value]="ligne(k).ponderationPrime"
-                          (input)="onLigneInput(k, 'ponderationPrime', $any($event.target).value)"
                         />
                       </div>
                       <div class="min-w-0">
@@ -996,14 +1046,18 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         />
                       </div>
                       <div class="min-w-0">
-                        <label class="mb-1 block text-sm font-medium text-muted">Pondération</label>
+                        <label class="mb-1 block text-sm font-medium text-muted">
+                          Pondération
+                          <span class="normal-case font-normal text-[11px] text-muted">(config service)</span>
+                        </label>
                         <input
                           type="number"
                           step="any"
                           min="0"
-                          [class]="inputFieldClass"
+                          [class]="inputFieldClass + ' opacity-70'"
+                          readOnly
+                          title="Pondération définie dans Indicateurs & pondérations (par service)"
                           [value]="ligne(k).ponderationChallenge"
-                          (input)="onLigneInput(k, 'ponderationChallenge', $any($event.target).value)"
                         />
                       </div>
                       <div class="min-w-0">
@@ -1034,7 +1088,18 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
 
                 <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
                   @if (saveMessage()) {
-                    <p class="text-sm text-muted">{{ saveMessage() }}</p>
+                    <div class="space-y-2 max-w-xl">
+                      <p class="text-sm text-muted">{{ saveMessage() }}</p>
+                      @if (showPostUploadConfigCta()) {
+                        <button
+                          type="button"
+                          (click)="goConfigureIndicatorsAndPonderations()"
+                          class="inline-flex items-center rounded-lg border border-emerald-600/50 bg-emerald-600/15 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-emerald-600/25"
+                        >
+                          Configurer pondérations RACC/SAV par service
+                        </button>
+                      }
+                    </div>
                   } @else {
                     <span></span>
                   }
@@ -1151,6 +1216,8 @@ export class PrimeSaisieComponent {
   readonly progress = signal<Record<string, IndicateurProgress>>({});
   readonly validationMessage = signal<string | null>(null);
   readonly saveMessage = signal<string | null>(null);
+  /** Après upload / enregistrement modèle : proposer la config pondérations par service. */
+  readonly showPostUploadConfigCta = signal(false);
   /** Après remplissage complet partie pôle, passage auto une fois vers l’étape aperçu. */
   readonly poleAutoNavigated = signal(false);
   readonly poleDraftSaving = signal(false);
@@ -1712,6 +1779,7 @@ export class PrimeSaisieComponent {
   }
 
   onDynSectorInput(key: string, sectorIndex: number, field: keyof PrimeFicheSecteurPairValues, value: string): void {
+    if (field === 'ponderationPrime' || field === 'ponderationChallenge') return;
     const next = sanitizeNonNegativeNumberInput(value);
     this.lignesDynamic.update((m) => {
       const cur = { ...(m[key] ?? this.dynRow(key)) };
@@ -1751,6 +1819,7 @@ export class PrimeSaisieComponent {
   }
 
   onLigneInput(key: LigneKey, field: keyof PrimeFicheLigneSaisie, value: string): void {
+    if (field === 'ponderationPrime' || field === 'ponderationChallenge') return;
     const next = sanitizeNonNegativeNumberInput(value);
     this.lignes.update((m) => ({
       ...m,
@@ -2031,8 +2100,9 @@ export class PrimeSaisieComponent {
       this.session.goResult();
       this.poleAutoNavigated.set(false);
       this.validationMessage.set(null);
+      this.showPostUploadConfigCta.set(true);
       this.saveMessage.set(
-        `Import Excel : brouillon enregistré (${saved.id}, statut brouillon). Aperçu ci-dessous — vous pouvez revenir en saisie ou valider depuis l’assistant si besoin.`,
+        `Modèle enregistré (${saved.id}). Configurez ensuite les indicateurs et les pondérations RACC/SAV (Pondération Prime / Challenge) par service.`,
       );
     } catch (e: unknown) {
       const msg =
@@ -2042,6 +2112,15 @@ export class PrimeSaisieComponent {
       this.commonExcelDirectError.set(msg);
     } finally {
       this.commonExcelDirectBusy.set(false);
+    }
+  }
+
+  goConfigureIndicatorsAndPonderations(): void {
+    const period = this.session.periodLabel().trim();
+    if (period && /^\d{4}-\d{2}$/.test(period)) {
+      this.nav.requestViewWithPeriod('/prime-cellule-indicateurs', period);
+    } else {
+      this.nav.requestView('/prime-cellule-indicateurs');
     }
   }
 
@@ -2098,8 +2177,9 @@ export class PrimeSaisieComponent {
       this.session.setPolePrimeDraftId(saved.id);
       this.session.markSubmitted();
       this.validationMessage.set(null);
+      this.showPostUploadConfigCta.set(true);
       this.saveMessage.set(
-        `Partie pôle validée par le superviseur et enregistrée en base (${saved.id}). Utilisez le pilotage pour la partie cellule.`,
+        `Partie commune validée (${saved.id}). Configurez les indicateurs et pondérations RACC/SAV par service, puis complétez le pilotage cellule.`,
       );
     } catch (e: unknown) {
       let msg = 'Erreur lors de l’enregistrement. Réessayez ultérieurement.';

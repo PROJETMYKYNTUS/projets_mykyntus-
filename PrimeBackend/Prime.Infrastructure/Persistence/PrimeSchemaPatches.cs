@@ -750,4 +750,40 @@ public static class PrimeSchemaPatches
             """,
             ct);
     }
+
+    /// <summary>
+    /// Pondérations RACC/SAV par service (migration 20260810140000).
+    /// </summary>
+    public static async Task EnsureServicePoleLinePonderationTableAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_service", ct))
+            return;
+        if (await TableExistsAsync(db, "prime_service_pole_line_ponderation", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS prime_service_pole_line_ponderation (
+                "Id" uuid NOT NULL,
+                "ServiceId" character varying(128) NOT NULL,
+                "TemplateStableId" character varying(256) NOT NULL,
+                "Label" character varying(512) NOT NULL,
+                "SortOrder" integer NOT NULL,
+                "PonderationPrimePct" numeric(9,4) NULL,
+                "PonderationChallengePct" numeric(9,4) NULL,
+                "CreatedAt" timestamp with time zone NOT NULL,
+                "UpdatedAt" timestamp with time zone NULL,
+                CONSTRAINT "PK_prime_service_pole_line_ponderation" PRIMARY KEY ("Id"),
+                CONSTRAINT "FK_prime_service_pole_line_ponderation_prime_service_ServiceId"
+                    FOREIGN KEY ("ServiceId") REFERENCES prime_service ("Id") ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS "IX_prime_service_pole_line_ponderation_ServiceId"
+                ON prime_service_pole_line_ponderation ("ServiceId");
+            CREATE INDEX IF NOT EXISTS "IX_prime_service_pole_line_ponderation_ServiceId_SortOrder"
+                ON prime_service_pole_line_ponderation ("ServiceId", "SortOrder");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_prime_service_pole_line_ponderation_ServiceId_TemplateStableId"
+                ON prime_service_pole_line_ponderation ("ServiceId", "TemplateStableId");
+            """,
+            ct);
+    }
 }

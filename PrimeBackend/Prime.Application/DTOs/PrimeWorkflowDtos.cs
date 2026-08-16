@@ -166,6 +166,7 @@ public sealed class MergedFichePreviewContextDto
     public string CellSaisieJson { get; init; } = "{}";
     public string? TemplateCalcSnapshotJson { get; init; }
     public List<ServicePrimeIndicatorDto> Indicators { get; init; } = [];
+    public List<ServicePoleLinePonderationDto> PoleLinePonderations { get; init; } = [];
     public bool PreviewAvailable { get; init; }
     public string? PreviewUnavailableReason { get; init; }
 }

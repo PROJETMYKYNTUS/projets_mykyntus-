@@ -81,6 +81,22 @@ public class DirectoryEmployeesController(IMediator mediator) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    /// <summary>
+    /// Détache l'employé du périmètre (pole / cellule / service) et clôture les titulatures sur le nœud.
+    /// </summary>
+    [HttpPost("employees/{id:guid}/clear-org-placement")]
+    public async Task<ActionResult<EmployeeDto>> ClearOrgPlacement(
+        Guid id,
+        [FromBody] ClearOrgPlacementRequest? body,
+        CancellationToken ct)
+    {
+        var changedBy = User.GetSubjectId();
+        var result = await mediator.Send(
+            new ClearOrgPlacementCommand(id, body ?? new ClearOrgPlacementRequest(), changedBy),
+            ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     [HttpDelete("employees/{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
@@ -376,10 +392,40 @@ public class DirectoryRebacController(IMediator mediator) : ControllerBase
         CancellationToken ct) =>
         Ok(await mediator.Send(new GetManagedNodesQuery(employeeId, kind), ct));
 
+    [HttpGet("responsibles")]
+    [AllowAnonymous]
+    public async Task<ActionResult<object>> Responsibles(
+        [FromQuery] string kind,
+        [FromQuery] string nodeId,
+        CancellationToken ct)
+    {
+        var list = await mediator.Send(new GetResponsiblesQuery(kind, nodeId), ct);
+        return Ok(new { responsibles = list });
+    }
+
+    [HttpGet("managed-employees")]
+    [AllowAnonymous]
+    public async Task<ActionResult<object>> ManagedEmployees(
+        [FromQuery] Guid employeeId,
+        CancellationToken ct)
+    {
+        var ids = await mediator.Send(new GetManagedEmployeesQuery(employeeId), ct);
+        return Ok(new { employeeIds = ids });
+    }
+
+    [HttpPost("can-act")]
+    [AllowAnonymous]
+    public async Task<ActionResult<CanActOnResultDto>> CanAct(
+        [FromBody] CanActOnRequest body,
+        CancellationToken ct) =>
+        Ok(await mediator.Send(new CanActOnCommand(body.ActorId, body.TargetEmployeeId), ct));
+
     [HttpGet("hierarchy/{employeeId:guid}/subtree")]
     public async Task<ActionResult<RebacSubtreeDto>> Subtree(Guid employeeId, CancellationToken ct) =>
         Ok(await mediator.Send(new GetSubtreeQuery(employeeId), ct));
 }
+
+public record CanActOnRequest(Guid ActorId, Guid TargetEmployeeId);
 
 [ApiController]
 [Route("api/iam")]

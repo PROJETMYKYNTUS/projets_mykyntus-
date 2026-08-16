@@ -93,3 +93,23 @@ public record DirectoryAssignmentChangedMessage
     public string? NewRole { get; init; }
     public bool Removed { get; init; }
 }
+
+/// <summary>
+/// Snapshot des responsables actifs d'un nœud après mutation d'affectation.
+/// Permet aux consommateurs de recalculer l'habilitation multi-responsables.
+/// </summary>
+public record DirectoryEmployeeResponsiblesChangedMessage
+{
+    public OrgAssignmentKind Kind { get; init; }
+    public string NodeId { get; init; } = string.Empty;
+    public OrgNodeLevel NodeLevel { get; init; }
+    public IReadOnlyList<ResponsibleEntry> Responsibles { get; init; } = Array.Empty<ResponsibleEntry>();
+    public DateTime ChangedAt { get; init; } = DateTime.UtcNow;
+}
+
+public record ResponsibleEntry
+{
+    public Guid ResponsibleId { get; init; }
+    public string? Email { get; init; }
+    public string? DisplayName { get; init; }
+}

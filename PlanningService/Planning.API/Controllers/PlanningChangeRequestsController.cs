@@ -67,6 +67,9 @@ public class PlanningChangeRequestsController(
     public async Task<IActionResult> GetAll(
         [FromQuery] string? status,
         [FromQuery] string? weekCode,
+        [FromQuery] string? period = null,
+        [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null,
         [FromQuery] int? authUserId = null,
         [FromQuery] int? requesterUserId = null)
     {
@@ -83,14 +86,31 @@ public class PlanningChangeRequestsController(
             }
         }
 
-        var result = await _service.GetAllAsync(status, weekCode, viewerId, requesterUserId);
+        DateOnly? rangeFrom = null;
+        DateOnly? rangeTo = null;
+        if (string.IsNullOrWhiteSpace(weekCode)
+            && (!string.IsNullOrWhiteSpace(period) || from.HasValue || to.HasValue))
+            (rangeFrom, rangeTo) = Planning.Application.Common.PeriodRange.Resolve(period, from, to);
+
+        var result = await _service.GetAllAsync(
+            status, weekCode, viewerId, requesterUserId, rangeFrom, rangeTo);
         return Ok(result);
     }
 
     [HttpGet("stats-by-employee")]
-    public async Task<IActionResult> StatsByEmployee([FromQuery] string? weekCode)
+    public async Task<IActionResult> StatsByEmployee(
+        [FromQuery] string? weekCode,
+        [FromQuery] string? period = null,
+        [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null)
     {
-        var result = await _service.GetStatsByEmployeeAsync(weekCode);
+        DateOnly? rangeFrom = null;
+        DateOnly? rangeTo = null;
+        if (string.IsNullOrWhiteSpace(weekCode)
+            && (!string.IsNullOrWhiteSpace(period) || from.HasValue || to.HasValue))
+            (rangeFrom, rangeTo) = Planning.Application.Common.PeriodRange.Resolve(period, from, to);
+
+        var result = await _service.GetStatsByEmployeeAsync(weekCode, rangeFrom, rangeTo);
         return Ok(result);
     }
 

@@ -4,7 +4,7 @@
 <div class="ky-page-shell rp-root">
 
   <!-- ══ SATISFACTION MODAL ══ -->
-  <div class="rp-overlay" *ngIf="showSatForm" (click)="showSatForm=false">
+  <div class="rp-overlay" *ngIf="showSatForm" appBodyPortal (click)="showSatForm=false">
     <div class="rp-modal" (click)="$event.stopPropagation()">
       <div class="rp-modal-head">
         <span>Évaluer le traitement</span>
@@ -198,6 +198,7 @@
 
       <div class="rp-form-actions">
             <button class="rp-btn-ghost ky-btn-secondary" (click)="subView='list'">Annuler</button>
+            <button class="rp-btn-ghost ky-btn-secondary" type="button" (click)="resetDraftForm()" [disabled]="submitting">Réinitialiser</button>
         <button class="ky-btn-primary" (click)="submitRec()"
                 [disabled]="submitting || !newRec.titre.trim() || !newRec.description.trim()">
           <span *ngIf="submitting" class="rp-spinner-sm"></span>
@@ -237,6 +238,7 @@
 
       <div class="rp-form-actions">
         <button class="rp-btn-ghost ky-btn-secondary" (click)="subView='list'">Annuler</button>
+        <button class="rp-btn-ghost ky-btn-secondary" type="button" (click)="resetDraftForm()" [disabled]="submitting">Réinitialiser</button>
         <button class="ky-btn-primary" (click)="submitProp()"
                 [disabled]="submitting || !newProp.titre.trim() || !newProp.description.trim()">
           <span *ngIf="submitting" class="rp-spinner-sm"></span>

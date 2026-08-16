@@ -20,6 +20,7 @@ import {
   isRequiredCheckboxLocked,
   lockHint,
 } from '../../utils/employee-field-locks.util';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 @Component({
   selector: 'app-employee-fields-page',
@@ -55,6 +56,7 @@ export class EmployeeFieldsPageComponent implements OnInit, OnDestroy {
 
   private readonly fieldSvc = inject(EmployeeFieldService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly confirmService = inject(KyntusConfirmService);
 
   fields: EmployeeImportFieldConfig[] = [];
   loading = false;
@@ -104,6 +106,39 @@ export class EmployeeFieldsPageComponent implements OnInit, OnDestroy {
 
   touchDraft(): void {
     this.draftBinder?.touch();
+  }
+
+  async resetDraftForm(): Promise<void> {
+    if (!this.showCreate) return;
+    const ok = await this.confirmService.confirm({
+      title: 'Effacer la saisie',
+      message: 'Effacer la saisie du nouveau champ et le brouillon ?',
+      confirmLabel: 'Effacer',
+    });
+    if (!ok) return;
+    this.draftBinder?.discard();
+    this.openCreate();
+    this.restartDraftBinder();
+    this.cdr.detectChanges();
+  }
+
+  private restartDraftBinder(): void {
+    this.draftBinder?.destroy();
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'employee-fields-create',
+      () => ({
+        showCreate: this.showCreate,
+        newField: { ...this.newField },
+        aliasesInput: this.aliasesInput,
+      }),
+      (s) => {
+        if (s.newField) this.newField = { ...this.newField, ...s.newField };
+        if (typeof s.aliasesInput === 'string') this.aliasesInput = s.aliasesInput;
+        if (s.showCreate && s.newField?.label) this.showCreate = true;
+      },
+    );
+    this.draftBinder.start();
   }
 
   loadFields(): void {
@@ -197,9 +232,15 @@ export class EmployeeFieldsPageComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteField(field: EmployeeImportFieldConfig): void {
+  async deleteField(field: EmployeeImportFieldConfig): Promise<void> {
     if (field.isSystemField) return;
-    if (!confirm(`Supprimer le champ « ${field.label} » et toutes ses valeurs ?`)) return;
+    const ok = await this.confirmService.confirm({
+      title: 'Supprimer le champ',
+      message: `Supprimer le champ « ${field.label} » et toutes ses valeurs ?`,
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    });
+    if (!ok) return;
     this.fieldSvc.deleteField(field.fieldKey).subscribe({
       next: () => this.loadFields(),
       error: (err) => {

@@ -8,6 +8,7 @@ import { PlanningService, SubServiceSimple } from "../../services/planning.servi
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
 import { Calendar, UserPlus, X } from 'lucide';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 @Component({
   selector: "app-new-employee-manager",
@@ -31,6 +32,7 @@ export class NewEmployeeManagerComponent implements OnInit {
     private congeService:    CongeService,
     private planningService: PlanningService,
     private router:          Router,
+    private confirmService:  KyntusConfirmService,
     private cdr:             ChangeDetectorRef
   ) {}
 
@@ -79,9 +81,13 @@ export class NewEmployeeManagerComponent implements OnInit {
   }
 
   // ✅ Retirer le statut nouveau manuellement
-  removeNewStatus(userId: number, fullName: string): void {
-    if (!confirm("Retirer le statut Nouveau de " + fullName + " ?\nCe salarié ne travaillera plus tous les samedis."))
-      return;
+  async removeNewStatus(userId: number, fullName: string): Promise<void> {
+    const ok = await this.confirmService.confirm({
+      title: 'Retirer le statut Nouveau',
+      message: 'Retirer le statut Nouveau de ' + fullName + ' ?\nCe salarié ne travaillera plus tous les samedis.',
+      confirmLabel: 'Retirer',
+    });
+    if (!ok) return;
 
     this.congeService.setNewEmployeeStatus(userId, false).subscribe({
       next: () => {

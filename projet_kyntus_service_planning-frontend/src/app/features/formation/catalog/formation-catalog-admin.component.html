@@ -1,20 +1,39 @@
 <div class="ky-page-shell fcat-page">
+  @if (contentEditing() || templateEditing()) {
+    <button
+      type="button"
+      class="fcat-back-link"
+      (click)="contentEditing() ? backToContentsList() : backToTemplatesList()"
+    >
+      <app-lucide-icon [icon]="icons.back" className="w-4 h-4" />
+      @if (contentEditing()) {
+        Retour à la liste
+      } @else if (hasPendingQuizReturn()) {
+        Retour à la fiche formation
+      } @else {
+        Retour aux modèles
+      }
+    </button>
+  }
+
   <app-kyntus-page-header
-    title="Catalogue e-learning"
-    subtitle="Formations réutilisables, ressources PDF/vidéo, ciblage et statistiques"
+    title="Bibliothèque formation"
+    subtitle="Contenus e-learning, modèles de quiz réutilisables et statistiques"
   />
 
-  <div class="fcat-tabs">
-    <button type="button" class="fcat-tab" [class.active]="tab() === 'list'" (click)="tab.set('list'); reload()">
-      Formations
-    </button>
-    <button type="button" class="fcat-tab" [class.active]="tab() === 'edit'" (click)="openCreate()">
-      {{ selected() ? 'Édition' : 'Créer' }}
-    </button>
-    <button type="button" class="fcat-tab" [class.active]="tab() === 'stats'" (click)="loadStats()">
-      Statistiques
-    </button>
-  </div>
+  @if (!contentEditing() && !templateEditing()) {
+    <div class="fcat-tabs">
+      <button type="button" class="fcat-tab" [class.active]="tab() === 'contents'" (click)="setTab('contents')">
+        Contenus e-learning
+      </button>
+      <button type="button" class="fcat-tab" [class.active]="tab() === 'templates'" (click)="setTab('templates')">
+        Modèles de quiz
+      </button>
+      <button type="button" class="fcat-tab" [class.active]="tab() === 'stats'" (click)="setTab('stats')">
+        Statistiques
+      </button>
+    </div>
+  }
 
   @if (error()) {
     <div class="ky-alert ky-alert-danger">{{ error() }}</div>
@@ -23,7 +42,8 @@
     <div class="ky-alert ky-alert-success">{{ message() }}</div>
   }
 
-  @if (tab() === 'list') {
+  <!-- ═══ Contenus ═══ -->
+  @if (tab() === 'contents' && !contentEditing()) {
     <div class="ky-card fcat-toolbar">
       <label class="fcat-check">
         <input type="checkbox" [(ngModel)]="includeArchived" (change)="reload()" />
@@ -57,6 +77,9 @@
               <span>{{ item.moduleCount }} modules</span>
               <span>{{ item.lessonCount }} leçons</span>
               <span>{{ item.resourceCount }} ressources</span>
+              @if (item.selfServiceEnabled) {
+                <span class="fe-quiz-chip">Libre accès</span>
+              }
             </div>
             <button type="button" class="ky-btn-secondary" (click)="openEdit(item.id)">Éditer</button>
           </article>
@@ -65,121 +88,271 @@
     }
   }
 
-  @if (tab() === 'edit') {
+  @if (tab() === 'contents' && contentEditing()) {
     <section class="ky-card fcat-form">
       <h2>{{ selected() ? 'Modifier la formation' : 'Créer une formation' }}</h2>
-      <div class="fcat-fields">
-        <label>Titre <input class="ky-input" [(ngModel)]="draft.title" /></label>
-        <label>Catégorie <input class="ky-input" [(ngModel)]="draft.category" /></label>
-        <label class="full">Description <textarea class="ky-input" rows="3" [(ngModel)]="draft.description"></textarea></label>
-        <label>
-          Déblocage quiz
-          <select class="ky-input" [(ngModel)]="draft.defaultGateMode">
-            <option value="Attendance">Présence</option>
-            <option value="Content">Contenu e-learning</option>
-            <option value="Both">Présence + contenu</option>
-          </select>
-        </label>
-        <label>
-          Mode audience
-          <select class="ky-input" [(ngModel)]="draft.audienceMatchMode">
-            <option value="MatchAny">OU (MatchAny)</option>
-            <option value="MatchAll">ET (MatchAll)</option>
-          </select>
-        </label>
-        <label>Rôles (csv) <input class="ky-input" [(ngModel)]="audience.rolesText" placeholder="Agent, Superviseur" /></label>
-        <label>Structures (csv) <input class="ky-input" [(ngModel)]="audience.structuresText" placeholder="Cellule A" /></label>
-        <label class="full">UserIds (csv GUID) <input class="ky-input" [(ngModel)]="audience.userIdsText" /></label>
-      </div>
-      <div class="fcat-actions">
-        <button type="button" class="ky-btn-primary" [disabled]="busy()" (click)="saveItem()">Enregistrer</button>
+
+      <nav class="fcat-wizard-steps" aria-label="Étapes">
+        <button type="button" class="fcat-wizard-step" [class.active]="wizardStep() === 1" (click)="goToStep(1)">1. Informations</button>
+        <button type="button" class="fcat-wizard-step" [class.active]="wizardStep() === 2" (click)="goToStep(2)">2. Contenu</button>
+        <button type="button" class="fcat-wizard-step" [class.active]="wizardStep() === 3" (click)="goToStep(3)">3. Réglages</button>
+      </nav>
+
+      @if (wizardStep() === 1) {
+        <div class="fcat-section">
+          <h3 class="fcat-section-title">Identité</h3>
+          <div class="fcat-fields">
+            <label>Titre <input class="ky-input" [(ngModel)]="draft.title" placeholder="Ex. Sécurité au travail" /></label>
+            <label>Catégorie <input class="ky-input" [(ngModel)]="draft.category" placeholder="Ex. Qualité" /></label>
+            <label class="full">
+              Description
+              <textarea class="ky-input" rows="3" [(ngModel)]="draft.description" placeholder="Résumé du contenu"></textarea>
+            </label>
+          </div>
+        </div>
+
+        <div class="fcat-section">
+          <h3 class="fcat-section-title">Concernés</h3>
+          <app-kyntus-audience-picker
+            mode="audience"
+            legend="Concernés"
+            [availableRoles]="roleOptions"
+            [enableStructureKeys]="true"
+            [roles]="selectedRoles"
+            [structureKeys]="selectedStructureKeys"
+            [userIds]="selectedUserIds"
+            (selectionChange)="onAudienceChange($event)"
+          />
+        </div>
+
+        <div class="fcat-section">
+          <h3 class="fcat-section-title">Accès</h3>
+          <div class="fcat-choice-cards" role="radiogroup" aria-label="Mode d’accès">
+            <button
+              type="button"
+              class="fcat-choice-card"
+              [class.selected]="draft.selfServiceEnabled"
+              role="radio"
+              [attr.aria-checked]="draft.selfServiceEnabled"
+              (click)="draft.selfServiceEnabled = true"
+            >
+              <strong>Libre accès</strong>
+              <span>Visible dans Mes formations dès publication</span>
+            </button>
+            <button
+              type="button"
+              class="fcat-choice-card"
+              [class.selected]="!draft.selfServiceEnabled"
+              role="radio"
+              [attr.aria-checked]="!draft.selfServiceEnabled"
+              (click)="draft.selfServiceEnabled = false"
+            >
+              <strong>Uniquement en séance</strong>
+              <span>Uniquement via Planifier une formation</span>
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (wizardStep() === 2) {
+        <div class="fcat-section">
+          <app-formation-catalog-outline
+            [model]="draftModules"
+            [seedModules]="outlineSeed"
+            (modelChange)="onDraftModulesChange($event)"
+          />
+        </div>
+      }
+
+      @if (wizardStep() === 3) {
+        <div class="fcat-section">
+          <h3 class="fcat-section-title">Réglages</h3>
+          <div class="fcat-fields fcat-advanced-fields">
+            <label class="full">
+              Quand le quiz se débloque
+              <select class="ky-input" [(ngModel)]="draft.defaultGateMode">
+                <option value="Attendance">Présence</option>
+                <option value="Content">Contenu</option>
+                <option value="Both">Les deux</option>
+              </select>
+            </label>
+            <label>
+              Échéance
+              <select class="ky-input" [(ngModel)]="draft.dueMode">
+                <option value="None">Aucune</option>
+                <option value="Absolute">Date</option>
+                <option value="RelativeDays">Délai en jours</option>
+              </select>
+            </label>
+            @if (draft.dueMode === 'Absolute') {
+              <label>
+                Date butoir
+                <input class="ky-input" type="date" [(ngModel)]="draft.dueDate" />
+              </label>
+            }
+            @if (draft.dueMode === 'RelativeDays') {
+              <label>
+                Délai (jours)
+                <input class="ky-input" type="number" min="1" [(ngModel)]="draft.dueInDays" />
+              </label>
+            }
+            <label class="full">
+              Quiz modèle par défaut
+              <select class="ky-input" [(ngModel)]="draft.defaultQuizTemplateId">
+                <option value="">— Aucun —</option>
+                @for (t of publishedTemplates(); track t.id) {
+                  <option [value]="t.id">{{ t.title }}</option>
+                }
+              </select>
+              <button
+                type="button"
+                class="fcat-inline-link"
+                [disabled]="busy()"
+                (click)="createQuizFromContentForm()"
+              >
+                Créer un modèle de quiz
+              </button>
+            </label>
+          </div>
+        </div>
+        <div class="fcat-section">
+          <h3 class="fcat-section-title">Récapitulatif</h3>
+          <p class="fco-muted">
+            {{ draft.title || 'Sans titre' }} · {{ draftModules.length }} module(s) ·
+            {{ lessonCount() }} leçon(s)
+          </p>
+        </div>
+      }
+    </section>
+
+    <div class="fcat-actions fcat-actions-sticky">
+      @if (wizardStep() === 1) {
+        <button type="button" class="ky-btn-primary" (click)="goToStep(2)">Passer au contenu de la formation</button>
+      }
+      @if (wizardStep() === 2) {
+        <button type="button" class="ky-btn-secondary" (click)="goToStep(1)">Revenir aux informations</button>
+        <button type="button" class="ky-btn-primary" (click)="goToStep(3)">Passer aux réglages</button>
+      }
+      @if (wizardStep() === 3) {
+        <button type="button" class="ky-btn-secondary" (click)="goToStep(2)">Revenir au contenu</button>
+        <button type="button" class="ky-btn-primary" [disabled]="busy()" (click)="saveItem()">Enregistrer la formation</button>
         @if (selected()) {
+          <button type="button" class="ky-btn-secondary" [disabled]="busy()" (click)="openPreview()">Prévisualiser</button>
           <button type="button" class="ky-btn-secondary" [disabled]="busy()" (click)="publish()">Publier</button>
           <button type="button" class="ky-btn-secondary" [disabled]="busy()" (click)="archive()">Archiver</button>
         }
+      }
+    </div>
+  }
+
+  <!-- ═══ Modèles de quiz ═══ -->
+  @if (tab() === 'templates' && !templateEditing()) {
+    <div class="ky-card fcat-toolbar">
+      <label class="fcat-check">
+        <input type="checkbox" [(ngModel)]="includeArchivedTemplates" (change)="reloadTemplates()" />
+        Inclure archivés
+      </label>
+      <button type="button" class="ky-btn-primary" (click)="openCreateTemplate()">
+        <app-lucide-icon [icon]="icons.add" className="w-4 h-4" />
+        Nouveau modèle
+      </button>
+    </div>
+
+    @if (loading()) {
+      <div class="ky-card state-loading">Chargement…</div>
+    } @else if (!templates().length) {
+      <div class="ky-card state-empty">
+        <app-lucide-icon [icon]="icons.book" className="w-10 h-10" />
+        <h3>Aucun modèle de quiz</h3>
+        <p>Créez un modèle réutilisable, ou promeuvez un quiz de session.</p>
       </div>
-    </section>
-
-    @if (selected(); as item) {
-      <section class="ky-card fcat-form">
-        <h3>Modules / leçons / ressources</h3>
-        <div class="fcat-inline">
-          <input class="ky-input" [(ngModel)]="moduleDraft.title" placeholder="Nouveau module" />
-          <button type="button" class="ky-btn-secondary" (click)="addModule()">+ Module</button>
-        </div>
-
-        @for (m of item.modules || []; track m.id) {
-          <div class="fcat-module">
-            <div class="fcat-module-head">
-              <strong>{{ m.title }}</strong>
-              <button type="button" class="ky-btn-ghost" (click)="deleteModule(m)">
-                <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
-              </button>
-            </div>
-            <ul>
-              @for (l of m.lessons; track l.id) {
-                <li>
-                  <div>
-                    <strong>{{ l.title }}</strong>
-                    @if (l.isRequired) { <span class="fe-quiz-chip">Obligatoire</span> }
-                    <div class="fcat-resources">
-                      @for (r of l.resources; track r.id) {
-                        <span class="fe-quiz-chip">{{ r.type }} · {{ r.title }}</span>
-                      }
-                    </div>
-                  </div>
-                </li>
-              }
-            </ul>
-          </div>
-        }
-
-        <div class="fcat-fields">
-          <label>
-            Module pour leçon
-            <select class="ky-input" [(ngModel)]="lessonDraft.moduleId">
-              <option value="">—</option>
-              @for (m of item.modules || []; track m.id) {
-                <option [value]="m.id">{{ m.title }}</option>
-              }
-            </select>
-          </label>
-          <label>Titre leçon <input class="ky-input" [(ngModel)]="lessonDraft.title" /></label>
-          <label class="fcat-check"><input type="checkbox" [(ngModel)]="lessonDraft.isRequired" /> Obligatoire</label>
-          <button type="button" class="ky-btn-secondary" (click)="addLesson()">+ Leçon</button>
-        </div>
-
-        <div class="fcat-fields">
-          <label>
-            Leçon pour ressource
-            <select class="ky-input" [(ngModel)]="resourceDraft.lessonId">
-              <option value="">—</option>
-              @for (m of item.modules || []; track m.id) {
-                @for (l of m.lessons; track l.id) {
-                  <option [value]="l.id">{{ m.title }} / {{ l.title }}</option>
-                }
-              }
-            </select>
-          </label>
-          <label>Titre <input class="ky-input" [(ngModel)]="resourceDraft.title" /></label>
-          <label>
-            Type
-            <select class="ky-input" [(ngModel)]="resourceDraft.type">
-              <option value="Pdf">PDF</option>
-              <option value="Video">Vidéo</option>
-              <option value="Link">Lien</option>
-              <option value="Text">Texte</option>
-            </select>
-          </label>
-          <label class="full">URL <input class="ky-input" [(ngModel)]="resourceDraft.url" placeholder="https://…" /></label>
-          <label class="full">Texte <textarea class="ky-input" rows="2" [(ngModel)]="resourceDraft.textContent"></textarea></label>
-          <button type="button" class="ky-btn-secondary" (click)="addResource()">+ Ressource URL/texte</button>
-          <label class="full">Upload fichier <input type="file" (change)="uploadResource($event)" /></label>
-        </div>
-      </section>
+    } @else {
+      <div class="fcat-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Titre</th>
+              <th>Catégorie</th>
+              <th>Statut</th>
+              <th>Questions</th>
+              <th>Sessions</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of templates(); track t.id) {
+              <tr>
+                <td>{{ t.title }}</td>
+                <td>{{ t.category || '—' }}</td>
+                <td>{{ statusLabel(t.status) }}</td>
+                <td>{{ t.questionCount }}</td>
+                <td>{{ t.sessionUsageCount }}</td>
+                <td class="fcat-inline">
+                  <button type="button" class="ky-btn-ghost" (click)="openEditTemplate(t.id)">Éditer</button>
+                  <button type="button" class="ky-btn-ghost" [disabled]="busy()" (click)="publishTemplate(t.id)">Publier</button>
+                  <button type="button" class="ky-btn-ghost" [disabled]="busy()" (click)="archiveTemplate(t.id)">Archiver</button>
+                  <button type="button" class="ky-btn-ghost" [disabled]="busy()" (click)="duplicateTemplate(t.id)">Dupliquer</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     }
   }
 
+  @if (tab() === 'templates' && templateEditing()) {
+    @if (hasPendingQuizReturn()) {
+      <div class="fcat-return-banner" role="status">
+        Après enregistrement, le modèle sera publié et vous reviendrez à la fiche formation
+        (champs déjà saisis conservés, quiz pré-sélectionné).
+      </div>
+    }
+    <section class="ky-card fcat-form">
+      <h2>{{ selectedTemplate() ? 'Modifier le modèle' : 'Nouveau modèle de quiz' }}</h2>
+      @if (selectedTemplate(); as tpl) {
+        <p class="fcat-meta">
+          <span>{{ statusLabel(tpl.status) }}</span>
+          <span>{{ tpl.sessionUsageCount }} session(s) liées</span>
+        </p>
+      }
+      <div class="fcat-fields">
+        <label>Titre <input class="ky-input" [(ngModel)]="templateDraft.title" /></label>
+        <label>Catégorie <input class="ky-input" [(ngModel)]="templateDraft.category" /></label>
+        <label class="full">Description <textarea class="ky-input" rows="2" [(ngModel)]="templateDraft.description"></textarea></label>
+        <label>
+          Seuil de réussite (%)
+          <input class="ky-input" type="number" min="1" max="100" [(ngModel)]="templateDraft.passThreshold" />
+        </label>
+        <label class="fcat-check">
+          <input type="checkbox" [(ngModel)]="templateDraft.allowMultipleAttempts" />
+          Autoriser plusieurs tentatives
+        </label>
+      </div>
+
+      <h3>Questions</h3>
+      <app-formation-quiz-questions-editor
+        [(questions)]="templateQuestions"
+        [disabled]="busy()"
+        [mediaUploadTarget]="
+          selectedTemplate()
+            ? { type: 'template', templateId: selectedTemplate()!.id }
+            : null
+        "
+      />
+
+      <div class="fcat-actions">
+        <button type="button" class="ky-btn-primary" [disabled]="busy()" (click)="saveTemplate()">Enregistrer</button>
+        @if (selectedTemplate()) {
+          <button type="button" class="ky-btn-secondary" [disabled]="busy()" (click)="publishTemplate()">Publier</button>
+          <button type="button" class="ky-btn-secondary" [disabled]="busy()" (click)="archiveTemplate()">Archiver</button>
+          <button type="button" class="ky-btn-secondary" [disabled]="busy()" (click)="duplicateTemplate(selectedTemplate()!.id)">Dupliquer</button>
+        }
+      </div>
+    </section>
+  }
+
+  <!-- ═══ Stats ═══ -->
   @if (tab() === 'stats' && stats(); as s) {
     <section class="ky-card">
       <div class="fcat-kpis">
@@ -191,8 +364,30 @@
         <div><span>Meilleur</span><strong>{{ s.bestScore }}%</strong></div>
         <div><span>Réussite</span><strong>{{ s.passRate }}%</strong></div>
       </div>
+      <div class="fcat-fields">
+        <label>
+          Filtrer catalogue
+          <select class="ky-input" [(ngModel)]="filterCatalogItemId" (ngModelChange)="refreshResults()">
+            <option value="">Tous</option>
+            @for (c of items(); track c.id) {
+              <option [value]="c.id">{{ c.title }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          Filtrer session
+          <select class="ky-input" [(ngModel)]="filterSessionId" (ngModelChange)="refreshResults()">
+            <option value="">Toutes</option>
+            @for (row of s.bySession; track row.sessionId) {
+              <option [value]="row.sessionId">{{ row.title }}</option>
+            }
+          </select>
+        </label>
+      </div>
       <div class="fcat-actions">
+        <button type="button" class="ky-btn-secondary" (click)="clearResultFilters()">Réinitialiser filtres</button>
         <button type="button" class="ky-btn-secondary" (click)="exportCsv()">Exporter CSV</button>
+        <button type="button" class="ky-btn-secondary" (click)="exportXlsx()">Exporter Excel</button>
       </div>
       <table class="data-table">
         <thead>
@@ -203,6 +398,7 @@
             <th>Tentatives</th>
             <th>Moyenne</th>
             <th>Réussite</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -214,10 +410,122 @@
               <td>{{ row.attemptCount }}</td>
               <td>{{ row.avgScore }}%</td>
               <td>{{ row.passRate }}%</td>
+              <td class="fcat-inline">
+                <button type="button" class="ky-btn-ghost" (click)="filterBySession(row.sessionId)">Filtrer</button>
+                <a class="ky-btn-secondary" [routerLink]="['/mes-sessions', row.sessionId, 'quiz']">Correction</a>
+              </td>
             </tr>
           }
         </tbody>
       </table>
+
+      <h3 class="fcat-results-title">Détail des tentatives ({{ exportRows().length }})</h3>
+      <div class="fcat-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Collaborateur</th>
+              <th>Rôle</th>
+              <th>Structure</th>
+              <th>Session</th>
+              <th>Score</th>
+              <th>Réussi</th>
+              <th>Tentative</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of exportRows(); track $index) {
+              <tr>
+                <td>{{ r.employeeName }}</td>
+                <td>{{ r.role || '—' }}</td>
+                <td>{{ r.structureKey || '—' }}</td>
+                <td>{{ r.sessionTitle }}</td>
+                <td>{{ r.score ?? '—' }}</td>
+                <td>{{ r.passed == null ? '—' : r.passed ? 'Oui' : 'Non' }}</td>
+                <td>{{ r.attemptNumber }}</td>
+                <td>{{ r.submittedAt | date: 'short' }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="8">Aucune tentative.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
     </section>
   }
 </div>
+
+@if (previewOpen()) {
+  <div class="fcat-preview-backdrop" appBodyPortal (click)="closePreview()">
+  <div
+    class="fcat-preview-modal"
+    role="dialog"
+    aria-label="Prévisualisation du contenu"
+    (click)="$event.stopPropagation()"
+  >
+    <header class="fcat-preview-head">
+      <div>
+        <h2>{{ selected()?.title || 'Prévisualisation' }}</h2>
+        <p>{{ selected()?.description || 'Aperçu du contenu e-learning' }}</p>
+      </div>
+      <button type="button" class="ky-btn-ghost" (click)="closePreview()">Fermer</button>
+    </header>
+
+    @if (selected(); as item) {
+      <div class="fcat-preview-layout">
+        <aside class="fcat-preview-nav">
+          @for (m of sortedPreviewModules(item); track m.id) {
+            <div class="fcat-preview-mod">
+              <h3>{{ m.title }}</h3>
+              @for (l of sortedPreviewLessons(m); track l.id) {
+                <button
+                  type="button"
+                  class="fcat-preview-lesson"
+                  [class.active]="previewLesson()?.id === l.id"
+                  (click)="selectPreviewLesson(l)"
+                >
+                  {{ l.title }}
+                </button>
+              }
+            </div>
+          } @empty {
+            <p class="fco-muted">Aucun module — enregistrez d’abord la structure.</p>
+          }
+        </aside>
+        <section class="fcat-preview-content">
+          @if (previewLesson(); as lesson) {
+            <header class="fcat-preview-content-head">
+              <h3>{{ lesson.title }}</h3>
+              <p>{{ lesson.description }}</p>
+            </header>
+            <div class="fcat-preview-res-tabs">
+              @for (part of previewParts(lesson); track part.partIndex; let pi = $index) {
+                <button
+                  type="button"
+                  class="fcat-preview-res-tab"
+                  [class.active]="previewPartIndex() === pi"
+                  (click)="selectPreviewPart(pi)"
+                >
+                  {{ part.title }}
+                </button>
+              }
+            </div>
+            @if (previewParts(lesson)[previewPartIndex()]; as part) {
+              <div class="fcat-preview-part-body">
+                @for (r of part.resources; track r.id) {
+                  <app-formation-resource-viewer [resource]="r" />
+                }
+              </div>
+            } @else {
+              <p class="fco-muted">Aucune partie dans cette leçon.</p>
+            }
+          } @else {
+            <p class="fco-muted">Sélectionnez une leçon.</p>
+          }
+        </section>
+      </div>
+    }
+  </div>
+  </div>
+}

@@ -11,7 +11,10 @@ import {
   buildStyledMergedFicheWorkbook,
   downloadStyledFicheWorkbook,
 } from '../lib/prime-fiche-xlsx-export';
-import type { CellulePrimeIndicatorDto } from '../services/prime-cell-prime-api.service';
+import type {
+  CellulePrimeIndicatorDto,
+  ServicePoleLinePonderationDto,
+} from '../services/prime-cell-prime-api.service';
 import { RoleService } from '../state/role.service';
 
 const base = '/api/prime/fiches';
@@ -27,6 +30,7 @@ export interface MergedFichePreviewContextDto {
   cellSaisieJson: string;
   templateCalcSnapshotJson?: string | null;
   indicators: CellulePrimeIndicatorDto[];
+  poleLinePonderations?: ServicePoleLinePonderationDto[];
   previewAvailable: boolean;
   previewUnavailableReason?: string | null;
 }
@@ -74,6 +78,7 @@ export class PrimeEmployeeFichePreviewService {
       cellSaisieJson: context.cellSaisieJson,
       templateCalcSnapshotJson: context.templateCalcSnapshotJson,
       indicators: context.indicators,
+      poleLinePonderations: context.poleLinePonderations ?? [],
       templateId: context.templateId,
     });
   }

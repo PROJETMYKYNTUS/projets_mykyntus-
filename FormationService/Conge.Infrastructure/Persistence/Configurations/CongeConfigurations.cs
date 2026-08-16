@@ -1,5 +1,4 @@
 ﻿using Conge.Domain.Entities;
-using Conge.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -37,14 +36,80 @@ public class DemandeCongeConfiguration : IEntityTypeConfiguration<DemandeConge>
 
         builder.Property(x => x.Motif).HasMaxLength(500);
         builder.Property(x => x.CommentaireManager).HasMaxLength(500);
+        builder.Property(x => x.CommentaireRh).HasMaxLength(500);
+
+        builder.Property(x => x.ValidationNodeId).HasMaxLength(100);
+        builder.Property(x => x.ValidationNodeLevel).HasMaxLength(50);
+
+        builder.HasMany(x => x.Decisions)
+            .WithOne(x => x.Demande)
+            .HasForeignKey(x => x.DemandeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(x => x.Decisions)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         // Index pour les requêtes fréquentes
         builder.HasIndex(x => x.EmployeId);
         builder.HasIndex(x => x.ManagerId);
+        builder.HasIndex(x => x.ValidationNodeId);
         builder.HasIndex(x => new { x.EmployeId, x.Statut });
 
         // Ignorer les domain events (pas persistés)
         builder.Ignore(x => x.DomainEvents);
+    }
+}
+
+public class DemandeCongeDecisionConfiguration : IEntityTypeConfiguration<DemandeCongeDecision>
+{
+    public void Configure(EntityTypeBuilder<DemandeCongeDecision> builder)
+    {
+        builder.ToTable("demande_conge_decisions");
+
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.DemandeId).IsRequired();
+        builder.Property(x => x.ActeurId).IsRequired();
+        builder.Property(x => x.ActeurNom).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.ActeurRole).HasMaxLength(100).IsRequired();
+        builder.Property(x => x.Action).HasMaxLength(50).IsRequired();
+        builder.Property(x => x.StatutAvant)
+            .HasConversion<string>()
+            .HasMaxLength(50)
+            .IsRequired();
+        builder.Property(x => x.StatutApres)
+            .HasConversion<string>()
+            .HasMaxLength(50)
+            .IsRequired();
+        builder.Property(x => x.Commentaire).HasMaxLength(500);
+        builder.Property(x => x.At).IsRequired();
+
+        builder.HasIndex(x => x.DemandeId);
+        builder.HasIndex(x => x.ActeurId);
+        builder.HasIndex(x => x.At);
+    }
+}
+
+public class PeriodeInterditeCongeConfiguration : IEntityTypeConfiguration<PeriodeInterditeConge>
+{
+    public void Configure(EntityTypeBuilder<PeriodeInterditeConge> builder)
+    {
+        builder.ToTable("periodes_interdites_conge");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.MoisInterditsJson).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.UpdatedAt).IsRequired();
+    }
+}
+
+public class QuotaCongeServiceConfiguration : IEntityTypeConfiguration<QuotaCongeService>
+{
+    public void Configure(EntityTypeBuilder<QuotaCongeService> builder)
+    {
+        builder.ToTable("quotas_conge_service");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.ServiceId).IsRequired();
+        builder.Property(x => x.MaxAbsentsSimultanes).IsRequired();
+        builder.Property(x => x.UpdatedAt).IsRequired();
+        builder.HasIndex(x => x.ServiceId).IsUnique();
     }
 }
 
@@ -79,8 +144,14 @@ public class EmployeSnapshotConfiguration : IEntityTypeConfiguration<EmployeSnap
         builder.Property(x => x.Email).HasMaxLength(200).IsRequired();
         builder.Property(x => x.ServiceNom).HasMaxLength(200);
         builder.Property(x => x.DateEmbauche).IsRequired();
+        builder.Property(x => x.PoleId).HasMaxLength(100);
+        builder.Property(x => x.CelluleId).HasMaxLength(100);
+        builder.Property(x => x.OrgServiceId).HasMaxLength(100);
 
         builder.HasIndex(x => x.EmployeId).IsUnique();
         builder.HasIndex(x => x.ManagerId);
+        builder.HasIndex(x => x.CelluleId);
+        builder.HasIndex(x => x.OrgServiceId);
+        builder.HasIndex(x => x.PoleId);
     }
 }

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { FormationTrainingService } from '../../../core/services/formation-training.service';
 import type { FormationDocumentDefinitionDto } from '../../../core/models/formation-training.models';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
+import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 @Component({
   selector: 'app-formation-documents-config',
@@ -78,6 +79,7 @@ import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-
 })
 export class FormationDocumentsConfigComponent implements OnInit {
   private readonly api = inject(FormationTrainingService);
+  private readonly confirmService = inject(KyntusConfirmService);
   readonly rows = signal<FormationDocumentDefinitionDto[]>([]);
   readonly error = signal<string | null>(null);
   editingId: string | null = null;
@@ -134,7 +136,13 @@ export class FormationDocumentsConfigComponent implements OnInit {
   }
 
   async remove(d: FormationDocumentDefinitionDto): Promise<void> {
-    if (!confirm(d.isActive ? `Désactiver « ${d.title} » ?` : `Supprimer « ${d.title} » ?`)) return;
+    const ok = await this.confirmService.confirm({
+      title: d.isActive ? 'Désactiver le document' : 'Supprimer le document',
+      message: d.isActive ? `Désactiver « ${d.title} » ?` : `Supprimer « ${d.title} » ?`,
+      confirmLabel: d.isActive ? 'Désactiver' : 'Supprimer',
+      variant: d.isActive ? 'warning' : 'danger',
+    });
+    if (!ok) return;
     await this.api.deleteDocumentDefinition(d.id);
     await this.reload();
   }

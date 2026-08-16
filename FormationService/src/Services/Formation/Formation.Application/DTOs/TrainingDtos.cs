@@ -1,3 +1,4 @@
+using Formation.Domain;
 using Formation.Domain.Enums;
 
 namespace Formation.Application.DTOs;
@@ -24,7 +25,11 @@ public sealed record TrainingSessionDto(
     Guid? QuizId = null,
     string? QuizStatus = null,
     Guid? CatalogItemId = null,
-    string? LearningGateMode = null);
+    string? LearningGateMode = null,
+    bool? CanMarkAttendance = null,
+    bool? CanUploadReport = null,
+    string? AttendanceBlockedReason = null,
+    string? ReportBlockedReason = null);
 
 public sealed record TrainingAssignmentDto(
     Guid Id,
@@ -82,7 +87,9 @@ public sealed record InitialTrainingPathDto(
     int DocumentsReceivedCount = 0,
     int DocumentsTotalCount = 0,
     IReadOnlyList<string>? MissingDocumentTitles = null,
-    int? DaysUntilEnd = null);
+    int? DaysUntilEnd = null,
+    Guid? FormateurValidatedBy = null,
+    Guid? RhValidatedBy = null);
 
 public sealed record FormationDocumentDefinitionDto(
     Guid Id,
@@ -241,17 +248,32 @@ public sealed record TrainingQuizQuestionDto(
     bool AllowMultiple = false,
     IReadOnlyList<int>? CorrectOptionIndexes = null,
     string? ImageUrl = null,
-    string? Explanation = null);
+    string? Explanation = null,
+    string? MediaKind = null);
+
+/// <summary>Historique transversal des tentatives quiz d'un collaborateur.</summary>
+public sealed record MyQuizAttemptHistoryItemDto(
+    Guid AttemptId,
+    Guid SessionId,
+    string SessionTitle,
+    Guid? CatalogItemId,
+    string? CatalogTitle,
+    int AttemptNumber,
+    decimal? Score,
+    bool? Passed,
+    bool IsGraded,
+    DateTime SubmittedAt);
 
 public sealed record TrainingQuizDto(
     Guid Id,
-    Guid SessionId,
+    Guid? SessionId,
     string Title,
     TrainingQuizStatus Status,
     IReadOnlyList<TrainingQuizQuestionDto> Questions,
     string? RejectedReason = null,
-    decimal PassThreshold = 70m,
-    bool AllowMultipleAttempts = false);
+    decimal PassThreshold = TrainingQuizDefaults.PassThreshold,
+    bool AllowMultipleAttempts = false,
+    Guid? TemplateId = null);
 
 public sealed class GradeFreeTextAnswerRequest
 {
@@ -268,7 +290,9 @@ public sealed record TrainingQuizForEmployeeDto(
     TrainingQuizStatus Status,
     IReadOnlyList<TrainingQuizQuestionPublicDto> Questions,
     bool AllowMultipleAttempts = false,
-    decimal PassThreshold = 70m);
+    decimal PassThreshold = TrainingQuizDefaults.PassThreshold,
+    Guid? CatalogItemId = null,
+    Guid? EnrollmentId = null);
 
 public sealed record TrainingQuizQuestionPublicDto(
     Guid Id,
@@ -278,13 +302,14 @@ public sealed record TrainingQuizQuestionPublicDto(
     IReadOnlyList<string>? Options,
     decimal Points,
     bool AllowMultiple = false,
-    string? ImageUrl = null);
+    string? ImageUrl = null,
+    string? MediaKind = null);
 
 public sealed class UpsertTrainingQuizRequest
 {
     public string Title { get; set; } = string.Empty;
     /// <summary>Seuil de réussite en % (1–100). Défaut 70.</summary>
-    public decimal PassThreshold { get; set; } = 70m;
+    public decimal PassThreshold { get; set; } = TrainingQuizDefaults.PassThreshold;
     public bool AllowMultipleAttempts { get; set; }
     public Guid AnimatorUserId { get; set; }
     public IReadOnlyList<UpsertTrainingQuizQuestionItem> Questions { get; set; } = Array.Empty<UpsertTrainingQuizQuestionItem>();
@@ -292,6 +317,8 @@ public sealed class UpsertTrainingQuizRequest
 
 public sealed class UpsertTrainingQuizQuestionItem
 {
+    /// <summary>Identifiant existant (préserve ImageStoragePath / fichiers à la réécriture).</summary>
+    public Guid? Id { get; set; }
     public TrainingQuizQuestionType Type { get; set; }
     public string Prompt { get; set; } = string.Empty;
     public IReadOnlyList<string>? Options { get; set; }
@@ -352,7 +379,8 @@ public sealed record TrainingQuizAttemptAnswerDetailDto(
     bool? IsCorrect,
     decimal Points,
     string? ImageUrl = null,
-    string? Explanation = null);
+    string? Explanation = null,
+    string? MediaKind = null);
 
 public sealed record TrainingQuizAttemptDto(
     Guid Id,

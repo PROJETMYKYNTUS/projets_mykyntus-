@@ -112,12 +112,17 @@ export const routes: Routes = [
             .then(m => m.FormationRhProdQueueComponent),
       },
       {
-        path: 'formations/catalogue',
+        path: 'formations/bibliotheque',
         canActivate: [AuthGuard],
         data: { roles: ROLE_SETS.formationPlanner },
         loadComponent: () =>
           import('./features/formation/catalog/formation-catalog-admin.component')
             .then(m => m.FormationCatalogAdminComponent),
+      },
+      {
+        path: 'formations/catalogue',
+        redirectTo: '/formations/bibliotheque',
+        pathMatch: 'full',
       },
       {
         path: 'formations/documents-checklist-config',
@@ -173,6 +178,36 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/formation/employee/formation-employee.component')
             .then(m => m.FormationEmployeeComponent),
+      },
+      {
+        path: 'mes-formations/historique',
+        canActivate: [AuthGuard],
+        data: {
+          roles: ROLE_SETS.mesFormations,
+        },
+        loadComponent: () =>
+          import('./features/formation/employee/formation-quiz-history.component')
+            .then(m => m.FormationQuizHistoryComponent),
+      },
+      {
+        path: 'mes-formations/contenu/:catalogItemId/quiz',
+        canActivate: [AuthGuard],
+        data: {
+          roles: ROLE_SETS.mesFormations,
+        },
+        loadComponent: () =>
+          import('./features/formation/sessions/formation-take-quiz.component')
+            .then(m => m.FormationTakeQuizComponent),
+      },
+      {
+        path: 'mes-formations/contenu/:catalogItemId',
+        canActivate: [AuthGuard],
+        data: {
+          roles: ROLE_SETS.mesFormations,
+        },
+        loadComponent: () =>
+          import('./features/formation/catalog/formation-catalog-player.component')
+            .then(m => m.FormationCatalogPlayerComponent),
       },
       {
         path: 'mes-formations/:sessionId/contenu',
@@ -310,10 +345,26 @@ export const routes: Routes = [
           {
             path: 'historique',
             canActivate: [AuthGuard],
-            data: { roles: ROLE_SETS.congesManager },
+            data: { roles: ROLE_SETS.congesRhConfig },
             loadComponent: () =>
               import('./features/conge/pages/conge-historique/conge-historique.component')
                 .then(m => m.CongeHistoriqueComponent),
+          },
+          {
+            path: 'periodes-interdites',
+            canActivate: [AuthGuard],
+            data: { roles: ROLE_SETS.congesRhConfig },
+            loadComponent: () =>
+              import('./features/conge/pages/conge-periodes-interdites/conge-periodes-interdites.component')
+                .then(m => m.CongePeriodesInterditesComponent),
+          },
+          {
+            path: 'quotas-service',
+            canActivate: [AuthGuard],
+            data: { roles: ROLE_SETS.congesSuperviseurConfig },
+            loadComponent: () =>
+              import('./features/conge/pages/conge-quotas-service/conge-quotas-service.component')
+                .then(m => m.CongeQuotasServiceComponent),
           },
         ],
       },
@@ -350,6 +401,14 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/planning/pages/mes-demandes-exceptionnelles/mes-demandes-exceptionnelles.component')
             .then(m => m.MesDemandesExceptionnellesComponent),
+      },
+      {
+        path: 'mes-renforts',
+        canActivate: [AuthGuard],
+        data: { roles: ROLE_SETS.planningSelfService },
+        loadComponent: () =>
+          import('./features/planning/pages/mes-renforts/mes-renforts.component')
+            .then(m => m.MesRenfortsComponent),
       },
       {
         path: 'planning',

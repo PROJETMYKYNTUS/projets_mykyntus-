@@ -1,0 +1,332 @@
+.fco {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fco-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.fco-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.fco-empty {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  color: var(--muted, #64748b);
+  border: 1px dashed var(--border, #e2e8f0);
+  border-radius: .75rem;
+}
+
+.fco-muted {
+  font-size: .85rem;
+  color: var(--muted, #64748b);
+  margin: .25rem 0 0;
+}
+
+.fco-tree,
+.fco-lessons,
+.fco-resources {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fco-module {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: .75rem;
+  background: var(--surface, #fff);
+  margin-bottom: .65rem;
+  overflow: hidden;
+}
+
+.fco-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .65rem .75rem;
+  flex-wrap: wrap;
+}
+
+.fco-row-module {
+  background: var(--surface-2, #f8fafc);
+  border-bottom: 1px solid transparent;
+}
+
+.fco-module:has(.fco-lessons) .fco-row-module {
+  border-bottom-color: var(--border, #e2e8f0);
+}
+
+.fco-row-lesson {
+  padding-left: 1.25rem;
+}
+
+.fco-row-resource {
+  padding-left: 2.25rem;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.fco-toggle {
+  border: none;
+  background: transparent;
+  padding: .15rem;
+  cursor: pointer;
+  color: var(--muted, #64748b);
+  display: inline-flex;
+}
+
+.fco-title {
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  font-size: .9rem;
+  text-align: left;
+  cursor: text;
+  padding: .2rem .35rem;
+  border-radius: .35rem;
+  color: var(--text, #0f172a);
+}
+
+.fco-title:hover {
+  background: color-mix(in srgb, var(--primary, #4f46e5) 8%, transparent);
+}
+
+.fco-inline-input {
+  flex: 1;
+  min-width: 10rem;
+  max-width: 28rem;
+}
+
+.fco-meta {
+  font-size: .75rem;
+  color: var(--muted, #64748b);
+}
+
+.fco-actions {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.fco-icon-btn {
+  padding: .35rem !important;
+  min-width: auto;
+}
+
+.fco-chip {
+  border: 1px solid var(--border, #e2e8f0);
+  background: transparent;
+  border-radius: 999px;
+  padding: .15rem .55rem;
+  font-size: .7rem;
+  font-weight: 600;
+  color: var(--muted, #64748b);
+  cursor: pointer;
+}
+
+.fco-chip-on {
+  border-color: color-mix(in srgb, var(--primary, #4f46e5) 40%, var(--border, #e2e8f0));
+  color: var(--primary, #4f46e5);
+  background: color-mix(in srgb, var(--primary, #4f46e5) 8%, transparent);
+}
+
+.fco-lessons {
+  padding: .25rem 0 .5rem;
+}
+
+.fco-resources {
+  margin: 0 .5rem .5rem 0;
+}
+
+.fco-res-icon {
+  color: var(--muted, #64748b);
+  flex-shrink: 0;
+}
+
+.fco-link {
+  font-size: .78rem;
+  color: var(--primary, #4f46e5);
+  text-decoration: none;
+}
+
+.fco-link:hover {
+  text-decoration: underline;
+}
+
+.fco-empty-inline {
+  padding: .5rem 1rem .5rem 2.5rem;
+  font-size: .8rem;
+  color: var(--muted, #64748b);
+}
+
+/* Modale centrée sur le viewport (via appBodyPortal → document.body) */
+.fco-modal-backdrop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, .45);
+}
+
+.fco-modal {
+  position: relative;
+  width: min(720px, calc(100vw - 2rem));
+  max-height: min(90vh, 860px);
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: .85rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, .18);
+}
+
+.fco-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.fco-modal-head h4 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.fco-modal-tabs {
+  display: flex;
+  gap: .25rem;
+  padding: .5rem 1.1rem 0;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.fco-modal-tab {
+  border: none;
+  background: transparent;
+  padding: .55rem .85rem;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--muted, #64748b);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.fco-modal-tab.active {
+  color: var(--primary, #4f46e5);
+  border-bottom-color: var(--primary, #4f46e5);
+}
+
+.fco-modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+}
+
+.fco-modal-body label,
+.fco-label-block {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  font-weight: 600;
+  font-size: .85rem;
+}
+
+.fco-block {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: .65rem;
+  padding: .85rem;
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  background: var(--surface-2, #f8fafc);
+}
+
+.fco-block-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fco-attachments {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .65rem;
+}
+
+.fco-file-name {
+  font-weight: 500;
+  font-size: .8rem;
+  color: var(--muted, #64748b);
+}
+
+.fco-preview-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.fco-preview-centered {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 42rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.fco-preview-part {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+.fco-preview-part:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.fco-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+  padding: .85rem 1.1rem;
+  border-top: 1px solid var(--border, #e2e8f0);
+  flex-shrink: 0;
+  background: var(--surface, #fff);
+  border-radius: 0 0 .85rem .85rem;
+}
+
+@media (max-width: 640px) {
+  .fco-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+  .fco-row-lesson,
+  .fco-row-resource {
+    padding-left: .75rem;
+  }
+  .fco-modal {
+    width: calc(100vw - 1rem);
+    max-height: 95vh;
+  }
+  .fco-attachments {
+    grid-template-columns: 1fr;
+  }
+}

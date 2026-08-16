@@ -6,7 +6,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EmployeeDirectory.Infrastructure.Services;
 
-public sealed class DirectoryIamReadService(DirectoryDbContext db) : IIamReadService, IPermissionCatalog, IRebacClient
+public sealed class DirectoryIamReadService(
+    DirectoryDbContext db,
+    IOrgResponsibilityResolver responsibility) : IIamReadService, IPermissionCatalog, IRebacClient
 {
     public async Task<EffectivePermissionsDto> GetEffectivePermissionsAsync(Guid subjectId, string role, CancellationToken ct = default)
     {
@@ -46,5 +48,20 @@ public sealed class DirectoryIamReadService(DirectoryDbContext db) : IIamReadSer
         var read = new DirectoryReadService(db);
         var dto = await read.GetManagedNodesAsync(employeeId, kind, ct);
         return dto.NodeIds;
+    }
+
+    public Task<IReadOnlyList<Guid>> GetManagedEmployeeIdsAsync(Guid actorId, CancellationToken ct = default) =>
+        responsibility.GetManagedEmployeeIdsAsync(actorId, ct);
+
+    public Task<bool> CanActOnAsync(Guid actorId, Guid targetEmployeeId, CancellationToken ct = default) =>
+        responsibility.CanActOnAsync(actorId, targetEmployeeId, ct);
+
+    public async Task<IReadOnlyList<Guid>> GetResponsibleIdsAsync(string kind, string nodeId, CancellationToken ct = default)
+    {
+        var list = await responsibility.GetResponsiblesAsync(kind, nodeId, ct);
+        return list
+            .Select(r => Guid.TryParse(r.EmployeeId, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .ToList();
     }
 }

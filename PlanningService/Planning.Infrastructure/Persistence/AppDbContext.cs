@@ -36,6 +36,8 @@ public class AppDbContext : DbContext
     public DbSet<PlanningAutoGenerateSettings> PlanningAutoGenerateSettings { get; set; } = null!;
     public DbSet<PlanningChangeRequest> PlanningChangeRequests { get; set; } = null!;
     public DbSet<PlanningExceptionalRequest> PlanningExceptionalRequests { get; set; } = null!;
+    public DbSet<PlanningReinforcementRequest> PlanningReinforcementRequests { get; set; } = null!;
+    public DbSet<PlanningReinforcementVolunteer> PlanningReinforcementVolunteers { get; set; } = null!;
     public DbSet<Reclamation> Reclamations { get; set; } = null!;
     public DbSet<ReclamationHistorique> ReclamationHistoriques { get; set; } = null!;
     public DbSet<Proposition> Propositions { get; set; } = null!;
@@ -245,6 +247,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.TimeZone).HasMaxLength(64);
             entity.Property(e => e.Target).HasMaxLength(32);
             entity.Property(e => e.LastRunWeekCode).HasMaxLength(16);
+            entity.Property(e => e.LastValidationReminderWeekCode).HasMaxLength(16);
         });
 
         modelBuilder.Entity<PlanningChangeRequest>(entity =>
@@ -313,6 +316,45 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.ProcessedBy)
                 .WithMany()
                 .HasForeignKey(e => e.ProcessedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<PlanningReinforcementRequest>(entity =>
+        {
+            entity.Property(e => e.WeekCode).IsRequired().HasMaxLength(16);
+            entity.Property(e => e.Reason).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.Status).HasConversion<int>();
+            entity.HasIndex(e => new { e.SubServiceId, e.SaturdayDate, e.Status });
+            entity.HasIndex(e => new { e.WeekCode, e.SubServiceId });
+            entity.HasOne(e => e.SubService)
+                .WithMany()
+                .HasForeignKey(e => e.SubServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.CreatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.WeeklyPlanning)
+                .WithMany()
+                .HasForeignKey(e => e.WeeklyPlanningId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<PlanningReinforcementVolunteer>(entity =>
+        {
+            entity.Property(e => e.Status).HasConversion<int>();
+            entity.HasIndex(e => new { e.RequestId, e.UserId }).IsUnique();
+            entity.HasOne(e => e.Request)
+                .WithMany(r => r.Volunteers)
+                .HasForeignKey(e => e.RequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.SelectedShiftConfig)
+                .WithMany()
+                .HasForeignKey(e => e.SelectedShiftConfigId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 

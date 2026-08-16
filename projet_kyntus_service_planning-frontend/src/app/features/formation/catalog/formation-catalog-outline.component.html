@@ -1,0 +1,261 @@
+<div class="fco-root">
+  <header class="fco-head">
+    <div>
+      <h3>Structure de la formation</h3>
+      <p class="fco-muted">Modules → leçons → parties (texte + pièces jointes). Rien n’est enregistré tant que vous n’avez pas cliqué « Enregistrer la formation ».</p>
+    </div>
+    <button type="button" class="ky-btn-secondary" (click)="addModule()">
+      <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
+      Module
+    </button>
+  </header>
+
+  @if (!model?.length) {
+    <div class="fco-empty">
+      <p>Aucun module. Ajoutez un module pour commencer le contenu.</p>
+    </div>
+  }
+
+  <ul class="fco-tree">
+    @for (m of model; track m.clientKey; let mi = $index) {
+      <li class="fco-module">
+        <div class="fco-row fco-row-module">
+          <button type="button" class="fco-toggle" (click)="toggleModule(m.clientKey)" [attr.aria-expanded]="isModuleOpen(m.clientKey)">
+            <app-lucide-icon [icon]="isModuleOpen(m.clientKey) ? icons.chevronDown : icons.chevron" className="w-4 h-4" />
+          </button>
+          @if (editingModuleKey === m.clientKey) {
+            <input
+              class="ky-input fco-inline-input"
+              [(ngModel)]="editTitle"
+              (keydown.enter)="commitEditModule(m)"
+              (blur)="commitEditModule(m)"
+              autofocus
+            />
+          } @else {
+            <button type="button" class="fco-title" (click)="startEditModule(m)">{{ m.title }}</button>
+          }
+          <span class="fco-meta">{{ m.lessons.length }} leçon(s)</span>
+          <div class="fco-actions">
+            <button type="button" class="ky-btn-ghost fco-icon-btn" title="Monter" [disabled]="mi === 0" (click)="moveModule(m, -1)">
+              <app-lucide-icon [icon]="icons.up" className="w-4 h-4" />
+            </button>
+            <button type="button" class="ky-btn-ghost fco-icon-btn" title="Descendre" (click)="moveModule(m, 1)">
+              <app-lucide-icon [icon]="icons.down" className="w-4 h-4" />
+            </button>
+            <button type="button" class="ky-btn-ghost fco-icon-btn" title="Ajouter une leçon" (click)="addLesson(m)">
+              <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
+            </button>
+            <button type="button" class="ky-btn-ghost fco-icon-btn" title="Supprimer" (click)="deleteModule(m)">
+              <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        @if (isModuleOpen(m.clientKey)) {
+          <ul class="fco-lessons">
+            @for (l of m.lessons; track l.clientKey; let li = $index) {
+              <li>
+                <div class="fco-row fco-row-lesson">
+                  <button type="button" class="fco-toggle" (click)="toggleLesson(l.clientKey)" [attr.aria-expanded]="isLessonOpen(l.clientKey)">
+                    <app-lucide-icon [icon]="isLessonOpen(l.clientKey) ? icons.chevronDown : icons.chevron" className="w-4 h-4" />
+                  </button>
+                  @if (editingLessonKey === l.clientKey) {
+                    <input
+                      class="ky-input fco-inline-input"
+                      [(ngModel)]="editTitle"
+                      (keydown.enter)="commitEditLesson(l)"
+                      (blur)="commitEditLesson(l)"
+                      autofocus
+                    />
+                  } @else {
+                    <button type="button" class="fco-title" (click)="startEditLesson(l)">{{ l.title }}</button>
+                  }
+                  <button
+                    type="button"
+                    class="fco-chip"
+                    [class.fco-chip-on]="l.isRequired"
+                    (click)="toggleRequired(l)"
+                  >
+                    {{ l.isRequired ? 'Obligatoire' : 'Optionnelle' }}
+                  </button>
+                  <div class="fco-actions">
+                    <button type="button" class="ky-btn-ghost fco-icon-btn" title="Monter" [disabled]="li === 0" (click)="moveLesson(m, l, -1)">
+                      <app-lucide-icon [icon]="icons.up" className="w-4 h-4" />
+                    </button>
+                    <button type="button" class="ky-btn-ghost fco-icon-btn" title="Descendre" (click)="moveLesson(m, l, 1)">
+                      <app-lucide-icon [icon]="icons.down" className="w-4 h-4" />
+                    </button>
+                    <button type="button" class="ky-btn-secondary fco-icon-btn" title="Ajouter une partie" (click)="openAddResource(l)">
+                      + Partie
+                    </button>
+                    <button type="button" class="ky-btn-ghost fco-icon-btn" title="Supprimer" (click)="deleteLesson(m, l)">
+                      <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                @if (isLessonOpen(l.clientKey)) {
+                  <ul class="fco-resources">
+                    @for (part of l.parts; track part.clientKey) {
+                      <li class="fco-row fco-row-resource">
+                        <app-lucide-icon [icon]="icons.text" className="w-4 h-4 fco-res-icon" />
+                        <button type="button" class="fco-title" (click)="openEditPart(l, part)">
+                          {{ part.title || 'Partie sans titre' }}
+                        </button>
+                        <span class="fco-meta">{{ partAttachmentLabels(part).join(' · ') || 'Vide' }}</span>
+                        <div class="fco-actions">
+                          <button type="button" class="ky-btn-ghost fco-icon-btn" title="Supprimer" (click)="deletePart(l, part)">
+                            <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </li>
+                    } @empty {
+                      <li class="fco-empty-inline">Aucune partie — cliquez « + Partie ».</li>
+                    }
+                  </ul>
+                }
+              </li>
+            } @empty {
+              <li class="fco-empty-inline">Aucune leçon dans ce module.</li>
+            }
+          </ul>
+        }
+      </li>
+    }
+  </ul>
+</div>
+
+@if (panelOpen) {
+  <div class="fco-modal-backdrop" appBodyPortal (click)="closePanel()">
+    <div
+      class="fco-modal"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="panelPartKey ? 'Modifier la partie' : 'Ajouter du contenu'"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="fco-modal-head">
+        <h4>{{ panelPartKey ? 'Modifier la partie' : 'Contenu de la leçon' }}</h4>
+        <button type="button" class="ky-btn-ghost fco-icon-btn" (click)="closePanel()">
+          <app-lucide-icon [icon]="icons.close" className="w-4 h-4" />
+        </button>
+      </header>
+
+      <div class="fco-modal-tabs" role="tablist">
+        <button
+          type="button"
+          class="fco-modal-tab"
+          role="tab"
+          [class.active]="panelTab === 'edit'"
+          (click)="panelTab = 'edit'"
+        >
+          Éditer
+        </button>
+        <button
+          type="button"
+          class="fco-modal-tab"
+          role="tab"
+          [class.active]="panelTab === 'preview'"
+          (click)="panelTab = 'preview'"
+        >
+          Aperçu
+        </button>
+      </div>
+
+      <div class="fco-modal-body">
+        @if (panelTab === 'edit') {
+          <p class="fco-muted">
+            Chaque partie combine un titre, un texte et des pièces jointes (PDF, vidéo, photo, lien).
+          </p>
+          @for (block of contentBlocks; track $index; let bi = $index) {
+            <section class="fco-block">
+              <header class="fco-block-head">
+                <strong>Partie {{ bi + 1 }}</strong>
+                <button
+                  type="button"
+                  class="ky-btn-ghost fco-icon-btn"
+                  title="Retirer cette partie"
+                  [disabled]="contentBlocks.length <= 1"
+                  (click)="removeContentBlock(bi)"
+                >
+                  <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+                </button>
+              </header>
+              <label>
+                Titre
+                <input class="ky-input" [(ngModel)]="block.title" placeholder="Titre de la partie" />
+              </label>
+              <label class="fco-label-block">
+                Paragraphe
+                <app-formation-rich-text-editor [(ngModel)]="block.textContent" />
+              </label>
+              @if (block.existingFiles.length) {
+                <div class="fco-attachments">
+                  @for (f of block.existingFiles; track f.id) {
+                    <div class="fco-file-name">
+                      {{ f.type }} : {{ f.fileName || f.title }}
+                      <button type="button" class="ky-btn-ghost" (click)="removeExistingFile(block, f.id)">Retirer</button>
+                    </div>
+                  }
+                </div>
+              }
+              <div class="fco-attachments">
+                <label>
+                  PDF
+                  <input type="file" accept=".pdf,application/pdf" (change)="onBlockFile(block, 'pdf', $event)" />
+                  @if (block.pdfFile) {
+                    <span class="fco-file-name">{{ block.pdfFile.name }}</span>
+                  }
+                </label>
+                <label>
+                  Vidéo (fichier)
+                  <input type="file" accept="video/*" (change)="onBlockFile(block, 'video', $event)" />
+                  @if (block.videoFile) {
+                    <span class="fco-file-name">{{ block.videoFile.name }}</span>
+                  }
+                </label>
+                <label>
+                  Ou URL vidéo
+                  <input class="ky-input" [(ngModel)]="block.videoUrl" placeholder="https://…" [disabled]="!!block.videoFile" />
+                </label>
+                <label>
+                  Photo
+                  <input type="file" accept="image/*" (change)="onBlockFile(block, 'image', $event)" />
+                  @if (block.imageFile) {
+                    <span class="fco-file-name">{{ block.imageFile.name }}</span>
+                  }
+                </label>
+                <label>
+                  Lien
+                  <input class="ky-input" [(ngModel)]="block.linkUrl" placeholder="https://…" />
+                </label>
+              </div>
+            </section>
+          }
+          @if (!panelPartKey) {
+            <button type="button" class="ky-btn-secondary" (click)="addContentBlock()">
+              <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
+              Ajouter une partie
+            </button>
+          }
+        } @else {
+          <div class="fco-preview-centered">
+            @for (part of previewBlocks(); track part.title) {
+              <div class="fco-preview-part">
+                <p class="fco-preview-title">{{ part.title }}</p>
+                @for (stub of part.stubs; track stub.id) {
+                  <app-formation-resource-viewer [resource]="stub" />
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <footer class="fco-modal-foot">
+        <button type="button" class="ky-btn-ghost" (click)="closePanel()">Annuler</button>
+        <button type="button" class="ky-btn-primary" (click)="savePanel()">Valider le contenu</button>
+      </footer>
+    </div>
+  </div>
+}

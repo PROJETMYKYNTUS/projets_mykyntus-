@@ -19,6 +19,7 @@ import { allowanceApiErrorMessage } from '../../lib/allowance-api-error';
 import { currentAllowancePeriod, validateAllowanceAmount } from '../../lib/allowance-status';
 import { sortMembersByPriority } from '../../lib/allowance-treatment-status';
 import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toast.service';
+import { BodyPortalDirective } from '../../../../shared/directives/body-portal.directive';
 
 @Component({
   selector: 'app-allowances-allocation-page',
@@ -30,6 +31,7 @@ import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toas
     AllowanceEmployeeAllocationsPanelComponent,
     AllowanceRequestFormModalComponent,
     AllowanceStatusBadgeComponent,
+    BodyPortalDirective,
   ],
   template: `
     <div class="allocation-page">
@@ -148,7 +150,7 @@ import { KyntusToastService } from '../../../../shared/components/ui/kyntus-toas
     />
 
     @if (detailRow()) {
-      <div class="allowance-modal-backdrop" (click)="closeDetail()">
+      <div class="allowance-modal-backdrop" appBodyPortal (click)="closeDetail()">
         <div class="allowance-detail-modal" role="dialog" (click)="$event.stopPropagation()">
           <header class="allowance-detail-modal__header">
             <h2>Détail demande</h2>

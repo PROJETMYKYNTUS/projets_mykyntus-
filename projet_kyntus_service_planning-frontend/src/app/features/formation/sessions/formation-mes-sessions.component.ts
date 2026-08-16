@@ -173,17 +173,20 @@ export class FormationMesSessionsComponent implements OnInit {
   }
 
   canOpenAppel(s: TrainingSessionDto): boolean {
+    if (typeof s.canMarkAttendance === 'boolean') return s.canMarkAttendance;
     const start = this.parseSessionDate(s.plannedStart);
     return !!start && Date.now() >= start.getTime();
   }
 
   canOpenCompteRendu(s: TrainingSessionDto): boolean {
+    if (typeof s.canUploadReport === 'boolean') return s.canUploadReport;
     const end = this.parseSessionDate(s.plannedEnd);
     return !!end && Date.now() >= end.getTime();
   }
 
   appelHint(s: TrainingSessionDto): string {
     if (this.canOpenAppel(s)) return 'Faire l’appel des présents / absents';
+    if (s.attendanceBlockedReason) return s.attendanceBlockedReason;
     const start = this.parseSessionDate(s.plannedStart);
     return start
       ? `Disponible à partir du ${start.toLocaleString('fr-FR')}`
@@ -192,6 +195,7 @@ export class FormationMesSessionsComponent implements OnInit {
 
   compteRenduHint(s: TrainingSessionDto): string {
     if (this.canOpenCompteRendu(s)) return 'Déposer le compte rendu de séance';
+    if (s.reportBlockedReason) return s.reportBlockedReason;
     const end = this.parseSessionDate(s.plannedEnd);
     return end
       ? `Disponible après la fin (${end.toLocaleString('fr-FR')})`

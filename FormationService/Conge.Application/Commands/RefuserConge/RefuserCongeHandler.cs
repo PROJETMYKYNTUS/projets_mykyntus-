@@ -8,15 +8,18 @@ namespace Conge.Application.Commands.RefuserConge;
 public class RefuserCongeHandler : IRequestHandler<RefuserCongeCommand, bool>
 {
     private readonly IDemandeCongeRepository _demandeRepo;
+    private readonly IEmployeSnapshotRepository _employeRepo;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICongeEventPublisher _publisher;
 
     public RefuserCongeHandler(
         IDemandeCongeRepository demandeRepo,
+        IEmployeSnapshotRepository employeRepo,
         IUnitOfWork unitOfWork,
         ICongeEventPublisher publisher)
     {
         _demandeRepo = demandeRepo;
+        _employeRepo = employeRepo;
         _unitOfWork = unitOfWork;
         _publisher = publisher;
     }
@@ -26,7 +29,9 @@ public class RefuserCongeHandler : IRequestHandler<RefuserCongeCommand, bool>
         var demande = await _demandeRepo.GetByIdAsync(request.DemandeId, ct)
             ?? throw new CongeNotFoundException(request.DemandeId);
 
-        demande.Refuser(request.ManagerId, request.Commentaire);
+        var acteur = await _employeRepo.GetByEmployeIdAsync(request.ManagerId, ct);
+        var acteurNom = acteur?.NomComplet;
+        demande.Refuser(request.ManagerId, request.Commentaire, acteurNom, acteur?.Role);
 
         _demandeRepo.Update(demande);
         await _unitOfWork.SaveChangesAsync(ct);
@@ -35,6 +40,8 @@ public class RefuserCongeHandler : IRequestHandler<RefuserCongeCommand, bool>
             demande.EmployeId,
             demande.Id,
             request.Commentaire,
+            request.ManagerId,
+            acteurNom,
             ct);
 
         return true;

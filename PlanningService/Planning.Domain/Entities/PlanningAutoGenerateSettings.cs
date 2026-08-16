@@ -16,6 +16,10 @@ public class PlanningAutoGenerateSettings
     public string Target { get; set; } = "NextWeek";
     public DateTime? LastRunAt { get; set; }
     public string? LastRunWeekCode { get; set; }
+    /// <summary>Date locale du dernier rappel J-1 demandes pending (anti-doublon).</summary>
+    public DateOnly? LastPendingJ1ReminderDate { get; set; }
+    /// <summary>WeekCode du dernier rappel RH phase validation.</summary>
+    public string? LastValidationReminderWeekCode { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public int? UpdatedByUserId { get; set; }
 }

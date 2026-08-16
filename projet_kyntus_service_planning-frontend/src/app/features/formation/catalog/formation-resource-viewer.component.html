@@ -1,0 +1,56 @@
+<div class="frv">
+  @if (needsUserReveal()) {
+    <div class="frv-reveal">
+      <div class="frv-reveal-meta">
+        <strong>{{ mediaKindLabel() }}</strong>
+        <span>{{ effective.title || 'Ressource' }}</span>
+        @if (effective.fileName) {
+          <span class="frv-reveal-file">{{ effective.fileName }}</span>
+        }
+      </div>
+      <button type="button" class="ky-btn-secondary" (click)="revealMedia()">
+        Afficher {{ mediaKindLabel().toLowerCase() }}
+      </button>
+    </div>
+  } @else if (mediaLoading) {
+    <div class="frv-skeleton" aria-busy="true">
+      <div class="frv-skeleton-bar"></div>
+      <div class="frv-skeleton-bar frv-skeleton-short"></div>
+      <p class="frv-empty">Chargement du média…</p>
+    </div>
+  } @else if (mediaError) {
+    <p class="frv-empty frv-error">{{ mediaError }}</p>
+  } @else if (isPdf() && embed) {
+    <iframe class="frv-frame" [src]="embed" title="PDF"></iframe>
+  } @else if (isVideo() && isExternalVideo() && embed) {
+    <iframe class="frv-frame" [src]="embed" title="Vidéo" allowfullscreen></iframe>
+  } @else if (isVideo() && displaySrc()) {
+    <div class="frv-video-wrap">
+      <video
+        class="frv-video"
+        controls
+        preload="metadata"
+        [src]="displaySrc()"
+        controlslist="nodownload"
+      ></video>
+    </div>
+  } @else if (isImage() && displaySrc()) {
+    <div class="frv-image-wrap" [class.frv-image-zoomed]="imageZoomed">
+      <button type="button" class="frv-image-btn" (click)="toggleZoom()" [attr.title]="imageZoomed ? 'Réduire' : 'Agrandir'">
+        <img class="frv-image" [src]="displaySrc()" [alt]="effective.title || 'Image'" />
+      </button>
+    </div>
+  } @else if (isText()) {
+    @if (safeHtml) {
+      <div class="frv-text" [innerHTML]="safeHtml"></div>
+    } @else {
+      <p class="frv-empty">Aucun contenu texte.</p>
+    }
+  } @else if (displaySrc() || effective.url) {
+    <a class="ky-btn-secondary" [href]="displaySrc() || effective.url || '#'" target="_blank" rel="noopener">
+      Ouvrir le lien
+    </a>
+  } @else {
+    <p class="frv-empty">Aucun média à afficher.</p>
+  }
+</div>

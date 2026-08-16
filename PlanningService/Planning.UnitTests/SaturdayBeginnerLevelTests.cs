@@ -20,7 +20,7 @@ public class SaturdayBeginnerLevelTests
     }
 
     private static PlanningService CreateService(AppDbContext db) =>
-        new(db, new FakePlanningHubContext());
+        new(db, new FakePlanningHubContext(), new PlanningPerimeterResolver(db));
 
     private static async Task SeedBaseAsync(AppDbContext db)
     {

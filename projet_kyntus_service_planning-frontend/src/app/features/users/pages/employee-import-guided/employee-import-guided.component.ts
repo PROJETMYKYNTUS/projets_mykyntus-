@@ -67,6 +67,7 @@ import {
   saveEmployeeImportWizardDraft,
 
 } from './employee-import-wizard.draft';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 
 
@@ -90,6 +91,7 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
   private readonly host = inject(EMPLOYEE_IMPORT_HOST, { optional: true });
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly toast = inject(KyntusToastService);
+  private readonly confirmService = inject(KyntusConfirmService);
 
   readonly isEnabledCheckboxLocked = isEnabledCheckboxLocked;
   readonly isRequiredCheckboxLocked = isRequiredCheckboxLocked;
@@ -249,7 +251,7 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       },
       error: (err) =>
-        alert(err?.error?.message ?? 'Impossible de sauvegarder la configuration.'),
+        this.toast.error(err?.error?.message ?? 'Impossible de sauvegarder la configuration.'),
     });
   }
 
@@ -387,7 +389,7 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
     if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
 
-      alert('Format non supporté. Utilisez .xlsx ou .csv');
+      this.toast.error('Format non supporté. Utilisez .xlsx ou .csv');
 
       return;
 
@@ -623,9 +625,9 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
 
 
-  goToPreview(): void {
+  async goToPreview(): Promise<void> {
     this.refreshMappingValidation();
-    if (!this.confirmMappingWarnings()) return;
+    if (!(await this.confirmMappingWarnings())) return;
     if (!this.analyzeResult) return;
 
     this.previewSkip = 0;
@@ -691,26 +693,29 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.previewLoading = false;
-        alert(err?.error ?? 'Prévisualisation impossible.');
+        this.toast.error(String(err?.error ?? 'Prévisualisation impossible.'));
         this.cdr.detectChanges();
       },
     });
   }
 
-  private confirmMappingWarnings(): boolean {
+  private async confirmMappingWarnings(): Promise<boolean> {
     const errors = this.mappingErrors();
     if (errors.length) {
-      alert(errors.map((e) => e.message).join('\n'));
+      this.toast.error(errors.map((e) => e.message).join('\n'));
       return false;
     }
 
     const warnings = this.mappingWarnings();
     if (warnings.length) {
-      return confirm(
-        'Le mapping semble incohérent :\n\n' +
+      return this.confirmService.confirm({
+        title: 'Mapping incohérent',
+        message:
+          'Le mapping semble incohérent :\n\n' +
           warnings.map((w) => `• ${w.message}`).join('\n') +
           '\n\nContinuer quand même ?',
-      );
+        confirmLabel: 'Continuer',
+      });
     }
 
     return true;
@@ -718,13 +723,13 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
 
 
-  goToOrg(): void {
+  async goToOrg(): Promise<void> {
     this.refreshMappingValidation();
-    if (!this.confirmMappingWarnings()) return;
+    if (!(await this.confirmMappingWarnings())) return;
     if (!this.analyzeResult) return;
 
     if (!this.hasOrgColumnsMapped()) {
-      alert('Mappez au moins les colonnes Pôle, Cellule ou Service avant l\'étape Organisation.');
+      this.toast.error('Mappez au moins les colonnes Pôle, Cellule ou Service avant l\'étape Organisation.');
       return;
     }
 
@@ -763,10 +768,17 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
         this.persistDraft();
         this.cdr.detectChanges();
       },
-      error: (err) => {
+      error: (err: { error?: unknown; message?: string } | null) => {
         this.revalidatingOrg = false;
-        this.orgRevalidateError = err?.error ?? err?.message ?? 'Analyse organisation impossible.';
-        alert(this.orgRevalidateError);
+        const raw = err?.error;
+        const msg =
+          typeof raw === 'string'
+            ? raw
+            : typeof raw === 'object' && raw && 'message' in raw && typeof (raw as { message: unknown }).message === 'string'
+              ? (raw as { message: string }).message
+              : err?.message ?? 'Analyse organisation impossible.';
+        this.orgRevalidateError = msg;
+        this.toast.error(msg);
         this.cdr.detectChanges();
       },
     });
@@ -784,8 +796,8 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
     );
   }
 
-  goToConfirm(): void {
-    if (!this.validateOrgStep()) return;
+  async goToConfirm(): Promise<void> {
+    if (!(await this.validateOrgStep())) return;
     this.goToStep('confirm');
   }
 
@@ -859,25 +871,27 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
     this.acceptedFuzzyMatches = this.fuzzyMatchesNeedingApproval();
   }
 
-  private validateOrgStep(): boolean {
+  private async validateOrgStep(): Promise<boolean> {
     const errors = this.orgErrors();
     if (errors.length) {
-      alert(errors.map((e) => `Ligne ${e.lineNumber} : ${e.message}`).join('\n'));
+      this.toast.error(errors.map((e) => `Ligne ${e.lineNumber} : ${e.message}`).join('\n'));
       return false;
     }
 
     const approved = this.approvedOrgCreations.filter((p) => p.approved);
     if (this.approvedOrgCreations.length > 0 && approved.length === 0) {
-      alert('Cochez au moins un élément organisationnel à créer, ou corrigez les noms dans le fichier.');
+      this.toast.error('Cochez au moins un élément organisationnel à créer, ou corrigez les noms dans le fichier.');
       return false;
     }
 
     const pending = approved;
     if (pending.length > 0) {
       const labels = pending.map((p) => `• ${p.confirmationLabel}`).join('\n');
-      return confirm(
-        `Êtes-vous sûr de créer les organisations suivantes ?\n\n${labels}\n\nCes nœuds seront créés dans votre référentiel organisationnel local.`,
-      );
+      return this.confirmService.confirm({
+        title: 'Créer les organisations',
+        message: `Êtes-vous sûr de créer les organisations suivantes ?\n\n${labels}\n\nCes nœuds seront créés dans votre référentiel organisationnel local.`,
+        confirmLabel: 'Créer',
+      });
     }
 
     return true;
@@ -916,7 +930,7 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
         this.executeProgressLabel = null;
         this.executeProcessedLignes = 0;
         if (err?.status === 504) {
-          alert(
+          this.toast.error(
             'Le serveur a mis trop de temps à répondre (504). L\'import peut encore être en cours côté serveur.\n\n' +
             'Attendez 1 à 2 minutes puis consultez Historique import avant de relancer.'
           );
@@ -928,7 +942,7 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
           ? err.error
           : err?.error?.message ?? err?.message ?? 'Import échoué.';
         const alreadyWrapped = detail.includes("L'import a échoué");
-        alert(alreadyWrapped ? detail : `Aucune modification n'a été appliquée.\n\n${detail}`);
+        this.toast.error(alreadyWrapped ? detail : `Aucune modification n'a été appliquée.\n\n${detail}`);
         this.cdr.detectChanges();
       },
     });
@@ -1068,12 +1082,12 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  goToStep(step: EmployeeImportWizardStep, viaStepper = false): void {
+  async goToStep(step: EmployeeImportWizardStep, viaStepper = false): Promise<void> {
     if (this.executing && step !== 'confirm') {
       return;
     }
     if (viaStepper && step === 'org') {
-      this.goToOrg();
+      await this.goToOrg();
       return;
     }
     if (viaStepper && !this.canNavigateToStep(step)) return;
@@ -1083,9 +1097,9 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
     const targetIdx = this.stepIndexFor(step);
     if (targetIdx > this.stepIndex() && targetIdx >= this.stepIndexFor('preview')) {
       this.refreshMappingValidation();
-      if (!this.confirmMappingWarnings()) return;
+      if (!(await this.confirmMappingWarnings())) return;
     }
-    if (targetIdx > this.stepIndexFor('org') && step === 'confirm' && !this.validateOrgStep()) {
+    if (targetIdx > this.stepIndexFor('org') && step === 'confirm' && !(await this.validateOrgStep())) {
       return;
     }
 

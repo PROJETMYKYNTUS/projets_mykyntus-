@@ -21,10 +21,32 @@
       </select>
     </label>
     <label>
+      Période
+      <select [(ngModel)]="filterPeriod" (change)="onPeriodChange()">
+        <option *ngFor="let opt of periodOptions" [value]="opt.value">{{ opt.label }}</option>
+      </select>
+    </label>
+    <label>
       Semaine
-      <input type="text" [(ngModel)]="filterWeek" placeholder="ex. 2026-S30" (keyup.enter)="reload()" />
+      <select [(ngModel)]="filterWeek" (change)="onWeekChange()">
+        <option value="">Toutes (selon période)</option>
+        <option *ngFor="let w of weekOptions" [value]="w.value">{{ w.label }}</option>
+      </select>
     </label>
     <button type="button" class="ky-btn-secondary" (click)="reload()">Filtrer</button>
+  </div>
+
+  <div class="pcr-recap gen-card" *ngIf="!loading">
+    <div class="pcr-recap-head">
+      <h3>Récapitulatif</h3>
+      <span class="pcr-recap-scope">{{ filterScopeLabel }}</span>
+    </div>
+    <div class="pcr-history-stats">
+      <span><strong>{{ recapTotal }}</strong> total</span>
+      <span><strong>{{ recapPending }}</strong> en cours</span>
+      <span><strong>{{ recapApproved }}</strong> approuvées</span>
+      <span><strong>{{ recapRejected }}</strong> rejetées</span>
+    </div>
   </div>
 
   <div class="gen-card">
@@ -52,7 +74,7 @@
               type="button"
               class="pcr-eye-btn"
               *ngIf="r.requesterUserId"
-              title="Historique du demandeur"
+              title="Historique du demandeur (période active)"
               aria-label="Historique du demandeur"
               (click)="openEmployeeHistory({ userId: r.requesterUserId, fullName: r.requesterName })">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -70,6 +92,9 @@
             <button type="button" class="pcr-reject" (click)="openReject(r.id)">Refuser</button>
           </td>
           <td *ngIf="!canActOn(r)">—</td>
+        </tr>
+        <tr *ngIf="requests.length === 0">
+          <td colspan="7" class="pcr-empty-row">Aucune demande pour ces filtres.</td>
         </tr>
       </tbody>
     </table>
@@ -91,7 +116,7 @@
       <div class="pcr-history-head">
         <div>
           <h3>Récapitulatif des demandes</h3>
-          <p class="pcr-hint">{{ historyName }}</p>
+          <p class="pcr-hint">{{ historyName }} · {{ filterScopeLabel }}</p>
         </div>
         <button type="button" class="pcr-close" (click)="closeEmployeeHistory()" aria-label="Fermer">×</button>
       </div>

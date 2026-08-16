@@ -22,11 +22,14 @@ public class FormationDbContext : DbContext
     public DbSet<TrainingQuiz> TrainingQuizzes => Set<TrainingQuiz>();
     public DbSet<TrainingQuizQuestion> TrainingQuizQuestions => Set<TrainingQuizQuestion>();
     public DbSet<TrainingQuizAttempt> TrainingQuizAttempts => Set<TrainingQuizAttempt>();
+    public DbSet<TrainingQuizTemplate> TrainingQuizTemplates => Set<TrainingQuizTemplate>();
+    public DbSet<TrainingQuizTemplateQuestion> TrainingQuizTemplateQuestions => Set<TrainingQuizTemplateQuestion>();
     public DbSet<TrainingCatalogItem> TrainingCatalogItems => Set<TrainingCatalogItem>();
     public DbSet<TrainingModule> TrainingModules => Set<TrainingModule>();
     public DbSet<TrainingLesson> TrainingLessons => Set<TrainingLesson>();
     public DbSet<TrainingResource> TrainingResources => Set<TrainingResource>();
     public DbSet<TrainingCatalogAudienceRule> TrainingCatalogAudienceRules => Set<TrainingCatalogAudienceRule>();
+    public DbSet<TrainingCatalogEnrollment> TrainingCatalogEnrollments => Set<TrainingCatalogEnrollment>();
     public DbSet<TrainingLessonProgress> TrainingLessonProgresses => Set<TrainingLessonProgress>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -60,6 +63,17 @@ public class FormationDbContext : DbContext
             e.Property(x => x.Email).HasMaxLength(320);
             e.Property(x => x.Role).HasMaxLength(100);
             e.Property(x => x.StructureKey).HasMaxLength(200);
+            e.Property(x => x.DepartmentId).HasMaxLength(200);
+            e.Property(x => x.PoleId).HasMaxLength(200);
+            e.Property(x => x.CelluleId).HasMaxLength(200);
+            e.Property(x => x.ServiceId).HasMaxLength(200);
+            e.Property(x => x.DepartmentName).HasMaxLength(200);
+            e.Property(x => x.PoleName).HasMaxLength(200);
+            e.Property(x => x.CelluleName).HasMaxLength(200);
+            e.Property(x => x.ServiceName).HasMaxLength(200);
+            e.HasIndex(x => x.PoleId);
+            e.HasIndex(x => x.CelluleId);
+            e.HasIndex(x => x.ServiceId);
         });
 
         modelBuilder.Entity<TrainingProgram>(e =>
@@ -79,7 +93,8 @@ public class FormationDbContext : DbContext
             e.HasIndex(x => x.CatalogItemId);
             e.HasMany(x => x.Assignments).WithOne(x => x.Session).HasForeignKey(x => x.SessionId);
             e.HasOne(x => x.Report).WithOne(x => x.Session).HasForeignKey<TrainingSessionReport>(x => x.SessionId);
-            e.HasOne(x => x.Quiz).WithOne(x => x.Session).HasForeignKey<TrainingQuiz>(x => x.SessionId);
+            e.HasOne(x => x.Quiz).WithOne(x => x.Session).HasForeignKey<TrainingQuiz>(x => x.SessionId)
+                .IsRequired(false);
             e.HasOne(x => x.CatalogItem).WithMany().HasForeignKey(x => x.CatalogItemId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
@@ -96,6 +111,11 @@ public class FormationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasMany(x => x.AudienceRules).WithOne(x => x.CatalogItem).HasForeignKey(x => x.CatalogItemId)
                 .OnDelete(DeleteBehavior.Cascade);
+            // Circularité CatalogItem ↔ Template : SetNull des deux côtés, sans cascade.
+            e.HasOne(x => x.DefaultQuizTemplate)
+                .WithMany()
+                .HasForeignKey(x => x.DefaultQuizTemplateId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<TrainingModule>(e =>
@@ -137,13 +157,24 @@ public class FormationDbContext : DbContext
             e.HasIndex(x => x.CatalogItemId);
         });
 
+        modelBuilder.Entity<TrainingCatalogEnrollment>(e =>
+        {
+            e.ToTable("training_catalog_enrollments");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.CatalogItemId, x.EmployeeId }).IsUnique();
+            e.HasIndex(x => x.EmployeeId);
+            e.HasIndex(x => x.DueAt);
+            e.HasOne(x => x.CatalogItem).WithMany().HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<TrainingLessonProgress>(e =>
         {
             e.ToTable("training_lesson_progress");
             e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.AssignmentId, x.LessonId }).IsUnique();
+            e.HasIndex(x => new { x.EnrollmentId, x.LessonId }).IsUnique();
             e.Property(x => x.ProgressPercent).HasColumnType("numeric(18,2)");
-            e.HasOne(x => x.Assignment).WithMany().HasForeignKey(x => x.AssignmentId)
+            e.HasOne(x => x.Enrollment).WithMany(x => x.LessonProgresses).HasForeignKey(x => x.EnrollmentId)
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Lesson).WithMany().HasForeignKey(x => x.LessonId)
                 .OnDelete(DeleteBehavior.Cascade);
@@ -219,11 +250,17 @@ public class FormationDbContext : DbContext
         {
             e.ToTable("training_quizzes");
             e.HasKey(x => x.Id);
+            // Index unique portable ; remplacé en SQL par un index partiel (SessionId IS NOT NULL).
             e.HasIndex(x => x.SessionId).IsUnique();
+            e.HasIndex(x => x.CatalogItemId);
             e.Property(x => x.Title).HasMaxLength(300).IsRequired();
             e.Property(x => x.PassThreshold).HasColumnType("numeric(18,2)");
             e.HasMany(x => x.Questions).WithOne(x => x.Quiz).HasForeignKey(x => x.QuizId);
             e.HasMany(x => x.Attempts).WithOne(x => x.Quiz).HasForeignKey(x => x.QuizId);
+            e.HasOne(x => x.Template).WithMany().HasForeignKey(x => x.TemplateId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.CatalogItem).WithMany().HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<TrainingQuizQuestion>(e =>
@@ -242,6 +279,34 @@ public class FormationDbContext : DbContext
             e.Property(x => x.AutoScore).HasColumnType("decimal(18,2)");
             e.Property(x => x.ManualScore).HasColumnType("decimal(18,2)");
             e.Property(x => x.FinalScore).HasColumnType("decimal(18,2)");
+        });
+
+        modelBuilder.Entity<TrainingQuizTemplate>(e =>
+        {
+            e.ToTable("training_quiz_templates");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Title).HasMaxLength(300).IsRequired();
+            e.Property(x => x.Category).HasMaxLength(200);
+            e.Property(x => x.CreatedByUserId).HasMaxLength(100);
+            e.Property(x => x.PassThreshold).HasColumnType("numeric(18,2)");
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.Category);
+            e.HasIndex(x => x.CatalogItemId);
+            e.HasMany(x => x.Questions).WithOne(x => x.Template).HasForeignKey(x => x.TemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.CatalogItem).WithMany().HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<TrainingQuizTemplateQuestion>(e =>
+        {
+            e.ToTable("training_quiz_template_questions");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Prompt).IsRequired();
+            e.Property(x => x.Points).HasColumnType("decimal(18,2)");
+            e.Property(x => x.ImageUrl).HasMaxLength(2000);
+            e.Property(x => x.ImageStoragePath).HasMaxLength(1000);
+            e.HasIndex(x => x.TemplateId);
         });
     }
 }

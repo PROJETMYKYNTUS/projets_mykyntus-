@@ -21,6 +21,8 @@ public static class KyntusJwtExtensions
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
+                // Garder "sub" / types courts tels quels (sinon "sub" → NameIdentifier et GetSubjectId casse).
+                options.MapInboundClaims = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
@@ -31,6 +33,8 @@ public static class KyntusJwtExtensions
                     ValidAudience = audience,
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.Zero,
+                    NameClaimType = ClaimTypes.Name,
+                    RoleClaimType = ClaimTypes.Role,
                 };
                 options.Events = new JwtBearerEvents
                 {
@@ -72,9 +76,13 @@ public static class KyntusClaimsPrincipalExtensions
     {
         if (principal?.Identity?.IsAuthenticated != true)
             return null;
-        var sub = principal.FindFirstValue("sub")?.Trim();
-        if (Guid.TryParse(sub, out var g) && g != Guid.Empty)
-            return g;
+
+        foreach (var raw in EnumerateSubjectCandidates(principal))
+        {
+            if (Guid.TryParse(raw, out var g) && g != Guid.Empty)
+                return g;
+        }
+
         return null;
     }
 
@@ -82,7 +90,25 @@ public static class KyntusClaimsPrincipalExtensions
     {
         if (principal?.Identity?.IsAuthenticated != true)
             return null;
-        var raw = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        var raw = principal.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? principal.FindFirstValue("nameid");
         return int.TryParse(raw, out var id) ? id : null;
+    }
+
+    private static IEnumerable<string> EnumerateSubjectCandidates(ClaimsPrincipal principal)
+    {
+        // JWT "sub" (prévu) — parfois remappé vers NameIdentifier si MapInboundClaims=true.
+        foreach (var claim in principal.FindAll("sub"))
+        {
+            if (!string.IsNullOrWhiteSpace(claim.Value))
+                yield return claim.Value.Trim();
+        }
+
+        foreach (var claim in principal.FindAll(ClaimTypes.NameIdentifier))
+        {
+            // Auth met aussi l'id numérique en NameIdentifier : on ne garde que les GUID.
+            if (!string.IsNullOrWhiteSpace(claim.Value) && claim.Value.Contains('-'))
+                yield return claim.Value.Trim();
+        }
     }
 }

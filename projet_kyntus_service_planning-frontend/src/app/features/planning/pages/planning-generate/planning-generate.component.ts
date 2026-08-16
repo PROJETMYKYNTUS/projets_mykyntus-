@@ -22,6 +22,7 @@ import type { OperationalDepartmentNode, OrgPoleNode } from '../../../prime/mode
 import { buildSubServiceOrgLabels } from '../../../../core/org/operational-org-picker';
 import { LucideIconComponent } from '../../../../shared/lucide-icon.component';
 import { KyntusPageHeaderComponent } from '../../../../shared/components/ui/kyntus-page-header.component';
+import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 import {
   AlertTriangle,
   BarChart3,
@@ -53,6 +54,7 @@ type SubServiceOption = {
 })
 export class PlanningGenerateComponent implements OnInit, OnDestroy {
   private readonly formDrafts = inject(KyntusFormDraftService);
+  private readonly confirmService = inject(KyntusConfirmService);
   private draftBinder?: KyntusObjectDraftBinder<{
     subServiceId: number;
     weekStartDate: string;
@@ -129,6 +131,49 @@ export class PlanningGenerateComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.draftBinder?.destroy();
+  }
+
+  touchDraft(): void {
+    this.draftBinder?.touch();
+  }
+
+  async resetDraftForm(): Promise<void> {
+    const ok = await this.confirmService.confirm({
+      title: 'Réinitialiser',
+      message: 'Réinitialiser les paramètres de génération et le brouillon ?',
+      confirmLabel: 'Réinitialiser',
+    });
+    if (!ok) return;
+    this.draftBinder?.discard();
+    const keepSubServiceId = this.subServiceId;
+    this.initCurrentWeek();
+    this.subServiceId = keepSubServiceId;
+    this.totalEffectif = this.serviceEmployeeCount || 0;
+    this.error = '';
+    this.successMsg = '';
+    this.restartDraftBinder();
+    this.cdr.detectChanges();
+  }
+
+  private restartDraftBinder(): void {
+    this.draftBinder?.destroy();
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'planning-generate',
+      () => ({
+        subServiceId: this.subServiceId,
+        weekStartDate: this.weekStartDate,
+        weekCode: this.weekCode,
+        totalEffectif: this.totalEffectif,
+      }),
+      (s) => {
+        this.subServiceId = s.subServiceId ?? this.subServiceId;
+        this.weekStartDate = s.weekStartDate || this.weekStartDate;
+        this.weekCode = s.weekCode || this.weekCode;
+        this.totalEffectif = s.totalEffectif ?? this.totalEffectif;
+      },
+    );
+    this.draftBinder.start();
   }
 
   initCurrentWeek(): void {
@@ -318,9 +363,15 @@ export class PlanningGenerateComponent implements OnInit, OnDestroy {
     this.router.navigate(['/planning/view', id]);
   }
 
-  deletePlanning(id: number, event: Event): void {
+  async deletePlanning(id: number, event: Event): Promise<void> {
     event.stopPropagation();
-    if (!confirm('Supprimer ce planning ? Cette action est irréversible.')) return;
+    const ok = await this.confirmService.confirm({
+      title: 'Supprimer le planning',
+      message: 'Supprimer ce planning ? Cette action est irréversible.',
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     this.planningService.delete(id).subscribe({
       next: () => {

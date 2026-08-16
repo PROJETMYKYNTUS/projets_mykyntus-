@@ -29,7 +29,7 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
     primeRoles: ['Pilote'],
   },
   { label: 'Types de prime', route: PRIME_ROUTE, primePath: '/types', primeRoles: ['Admin'] },
-  { label: 'Règles', route: PRIME_ROUTE, primePath: '/rules', primeRoles: ['Admin'] },
+  { label: 'Règles de prime', route: PRIME_ROUTE, primePath: '/rules', primeRoles: ['Admin'] },
   {
     label: 'Résultats',
     route: PRIME_ROUTE,
@@ -37,7 +37,7 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
     primeRoles: ['Admin', 'RH', 'RP', 'Chef de projet', 'Manager', 'Superviseur', 'Coach', 'Référent technique'],
   },
   {
-    label: 'Validation',
+    label: 'Valider les primes',
     route: PRIME_ROUTE,
     primePath: '/validation',
     primeRoles: ['Admin', 'RP', 'Chef de projet', 'Superviseur', 'Coach', 'Référent technique'],
@@ -74,7 +74,13 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
     primeRoles: ['Chef de projet', 'RP'],
   },
   {
-    label: 'Indicateurs PRIME (services / cellule)',
+    label: 'Périmètre superviseur',
+    route: PRIME_ROUTE,
+    primePath: '/superviseur/scope',
+    primeRoles: ['Superviseur'],
+  },
+  {
+    label: 'Indicateurs & pondérations (par service)',
     route: PRIME_ROUTE,
     primePath: '/prime-cellule-indicateurs',
     primeRoles: ['Superviseur'],
@@ -86,7 +92,7 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
     primeRoles: ['Superviseur'],
   },
   {
-    label: 'Partie personnalisée',
+    label: 'Partie service (pilotes)',
     route: PRIME_ROUTE,
     primePath: '/prime-fiches-pilotes',
     primeRoles: ['Superviseur'],
@@ -103,7 +109,7 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
     primePath: '/template-manager',
     primeRoles: ['Superviseur', 'Admin'],
   },
-  { label: 'Configuration', route: PRIME_ROUTE, primePath: '/configuration', primeRoles: ['Admin'] },
+  { label: 'Configuration Prime', route: PRIME_ROUTE, primePath: '/configuration', primeRoles: ['Admin'] },
   { label: 'Mes primes', route: PRIME_ROUTE, primePath: '/employee/primes', primeRoles: ['Pilote'] },
   { label: 'Ma performance', route: PRIME_ROUTE, primePath: '/employee/performance', primeRoles: ['Pilote'] },
 ];

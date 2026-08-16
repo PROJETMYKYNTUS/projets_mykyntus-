@@ -17,12 +17,44 @@
   </div>
 
   <div class="gen-card" *ngIf="!equipeLoading && equipePlannings.length > 0">
-    <p class="equipe-hint">Sélectionnez un planning pour ouvrir la grille complète (indicateurs, répartition, grille hebdomadaire) en lecture seule.</p>
-    <div class="equipe-list">
+    <div class="equipe-filters">
+      <input
+        class="ky-input"
+        type="search"
+        placeholder="Filtrer agents…"
+        [(ngModel)]="agentSearch"
+        aria-label="Filtrer la liste des agents"
+      />
+      <select class="ky-input" [(ngModel)]="agentFilterId">
+        <option [ngValue]="null">Tous les agents</option>
+        <option *ngFor="let a of agentOptions" [ngValue]="a.id">{{ a.label }}</option>
+      </select>
+      <button
+        type="button"
+        class="ky-btn-secondary"
+        *ngIf="agentFilterId != null"
+        (click)="clearAgentFilter()"
+      >
+        Effacer
+      </button>
+    </div>
+
+    <p class="equipe-hint">
+      Sélectionnez un planning pour ouvrir la grille complète (indicateurs, répartition, grille hebdomadaire) en lecture seule.
+      <span *ngIf="agentFilterId != null">
+        — {{ filteredEquipePlannings.length }} planning(s) pour l’agent sélectionné.
+      </span>
+    </p>
+
+    <div class="equipe-empty-filter" *ngIf="filteredEquipePlannings.length === 0">
+      Aucun planning trouvé pour cet agent dans votre périmètre.
+    </div>
+
+    <div class="equipe-list" *ngIf="filteredEquipePlannings.length > 0">
       <button
         type="button"
         class="equipe-row"
-        *ngFor="let p of equipePlannings"
+        *ngFor="let p of filteredEquipePlannings"
         (click)="openPlanning(p)">
         <div class="equipe-row-main">
           <span class="equipe-week">{{ formatWeekLabel(p.weekCode) }}</span>

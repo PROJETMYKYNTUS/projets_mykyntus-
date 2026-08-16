@@ -16,7 +16,12 @@ public interface IPlanningExceptionalRequestService
     Task<List<PlanningExceptionalRequestDto>> GetMyAsync(int requesterUserId);
 
     Task<List<PlanningExceptionalRequestDto>> GetAllAsync(
-        string? status, string? weekCode, int? viewerUserId = null, int? requesterUserId = null);
+        string? status,
+        string? weekCode,
+        int? viewerUserId = null,
+        int? requesterUserId = null,
+        DateOnly? from = null,
+        DateOnly? to = null);
 
     Task<ExceptionalRequestQuotaDto> GetQuotaAsync(int requesterUserId, int? year = null);
 

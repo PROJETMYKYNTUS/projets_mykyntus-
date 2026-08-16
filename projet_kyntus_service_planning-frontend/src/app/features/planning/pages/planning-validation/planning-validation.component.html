@@ -14,6 +14,26 @@
     </div>
   </app-kyntus-page-header>
 
+  <div
+    class="pv-pending-banner"
+    *ngIf="canSeePendingBanner && pendingSummary && pendingSummary.totalPendingCount > 0"
+  >
+    <strong>Demandes non traitées</strong>
+    <span>
+      {{ pendingSummary.changePendingCount }} changement(s)
+      (dont {{ pendingSummary.changePendingPartner }} partenaire /
+      {{ pendingSummary.changePendingSupervisor }} superviseur)
+      ·
+      {{ pendingSummary.exceptionalPendingCount }} exceptionnelle(s)
+      (dont {{ pendingSummary.exceptionalPendingSupervisor }} superviseur /
+      {{ pendingSummary.exceptionalPendingRh }} RH)
+    </span>
+    <div class="pv-pending-links">
+      <a routerLink="/planning/change-requests">Demandes de changement</a>
+      <a routerLink="/planning/exceptional-requests">Demandes exceptionnelles</a>
+    </div>
+  </div>
+
   <div class="week-nav ky-card">
     <button type="button" class="nav-btn" (click)="prevWeek()" aria-label="Semaine précédente">
       <app-lucide-icon [icon]="icons.prev" className="w-5 h-5" />
@@ -75,6 +95,27 @@
       <option value="published">Validés</option>
       <option value="missing">Non générés</option>
     </select>
+    <div class="agent-filter">
+      <input
+        class="ky-input"
+        type="search"
+        placeholder="Filtrer agents…"
+        [(ngModel)]="agentSearch"
+        aria-label="Filtrer la liste des agents"
+      />
+      <select class="ky-input" [(ngModel)]="agentFilterId">
+        <option [ngValue]="null">Tous les agents</option>
+        <option *ngFor="let a of agentOptions" [ngValue]="a.id">{{ a.label }}</option>
+      </select>
+      <button
+        type="button"
+        class="ky-btn-secondary agent-clear"
+        *ngIf="agentFilterId != null"
+        (click)="clearAgentFilter()"
+      >
+        Effacer
+      </button>
+    </div>
   </div>
 
   <div class="alert-error" *ngIf="error">{{ error }}</div>

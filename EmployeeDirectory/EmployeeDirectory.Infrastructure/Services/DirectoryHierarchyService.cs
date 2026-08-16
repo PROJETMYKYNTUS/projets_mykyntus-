@@ -50,6 +50,8 @@ public sealed class DirectoryHierarchyService(DirectoryDbContext db)
 
     public async Task ApplyAssignmentToEmployeeAsync(Employee employee, DomainAssignmentKind kind, string nodeId, CancellationToken ct)
     {
+        // ParentId est une dénormalisation d'affichage (organigramme) uniquement.
+        // L'habilitation multi-responsables se résout via OrgAssignment / OrgResponsibilityResolver.
         switch (kind)
         {
             case DomainAssignmentKind.ChefDeProjet:
@@ -94,11 +96,15 @@ public sealed class DirectoryHierarchyService(DirectoryDbContext db)
         }
     }
 
+    /// <summary>
+    /// Choix déterministe pour l'affichage : titulaire actif le plus ancien sur le nœud.
+    /// </summary>
     private async Task<Guid?> FindActiveAssigneeAsync(DomainAssignmentKind kind, string nodeId, CancellationToken ct)
     {
         var row = await db.OrgAssignments.AsNoTracking()
             .Where(a => a.Kind == kind && a.NodeId == nodeId && a.EffectiveTo == null)
-            .OrderByDescending(a => a.EffectiveFrom)
+            .OrderBy(a => a.EffectiveFrom)
+            .ThenBy(a => a.Id)
             .FirstOrDefaultAsync(ct);
         return row?.EmployeeId;
     }

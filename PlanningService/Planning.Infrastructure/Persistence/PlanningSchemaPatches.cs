@@ -263,6 +263,10 @@ public static class PlanningSchemaPatches
               ADD COLUMN IF NOT EXISTS "PartnerRespondedAt" timestamp with time zone NULL;
             ALTER TABLE "PlanningChangeRequests"
               ADD COLUMN IF NOT EXISTS "SupervisorProcessedByUserId" integer NULL;
+            ALTER TABLE "PlanningChangeRequests"
+              ADD COLUMN IF NOT EXISTS "ProcessedByUserId" integer NULL;
+            ALTER TABLE "PlanningChangeRequests"
+              ADD COLUMN IF NOT EXISTS "ProcessedAt" timestamp with time zone NULL;
             """,
             ct);
     }
@@ -298,6 +302,37 @@ public static class PlanningSchemaPatches
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_Users_IdTechnicien"
                 ON "Users" ("IdTechnicien")
                 WHERE "IdTechnicien" IS NOT NULL;
+            """,
+            ct);
+    }
+
+    /// <summary>Colonne Users.SaturdayWorkMode (null = défaut Niveau).</summary>
+    public static async Task EnsureUserSaturdayWorkModeColumnAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "SaturdayWorkMode" integer NULL;
+            """,
+            ct);
+    }
+
+    /// <summary>Colonnes cas particulier (exclusion pauses extrêmes +3h/+5h).</summary>
+    public static async Task EnsureUserSpecialCaseColumnsAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "IsSpecialCase" boolean NOT NULL DEFAULT false;
+            ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "SpecialCaseDescription" character varying(500) NULL;
+            """,
+            ct);
+    }
+
+    /// <summary>Ticket formation plateau (jamais Opening/Closing).</summary>
+    public static async Task EnsureUserPlateauTrainingColumnAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "IsPlateauTraining" boolean NOT NULL DEFAULT false;
             """,
             ct);
     }
@@ -348,6 +383,11 @@ public static class PlanningSchemaPatches
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_PlanningExceptionalRequests_Active_User_Date"
               ON "PlanningExceptionalRequests" ("RequesterUserId", "RequestedDate")
               WHERE "Status" IN (0, 1, 2);
+
+            ALTER TABLE "PlanningExceptionalRequests"
+              ADD COLUMN IF NOT EXISTS "ProcessedByUserId" integer NULL;
+            ALTER TABLE "PlanningExceptionalRequests"
+              ADD COLUMN IF NOT EXISTS "ProcessedAt" timestamp with time zone NULL;
             """,
             ct);
     }
@@ -359,6 +399,79 @@ public static class PlanningSchemaPatches
             """
             ALTER TABLE "ShiftAssignments"
               ADD COLUMN IF NOT EXISTS "IsExceptionalRequest" boolean NOT NULL DEFAULT false;
+            """,
+            ct);
+    }
+
+    /// <summary>Tables renfort samedi + flag IsReinforcement (idempotent).</summary>
+    public static async Task EnsurePlanningReinforcementRequestsTableAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "PlanningReinforcementRequests" (
+                "Id" serial PRIMARY KEY,
+                "WeekCode" character varying(16) NOT NULL,
+                "SaturdayDate" date NOT NULL,
+                "SubServiceId" integer NOT NULL,
+                "SlotsNeeded" integer NOT NULL DEFAULT 1,
+                "Reason" character varying(1000) NOT NULL,
+                "Status" integer NOT NULL DEFAULT 0,
+                "CreatedByUserId" integer NOT NULL,
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
+                "ClosedAt" timestamp with time zone NULL,
+                "WeeklyPlanningId" integer NULL,
+                CONSTRAINT "FK_PlanningReinforcementRequests_SubServices"
+                  FOREIGN KEY ("SubServiceId") REFERENCES "SubServices" ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_PlanningReinforcementRequests_Users_CreatedBy"
+                  FOREIGN KEY ("CreatedByUserId") REFERENCES "Users" ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_PlanningReinforcementRequests_WeeklyPlannings"
+                  FOREIGN KEY ("WeeklyPlanningId") REFERENCES "WeeklyPlannings" ("Id") ON DELETE SET NULL
+            );
+            CREATE INDEX IF NOT EXISTS "IX_PlanningReinforcementRequests_Sub_Sat_Status"
+              ON "PlanningReinforcementRequests" ("SubServiceId", "SaturdayDate", "Status");
+            CREATE INDEX IF NOT EXISTS "IX_PlanningReinforcementRequests_Week_Sub"
+              ON "PlanningReinforcementRequests" ("WeekCode", "SubServiceId");
+
+            CREATE TABLE IF NOT EXISTS "PlanningReinforcementVolunteers" (
+                "Id" serial PRIMARY KEY,
+                "RequestId" integer NOT NULL,
+                "UserId" integer NOT NULL,
+                "Status" integer NOT NULL DEFAULT 0,
+                "RespondedAt" timestamp with time zone NULL,
+                "SelectedAt" timestamp with time zone NULL,
+                "SelectedShiftConfigId" integer NULL,
+                CONSTRAINT "FK_PlanningReinforcementVolunteers_Request"
+                  FOREIGN KEY ("RequestId") REFERENCES "PlanningReinforcementRequests" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_PlanningReinforcementVolunteers_Users"
+                  FOREIGN KEY ("UserId") REFERENCES "Users" ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_PlanningReinforcementVolunteers_ShiftConfig"
+                  FOREIGN KEY ("SelectedShiftConfigId") REFERENCES "SubServiceShiftConfigs" ("Id") ON DELETE SET NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_PlanningReinforcementVolunteers_Request_User"
+              ON "PlanningReinforcementVolunteers" ("RequestId", "UserId");
+
+            ALTER TABLE "ShiftAssignments"
+              ADD COLUMN IF NOT EXISTS "IsReinforcement" boolean NOT NULL DEFAULT false;
+
+            ALTER TABLE "PlanningReinforcementRequests"
+              ADD COLUMN IF NOT EXISTS "SelectedByUserId" integer NULL;
+            ALTER TABLE "PlanningReinforcementRequests"
+              ADD COLUMN IF NOT EXISTS "ClosedByUserId" integer NULL;
+            ALTER TABLE "PlanningReinforcementRequests"
+              ADD COLUMN IF NOT EXISTS "CancelledByUserId" integer NULL;
+            """,
+            ct);
+    }
+
+    /// <summary>Colonnes anti-doublon rappels demandes pending (idempotent).</summary>
+    public static async Task EnsurePendingRequestReminderColumnsAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE "PlanningAutoGenerateSettings"
+              ADD COLUMN IF NOT EXISTS "LastPendingJ1ReminderDate" date NULL;
+            ALTER TABLE "PlanningAutoGenerateSettings"
+              ADD COLUMN IF NOT EXISTS "LastValidationReminderWeekCode" character varying(16) NULL;
             """,
             ct);
     }

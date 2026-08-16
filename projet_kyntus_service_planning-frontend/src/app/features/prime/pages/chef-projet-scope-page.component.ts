@@ -4,12 +4,13 @@ import { PrimeCardComponent } from '../components/prime-card.component';
 import {
   dedupeEmployeesByEmail,
   employeesInChefProjetPole,
-  resolveChefProjetPoleId,
+  resolveChefProjetPoleIds,
   resolvePlatformOrgLabels,
 } from '../../../core/org/platform-org-perimeter';
-import { PrimeOrgApiService } from '../services/prime-org-api.service';
+import { PrimeOrgApiService, type OrgAssignmentsOverview } from '../services/prime-org-api.service';
 import { PrimeService } from '../services/prime.service';
 import { RoleService } from '../state/role.service';
+import type { OperationalDepartmentNode, OrgPoleNode } from '../models/org-tree.types';
 
 interface ScopeRow {
   id: string;
@@ -19,6 +20,31 @@ interface ScopeRow {
   service: string;
   cellule: string;
   pole: string;
+}
+
+interface PoleOption {
+  id: string;
+  label: string;
+}
+
+function poleStorageKey(userId: string): string {
+  return `kyntus.scope.pole.${userId.trim().toLowerCase()}`;
+}
+
+function resolvePoleLabel(
+  poleId: string,
+  overview: OrgAssignmentsOverview | null,
+  operationalDepartments: OperationalDepartmentNode[],
+  unassignedPoles: OrgPoleNode[],
+): string {
+  for (const md of operationalDepartments) {
+    const p = (md.poles ?? []).find((x) => x.id === poleId);
+    if (p?.name) return p.name;
+  }
+  const orphan = unassignedPoles.find((p) => p.id === poleId);
+  if (orphan?.name) return orphan.name;
+  const etage = overview?.etages?.find((e) => e.id === poleId);
+  return etage?.name?.trim() || poleId;
 }
 
 @Component({
@@ -38,6 +64,21 @@ interface ScopeRow {
             Collaborateurs du même pôle que votre affectation (superviseurs, référents techniques, pilotes).
           </p>
         </div>
+
+        @if (poleOptions().length > 1) {
+          <label class="scope-pole-picker">
+            <span>Pôle actif</span>
+            <select
+              class="scope-pole-select"
+              [value]="selectedPoleId()"
+              (change)="onPoleChange($event)"
+            >
+              @for (opt of poleOptions(); track opt.id) {
+                <option [value]="opt.id">{{ opt.label }}</option>
+              }
+            </select>
+          </label>
+        }
 
         <app-prime-card title="Vue pôle" className="p-0">
           <div class="overflow-x-auto">
@@ -76,6 +117,30 @@ interface ScopeRow {
       </div>
     }
   `,
+  styles: [
+    `
+      .scope-pole-picker {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        margin-bottom: 1rem;
+        max-width: 22rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-secondary, #64748b);
+      }
+
+      .scope-pole-select {
+        border: 1px solid var(--border-color, #e2e8f0);
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        background: var(--bg-card, #fff);
+        color: var(--text-primary, #0f172a);
+      }
+    `,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChefProjetScopePageComponent {
@@ -84,6 +149,8 @@ export class ChefProjetScopePageComponent {
 
   readonly rows = signal<ScopeRow[]>([]);
   readonly loading = signal(true);
+  readonly poleOptions = signal<PoleOption[]>([]);
+  readonly selectedPoleId = signal('');
 
   constructor() {
     effect(() => {
@@ -93,7 +160,31 @@ export class ChefProjetScopePageComponent {
     });
   }
 
-  private fetch(): void {
+  onPoleChange(event: Event): void {
+    const id = (event.target as HTMLSelectElement).value;
+    this.selectedPoleId.set(id);
+    const userId = this.roleService.currentUser().id;
+    try {
+      localStorage.setItem(poleStorageKey(userId), id);
+    } catch {
+      /* ignore */
+    }
+    this.fetch(true);
+  }
+
+  private pickActivePoleId(userId: string, ids: string[]): string {
+    if (ids.length === 0) return '';
+    let stored = '';
+    try {
+      stored = (localStorage.getItem(poleStorageKey(userId)) ?? '').trim();
+    } catch {
+      stored = '';
+    }
+    if (stored && ids.includes(stored)) return stored;
+    return ids[0];
+  }
+
+  private fetch(keepSelection = false): void {
     this.loading.set(true);
     const current = this.roleService.currentUser();
     void Promise.all([
@@ -105,8 +196,26 @@ export class ChefProjetScopePageComponent {
         (orgTree.operationalDepartments?.length ?? 0) === 0 &&
         (orgTree.unassignedPoles?.length ?? 0) === 0;
       const legacyDepartments = useLegacyFallback ? await PrimeService.getDepartments() : [];
-      const poleId = resolveChefProjetPoleId(current.id, current, overview ?? null);
-      const scopeEmployees = dedupeEmployeesByEmail(employeesInChefProjetPole(employees, poleId));
+      const poleIds = resolveChefProjetPoleIds(current.id, current, overview ?? null);
+      const options = poleIds.map((id) => ({
+        id,
+        label: resolvePoleLabel(
+          id,
+          overview ?? null,
+          orgTree.operationalDepartments ?? [],
+          orgTree.unassignedPoles ?? [],
+        ),
+      }));
+      this.poleOptions.set(options);
+
+      const activePoleId = keepSelection
+        ? this.selectedPoleId() || this.pickActivePoleId(current.id, poleIds)
+        : this.pickActivePoleId(current.id, poleIds);
+      this.selectedPoleId.set(activePoleId);
+
+      const scopeEmployees = dedupeEmployeesByEmail(
+        employeesInChefProjetPole(employees, activePoleId),
+      );
 
       const mapped: ScopeRow[] = scopeEmployees.map((e) => {
         const labels = resolvePlatformOrgLabels(e, legacyDepartments, overview ?? null);

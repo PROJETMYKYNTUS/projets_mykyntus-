@@ -1,10 +1,10 @@
 <div class="ky-page-shell take-quiz-page">
   <app-kyntus-page-header
-    [title]="quiz?.title || assigned?.title || 'Passer le quiz'"
+    [title]="pageTitle"
     subtitle="Une question à la fois — vérifiez vos réponses avant de soumettre"
   >
     <div actions>
-      <a routerLink="/mes-formations" class="ky-btn-secondary">
+      <a [routerLink]="backLink" class="ky-btn-secondary">
         <app-lucide-icon [icon]="icons.back" className="w-4 h-4" />
         Retour
       </a>
@@ -34,7 +34,9 @@
             }
           </p>
         } @else {
-          <p class="muted">En attente de notation par l’animateur.</p>
+          <p class="muted">
+            {{ isSelfService ? 'Certaines réponses libres attendent une validation.' : 'En attente de notation par l’animateur.' }}
+          </p>
         }
 
         @if (attempt?.answers?.length) {
@@ -43,7 +45,11 @@
               <article class="review-item" [class.ok]="ans.isCorrect === true" [class.ko]="ans.isCorrect === false">
                 <h3>Q{{ ans.sortOrder + 1 }}. {{ ans.prompt }}</h3>
                 @if (ans.imageUrl) {
-                  <img [src]="ans.imageUrl" alt="" class="q-image" />
+                  @if (isMediaVideo(ans.imageUrl, ans.mediaKind)) {
+                    <video [src]="ans.imageUrl" class="q-image" controls preload="metadata"></video>
+                  } @else {
+                    <img [src]="ans.imageUrl" alt="" class="q-image" />
+                  }
                 }
                 <p class="muted text-xs">
                   Votre réponse :
@@ -64,8 +70,38 @@
           </div>
         }
 
-        @if (history.length > 1) {
-          <p class="muted text-xs">Historique : {{ history.length }} tentative(s)</p>
+        @if (history.length) {
+          <div class="history-table-wrap">
+            <h3 class="history-title">Historique des tentatives</h3>
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Date</th>
+                  <th>Score</th>
+                  <th>Résultat</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (h of history; track h.id) {
+                  <tr>
+                    <td>{{ h.attemptNumber }}</td>
+                    <td>{{ h.submittedAt | date: 'short' }}</td>
+                    <td>{{ h.finalScore ?? '—' }}%</td>
+                    <td>
+                      @if (!h.isGraded) {
+                        En attente
+                      } @else if (h.passed) {
+                        Réussi
+                      } @else {
+                        Non réussi
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         }
 
         <div class="nav-row">
@@ -73,6 +109,7 @@
             <button type="button" class="ky-btn-secondary" (click)="restart()">Recommencer</button>
           }
           <a routerLink="/mes-formations" class="ky-btn-primary">Retour à Mes formations</a>
+          <a routerLink="/mes-formations/historique" class="ky-btn-secondary">Historique global</a>
         </div>
       </div>
     } @else if (quiz) {
@@ -91,7 +128,11 @@
         <article class="ky-card question-panel">
           <h2 class="question-prompt">{{ q.prompt }}</h2>
           @if (q.imageUrl) {
-            <img [src]="q.imageUrl" alt="" class="q-image" />
+            @if (isMediaVideo(q.imageUrl, q.mediaKind)) {
+              <video [src]="q.imageUrl" class="q-image" controls preload="metadata"></video>
+            } @else {
+              <img [src]="q.imageUrl" alt="" class="q-image" />
+            }
           }
           <p class="muted text-xs">{{ q.points }} point(s)</p>
 

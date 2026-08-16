@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { KyntusToastService } from '../../../shared/components/ui/kyntus-toast.service';
 
 /** À configurer lors de l'intégration dans votre projet Angular. */
 export const EMPLOYEE_IMPORT_API_BASE = '/api/users/import/v2';
@@ -189,6 +190,7 @@ export interface EmployeeImportJobSummary {
 @Injectable({ providedIn: 'root' })
 export class EmployeeImportService {
   private readonly http = inject(HttpClient);
+  private readonly toast = inject(KyntusToastService);
   private readonly base = EMPLOYEE_IMPORT_API_BASE;
 
   getConfig(): Observable<EmployeeImportFieldConfig[]> {
@@ -206,7 +208,7 @@ export class EmployeeImportService {
   triggerTemplateDownload(): void {
     this.downloadTemplate().subscribe({
       next: (blob) => triggerBlobDownload(blob, 'template_employes.xlsx'),
-      error: () => alert('Impossible de télécharger le modèle Excel.'),
+      error: () => this.toast.error('Impossible de télécharger le modèle Excel.'),
     });
   }
 
@@ -239,14 +241,14 @@ export class EmployeeImportService {
   downloadErrorsCsv(jobId: string): void {
     this.http.get(`${this.base}/history/${jobId}/errors.csv`, { responseType: 'blob' }).subscribe({
       next: (blob) => triggerBlobDownload(blob, `import_erreurs_${jobId}.csv`),
-      error: () => alert('Impossible de télécharger le fichier des erreurs.'),
+      error: () => this.toast.error('Impossible de télécharger le fichier des erreurs.'),
     });
   }
 
   downloadSourceFile(jobId: string, fileName: string): void {
     this.http.get(`${this.base}/history/${jobId}/file`, { responseType: 'blob' }).subscribe({
       next: (blob) => triggerBlobDownload(blob, fileName || `import_${jobId}.xlsx`),
-      error: () => alert('Fichier source indisponible pour cet import.'),
+      error: () => this.toast.error('Fichier source indisponible pour cet import.'),
     });
   }
 }

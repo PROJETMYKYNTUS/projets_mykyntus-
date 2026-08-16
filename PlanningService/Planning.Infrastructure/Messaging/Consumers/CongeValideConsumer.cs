@@ -2,6 +2,7 @@ using Kyntus.Messaging.Contracts;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Planning.Application.Abstractions;
 using Planning.Domain.Entities;
 using Planning.Domain.Enums;
 using Planning.Infrastructure.Persistence;
@@ -9,10 +10,11 @@ using Planning.Infrastructure.Persistence;
 namespace Planning.Infrastructure.Messaging.Consumers;
 
 /// <summary>
-/// Congé validé (Conge.API) → absence Planning (bloque les shifts à la génération).
+/// Congé validé (Conge.API) → absence Planning + sync plannings existants (chirurgical / regen).
 /// </summary>
 public sealed class CongeValideConsumer(
     AppDbContext db,
+    IPlanningLeaveImpactService leaveImpact,
     ILogger<CongeValideConsumer> logger) : IConsumer<CongeValideMessage>
 {
     public async Task Consume(ConsumeContext<CongeValideMessage> context)
@@ -77,6 +79,20 @@ public sealed class CongeValideConsumer(
             msg.DemandeId,
             start,
             end);
+
+        try
+        {
+            await leaveImpact.SyncAfterAbsenceChangeAsync(
+                user.Id, start, end, absenceRemoved: false, context.CancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Sync planning après congé validé échouée (demande {DemandeId}, user {UserId}).",
+                msg.DemandeId,
+                user.Id);
+        }
     }
 
     private static AbsenceType MapAbsenceType(string? typeConge, string? typeExceptionnel)

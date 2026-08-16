@@ -34,6 +34,27 @@ export interface PutServicePrimeIndicatorItem {
 /** @deprecated Utilisez `PutServicePrimeIndicatorItem`. */
 export type PutCellulePrimeIndicatorItem = PutServicePrimeIndicatorItem;
 
+/** Aligné sur `ServicePoleLinePonderationDto` (`api/prime/services/{id}/pole-line-ponderations`). */
+export interface ServicePoleLinePonderationDto {
+  id: string;
+  serviceId: string;
+  templateStableId: string;
+  label: string;
+  sortOrder: number;
+  ponderationPrimePct: number | null;
+  ponderationChallengePct: number | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface PutServicePoleLinePonderationItem {
+  templateStableId: string;
+  label: string;
+  sortOrder: number;
+  ponderationPrimePct?: number | null;
+  ponderationChallengePct?: number | null;
+}
+
 export interface SupervisorPolePrimeDraftDto {
   id: string;
   supervisorUserId: string;
@@ -316,6 +337,30 @@ export class PrimeCellPrimeApiService {
     return this.http.put<ServicePrimeIndicatorDto[]>(
       `${base}/services/${encodeURIComponent(serviceId)}/prime-indicators`,
       { indicators },
+      { params: q },
+    );
+  }
+
+  getPoleLinePonderations(
+    serviceId: string,
+    supervisorUserId: string,
+  ): Observable<ServicePoleLinePonderationDto[]> {
+    const q = new HttpParams().set('supervisorUserId', supervisorUserId);
+    return this.http.get<ServicePoleLinePonderationDto[]>(
+      `${base}/services/${encodeURIComponent(serviceId)}/pole-line-ponderations`,
+      { params: q },
+    );
+  }
+
+  putPoleLinePonderations(
+    serviceId: string,
+    supervisorUserId: string,
+    items: PutServicePoleLinePonderationItem[],
+  ): Observable<ServicePoleLinePonderationDto[]> {
+    const q = new HttpParams().set('supervisorUserId', supervisorUserId);
+    return this.http.put<ServicePoleLinePonderationDto[]>(
+      `${base}/services/${encodeURIComponent(serviceId)}/pole-line-ponderations`,
+      { items },
       { params: q },
     );
   }

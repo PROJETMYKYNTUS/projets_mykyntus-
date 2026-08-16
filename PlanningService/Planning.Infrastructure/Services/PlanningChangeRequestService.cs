@@ -16,17 +16,20 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
     private readonly AppDbContext _context;
     private readonly IHubContext<PlanningHub> _hubContext;
     private readonly ILogger<PlanningChangeRequestService> _logger;
+    private readonly IPlanningPerimeterResolver _perimeter;
     private const string CasablancaTz = "Africa/Casablanca";
     private const string ChangeRequestSubService = "Demande de changement";
 
     public PlanningChangeRequestService(
         AppDbContext context,
         IHubContext<PlanningHub> hubContext,
-        ILogger<PlanningChangeRequestService> logger)
+        ILogger<PlanningChangeRequestService> logger,
+        IPlanningPerimeterResolver perimeter)
     {
         _context = context;
         _hubContext = hubContext;
         _logger = logger;
+        _perimeter = perimeter;
     }
 
     public async Task<PlanningChangeRequestDto> CreateAsync(
@@ -113,7 +116,12 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
     }
 
     public async Task<List<PlanningChangeRequestDto>> GetAllAsync(
-        string? status, string? weekCode, int? viewerUserId = null, int? requesterUserId = null)
+        string? status,
+        string? weekCode,
+        int? viewerUserId = null,
+        int? requesterUserId = null,
+        DateOnly? from = null,
+        DateOnly? to = null)
     {
         var query = _context.PlanningChangeRequests
             .Include(r => r.CurrentAssignment)
@@ -122,6 +130,13 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
 
         if (!string.IsNullOrWhiteSpace(weekCode))
             query = query.Where(r => r.WeekCode == weekCode);
+        else
+        {
+            if (from.HasValue)
+                query = query.Where(r => r.CurrentAssignment.AssignedDate >= from.Value);
+            if (to.HasValue)
+                query = query.Where(r => r.CurrentAssignment.AssignedDate <= to.Value);
+        }
 
         if (requesterUserId is > 0)
             query = query.Where(r => r.RequesterUserId == requesterUserId.Value);
@@ -173,11 +188,19 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
         return result;
     }
 
-    public async Task<List<ChangeRequestStatsByEmployeeDto>> GetStatsByEmployeeAsync(string? weekCode)
+    public async Task<List<ChangeRequestStatsByEmployeeDto>> GetStatsByEmployeeAsync(
+        string? weekCode, DateOnly? from = null, DateOnly? to = null)
     {
         var query = _context.PlanningChangeRequests.AsQueryable();
         if (!string.IsNullOrWhiteSpace(weekCode))
             query = query.Where(r => r.WeekCode == weekCode);
+        else
+        {
+            if (from.HasValue)
+                query = query.Where(r => r.CurrentAssignment.AssignedDate >= from.Value);
+            if (to.HasValue)
+                query = query.Where(r => r.CurrentAssignment.AssignedDate <= to.Value);
+        }
 
         var grouped = await query
             .GroupBy(r => r.RequesterUserId)
@@ -313,6 +336,7 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
 
         request.Status = PlanningChangeRequestStatus.Rejected;
         request.PartnerRespondedAt = DateTime.UtcNow;
+        request.ProcessedByUserId = partnerUserId;
         request.ProcessedAt = DateTime.UtcNow;
         request.RejectionReason = string.IsNullOrWhiteSpace(reason)
             ? "Refusé par le collègue proposé."
@@ -468,6 +492,7 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
                 "Annulation possible uniquement tant que le collègue n'a pas répondu.");
 
         request.Status = PlanningChangeRequestStatus.Cancelled;
+        request.ProcessedByUserId = requesterUserId;
         request.ProcessedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -521,27 +546,8 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
             throw new InvalidOperationException("Hors de votre périmètre d'équipe.");
     }
 
-    private async Task<HashSet<int>> GetManagedSubServiceIdsAsync(User manager)
-    {
-        var subServiceIds = manager.ManagedSubServices?
-            .Select(s => s.SubServiceId)
-            .ToList() ?? new List<int>();
-
-        var serviceIds = manager.ManagedServices?
-            .Select(s => s.ServiceId)
-            .ToList() ?? new List<int>();
-
-        if (serviceIds.Count > 0)
-        {
-            var fromServices = await _context.SubServices
-                .Where(ss => serviceIds.Contains(ss.ServiceId))
-                .Select(ss => ss.Id)
-                .ToListAsync();
-            subServiceIds = subServiceIds.Union(fromServices).ToList();
-        }
-
-        return subServiceIds.ToHashSet();
-    }
+    private Task<HashSet<int>> GetManagedSubServiceIdsAsync(User manager) =>
+        _perimeter.GetManagedSubServiceIdsAsync(manager);
 
     private static bool IsAdmin(User u) =>
         string.Equals(u.Role?.Name, "Admin", StringComparison.OrdinalIgnoreCase);

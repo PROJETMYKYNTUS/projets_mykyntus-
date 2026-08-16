@@ -20,6 +20,13 @@ public class UserDto
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public int Level { get; set; }
+    /// <summary>null = défaut Niveau ; 1 = tous samedis 4h ; 2 = alternance 8h.</summary>
+    public int? SaturdayWorkMode { get; set; }
+    /// <summary>Cas particulier — exclus des pauses extrêmes +3h/+5h.</summary>
+    public bool IsSpecialCase { get; set; }
+    public string? SpecialCaseDescription { get; set; }
+    /// <summary>Ticket formation plateau — jamais Opening/Closing.</summary>
+    public bool IsPlateauTraining { get; set; }
     public int? NiveauExpertiseMetier { get; set; }
     public Guid? ChefDeProjetId { get; set; }
     public Guid? SuperviseurId { get; set; }

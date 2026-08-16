@@ -1,0 +1,51 @@
+<div class="frte" [class.frte-disabled]="disabled">
+  <div class="frte-toolbar" role="toolbar" aria-label="Mise en forme">
+    <button type="button" class="frte-btn" title="Gras" (click)="exec('bold')" [disabled]="disabled">
+      <app-lucide-icon [icon]="icons.bold" className="w-4 h-4" />
+    </button>
+    <button type="button" class="frte-btn" title="Italique" (click)="exec('italic')" [disabled]="disabled">
+      <app-lucide-icon [icon]="icons.italic" className="w-4 h-4" />
+    </button>
+    <button type="button" class="frte-btn" title="Liste" (click)="exec('insertUnorderedList')" [disabled]="disabled">
+      <app-lucide-icon [icon]="icons.list" className="w-4 h-4" />
+    </button>
+    <button type="button" class="frte-btn" title="Liste numérotée" (click)="exec('insertOrderedList')" [disabled]="disabled">
+      <app-lucide-icon [icon]="icons.ordered" className="w-4 h-4" />
+    </button>
+    <button type="button" class="frte-btn" title="Lien" (click)="addLink()" [disabled]="disabled">
+      <app-lucide-icon [icon]="icons.link" className="w-4 h-4" />
+    </button>
+    <button
+      type="button"
+      class="frte-btn"
+      title="Insérer une image"
+      (click)="pickImage()"
+      [disabled]="disabled || busyImage"
+    >
+      <app-lucide-icon [icon]="icons.image" className="w-4 h-4" />
+    </button>
+    <input
+      #fileInput
+      type="file"
+      accept="image/*"
+      class="frte-file"
+      (change)="onImageSelected($event)"
+    />
+  </div>
+
+  <div
+    #editor
+    class="frte-editor"
+    [attr.contenteditable]="disabled ? 'false' : 'true'"
+    [attr.data-placeholder]="placeholder"
+    (input)="onInput()"
+    (blur)="onBlur()"
+  ></div>
+
+  @if (imageError) {
+    <p class="frte-error">{{ imageError }}</p>
+  }
+  @if (busyImage) {
+    <p class="frte-hint">Compression de l’image…</p>
+  }
+</div>

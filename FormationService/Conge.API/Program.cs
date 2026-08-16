@@ -31,7 +31,10 @@ builder.Services.AddDbContext<CongeDbContext>(options =>
 builder.Services.AddScoped<IDemandeCongeRepository, DemandeCongeRepository>();
 builder.Services.AddScoped<ISoldeCongeRepository, SoldeCongeRepository>();
 builder.Services.AddScoped<IEmployeSnapshotRepository, EmployeSnapshotRepository>();
+builder.Services.AddScoped<IPeriodeInterditeRepository, PeriodeInterditeRepository>();
+builder.Services.AddScoped<IQuotaCongeServiceRepository, QuotaCongeServiceRepository>();
 builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<CongeDbContext>());
+builder.Services.AddScoped<Conge.Application.Services.CongeReglesService>();
 
 // ?? MediatR + FluentValidation ???????????????????????????????????????????????
 builder.Services.AddMediatR(cfg =>
@@ -140,6 +143,7 @@ using (var scope = app.Services.CreateScope())
     var seedLog = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Conge.EnrichmentSeed");
     try
     {
+        await CongeSchemaPatches.ApplyAsync(db, seedLog);
         await DockerComposeCongeEnrichmentSeed.ApplyIfEnabledAsync(app.Configuration, db, seedLog);
     }
     catch (Exception ex)

@@ -14,21 +14,42 @@
   @if (error()) {
     <div class="ky-alert ky-alert-danger">{{ error() }}</div>
   }
+  @if (message()) {
+    <div class="ky-alert ky-alert-success">{{ message() }}</div>
+  }
 
   @if (loading()) {
-    <div class="ky-card state-loading">Chargement du contenu…</div>
+    <div class="ky-card state-loading">
+      <div class="fplay-skeleton">
+        <div class="fplay-skeleton-line"></div>
+        <div class="fplay-skeleton-line fplay-skeleton-short"></div>
+      </div>
+      Chargement du contenu…
+    </div>
   } @else if (player(); as p) {
-    <div class="fplay-progress ky-card">
+    <div class="fplay-progress ky-card fplay-progress-sticky">
       <div class="fplay-progress-top">
         <strong>Progression {{ p.progressPercent }}%</strong>
         <span>{{ p.requiredLessonsDone }}/{{ p.requiredLessonsTotal }} leçons obligatoires</span>
       </div>
       <div class="fplay-bar"><span [style.width.%]="p.progressPercent"></span></div>
+      @if (p.dueAt) {
+        <p class="fplay-due">
+          Échéance {{ p.dueAt | date: 'dd/MM/yyyy' }}
+          @if (p.enrollmentStatus === 'Overdue') {
+            <span class="fplay-blocked"> · En retard</span>
+          }
+        </p>
+      }
       <div class="fplay-progress-actions">
-        @if (p.canTakeQuiz) {
-          <a class="ky-btn-primary" [routerLink]="['/mes-formations', sessionId, 'quiz']">Passer le quiz</a>
-        } @else {
-          <span class="fplay-blocked">{{ p.quizBlockedReason || 'Quiz non disponible pour le moment.' }}</span>
+        @if (showQuizButton()) {
+          @if (quizRouterLink(); as link) {
+            <a class="ky-btn-primary" [routerLink]="link">Passer le quiz</a>
+          } @else {
+            <button type="button" class="ky-btn-primary" (click)="onQuizCtaClick()">Passer le quiz</button>
+          }
+        } @else if (hasAssociatedQuiz() && !p.canTakeQuiz) {
+          <span class="fplay-blocked">{{ p.quizBlockedReason || 'Terminez les leçons obligatoires avant de passer le quiz.' }}</span>
         }
       </div>
     </div>
@@ -46,10 +67,11 @@
                 [class.done]="l.isCompleted"
                 (click)="selectLesson(l)"
               >
-                {{ l.title }}
-                @if (l.isCompleted) {
-                  <app-lucide-icon [icon]="icons.done" className="w-4 h-4" />
-                }
+                <app-lucide-icon
+                  [icon]="lessonState(l) === 'done' ? icons.done : icons.pending"
+                  className="w-4 h-4"
+                />
+                <span>{{ l.title }}</span>
               </button>
             }
           </div>
@@ -65,7 +87,7 @@
             </div>
             <button
               type="button"
-              class="ky-btn-secondary"
+              class="ky-btn-primary"
               [disabled]="busy() || lesson.isCompleted"
               (click)="completeLesson()"
             >
@@ -74,37 +96,44 @@
           </header>
 
           <div class="fplay-resource-tabs">
-            @for (r of lesson.resources; track r.id) {
+            @for (part of activeParts(); track part.partIndex; let pi = $index) {
               <button
                 type="button"
                 class="fplay-resource-tab"
-                [class.active]="activeResource()?.id === r.id"
-                (click)="selectResource(r)"
+                [class.active]="activePartIndex() === pi"
+                (click)="selectPart(pi)"
               >
-                {{ r.title }}
+                <span>{{ part.title }}</span>
               </button>
             }
           </div>
 
-          @if (activeResource(); as res) {
-            <div class="fplay-viewer">
-              @if (isPdf(res)) {
-                <iframe [src]="embedUrl(res)" title="PDF"></iframe>
-              } @else if (isVideo(res) && isExternalVideo(res)) {
-                <iframe [src]="embedUrl(res)" title="Vidéo" allowfullscreen></iframe>
-              } @else if (isVideo(res)) {
-                <video controls [src]="res.url || res.downloadPath || ''"></video>
-              } @else if (res.type === 'Text' || res.type === 3) {
-                <div class="fplay-text" [innerText]="res.textContent || ''"></div>
-              } @else {
-                <a class="ky-btn-secondary" [href]="res.url || res.downloadPath || '#'" target="_blank" rel="noopener">
-                  Ouvrir le lien
-                </a>
+          @if (activeParts()[activePartIndex()]; as part) {
+            <div class="fplay-viewer fplay-viewer-centered">
+              @for (r of part.resources; track r.id) {
+                <div class="fplay-part-block">
+                  <app-formation-resource-viewer [resource]="r" [lazyMedia]="false" />
+                </div>
               }
             </div>
           } @else {
-            <p class="fplay-empty">Aucune ressource pour cette leçon.</p>
+            <p class="fplay-empty">Aucune partie pour cette leçon.</p>
           }
+
+          <footer class="fplay-lesson-nav">
+            <button type="button" class="ky-btn-secondary" [disabled]="!canGoPrev()" (click)="goPrev()">
+              <app-lucide-icon [icon]="icons.prev" className="w-4 h-4" />
+              Précédent
+            </button>
+            <span class="fplay-nav-hint">
+              Partie {{ activePartIndex() + 1 }}/{{ activeParts().length || 1 }}
+              · Leçon {{ currentLessonIndex() + 1 }}/{{ allLessons().length || 1 }}
+            </span>
+            <button type="button" class="ky-btn-secondary" [disabled]="!canGoNext()" (click)="goNext()">
+              Suivant
+              <app-lucide-icon [icon]="icons.next" className="w-4 h-4" />
+            </button>
+          </footer>
         } @else {
           <p class="fplay-empty">Sélectionnez une leçon.</p>
         }

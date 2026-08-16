@@ -43,11 +43,36 @@ public class RegisterFromPlanningCommandHandler
         var existing = await _userRepository.GetByEmailAsync(dto.Email, ct);
         if (existing != null)
         {
+            var dirty = false;
             if (existing.RoleId != role.Id)
             {
                 existing.RoleId = role.Id;
-                await _userRepository.UpdateAsync(existing, ct);
+                dirty = true;
             }
+
+            // Aligner le SubjectId JWT sur le Guid Planning (affectations / notifs Formation).
+            if (dto.EmployeeId != Guid.Empty && existing.SubjectId != dto.EmployeeId)
+            {
+                _logger.LogInformation(
+                    "SubjectId realigned: AuthUserId={UserId} Email={Email} OldSubjectId={Old} NewSubjectId={New}",
+                    existing.Id,
+                    existing.Email,
+                    existing.SubjectId,
+                    dto.EmployeeId);
+                existing.SubjectId = dto.EmployeeId;
+                dirty = true;
+            }
+
+            // Import / ré-provision : si un MDP est fourni, l'aligner (évite MDP inconnu après projection Directory).
+            if (!string.IsNullOrWhiteSpace(dto.DefaultPassword)
+                && PasswordPolicy.TryValidate(dto.DefaultPassword, out _))
+            {
+                existing.PasswordHash = _passwordHasher.HashPassword(dto.DefaultPassword.Trim());
+                dirty = true;
+            }
+
+            if (dirty)
+                await _userRepository.UpdateAsync(existing, ct);
 
             return new RegisterFromPlanningResponseDto
             {

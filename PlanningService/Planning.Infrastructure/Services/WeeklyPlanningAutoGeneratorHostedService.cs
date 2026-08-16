@@ -77,6 +77,16 @@ public sealed class WeeklyPlanningAutoGeneratorHostedService(
         logger.LogInformation(
             "Auto-génération {WeekCode}: created={Created} skipped={Skipped} errors={Errors}",
             result.WeekCode, result.Created, result.Skipped, result.Errors);
+
+        try
+        {
+            var alerts = scope.ServiceProvider.GetRequiredService<IPlanningPendingRequestsAlertService>();
+            await alerts.SendValidationRemindersAsync(weekCode);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Rappel validation demandes pending échoué pour {WeekCode}.", weekCode);
+        }
     }
 
     private static string NormalizeTimeZone(string tz)

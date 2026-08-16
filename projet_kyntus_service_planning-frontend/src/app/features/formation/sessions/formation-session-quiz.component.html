@@ -156,8 +156,27 @@
                 ></textarea>
               </label>
               <label class="field">
-                <span class="field-label">Image (URL)</span>
+                <span class="field-label">Média — URL (optionnelle)</span>
                 <input class="ky-input w-full" [(ngModel)]="q.imageUrl" [disabled]="isLocked()" placeholder="https://…" />
+              </label>
+              <label class="field">
+                <span class="field-label">Ou upload image / vidéo</span>
+                <input
+                  type="file"
+                  accept="image/*,video/mp4,video/webm,video/ogg,video/quicktime,.mp4,.webm,.ogg,.mov"
+                  [disabled]="isLocked() || busy() || !q.id"
+                  (change)="uploadQuestionImage(q, $event)"
+                />
+                @if (!q.id) {
+                  <span class="muted text-xs">Enregistrez le quiz une première fois pour activer l’upload.</span>
+                }
+                @if (q.imageUrl) {
+                  @if (isQuestionMediaVideo(q)) {
+                    <video [src]="q.imageUrl" class="q-image-preview" controls preload="metadata"></video>
+                  } @else {
+                    <img [src]="q.imageUrl" alt="" class="q-image-preview" />
+                  }
+                }
               </label>
               <label class="field">
                 <span class="field-label">Explication pédagogique (après soumission)</span>
@@ -236,7 +255,7 @@
                 </div>
               } @else {
                 <p class="muted text-xs">
-                  Réponse libre : notation manuelle après soumission (seuil de réussite 70 %).
+                  Réponse libre : notation manuelle après soumission (seuil de réussite {{ passThreshold }} %).
                 </p>
               }
             </article>
@@ -253,7 +272,16 @@
             Enregistrer brouillon
           </button>
           <button type="button" class="ky-btn-secondary" [disabled]="!canPublish() || busy()" (click)="publish()">
-            Publier aux présents
+            Publier le quiz
+          </button>
+          <button
+            type="button"
+            class="ky-btn-secondary"
+            [disabled]="!quiz() || busy()"
+            (click)="promoteAsTemplate()"
+            title="Enregistrer ce quiz comme modèle dans la bibliothèque"
+          >
+            Enregistrer comme modèle
           </button>
           @if (canValidate()) {
             <button type="button" class="ky-btn-secondary" [disabled]="busy()" (click)="validate()">
@@ -297,9 +325,14 @@
           </div>
         </div>
 
-        <button type="button" class="ky-btn-secondary text-xs" [disabled]="busy()" (click)="loadAttempts()">
-          Actualiser
-        </button>
+        <div class="fcat-inline">
+          <button type="button" class="ky-btn-secondary text-xs" [disabled]="busy()" (click)="loadAttempts()">
+            Actualiser
+          </button>
+          <button type="button" class="ky-btn-secondary text-xs" [disabled]="busy()" (click)="exportResultsXlsx()">
+            Exporter Excel
+          </button>
+        </div>
 
         @if (attempts().length === 0) {
           <p class="muted text-sm">Aucune tentative pour l’instant.</p>

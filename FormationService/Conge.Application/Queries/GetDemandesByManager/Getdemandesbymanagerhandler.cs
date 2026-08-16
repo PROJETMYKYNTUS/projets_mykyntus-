@@ -1,6 +1,7 @@
 ﻿using Conge.Application.DTOs;
 using Conge.Domain.Enums;
 using Conge.Domain.Interfaces;
+using Kyntus.Iam;
 using MediatR;
 
 namespace Conge.Application.Queries.GetDemandesByManager;
@@ -10,13 +11,16 @@ public class GetDemandesByManagerHandler
 {
     private readonly IDemandeCongeRepository _demandeRepo;
     private readonly IEmployeSnapshotRepository _employeRepo;
+    private readonly IRebacClient? _rebac;
 
     public GetDemandesByManagerHandler(
         IDemandeCongeRepository demandeRepo,
-        IEmployeSnapshotRepository employeRepo)
+        IEmployeSnapshotRepository employeRepo,
+        IRebacClient? rebac = null)
     {
         _demandeRepo = demandeRepo;
         _employeRepo = employeRepo;
+        _rebac = rebac;
     }
 
     public async Task<IEnumerable<DemandeCongeDto>> Handle(
@@ -27,37 +31,106 @@ public class GetDemandesByManagerHandler
         if (manager is null)
             return Array.Empty<DemandeCongeDto>();
 
-        var demandes = IsRhOrAdmin(manager.Role)
-            ? await _demandeRepo.GetByStatutAsync(StatutDemande.EnAttente, ct)
-            : await _demandeRepo.GetByManagerIdAsync(request.ManagerId, ct);
+        IEnumerable<Domain.Entities.DemandeConge> demandes;
+        if (IsRhOrAdmin(manager.Role))
+        {
+            // File RH : en attente de validation RH
+            demandes = await _demandeRepo.GetByStatutAsync(StatutDemande.EnAttenteRh, ct);
+        }
+        else
+        {
+            IReadOnlyList<string>? managedNodes = null;
+            if (_rebac is not null)
+            {
+                try
+                {
+                    // Kind = OrgAssignmentKind (Superviseur → cellules, ReferentTechnique → services, …).
+                    var superviseurNodes = await _rebac.GetManagedNodeIdsAsync(request.ManagerId, "Superviseur", ct);
+                    var referentNodes = await _rebac.GetManagedNodeIdsAsync(request.ManagerId, "ReferentTechnique", ct);
+                    managedNodes = superviseurNodes.Concat(referentNodes)
+                        .Where(n => !string.IsNullOrWhiteSpace(n))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                }
+                catch
+                {
+                    managedNodes = null;
+                }
+            }
 
-        // 3. Enrichir avec le nom de l'employé depuis le snapshot
+            var all = await _demandeRepo.GetByManagerIdAsync(
+                request.ManagerId,
+                managedNodes is { Count: > 0 } ? managedNodes : null,
+                ct);
+            demandes = all.Where(d => d.Statut == StatutDemande.EnAttente);
+        }
+
         var result = new List<DemandeCongeDto>();
         foreach (var d in demandes)
         {
             var employe = await _employeRepo.GetByEmployeIdAsync(d.EmployeId, ct);
+            string? supNom = null;
+            string? rhNom = null;
+            if (d.SuperviseurDecideurId is { } sid)
+            {
+                var s = await _employeRepo.GetByEmployeIdAsync(sid, ct);
+                supNom = s?.NomComplet;
+            }
+            if (d.RhDecideurId is { } rid)
+            {
+                var r = await _employeRepo.GetByEmployeIdAsync(rid, ct);
+                rhNom = r?.NomComplet;
+            }
 
-            result.Add(new DemandeCongeDto(
-                d.Id,
-                d.EmployeId,
-                d.ManagerId,
-                d.TypeConge,
-                d.TypeExceptionnel,
-                d.DateDebut,
-                d.DateFin,
-                d.NombreJours,
-                d.Statut,
-                d.Motif,
-                d.CommentaireManager,
-                d.DateDemande,
-                d.DateDecision,
-                employe?.Nom,       // ✅ AJOUTER
-                employe?.Prenom     // ✅ AJOUTER
-            ));
+            result.Add(Map(d, employe, supNom, rhNom));
         }
 
         return result.OrderByDescending(r => r.DateDemande);
     }
+
+    internal static DemandeCongeDto Map(
+        Domain.Entities.DemandeConge d,
+        Domain.Entities.EmployeSnapshot? employe,
+        string? superviseurDecideurNom = null,
+        string? rhDecideurNom = null)
+        => new(
+            d.Id,
+            d.EmployeId,
+            d.ManagerId,
+            d.TypeConge,
+            d.TypeExceptionnel,
+            d.DateDebut,
+            d.DateFin,
+            d.NombreJours,
+            d.Statut,
+            d.Motif,
+            d.CommentaireManager,
+            d.DateDemande,
+            d.DateDecision,
+            employe?.Nom,
+            employe?.Prenom,
+            d.CommentaireRh,
+            d.DateValidationSuperviseur,
+            d.SuperviseurDecideurId,
+            d.RhDecideurId,
+            superviseurDecideurNom,
+            rhDecideurNom,
+            d.ValidationNodeId,
+            d.Decisions.Count == 0
+                ? null
+                : d.Decisions
+                    .OrderBy(x => x.At)
+                    .Select(x => new DemandeCongeDecisionDto(
+                        x.Id,
+                        x.ActeurId,
+                        x.ActeurNom,
+                        x.ActeurRole,
+                        x.Action,
+                        x.StatutAvant,
+                        x.StatutApres,
+                        x.Commentaire,
+                        x.At))
+                    .ToList());
 
     private static bool IsRhOrAdmin(string? role)
     {

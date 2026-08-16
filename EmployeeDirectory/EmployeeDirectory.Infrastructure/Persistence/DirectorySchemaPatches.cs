@@ -71,33 +71,21 @@ public static class DirectorySchemaPatches
     }
 
     /// <summary>
-    /// Unicité : au plus un titulaire actif par (Kind, NodeId).
-    /// Dédoublonne d'abord (garde le plus récent), puis crée l'index unique filtré.
+    /// Multi-responsables : un employé ne peut être titulaire qu'une fois par (Kind, NodeId),
+    /// mais plusieurs employés peuvent coexister sur le même nœud.
     /// </summary>
     public static async Task EnsureOrgAssignmentNodeUniquenessAsync(DirectoryDbContext db, CancellationToken ct = default)
     {
         await db.Database.ExecuteSqlRawAsync(
             """
-            WITH ranked AS (
-                SELECT "Id",
-                       ROW_NUMBER() OVER (
-                           PARTITION BY "Kind", "NodeId"
-                           ORDER BY "EffectiveFrom" DESC, "Id" DESC
-                       ) AS rn
-                FROM org_assignments
-                WHERE "EffectiveTo" IS NULL
-            )
-            UPDATE org_assignments a
-            SET "EffectiveTo" = NOW() AT TIME ZONE 'utc',
-                "ChangeReason" = COALESCE(a."ChangeReason", '') ||
-                    CASE WHEN COALESCE(a."ChangeReason", '') = '' THEN '' ELSE '; ' END ||
-                    'dedupe-node-unicity'
-            FROM ranked r
-            WHERE a."Id" = r."Id" AND r.rn > 1;
+            DROP INDEX IF EXISTS "IX_org_assignments_Kind_NodeId_Active";
 
-            CREATE UNIQUE INDEX IF NOT EXISTS "IX_org_assignments_Kind_NodeId_Active"
-                ON org_assignments ("Kind", "NodeId")
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_org_assignments_Kind_NodeId_Employee_Active"
+                ON org_assignments ("Kind", "NodeId", "EmployeeId")
                 WHERE "EffectiveTo" IS NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_org_assignments_Kind_NodeId"
+                ON org_assignments ("Kind", "NodeId");
             """,
             ct);
     }

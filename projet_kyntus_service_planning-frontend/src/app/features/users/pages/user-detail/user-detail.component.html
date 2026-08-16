@@ -153,27 +153,38 @@
             }
           </div>
           <div class="org-breadcrumb">{{ perimeterSummary }}</div>
-          <div class="info-grid org-grid">
-            <div class="info-item">
-              <span class="info-label">Département</span>
-              <span class="info-value info-value--accent">{{ orgCellLabel(orgDepartmentLabel(perimeter)) }}</span>
+          <dl class="field-grid field-grid--org">
+            <div class="field">
+              <dt>Département</dt>
+              <dd class="field__value field__value--accent">{{ orgCellLabel(orgDepartmentLabel(perimeter)) }}</dd>
             </div>
-            <div class="info-item">
-              <span class="info-label">Pôle</span>
-              <span class="info-value">{{ orgCellLabel(perimeter.pole) }}</span>
+            <div class="field">
+              <dt>Pôle</dt>
+              <dd class="field__value">{{ orgCellLabel(perimeter.pole) }}</dd>
             </div>
-            <div class="info-item">
-              <span class="info-label">Cellule</span>
-              <span class="info-value">{{ orgCellLabel(perimeter.cellule) }}</span>
+            <div class="field">
+              <dt>Cellule</dt>
+              <dd class="field__value">{{ orgCellLabel(perimeter.cellule) }}</dd>
             </div>
-            <div class="info-item">
-              <span class="info-label">Service</span>
-              <span class="info-value info-value--accent">{{ orgCellLabel(perimeter.service) }}</span>
+            <div class="field">
+              <dt>Service</dt>
+              <dd class="field__value field__value--accent">{{ orgCellLabel(perimeter.service) }}</dd>
             </div>
-          </div>
+          </dl>
         </section>
 
-        @for (section of detailSections; track section.id) {
+        <div class="detail-display-toolbar">
+          <label class="detail-toggle">
+            <input
+              type="checkbox"
+              [checked]="hideEmptyFields"
+              (change)="hideEmptyFields = $any($event.target).checked"
+            />
+            Masquer les champs non renseignés
+          </label>
+        </div>
+
+        @for (section of visibleDetailSections; track section.id) {
           <section class="form-section detail-section">
             <div class="section-heading">
               <h2>{{ section.title }}</h2>
@@ -181,14 +192,18 @@
                 <p>{{ section.description }}</p>
               }
             </div>
-            <div class="info-grid">
-              @for (row of section.rows; track row.label + row.value) {
-                <div class="info-item">
-                  <span class="info-label">{{ row.label }}</span>
-                  <span class="info-value" [class.info-value--empty]="row.value === '—'">{{ row.value }}</span>
-                </div>
-              }
-            </div>
+            @if (section.rows.length === 0) {
+              <p class="section-empty-hint">Aucune donnée renseignée dans cette section.</p>
+            } @else {
+              <dl class="field-grid">
+                @for (row of section.rows; track row.label) {
+                  <div class="field" [class.field--empty]="row.value === '—'" [class.field--wide]="isWideField(row.label)">
+                    <dt>{{ row.label }}</dt>
+                    <dd class="field__value" [class.field__value--empty]="row.value === '—'">{{ row.value }}</dd>
+                  </div>
+                }
+              </dl>
+            }
           </section>
         }
 

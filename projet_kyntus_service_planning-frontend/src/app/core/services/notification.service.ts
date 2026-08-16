@@ -54,6 +54,9 @@ function planningContentKey(n: Pick<PlanningNotification, 'weekCode' | 'weeklyPl
 export function resolveFormationDeepLink(weekCode: string, deepLink?: string | null): string {
   if (deepLink && deepLink.startsWith('/')) return deepLink;
   const code = (weekCode ?? '').toUpperCase();
+  if (code.startsWith('SAT-IMBALANCE-')) {
+    return '/prime';
+  }
   if (code.startsWith('INIT-DOCS-')) {
     return '/formations?tab=initial';
   }

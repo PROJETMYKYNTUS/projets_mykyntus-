@@ -20,10 +20,32 @@
       </select>
     </label>
     <label>
-      Semaine (ex. 2026-S32)
-      <input type="text" [(ngModel)]="filterWeek" placeholder="2026-S32" (keyup.enter)="reload()" />
+      Période
+      <select [(ngModel)]="filterPeriod" (ngModelChange)="onPeriodChange()">
+        <option *ngFor="let opt of periodOptions" [value]="opt.value">{{ opt.label }}</option>
+      </select>
+    </label>
+    <label>
+      Semaine
+      <select [(ngModel)]="filterWeek" (ngModelChange)="onWeekChange()">
+        <option value="">Toutes (selon période)</option>
+        <option *ngFor="let w of weekOptions" [value]="w.value">{{ w.label }}</option>
+      </select>
     </label>
     <button type="button" class="mdc-btn" (click)="reload()">Filtrer</button>
+  </section>
+
+  <section class="mdc-card mdc-recap" *ngIf="!loading && !error">
+    <div class="mdc-recap-head">
+      <h3>Récapitulatif</h3>
+      <span class="mdc-recap-scope">{{ filterScopeLabel }}</span>
+    </div>
+    <div class="mdc-recap-stats">
+      <span><strong>{{ recapTotal }}</strong> total</span>
+      <span><strong>{{ recapPending }}</strong> en cours</span>
+      <span><strong>{{ recapApproved }}</strong> approuvées</span>
+      <span><strong>{{ recapRejected }}</strong> refusées</span>
+    </div>
   </section>
 
   <div class="mdc-loading" *ngIf="loading">

@@ -8,9 +8,11 @@ import {
   TRAINING_ATTENDANCE_LABELS,
   TRAINING_QUIZ_STATUS_LABELS,
   TRAINING_SESSION_STATUS_LABELS,
+  type CatalogEnrollmentStatus,
   type InitialTrainingPathDto,
   type InitialTrainingStatus,
   type MyAssignedTrainingSessionDto,
+  type MySelfServiceCatalogItemDto,
   type TrainingAttendance,
   type TrainingQuizStatus,
   type TrainingSessionStatus,
@@ -34,12 +36,12 @@ export class FormationEmployeeComponent implements OnInit {
 
   initialPaths: InitialTrainingPathDto[] = [];
   assignedSessions: MyAssignedTrainingSessionDto[] = [];
+  selfServiceItems: MySelfServiceCatalogItemDto[] = [];
   initialStatusLabels = INITIAL_TRAINING_STATUS_LABELS;
   sessionStatusLabels = TRAINING_SESSION_STATUS_LABELS;
   attendanceLabels = TRAINING_ATTENDANCE_LABELS;
   loading = false;
-
-  userId = '';
+  loadError = '';
 
   constructor(
     private trainingApi: FormationTrainingService,
@@ -47,55 +49,87 @@ export class FormationEmployeeComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-    const rawId = user?.id;
-    if (typeof rawId === 'string' && rawId.includes('-')) {
-      this.userId = rawId;
-    } else if (user?.guid && String(user.guid).includes('-')) {
-      this.userId = String(user.guid);
-    } else {
-      const padded = String(rawId).padStart(12, '0');
-      this.userId = `00000000-0000-0000-0000-${padded}`;
-    }
-
     void this.reload();
   }
 
   get isEmpty(): boolean {
-    return !this.loading && this.initialPaths.length === 0 && this.assignedSessions.length === 0;
+    return (
+      !this.loading &&
+      !this.loadError &&
+      this.initialPaths.length === 0 &&
+      this.assignedSessions.length === 0 &&
+      this.selfServiceItems.length === 0
+    );
   }
 
   private async reload(): Promise<void> {
     this.loading = true;
+    this.loadError = '';
     this.cdr.detectChanges();
-    await Promise.all([this.loadInitialPaths(), this.loadAssignedSessions()]);
+    const results = await Promise.allSettled([
+      this.loadInitialPaths(),
+      this.loadAssignedSessions(),
+      this.loadSelfService(),
+    ]);
+    const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    const succeeded = results.some((r) => r.status === 'fulfilled');
+    // N'afficher l'erreur globale que si tout a échoué (sinon partial data OK).
+    if (failed.length > 0 && !succeeded) {
+      const reason = failed[0]?.reason;
+      this.loadError =
+        reason?.error?.error ||
+        reason?.message ||
+        String(reason || 'Impossible de charger vos formations.');
+    } else if (failed.length > 0) {
+      console.warn('Chargement partiel Mes formations:', failed.map((f) => f.reason));
+    }
     this.loading = false;
     this.cdr.detectChanges();
   }
 
-  private async loadInitialPaths(): Promise<void> {
-    if (!this.userId?.includes('-')) {
-      this.initialPaths = [];
-      return;
-    }
-    try {
-      this.initialPaths = await this.trainingApi.listInitialByEmployee(this.userId);
-    } catch {
-      this.initialPaths = [];
+  private async loadSelfService(): Promise<void> {
+    this.selfServiceItems = await this.trainingApi.listMySelfServiceCatalog();
+  }
+
+  enrollmentStatusLabel(status: CatalogEnrollmentStatus | string): string {
+    switch (status) {
+      case 'Completed':
+        return 'Terminé';
+      case 'InProgress':
+        return 'En cours';
+      case 'Overdue':
+        return 'En retard';
+      default:
+        return 'À démarrer';
     }
   }
 
+  enrollmentStatusClass(status: CatalogEnrollmentStatus | string): string {
+    switch (status) {
+      case 'Completed':
+        return 'badge-done';
+      case 'InProgress':
+        return 'badge-progress';
+      case 'Overdue':
+        return 'badge-reject';
+      default:
+        return 'badge-pending';
+    }
+  }
+
+  isDueSoon(item: MySelfServiceCatalogItemDto): boolean {
+    if (!item.dueAt || item.status === 'Completed') return false;
+    const due = new Date(item.dueAt).getTime();
+    const now = Date.now();
+    return due >= now && due - now <= 3 * 24 * 60 * 60 * 1000;
+  }
+
+  private async loadInitialPaths(): Promise<void> {
+    this.initialPaths = await this.trainingApi.listMyInitialPaths();
+  }
+
   private async loadAssignedSessions(): Promise<void> {
-    if (!this.userId?.includes('-')) {
-      this.assignedSessions = [];
-      return;
-    }
-    try {
-      this.assignedSessions = await this.trainingApi.listMyAssignedSessions(this.userId);
-    } catch {
-      this.assignedSessions = [];
-    }
+    this.assignedSessions = await this.trainingApi.listMyAssignedSessions();
   }
 
   sessionStatusLabel(status: TrainingSessionStatus | string): string {

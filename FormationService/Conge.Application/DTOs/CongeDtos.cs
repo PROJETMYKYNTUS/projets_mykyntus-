@@ -3,6 +3,18 @@ using System;
 
 namespace Conge.Application.DTOs;
 
+public record DemandeCongeDecisionDto(
+    Guid Id,
+    Guid ActeurId,
+    string ActeurNom,
+    string ActeurRole,
+    string Action,
+    StatutDemande StatutAvant,
+    StatutDemande StatutApres,
+    string? Commentaire,
+    DateTime At
+);
+
 public record DemandeCongeDto(
     Guid Id,
     Guid EmployeId,
@@ -17,8 +29,16 @@ public record DemandeCongeDto(
     string? CommentaireManager,
     DateTime DateDemande,
     DateTime? DateDecision,
-    string? NomEmploye,      // ✅ AJOUTER
-    string? PrenomEmploye    // ✅ AJOUTER
+    string? NomEmploye,
+    string? PrenomEmploye,
+    string? CommentaireRh = null,
+    DateTime? DateValidationSuperviseur = null,
+    Guid? SuperviseurDecideurId = null,
+    Guid? RhDecideurId = null,
+    string? SuperviseurDecideurNom = null,
+    string? RhDecideurNom = null,
+    string? ValidationNodeId = null,
+    IReadOnlyList<DemandeCongeDecisionDto>? Decisions = null
 );
 
 public record SoldeCongeDto(
@@ -50,3 +70,17 @@ public record SuiviEquipeDto(
     int DemandesValidees,
     double SoldeRestant
 );
+
+public record PeriodesInterditesDto(IReadOnlyList<int> Mois, DateTime UpdatedAt);
+
+public record QuotaCongeServiceDto(
+    Guid ServiceId,
+    string ServiceNom,
+    int? MaxAbsentsSimultanes,
+    int Effectif);
+
+public record CongeDisponibiliteDto(
+    bool Ok,
+    string? Motif,
+    IReadOnlyList<int> MoisInterdits,
+    IReadOnlyList<string> JoursSatures);

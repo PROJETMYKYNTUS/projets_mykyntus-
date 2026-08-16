@@ -4,7 +4,8 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import {
   DemandeCongeDto, SoldeCongeDto, DemanderCongeCommand,
-  ValiderCongeRequest, RefuserCongeRequest, StatutDemande
+  ValiderCongeRequest, RefuserCongeRequest, StatutDemande,
+  PeriodesInterditesDto, QuotaCongeServiceDto, CongeDisponibiliteDto
 } from '../models/conge.models';
 
 @Injectable({ providedIn: 'root' })
@@ -33,11 +34,45 @@ export class CongeService {
     return this.http.get<DemandeCongeDto[]>(`${this.base}/historique?annee=${annee}`);
   }
 
-  /** Compteur léger pour le tableau de bord RH (évite de charger tout l'historique). */
   getPendingRhCount(): Observable<number> {
     return this.http.get<{ count: number }>(`${this.base}/rh/pending-count`).pipe(
       map((r) => r.count ?? 0),
     );
+  }
+
+  getDisponibilite(employeId: string, debut: string, fin: string): Observable<CongeDisponibiliteDto> {
+    return this.http.get<CongeDisponibiliteDto>(
+      `${this.base}/disponibilite?employeId=${employeId}&debut=${encodeURIComponent(debut)}&fin=${encodeURIComponent(fin)}`
+    );
+  }
+
+  getPeriodesInterdites(): Observable<PeriodesInterditesDto> {
+    return this.http.get<PeriodesInterditesDto>(`${this.base}/config/periodes-interdites`);
+  }
+
+  updatePeriodesInterdites(mois: number[], updatedBy?: string): Observable<PeriodesInterditesDto> {
+    return this.http.put<PeriodesInterditesDto>(`${this.base}/config/periodes-interdites`, {
+      mois,
+      updatedBy: updatedBy ?? null
+    });
+  }
+
+  getQuotasService(superviseurId: string): Observable<QuotaCongeServiceDto[]> {
+    return this.http.get<QuotaCongeServiceDto[]>(
+      `${this.base}/config/quotas-service?superviseurId=${superviseurId}`
+    );
+  }
+
+  upsertQuotaService(
+    serviceId: string,
+    maxAbsentsSimultanes: number,
+    superviseurId: string
+  ): Observable<QuotaCongeServiceDto> {
+    return this.http.put<QuotaCongeServiceDto>(`${this.base}/config/quotas-service`, {
+      serviceId,
+      maxAbsentsSimultanes,
+      superviseurId
+    });
   }
 
   demanderConge(cmd: DemanderCongeCommand): Observable<{ id: string }> {
@@ -52,8 +87,17 @@ export class CongeService {
     return this.http.get<DemandeCongeDto[]>(`${this.base}/manager/${managerId}`);
   }
 
+  /** Compat : oriente selon statut côté API. */
   validerConge(demandeId: string, req: ValiderCongeRequest): Observable<void> {
     return this.http.put<void>(`${this.base}/${demandeId}/valider`, req);
+  }
+
+  validerCongeSuperviseur(demandeId: string, req: ValiderCongeRequest): Observable<void> {
+    return this.http.put<void>(`${this.base}/${demandeId}/valider-superviseur`, req);
+  }
+
+  validerCongeRh(demandeId: string, req: ValiderCongeRequest): Observable<void> {
+    return this.http.put<void>(`${this.base}/${demandeId}/valider-rh`, req);
   }
 
   refuserConge(demandeId: string, req: RefuserCongeRequest): Observable<void> {

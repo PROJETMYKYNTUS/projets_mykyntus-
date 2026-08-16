@@ -1,15 +1,15 @@
 using System.Text.Json;
 using Formation.Application.DTOs;
+using Formation.Domain;
 using Formation.Domain.Entities;
 using Formation.Domain.Enums;
+using Kyntus.Messaging.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace Formation.Infrastructure.Services;
 
 public sealed partial class TrainingWorkflowService
 {
-    public const decimal ContinueQuizPassThreshold = 70m;
-
     public async Task<TrainingProgramDto> CreateProgramAsync(CreateTrainingProgramRequest request, CancellationToken ct)
     {
         ValidateProgramAnimator(request);
@@ -83,7 +83,7 @@ public sealed partial class TrainingWorkflowService
         {
             foreach (var session in sessions)
             {
-                await publish.Publish(new Kyntus.Messaging.Contracts.TrainingSessionAnimatorAssignedMessage
+                await publish.Publish(new TrainingSessionAnimatorAssignedMessage
                 {
                     SessionId = session.Id,
                     Title = session.Title,
@@ -145,6 +145,12 @@ public sealed partial class TrainingWorkflowService
     {
         var session = await db.TrainingSessions.FirstOrDefaultAsync(s => s.Id == sessionId, ct)
             ?? throw new InvalidOperationException("Session introuvable.");
+
+        TrainingSessionDtoMapper.ResolveReportGate(
+            session, DateTime.UtcNow, out var canUpload, out var reportBlocked);
+        if (!canUpload)
+            throw new InvalidOperationException(
+                reportBlocked ?? "Le dépôt du compte rendu n’est pas encore autorisé.");
 
         var isAnimator = session.AnimatorKind == AnimatorKind.Internal && session.AnimatorUserId == uploadedByUserId;
         if (!isAnimator)
@@ -234,6 +240,7 @@ public sealed partial class TrainingWorkflowService
                 Status = TrainingQuizStatus.Draft,
             };
             db.TrainingQuizzes.Add(quiz);
+            await db.SaveChangesAsync(ct);
         }
         else
         {
@@ -247,34 +254,74 @@ public sealed partial class TrainingWorkflowService
             quiz.RejectedReason = null;
             quiz.RejectedAt = null;
             quiz.RejectedByUserId = null;
-            db.TrainingQuizQuestions.RemoveRange(quiz.Questions);
         }
 
+        var existingById = quiz.Questions.ToDictionary(q => q.Id);
+        var keepIds = new HashSet<Guid>();
         var order = 0;
         foreach (var q in request.Questions)
         {
             ValidateQuestion(q);
             var indexes = NormalizeCorrectIndexes(q);
-            db.TrainingQuizQuestions.Add(new TrainingQuizQuestion
+            TrainingQuizQuestion entity;
+            if (q.Id is Guid qid && existingById.TryGetValue(qid, out var existing))
             {
-                QuizId = quiz.Id,
-                SortOrder = order++,
-                Type = q.Type,
-                Prompt = q.Prompt.Trim(),
-                OptionsJson = q.Type == TrainingQuizQuestionType.Qcm
-                    ? JsonSerializer.Serialize(q.Options ?? Array.Empty<string>())
-                    : null,
-                AllowMultiple = q.Type == TrainingQuizQuestionType.Qcm && q.AllowMultiple,
-                CorrectOptionIndex = q.Type == TrainingQuizQuestionType.Qcm && !q.AllowMultiple
-                    ? indexes.FirstOrDefault()
-                    : null,
-                CorrectOptionIndexesJson = q.Type == TrainingQuizQuestionType.Qcm
-                    ? JsonSerializer.Serialize(indexes)
-                    : null,
-                Points = q.Points <= 0 ? 1m : q.Points,
-                ImageUrl = string.IsNullOrWhiteSpace(q.ImageUrl) ? null : q.ImageUrl.Trim(),
-                Explanation = string.IsNullOrWhiteSpace(q.Explanation) ? null : q.Explanation.Trim(),
-            });
+                entity = existing;
+                keepIds.Add(qid);
+            }
+            else
+            {
+                entity = new TrainingQuizQuestion { QuizId = quiz.Id };
+                db.TrainingQuizQuestions.Add(entity);
+            }
+
+            entity.SortOrder = order++;
+            entity.Type = q.Type;
+            entity.Prompt = q.Prompt.Trim();
+            entity.OptionsJson = q.Type == TrainingQuizQuestionType.Qcm
+                ? JsonSerializer.Serialize(q.Options ?? Array.Empty<string>())
+                : null;
+            entity.AllowMultiple = q.Type == TrainingQuizQuestionType.Qcm && q.AllowMultiple;
+            entity.CorrectOptionIndex = q.Type == TrainingQuizQuestionType.Qcm && !q.AllowMultiple
+                ? indexes.FirstOrDefault()
+                : null;
+            entity.CorrectOptionIndexesJson = q.Type == TrainingQuizQuestionType.Qcm
+                ? JsonSerializer.Serialize(indexes)
+                : null;
+            entity.Points = q.Points <= 0 ? 1m : q.Points;
+            entity.Explanation = string.IsNullOrWhiteSpace(q.Explanation) ? null : q.Explanation.Trim();
+
+            var nextUrl = string.IsNullOrWhiteSpace(q.ImageUrl) ? null : q.ImageUrl.Trim();
+            // Ne pas effacer le stockage disque si l'URL API download est conservée.
+            if (nextUrl is null)
+            {
+                TryDeleteQuizImageFile(entity.ImageStoragePath);
+                entity.ImageStoragePath = null;
+                entity.ImageUrl = null;
+            }
+            else if (!string.Equals(nextUrl, entity.ImageUrl, StringComparison.Ordinal)
+                     && !IsQuizQuestionImageApiUrl(sessionId, entity.Id, nextUrl))
+            {
+                // URL externe différente : libérer l'ancien fichier uploadé.
+                if (!string.IsNullOrWhiteSpace(entity.ImageStoragePath)
+                    && !string.Equals(nextUrl, entity.ImageUrl, StringComparison.Ordinal))
+                {
+                    TryDeleteQuizImageFile(entity.ImageStoragePath);
+                    entity.ImageStoragePath = null;
+                }
+                entity.ImageUrl = nextUrl;
+            }
+            else
+            {
+                entity.ImageUrl = nextUrl;
+            }
+        }
+
+        foreach (var old in existingById.Values)
+        {
+            if (keepIds.Contains(old.Id)) continue;
+            TryDeleteQuizImageFile(old.ImageStoragePath);
+            db.TrainingQuizQuestions.Remove(old);
         }
 
         await db.SaveChangesAsync(ct);
@@ -282,9 +329,169 @@ public sealed partial class TrainingWorkflowService
             ?? throw new InvalidOperationException("Quiz introuvable après enregistrement.");
     }
 
-    public async Task<TrainingQuizDto> PublishQuizAsync(Guid sessionId, Guid animatorUserId, CancellationToken ct)
+    public async Task<TrainingQuizQuestionDto> UploadQuizQuestionImageAsync(
+        Guid sessionId,
+        Guid questionId,
+        Guid animatorUserId,
+        string fileName,
+        string contentType,
+        Stream content,
+        string? rootPath,
+        CancellationToken ct)
     {
         _ = await RequireAnimatorContinueSessionAsync(sessionId, animatorUserId, ct);
+        var question = await db.TrainingQuizQuestions
+            .Include(q => q.Quiz)
+            .FirstOrDefaultAsync(q => q.Id == questionId && q.Quiz!.SessionId == sessionId, ct)
+            ?? throw new InvalidOperationException("Question introuvable.");
+
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        if (ext is not (".jpg" or ".jpeg" or ".png" or ".gif" or ".webp" or ".bmp"
+            or ".mp4" or ".webm" or ".ogg" or ".mov"))
+            throw new InvalidOperationException(
+                "Format non supporté (images : jpg, png, gif, webp ; vidéos : mp4, webm, ogg, mov).");
+
+        var root = string.IsNullOrWhiteSpace(rootPath)
+            ? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "quiz-images")
+            : rootPath;
+        Directory.CreateDirectory(root);
+
+        TryDeleteQuizImageFile(question.ImageStoragePath);
+
+        var safeName = $"{sessionId:N}_{questionId:N}_{DateTime.UtcNow:yyyyMMddHHmmss}{ext}";
+        var fullPath = Path.Combine(root, safeName);
+        await using (var fs = File.Create(fullPath))
+            await content.CopyToAsync(fs, ct);
+
+        question.ImageStoragePath = fullPath;
+        question.ImageUrl = $"/api/formations/sessions/{sessionId}/quiz/questions/{questionId}/image";
+        if (question.Quiz is not null)
+            question.Quiz.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        return new TrainingQuizQuestionDto(
+            question.Id,
+            question.SortOrder,
+            question.Type,
+            question.Prompt,
+            ParseOptions(question.OptionsJson),
+            question.CorrectOptionIndex,
+            question.Points,
+            question.AllowMultiple,
+            ParseIntList(question.CorrectOptionIndexesJson),
+            question.ImageUrl,
+            question.Explanation,
+            InferQuizMediaKind(question.ImageStoragePath, question.ImageUrl));
+    }
+
+    public async Task<(TrainingQuizQuestion Question, byte[] Bytes)?> GetQuizQuestionImageAsync(
+        Guid sessionId,
+        Guid questionId,
+        CancellationToken ct)
+    {
+        var question = await db.TrainingQuizQuestions.AsNoTracking()
+            .Include(q => q.Quiz)
+            .FirstOrDefaultAsync(q => q.Id == questionId && q.Quiz!.SessionId == sessionId, ct);
+        if (question is null
+            || string.IsNullOrWhiteSpace(question.ImageStoragePath)
+            || !File.Exists(question.ImageStoragePath))
+            return null;
+        var bytes = await File.ReadAllBytesAsync(question.ImageStoragePath, ct);
+        return (question, bytes);
+    }
+
+    public async Task<IReadOnlyList<MyQuizAttemptHistoryItemDto>> ListMyQuizAttemptsAcrossSessionsAsync(
+        Guid employeeId,
+        CancellationToken ct)
+    {
+        if (employeeId == Guid.Empty)
+            throw new InvalidOperationException("Identifiant collaborateur requis.");
+
+        var attempts = await db.TrainingQuizAttempts.AsNoTracking()
+            .Where(a => a.EmployeeId == employeeId)
+            .OrderByDescending(a => a.SubmittedAt)
+            .ToListAsync(ct);
+        if (attempts.Count == 0) return [];
+
+        var assignmentIds = attempts.Select(a => a.AssignmentId).Distinct().ToList();
+        var assignments = await db.TrainingAssignments.AsNoTracking()
+            .Where(a => assignmentIds.Contains(a.Id))
+            .ToDictionaryAsync(a => a.Id, ct);
+        var sessionIds = assignments.Values.Select(a => a.SessionId).Distinct().ToList();
+        var sessions = await db.TrainingSessions.AsNoTracking()
+            .Where(s => sessionIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, ct);
+
+        var enrollmentIds = assignmentIds.Where(id => !assignments.ContainsKey(id)).ToList();
+        var enrollments = enrollmentIds.Count == 0
+            ? new Dictionary<Guid, TrainingCatalogEnrollment>()
+            : await db.TrainingCatalogEnrollments.AsNoTracking()
+                .Where(e => enrollmentIds.Contains(e.Id))
+                .ToDictionaryAsync(e => e.Id, ct);
+
+        var catalogIds = sessions.Values
+            .Where(s => s.CatalogItemId != null)
+            .Select(s => s.CatalogItemId!.Value)
+            .Concat(enrollments.Values.Select(e => e.CatalogItemId))
+            .Distinct()
+            .ToList();
+        var catalogs = catalogIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await db.TrainingCatalogItems.AsNoTracking()
+                .Where(c => catalogIds.Contains(c.Id))
+                .ToDictionaryAsync(c => c.Id, c => c.Title, ct);
+
+        return attempts.Select(a =>
+        {
+            if (assignments.TryGetValue(a.AssignmentId, out var asg))
+            {
+                sessions.TryGetValue(asg.SessionId, out var sess);
+                string? catalogTitle = null;
+                if (sess?.CatalogItemId is Guid cid)
+                    catalogs.TryGetValue(cid, out catalogTitle);
+                return new MyQuizAttemptHistoryItemDto(
+                    a.Id,
+                    sess?.Id ?? Guid.Empty,
+                    sess?.Title ?? "",
+                    sess?.CatalogItemId,
+                    catalogTitle,
+                    a.AttemptNumber,
+                    a.FinalScore,
+                    a.Passed,
+                    a.IsGraded,
+                    a.SubmittedAt);
+            }
+
+            enrollments.TryGetValue(a.AssignmentId, out var enrollment);
+            string? selfTitle = null;
+            if (enrollment is not null)
+                catalogs.TryGetValue(enrollment.CatalogItemId, out selfTitle);
+            return new MyQuizAttemptHistoryItemDto(
+                a.Id,
+                Guid.Empty,
+                selfTitle ?? "Formation libre accès",
+                enrollment?.CatalogItemId,
+                selfTitle,
+                a.AttemptNumber,
+                a.FinalScore,
+                a.Passed,
+                a.IsGraded,
+                a.SubmittedAt);
+        }).ToList();
+    }
+
+    private static bool IsQuizQuestionImageApiUrl(Guid sessionId, Guid questionId, string url) =>
+        url.Contains($"/sessions/{sessionId}/quiz/questions/{questionId}/image", StringComparison.OrdinalIgnoreCase);
+
+    private static void TryDeleteQuizImageFile(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
+        try { File.Delete(path); } catch { /* ignore */ }
+    }
+
+    public async Task<TrainingQuizDto> PublishQuizAsync(Guid sessionId, Guid animatorUserId, CancellationToken ct)
+    {
+        var session = await RequireAnimatorContinueSessionAsync(sessionId, animatorUserId, ct);
         var quiz = await db.TrainingQuizzes.Include(q => q.Questions)
             .FirstOrDefaultAsync(q => q.SessionId == sessionId, ct)
             ?? throw new InvalidOperationException("Quiz introuvable.");
@@ -293,6 +500,20 @@ public sealed partial class TrainingWorkflowService
         quiz.Status = TrainingQuizStatus.Published;
         quiz.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+
+        var employeeIds = await db.TrainingAssignments.AsNoTracking()
+            .Where(a => a.SessionId == sessionId)
+            .Select(a => a.EmployeeId)
+            .ToListAsync(ct);
+        await publish.Publish(new TrainingQuizPublishedMessage
+        {
+            SessionId = sessionId,
+            QuizId = quiz.Id,
+            Title = string.IsNullOrWhiteSpace(quiz.Title) ? session.Title : quiz.Title,
+            EmployeeIds = employeeIds,
+            PublishedAt = DateTime.UtcNow,
+        }, ct);
+
         return (await GetQuizDtoAsync(quiz.Id, ct))!;
     }
 
@@ -301,6 +522,12 @@ public sealed partial class TrainingWorkflowService
         var quiz = await db.TrainingQuizzes.AsNoTracking()
             .FirstOrDefaultAsync(q => q.SessionId == sessionId, ct);
         return quiz is null ? null : await GetQuizDtoAsync(quiz.Id, ct);
+    }
+
+    public async Task<TrainingQuizDto?> GetQuizForAnimatorAsync(Guid sessionId, Guid animatorUserId, CancellationToken ct)
+    {
+        _ = await RequireAnimatorContinueSessionAsync(sessionId, animatorUserId, ct);
+        return await GetQuizForSessionAsync(sessionId, ct);
     }
 
     public async Task<TrainingQuizForEmployeeDto> GetPublishedQuizForEmployeeAsync(
@@ -335,7 +562,7 @@ public sealed partial class TrainingWorkflowService
 
         return new TrainingQuizForEmployeeDto(
             quiz.Id,
-            quiz.SessionId,
+            quiz.SessionId ?? Guid.Empty,
             quiz.Title,
             quiz.Status,
             quiz.Questions.OrderBy(q => q.SortOrder).Select(q => new TrainingQuizQuestionPublicDto(
@@ -346,9 +573,247 @@ public sealed partial class TrainingWorkflowService
                 ParseOptions(q.OptionsJson),
                 q.Points,
                 q.AllowMultiple,
-                q.ImageUrl)).ToList(),
+                q.ImageUrl,
+                InferQuizMediaKind(q.ImageStoragePath, q.ImageUrl))).ToList(),
             quiz.AllowMultipleAttempts,
-            quiz.PassThreshold <= 0 ? ContinueQuizPassThreshold : quiz.PassThreshold);
+            quiz.PassThreshold <= 0 ? TrainingQuizDefaults.PassThreshold : quiz.PassThreshold);
+    }
+
+    /// <summary>
+    /// Quiz libre-accès : matérielise le modèle catalogue en quiz publié (sans séance)
+    /// et l’expose si le contenu obligatoire est terminé.
+    /// </summary>
+    public async Task<TrainingQuizForEmployeeDto> GetPublishedQuizForCatalogEmployeeAsync(
+        Guid catalogItemId,
+        Guid employeeId,
+        CancellationToken ct,
+        string? email = null)
+    {
+        var player = await learningCatalog.GetPlayerByCatalogAsync(catalogItemId, employeeId, ct, email);
+        if (player.DefaultQuizTemplateId is not Guid templateId)
+            throw new InvalidOperationException("Aucun quiz associé à cette formation.");
+
+        var quiz = await EnsureCatalogQuizFromTemplateAsync(catalogItemId, templateId, ct);
+
+        var existingCount = await db.TrainingQuizAttempts.AsNoTracking()
+            .CountAsync(a => a.QuizId == quiz.Id && a.AssignmentId == player.EnrollmentId, ct);
+
+        if (!player.CanTakeQuiz)
+            throw new InvalidOperationException(player.QuizBlockedReason ?? "Quiz non disponible.");
+
+        if (!quiz.AllowMultipleAttempts && existingCount > 0)
+            throw new InvalidOperationException("Une seule tentative autorisée pour ce quiz.");
+
+        return new TrainingQuizForEmployeeDto(
+            quiz.Id,
+            Guid.Empty,
+            quiz.Title,
+            quiz.Status,
+            quiz.Questions.OrderBy(q => q.SortOrder).Select(q => new TrainingQuizQuestionPublicDto(
+                q.Id,
+                q.SortOrder,
+                q.Type,
+                q.Prompt,
+                ParseOptions(q.OptionsJson),
+                q.Points,
+                q.AllowMultiple,
+                q.ImageUrl,
+                InferQuizMediaKind(q.ImageStoragePath, q.ImageUrl))).ToList(),
+            quiz.AllowMultipleAttempts,
+            quiz.PassThreshold <= 0 ? TrainingQuizDefaults.PassThreshold : quiz.PassThreshold,
+            catalogItemId,
+            player.EnrollmentId);
+    }
+
+    public async Task<TrainingQuizAttemptDto> SubmitCatalogQuizAttemptAsync(
+        Guid catalogItemId,
+        SubmitTrainingQuizAttemptRequest request,
+        CancellationToken ct,
+        string? email = null)
+    {
+        var player = await learningCatalog.GetPlayerByCatalogAsync(catalogItemId, request.EmployeeId, ct, email);
+        if (player.DefaultQuizTemplateId is not Guid templateId)
+            throw new InvalidOperationException("Aucun quiz associé à cette formation.");
+        if (!player.CanTakeQuiz)
+            throw new InvalidOperationException(player.QuizBlockedReason ?? "Quiz non disponible.");
+        if (request.AssignmentId != Guid.Empty && request.AssignmentId != player.EnrollmentId)
+            throw new InvalidOperationException("Inscription catalogue incohérente.");
+
+        var quiz = await EnsureCatalogQuizFromTemplateAsync(catalogItemId, templateId, ct);
+        if (quiz.Status != TrainingQuizStatus.Published)
+            throw new InvalidOperationException("Le quiz n'accepte plus de nouvelles réponses.");
+
+        var enrollmentId = player.EnrollmentId;
+        var existingCount = await db.TrainingQuizAttempts
+            .CountAsync(a => a.QuizId == quiz.Id && a.AssignmentId == enrollmentId, ct);
+        if (!quiz.AllowMultipleAttempts && existingCount > 0)
+            throw new InvalidOperationException("Une tentative existe déjà pour ce quiz.");
+
+        var payload = request.Answers.Select(a => new
+        {
+            a.QuestionId,
+            a.SelectedOptionIndex,
+            SelectedOptionIndexes = ResolveSelectedIndexes(a),
+            a.FreeText,
+        });
+
+        var attempt = new TrainingQuizAttempt
+        {
+            QuizId = quiz.Id,
+            AssignmentId = enrollmentId,
+            EmployeeId = request.EmployeeId,
+            AttemptNumber = existingCount + 1,
+            AnswersJson = JsonSerializer.Serialize(payload),
+        };
+
+        ApplyAttemptScoring(attempt, quiz.Questions.ToList(), quiz.PassThreshold);
+
+        db.TrainingQuizAttempts.Add(attempt);
+        if (attempt.IsGraded)
+            quiz.Status = TrainingQuizStatus.Graded;
+        quiz.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        var emp = await db.EmployeAnnuaires.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.EmployeId == request.EmployeeId, ct);
+        var name = emp is null ? "" : $"{emp.Prenom} {emp.Nom}".Trim();
+
+        if (attempt.IsGraded)
+        {
+            await publish.Publish(new TrainingQuizResultReadyMessage
+            {
+                SessionId = Guid.Empty,
+                QuizId = quiz.Id,
+                AttemptId = attempt.Id,
+                EmployeeId = request.EmployeeId,
+                Title = string.IsNullOrWhiteSpace(quiz.Title) ? player.Title : quiz.Title,
+                FinalScore = attempt.FinalScore,
+                Passed = attempt.Passed,
+                ReadyAt = DateTime.UtcNow,
+            }, ct);
+        }
+
+        return ToAttemptDto(attempt, name, quiz.Questions.ToList());
+    }
+
+    public async Task<IReadOnlyList<TrainingQuizAttemptDto>> ListMyCatalogQuizAttemptsAsync(
+        Guid catalogItemId,
+        Guid employeeId,
+        CancellationToken ct,
+        string? email = null)
+    {
+        var player = await learningCatalog.GetPlayerByCatalogAsync(catalogItemId, employeeId, ct, email);
+        var quiz = await db.TrainingQuizzes.AsNoTracking()
+            .Include(q => q.Questions)
+            .FirstOrDefaultAsync(q => q.CatalogItemId == catalogItemId, ct);
+        if (quiz is null) return [];
+
+        var attempts = await db.TrainingQuizAttempts.AsNoTracking()
+            .Where(a => a.QuizId == quiz.Id && a.AssignmentId == player.EnrollmentId)
+            .OrderByDescending(a => a.AttemptNumber)
+            .ToListAsync(ct);
+
+        var emp = await db.EmployeAnnuaires.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.EmployeId == employeeId, ct);
+        var name = emp is null ? "" : $"{emp.Prenom} {emp.Nom}".Trim();
+        var questions = quiz.Questions.OrderBy(q => q.SortOrder).ToList();
+        return attempts.Select(a => ToAttemptDto(a, name, questions)).ToList();
+    }
+
+    private async Task<TrainingQuiz> EnsureCatalogQuizFromTemplateAsync(
+        Guid catalogItemId,
+        Guid templateId,
+        CancellationToken ct)
+    {
+        var template = await db.TrainingQuizTemplates
+            .Include(t => t.Questions)
+            .FirstOrDefaultAsync(t => t.Id == templateId, ct)
+            ?? throw new InvalidOperationException("Modèle de quiz introuvable.");
+
+        if (template.Status != CatalogItemStatus.Published)
+            throw new InvalidOperationException("Le modèle de quiz n'est pas publié.");
+        if (template.Questions.Count == 0)
+            throw new InvalidOperationException("Le modèle de quiz n'a aucune question.");
+
+        var quiz = await db.TrainingQuizzes
+            .Include(q => q.Questions)
+            .FirstOrDefaultAsync(q => q.CatalogItemId == catalogItemId, ct);
+
+        if (quiz is null)
+        {
+            quiz = new TrainingQuiz
+            {
+                CatalogItemId = catalogItemId,
+                SessionId = null,
+                TemplateId = template.Id,
+                Title = template.Title,
+                PassThreshold = template.PassThreshold,
+                AllowMultipleAttempts = template.AllowMultipleAttempts,
+                Status = TrainingQuizStatus.Published,
+                CreatedByUserId = Guid.TryParse(template.CreatedByUserId, out var actor) ? actor : Guid.Empty,
+                ValidatedAt = DateTime.UtcNow,
+            };
+            db.TrainingQuizzes.Add(quiz);
+            await db.SaveChangesAsync(ct);
+            CopyTemplateQuestionsToQuiz(quiz, template);
+            await db.SaveChangesAsync(ct);
+            return await db.TrainingQuizzes
+                .Include(q => q.Questions)
+                .FirstAsync(q => q.Id == quiz.Id, ct);
+        }
+
+        var hasAttempts = await db.TrainingQuizAttempts.AnyAsync(a => a.QuizId == quiz.Id, ct);
+        if (quiz.TemplateId != templateId && !hasAttempts)
+        {
+            foreach (var old in quiz.Questions.ToList())
+                db.TrainingQuizQuestions.Remove(old);
+            quiz.Questions.Clear();
+            quiz.TemplateId = template.Id;
+            quiz.Title = template.Title;
+            quiz.PassThreshold = template.PassThreshold;
+            quiz.AllowMultipleAttempts = template.AllowMultipleAttempts;
+            quiz.Status = TrainingQuizStatus.Published;
+            quiz.UpdatedAt = DateTime.UtcNow;
+            CopyTemplateQuestionsToQuiz(quiz, template);
+            await db.SaveChangesAsync(ct);
+        }
+        else
+        {
+            if (quiz.Status is not TrainingQuizStatus.Published
+                and not TrainingQuizStatus.Graded
+                and not TrainingQuizStatus.Validated)
+            {
+                quiz.Status = TrainingQuizStatus.Published;
+                quiz.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(ct);
+            }
+        }
+
+        return await db.TrainingQuizzes
+            .Include(q => q.Questions)
+            .FirstAsync(q => q.Id == quiz.Id, ct);
+    }
+
+    private void CopyTemplateQuestionsToQuiz(TrainingQuiz quiz, TrainingQuizTemplate template)
+    {
+        foreach (var tq in template.Questions.OrderBy(x => x.SortOrder))
+        {
+            db.TrainingQuizQuestions.Add(new TrainingQuizQuestion
+            {
+                QuizId = quiz.Id,
+                SortOrder = tq.SortOrder,
+                Type = tq.Type,
+                Prompt = tq.Prompt,
+                OptionsJson = tq.OptionsJson,
+                CorrectOptionIndex = tq.CorrectOptionIndex,
+                AllowMultiple = tq.AllowMultiple,
+                CorrectOptionIndexesJson = tq.CorrectOptionIndexesJson,
+                Points = tq.Points,
+                Explanation = tq.Explanation,
+                ImageUrl = tq.ImageUrl,
+                ImageStoragePath = tq.ImageStoragePath,
+            });
+        }
     }
 
     public async Task<TrainingQuizAttemptDto> SubmitQuizAttemptAsync(
@@ -406,6 +871,52 @@ public sealed partial class TrainingWorkflowService
         quiz.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
+        var quizTitle = string.IsNullOrWhiteSpace(quiz.Title) ? session.Title : quiz.Title;
+        await publish.Publish(new TrainingQuizAttemptSubmittedMessage
+        {
+            SessionId = sessionId,
+            QuizId = quiz.Id,
+            AttemptId = attempt.Id,
+            EmployeeId = assignment.EmployeeId,
+            EmployeeName = assignment.EmployeeName,
+            Title = quizTitle,
+            IsGraded = attempt.IsGraded,
+            SubmittedAt = attempt.SubmittedAt,
+        }, ct);
+
+        if (!attempt.IsGraded
+            && session.AnimatorKind == AnimatorKind.Internal
+            && session.AnimatorUserId is Guid animatorId
+            && animatorId != Guid.Empty)
+        {
+            await publish.Publish(new TrainingQuizNeedsGradingMessage
+            {
+                SessionId = sessionId,
+                QuizId = quiz.Id,
+                AttemptId = attempt.Id,
+                AnimatorUserId = animatorId,
+                EmployeeId = assignment.EmployeeId,
+                EmployeeName = assignment.EmployeeName,
+                Title = quizTitle,
+                SubmittedAt = attempt.SubmittedAt,
+            }, ct);
+        }
+
+        if (attempt.IsGraded)
+        {
+            await publish.Publish(new TrainingQuizResultReadyMessage
+            {
+                SessionId = sessionId,
+                QuizId = quiz.Id,
+                AttemptId = attempt.Id,
+                EmployeeId = assignment.EmployeeId,
+                Title = quizTitle,
+                FinalScore = attempt.FinalScore,
+                Passed = attempt.Passed,
+                ReadyAt = DateTime.UtcNow,
+            }, ct);
+        }
+
         return ToAttemptDto(attempt, assignment.EmployeeName, quiz.Questions.ToList());
     }
 
@@ -455,8 +966,10 @@ public sealed partial class TrainingWorkflowService
             grades.ToDictionary(kv => kv.Key.ToString("D"), kv => kv.Value));
         attempt.GradedByUserId = request.AnimatorUserId;
 
+        var wasGraded = attempt.IsGraded;
         ApplyAttemptScoring(attempt, quiz.Questions.ToList(), quiz.PassThreshold);
-        if (attempt.IsGraded)
+        var becameGraded = !wasGraded && attempt.IsGraded;
+        if (becameGraded)
             quiz.Status = TrainingQuizStatus.Graded;
         quiz.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
@@ -465,6 +978,26 @@ public sealed partial class TrainingWorkflowService
             .Where(a => a.Id == attempt.AssignmentId)
             .Select(a => a.EmployeeName)
             .FirstOrDefaultAsync(ct) ?? "";
+
+        if (becameGraded)
+        {
+            var sessionTitle = await db.TrainingSessions.AsNoTracking()
+                .Where(s => s.Id == sessionId)
+                .Select(s => s.Title)
+                .FirstOrDefaultAsync(ct) ?? "";
+            await publish.Publish(new TrainingQuizResultReadyMessage
+            {
+                SessionId = sessionId,
+                QuizId = quiz.Id,
+                AttemptId = attempt.Id,
+                EmployeeId = attempt.EmployeeId,
+                Title = string.IsNullOrWhiteSpace(quiz.Title) ? sessionTitle : quiz.Title,
+                FinalScore = attempt.FinalScore,
+                Passed = attempt.Passed,
+                ReadyAt = DateTime.UtcNow,
+            }, ct);
+        }
+
         return ToAttemptDto(attempt, name, quiz.Questions.OrderBy(q => q.SortOrder).ToList());
     }
 
@@ -510,6 +1043,7 @@ public sealed partial class TrainingWorkflowService
 
         attempt.GradedByUserId = request.AnimatorUserId;
         attempt.AnimatorComment = request.AnimatorComment?.Trim();
+        var wasGraded = attempt.IsGraded;
         ApplyAttemptScoring(attempt, quiz.Questions.ToList(), quiz.PassThreshold);
         if (!attempt.IsGraded && request.ManualScore is decimal manual)
         {
@@ -530,15 +1064,45 @@ public sealed partial class TrainingWorkflowService
             .Select(a => a.EmployeeName)
             .FirstOrDefaultAsync(ct) ?? "";
 
+        if (!wasGraded && attempt.IsGraded)
+        {
+            var sessionTitle = await db.TrainingSessions.AsNoTracking()
+                .Where(s => s.Id == sessionId)
+                .Select(s => s.Title)
+                .FirstOrDefaultAsync(ct) ?? "";
+            await publish.Publish(new TrainingQuizResultReadyMessage
+            {
+                SessionId = sessionId,
+                QuizId = quiz.Id,
+                AttemptId = attempt.Id,
+                EmployeeId = attempt.EmployeeId,
+                Title = string.IsNullOrWhiteSpace(quiz.Title) ? sessionTitle : quiz.Title,
+                FinalScore = attempt.FinalScore,
+                Passed = attempt.Passed,
+                ReadyAt = DateTime.UtcNow,
+            }, ct);
+        }
+
         return ToAttemptDto(attempt, name, quiz.Questions.OrderBy(q => q.SortOrder).ToList());
     }
 
     public async Task<TrainingQuizDto> ValidateQuizAsync(Guid sessionId, ValidateTrainingQuizRequest request, CancellationToken ct)
     {
-        var quiz = await db.TrainingQuizzes.FirstOrDefaultAsync(q => q.SessionId == sessionId, ct)
+        _ = await RequireAnimatorContinueSessionAsync(sessionId, request.ActorUserId, ct);
+        var quiz = await db.TrainingQuizzes.Include(q => q.Questions)
+            .FirstOrDefaultAsync(q => q.SessionId == sessionId, ct)
             ?? throw new InvalidOperationException("Quiz introuvable.");
         if (quiz.Status is not TrainingQuizStatus.Graded and not TrainingQuizStatus.Published)
             throw new InvalidOperationException("Le quiz doit être noté avant validation.");
+
+        if (quiz.Questions.Any(q => q.Type == TrainingQuizQuestionType.FreeText))
+        {
+            var ungraded = await db.TrainingQuizAttempts
+                .AnyAsync(a => a.QuizId == quiz.Id && !a.IsGraded, ct);
+            if (ungraded)
+                throw new InvalidOperationException("Des réponses libres restent à noter.");
+        }
+
         quiz.Status = TrainingQuizStatus.Validated;
         quiz.ValidatedByUserId = request.ActorUserId;
         quiz.ValidatedAt = DateTime.UtcNow;
@@ -547,11 +1111,30 @@ public sealed partial class TrainingWorkflowService
         quiz.RejectedByUserId = null;
         quiz.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+
+        var employeeIds = await db.TrainingAssignments.AsNoTracking()
+            .Where(a => a.SessionId == sessionId)
+            .Select(a => a.EmployeeId)
+            .ToListAsync(ct);
+        var sessionTitle = await db.TrainingSessions.AsNoTracking()
+            .Where(s => s.Id == sessionId)
+            .Select(s => s.Title)
+            .FirstOrDefaultAsync(ct) ?? "";
+        await publish.Publish(new TrainingQuizValidatedMessage
+        {
+            SessionId = sessionId,
+            QuizId = quiz.Id,
+            Title = string.IsNullOrWhiteSpace(quiz.Title) ? sessionTitle : quiz.Title,
+            EmployeeIds = employeeIds,
+            ValidatedAt = quiz.ValidatedAt ?? DateTime.UtcNow,
+        }, ct);
+
         return (await GetQuizDtoAsync(quiz.Id, ct))!;
     }
 
     public async Task<TrainingQuizDto> RejectQuizAsync(Guid sessionId, RejectTrainingQuizRequest request, CancellationToken ct)
     {
+        _ = await RequireAnimatorContinueSessionAsync(sessionId, request.ActorUserId, ct);
         if (string.IsNullOrWhiteSpace(request.Reason))
             throw new InvalidOperationException("Le motif de rejet est obligatoire.");
         var quiz = await db.TrainingQuizzes.FirstOrDefaultAsync(q => q.SessionId == sessionId, ct)
@@ -562,6 +1145,24 @@ public sealed partial class TrainingWorkflowService
         quiz.RejectedReason = request.Reason.Trim();
         quiz.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+
+        var employeeIds = await db.TrainingAssignments.AsNoTracking()
+            .Where(a => a.SessionId == sessionId)
+            .Select(a => a.EmployeeId)
+            .ToListAsync(ct);
+        var session = await db.TrainingSessions.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == sessionId, ct);
+        await publish.Publish(new TrainingQuizRejectedMessage
+        {
+            SessionId = sessionId,
+            QuizId = quiz.Id,
+            Title = string.IsNullOrWhiteSpace(quiz.Title) ? session?.Title ?? "" : quiz.Title,
+            Reason = quiz.RejectedReason ?? request.Reason.Trim(),
+            AnimatorUserId = session?.AnimatorUserId,
+            EmployeeIds = employeeIds,
+            RejectedAt = quiz.RejectedAt ?? DateTime.UtcNow,
+        }, ct);
+
         return (await GetQuizDtoAsync(quiz.Id, ct))!;
     }
 
@@ -607,7 +1208,7 @@ public sealed partial class TrainingWorkflowService
         var attendanceRate = assignmentCount == 0 ? 0 : Math.Round(100.0 * present / assignmentCount, 1);
 
         var quizzes = await db.TrainingQuizzes.AsNoTracking()
-            .Where(q => sessionIds.Contains(q.SessionId))
+            .Where(q => q.SessionId != null && sessionIds.Contains(q.SessionId.Value))
             .ToListAsync(ct);
         var attemptsQuery = db.TrainingQuizAttempts.AsNoTracking()
             .Where(a => quizzes.Select(q => q.Id).Contains(a.QuizId) && a.IsGraded);
@@ -662,10 +1263,12 @@ public sealed partial class TrainingWorkflowService
                 q.AllowMultiple,
                 ResolveCorrectIndexes(q),
                 q.ImageUrl,
-                q.Explanation)).ToList(),
+                q.Explanation,
+                InferQuizMediaKind(q.ImageStoragePath, q.ImageUrl))).ToList(),
             quiz.RejectedReason,
-            quiz.PassThreshold <= 0 ? ContinueQuizPassThreshold : quiz.PassThreshold,
-            quiz.AllowMultipleAttempts);
+            quiz.PassThreshold <= 0 ? TrainingQuizDefaults.PassThreshold : quiz.PassThreshold,
+            quiz.AllowMultipleAttempts,
+            quiz.TemplateId);
     }
 
     private static void ValidateProgramAnimator(CreateTrainingProgramRequest request)
@@ -807,7 +1410,7 @@ public sealed partial class TrainingWorkflowService
 
     private static decimal NormalizePassThreshold(decimal value)
     {
-        if (value <= 0) return ContinueQuizPassThreshold;
+        if (value <= 0) return TrainingQuizDefaults.PassThreshold;
         if (value > 100) return 100m;
         return Math.Round(value, 1);
     }
@@ -864,8 +1467,20 @@ public sealed partial class TrainingWorkflowService
                 isCorrect,
                 q.Points,
                 q.ImageUrl,
-                q.Explanation);
+                q.Explanation,
+                InferQuizMediaKind(q.ImageStoragePath, q.ImageUrl));
         }).ToList();
+    }
+
+    private static string? InferQuizMediaKind(string? storagePath, string? imageUrl)
+    {
+        var ext = Path.GetExtension(storagePath ?? "").ToLowerInvariant();
+        if (ext is ".mp4" or ".webm" or ".ogg" or ".mov") return "video";
+        if (ext is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp" or ".bmp") return "image";
+        var url = (imageUrl ?? "").ToLowerInvariant();
+        if (url.Contains(".mp4") || url.Contains(".webm") || url.Contains(".ogg") || url.Contains(".mov"))
+            return "video";
+        return string.IsNullOrWhiteSpace(imageUrl) ? null : "image";
     }
 
     private sealed record StoredAnswer(List<int> Selected, string? FreeText);

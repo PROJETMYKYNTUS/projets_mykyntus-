@@ -46,8 +46,10 @@ builder.Services.AddMediatR(cfg =>
 builder.Services.AddScoped<IFormationRepository, FormationRepository>();
 builder.Services.AddScoped<Formation.Infrastructure.Services.FormationDocumentChecklistService>();
 builder.Services.AddScoped<Formation.Infrastructure.Services.LearningCatalogService>();
+builder.Services.AddScoped<Formation.Infrastructure.Services.TrainingQuizLibraryService>();
 builder.Services.AddScoped<Formation.Infrastructure.Services.TrainingWorkflowService>();
 builder.Services.AddHostedService<Formation.Infrastructure.Services.InitialTrainingMissingDocumentsAlertHostedService>();
+builder.Services.AddHostedService<Formation.Infrastructure.Services.CatalogDeadlineReminderHostedService>();
 
 builder.Services.AddKyntusJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization(options =>
@@ -110,6 +112,12 @@ builder.Services.AddMassTransit(x =>
 });
 }
 
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o =>
+{
+    o.MultipartBodyLengthLimit = 500_000_000;
+    o.ValueLengthLimit = int.MaxValue;
+});
+
 builder.Services.AddControllers()
     .AddJsonOptions(o =>
     {
@@ -149,7 +157,10 @@ using (var scope = app.Services.CreateScope())
         {
             await FormationSchemaPatches.EnsureTrainingWorkflowTablesAsync(db, startupLog);
             await FormationSchemaPatches.EnsureQuizMultiChoiceColumnsAsync(db);
+            await FormationSchemaPatches.EnsureEmployeAnnuaireOrgPathAsync(db);
             await FormationSchemaPatches.EnsureLearningCatalogTablesAsync(db, startupLog);
+            await FormationSchemaPatches.EnsureQuizLibraryTablesAsync(db, startupLog);
+            await FormationSchemaPatches.EnsureCatalogEnrollmentAsync(db, startupLog);
         }
         catch (Exception ex)
         {

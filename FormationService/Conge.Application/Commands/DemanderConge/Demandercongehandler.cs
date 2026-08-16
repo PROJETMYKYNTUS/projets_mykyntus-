@@ -1,4 +1,5 @@
 using Conge.Application.Contracts;
+using Conge.Application.Services;
 using Conge.Domain.Entities;
 using Conge.Domain.Enums;
 using Conge.Domain.Events;
@@ -16,53 +17,61 @@ public class DemanderCongeHandler : IRequestHandler<DemanderCongeCommand, Guid>
     private readonly IEmployeSnapshotRepository _employeRepo;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICongeEventPublisher _eventPublisher;
-
+    private readonly CongeReglesService _regles;
 
     public DemanderCongeHandler(
         IDemandeCongeRepository demandeRepo,
         ISoldeCongeRepository soldeRepo,
         IEmployeSnapshotRepository employeRepo,
         IUnitOfWork unitOfWork,
-          ICongeEventPublisher eventPublisher)
-        
+        ICongeEventPublisher eventPublisher,
+        CongeReglesService regles)
     {
         _demandeRepo = demandeRepo;
         _soldeRepo = soldeRepo;
         _employeRepo = employeRepo;
         _unitOfWork = unitOfWork;
         _eventPublisher = eventPublisher;
+        _regles = regles;
     }
 
     public async Task<Guid> Handle(DemanderCongeCommand request, CancellationToken ct)
     {
-        // 1. Récupérer le snapshot employé
         var employe = await _employeRepo.GetByEmployeIdAsync(request.EmployeId, ct)
             ?? throw new EmployeNotFoundException(request.EmployeId);
 
-        // 2. Déterminer le validateur selon le rôle
-        // ✅ Manager → valide par Admin/RH
-        // ✅ Employé → valide par son Manager
         Guid validateurId;
+        var statutInitial = StatutDemande.EnAttente;
 
         if (KyntusRoleNames.IsSuperviseur(employe.Role))
         {
             var adminRh = await _employeRepo.GetAdminOuRhAsync(ct)
                 ?? throw new EmployeNotFoundException(Guid.Empty);
             validateurId = adminRh.EmployeId;
+            statutInitial = StatutDemande.EnAttenteRh;
         }
         else
         {
+            // Compat : premier responsable connu (ManagerId snapshot).
             validateurId = employe.ManagerId;
         }
 
-        // 3. Vérifier chevauchement
+        var (validationNodeId, validationNodeLevel) = ResolveValidationNode(employe);
+
+        var dateFinEffective = request.TypeConge == TypeConge.Exceptionnel && request.TypeExceptionnel.HasValue
+            ? request.DateDebut.AddDays(PolitiqueConge.GetDureeExceptionnelle(request.TypeExceptionnel.Value) - 1)
+            : request.DateFin;
+
+        await _regles.AssertHorsPeriodeInterditeAsync(request.DateDebut, dateFinEffective, ct);
+        await _regles.AssertQuotaServiceDisponibleAsync(
+            employe.ServiceId, request.DateDebut, dateFinEffective, null, ct);
+
         var chevauchement = await _demandeRepo.ExistsCongeEnChevauchementAsync(
-            request.EmployeId, request.DateDebut, request.DateFin, ct);
+            request.EmployeId, request.DateDebut, dateFinEffective, ct);
         if (chevauchement)
             throw new InvalidOperationException(
                 "Une demande de congé existe déjà sur cette période.");
 
-        // 4. Créer la demande selon le type
         DemandeConge demande;
 
         if (request.TypeConge == TypeConge.Annuel)
@@ -73,12 +82,15 @@ public class DemanderCongeHandler : IRequestHandler<DemanderCongeCommand, Guid>
 
             demande = DemandeConge.CreerCongeAnnuel(
                 request.EmployeId,
-                validateurId,        // ← validateur dynamique
+                validateurId,
                 request.DateDebut,
                 request.DateFin,
                 solde,
                 employe,
-                request.Motif);
+                request.Motif,
+                statutInitial,
+                validationNodeId,
+                validationNodeLevel);
         }
         else if (request.TypeConge == TypeConge.Exceptionnel)
         {
@@ -88,10 +100,13 @@ public class DemanderCongeHandler : IRequestHandler<DemanderCongeCommand, Guid>
 
             demande = DemandeConge.CreerCongeExceptionnel(
                 request.EmployeId,
-                validateurId,        // ← validateur dynamique
+                validateurId,
                 request.TypeExceptionnel.Value,
                 request.DateDebut,
-                request.Motif);
+                request.Motif,
+                statutInitial,
+                validationNodeId,
+                validationNodeLevel);
         }
         else
         {
@@ -103,7 +118,7 @@ public class DemanderCongeHandler : IRequestHandler<DemanderCongeCommand, Guid>
         await _unitOfWork.SaveChangesAsync(ct);
         foreach (var domainEvent in demande.DomainEvents)
         {
-            if (domainEvent is CongeDemandeEvent e)
+            if (domainEvent is CongeDemandeEvent)
                 await _eventPublisher.PublishCongeDemandeAsync(
                     demande.EmployeId,
                     demande.Id,
@@ -114,5 +129,19 @@ public class DemanderCongeHandler : IRequestHandler<DemanderCongeCommand, Guid>
         }
         demande.ClearDomainEvents();
         return demande.Id;
+    }
+
+    /// <summary>Cellule préférée, sinon service Directory / legacy Guid.</summary>
+    internal static (string? NodeId, string? Level) ResolveValidationNode(EmployeSnapshot employe)
+    {
+        if (!string.IsNullOrWhiteSpace(employe.CelluleId))
+            return (employe.CelluleId, "Cellule");
+        if (!string.IsNullOrWhiteSpace(employe.OrgServiceId))
+            return (employe.OrgServiceId, "Service");
+        if (employe.ServiceId != Guid.Empty)
+            return (employe.ServiceId.ToString(), "Service");
+        if (!string.IsNullOrWhiteSpace(employe.PoleId))
+            return (employe.PoleId, "Pole");
+        return (null, null);
     }
 }

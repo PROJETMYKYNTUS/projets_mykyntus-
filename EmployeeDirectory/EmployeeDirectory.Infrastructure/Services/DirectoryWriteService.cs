@@ -155,6 +155,198 @@ public sealed class DirectoryWriteService(
         return Map(employee);
     }
 
+    public async Task<EmployeeDto?> ClearOrgPlacementAsync(
+        Guid id,
+        ClearOrgPlacementRequest request,
+        Guid? changedBy,
+        CancellationToken ct = default)
+    {
+        var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == id, ct);
+        if (employee is null) return null;
+
+        var level = (request.Level ?? "all").Trim().ToLowerInvariant();
+        var nodeId = request.NodeId?.Trim();
+        var reason = "Retrait du périmètre organisationnel";
+
+        // Clôture les titulatures actives sur le nœud (et descendants si cellule/pôle).
+        var nodeIdsToRevoke = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(nodeId))
+            nodeIdsToRevoke.Add(nodeId);
+
+        if (level is "cellule" or "pole" or "all")
+        {
+            if (level is "cellule" && !string.IsNullOrWhiteSpace(nodeId))
+            {
+                var serviceIds = await db.OrgServices.AsNoTracking()
+                    .Where(s => s.CelluleId == nodeId)
+                    .Select(s => s.Id)
+                    .ToListAsync(ct);
+                foreach (var sid in serviceIds)
+                    nodeIdsToRevoke.Add(sid);
+            }
+            else if (level is "pole" && !string.IsNullOrWhiteSpace(nodeId))
+            {
+                var celluleIds = await db.OrgCellules.AsNoTracking()
+                    .Where(c => c.PoleId == nodeId)
+                    .Select(c => c.Id)
+                    .ToListAsync(ct);
+                foreach (var cid in celluleIds)
+                    nodeIdsToRevoke.Add(cid);
+                var serviceIds = await db.OrgServices.AsNoTracking()
+                    .Where(s => celluleIds.Contains(s.CelluleId))
+                    .Select(s => s.Id)
+                    .ToListAsync(ct);
+                foreach (var sid in serviceIds)
+                    nodeIdsToRevoke.Add(sid);
+            }
+            else if (level == "all")
+            {
+                var activeNodes = await db.OrgAssignments.AsNoTracking()
+                    .Where(a => a.EmployeeId == id && a.EffectiveTo == null)
+                    .Select(a => a.NodeId)
+                    .ToListAsync(ct);
+                foreach (var n in activeNodes)
+                    nodeIdsToRevoke.Add(n);
+            }
+        }
+
+        foreach (var nid in nodeIdsToRevoke)
+        {
+            var kinds = await db.OrgAssignments
+                .Where(a => a.EmployeeId == id && a.NodeId == nid && a.EffectiveTo == null)
+                .Select(a => a.Kind)
+                .Distinct()
+                .ToListAsync(ct);
+            foreach (var kind in kinds)
+            {
+                await RemoveStructureAssignmentAsync(kind.ToString(), nid, id, changedBy, reason, ct);
+            }
+
+            // Pilote projeté sans OrgAssignment
+            if (employee.Role != null
+                && string.Equals(employee.Role, KyntusRoleNames.Pilote, StringComparison.OrdinalIgnoreCase)
+                && (string.Equals(employee.ServiceId, nid, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(employee.CelluleId, nid, StringComparison.OrdinalIgnoreCase)))
+            {
+                await RemoveStructurePilotAsync(nid, id, changedBy, reason, ct);
+            }
+        }
+
+        // Recharger après éventuelles mutations d'affectation
+        employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == id, ct);
+        if (employee is null) return null;
+
+        switch (level)
+        {
+            case "service":
+            {
+                string? parentCelluleId = employee.CelluleId;
+                string? parentPoleId = employee.PoleId;
+                if (!string.IsNullOrWhiteSpace(nodeId))
+                {
+                    var svc = await db.OrgServices.AsNoTracking()
+                        .Where(s => s.Id == nodeId)
+                        .Select(s => new { s.CelluleId, PoleId = s.Cellule.PoleId })
+                        .FirstOrDefaultAsync(ct);
+                    if (svc is not null)
+                    {
+                        parentCelluleId = svc.CelluleId;
+                        parentPoleId = svc.PoleId;
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(nodeId)
+                    || string.Equals(employee.ServiceId, nodeId, StringComparison.OrdinalIgnoreCase)
+                    || nodeIdsToRevoke.Contains(employee.ServiceId ?? ""))
+                {
+                    employee.ServiceId = null;
+                    employee.CelluleId = parentCelluleId;
+                    employee.PoleId = parentPoleId;
+                }
+                break;
+            }
+            case "cellule":
+                if (string.IsNullOrWhiteSpace(nodeId)
+                    || string.Equals(employee.CelluleId, nodeId, StringComparison.OrdinalIgnoreCase)
+                    || await EmployeeServiceUnderCelluleAsync(employee.ServiceId, nodeId, ct))
+                {
+                    string? parentPoleId = employee.PoleId;
+                    if (!string.IsNullOrWhiteSpace(nodeId))
+                    {
+                        parentPoleId = await db.OrgCellules.AsNoTracking()
+                            .Where(c => c.Id == nodeId)
+                            .Select(c => c.PoleId)
+                            .FirstOrDefaultAsync(ct) ?? parentPoleId;
+                    }
+                    employee.ServiceId = null;
+                    employee.CelluleId = null;
+                    employee.PoleId = parentPoleId;
+                }
+                break;
+            case "pole":
+                if (string.IsNullOrWhiteSpace(nodeId)
+                    || string.Equals(employee.PoleId, nodeId, StringComparison.OrdinalIgnoreCase)
+                    || await EmployeeUnderPoleAsync(employee, nodeId, ct))
+                {
+                    employee.ServiceId = null;
+                    employee.CelluleId = null;
+                    employee.PoleId = null;
+                }
+                break;
+            default: // all
+                employee.ServiceId = null;
+                employee.CelluleId = null;
+                employee.PoleId = null;
+                employee.BusinessDepartmentId = null;
+                break;
+        }
+
+        // Si plus aucune titulature structurelle, retomber sur Employé
+        var stillAssigned = await db.OrgAssignments.AnyAsync(
+            a => a.EmployeeId == id && a.EffectiveTo == null, ct);
+        if (!stillAssigned
+            && (KyntusRoleNames.IsPilote(employee.Role)
+                || KyntusRoleNames.IsReferentTechnique(employee.Role)
+                || KyntusRoleNames.IsSuperviseur(employee.Role)
+                || KyntusRoleNames.IsChefDeProjet(employee.Role)))
+        {
+            employee.Role = KyntusRoleNames.Employee;
+            employee.ParentId = null;
+        }
+
+        employee.UpdatedAt = DateTime.UtcNow;
+        await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
+        await db.SaveChangesAsync(ct);
+        return Map(employee);
+    }
+
+    private async Task<bool> EmployeeServiceUnderCelluleAsync(string? serviceId, string? celluleId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(serviceId) || string.IsNullOrWhiteSpace(celluleId))
+            return false;
+        return await db.OrgServices.AsNoTracking()
+            .AnyAsync(s => s.Id == serviceId && s.CelluleId == celluleId, ct);
+    }
+
+    private async Task<bool> EmployeeUnderPoleAsync(Employee employee, string? poleId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(poleId)) return false;
+        if (string.Equals(employee.PoleId, poleId, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (!string.IsNullOrWhiteSpace(employee.CelluleId))
+        {
+            var match = await db.OrgCellules.AsNoTracking()
+                .AnyAsync(c => c.Id == employee.CelluleId && c.PoleId == poleId, ct);
+            if (match) return true;
+        }
+        if (!string.IsNullOrWhiteSpace(employee.ServiceId))
+        {
+            return await db.OrgServices.AsNoTracking()
+                .AnyAsync(s => s.Id == employee.ServiceId && s.Cellule!.PoleId == poleId, ct);
+        }
+        return false;
+    }
+
     public async Task<bool> DeleteEmployeeAsync(Guid id, Guid? changedBy, CancellationToken ct = default)
     {
         var employee = await db.Employees.FirstOrDefaultAsync(e => e.Id == id, ct);
@@ -203,18 +395,21 @@ public sealed class DirectoryWriteService(
             _ => DomainNodeLevel.Service,
         };
 
-        // Unicité par nœud : évincer tout autre titulaire actif (indépendamment de revokeEmployeeIds).
-        var revokedOnNode = await EvictOtherIncumbentsOnNodeAsync(
-            assignmentKind,
-            trimmedNodeId,
-            nodeLevel,
-            employeeId,
-            changedBy,
-            reason ?? "Remplacement titulaire — unicité par nœud",
-            ct);
-
-        // revokeEmployeeIds reste accepté pour traçabilité UX, mais l'éviction serveur est déjà faite.
-        _ = revokeEmployeeIds;
+        // Éviction explicite uniquement (multi-responsables autorisés sur le même nœud).
+        var revokedOnNode = new List<NodeIncumbentRevokedDto>();
+        if (revokeEmployeeIds is { Count: > 0 })
+        {
+            foreach (var revokeId in revokeEmployeeIds.Where(id => id != Guid.Empty && id != employeeId).Distinct())
+            {
+                var removed = await RevokeNodeIncumbentAsync(
+                    assignmentKind, trimmedNodeId, nodeLevel, revokeId, changedBy,
+                    reason ?? "Révocation explicite avant nouvelle affectation", ct);
+                if (!removed) continue;
+                await ResetDisplacedEmployeeAsync(revokeId, changedBy, reason, ct);
+                revokedOnNode.Add(new NodeIncumbentRevokedDto(
+                    revokeId.ToString(), assignmentKind.ToString(), trimmedNodeId));
+            }
+        }
 
         var alreadyOnNode = await db.OrgAssignments.AnyAsync(
             a => a.Kind == assignmentKind
@@ -223,8 +418,10 @@ public sealed class DirectoryWriteService(
                  && a.EffectiveTo == null,
             ct);
         if (alreadyOnNode)
-            throw new InvalidOperationException(
-                $"Cet employé occupe déjà la charge {kind} sur ce nœud.");
+        {
+            // Idempotence : déjà titulaire actif → no-op.
+            return new StructuralRoleAssignmentResult([], revokedOnNode, employeeId.ToString());
+        }
 
         // Exclusivité inter-kinds uniquement : un chef/superviseur/RT peut cumuler plusieurs nœuds.
         // Pilote reste mono-charge (géré dans RevokeConflicting).
@@ -261,6 +458,7 @@ public sealed class DirectoryWriteService(
         }, aggregateId: employeeId.ToString(), ct: ct);
 
         await EnqueueEmployeeChangedAsync(employee, isDeleted: false, emitLegacyCreate: false, ct);
+        await EnqueueResponsiblesChangedAsync(assignmentKind, trimmedNodeId, nodeLevel, ct);
         await db.SaveChangesAsync(ct);
 
         if (assignmentKind == DomainAssignmentKind.Pilote
@@ -373,6 +571,7 @@ public sealed class DirectoryWriteService(
                 Removed = true,
             }, aggregateId: employeeId.ToString(), ct: ct);
 
+            await EnqueueResponsiblesChangedAsync(assignmentKind, row.NodeId, nodeLevel, ct);
             removedIds.Add(row.NodeId);
         }
 
@@ -380,17 +579,7 @@ public sealed class DirectoryWriteService(
         var revokedOnNode = new List<NodeIncumbentRevokedDto>();
         foreach (var nodeId in toAdd)
         {
-            // Unicité par nœud : évincer les titulaires d'un autre employé avant l'ajout.
-            var evicted = await EvictOtherIncumbentsOnNodeAsync(
-                assignmentKind,
-                nodeId,
-                nodeLevel,
-                employeeId,
-                changedBy,
-                reason ?? "Remplacement titulaire — unicité par nœud (reconcile)",
-                ct);
-            revokedOnNode.AddRange(evicted);
-
+            // Multi-responsables : pas d'éviction automatique des co-titulaires.
             db.OrgAssignments.Add(new OrgAssignment
             {
                 Id = Guid.NewGuid(),
@@ -414,6 +603,7 @@ public sealed class DirectoryWriteService(
                 Removed = false,
             }, aggregateId: employeeId.ToString(), ct: ct);
 
+            await EnqueueResponsiblesChangedAsync(assignmentKind, nodeId, nodeLevel, ct);
             addedIds.Add(nodeId);
         }
 
@@ -605,6 +795,7 @@ public sealed class DirectoryWriteService(
             }, aggregateId: employeeId.ToString(), ct: ct);
         }
 
+        await EnqueueResponsiblesChangedAsync(assignmentKind, nodeId, nodeLevel, ct);
         return true;
     }
 
@@ -669,6 +860,9 @@ public sealed class DirectoryWriteService(
             EmployeeId = employeeId,
             Removed = true,
         }, aggregateId: employeeId.ToString(), ct: ct);
+
+        await EnqueueResponsiblesChangedAsync(
+            DomainAssignmentKind.Pilote, trimmedServiceId, DomainNodeLevel.Service, ct);
 
         await db.SaveChangesAsync(ct);
         return true;
@@ -1151,6 +1345,33 @@ public sealed class DirectoryWriteService(
         await EnqueueBusinessDepartmentChangedAsync(dept, ct);
         await db.SaveChangesAsync(ct);
         return true;
+    }
+
+    private async Task EnqueueResponsiblesChangedAsync(
+        DomainAssignmentKind kind,
+        string nodeId,
+        DomainNodeLevel nodeLevel,
+        CancellationToken ct)
+    {
+        var rows = await (
+            from a in db.OrgAssignments.AsNoTracking()
+            join e in db.Employees.AsNoTracking() on a.EmployeeId equals e.Id
+            where a.Kind == kind && a.NodeId == nodeId && a.EffectiveTo == null
+            orderby a.EffectiveFrom
+            select new ResponsibleEntry
+            {
+                ResponsibleId = e.Id,
+                Email = e.Email,
+                DisplayName = $"{e.FirstName} {e.LastName}".Trim(),
+            }).ToListAsync(ct);
+
+        await outbox.EnqueueAsync(new DirectoryEmployeeResponsiblesChangedMessage
+        {
+            Kind = MessagingEnumMapper.ToMessage(kind),
+            NodeId = nodeId,
+            NodeLevel = MessagingEnumMapper.ToMessage(nodeLevel),
+            Responsibles = rows,
+        }, aggregateId: nodeId, ct: ct);
     }
 
     private async Task EnqueueBusinessDepartmentChangedAsync(BusinessDepartment dept, CancellationToken ct, bool isDeleted = false)

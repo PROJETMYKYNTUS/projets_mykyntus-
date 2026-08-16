@@ -1,15 +1,19 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { Search, UserPlus, X } from 'lucide';
+import { Search, X } from 'lucide';
 import { FormationTrainingService } from '../../../core/services/formation-training.service';
-import type { TrainingSessionDto } from '../../../core/models/formation-training.models';
+import type {
+  TrainingCatalogItemDto,
+  TrainingQuizTemplateListItemDto,
+  TrainingSessionDto,
+} from '../../../core/models/formation-training.models';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 import { LucideIconComponent } from '../../../shared/lucide-icon.component';
-import { KyntusSelectSyncDirective } from '../../../shared/directives/kyntus-select-sync.directive';
 import { UserService } from '../../users/services/user.service';
 import type { User } from '../../users/users-module';
 import { SubServiceService } from '../../sub-services/services/sub-service.service';
@@ -22,12 +26,16 @@ import {
   type EmployeePickerRow,
 } from '../../contract/lib/contract-employee-filter';
 import { resolveUserGuid } from '../../../core/lib/user-guid.util';
-import { buildOperationalOrgFilterOptions } from '../../../core/org/org-structure-filter';
 import {
   enrichUserOrgPerimeter,
-  orgPerimeterSummary,
   type UserOrgPerimeterView,
 } from '../../../core/org/user-org-perimeter';
+import {
+  KyntusAudiencePickerComponent,
+  type AudiencePickerSelection,
+} from '../shared/kyntus-audience-picker.component';
+
+type WizardStep = 1 | 2 | 3 | 'recap';
 
 @Component({
   selector: 'app-formation-rh-plan',
@@ -35,9 +43,10 @@ import {
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     KyntusPageHeaderComponent,
     LucideIconComponent,
-    KyntusSelectSyncDirective,
+    KyntusAudiencePickerComponent,
   ],
   templateUrl: './formation-rh-plan.component.html',
   styleUrls: ['./formation-rh-plan.component.css'],
@@ -50,44 +59,29 @@ export class FormationRhPlanComponent implements OnInit {
   private readonly orgApi = inject(PrimeOrgApiService);
   private readonly subServiceService = inject(SubServiceService);
 
-  readonly icons = { search: Search, add: UserPlus, remove: X };
+  readonly icons = { search: Search, remove: X };
   readonly sessions = signal<TrainingSessionDto[]>([]);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
   readonly assignSessionId = signal<string | null>(null);
   readonly assignMsg = signal<string | null>(null);
+  readonly step = signal<WizardStep>(1);
+  readonly orgReady = signal(false);
 
-  private employeeRows: EmployeePickerRow[] = [];
-
+  employeeRows: EmployeePickerRow[] = [];
   operationalDepartments: OperationalDepartmentNode[] = [];
-  operationalDepartmentOptions: string[] = [];
-  poleOptions: string[] = [];
-  celluleOptions: string[] = [];
-  serviceOptions: string[] = [];
-
-  filterOperationalDepartment = '';
-  filterPole = '';
-  filterCellule = '';
-  filterService = '';
 
   animatorSearch = '';
-  assignSearch = '';
-  checklistSearch = '';
 
   readonly selectedAnimator = signal<EmployeePickerRow | null>(null);
   readonly animatorSessions = signal<TrainingSessionDto[]>([]);
   readonly animatorSessionsLoading = signal(false);
 
-  /** Checklist du périmètre courant (sélection temporaire avant ajout). */
-  readonly perimeterChecklist = signal<{ row: EmployeePickerRow; checked: boolean }[]>([]);
-
-  /** Liste cumulée des bénéficiaires (plusieurs périmètres possibles). */
   readonly beneficiaryList = signal<EmployeePickerRow[]>([]);
-
   readonly assignSelected = signal<EmployeePickerRow[]>([]);
+  readonly assignPickerKey = signal(0);
 
   private readonly searchTick = signal(0);
-  private readonly orgTick = signal(0);
 
   readonly visibleAnimatorRows = computed(() => {
     this.searchTick();
@@ -101,69 +95,6 @@ export class FormationRhPlanComponent implements OnInit {
       25,
     );
     return visible;
-  });
-
-  readonly visibleAssignRows = computed(() => {
-    this.searchTick();
-    const selected = new Set(this.assignSelected().map((r) => resolveUserGuid(r.user)));
-    const { visible } = filterEmployeePickerRows(
-      this.employeeRows.filter((r) => {
-        const g = resolveUserGuid(r.user);
-        return !!g && !selected.has(g);
-      }),
-      { search: this.assignSearch },
-      25,
-    );
-    return visible;
-  });
-
-  readonly beneficiaryGuidSet = computed(() => {
-    const set = new Set<string>();
-    for (const row of this.beneficiaryList()) {
-      const g = resolveUserGuid(row.user);
-      if (g) set.add(g);
-    }
-    return set;
-  });
-
-  /** Checklist du périmètre, filtrée par la barre de recherche (nom, email, rôle, org). */
-  readonly visiblePerimeterChecklist = computed(() => {
-    this.searchTick();
-    const list = this.perimeterChecklist();
-    const q = this.normalizeSearch(this.checklistSearch);
-    if (!q) return list;
-    return list.filter((item) => {
-      const haystack = this.normalizeSearch(
-        [
-          item.row.displayName,
-          item.row.user.email,
-          item.row.user.roleName,
-          orgPerimeterSummary(item.row.perimeter),
-        ]
-          .filter(Boolean)
-          .join(' '),
-      );
-      return haystack.includes(q);
-    });
-  });
-
-  /** Cases cochées dans le périmètre courant (hors déjà inscrits). */
-  readonly checkedInPerimeter = computed(() =>
-    this.perimeterChecklist().filter((c) => {
-      if (!c.checked) return false;
-      const g = resolveUserGuid(c.row.user);
-      return !!g && !this.beneficiaryGuidSet().has(g);
-    }),
-  );
-
-  readonly hasOrgSelection = computed(() => {
-    this.orgTick();
-    return !!(
-      this.filterOperationalDepartment ||
-      this.filterPole ||
-      this.filterCellule ||
-      this.filterService
-    );
   });
 
   form = {
@@ -180,209 +111,193 @@ export class FormationRhPlanComponent implements OnInit {
     externalAnimatorEmail: '',
     externalAnimatorPhone: '',
     catalogItemId: '',
+    quizTemplateId: '',
     learningGateMode: '' as '' | 'Attendance' | 'Content' | 'Both',
   };
 
-  catalogItems: { id: string; title: string }[] = [];
+  catalogItems: TrainingCatalogItemDto[] = [];
+  quizTemplates: TrainingQuizTemplateListItemDto[] = [];
 
   ngOnInit(): void {
     this.ensureDefaultSlots();
     void this.reload();
     void this.loadOrgAndEmployees();
-    void this.loadCatalogItems();
+    void this.loadCatalogAndTemplates();
   }
 
-  async loadCatalogItems(): Promise<void> {
+  async loadCatalogAndTemplates(): Promise<void> {
     try {
-      const items = await this.api.listCatalog(false);
-      this.catalogItems = items
-        .filter((i) => i.status === 'Published' || i.status === 1)
-        .map((i) => ({ id: i.id, title: i.title }));
+      const [items, templates] = await Promise.all([
+        this.api.listCatalog(false),
+        this.api.listQuizTemplates(false),
+      ]);
+      this.catalogItems = (items ?? []).filter((i) => i.status === 'Published' || i.status === 1);
+      this.quizTemplates = (templates ?? []).filter((t) => t.status === 'Published' || t.status === 1);
     } catch {
       this.catalogItems = [];
+      this.quizTemplates = [];
     }
   }
 
-  perimeterLabel(row: EmployeePickerRow): string {
-    return orgPerimeterSummary(row.perimeter) || '—';
-  }
-
-  refreshOrgFilterOptions(): void {
-    const opts = buildOperationalOrgFilterOptions(this.operationalDepartments, {
-      operationalDepartment: this.filterOperationalDepartment || undefined,
-      pole: this.filterPole || undefined,
-      cellule: this.filterCellule || undefined,
-    });
-    this.operationalDepartmentOptions = opts.operationalDepartments;
-    this.poleOptions = opts.poles;
-    this.celluleOptions = opts.cellules;
-    this.serviceOptions = opts.services;
-    this.orgTick.update((n) => n + 1);
-  }
-
-  patchFilterOperationalDepartment(dept: string): void {
-    this.filterOperationalDepartment = dept;
-    this.filterPole = '';
-    this.filterCellule = '';
-    this.filterService = '';
-    this.refreshOrgFilterOptions();
-    this.applyPerimeterChecklist();
-  }
-
-  patchFilterPole(pole: string): void {
-    this.filterPole = pole;
-    this.filterCellule = '';
-    this.filterService = '';
-    this.refreshOrgFilterOptions();
-    this.applyPerimeterChecklist();
-  }
-
-  patchFilterCellule(cellule: string): void {
-    this.filterCellule = cellule;
-    this.filterService = '';
-    this.refreshOrgFilterOptions();
-    this.applyPerimeterChecklist();
-  }
-
-  patchFilterService(service: string): void {
-    this.filterService = service;
-    this.applyPerimeterChecklist();
-  }
-
-  clearOrgFilters(): void {
-    this.filterOperationalDepartment = '';
-    this.filterPole = '';
-    this.filterCellule = '';
-    this.filterService = '';
-    this.checklistSearch = '';
-    this.refreshOrgFilterOptions();
-    this.perimeterChecklist.set([]);
-    this.orgTick.update((n) => n + 1);
-    this.searchTick.update((n) => n + 1);
-  }
-
-  private applyPerimeterChecklist(): void {
-    const hasSelection = !!(
-      this.filterOperationalDepartment ||
-      this.filterPole ||
-      this.filterCellule ||
-      this.filterService
-    );
-    if (!hasSelection) {
-      this.checklistSearch = '';
-      this.perimeterChecklist.set([]);
-      this.orgTick.update((n) => n + 1);
-      this.searchTick.update((n) => n + 1);
-      return;
-    }
-
-    const { visible } = filterEmployeePickerRows(
-      this.employeeRows,
-      {
-        operationalDepartment: this.filterOperationalDepartment || undefined,
-        pole: this.filterPole || undefined,
-        cellule: this.filterCellule || undefined,
-        service: this.filterService || undefined,
-      },
-      5000,
-    );
-
-    const already = this.beneficiaryGuidSet();
-    this.checklistSearch = '';
-    // Non cochés par défaut : l’utilisateur choisit qui ajouter, puis clique « Ajouter ».
-    this.perimeterChecklist.set(
-      visible.map((row) => {
-        const g = resolveUserGuid(row.user);
-        const alreadyIn = !!g && already.has(g);
-        return { row, checked: alreadyIn };
-      }),
-    );
-    this.orgTick.update((n) => n + 1);
-    this.searchTick.update((n) => n + 1);
-  }
-
-  onChecklistSearchChange(value: string): void {
-    this.checklistSearch = value;
-    this.searchTick.update((n) => n + 1);
-  }
-
-  isAlreadyBeneficiary(row: EmployeePickerRow): boolean {
-    const g = resolveUserGuid(row.user);
-    return !!g && this.beneficiaryGuidSet().has(g);
-  }
-
-  toggleChecklist(guid: string, checked: boolean): void {
-    if (this.beneficiaryGuidSet().has(guid)) return;
-    this.perimeterChecklist.update((list) =>
-      list.map((c) => (resolveUserGuid(c.row.user) === guid ? { ...c, checked } : c)),
-    );
-  }
-
-  selectAllChecklist(checked: boolean): void {
-    const already = this.beneficiaryGuidSet();
-    const q = this.normalizeSearch(this.checklistSearch);
-    if (!q) {
-      this.perimeterChecklist.update((list) =>
-        list.map((c) => {
-          const g = resolveUserGuid(c.row.user);
-          if (g && already.has(g)) return c;
-          return { ...c, checked };
+  private async loadOrgAndEmployees(): Promise<void> {
+    try {
+      const { users, departments, overview, subServices } = await firstValueFrom(
+        forkJoin({
+          users: this.usersApi.getAllUsers(),
+          departments: this.http.get<Department[]>('/api/prime/departments').pipe(catchError(() => of([]))),
+          overview: this.orgApi.loadOverview().pipe(catchError(() => of(null))),
+          subServices: this.subServiceService.getAllSubServices().pipe(catchError(() => of([]))),
         }),
       );
+
+      this.operationalDepartments = overview?.operationalDepartments ?? [];
+      const active = (users ?? []).filter((u) => u.isActive && !!resolveUserGuid(u));
+      const perimeterById = new Map<number, UserOrgPerimeterView>();
+      for (const u of active) {
+        perimeterById.set(
+          u.id,
+          enrichUserOrgPerimeter(u, departments ?? [], overview, subServices ?? []),
+        );
+      }
+      this.employeeRows = buildEmployeePickerRows(active, perimeterById);
+      this.orgReady.set(true);
+      this.searchTick.update((n) => n + 1);
+    } catch {
+      this.employeeRows = [];
+      this.operationalDepartments = [];
+      this.orgReady.set(true);
+    }
+  }
+
+  publishedQuizTemplates(): TrainingQuizTemplateListItemDto[] {
+    return this.quizTemplates;
+  }
+
+  onCatalogItemChange(id: string): void {
+    this.form.catalogItemId = id;
+    if (!id) {
+      if (this.form.learningGateMode === 'Content' || this.form.learningGateMode === 'Both') {
+        this.form.learningGateMode = 'Attendance';
+      }
       return;
     }
-    const visibleGuids = new Set(
-      this.visiblePerimeterChecklist()
-        .map((c) => resolveUserGuid(c.row.user))
-        .filter((g): g is string => !!g && !already.has(g)),
-    );
-    this.perimeterChecklist.update((list) =>
-      list.map((c) => {
-        const g = resolveUserGuid(c.row.user);
-        return g && visibleGuids.has(g) ? { ...c, checked } : c;
-      }),
-    );
-  }
-
-  addCheckedToBeneficiaries(): void {
-    const toAdd = this.checkedInPerimeter().map((c) => c.row);
-    if (toAdd.length === 0) return;
-
-    const existing = new Set(this.beneficiaryGuidSet());
-    const merged = [...this.beneficiaryList()];
-    for (const row of toAdd) {
-      const g = resolveUserGuid(row.user);
-      if (!g || existing.has(g)) continue;
-      existing.add(g);
-      merged.push(row);
+    const item = this.catalogItems.find((c) => c.id === id);
+    if (item?.defaultQuizTemplateId) {
+      const exists = this.quizTemplates.some((t) => t.id === item.defaultQuizTemplateId);
+      if (exists) this.form.quizTemplateId = item.defaultQuizTemplateId;
     }
-    this.beneficiaryList.set(merged);
-    if (merged.length > this.form.capacity) {
-      this.form.capacity = merged.length;
+  }
+
+  onBeneficiariesChange(sel: AudiencePickerSelection): void {
+    this.beneficiaryList.set([...sel.beneficiaries]);
+    if (sel.beneficiaries.length > this.form.capacity) {
+      this.form.capacity = sel.beneficiaries.length;
     }
-
-    // Remet les cases du périmètre : déjà inscrits restent cochés/verrouillés.
-    this.perimeterChecklist.update((list) =>
-      list.map((c) => {
-        const g = resolveUserGuid(c.row.user);
-        const inList = !!g && existing.has(g);
-        return { ...c, checked: inList };
-      }),
-    );
   }
 
-  removeBeneficiary(row: EmployeePickerRow): void {
-    const guid = resolveUserGuid(row.user);
-    if (!guid) return;
-    this.beneficiaryList.update((list) => list.filter((r) => resolveUserGuid(r.user) !== guid));
-    this.perimeterChecklist.update((list) =>
-      list.map((c) => (resolveUserGuid(c.row.user) === guid ? { ...c, checked: false } : c)),
-    );
+  onAssignBeneficiariesChange(sel: AudiencePickerSelection): void {
+    this.assignSelected.set([...sel.beneficiaries]);
   }
 
-  clearBeneficiaryList(): void {
-    this.beneficiaryList.set([]);
-    this.perimeterChecklist.update((list) => list.map((c) => ({ ...c, checked: false })));
+  stepLabel(s: WizardStep): string {
+    switch (s) {
+      case 1:
+        return 'Contenu';
+      case 2:
+        return 'Séances';
+      case 3:
+        return 'Bénéficiaires';
+      case 'recap':
+        return 'Récap';
+    }
+  }
+
+  stepIndex(s: WizardStep | string | number): number {
+    if (s === 1 || s === '1') return 1;
+    if (s === 2 || s === '2') return 2;
+    if (s === 3 || s === '3') return 3;
+    return 4;
+  }
+
+  goNext(): void {
+    this.error.set(null);
+    try {
+      const current = this.step();
+      if (current === 1) {
+        this.validateStep1();
+        this.step.set(2);
+      } else if (current === 2) {
+        this.validateStep2();
+        this.step.set(3);
+      } else if (current === 3) {
+        this.validateStep3();
+        this.step.set('recap');
+      }
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : 'Étape invalide');
+    }
+  }
+
+  goBack(): void {
+    this.error.set(null);
+    const current = this.step();
+    if (current === 2) this.step.set(1);
+    else if (current === 3) this.step.set(2);
+    else if (current === 'recap') this.step.set(3);
+  }
+
+  private validateStep1(): void {
+    if (!this.form.title.trim()) throw new Error('L’intitulé est obligatoire.');
+    if (this.form.capacity < 1) throw new Error('La capacité doit être au moins 1.');
+  }
+
+  private validateStep2(): void {
+    this.syncSessionSlots();
+    for (let i = 0; i < this.form.sessionSlots.length; i++) {
+      const slot = this.form.sessionSlots[i];
+      if (!slot.plannedStart || !slot.plannedEnd) {
+        throw new Error(`Séance ${i + 1} : dates de début et de fin obligatoires.`);
+      }
+    }
+    if (this.form.animatorKind === 'Internal' && !this.form.animatorUserId) {
+      throw new Error('Sélectionnez un animateur interne.');
+    }
+    if (this.form.animatorKind === 'External') {
+      if (!this.form.externalAnimatorName.trim() || !this.form.externalAnimatorEmail.trim()) {
+        throw new Error('Nom et email de l’animateur externe sont obligatoires.');
+      }
+    }
+  }
+
+  private validateStep3(): void {
+    const beneficiaries = this.beneficiaryList();
+    if (beneficiaries.length === 0) {
+      throw new Error('Ajoutez au moins un bénéficiaire.');
+    }
+    if (beneficiaries.length > this.form.capacity) {
+      throw new Error(`Trop de bénéficiaires pour la capacité (${this.form.capacity}).`);
+    }
+  }
+
+  catalogTitle(id: string): string {
+    return this.catalogItems.find((c) => c.id === id)?.title ?? '—';
+  }
+
+  quizTemplateTitle(id: string): string {
+    return this.quizTemplates.find((t) => t.id === id)?.title ?? '—';
+  }
+
+  gateModeLabel(mode: string): string {
+    switch (mode) {
+      case 'Attendance':
+        return 'Être présent à la séance';
+      case 'Content':
+        return 'Avoir terminé le contenu e-learning';
+      case 'Both':
+        return 'Les deux (présence + contenu)';
+      default:
+        return 'Défaut catalogue';
+    }
   }
 
   onModeChange(mode: 'Single' | 'Multiple'): void {
@@ -411,7 +326,6 @@ export class FormationRhPlanComponent implements OnInit {
     this.syncSessionSlots();
   }
 
-  /** Début modifié → fin = début + 1 h si vide ou antérieure. */
   onSlotStartChange(index: number, value: string): void {
     const slot = this.form.sessionSlots[index];
     if (!slot) return;
@@ -474,11 +388,6 @@ export class FormationRhPlanComponent implements OnInit {
     this.searchTick.update((n) => n + 1);
   }
 
-  onAssignSearchChange(value: string): void {
-    this.assignSearch = value;
-    this.searchTick.update((n) => n + 1);
-  }
-
   searchRevision(): number {
     return this.searchTick();
   }
@@ -514,18 +423,6 @@ export class FormationRhPlanComponent implements OnInit {
     }
   }
 
-  addAssignEmployee(row: EmployeePickerRow): void {
-    this.assignSelected.update((list) => [...list, row]);
-    this.assignSearch = '';
-    this.searchTick.update((n) => n + 1);
-  }
-
-  removeAssignEmployee(guid: string): void {
-    this.assignSelected.update((list) =>
-      list.filter((r) => resolveUserGuid(r.user) !== guid),
-    );
-  }
-
   private async loadAnimatorSessions(guid: string): Promise<void> {
     this.animatorSessionsLoading.set(true);
     try {
@@ -545,44 +442,11 @@ export class FormationRhPlanComponent implements OnInit {
     }
   }
 
-  private async loadOrgAndEmployees(): Promise<void> {
-    try {
-      const { users, departments, overview, subServices } = await firstValueFrom(
-        forkJoin({
-          users: this.usersApi.getAllUsers(),
-          departments: this.http.get<Department[]>('/api/prime/departments').pipe(catchError(() => of([]))),
-          overview: this.orgApi.loadOverview().pipe(catchError(() => of(null))),
-          subServices: this.subServiceService.getAllSubServices().pipe(catchError(() => of([]))),
-        }),
-      );
-
-      this.operationalDepartments = overview?.operationalDepartments ?? [];
-      this.refreshOrgFilterOptions();
-
-      const active = (users ?? []).filter((u) => u.isActive && !!resolveUserGuid(u));
-      const perimeterById = new Map<number, UserOrgPerimeterView>();
-      for (const u of active) {
-        perimeterById.set(
-          u.id,
-          enrichUserOrgPerimeter(u, departments ?? [], overview, subServices ?? []),
-        );
-      }
-      this.employeeRows = buildEmployeePickerRows(active, perimeterById);
-      this.searchTick.update((n) => n + 1);
-      this.applyPerimeterChecklist();
-    } catch {
-      this.employeeRows = [];
-      this.operationalDepartments = [];
-      this.refreshOrgFilterOptions();
-    }
-  }
-
   openAssign(sessionId: string): void {
     this.assignSessionId.set(sessionId);
     this.assignSelected.set([]);
-    this.assignSearch = '';
     this.assignMsg.set(null);
-    this.searchTick.update((n) => n + 1);
+    this.assignPickerKey.update((n) => n + 1);
   }
 
   async confirmAssign(): Promise<void> {
@@ -637,31 +501,11 @@ export class FormationRhPlanComponent implements OnInit {
     this.busy.set(true);
     this.error.set(null);
     try {
-      if (!this.form.title.trim()) {
-        throw new Error('L’intitulé est obligatoire.');
-      }
-      this.syncSessionSlots();
-      for (let i = 0; i < this.form.sessionSlots.length; i++) {
-        const slot = this.form.sessionSlots[i];
-        if (!slot.plannedStart || !slot.plannedEnd) {
-          throw new Error(`Séance ${i + 1} : dates de début et de fin obligatoires.`);
-        }
-      }
-      if (this.form.animatorKind === 'Internal' && !this.form.animatorUserId) {
-        throw new Error('Sélectionnez un animateur interne.');
-      }
-      if (this.form.animatorKind === 'External') {
-        if (!this.form.externalAnimatorName.trim() || !this.form.externalAnimatorEmail.trim()) {
-          throw new Error('Nom et email de l’animateur externe sont obligatoires.');
-        }
-      }
+      this.validateStep1();
+      this.validateStep2();
+      this.validateStep3();
+
       const beneficiaries = this.beneficiaryList();
-      if (beneficiaries.length === 0) {
-        throw new Error('Ajoutez au moins un bénéficiaire à la liste (un ou plusieurs périmètres).');
-      }
-      if (beneficiaries.length > this.form.capacity) {
-        throw new Error(`Trop de bénéficiaires pour la capacité (${this.form.capacity}).`);
-      }
 
       const created = await this.api.createProgram({
         title: this.form.title,
@@ -683,22 +527,39 @@ export class FormationRhPlanComponent implements OnInit {
         publish: true,
       });
 
-      if (beneficiaries.length > 0 && created?.id) {
-        await this.api.assignEmployeesToProgram(
-          created.id,
-          beneficiaries.map((r) => ({
-            employeeId: resolveUserGuid(r.user),
-            employeeName: r.displayName,
-          })),
-        );
+      if (!created?.id) {
+        throw new Error('Programme créé sans identifiant.');
       }
 
-      if (this.form.catalogItemId && created?.sessions?.length) {
-        for (const session of created.sessions) {
+      // Une seule affectation programme (pas via linkSessionCatalog.assignAudience).
+      await this.api.assignEmployeesToProgram(
+        created.id,
+        beneficiaries.map((r) => ({
+          employeeId: resolveUserGuid(r.user),
+          employeeName: r.displayName,
+        })),
+      );
+
+      let sessionList = created.sessions ?? [];
+      if (!sessionList.length) {
+        const all = await this.api.listSessions();
+        sessionList = all.filter((s) => s.programId === created.id);
+      }
+
+      if (this.form.catalogItemId && sessionList.length) {
+        for (const session of sessionList) {
           await this.api.linkSessionCatalog(session.id, {
             catalogItemId: this.form.catalogItemId,
             learningGateMode: this.form.learningGateMode || null,
             assignAudience: false,
+          });
+        }
+      }
+
+      if (this.form.quizTemplateId && sessionList.length) {
+        for (const session of sessionList) {
+          await this.api.instantiateQuizTemplate(this.form.quizTemplateId, {
+            sessionId: session.id,
           });
         }
       }
@@ -727,24 +588,17 @@ export class FormationRhPlanComponent implements OnInit {
       externalAnimatorEmail: '',
       externalAnimatorPhone: '',
       catalogItemId: '',
+      quizTemplateId: '',
       learningGateMode: '',
     };
     this.clearAnimator();
     this.beneficiaryList.set([]);
-    this.clearOrgFilters();
+    this.step.set(1);
     this.searchTick.update((n) => n + 1);
   }
 
   fillRate(s: TrainingSessionDto): number {
     return s.capacity > 0 ? Math.round((s.assignmentCount / s.capacity) * 100) : 0;
-  }
-
-  private normalizeSearch(value: string | null | undefined): string {
-    return (value ?? '')
-      .trim()
-      .normalize('NFD')
-      .replace(/\p{M}/gu, '')
-      .toLowerCase();
   }
 
   formatSessionDate(value?: string | null): string {
@@ -755,6 +609,13 @@ export class FormationRhPlanComponent implements OnInit {
 
   userGuid(user: User): string {
     return resolveUserGuid(user);
+  }
+
+  animatorLabel(): string {
+    if (this.form.animatorKind === 'External') {
+      return this.form.externalAnimatorName || 'Animateur externe';
+    }
+    return this.selectedAnimator()?.displayName || '—';
   }
 }
 
@@ -768,7 +629,6 @@ function toIsoDateTime(localValue: string): string {
 
 type SessionSlot = { plannedStart: string; plannedEnd: string };
 
-/** Valeur `datetime-local` (YYYY-MM-DDTHH:mm) pour maintenant, minutes arrondies à 0. */
 function toLocalDateTimeValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -786,7 +646,6 @@ function addHoursLocal(localValue: string, hours: number): string {
   return toLocalDateTimeValue(d);
 }
 
-/** Séance index 0 = aujourd’hui (heure courante) ; index n = +n jours. Fin = début + 1 h. */
 function createDefaultSlot(index: number, anchorStart?: string): SessionSlot {
   const base = parseLocalDateTime(anchorStart) ?? new Date();
   base.setSeconds(0, 0);

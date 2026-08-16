@@ -1379,6 +1379,10 @@
                 Annuler
               </button>
 
+              <button class="btn btn-outline ky-btn-secondary" type="button" (click)="resetDraftForm()" [disabled]="submitting">
+                Réinitialiser
+              </button>
+
               <button class="btn btn-primary ky-btn-primary" type="button" (click)="nextWizardStep()" [disabled]="submitting">
                 Suivant
               </button>
@@ -1387,6 +1391,10 @@
 
               <button class="btn btn-outline ky-btn-secondary" type="button" (click)="prevWizardStep()" [disabled]="submitting">
                 Retour
+              </button>
+
+              <button class="btn btn-outline ky-btn-secondary" type="button" (click)="resetDraftForm()" [disabled]="submitting">
+                Réinitialiser
               </button>
 
               <button class="btn btn-primary ky-btn-primary" type="button" (click)="nextWizardStep()" [disabled]="submitting">
@@ -1399,6 +1407,10 @@
                 Retour
               </button>
 
+              <button class="btn btn-outline ky-btn-secondary" type="button" (click)="resetDraftForm()" [disabled]="submitting">
+                Réinitialiser
+              </button>
+
               <button class="btn btn-primary ky-btn-primary" type="button" (click)="nextWizardStep()" [disabled]="submitting">
                 Suivant
               </button>
@@ -1407,6 +1419,10 @@
 
               <button class="btn btn-outline ky-btn-secondary" type="button" (click)="prevWizardStep()" [disabled]="submitting">
                 Retour
+              </button>
+
+              <button class="btn btn-outline ky-btn-secondary" type="button" (click)="resetDraftForm()" [disabled]="submitting">
+                Réinitialiser
               </button>
 
               <button class="btn btn-primary ky-btn-primary" type="button" (click)="submit()" [disabled]="submitting || !!emailError">

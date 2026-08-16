@@ -27,6 +27,8 @@ import {
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 import { KyntusEmptyStateComponent } from '../../../shared/components/ui/kyntus-empty-state.component';
 import { KyntusErrorStateComponent } from '../../../shared/components/ui/kyntus-error-state.component';
+import { BodyPortalDirective } from '../../../shared/directives/body-portal.directive';
+import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 @Component({
   standalone: true,
@@ -39,6 +41,7 @@ import { KyntusErrorStateComponent } from '../../../shared/components/ui/kyntus-
     KyntusPageHeaderComponent,
     KyntusEmptyStateComponent,
     KyntusErrorStateComponent,
+    BodyPortalDirective,
   ],
   templateUrl: './templates-page.component.html',
   styles: [`
@@ -134,6 +137,7 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     private readonly identity: DocumentationIdentityService,
     private readonly session: KyntusSessionService,
     private readonly sanitizer: DomSanitizer,
+    private readonly confirmService: KyntusConfirmService,
   ) {}
 
   ngOnInit(): void {
@@ -740,9 +744,14 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     this.uploadFile = f ?? null;
   }
 
-  deleteTemplate(template: DocumentTemplateListItemDto): void {
+  async deleteTemplate(template: DocumentTemplateListItemDto): Promise<void> {
     if (this.isTemplateActionLoading(template.id)) return;
-    const ok = window.confirm(`Supprimer le template « ${template.name} » ?`);
+    const ok = await this.confirmService.confirm({
+      title: 'Supprimer le template',
+      message: `Supprimer le template « ${template.name} » ?`,
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    });
     if (!ok) return;
     this.setTemplateActionLoading(template.id, 'delete');
     this.clearCardFeedback(template.id);
@@ -765,16 +774,19 @@ export class TemplatesPageComponent implements OnInit, OnDestroy {
     );
   }
 
-  cleanupDraftTemplates(): void {
+  async cleanupDraftTemplates(): Promise<void> {
     if (this.cleaningDrafts) return;
     const candidates = this.templates.filter((t) => !t.isActive);
     if (candidates.length === 0) {
       this.setCleanupFeedback('Aucun template inactif à nettoyer.', 'info');
       return;
     }
-    const ok = window.confirm(
-      `Nettoyer ${candidates.length} template(s) inactif(s) ? Les demandes actives empêcheront la suppression.`,
-    );
+    const ok = await this.confirmService.confirm({
+      title: 'Nettoyer les templates',
+      message: `Nettoyer ${candidates.length} template(s) inactif(s) ? Les demandes actives empêcheront la suppression.`,
+      confirmLabel: 'Nettoyer',
+      variant: 'danger',
+    });
     if (!ok) return;
     this.cleaningDrafts = true;
     const jobs = candidates.map((t) =>

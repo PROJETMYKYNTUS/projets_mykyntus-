@@ -19,6 +19,8 @@ public class CongeEventPublisher : ICongeEventPublisher
         double nombreJours,
         string typeConge,
         string? typeExceptionnel = null,
+        Guid? validateurId = null,
+        string? validateurNom = null,
         CancellationToken ct = default)
     {
         await _publishEndpoint.Publish(new CongeValideMessage
@@ -31,6 +33,8 @@ public class CongeEventPublisher : ICongeEventPublisher
             DateValidation = DateTime.UtcNow,
             TypeConge = typeConge,
             TypeExceptionnel = typeExceptionnel,
+            ValidateurId = validateurId,
+            ValidateurNom = validateurNom,
         }, ct);
     }
 
@@ -38,13 +42,17 @@ public class CongeEventPublisher : ICongeEventPublisher
         Guid employeId,
         Guid demandeId,
         string motif,
+        Guid? validateurId = null,
+        string? validateurNom = null,
         CancellationToken ct = default)
     {
         await _publishEndpoint.Publish(new CongeRefuseMessage
         {
             DemandeId = demandeId,
             EmployeId = employeId,
-            Motif = motif
+            Motif = motif,
+            ValidateurId = validateurId,
+            ValidateurNom = validateurNom,
         }, ct);
     }
 

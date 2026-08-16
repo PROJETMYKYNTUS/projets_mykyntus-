@@ -65,6 +65,11 @@ export class NavigationActionsService {
   }
 
   private async applyPrimeItem(item: MenuItem): Promise<void> {
+    // Enregistrer la cible avant la navigation : au premier montage de PrimeLayout,
+    // currentView peut s'initialiser depuis pendingPath (évite le dashboard par défaut).
+    if (item.primePath !== undefined) {
+      this.primeNav.requestView(item.primePath);
+    }
     if (!this.router.url.split('?')[0].startsWith('/prime')) {
       await this.router.navigateByUrl('/prime');
     }
@@ -80,6 +85,7 @@ export class NavigationActionsService {
       this.primeSection.setActiveAuditSection(item.primeAuditSection);
       return;
     }
+    // Ré-émettre après navigation (layout déjà monté ou remount) pour consommer la vue.
     if (item.primePath !== undefined) {
       this.primeNav.requestView(item.primePath);
     }

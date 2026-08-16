@@ -1,0 +1,66 @@
+<div class="ky-page-shell fhist-page">
+  <app-kyntus-page-header
+    title="Mon historique quiz"
+    subtitle="Toutes vos tentatives de quiz de formation continue"
+  >
+    <div actions>
+      <a routerLink="/mes-formations" class="ky-btn-secondary">
+        <app-lucide-icon [icon]="icons.back" className="w-4 h-4" />
+        Mes formations
+      </a>
+    </div>
+  </app-kyntus-page-header>
+
+  @if (error()) {
+    <div class="ky-alert ky-alert-danger">{{ error() }}</div>
+  }
+
+  @if (loading()) {
+    <div class="ky-card state-box">Chargement…</div>
+  } @else if (!rows().length) {
+    <div class="ky-card state-empty">
+      <app-lucide-icon [icon]="icons.history" className="w-10 h-10" />
+      <h3>Aucune tentative</h3>
+      <p>Vos résultats de quiz apparaîtront ici après soumission.</p>
+    </div>
+  } @else {
+    <div class="ky-card fhist-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Session</th>
+            <th>Catalogue</th>
+            <th>Tentative</th>
+            <th>Score</th>
+            <th>Résultat</th>
+            <th>Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of rows(); track r.attemptId) {
+            <tr>
+              <td>{{ r.sessionTitle }}</td>
+              <td>{{ r.catalogTitle || '—' }}</td>
+              <td>#{{ r.attemptNumber }}</td>
+              <td>{{ r.score ?? '—' }}%</td>
+              <td>
+                @if (!r.isGraded) {
+                  En attente
+                } @else if (r.passed) {
+                  Réussi
+                } @else {
+                  Non réussi
+                }
+              </td>
+              <td>{{ r.submittedAt | date: 'short' }}</td>
+              <td>
+                <a class="ky-btn-secondary" [routerLink]="['/mes-formations', r.sessionId, 'quiz']">Voir</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

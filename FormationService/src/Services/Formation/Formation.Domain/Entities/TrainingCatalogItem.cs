@@ -19,6 +19,13 @@ public class TrainingCatalogItem
     public DateTime? PublishedAt { get; set; }
     public DateTime? ArchivedAt { get; set; }
 
+    public Guid? DefaultQuizTemplateId { get; set; }
+    public bool SelfServiceEnabled { get; set; }
+    public CatalogDueMode DueMode { get; set; } = CatalogDueMode.None;
+    public DateTime? DueDate { get; set; }
+    public int? DueInDays { get; set; }
+
+    public TrainingQuizTemplate? DefaultQuizTemplate { get; set; }
     public ICollection<TrainingModule> Modules { get; set; } = new List<TrainingModule>();
     public ICollection<TrainingCatalogAudienceRule> AudienceRules { get; set; } = new List<TrainingCatalogAudienceRule>();
 }

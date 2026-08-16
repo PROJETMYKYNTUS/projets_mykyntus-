@@ -2,12 +2,22 @@
   <app-kyntus-page-header
     title="Mes formations"
     subtitle="Parcours initiale et sessions continues auxquelles vous êtes affecté(e)"
-  />
+  >
+    <div actions>
+      <a routerLink="/mes-formations/historique" class="ky-btn-secondary">Mon historique quiz</a>
+    </div>
+  </app-kyntus-page-header>
 
   @if (loading) {
     <div class="state-loading ky-card">
       <app-lucide-icon [icon]="icons.loader" className="w-5 h-5 spin" />
       <span>Chargement de vos formations…</span>
+    </div>
+  } @else if (loadError) {
+    <div class="state-empty ky-card" role="alert">
+      <app-lucide-icon [icon]="icons.inbox" className="w-8 h-8" />
+      <p>Impossible de charger vos formations.</p>
+      <p class="fe-reject">{{ loadError }}</p>
     </div>
   } @else {
     @if (initialPaths.length > 0) {
@@ -41,12 +51,72 @@
       </section>
     }
 
+    @if (selfServiceItems.length > 0) {
+      <section class="fe-section ky-card">
+        <header class="fe-section-head">
+          <div>
+            <p class="fe-eyebrow">E-learning</p>
+            <h2 class="fe-section-title">Libre accès</h2>
+            <p class="fe-section-sub">
+              Contenus publiés pour votre périmètre — visibles sans séance planifiée
+            </p>
+          </div>
+          <span class="fe-count">{{ selfServiceItems.length }}</span>
+        </header>
+        <div class="fe-session-list">
+          @for (item of selfServiceItems; track item.catalogItemId) {
+            <article class="fe-session-card" [attr.data-status]="item.status">
+              <div class="fe-session-top">
+                <div class="fe-session-copy">
+                  <h3 class="fe-session-title">{{ item.title }}</h3>
+                  @if (item.category) {
+                    <p class="fe-session-when">{{ item.category }}</p>
+                  }
+                </div>
+                <div class="fe-session-badges">
+                  <span class="status-badge" [ngClass]="enrollmentStatusClass(item.status)">
+                    {{ enrollmentStatusLabel(item.status) }}
+                  </span>
+                  @if (item.dueAt) {
+                    <span
+                      class="status-badge"
+                      [class.badge-reject]="item.status === 'Overdue'"
+                      [class.badge-scheduled]="isDueSoon(item)"
+                      [class.badge-pending]="item.status !== 'Overdue' && !isDueSoon(item)"
+                    >
+                      Échéance {{ item.dueAt | date: 'dd/MM/yyyy' }}
+                    </span>
+                  }
+                </div>
+              </div>
+              <div class="fe-session-footer">
+                <div class="fe-quiz-meta">
+                  <span class="fe-quiz-chip">
+                    Progression {{ item.progressPercent ?? 0 }}%
+                    ({{ item.requiredLessonsDone }}/{{ item.requiredLessonsTotal }})
+                  </span>
+                </div>
+                <div class="fe-session-actions">
+                  <a
+                    class="ky-btn-primary fe-cta"
+                    [routerLink]="['/mes-formations/contenu', item.catalogItemId]"
+                  >
+                    Ouvrir le contenu
+                  </a>
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+    }
+
     @if (assignedSessions.length > 0) {
       <section class="fe-section ky-card">
         <header class="fe-section-head">
           <div>
-            <p class="fe-eyebrow">Sessions</p>
-            <h2 class="fe-section-title">Mes sessions continues</h2>
+            <p class="fe-eyebrow">Séances</p>
+            <h2 class="fe-section-title">Mes séances continues</h2>
             <p class="fe-section-sub">Présence après l’appel · quiz lorsque publié</p>
           </div>
           <span class="fe-count">{{ assignedSessions.length }}</span>
@@ -122,7 +192,7 @@
       <div class="state-empty ky-card">
         <app-lucide-icon [icon]="icons.inbox" className="w-10 h-10" />
         <h3>Aucune formation</h3>
-        <p>Vous n’avez pas encore de parcours initiale ni de session continue affectée par la RH.</p>
+        <p>Vous n’avez pas encore de parcours initiale, de contenu en libre accès ni de séance continue affectée.</p>
       </div>
     }
   }

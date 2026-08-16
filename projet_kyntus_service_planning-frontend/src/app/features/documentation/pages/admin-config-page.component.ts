@@ -10,6 +10,7 @@ import { DocumentAdminService } from '../services/document-admin.service';
 import { DocumentationNavigationService } from '../services/documentation-navigation.service';
 import { KyntusFormDraftService } from '../../../core/drafts/kyntus-form-draft.service';
 import { KyntusObjectDraftBinder } from '../../../core/drafts/kyntus-object-draft.binder';
+import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 function normalizeFileTypes(input: string): string[] {
   return input
@@ -27,6 +28,7 @@ function normalizeFileTypes(input: string): string[] {
 export class AdminConfigPageComponent implements OnInit, OnDestroy {
   readonly role$ = this.nav.role$;
   private readonly formDrafts = inject(KyntusFormDraftService);
+  private readonly confirmService = inject(KyntusConfirmService);
   private draftBinder?: KyntusObjectDraftBinder<{
     draft: AdminGeneralConfig;
     allowedTypesText: string;
@@ -56,6 +58,7 @@ export class AdminConfigPageComponent implements OnInit, OnDestroy {
     const cfg = await this.admin.getGeneralConfig();
     this.draft = cfg;
     this.allowedTypesText = cfg.allowedFileTypes.join(', ');
+    this.draftBinder?.destroy();
     this.draftBinder = new KyntusObjectDraftBinder(
       this.formDrafts,
       'documentation-admin-config',
@@ -121,14 +124,52 @@ export class AdminConfigPageComponent implements OnInit, OnDestroy {
   async onReset(): Promise<void> {
     this.successMessage = null;
     this.errors = {};
+    this.draftBinder?.discard();
     this.loading = true;
     try {
       const cfg = await this.admin.resetGeneralConfig();
       this.draft = cfg;
       this.allowedTypesText = cfg.allowedFileTypes.join(', ');
+      this.restartDraftBinder(cfg);
     } finally {
       this.loading = false;
     }
+  }
+
+  /** Recharge la config sauvegardée et jette le brouillon local (sans reset usine serveur). */
+  async resetDraftForm(): Promise<void> {
+    const ok = await this.confirmService.confirm({
+      title: 'Recharger la configuration',
+      message: 'Recharger la configuration sauvegardée et ignorer le brouillon local ?',
+      confirmLabel: 'Recharger',
+    });
+    if (!ok) return;
+    this.successMessage = null;
+    this.errors = {};
+    this.draftBinder?.discard();
+    this.loading = true;
+    try {
+      await this.load();
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private restartDraftBinder(cfg: AdminGeneralConfig): void {
+    this.draftBinder?.destroy();
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'documentation-admin-config',
+      () => ({
+        draft: this.draft as AdminGeneralConfig,
+        allowedTypesText: this.allowedTypesText,
+      }),
+      (s) => {
+        if (s.draft) this.draft = { ...cfg, ...s.draft };
+        if (typeof s.allowedTypesText === 'string') this.allowedTypesText = s.allowedTypesText;
+      },
+    );
+    this.draftBinder.start();
   }
 
   isAdmin(role: DocumentationRole): boolean {

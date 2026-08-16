@@ -68,8 +68,10 @@ public sealed class DirectoryEmployeeProjectionConsumer(
                 if (sub is not null)
                     user.SubServiceId = sub.Id;
             }
-            else if (string.Equals(msg.BusinessDepartmentKind, "Support", StringComparison.OrdinalIgnoreCase))
+            else
             {
+                // Directory sans service feuille (retrait pilote, clear placement, Support…)
+                // → ne pas conserver un SubServiceId Planning obsolète.
                 user.SubServiceId = null;
             }
             db.Users.Add(user);
@@ -102,7 +104,7 @@ public sealed class DirectoryEmployeeProjectionConsumer(
                     context.CancellationToken);
                 if (sub is not null) user.SubServiceId = sub.Id;
             }
-            else if (string.Equals(msg.BusinessDepartmentKind, "Support", StringComparison.OrdinalIgnoreCase))
+            else
             {
                 user.SubServiceId = null;
             }

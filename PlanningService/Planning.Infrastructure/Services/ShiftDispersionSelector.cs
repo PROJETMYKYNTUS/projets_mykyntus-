@@ -1,4 +1,5 @@
 using Planning.Domain.Entities;
+using Planning.Domain.Enums;
 
 namespace Planning.Infrastructure.Services;
 
@@ -104,6 +105,9 @@ public static class ShiftDispersionSelector
         var userLevel = usersById != null && usersById.TryGetValue(userId, out var me)
             ? me.Level
             : 0;
+        var plateauTraining = usersById != null
+                              && usersById.TryGetValue(userId, out var plateauUser)
+                              && plateauUser.IsPlateauTraining;
 
         bool UnderQuota(SubServiceShiftConfig s) =>
             s.RequiredCount <= 0
@@ -111,6 +115,17 @@ public static class ShiftDispersionSelector
 
         bool UnderMax(SubServiceShiftConfig s) =>
             CountThisWeek(weekAssignmentsByUser, userId, s.Id) < maxSame;
+
+        // Formation plateau : jamais Opening/Closing si un Standard existe en config
+        // (même hors quota / max2 — pas de repli sur extrêmes).
+        var hasStandardConfig = preferred.Any(s => s.ShiftKind == ShiftKind.Standard);
+        List<SubServiceShiftConfig> PlateauFilter(IEnumerable<SubServiceShiftConfig> cands)
+        {
+            var list = cands.ToList();
+            if (!plateauTraining || list.Count == 0) return list;
+            if (!hasStandardConfig) return list;
+            return list.Where(s => s.ShiftKind == ShiftKind.Standard).ToList();
+        }
 
         SubServiceShiftConfig RankPick(IEnumerable<SubServiceShiftConfig> candidates) =>
             candidates
@@ -121,13 +136,13 @@ public static class ShiftDispersionSelector
                 .First();
 
         // 1) Strict : siège libre + non-consécutif + max2 + équité
-        var strict = preferred.Where(s =>
-            UnderQuota(s) && s.Id != yesterdayId && UnderMax(s)).ToList();
+        var strict = PlateauFilter(preferred.Where(s =>
+            UnderQuota(s) && s.Id != yesterdayId && UnderMax(s)));
         if (strict.Count > 0)
             return new SelectionResult { Shift = RankPick(strict) };
 
         // 2) Siège libre + max2 (autorise consécutif)
-        var underQuotaMax = preferred.Where(s => UnderQuota(s) && UnderMax(s)).ToList();
+        var underQuotaMax = PlateauFilter(preferred.Where(s => UnderQuota(s) && UnderMax(s)));
         if (underQuotaMax.Count > 0)
             return new SelectionResult
             {
@@ -136,7 +151,7 @@ public static class ShiftDispersionSelector
             };
 
         // 3) Siège libre prioritaire sur max2 (besoin prod > dispersion)
-        var underQuotaAny = preferred.Where(UnderQuota).ToList();
+        var underQuotaAny = PlateauFilter(preferred.Where(UnderQuota));
         if (underQuotaAny.Count > 0)
             return new SelectionResult
             {
@@ -146,7 +161,7 @@ public static class ShiftDispersionSelector
             };
 
         // 4) Tous les quotas sont remplis → surplus d'effectif (autorise dépassement sous max2)
-        var underCap = preferred.Where(UnderMax).ToList();
+        var underCap = PlateauFilter(preferred.Where(UnderMax));
         if (underCap.Count > 0)
         {
             var chosen = RankPick(underCap);
@@ -161,10 +176,20 @@ public static class ShiftDispersionSelector
         // 5) Un seul shift possible
         return new SelectionResult
         {
-            Shift = RankPick(preferred),
+            Shift = RankPick(PlateauFilter(preferred)),
             SoftQuotaExceeded = true,
             SoftConsecutiveAllowed = true
         };
+    }
+
+    /// <summary>
+    /// Quota samedi = moitié de l'effectif configuré (Lun–Ven).
+    /// Ex. 20 → 10 ; 19 → 9 ; minimum 1 si le quota semaine est &gt; 0.
+    /// </summary>
+    public static int SaturdayRequiredCount(int weekRequiredCount)
+    {
+        if (weekRequiredCount <= 0) return 0;
+        return Math.Max(1, weekRequiredCount / 2);
     }
 
     public static SubServiceShiftConfig SelectSaturday(
@@ -187,14 +212,29 @@ public static class ShiftDispersionSelector
         var userLevel = usersById != null && usersById.TryGetValue(userId, out var me)
             ? me.Level
             : 0;
+        var plateauTraining = usersById != null
+                              && usersById.TryGetValue(userId, out var plateauUser)
+                              && plateauUser.IsPlateauTraining;
         shiftCountToday ??= new Dictionary<int, int>();
 
-        bool UnderQuota(SubServiceShiftConfig s) =>
-            s.RequiredCount <= 0
-            || shiftCountToday.GetValueOrDefault(s.Id, 0) < s.RequiredCount;
+        bool UnderQuota(SubServiceShiftConfig s)
+        {
+            var quota = SaturdayRequiredCount(s.RequiredCount);
+            return quota <= 0
+                   || shiftCountToday.GetValueOrDefault(s.Id, 0) < quota;
+        }
 
         bool UnderMax(SubServiceShiftConfig s) =>
             CountThisWeek(weekAssignmentsByUser, userId, s.Id) < maxSame;
+
+        var hasStandardConfig = preferred.Any(s => s.ShiftKind == ShiftKind.Standard);
+        List<SubServiceShiftConfig> PlateauFilter(IEnumerable<SubServiceShiftConfig> cands)
+        {
+            var list = cands.ToList();
+            if (!plateauTraining || list.Count == 0) return list;
+            if (!hasStandardConfig) return list;
+            return list.Where(s => s.ShiftKind == ShiftKind.Standard).ToList();
+        }
 
         SubServiceShiftConfig RankPick(IEnumerable<SubServiceShiftConfig> candidates) =>
             candidates
@@ -205,35 +245,37 @@ public static class ShiftDispersionSelector
                 .First();
 
         // 1) Strict : ≠ vendredi + max2 + siège libre + équité niveau
-        var strict = preferred.Where(s =>
-            s.Id != fridayShiftId && UnderMax(s) && UnderQuota(s)).ToList();
+        var strict = PlateauFilter(preferred.Where(s =>
+            s.Id != fridayShiftId && UnderMax(s) && UnderQuota(s)));
         if (strict.Count > 0)
             return RankPick(strict);
 
         // 2) Siège libre + max2 (autorise = vendredi)
-        var underQuotaMax = preferred.Where(s => UnderQuota(s) && UnderMax(s)).ToList();
+        var underQuotaMax = PlateauFilter(preferred.Where(s => UnderQuota(s) && UnderMax(s)));
         if (underQuotaMax.Count > 0)
             return RankPick(underQuotaMax);
 
-        // 3) Siège libre prioritaire (besoin prod)
-        var underQuotaAny = preferred.Where(UnderQuota).ToList();
+        // 3) Siège libre prioritaire (besoin prod samedi = 50 %)
+        var underQuotaAny = PlateauFilter(preferred.Where(UnderQuota));
         if (underQuotaAny.Count > 0)
             return RankPick(underQuotaAny);
 
         // 4) Quotas remplis → surplus sous max2
-        var underCap = preferred.Where(UnderMax).ToList();
+        var underCap = PlateauFilter(preferred.Where(UnderMax));
         if (underCap.Count > 0)
             return RankPick(underCap);
 
-        return RankPick(preferred);
+        return RankPick(PlateauFilter(preferred));
     }
 
     /// <summary>
     /// Répare dispersion Lun–Sam (présents uniquement). Ne crée pas d’assignation samedi.
+    /// N’accepte pas un swap qui laisserait un débutant seul sur un créneau.
     /// </summary>
     public static void RepairWeekdayDispersion(
         List<ShiftAssignment> assignments,
-        List<SubServiceShiftConfig> shiftConfigs)
+        List<SubServiceShiftConfig> shiftConfigs,
+        IReadOnlyDictionary<int, User>? usersById = null)
     {
         _ = shiftConfigs;
         var workDays = assignments
@@ -248,6 +290,8 @@ public static class ShiftDispersionSelector
         {
             var dayGroup = workDays[dayIndex].ToList();
             var prevDate = dayIndex > 0 ? workDays[dayIndex - 1].Key : (DateOnly?)null;
+            var isSaturday = dayGroup[0].AssignedDate.DayOfWeek == DayOfWeek.Saturday
+                             || dayGroup[0].IsSaturday;
 
             foreach (var a in dayGroup)
             {
@@ -263,15 +307,95 @@ public static class ShiftDispersionSelector
                     // Ne pas mélanger demi-journée débutant / journée pleine
                     if (a.IsHalfDaySaturday != b.IsHalfDaySaturday) continue;
 
-                    if (SwapImprovesDispersion(a, b, assignments, prevDate, shiftConfigs.Count))
-                    {
-                        (a.SubServiceShiftConfigId, b.SubServiceShiftConfigId) =
-                            (b.SubServiceShiftConfigId, a.SubServiceShiftConfigId);
-                        break;
-                    }
+                    if (!SwapImprovesDispersion(a, b, assignments, prevDate, shiftConfigs.Count))
+                        continue;
+
+                    if (usersById != null
+                        && !SwapPreservesBeginnerRule(a, b, dayGroup, usersById, isSaturday))
+                        continue;
+
+                    if (usersById != null
+                        && !SwapPreservesPlateauTrainingRule(a, b, shiftConfigs, usersById))
+                        continue;
+
+                    (a.SubServiceShiftConfigId, b.SubServiceShiftConfigId) =
+                        (b.SubServiceShiftConfigId, a.SubServiceShiftConfigId);
+                    break;
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Simule le swap a↔b et refuse s'il crée un créneau (ou un samedi) avec débutant seul.
+    /// </summary>
+    public static bool SwapPreservesBeginnerRule(
+        ShiftAssignment a,
+        ShiftAssignment b,
+        IReadOnlyList<ShiftAssignment> dayGroup,
+        IReadOnlyDictionary<int, User> usersById,
+        bool isSaturday)
+    {
+        var idA = a.SubServiceShiftConfigId;
+        var idB = b.SubServiceShiftConfigId;
+        if (idA is null || idB is null) return false;
+
+        // Snapshot virtuel des ids après swap
+        List<ShiftAssignment> AfterSwapMembers(int shiftId)
+        {
+            return dayGroup
+                .Where(x =>
+                {
+                    var sid = x.SubServiceShiftConfigId;
+                    if (ReferenceEquals(x, a)) sid = idB;
+                    else if (ReferenceEquals(x, b)) sid = idA;
+                    return sid == shiftId && !x.IsOnLeave && !x.IsHoliday;
+                })
+                .ToList();
+        }
+
+        if (isSaturday)
+        {
+            // Swap ne change pas l'ensemble des présents du jour.
+            return true;
+        }
+
+        foreach (var shiftId in new[] { idA.Value, idB.Value })
+        {
+            var group = AfterSwapMembers(shiftId);
+            if (group.Count > 0 && LevelBalanceEvaluator.HasBeginnerAlone(group, usersById))
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Refuse un swap qui placerait un agent en formation plateau en Opening/Closing.
+    /// </summary>
+    public static bool SwapPreservesPlateauTrainingRule(
+        ShiftAssignment a,
+        ShiftAssignment b,
+        IReadOnlyList<SubServiceShiftConfig> shiftConfigs,
+        IReadOnlyDictionary<int, User> usersById)
+    {
+        var configsById = shiftConfigs.ToDictionary(c => c.Id);
+        var idA = a.SubServiceShiftConfigId;
+        var idB = b.SubServiceShiftConfigId;
+        if (idA is null || idB is null) return false;
+
+        bool WouldBeExtreme(int userId, int newShiftId)
+        {
+            if (!usersById.TryGetValue(userId, out var u) || !u.IsPlateauTraining)
+                return false;
+            if (!configsById.TryGetValue(newShiftId, out var cfg))
+                return false;
+            return cfg.ShiftKind is ShiftKind.Opening or ShiftKind.Closing;
+        }
+
+        if (WouldBeExtreme(a.UserId, idB.Value)) return false;
+        if (WouldBeExtreme(b.UserId, idA.Value)) return false;
+        return true;
     }
 
     /// <summary>
@@ -321,6 +445,13 @@ public static class ShiftDispersionSelector
                             continue;
 
                         if (!FairnessSwapImproves(a, b, assignments, usersById, shiftConfigs))
+                            continue;
+
+                        if (!SwapPreservesPlateauTrainingRule(a, b, shiftConfigs, usersById))
+                            continue;
+
+                        var isSaturday = a.AssignedDate.DayOfWeek == DayOfWeek.Saturday || a.IsSaturday;
+                        if (!SwapPreservesBeginnerRule(a, b, dayGroup, usersById, isSaturday))
                             continue;
 
                         (a.SubServiceShiftConfigId, b.SubServiceShiftConfigId) =

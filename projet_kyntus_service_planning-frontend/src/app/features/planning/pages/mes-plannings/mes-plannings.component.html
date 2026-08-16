@@ -29,8 +29,9 @@
         </div>
       </div>
       <div class="mp-week-grid">
-        <div class="mp-day" *ngFor="let d of current.days" [ngClass]="shiftClass(d)" [class.mp-day-exceptional]="d.isExceptionalRequest">
+        <div class="mp-day" *ngFor="let d of current.days" [ngClass]="shiftClass(d)" [class.mp-day-exceptional]="d.isExceptionalRequest" [class.mp-day-reinforcement]="d.isReinforcement">
           <span class="mp-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</span>
+          <span class="mp-ren-tag" *ngIf="d.isReinforcement && !d.isExceptionalRequest" title="Renfort samedi">REN</span>
           <span class="mp-day-name">{{ d.day }}</span>
           <span class="mp-day-date">{{ d.assignedDate | date:'dd/MM' }}</span>
           <span class="mp-day-shift">{{ cellLabel(d) }}</span>
@@ -59,8 +60,9 @@
           <span class="mp-sub">{{ p.subServiceName }} · {{ p.weekStartDate | date:'dd/MM/yyyy' }}</span>
         </summary>
         <div class="mp-week-grid">
-          <div class="mp-day" *ngFor="let d of p.days" [ngClass]="shiftClass(d)" [class.mp-day-exceptional]="d.isExceptionalRequest">
+          <div class="mp-day" *ngFor="let d of p.days" [ngClass]="shiftClass(d)" [class.mp-day-exceptional]="d.isExceptionalRequest" [class.mp-day-reinforcement]="d.isReinforcement">
             <span class="mp-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</span>
+            <span class="mp-ren-tag" *ngIf="d.isReinforcement && !d.isExceptionalRequest" title="Renfort samedi">REN</span>
             <span class="mp-day-name">{{ d.day }}</span>
             <span class="mp-day-date">{{ d.assignedDate | date:'dd/MM' }}</span>
             <span class="mp-day-shift">{{ cellLabel(d) }}</span>
@@ -86,8 +88,9 @@
           <span class="mp-sub">{{ p.subServiceName }} · {{ p.weekStartDate | date:'dd/MM/yyyy' }}</span>
         </summary>
         <div class="mp-week-grid">
-          <div class="mp-day" *ngFor="let d of p.days" [ngClass]="shiftClass(d)" [class.mp-day-exceptional]="d.isExceptionalRequest">
+          <div class="mp-day" *ngFor="let d of p.days" [ngClass]="shiftClass(d)" [class.mp-day-exceptional]="d.isExceptionalRequest" [class.mp-day-reinforcement]="d.isReinforcement">
             <span class="mp-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</span>
+            <span class="mp-ren-tag" *ngIf="d.isReinforcement && !d.isExceptionalRequest" title="Renfort samedi">REN</span>
             <span class="mp-day-name">{{ d.day }}</span>
             <span class="mp-day-date">{{ d.assignedDate | date:'dd/MM' }}</span>
             <span class="mp-day-shift">{{ cellLabel(d) }}</span>
@@ -132,6 +135,7 @@
 
       <div class="mp-modal-actions">
         <button type="button" class="mp-btn-secondary" (click)="closeModal()">Fermer</button>
+        <button type="button" class="mp-btn-secondary" (click)="resetDraftForm()" [disabled]="saving">Réinitialiser</button>
         <button type="button" class="mp-btn-primary"
                 [disabled]="saving || !proposedSwapUserId || candidates.length === 0"
                 (click)="submitChangeRequest()">

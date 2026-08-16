@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angula
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
+import { BodyPortalDirective } from '../../../shared/directives/body-portal.directive';
 import { KyntusToastService } from '../../../shared/components/ui/kyntus-toast.service';
 import { KyntusFormDraftService } from '../../../core/drafts/kyntus-form-draft.service';
 import { KyntusObjectDraftBinder } from '../../../core/drafts/kyntus-object-draft.binder';
@@ -14,6 +15,7 @@ import {
   PaginatedResult, ReclamationType, CreateReclamationPayload,
   CreatePropositionPayload, SatisfactionPayload
 } from '../../../core/models/reclamation.model';
+import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 type MainTab = 'reclamations' | 'propositions';
 type SubView = 'list' | 'new' | 'detail';
@@ -21,13 +23,14 @@ type SubView = 'list' | 'new' | 'detail';
 @Component({
   selector: 'app-reclamation-employee',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, KyntusPageHeaderComponent],
+  imports: [CommonModule, FormsModule, DatePipe, KyntusPageHeaderComponent, BodyPortalDirective],
   templateUrl: './reclamation-employee.component.html',
   styleUrls: ['./reclamation-employee.component.css']
 })
 export class ReclamationEmployeeComponent implements OnInit, OnDestroy {
 
   private readonly toastSvc = inject(KyntusToastService);
+  private readonly confirmService = inject(KyntusConfirmService);
   private readonly formDrafts = inject(KyntusFormDraftService);
   private draftBinder?: KyntusObjectDraftBinder<{
     mainTab: MainTab;
@@ -111,6 +114,43 @@ export class ReclamationEmployeeComponent implements OnInit, OnDestroy {
 
   touchDraft(): void {
     this.draftBinder?.touch();
+  }
+
+  async resetDraftForm(): Promise<void> {
+    const ok = await this.confirmService.confirm({
+      title: 'Effacer la saisie',
+      message: 'Effacer la saisie et le brouillon en cours ?',
+      confirmLabel: 'Effacer',
+    });
+    if (!ok) return;
+    this.draftBinder?.discard();
+    this.newRec = { titre: '', description: '', type: 'Administrative' };
+    this.newProp = { titre: '', description: '', beneficeAttendu: '' };
+    this.restartDraftBinder();
+    this.cdr.detectChanges();
+  }
+
+  private restartDraftBinder(): void {
+    this.draftBinder?.destroy();
+    this.draftBinder = new KyntusObjectDraftBinder(
+      this.formDrafts,
+      'reclamation-employee-forms',
+      () => ({
+        mainTab: this.mainTab,
+        subView: this.subView,
+        newRec: { ...this.newRec },
+        newProp: { ...this.newProp },
+      }),
+      (s) => {
+        if (s.newRec) this.newRec = { ...this.newRec, ...s.newRec };
+        if (s.newProp) this.newProp = { ...this.newProp, ...s.newProp };
+        if (s.mainTab) this.mainTab = s.mainTab;
+        if (s.subView === 'new' && (s.newRec?.titre || s.newProp?.titre)) {
+          this.subView = 'new';
+        }
+      },
+    );
+    this.draftBinder.start();
   }
 
   // ── Écoute les notifications via le service partagé ──

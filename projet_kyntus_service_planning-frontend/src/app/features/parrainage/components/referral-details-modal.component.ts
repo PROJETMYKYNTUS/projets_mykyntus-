@@ -1,16 +1,17 @@
 import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter } from '@angular/core';
 import { X } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
+import { BodyPortalDirective } from '@/shared/directives/body-portal.directive';
 import { StatusBadgeComponent } from './status-badge.component';
 import type { Referral } from '../models/referral.model';
 
 @Component({
   selector: 'app-referral-details-modal',
   standalone: true,
-  imports: [LucideIconComponent, StatusBadgeComponent],
+  imports: [LucideIconComponent, StatusBadgeComponent, BodyPortalDirective],
   template: `
     @if (open && referral) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4" appBodyPortal>
         <button type="button" class="absolute inset-0 bg-app/80 backdrop-blur-sm" aria-label="Fermer" (click)="close.emit()"></button>
         <div class="relative card-navy max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-default">
           <div class="sticky top-0 flex items-start justify-between gap-4 p-4 border-b border-default bg-card">

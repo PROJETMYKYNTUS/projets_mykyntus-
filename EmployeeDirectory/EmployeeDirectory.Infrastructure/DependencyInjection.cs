@@ -53,6 +53,7 @@ public static class DependencyInjection
         services.AddScoped<IHtelTechnicienClient, HtelTechnicienClient>();
         services.AddScoped<IHtelFusionService, HtelFusionService>();
         services.AddScoped<DirectoryHierarchyService>();
+        services.AddScoped<IOrgResponsibilityResolver, OrgResponsibilityResolver>();
         services.AddScoped<IIamReadService, DirectoryIamReadService>();
         services.AddScoped<IPermissionCatalog, DirectoryIamReadService>();
         services.AddScoped<IRebacClient, DirectoryIamReadService>();

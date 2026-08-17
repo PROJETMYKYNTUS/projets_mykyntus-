@@ -387,6 +387,17 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
         var halfA = requesterAssignment.IsHalfDaySaturday;
         var slotA = requesterAssignment.SaturdaySlot;
 
+        var configIds = new List<int>();
+        if (requesterAssignment.SubServiceShiftConfigId is int idA)
+            configIds.Add(idA);
+        if (swapAssignment.SubServiceShiftConfigId is int idB)
+            configIds.Add(idB);
+
+        var configsById = await _context.SubServiceShiftConfigs
+            .AsNoTracking()
+            .Where(c => configIds.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id);
+
         requesterAssignment.SubServiceShiftConfigId = swapAssignment.SubServiceShiftConfigId;
         requesterAssignment.BreakTime = swapAssignment.BreakTime;
         requesterAssignment.IsHalfDaySaturday = swapAssignment.IsHalfDaySaturday;
@@ -394,6 +405,12 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
         requesterAssignment.IsManagerOverride = true;
         requesterAssignment.IsOnLeave = false;
         requesterAssignment.IsHoliday = false;
+        requesterAssignment.ShiftModeProfileId =
+            requesterAssignment.SubServiceShiftConfigId is int newCfgA
+            && configsById.TryGetValue(newCfgA, out var cfgNewA)
+                ? cfgNewA.ShiftModeProfileId
+                : swapAssignment.ShiftModeProfileId;
+        requesterAssignment.IsModeOverride = true;
 
         swapAssignment.SubServiceShiftConfigId = cfgA;
         swapAssignment.BreakTime = breakA;
@@ -402,6 +419,12 @@ public class PlanningChangeRequestService : IPlanningChangeRequestService
         swapAssignment.IsManagerOverride = true;
         swapAssignment.IsOnLeave = false;
         swapAssignment.IsHoliday = false;
+        swapAssignment.ShiftModeProfileId =
+            swapAssignment.SubServiceShiftConfigId is int newCfgB
+            && configsById.TryGetValue(newCfgB, out var cfgNewB)
+                ? cfgNewB.ShiftModeProfileId
+                : null;
+        swapAssignment.IsModeOverride = true;
 
         request.Status = PlanningChangeRequestStatus.Approved;
         request.SupervisorProcessedByUserId = processedByUserId;

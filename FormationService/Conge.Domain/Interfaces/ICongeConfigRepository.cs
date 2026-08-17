@@ -11,8 +11,8 @@ public interface IPeriodeInterditeRepository
 
 public interface IQuotaCongeServiceRepository
 {
-    Task<QuotaCongeService?> GetByServiceIdAsync(Guid serviceId, CancellationToken ct = default);
-    Task<IReadOnlyList<QuotaCongeService>> GetByServiceIdsAsync(IEnumerable<Guid> serviceIds, CancellationToken ct = default);
+    Task<QuotaCongeService?> GetByServiceIdAsync(string serviceId, CancellationToken ct = default);
+    Task<IReadOnlyList<QuotaCongeService>> GetByServiceIdsAsync(IEnumerable<string> serviceIds, CancellationToken ct = default);
     Task AddAsync(QuotaCongeService quota, CancellationToken ct = default);
     void Update(QuotaCongeService quota);
 }

@@ -206,6 +206,9 @@ public class DaySynthesisDto
 
     /// <summary>Disponibilité plateau par créneau 5 min (pour diagramme jour).</summary>
     public List<DayAvailabilityPointDto> AvailabilityTimeline { get; set; } = new();
+
+    /// <summary>Timelines par mode métier (cellules multi-modes).</summary>
+    public List<DayModeAvailabilityDto> AvailabilityByMode { get; set; } = new();
 }
 
 public class DayAvailabilityPointDto
@@ -222,6 +225,8 @@ public class DaySynthesisShiftDto
     public int ShiftConfigId { get; set; }
     public string ShiftLabel { get; set; } = string.Empty;
     public string ShiftKind { get; set; } = "Standard";
+    public int? ShiftModeProfileId { get; set; }
+    public string? ShiftModeTitle { get; set; }
     public int AssignedCount { get; set; }
     public int RequiredCount { get; set; }
     public int Delta { get; set; }
@@ -300,6 +305,9 @@ public class DayAssignmentDto
     public int SaturdaySlot { get; set; }
     public string? AbsenceType { get; set; } // ? AJOUTER
     public string SlotLabel { get; set; } = string.Empty;
+    public int? ShiftModeProfileId { get; set; }
+    public string? ShiftModeTitle { get; set; }
+    public bool IsModeOverride { get; set; }
 }
 
 // -- Vue employ� (son propre planning) --
@@ -351,9 +359,37 @@ public class SaveShiftConfigDto
     public DateOnly? WeekStartDate { get; set; }
     /// <summary>Extrêmes pause +3h/+5h (plafond métier) et ouverture bidirectionnelle.</summary>
     public bool IsCriticalCell { get; set; }
-    /// <summary>Présence min plateau de toute la cellule (défaut 70).</summary>
+    /// <summary>Présence min plateau de toute la cellule (défaut 70). Mono-mode uniquement.</summary>
     public int MinPresencePercent { get; set; } = 70;
+    /// <summary>Active les profils multi-modes pour cette cellule.</summary>
+    public bool MultiShiftModesEnabled { get; set; }
+    /// <summary>Profils quand MultiShiftModesEnabled ; sinon ignorer et utiliser Shifts.</summary>
+    public List<ShiftModeProfileSaveDto> Modes { get; set; } = new();
     public List<ShiftConfigItemDto> Shifts { get; set; } = new();
+}
+
+public class ShiftModeProfileSaveDto
+{
+    public int? Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
+    public bool IsDefault { get; set; }
+    public bool IsActive { get; set; } = true;
+    public int MinPresencePercent { get; set; } = 70;
+    public bool IsCriticalCell { get; set; }
+    public List<ShiftConfigItemDto> Shifts { get; set; } = new();
+}
+
+public class ShiftModeProfileDto
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
+    public bool IsDefault { get; set; }
+    public bool IsActive { get; set; }
+    public int MinPresencePercent { get; set; }
+    public bool IsCriticalCell { get; set; }
+    public List<ShiftConfigResponseNewDto> Shifts { get; set; } = new();
 }
 
 // -- Un shift dans la config --
@@ -368,6 +404,8 @@ public class ShiftConfigItemDto
     /// <summary>Heures de début de pause (max 3), ex. ["12:00","12:30","13:00"].</summary>
     public List<string>? BreakSlots { get; set; }
     public int RequiredCount { get; set; }
+    /// <summary>Pourcentage du groupe mode (ou cellule). Prioritaire sur RequiredCount en multi-mode.</summary>
+    public decimal? Percentage { get; set; }
     /// <summary>Ignoré à la sauvegarde — utiliser SaveShiftConfigDto.MinPresencePercent (niveau cellule).</summary>
     public int MinPresencePercent { get; set; } = 70;
     public int DisplayOrder { get; set; }
@@ -393,6 +431,7 @@ public class ShiftConfigResponseNewDto
     public int MinPresencePercent { get; set; }
     public int DisplayOrder { get; set; }
     public string ShiftKind { get; set; } = "Standard";
+    public int? ShiftModeProfileId { get; set; }
 }
 
 // -- Statut modèle shift par service (vue arbre RH) --
@@ -425,8 +464,58 @@ public class WeekShiftConfigResponseDto
     public bool IsCriticalCell { get; set; }
     /// <summary>Présence min plateau de toute la cellule.</summary>
     public int MinPresencePercent { get; set; } = 70;
+    public bool MultiShiftModesEnabled { get; set; }
+    public List<ShiftModeProfileDto> Modes { get; set; } = new();
     public int TotalEffectif { get; set; }
     public List<ShiftConfigResponseNewDto> Shifts { get; set; } = new();
+}
+
+public class WeeklyShiftModePlanDto
+{
+    public int Id { get; set; }
+    public int SubServiceId { get; set; }
+    public string SubServiceName { get; set; } = string.Empty;
+    public string WeekCode { get; set; } = string.Empty;
+    public DateOnly WeekStartDate { get; set; }
+    public bool IsValidated { get; set; }
+    public bool IsLocked { get; set; }
+    public DateTime? ValidatedAt { get; set; }
+    public List<ShiftModeProfileDto> AvailableModes { get; set; } = new();
+    public List<WeeklyEmployeeShiftModeDto> Employees { get; set; } = new();
+}
+
+public class WeeklyEmployeeShiftModeDto
+{
+    public int UserId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public int Level { get; set; }
+    public int? SaturdayWorkMode { get; set; }
+    public int? ShiftModeProfileId { get; set; }
+    public string? ShiftModeTitle { get; set; }
+}
+
+public class SaveWeeklyShiftModePlanDto
+{
+    public int SubServiceId { get; set; }
+    public string WeekCode { get; set; } = string.Empty;
+    public DateOnly WeekStartDate { get; set; }
+    public int? ActorUserId { get; set; }
+    public List<WeeklyEmployeeShiftModeItemDto> Employees { get; set; } = new();
+}
+
+public class WeeklyEmployeeShiftModeItemDto
+{
+    public int UserId { get; set; }
+    public int ShiftModeProfileId { get; set; }
+}
+
+public class DayModeAvailabilityDto
+{
+    public int ShiftModeProfileId { get; set; }
+    public string ShiftModeTitle { get; set; } = string.Empty;
+    public int TargetPercent { get; set; }
+    public decimal PlateauAvailabilityPercent { get; set; } = 100;
+    public List<DayAvailabilityPointDto> AvailabilityTimeline { get; set; } = new();
 }
 
 // -- Générer le planning depuis la config --
@@ -524,4 +613,9 @@ public class EmployeePlanningDto
     public int Level { get; set; }
     public List<DayAssignmentDto> Days { get; set; } = new();
     public string? ManagerComment { get; set; }
+    /// <summary>Cas particulier — visible RH / superviseur uniquement.</summary>
+    public bool IsSpecialCase { get; set; }
+    public string? SpecialCaseDescription { get; set; }
+    /// <summary>Formation plateau — visible RH / superviseur uniquement.</summary>
+    public bool IsPlateauTraining { get; set; }
 }

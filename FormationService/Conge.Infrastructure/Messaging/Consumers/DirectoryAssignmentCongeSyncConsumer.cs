@@ -5,32 +5,23 @@ using Microsoft.Extensions.Logging;
 
 namespace Conge.Infrastructure.Messaging.Consumers;
 
-/// <summary>Synchronise le rôle / nœud snapshot congés quand Organisation RH (Prime) change une affectation.</summary>
-public sealed class OrgAssignmentCongeSyncConsumer(
+/// <summary>Affectations structurelles Directory → snapshot Congés (rôle + nœud org).</summary>
+public sealed class DirectoryAssignmentCongeSyncConsumer(
     IEmployeSnapshotRepository employeRepo,
     IUnitOfWork unitOfWork,
-    ILogger<OrgAssignmentCongeSyncConsumer> logger) : IConsumer<OrgAssignmentChangedMessage>
+    ILogger<DirectoryAssignmentCongeSyncConsumer> logger) : IConsumer<DirectoryAssignmentChangedMessage>
 {
-    public async Task Consume(ConsumeContext<OrgAssignmentChangedMessage> context)
+    public async Task Consume(ConsumeContext<DirectoryAssignmentChangedMessage> context)
     {
         var msg = context.Message;
-        if (string.IsNullOrWhiteSpace(msg.EmployeeId))
-            return;
-
-        if (!Guid.TryParse(msg.EmployeeId.Trim(), out var employeId))
-        {
-            logger.LogWarning("CONGE OrgAssignment : EmployeeId invalide {Id}", msg.EmployeeId);
-            return;
-        }
-
         var snapshot = await employeRepo.GetByEmployeIdOrEmailAsync(
-            employeId,
+            msg.EmployeeId,
             msg.EmployeeEmail,
             context.CancellationToken);
 
         if (snapshot is null)
         {
-            logger.LogWarning("CONGE OrgAssignment : snapshot absent id={Id}", employeId);
+            logger.LogWarning("CONGE DirectoryAssignment : snapshot absent id={Id}", msg.EmployeeId);
             return;
         }
 
@@ -39,25 +30,17 @@ public sealed class OrgAssignmentCongeSyncConsumer(
             snapshot.MettreAJourRole(KyntusRoleNames.Employee);
             employeRepo.Update(snapshot);
             await unitOfWork.SaveChangesAsync(context.CancellationToken);
-            logger.LogInformation("CONGE OrgAssignment removed → Employee pour {Email}", snapshot.Email);
+            logger.LogInformation("CONGE DirectoryAssignment removed → Employee pour {Email}", snapshot.Email);
             return;
         }
 
         var roleName = ResolveRoleName(msg);
-        Guid? managerId = null;
-        if (!string.IsNullOrWhiteSpace(msg.ParentEmployeeId)
-            && Guid.TryParse(msg.ParentEmployeeId.Trim(), out var parentId)
-            && parentId != Guid.Empty)
-        {
-            managerId = parentId;
-        }
-
-        snapshot.MettreAJourRole(roleName, managerId);
+        snapshot.MettreAJourRole(roleName);
         ApplyNode(snapshot, msg.NodeLevel, msg.NodeId);
         employeRepo.Update(snapshot);
         await unitOfWork.SaveChangesAsync(context.CancellationToken);
         logger.LogInformation(
-            "CONGE OrgAssignment sync {Email} rôle={Role} node={Node}",
+            "CONGE DirectoryAssignment sync {Email} rôle={Role} node={Node}",
             snapshot.Email, roleName, msg.NodeId);
     }
 
@@ -79,7 +62,7 @@ public sealed class OrgAssignmentCongeSyncConsumer(
         }
     }
 
-    private static string ResolveRoleName(OrgAssignmentChangedMessage msg)
+    private static string ResolveRoleName(DirectoryAssignmentChangedMessage msg)
     {
         if (!string.IsNullOrWhiteSpace(msg.NewRole))
             return KyntusRoleNames.NormalizePlanningRole(msg.NewRole);

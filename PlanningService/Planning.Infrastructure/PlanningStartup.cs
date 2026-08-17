@@ -44,6 +44,7 @@ public static class PlanningStartup
                     await PlanningSchemaPatches.EnsureUserSaturdayWorkModeColumnAsync(db);
                     await PlanningSchemaPatches.EnsureUserSpecialCaseColumnsAsync(db);
                     await PlanningSchemaPatches.EnsureUserPlateauTrainingColumnAsync(db);
+                    await PlanningSchemaPatches.EnsureShiftModeProfilesSchemaAsync(db);
                     Console.WriteLine("✅ Migrations appliquées avec succès.");
                     break;
                 }

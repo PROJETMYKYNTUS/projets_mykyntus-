@@ -35,6 +35,8 @@ export interface DaySynthesisShift {
   shiftConfigId: number;
   shiftLabel: string;
   shiftKind: string;
+  shiftModeProfileId?: number | null;
+  shiftModeTitle?: string | null;
   assignedCount: number;
   requiredCount: number;
   delta: number;
@@ -50,6 +52,14 @@ export interface DayAvailabilityPoint {
   onBreakCount: number;
   availableCount: number;
   availabilityPercent: number;
+}
+
+export interface DayModeAvailability {
+  shiftModeProfileId: number;
+  shiftModeTitle: string;
+  targetPercent: number;
+  plateauAvailabilityPercent?: number;
+  availabilityTimeline: DayAvailabilityPoint[];
 }
 
 export interface DaySynthesis {
@@ -68,6 +78,7 @@ export interface DaySynthesis {
   extremeBreakCount?: number;
   extremeTierBreakCount?: number;
   availabilityTimeline?: DayAvailabilityPoint[];
+  availabilityByMode?: DayModeAvailability[];
 }
 
 export interface CoverageReport {
@@ -152,11 +163,14 @@ export interface DayAssignment {
   breakTime?:        string;
   isOnLeave:         boolean;
   isHalfDaySaturday: boolean;
-   absenceType:       string | null; 
+  absenceType:       string | null; 
   saturdaySlot:      number;
   slotLabel:         string;
   isHoliday:   boolean;
-holidayName: string;
+  holidayName: string;
+  shiftModeProfileId?: number | null;
+  shiftModeTitle?: string | null;
+  isModeOverride?: boolean;
 }
 
 export interface EmployeePlanning {
@@ -166,6 +180,11 @@ export interface EmployeePlanning {
   days:            DayAssignment[];
   managerComment?: string;
   level:           number;
+  /** Cas particulier — RH / superviseur (pas côté pilote). */
+  isSpecialCase?: boolean;
+  specialCaseDescription?: string | null;
+  /** Formation plateau — RH / superviseur (pas côté pilote). */
+  isPlateauTraining?: boolean;
 }
 
 export interface WeeklyPlanningResponse {
@@ -208,6 +227,9 @@ export interface AgentPlanningDay {
   absenceType?: string | null;
   isExceptionalRequest?: boolean;
   slotLabel?: string;
+  shiftModeProfileId?: number | null;
+  shiftModeTitle?: string | null;
+  isModeOverride?: boolean;
 }
 
 /** Vue plannings agent (même forme que Mes plannings). */
@@ -304,9 +326,33 @@ export interface ShiftConfigItem {
   /** Heures de début de pause (max 3). */
   breakSlots?:          string[];
   requiredCount:        number;
+  /** Pourcentage du groupe mode (ou cellule). Prioritaire en multi-mode. */
+  percentage?:          number | null;
   /** @deprecated Présence min est au niveau cellule (SaveShiftConfigDto). */
   minPresencePercent?:  number;
   displayOrder:         number;
+}
+
+export interface ShiftModeProfileSaveDto {
+  id?: number | null;
+  title: string;
+  displayOrder: number;
+  isDefault: boolean;
+  isActive: boolean;
+  minPresencePercent: number;
+  isCriticalCell?: boolean;
+  shifts: ShiftConfigItem[];
+}
+
+export interface ShiftModeProfileDto {
+  id: number;
+  title: string;
+  displayOrder: number;
+  isDefault: boolean;
+  isActive: boolean;
+  minPresencePercent: number;
+  isCriticalCell?: boolean;
+  shifts: ShiftConfigResponseNew[];
 }
 
 export interface SaveShiftConfigDto {
@@ -314,8 +360,12 @@ export interface SaveShiftConfigDto {
   weekCode?:     string | null;
   weekStartDate?: string | null;
   isCriticalCell?: boolean;
-  /** Présence min plateau de toute la cellule (défaut 70). */
+  /** Présence min plateau de toute la cellule (défaut 70). Mono-mode. */
   minPresencePercent?: number;
+  /** Active les profils multi-modes pour cette cellule. */
+  multiShiftModesEnabled?: boolean;
+  /** Profils quand multiShiftModesEnabled ; sinon ignorer et utiliser shifts. */
+  modes?: ShiftModeProfileSaveDto[];
   shifts:        ShiftConfigItem[];
 }
 
@@ -334,6 +384,8 @@ export interface ShiftConfigResponseNew {
   percentage:           number;
   minPresencePercent:   number;
   displayOrder:         number;
+  shiftKind?:           string;
+  shiftModeProfileId?:  number | null;
 }
 
 export interface WeekShiftConfigResponse {
@@ -345,8 +397,45 @@ export interface WeekShiftConfigResponse {
   isCriticalCell?: boolean;
   /** Présence min plateau de toute la cellule. */
   minPresencePercent?: number;
+  multiShiftModesEnabled?: boolean;
+  modes?: ShiftModeProfileDto[];
   totalEffectif:  number;
   shifts:         ShiftConfigResponseNew[];
+}
+
+export interface WeeklyEmployeeShiftMode {
+  userId: number;
+  fullName: string;
+  level: number;
+  saturdayWorkMode?: number | null;
+  shiftModeProfileId?: number | null;
+  shiftModeTitle?: string | null;
+}
+
+export interface WeeklyShiftModePlan {
+  id: number;
+  subServiceId: number;
+  subServiceName: string;
+  weekCode: string;
+  weekStartDate: string;
+  isValidated: boolean;
+  isLocked: boolean;
+  validatedAt?: string | null;
+  availableModes: ShiftModeProfileDto[];
+  employees: WeeklyEmployeeShiftMode[];
+}
+
+export interface WeeklyEmployeeShiftModeItem {
+  userId: number;
+  shiftModeProfileId: number;
+}
+
+export interface SaveWeeklyShiftModePlanDto {
+  subServiceId: number;
+  weekCode: string;
+  weekStartDate: string;
+  actorUserId?: number | null;
+  employees: WeeklyEmployeeShiftModeItem[];
 }
 
 export interface ShiftConfigStatusItem {
@@ -520,6 +609,21 @@ export class PlanningService {
 
   getShiftConfig(subServiceId: number, weekCode: string): Observable<WeekShiftConfigResponse> {
     return this.http.get<WeekShiftConfigResponse>(`${this.base}/config/${subServiceId}/${weekCode}`);
+  }
+
+  getWeeklyShiftModePlan(
+    subServiceId: number,
+    weekCode: string,
+    weekStartDate: string,
+  ): Observable<WeeklyShiftModePlan> {
+    const q = `?weekStartDate=${encodeURIComponent(weekStartDate)}`;
+    return this.http.get<WeeklyShiftModePlan>(
+      `${this.base}/config/weekly-modes/${subServiceId}/${encodeURIComponent(weekCode)}${q}`,
+    );
+  }
+
+  saveWeeklyShiftModePlan(dto: SaveWeeklyShiftModePlanDto): Observable<WeeklyShiftModePlan> {
+    return this.http.put<WeeklyShiftModePlan>(`${this.base}/config/weekly-modes`, dto);
   }
 
   generateFromConfig(dto: GeneratePlanningFromConfigDto): Observable<WeeklyPlanningResponse> {

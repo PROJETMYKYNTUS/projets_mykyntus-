@@ -22,7 +22,11 @@ public class SubService
     [MaxLength(64)]
     public string? PrimeServiceId { get; set; }
 
+    /// <summary>Active la configuration multi-modes de shifts pour cette cellule.</summary>
+    public bool MultiShiftModesEnabled { get; set; }
+
     public ICollection<User> Users { get; set; }
     public ICollection<WeeklyPlanning> WeeklyPlannings { get; set; }
     public ICollection<UserSubService> Managers { get; set; } = new List<UserSubService>();
+    public ICollection<ShiftModeProfile> ShiftModeProfiles { get; set; } = new List<ShiftModeProfile>();
 }

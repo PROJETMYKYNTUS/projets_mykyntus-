@@ -127,6 +127,21 @@
   line-height: 1.2;
 }
 
+.mp-mode-tag {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, #0f766e 14%, #fff);
+  color: #0f766e;
+  font-size: 0.62rem;
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mp-day-reinforcement {
   border-color: #0369a1;
   box-shadow: inset 0 0 0 1px #0369a1;

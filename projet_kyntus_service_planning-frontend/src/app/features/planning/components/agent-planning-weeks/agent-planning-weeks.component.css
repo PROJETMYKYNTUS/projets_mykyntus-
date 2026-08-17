@@ -112,6 +112,21 @@
   letter-spacing: 0.04em;
 }
 
+.apw-mode-tag {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, #0f766e 14%, #fff);
+  color: #0f766e;
+  font-size: 0.62rem;
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .apw-day-name {
   font-weight: 600;
   font-size: 0.8rem;

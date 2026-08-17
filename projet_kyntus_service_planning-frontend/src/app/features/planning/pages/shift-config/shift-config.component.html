@@ -217,7 +217,7 @@
             </span>
           </div>
 
-          <div class="form-group critical-toggle">
+          <div class="form-group critical-toggle" *ngIf="!multiShiftModesEnabled">
             <label class="critical-label">
               <input
                 type="checkbox"
@@ -230,7 +230,20 @@
             </span>
           </div>
 
-          <div class="form-group presence-cell">
+          <div class="form-group critical-toggle">
+            <label class="critical-label">
+              <input
+                type="checkbox"
+                [ngModel]="multiShiftModesEnabled"
+                (ngModelChange)="onMultiModesChange($event)" />
+              Modes de shifts
+            </label>
+            <span class="hint">
+              Plusieurs profils (ex. Standard / Intensif) avec leurs propres shifts et %
+            </span>
+          </div>
+
+          <div class="form-group presence-cell" *ngIf="!multiShiftModesEnabled">
             <label class="critical-label">
               <input
                 type="checkbox"
@@ -257,10 +270,85 @@
             </span>
           </div>
 
-          <div class="effectif-badge" *ngIf="totalEffectif > 0">
+          <div class="effectif-badge" *ngIf="!multiShiftModesEnabled && totalEffectif > 0">
             <span class="eb-label">Total shifts</span>
             <span class="eb-value">{{ totalEffectif }}</span>
             <span class="eb-cap" *ngIf="serviceEmployeeCount > 0">/ {{ serviceEmployeeCount }} max</span>
+          </div>
+        </div>
+
+        <div class="modes-panel ky-card" *ngIf="multiShiftModesEnabled">
+          <div class="modes-header">
+            <h3>Modes métier</h3>
+            <button type="button" class="ky-btn-secondary btn-add-shift" (click)="addMode()" [disabled]="modes.length >= 8">
+              <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
+              Ajouter un mode
+            </button>
+          </div>
+          <div class="modes-tabs">
+            <button
+              type="button"
+              class="mode-tab"
+              *ngFor="let mode of modes; let i = index"
+              [class.is-active]="i === activeModeIndex"
+              [class.is-inactive]="!mode.isActive"
+              (click)="selectMode(i)">
+              <span class="mode-tab-title">{{ mode.title || ('Mode ' + (i + 1)) }}</span>
+              <span class="mode-tab-badge" *ngIf="mode.isDefault">Défaut</span>
+            </button>
+          </div>
+          <div class="mode-editor" *ngIf="activeMode as mode">
+            <div class="mode-fields">
+              <div class="form-group">
+                <label>Titre du mode</label>
+                <input
+                  type="text"
+                  class="ky-input"
+                  [(ngModel)]="mode.title"
+                  (ngModelChange)="onModeTitleChange()"
+                  placeholder="Ex: Standard" />
+              </div>
+              <div class="form-group">
+                <label>Présence min mode (%)</label>
+                <input
+                  type="number"
+                  class="ky-input input-presence"
+                  [(ngModel)]="mode.minPresencePercent"
+                  (ngModelChange)="onModePresenceChange()"
+                  min="0"
+                  max="100" />
+              </div>
+              <label class="critical-label">
+                <input type="checkbox" [(ngModel)]="mode.isActive" (ngModelChange)="touchDraft()" />
+                Mode actif
+              </label>
+              <label class="critical-label">
+                <input
+                  type="checkbox"
+                  [(ngModel)]="mode.isCriticalCell"
+                  (ngModelChange)="onCriticalCellChange()" />
+                Cellule critique
+              </label>
+              <label class="critical-label">
+                <input
+                  type="checkbox"
+                  [ngModel]="mode.isDefault"
+                  (ngModelChange)="setDefaultMode(activeModeIndex)" />
+                Mode par défaut
+              </label>
+              <button
+                type="button"
+                class="ky-btn-secondary btn-remove-mode"
+                (click)="removeMode(activeModeIndex)"
+                [disabled]="modes.length <= 1"
+                title="Retirer ce mode">
+                <app-lucide-icon [icon]="icons.trash" className="w-4 h-4" />
+                Retirer
+              </button>
+            </div>
+            <p class="mode-pct-hint" [class.mode-pct-ok]="modePctOk(mode)">
+              Somme des % : {{ modePercentageSum(mode) | number:'1.0-1' }} % (cible 100)
+            </p>
           </div>
         </div>
 
@@ -269,7 +357,10 @@
             <div class="ch-left">
               <span class="card-icon"><app-lucide-icon [icon]="icons.settings" className="w-5 h-5" /></span>
               <h2>Tableau des Shifts</h2>
-              <span class="shifts-count">{{ shifts.length }} shift(s)</span>
+              <span class="shifts-count" *ngIf="!multiShiftModesEnabled">{{ shifts.length }} shift(s)</span>
+              <span class="shifts-count" *ngIf="multiShiftModesEnabled && activeMode">
+                {{ activeMode.title }} — {{ shifts.length }} shift(s)
+              </span>
             </div>
             <button type="button" class="ky-btn-secondary btn-add-shift" (click)="addShift()" [disabled]="shifts.length >= 8">
               <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
@@ -287,7 +378,7 @@
                   <th>Fin (auto)</th>
                   <th>Durée travail</th>
                   <th>Créneaux pause (début → fin +1h)</th>
-                  <th>Nb employés</th>
+                  <th *ngIf="!multiShiftModesEnabled">Nb employés</th>
                   <th>%</th>
                   <th></th>
                 </tr>
@@ -336,7 +427,7 @@
                       </button>
                     </div>
                   </td>
-                  <td class="td-count">
+                  <td class="td-count" *ngIf="!multiShiftModesEnabled">
                     <input
                       type="number"
                       [(ngModel)]="shift.requiredCount"
@@ -345,7 +436,19 @@
                       class="ky-input input-count" />
                   </td>
                   <td class="td-pct">
-                    <span class="pct-badge">{{ getPercentage(shift) }}%</span>
+                    <ng-container *ngIf="multiShiftModesEnabled; else monoPct">
+                      <input
+                        type="number"
+                        class="ky-input input-pct"
+                        [(ngModel)]="shift.percentage"
+                        (ngModelChange)="onPercentageChange(shift)"
+                        min="0"
+                        max="100"
+                        step="0.1" />
+                    </ng-container>
+                    <ng-template #monoPct>
+                      <span class="pct-badge">{{ getPercentage(shift) }}%</span>
+                    </ng-template>
                   </td>
                   <td class="td-actions">
                     <button
@@ -362,11 +465,19 @@
               <tfoot>
                 <tr class="total-row">
                   <td colspan="6" class="total-label">Total</td>
-                  <td class="total-count" [class.total-mismatch]="serviceEmployeeCount > 0 && !quotasMatchEffectif">
+                  <td
+                    *ngIf="!multiShiftModesEnabled"
+                    class="total-count"
+                    [class.total-mismatch]="serviceEmployeeCount > 0 && !quotasMatchEffectif">
                     {{ totalEffectif }}
                     <span class="total-cap" *ngIf="serviceEmployeeCount > 0">/ {{ serviceEmployeeCount }}</span>
                   </td>
-                  <td class="total-pct">{{ totalPercentageLabel }}</td>
+                  <td class="total-pct">
+                    <ng-container *ngIf="multiShiftModesEnabled && activeMode; else monoTotalPct">
+                      {{ modePercentageSum(activeMode) | number:'1.0-1' }}%
+                    </ng-container>
+                    <ng-template #monoTotalPct>{{ totalPercentageLabel }}</ng-template>
+                  </td>
                   <td></td>
                 </tr>
               </tfoot>
@@ -381,12 +492,20 @@
           <div class="rule-info">
             <app-lucide-icon [icon]="icons.info" className="w-4 h-4" />
             <span>
-              <strong>Présence min cellule</strong> : optionnelle — décochez « Exiger une présence min plateau »
-              si la cellule n’a aucune exigence de couverture. Sinon % minimum de pilotes encore au sol
-              (pas par shift). Pause durée <strong>1h</strong>.
-              <span *ngIf="!isCriticalCell"> Cas normal : pause après <strong>4h</strong> ou <strong>4h30</strong> de travail uniquement.</span>
-              <span *ngIf="isCriticalCell"> Cellule critique : Opening 11h→midi→13h, autres souvent +5h ; +4h dès que le plateau le permet (plafond +5h). Rotation +3h/+4h/+5h entre pilotes même niveau.</span>
-              La somme des <strong>NB employés</strong> doit égaler l’effectif actif.
+              <ng-container *ngIf="!multiShiftModesEnabled; else multiRuleHint">
+                <strong>Présence min cellule</strong> : optionnelle — décochez « Exiger une présence min plateau »
+                si la cellule n’a aucune exigence de couverture. Sinon % minimum de pilotes encore au sol
+                (pas par shift). Pause durée <strong>1h</strong>.
+                <span *ngIf="!effectiveCriticalCell"> Cas normal : pause après <strong>4h</strong> ou <strong>4h30</strong> de travail uniquement.</span>
+                <span *ngIf="effectiveCriticalCell"> Cellule critique : Opening 11h→midi→13h, autres souvent +5h ; +4h dès que le plateau le permet (plafond +5h). Rotation +3h/+4h/+5h entre pilotes même niveau.</span>
+                La somme des <strong>NB employés</strong> doit égaler l’effectif actif.
+              </ng-container>
+              <ng-template #multiRuleHint>
+                Chaque mode a sa <strong>présence min</strong> et son flag <strong>critique</strong> (créneaux de pause).
+                Configurez uniquement les <strong>%</strong> (somme = 100) ; les effectifs sont calculés à la génération.
+                <span *ngIf="!effectiveCriticalCell"> Mode courant : pause après <strong>4h</strong> ou <strong>4h30</strong>.</span>
+                <span *ngIf="effectiveCriticalCell"> Mode courant critique : fenêtre de pause étendue (+3h…+5h).</span>
+              </ng-template>
             </span>
           </div>
         </div>
@@ -423,10 +542,10 @@
           <button
             type="button"
             class="ky-btn-secondary"
-            [disabled]="!subServiceId || serviceEmployeeCount <= 0 || shifts.length === 0"
+            [disabled]="!subServiceId || shifts.length === 0 || (!multiShiftModesEnabled && serviceEmployeeCount <= 0)"
             (click)="distributeEvenly()">
             <app-lucide-icon [icon]="icons.users" className="w-4 h-4 inline" />
-            Répartir l’effectif
+            {{ multiShiftModesEnabled ? 'Répartir les %' : 'Répartir l’effectif' }}
           </button>
           <button
             type="button"
@@ -438,7 +557,7 @@
           <button
             type="button"
             class="ky-btn-primary btn-save"
-            [disabled]="saving || !subServiceId || totalEffectif === 0 || (serviceEmployeeCount > 0 && !quotasMatchEffectif)"
+            [disabled]="saving || !subServiceId || (!multiShiftModesEnabled && (totalEffectif === 0 || (serviceEmployeeCount > 0 && !quotasMatchEffectif)))"
             (click)="saveConfig()">
             <span *ngIf="!saving"><app-lucide-icon [icon]="icons.save" className="w-4 h-4 inline" /> Sauvegarder le modèle</span>
             <span *ngIf="saving">Sauvegarde…</span>

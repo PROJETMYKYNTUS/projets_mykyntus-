@@ -112,6 +112,8 @@ export interface QuotaCongeServiceDto {
   serviceNom: string;
   maxAbsentsSimultanes: number | null;
   effectif: number;
+  /** Cellule | Service */
+  scopeKind?: string;
 }
 
 export interface CongeDisponibiliteDto {

@@ -775,11 +775,6 @@ label {
   background: var(--bg-card);
 }
 
-.org-chip--primary {
-  border-color: color-mix(in srgb, var(--blue-600) 45%, var(--border-color));
-  background: color-mix(in srgb, var(--blue-600) 8%, var(--bg-card));
-}
-
 .org-chip__body {
   display: flex;
   flex-wrap: wrap;
@@ -791,17 +786,6 @@ label {
 .org-chip__label {
   font-size: 0.88rem;
   font-weight: 600;
-}
-
-.org-chip__badge {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  padding: 2px 8px;
-  border-radius: 999px;
-  color: var(--blue-600);
-  background: color-mix(in srgb, var(--blue-600) 12%, var(--bg-card));
 }
 
 .org-chip__actions {

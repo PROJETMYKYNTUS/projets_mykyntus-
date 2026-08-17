@@ -32,6 +32,7 @@
         <div class="mp-day" *ngFor="let d of current.days" [ngClass]="shiftClass(d)" [class.mp-day-exceptional]="d.isExceptionalRequest" [class.mp-day-reinforcement]="d.isReinforcement">
           <span class="mp-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</span>
           <span class="mp-ren-tag" *ngIf="d.isReinforcement && !d.isExceptionalRequest" title="Renfort samedi">REN</span>
+          <span class="mp-mode-tag" *ngIf="d.shiftModeTitle" [title]="d.shiftModeTitle">{{ d.shiftModeTitle }}</span>
           <span class="mp-day-name">{{ d.day }}</span>
           <span class="mp-day-date">{{ d.assignedDate | date:'dd/MM' }}</span>
           <span class="mp-day-shift">{{ cellLabel(d) }}</span>
@@ -63,6 +64,7 @@
           <div class="mp-day" *ngFor="let d of p.days" [ngClass]="shiftClass(d)" [class.mp-day-exceptional]="d.isExceptionalRequest" [class.mp-day-reinforcement]="d.isReinforcement">
             <span class="mp-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</span>
             <span class="mp-ren-tag" *ngIf="d.isReinforcement && !d.isExceptionalRequest" title="Renfort samedi">REN</span>
+            <span class="mp-mode-tag" *ngIf="d.shiftModeTitle" [title]="d.shiftModeTitle">{{ d.shiftModeTitle }}</span>
             <span class="mp-day-name">{{ d.day }}</span>
             <span class="mp-day-date">{{ d.assignedDate | date:'dd/MM' }}</span>
             <span class="mp-day-shift">{{ cellLabel(d) }}</span>
@@ -91,6 +93,7 @@
           <div class="mp-day" *ngFor="let d of p.days" [ngClass]="shiftClass(d)" [class.mp-day-exceptional]="d.isExceptionalRequest" [class.mp-day-reinforcement]="d.isReinforcement">
             <span class="mp-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</span>
             <span class="mp-ren-tag" *ngIf="d.isReinforcement && !d.isExceptionalRequest" title="Renfort samedi">REN</span>
+            <span class="mp-mode-tag" *ngIf="d.shiftModeTitle" [title]="d.shiftModeTitle">{{ d.shiftModeTitle }}</span>
             <span class="mp-day-name">{{ d.day }}</span>
             <span class="mp-day-date">{{ d.assignedDate | date:'dd/MM' }}</span>
             <span class="mp-day-shift">{{ cellLabel(d) }}</span>

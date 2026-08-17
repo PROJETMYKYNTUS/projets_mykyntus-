@@ -10,6 +10,10 @@ public class SubServiceShiftConfig
     public int SubServiceId { get; set; }
     public SubService SubService { get; set; } = null!;
 
+    /// <summary>Profil de mode (null = mono-mode historique / mode par défaut implicite).</summary>
+    public int? ShiftModeProfileId { get; set; }
+    public ShiftModeProfile? ShiftModeProfile { get; set; }
+
     /// <summary>null = template permanent ; ISO week code = snapshot semaine.</summary>
     public string? WeekCode { get; set; }
     public DateOnly? WeekStartDate { get; set; }

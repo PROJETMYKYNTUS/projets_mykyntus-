@@ -106,7 +106,8 @@ public class QuotaCongeServiceConfiguration : IEntityTypeConfiguration<QuotaCong
     {
         builder.ToTable("quotas_conge_service");
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.ServiceId).IsRequired();
+        builder.Property(x => x.ServiceId).IsRequired().HasMaxLength(100);
+        builder.Property(x => x.ScopeKind).IsRequired().HasMaxLength(20);
         builder.Property(x => x.MaxAbsentsSimultanes).IsRequired();
         builder.Property(x => x.UpdatedAt).IsRequired();
         builder.HasIndex(x => x.ServiceId).IsUnique();
@@ -147,11 +148,30 @@ public class EmployeSnapshotConfiguration : IEntityTypeConfiguration<EmployeSnap
         builder.Property(x => x.PoleId).HasMaxLength(100);
         builder.Property(x => x.CelluleId).HasMaxLength(100);
         builder.Property(x => x.OrgServiceId).HasMaxLength(100);
+        builder.Property(x => x.IsArchived).IsRequired().HasDefaultValue(false);
 
         builder.HasIndex(x => x.EmployeId).IsUnique();
         builder.HasIndex(x => x.ManagerId);
         builder.HasIndex(x => x.CelluleId);
         builder.HasIndex(x => x.OrgServiceId);
         builder.HasIndex(x => x.PoleId);
+        builder.HasIndex(x => x.IsArchived);
+    }
+}
+
+public class OrgNodeCongeConfiguration : IEntityTypeConfiguration<OrgNodeConge>
+{
+    public void Configure(EntityTypeBuilder<OrgNodeConge> builder)
+    {
+        builder.ToTable("org_nodes_conge");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).HasMaxLength(100);
+        builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.Level).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.ParentId).HasMaxLength(100);
+        builder.Property(x => x.IsDeleted).IsRequired();
+        builder.Property(x => x.UpdatedAt).IsRequired();
+        builder.HasIndex(x => x.Level);
+        builder.HasIndex(x => x.ParentId);
     }
 }

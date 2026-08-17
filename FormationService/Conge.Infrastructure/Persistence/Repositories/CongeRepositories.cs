@@ -161,10 +161,69 @@ public class EmployeSnapshotRepository : IEmployeSnapshotRepository
             .Where(e => e.ManagerId == managerId)
             .ToListAsync(ct);
 
-    public async Task<IReadOnlyList<EmployeSnapshot>> GetByServiceIdAsync(Guid serviceId, CancellationToken ct = default)
-        => await _context.EmployeSnapshots
-            .Where(e => e.ServiceId == serviceId)
+    public async Task<IReadOnlyList<EmployeSnapshot>> GetByPerimeterAsync(
+        Guid managerId,
+        IReadOnlyList<string>? orgNodeIds,
+        CancellationToken ct = default)
+    {
+        var nodes = orgNodeIds?
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => n.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? new List<string>();
+
+        if (nodes.Count == 0)
+        {
+            return await _context.EmployeSnapshots
+                .AsNoTracking()
+                .Where(e => !e.IsArchived && e.ManagerId == managerId)
+                .ToListAsync(ct);
+        }
+
+        // Contient côté SQL (PostgreSQL) : IDs Directory en général en casse stable.
+        var nodeGuids = nodes
+            .Select(n => Guid.TryParse(n, out var g) ? g : (Guid?)null)
+            .Where(g => g is Guid id && id != Guid.Empty)
+            .Select(g => g!.Value)
+            .Distinct()
+            .ToList();
+
+        return await _context.EmployeSnapshots
+            .AsNoTracking()
+            .Where(e =>
+                !e.IsArchived
+                && (e.ManagerId == managerId
+                || (e.CelluleId != null && nodes.Contains(e.CelluleId))
+                || (e.OrgServiceId != null && nodes.Contains(e.OrgServiceId))
+                || (e.PoleId != null && nodes.Contains(e.PoleId))
+                || (e.ServiceId != Guid.Empty && nodeGuids.Contains(e.ServiceId))))
             .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<EmployeSnapshot>> GetAllAsync(CancellationToken ct = default)
+        => await _context.EmployeSnapshots.AsNoTracking()
+            .Where(e => !e.IsArchived)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<EmployeSnapshot>> GetByServiceIdAsync(Guid serviceId, CancellationToken ct = default)
+        => await GetByOrgNodeIdAsync(serviceId.ToString(), ct);
+
+    public async Task<IReadOnlyList<EmployeSnapshot>> GetByOrgNodeIdAsync(string orgNodeId, CancellationToken ct = default)
+    {
+        var id = QuotaCongeService.NormalizeNodeId(orgNodeId);
+        if (id is null)
+            return Array.Empty<EmployeSnapshot>();
+
+        Guid.TryParse(id, out var asGuid);
+        return await _context.EmployeSnapshots
+            .AsNoTracking()
+            .Where(e =>
+                !e.IsArchived
+                && ((asGuid != Guid.Empty && e.ServiceId == asGuid)
+                || (e.OrgServiceId != null && e.OrgServiceId == id)
+                || (e.CelluleId != null && e.CelluleId == id)))
+            .ToListAsync(ct);
+    }
 
     public async Task<EmployeSnapshot?> GetAdminOuRhAsync(CancellationToken ct = default)
     {
@@ -213,14 +272,23 @@ public class QuotaCongeServiceRepository : IQuotaCongeServiceRepository
 
     public QuotaCongeServiceRepository(CongeDbContext context) => _context = context;
 
-    public async Task<QuotaCongeService?> GetByServiceIdAsync(Guid serviceId, CancellationToken ct = default)
-        => await _context.QuotasCongeService.FirstOrDefaultAsync(q => q.ServiceId == serviceId, ct);
+    public async Task<QuotaCongeService?> GetByServiceIdAsync(string serviceId, CancellationToken ct = default)
+    {
+        var id = QuotaCongeService.NormalizeNodeId(serviceId);
+        if (id is null) return null;
+        return await _context.QuotasCongeService.FirstOrDefaultAsync(q => q.ServiceId == id, ct);
+    }
 
     public async Task<IReadOnlyList<QuotaCongeService>> GetByServiceIdsAsync(
-        IEnumerable<Guid> serviceIds,
+        IEnumerable<string> serviceIds,
         CancellationToken ct = default)
     {
-        var ids = serviceIds.Distinct().ToList();
+        var ids = serviceIds
+            .Select(QuotaCongeService.NormalizeNodeId)
+            .Where(id => id is not null)
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         if (ids.Count == 0) return Array.Empty<QuotaCongeService>();
         return await _context.QuotasCongeService
             .Where(q => ids.Contains(q.ServiceId))

@@ -35,6 +35,7 @@ public static class CongeSchemaPatches
                 ALTER TABLE employe_snapshots ADD COLUMN IF NOT EXISTS "CelluleId" character varying(100);
                 ALTER TABLE employe_snapshots ADD COLUMN IF NOT EXISTS "OrgServiceId" character varying(100);
                 ALTER TABLE employe_snapshots ADD COLUMN IF NOT EXISTS "BusinessDepartmentId" uuid;
+                ALTER TABLE employe_snapshots ADD COLUMN IF NOT EXISTS "IsArchived" boolean NOT NULL DEFAULT false;
                 """, ct);
 
             await db.Database.ExecuteSqlRawAsync("""
@@ -81,13 +82,48 @@ public static class CongeSchemaPatches
             await db.Database.ExecuteSqlRawAsync("""
                 CREATE TABLE IF NOT EXISTS quotas_conge_service (
                     "Id" uuid NOT NULL PRIMARY KEY,
-                    "ServiceId" uuid NOT NULL,
+                    "ServiceId" character varying(100) NOT NULL,
+                    "ScopeKind" character varying(20) NOT NULL DEFAULT 'Service',
                     "MaxAbsentsSimultanes" integer NOT NULL,
                     "UpdatedAt" timestamp with time zone NOT NULL,
                     "UpdatedBy" uuid NULL
                 );
                 CREATE UNIQUE INDEX IF NOT EXISTS "IX_quotas_conge_service_ServiceId"
                     ON quotas_conge_service ("ServiceId");
+                ALTER TABLE quotas_conge_service
+                    ADD COLUMN IF NOT EXISTS "ScopeKind" character varying(20) NOT NULL DEFAULT 'Service';
+                """, ct);
+
+            // Directory node ids are strings (cell-… / svc-…), not uuid.
+            await db.Database.ExecuteSqlRawAsync("""
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'quotas_conge_service'
+                          AND column_name = 'ServiceId'
+                          AND data_type = 'uuid'
+                    ) THEN
+                        ALTER TABLE quotas_conge_service
+                            ALTER COLUMN "ServiceId" TYPE character varying(100)
+                            USING "ServiceId"::text;
+                    END IF;
+                END $$;
+                """, ct);
+
+            await db.Database.ExecuteSqlRawAsync("""
+                CREATE TABLE IF NOT EXISTS org_nodes_conge (
+                    "Id" character varying(100) NOT NULL PRIMARY KEY,
+                    "Name" character varying(200) NOT NULL,
+                    "Level" character varying(20) NOT NULL,
+                    "ParentId" character varying(100) NULL,
+                    "IsDeleted" boolean NOT NULL DEFAULT false,
+                    "UpdatedAt" timestamp with time zone NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS "IX_org_nodes_conge_Level"
+                    ON org_nodes_conge ("Level");
+                CREATE INDEX IF NOT EXISTS "IX_org_nodes_conge_ParentId"
+                    ON org_nodes_conge ("ParentId");
                 """, ct);
 
             if (!await db.PeriodesInterdites.AnyAsync(ct))

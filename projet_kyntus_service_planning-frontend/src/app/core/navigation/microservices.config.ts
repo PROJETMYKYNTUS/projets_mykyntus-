@@ -164,7 +164,7 @@ export const MICROSERVICES: Microservice[] = [
       { label: 'Valider les congés', route: '/conges/validation', roles: [...MANAGER_ROLES, 'Superviseur'] },
       { label: 'Absences', route: '/absences-planning', roles: MANAGER_ROLES },
       { label: 'Historique des congés', route: '/conges/historique', roles: MANAGER_ROLES },
-      { label: 'Quotas par service', route: '/conges/quotas-service', roles: ['Superviseur', 'Admin'] },
+      { label: 'Quotas cellule / service', route: '/conges/quotas-service', roles: ['Superviseur', 'Admin'] },
       { label: 'Périodes interdites', route: '/conges/periodes-interdites', roles: ADMIN_RH },
     ],
   },

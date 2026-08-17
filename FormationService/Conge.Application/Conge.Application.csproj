@@ -21,4 +21,8 @@
 		<ProjectReference Include="..\Conge.Domain\Conge.Domain.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<InternalsVisibleTo Include="Conge.UnitTests" />
+	</ItemGroup>
+
 </Project>

@@ -84,7 +84,6 @@ import {
   hydrateMultiOrgSelectionFromOverview,
   removeOrgNodeSelection,
   resolveOrgNodePathLabel,
-  setPrimaryOrgNode,
   summarizeMultiOrgSelection,
   supportsMultiOrgSelection,
   validateMultiOrgSelection,
@@ -781,7 +780,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
     return supportsMultiOrgSelection(this.selectedRoleName);
   }
 
-  get selectedOrgChipItems(): { id: string; label: string; isPrimary: boolean }[] {
+  get selectedOrgChipItems(): { id: string; label: string }[] {
     return this.selectedOrgNodeIds.map((id) => ({
       id,
       label: resolveOrgNodePathLabel(
@@ -790,7 +789,6 @@ export class UserFormComponent implements OnInit, OnDestroy {
         this.orgAssignmentDepth,
         id,
       ),
-      isPrimary: id === this.primaryOrgNodeId,
     }));
   }
 
@@ -2086,17 +2084,6 @@ export class UserFormComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  setSelectedOrgNodePrimary(nodeId: string): void {
-    const next = setPrimaryOrgNode(
-      { selectedOrgNodeIds: this.selectedOrgNodeIds, primaryOrgNodeId: this.primaryOrgNodeId },
-      nodeId,
-    );
-    this.selectedOrgNodeIds = next.selectedOrgNodeIds;
-    this.primaryOrgNodeId = next.primaryOrgNodeId;
-    this.syncCascadeFromPrimaryOrgNode();
-    this.cdr.detectChanges();
-  }
-
   private currentLeafOrgNodeId(): string {
     const depth = this.orgAssignmentDepth;
     if (depth === 'pole') return this.orgPoleId.trim();
@@ -2552,19 +2539,19 @@ export class UserFormComponent implements OnInit, OnDestroy {
       );
       if (multiErr) return multiErr;
 
-      // Ancre primaire → champs cascade legacy pour mentors / Planning.
+      // Ancre technique (1er nœud) → champs cascade legacy pour mentors / Planning.
       if (!this.orgPoleId.trim() && orgAssignmentRequiresPole(depth)) {
-        return 'Périmètre principal invalide (pôle introuvable).';
+        return 'Périmètre invalide (pôle introuvable).';
       }
       if (orgAssignmentRequiresCellule(depth) && !this.orgCelluleId.trim()) {
-        return 'Périmètre principal invalide (cellule introuvable).';
+        return 'Périmètre invalide (cellule introuvable).';
       }
       if (orgAssignmentRequiresService(depth) && !this.orgServiceId.trim()) {
-        return 'Périmètre principal invalide (service introuvable).';
+        return 'Périmètre invalide (service introuvable).';
       }
       if (this.orgMirrorWarning) return this.orgMirrorWarning;
       if (orgAssignmentRequiresService(depth) && !this.form.subServiceId) {
-        return 'Le service principal choisi n’est pas encore disponible dans Planning.';
+        return 'Un des services choisis n’est pas encore disponible dans Planning.';
       }
       if (isSuperviseurRole(this.selectedRoleName)) {
         for (const celluleId of this.selectedOrgNodeIds) {

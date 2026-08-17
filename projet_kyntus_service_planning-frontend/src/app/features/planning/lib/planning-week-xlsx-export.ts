@@ -103,6 +103,9 @@ function formatCell(a: DayAssignment | null, getAbsenceLabel: AbsenceLabelFn): s
   if (a.startTime && a.endTime) parts.push(`${a.startTime}–${a.endTime}`);
   else if (a.startTime) parts.push(a.startTime);
   if (a.shiftLabel) parts.push(a.shiftLabel);
+  if (a.shiftModeTitle) {
+    parts.push(a.isModeOverride ? `${a.shiftModeTitle} (Switch)` : a.shiftModeTitle);
+  }
   if (a.breakTime) parts.push(`Pause ${a.breakTime}`);
   if (a.isExceptionalRequest) parts.push('DE');
   if (a.isManagerOverride && !a.isExceptionalRequest) parts.push('Modifié');

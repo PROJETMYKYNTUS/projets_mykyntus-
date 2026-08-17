@@ -66,12 +66,14 @@ export class CongeService {
   upsertQuotaService(
     serviceId: string,
     maxAbsentsSimultanes: number,
-    superviseurId: string
+    superviseurId: string,
+    scopeKind?: string | null
   ): Observable<QuotaCongeServiceDto> {
     return this.http.put<QuotaCongeServiceDto>(`${this.base}/config/quotas-service`, {
       serviceId,
       maxAbsentsSimultanes,
-      superviseurId
+      superviseurId,
+      scopeKind: scopeKind ?? null
     });
   }
 

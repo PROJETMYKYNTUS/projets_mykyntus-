@@ -252,6 +252,15 @@
             <div class="legend-item" *ngFor="let label of getUniqueShiftLabels()">
               <span class="legend-pill" [ngClass]="getShiftColor(label)">{{ label }}</span>
             </div>
+            <div class="legend-item" *ngFor="let mode of getUniqueModeTitles(); let mi = index">
+              <span class="legend-mode" [attr.data-mode-index]="mi">{{ mode }}</span>
+            </div>
+            <div class="legend-item" *ngIf="hasSpecialCaseTickets">
+              <span class="legend-ticket legend-ticket-special">Cas particulier</span>
+            </div>
+            <div class="legend-item" *ngIf="hasPlateauTrainingTickets">
+              <span class="legend-ticket legend-ticket-plateau">Formation plateau</span>
+            </div>
             <div class="legend-item"><span class="legend-off">OFF</span><span class="legend-txt">Repos</span></div>
             <div class="legend-item"><span class="legend-conge">Congé</span></div>
             <div class="legend-item"><span class="legend-ferie">Férié</span></div>
@@ -312,43 +321,68 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let emp of planning.assignments; let odd = odd"
-                [class.row-odd]="odd"
-                [class.row-new]="emp.isNewEmployee"
-                [class.row-change-request-highlight]="isHighlightedEmployee(emp)">
+            <ng-container *ngFor="let row of planningGridRows">
+              <tr *ngIf="row.kind === 'header'"
+                  class="row-mode-header"
+                  [ngClass]="modeRowClass(row.modeIndex)"
+                  [attr.data-mode-index]="row.modeIndex">
+                <td [attr.colspan]="days.length + 1" class="td-mode-group">
+                  <span class="mode-group-label">{{ row.modeTitle }}</span>
+                  <span class="mode-group-count">{{ row.count }} employé(s)</span>
+                </td>
+              </tr>
+
+              <tr *ngIf="row.kind === 'employee'"
+                  [ngClass]="modeRowClass(row.modeIndex)"
+                  [class.row-new]="row.emp.isNewEmployee"
+                  [class.row-change-request-highlight]="isHighlightedEmployee(row.emp)"
+                  [attr.data-mode-index]="row.modeIndex >= 0 ? row.modeIndex : null">
 
               <!-- ── Cellule employé ── -->
               <td class="td-emp">
                 <div class="emp-row">
                   <div class="emp-avatar-wrap">
-                    <div class="emp-av">{{ emp.fullName[0] }}</div>
-                    <span class="emp-level-dot level-dot-{{ emp.level }}" [title]="'Niveau contractuel : ' + contractLevelLabel(emp.level)"></span>
+                    <div class="emp-av">{{ row.emp.fullName[0] }}</div>
+                    <span class="emp-level-dot level-dot-{{ row.emp.level }}" [title]="'Niveau contractuel : ' + contractLevelLabel(row.emp.level)"></span>
                   </div>
                   <div class="emp-info">
                     <div class="emp-name-row">
-                      <span class="emp-name">{{ emp.fullName }}</span>
-                      <span class="lvl-badge lvl-{{ emp.level }}">{{ contractLevelLabel(emp.level) }}</span>
-                      <span class="cr-emp-tag" *ngIf="isHighlightedEmployee(emp)">À modifier</span>
+                      <span class="emp-name">{{ row.emp.fullName }}</span>
+                      <span class="lvl-badge lvl-{{ row.emp.level }}">{{ contractLevelLabel(row.emp.level) }}</span>
+                      <span class="emp-mode-chip" *ngIf="row.modeTitle" [attr.data-mode-index]="row.modeIndex">{{ row.modeTitle }}</span>
+                      <span
+                        class="emp-ticket-chip emp-ticket-special"
+                        *ngIf="row.emp.isSpecialCase"
+                        [title]="row.emp.specialCaseDescription || 'Cas particulier — pas de pause +3h/+5h'">
+                        Cas particulier
+                      </span>
+                      <span
+                        class="emp-ticket-chip emp-ticket-plateau"
+                        *ngIf="row.emp.isPlateauTraining"
+                        title="Formation plateau — jamais ouverture / fermeture">
+                        Formation plateau
+                      </span>
+                      <span class="cr-emp-tag" *ngIf="isHighlightedEmployee(row.emp)">À modifier</span>
                     </div>
                     <!-- Actions commentaire -->
                     <div class="emp-actions" *ngIf="canEdit">
                       <button class="act-btn act-comment"
-                              (click)="openCommentModal(emp, $event)"
-                              [title]="emp.managerComment ? 'Modifier la note' : 'Ajouter une note'">
+                              (click)="openCommentModal(row.emp, $event)"
+                              [title]="row.emp.managerComment ? 'Modifier la note' : 'Ajouter une note'">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-                        {{ emp.managerComment ? 'Modifier' : 'Note' }}
+                        {{ row.emp.managerComment ? 'Modifier' : 'Note' }}
                       </button>
                       <button class="act-btn act-del"
-                              *ngIf="emp.managerComment"
-                              (click)="deleteComment(emp, $event)"
+                              *ngIf="row.emp.managerComment"
+                              (click)="deleteComment(row.emp, $event)"
                               title="Supprimer la note">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                       </button>
                     </div>
                     <!-- Commentaire affiché -->
-                    <div class="emp-comment" *ngIf="emp.managerComment">
+                    <div class="emp-comment" *ngIf="row.emp.managerComment">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-                      <span>{{ emp.managerComment }}</span>
+                      <span>{{ row.emp.managerComment }}</span>
                     </div>
                   </div>
                 </div>
@@ -358,11 +392,11 @@
               <td *ngFor="let day of days"
                   class="td-shift"
                   [class.td-saturday]="day === 'Saturday'"
-                  [class.cell-change-request-highlight]="isHighlightedAssignment(getAssignment(emp, day))"
-                  [class.cell-exceptional]="getAssignment(emp, day)?.isExceptionalRequest"
-                  [class.cell-reinforcement]="getAssignment(emp, day)?.isReinforcement">
+                  [class.cell-change-request-highlight]="isHighlightedAssignment(getAssignment(row.emp, day))"
+                  [class.cell-exceptional]="getAssignment(row.emp, day)?.isExceptionalRequest"
+                  [class.cell-reinforcement]="getAssignment(row.emp, day)?.isReinforcement">
 
-                <ng-container *ngIf="getAssignment(emp, day) as a; else noShift">
+                <ng-container *ngIf="getAssignment(row.emp, day) as a; else noShift">
 
                   <div class="cr-cell-tag" *ngIf="isHighlightedAssignment(a)">Demande</div>
                   <div class="de-cell-tag" *ngIf="a.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</div>
@@ -371,7 +405,7 @@
                   <!-- Congé -->
                 <div class="cell-conge"
      [class.cell-clickable]="day === 'Saturday' && canEdit"
-     (click)="day === 'Saturday' && canEdit ? openSaturdayOverride(emp, $event) : null"
+     (click)="day === 'Saturday' && canEdit ? openSaturdayOverride(row.emp, $event) : null"
      *ngIf="a.isOnLeave">
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M17.5 19H9a7 7 0 117-7v1"/><path d="M17 9l4-4-4-4M21 5H9"/>
@@ -390,7 +424,7 @@
 <div class="cell-ferie"
      *ngIf="a.isHoliday"
      [class.cell-clickable]="canEdit"
-     (click)="canEdit ? openHolidayOverride(emp, day, $event) : null">
+     (click)="canEdit ? openHolidayOverride(row.emp, day, $event) : null">
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
   </svg>
@@ -409,9 +443,11 @@
                     <div class="shift-pill"
                          [ngClass]="getShiftColor(a.shiftLabel)"
                          [class.shift-pill-exceptional]="a.isExceptionalRequest"
-                         (click)="canEdit ? (day === 'Saturday' ? openSaturdayOverride(emp, $event) : openOverride(emp, day, $event)) : null">
+                         (click)="canEdit ? (day === 'Saturday' ? openSaturdayOverride(row.emp, $event) : openOverride(row.emp, day, $event)) : null">
                       <span class="sp-time">{{ a.startTime }}</span>
   <span class="sp-label">{{ getShiftNumber(a.shiftLabel) }}</span>
+                      <span class="sp-mode" *ngIf="a.shiftModeTitle" [title]="a.shiftModeTitle">{{ a.shiftModeTitle }}</span>
+                      <span class="sp-mode-switch" *ngIf="a.isModeOverride" title="Override de mode">Switch</span>
                       <span class="sp-de" *ngIf="a.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</span>
                       <span class="sp-ren" *ngIf="a.isReinforcement && !a.isExceptionalRequest" title="Renfort samedi">REN</span>
                       <span class="sp-edited" *ngIf="a.isManagerOverride && !a.isExceptionalRequest && !a.isReinforcement" title="Modifié manuellement">
@@ -420,7 +456,7 @@
                     </div>
                     <div class="break-pill"
                          *ngIf="a.breakTime"
-                         (click)="canEdit ? openBreakOverride(emp, day, $event) : null">
+                         (click)="canEdit ? openBreakOverride(row.emp, day, $event) : null">
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
                       {{ a.breakTime }}
                     </div>
@@ -430,7 +466,7 @@
                 <ng-template #noShift>
                   <div class="shift-off"
                        [class.shift-off-saturday]="day === 'Saturday' && canEdit"
-                       (click)="day === 'Saturday' && canEdit ? openSaturdayOverride(emp, $event) : null">
+                       (click)="day === 'Saturday' && canEdit ? openSaturdayOverride(row.emp, $event) : null">
                     <span>—</span>
                     <svg class="off-edit" *ngIf="day === 'Saturday' && canEdit" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </div>
@@ -438,6 +474,7 @@
 
               </td>
             </tr>
+            </ng-container>
           </tbody>
         </table>
       </div>
@@ -516,25 +553,82 @@
         <section class="insights-section">
           <h4 class="insights-section-title">Disponibilité plateau</h4>
           <p class="insights-section-hint">% présents hors pause · points toutes les 5 min · survolez pour l’heure et le % exact · cible {{ insightsTarget }} %</p>
+
+          <ng-container *ngIf="(syn.availabilityByMode?.length || 0) > 0; else singleTimeline">
+            <div class="avail-mode-block" *ngFor="let mode of syn.availabilityByMode; let mi = index">
+              <h5 class="avail-mode-title">
+                {{ mode.shiftModeTitle }}
+                <span class="avail-mode-meta">plateau {{ formatKpiPct(mode.plateauAvailabilityPercent) }} · cible {{ mode.targetPercent }} %</span>
+              </h5>
+              <div class="avail-chart" *ngIf="(mode.availabilityTimeline?.length || 0) > 0; else noModeTimeline">
+                <div class="avail-plot"
+                     (mousemove)="onAvailChartMove($event, 'mode-' + mi, mode.availabilityTimeline)"
+                     (mouseleave)="clearAvailHover()">
+                  <svg class="avail-svg" viewBox="0 0 100 48" preserveAspectRatio="none" aria-hidden="true">
+                    <line class="avail-grid" x1="0" y1="2" x2="100" y2="2" />
+                    <line class="avail-grid" x1="0" y1="21" x2="100" y2="21" />
+                    <line class="avail-grid" x1="0" y1="40" x2="100" y2="40" />
+                    <line class="avail-target" [attr.y1]="targetLineY(mode.targetPercent)" [attr.y2]="targetLineY(mode.targetPercent)" x1="0" x2="100" />
+                    <path class="avail-area" [attr.d]="availabilityAreaPath(mode.availabilityTimeline)" />
+                    <polyline class="avail-line" fill="none" [attr.points]="availabilityPolyline(mode.availabilityTimeline)" />
+                    <ng-container *ngIf="availHoverMarker('mode-' + mi, mode.availabilityTimeline) as mk">
+                      <line class="avail-crosshair" [attr.x1]="mk.x" [attr.x2]="mk.x" y1="0" y2="40" />
+                      <circle class="avail-dot-halo" [attr.cx]="mk.x" [attr.cy]="mk.y" r="1.8" />
+                      <circle class="avail-dot" [attr.cx]="mk.x" [attr.cy]="mk.y" r="0.9" />
+                    </ng-container>
+                  </svg>
+                  <div class="avail-tooltip"
+                       *ngIf="isAvailChartHovered('mode-' + mi) && availHoverPoint(mode.availabilityTimeline) as hp"
+                       [class.avail-tooltip-right]="availTooltipLeft > 70"
+                       [class.avail-tooltip-left]="availTooltipLeft < 30"
+                       [style.left.%]="availTooltipLeft"
+                       [style.top.%]="availTooltipTop">
+                    <strong>{{ hp.time }}</strong>
+                    <span class="avail-tooltip-pct"
+                          [attr.data-tone]="kpiTone(hp.availabilityPercent, { plateauTarget: mode.targetPercent })">
+                      {{ formatKpiPct(hp.availabilityPercent) }}
+                    </span>
+                    <span class="avail-tooltip-meta">
+                      {{ hp.availableCount }}/{{ hp.presentCount }} présents
+                      <ng-container *ngIf="hp.onBreakCount"> · {{ hp.onBreakCount }} en pause</ng-container>
+                    </span>
+                  </div>
+                </div>
+                <div class="avail-y">
+                  <span>100</span>
+                  <span>50</span>
+                  <span>0</span>
+                </div>
+                <div class="avail-x">
+                  <span *ngFor="let tick of availabilityTickLabels(mode.availabilityTimeline)" [style.left.%]="tick.x">{{ tick.label }}</span>
+                </div>
+              </div>
+              <ng-template #noModeTimeline>
+                <p class="insights-empty">Pas assez de données pour ce mode.</p>
+              </ng-template>
+            </div>
+          </ng-container>
+
+          <ng-template #singleTimeline>
           <div class="avail-chart" *ngIf="(syn.availabilityTimeline?.length || 0) > 0; else noTimeline">
             <div class="avail-plot"
-                 (mousemove)="onAvailChartMove($event, syn)"
+                 (mousemove)="onAvailChartMove($event, 'global', syn.availabilityTimeline)"
                  (mouseleave)="clearAvailHover()">
               <svg class="avail-svg" viewBox="0 0 100 48" preserveAspectRatio="none" aria-hidden="true">
                 <line class="avail-grid" x1="0" y1="2" x2="100" y2="2" />
                 <line class="avail-grid" x1="0" y1="21" x2="100" y2="21" />
                 <line class="avail-grid" x1="0" y1="40" x2="100" y2="40" />
                 <line class="avail-target" [attr.y1]="targetLineY()" [attr.y2]="targetLineY()" x1="0" x2="100" />
-                <path class="avail-area" [attr.d]="availabilityAreaPath(syn)" />
-                <polyline class="avail-line" fill="none" [attr.points]="availabilityPolyline(syn)" />
-                <ng-container *ngIf="availHoverMarker(syn) as mk">
+                <path class="avail-area" [attr.d]="availabilityAreaPath(syn.availabilityTimeline)" />
+                <polyline class="avail-line" fill="none" [attr.points]="availabilityPolyline(syn.availabilityTimeline)" />
+                <ng-container *ngIf="availHoverMarker('global', syn.availabilityTimeline) as mk">
                   <line class="avail-crosshair" [attr.x1]="mk.x" [attr.x2]="mk.x" y1="0" y2="40" />
                   <circle class="avail-dot-halo" [attr.cx]="mk.x" [attr.cy]="mk.y" r="1.8" />
                   <circle class="avail-dot" [attr.cx]="mk.x" [attr.cy]="mk.y" r="0.9" />
                 </ng-container>
               </svg>
               <div class="avail-tooltip"
-                   *ngIf="availHoverPoint as hp"
+                   *ngIf="isAvailChartHovered('global') && availHoverPoint(syn.availabilityTimeline) as hp"
                    [class.avail-tooltip-right]="availTooltipLeft > 70"
                    [class.avail-tooltip-left]="availTooltipLeft < 30"
                    [style.left.%]="availTooltipLeft"
@@ -556,7 +650,7 @@
               <span>0</span>
             </div>
             <div class="avail-x">
-              <span *ngFor="let tick of availabilityTickLabels(syn)" [style.left.%]="tick.x">{{ tick.label }}</span>
+              <span *ngFor="let tick of availabilityTickLabels(syn.availabilityTimeline)" [style.left.%]="tick.x">{{ tick.label }}</span>
             </div>
             <div class="avail-legend">
               <span class="avail-legend-item"><i class="avail-swatch avail-swatch-line"></i> Disponibilité</span>
@@ -566,31 +660,37 @@
           <ng-template #noTimeline>
             <p class="insights-empty">Pas assez de données pour tracer la journée.</p>
           </ng-template>
+          </ng-template>
         </section>
 
         <!-- 2. Quotas -->
         <section class="insights-section">
           <h4 class="insights-section-title">Effectifs / quotas</h4>
-          <div class="bar-chart" *ngIf="syn.shifts?.length; else noShifts">
-            <div class="bar-row" *ngFor="let s of syn.shifts">
-              <span class="bar-label" [title]="s.shiftLabel">{{ s.shiftLabel }}</span>
-              <div class="bar-track">
-                <div class="bar-req"
-                     [style.width.%]="(s.requiredCount / maxQuotaCount(syn)) * 100"
-                     [title]="'Requis ' + s.requiredCount"></div>
-                <div class="bar-assigned"
-                     [class.bar-short]="s.assignedCount < s.requiredCount"
-                     [class.bar-over]="s.assignedCount > s.requiredCount"
-                     [style.width.%]="(s.assignedCount / maxQuotaCount(syn)) * 100"
-                     [title]="'Affectés ' + s.assignedCount"></div>
+          <ng-container *ngIf="syn.shifts?.length; else noShifts">
+            <div class="quota-mode-group" *ngFor="let group of quotaGroupsByMode(syn)">
+              <h5 class="avail-mode-title" *ngIf="group.title">{{ group.title }}</h5>
+              <div class="bar-chart">
+                <div class="bar-row" *ngFor="let s of group.shifts">
+                  <span class="bar-label" [title]="s.shiftLabel">{{ s.shiftLabel }}</span>
+                  <div class="bar-track">
+                    <div class="bar-req"
+                         [style.width.%]="(s.requiredCount / maxQuotaCount(syn)) * 100"
+                         [title]="'Requis ' + s.requiredCount"></div>
+                    <div class="bar-assigned"
+                         [class.bar-short]="s.assignedCount < s.requiredCount"
+                         [class.bar-over]="s.assignedCount > s.requiredCount"
+                         [style.width.%]="(s.assignedCount / maxQuotaCount(syn)) * 100"
+                         [title]="'Affectés ' + s.assignedCount"></div>
+                  </div>
+                  <span class="bar-val">{{ s.assignedCount }}/{{ s.requiredCount }}</span>
+                </div>
               </div>
-              <span class="bar-val">{{ s.assignedCount }}/{{ s.requiredCount }}</span>
             </div>
             <div class="avail-legend">
               <span class="avail-legend-item"><i class="avail-swatch avail-swatch-req"></i> Requis</span>
               <span class="avail-legend-item"><i class="avail-swatch avail-swatch-assigned"></i> Affectés</span>
             </div>
-          </div>
+          </ng-container>
           <ng-template #noShifts>
             <p class="insights-empty">Aucun shift ce jour.</p>
           </ng-template>

@@ -27,6 +27,8 @@ public class EmployeSnapshot
     /// <summary>ID nœud service Directory (string), distinct du legacy <see cref="ServiceId"/>.</summary>
     public string? OrgServiceId { get; private set; }
     public Guid? BusinessDepartmentId { get; private set; }
+    /// <summary>True si l’employé Directory est inactif/supprimé mais des demandes ouvertes existent.</summary>
+    public bool IsArchived { get; private set; }
 
     private EmployeSnapshot() { }
 
@@ -120,6 +122,29 @@ public class EmployeSnapshot
         Role = role;
         if (managerId is { } mid && mid != Guid.Empty)
             ManagerId = mid;
+        DerniereModification = DateTime.UtcNow;
+    }
+
+    public void AppliquerNoeudOrg(string? poleId, string? celluleId, string? orgServiceId)
+    {
+        if (poleId is not null)
+            PoleId = NormalizeId(poleId);
+        if (celluleId is not null)
+            CelluleId = NormalizeId(celluleId);
+        if (orgServiceId is not null)
+            OrgServiceId = NormalizeId(orgServiceId);
+        DerniereModification = DateTime.UtcNow;
+    }
+
+    public void Archiver()
+    {
+        IsArchived = true;
+        DerniereModification = DateTime.UtcNow;
+    }
+
+    public void Reactiver()
+    {
+        IsArchived = false;
         DerniereModification = DateTime.UtcNow;
     }
 

@@ -51,7 +51,10 @@ export function primeCssToken(name: string, fallback = ''): string {
 
 export function primeChartRgba(rgbVar: string, alpha: number): string {
   const rgb = primeCssToken(rgbVar);
-  return rgb ? `rgba(${rgb}, ${alpha})` : '';
+  if (!rgb) return '';
+  // Theme tokens use space-separated RGB (`30 58 138`); CanvasGradient needs commas.
+  const channels = rgb.includes(',') ? rgb : rgb.trim().replace(/\s+/g, ', ');
+  return `rgba(${channels}, ${alpha})`;
 }
 
 export function primeChartTheme() {

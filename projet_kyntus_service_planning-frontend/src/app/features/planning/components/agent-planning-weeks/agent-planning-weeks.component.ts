@@ -14,6 +14,8 @@ export interface AgentWeekDay {
   holidayName: string;
   absenceType?: string | null;
   isExceptionalRequest?: boolean;
+  shiftModeTitle?: string | null;
+  isModeOverride?: boolean;
 }
 
 export interface AgentWeekPlanning {
@@ -179,6 +181,8 @@ export class AgentPlanningWeeksComponent implements OnChanges {
       holidayName: String(d['holidayName'] ?? d['HolidayName'] ?? ''),
       absenceType: (d['absenceType'] ?? d['AbsenceType'] ?? null) as string | null,
       isExceptionalRequest: Boolean(d['isExceptionalRequest'] ?? d['IsExceptionalRequest']),
+      shiftModeTitle: (d['shiftModeTitle'] ?? d['ShiftModeTitle'] ?? null) as string | null,
+      isModeOverride: Boolean(d['isModeOverride'] ?? d['IsModeOverride']),
     };
   }
 }

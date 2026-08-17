@@ -19,6 +19,9 @@ import {
   type AgentHistoryPeriod,
   type AgentPlanningWeek,
   type SaturdayEmployeeMode,
+  type ShiftModeProfileDto,
+  type WeeklyEmployeeShiftMode,
+  type WeeklyShiftModePlan,
 } from '../../planning/services/planning.service';
 import { AgentPlanningWeeksComponent } from '../../planning/components/agent-planning-weeks/agent-planning-weeks.component';
 import { PrimeOrgApiService, type OrgAssignmentsOverview } from '../services/prime-org-api.service';
@@ -152,6 +155,119 @@ function resolveCelluleLabel(
             + {{ summary.group2Count }} (G2)
             · Présents samedi : {{ summary.projectedSaturdayGroup1 }} / {{ summary.projectedSaturdayGroup2 }}
           </div>
+        }
+
+        @if (multiModesEnabled()) {
+          <app-prime-card title="Modes hebdomadaires" className="weekly-modes-card">
+            <div class="wm-toolbar">
+              <label class="wm-field">
+                <span>Semaine ISO</span>
+                <div class="wm-week-nav">
+                  <button type="button" class="ky-btn-secondary wm-week-btn" (click)="prevWmWeek()">‹</button>
+                  <strong>{{ wmWeekCode() }}</strong>
+                  <button type="button" class="ky-btn-secondary wm-week-btn" (click)="nextWmWeek()">›</button>
+                </div>
+                <span class="wm-week-start">Début {{ wmWeekStartDate() }}</span>
+              </label>
+              <label class="wm-field">
+                <span>Assignation groupée</span>
+                <select
+                  class="scope-cellule-select"
+                  [value]="wmBulkModeId() ?? ''"
+                  (change)="onWmBulkModeChange($event)"
+                  [disabled]="wmLocked() || wmLoading()"
+                >
+                  <option value="">Choisir un mode…</option>
+                  @for (m of wmAvailableModes(); track m.id) {
+                    <option [value]="m.id">{{ m.title }}</option>
+                  }
+                </select>
+              </label>
+              <div class="wm-bulk-actions">
+                <button
+                  type="button"
+                  class="ky-btn-secondary"
+                  [disabled]="wmLocked() || !wmBulkModeId()"
+                  (click)="applyWmBulk(false)"
+                >
+                  Appliquer à tous
+                </button>
+                <button
+                  type="button"
+                  class="ky-btn-secondary"
+                  [disabled]="wmLocked() || !wmBulkModeId() || !searchQuery()"
+                  (click)="applyWmBulk(true)"
+                >
+                  Appliquer au filtre
+                </button>
+                <button
+                  type="button"
+                  class="ky-btn-primary"
+                  [disabled]="wmLocked() || wmSaving() || wmLoading()"
+                  (click)="saveWeeklyModes()"
+                >
+                  {{ wmSaving() ? 'Enregistrement…' : 'Enregistrer les modes' }}
+                </button>
+              </div>
+            </div>
+
+            @if (wmLocked()) {
+              <p class="wm-locked">Plan verrouillé (planning généré/validé) — consultation seule.</p>
+            }
+            @if (wmError()) {
+              <p class="wm-error">{{ wmError() }}</p>
+            }
+            @if (wmSuccess()) {
+              <p class="wm-success">{{ wmSuccess() }}</p>
+            }
+
+            @if (wmLoading()) {
+              <div class="p-4 flex justify-center">
+                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+              </div>
+            } @else {
+              <div class="overflow-x-auto">
+                <table class="prime-table">
+                  <thead>
+                    <tr>
+                      <th>Collaborateur</th>
+                      <th>Niveau</th>
+                      <th>Mode samedi</th>
+                      <th>Mode de shifts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @if (wmEmployees().length === 0) {
+                      <tr>
+                        <td colspan="4" class="text-center prime-cell-muted py-6">Aucun collaborateur.</td>
+                      </tr>
+                    } @else {
+                      @for (emp of wmEmployees(); track emp.userId) {
+                        <tr>
+                          <td><span class="prime-cell-strong">{{ emp.fullName }}</span></td>
+                          <td>{{ emp.level }}</td>
+                          <td>{{ saturdayModeLabel(emp.saturdayWorkMode, emp.level) }}</td>
+                          <td>
+                            <select
+                              class="scope-cellule-select"
+                              [value]="emp.shiftModeProfileId ?? ''"
+                              (change)="onWmEmployeeModeChange(emp.userId, $event)"
+                              [disabled]="wmLocked()"
+                            >
+                              <option value="">— Choisir —</option>
+                              @for (m of wmAvailableModes(); track m.id) {
+                                <option [value]="m.id">{{ m.title }}</option>
+                              }
+                            </select>
+                          </td>
+                        </tr>
+                      }
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </app-prime-card>
         }
 
         <div class="scope-search">
@@ -979,6 +1095,72 @@ function resolveCelluleLabel(
         background: var(--bg-card, #fff);
         color: var(--text-primary, #0f172a);
       }
+
+      .weekly-modes-card {
+        margin-bottom: 1rem;
+      }
+
+      .wm-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: flex-end;
+        margin-bottom: 0.75rem;
+      }
+
+      .wm-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text-secondary, #64748b);
+      }
+
+      .wm-week-nav {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .wm-week-btn {
+        min-width: 2rem;
+        padding: 0.35rem 0.5rem;
+      }
+
+      .wm-week-start {
+        font-size: 0.72rem;
+        font-weight: 500;
+      }
+
+      .wm-bulk-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-left: auto;
+      }
+
+      .wm-locked {
+        margin: 0 0 0.75rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 0.5rem;
+        background: #fef3c7;
+        color: #92400e;
+        font-size: 0.82rem;
+        font-weight: 600;
+      }
+
+      .wm-error {
+        margin: 0 0 0.5rem;
+        color: #b91c1c;
+        font-size: 0.82rem;
+      }
+
+      .wm-success {
+        margin: 0 0 0.5rem;
+        color: #047857;
+        font-size: 0.82rem;
+      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -1098,9 +1280,27 @@ export class SuperviseurScopePageComponent {
   readonly histLoading = signal(false);
   readonly histError = signal('');
 
+  readonly multiModesEnabled = signal(false);
+  readonly wmWeekCode = signal('');
+  readonly wmWeekStartDate = signal('');
+  readonly wmLoading = signal(false);
+  readonly wmSaving = signal(false);
+  readonly wmLocked = signal(false);
+  readonly wmError = signal('');
+  readonly wmSuccess = signal('');
+  readonly wmAvailableModes = signal<ShiftModeProfileDto[]>([]);
+  readonly wmEmployees = signal<WeeklyEmployeeShiftMode[]>([]);
+  readonly wmBulkModeId = signal<number | null>(null);
+  readonly wmSubServiceId = signal<number | null>(null);
+
   private planningUsersByGuid = new Map<string, User>();
 
   constructor() {
+    const monday = this.getMondayOfWeek(new Date());
+    monday.setDate(monday.getDate() + 7);
+    this.wmWeekStartDate.set(this.formatDate(monday));
+    this.wmWeekCode.set(this.getWeekCode(monday));
+
     effect(() => {
       void this.roleService.currentUser().id;
       this.fetch();
@@ -1127,6 +1327,217 @@ export class SuperviseurScopePageComponent {
     void this.router.navigate(['/planning/demandes-renfort'], {
       queryParams: subId != null ? { subServiceId: subId } : {},
     });
+  }
+
+  saturdayModeLabel(saturdayWorkMode: number | null | undefined, level: number): string {
+    const mode = this.resolveEffectiveMode(saturdayWorkMode, level);
+    if (mode === 1) return saturdayWorkMode == null ? 'Tous sam. 4h (défaut)' : 'Tous sam. 4h';
+    if (mode === 2) return saturdayWorkMode == null ? 'Alternance 8h (défaut)' : 'Alternance 8h';
+    return '—';
+  }
+
+  prevWmWeek(): void {
+    const d = this.parseDate(this.wmWeekStartDate());
+    d.setDate(d.getDate() - 7);
+    this.applyWmWeek(d);
+  }
+
+  nextWmWeek(): void {
+    const d = this.parseDate(this.wmWeekStartDate());
+    d.setDate(d.getDate() + 7);
+    this.applyWmWeek(d);
+  }
+
+  private applyWmWeek(monday: Date): void {
+    const m = this.getMondayOfWeek(monday);
+    this.wmWeekStartDate.set(this.formatDate(m));
+    this.wmWeekCode.set(this.getWeekCode(m));
+    void this.loadWeeklyModes();
+  }
+
+  onWmBulkModeChange(event: Event): void {
+    const raw = (event.target as HTMLSelectElement).value;
+    this.wmBulkModeId.set(raw ? Number(raw) : null);
+  }
+
+  onWmEmployeeModeChange(userId: number, event: Event): void {
+    const raw = (event.target as HTMLSelectElement).value;
+    const modeId = raw ? Number(raw) : null;
+    const mode = this.wmAvailableModes().find((m) => m.id === modeId);
+    this.wmEmployees.set(
+      this.wmEmployees().map((e) =>
+        e.userId === userId
+          ? {
+              ...e,
+              shiftModeProfileId: modeId,
+              shiftModeTitle: mode?.title ?? null,
+            }
+          : e,
+      ),
+    );
+    this.wmSuccess.set('');
+  }
+
+  applyWmBulk(filteredOnly: boolean): void {
+    const modeId = this.wmBulkModeId();
+    if (modeId == null) return;
+    const mode = this.wmAvailableModes().find((m) => m.id === modeId);
+    let targetIds: Set<number> | null = null;
+    if (filteredOnly) {
+      const q = this.searchQuery().trim().toLowerCase();
+      if (!q) return;
+      targetIds = new Set(
+        this.filteredRows()
+          .map((r) => r.planningUserId)
+          .filter((id): id is number => id != null),
+      );
+    }
+    this.wmEmployees.set(
+      this.wmEmployees().map((e) => {
+        if (targetIds && !targetIds.has(e.userId)) return e;
+        return {
+          ...e,
+          shiftModeProfileId: modeId,
+          shiftModeTitle: mode?.title ?? null,
+        };
+      }),
+    );
+    this.wmSuccess.set('');
+  }
+
+  async saveWeeklyModes(): Promise<void> {
+    const subId = this.wmSubServiceId();
+    if (subId == null || this.wmLocked()) return;
+    const missing = this.wmEmployees().filter((e) => !e.shiftModeProfileId);
+    if (missing.length) {
+      this.wmError.set(`Tous les collaborateurs doivent avoir un mode (${missing.length} manquant(s)).`);
+      return;
+    }
+    this.wmSaving.set(true);
+    this.wmError.set('');
+    this.wmSuccess.set('');
+    try {
+      const actorUserId = this.session.getAuthUserId();
+      const plan = await firstValueFrom(
+        this.planningService.saveWeeklyShiftModePlan({
+          subServiceId: subId,
+          weekCode: this.wmWeekCode(),
+          weekStartDate: this.wmWeekStartDate(),
+          actorUserId: actorUserId > 0 ? actorUserId : null,
+          employees: this.wmEmployees().map((e) => ({
+            userId: e.userId,
+            shiftModeProfileId: e.shiftModeProfileId!,
+          })),
+        }),
+      );
+      this.applyWeeklyPlan(plan);
+      this.wmSuccess.set('Modes hebdomadaires enregistrés.');
+    } catch (err: unknown) {
+      const msg =
+        err instanceof HttpErrorResponse
+          ? (err.error as { message?: string } | null)?.message
+          : undefined;
+      this.wmError.set(msg ?? 'Échec de l’enregistrement des modes.');
+    } finally {
+      this.wmSaving.set(false);
+    }
+  }
+
+  private applyWeeklyPlan(plan: WeeklyShiftModePlan): void {
+    this.wmLocked.set(!!plan.isLocked);
+    this.wmAvailableModes.set(plan.availableModes ?? []);
+    this.wmEmployees.set(plan.employees ?? []);
+    this.multiModesEnabled.set((plan.availableModes?.length ?? 0) > 0);
+  }
+
+  private async refreshMultiModesFlag(): Promise<void> {
+    const subId =
+      this.rows().find((r) => r.subServiceId != null)?.subServiceId ??
+      [...new Set(this.rows().map((r) => r.subServiceId).filter((id): id is number => id != null))][0] ??
+      null;
+    this.wmSubServiceId.set(subId);
+    if (subId == null) {
+      this.multiModesEnabled.set(false);
+      this.wmEmployees.set([]);
+      this.wmAvailableModes.set([]);
+      return;
+    }
+    try {
+      const tpl = await firstValueFrom(this.planningService.getShiftTemplate(subId));
+      const enabled = !!tpl.multiShiftModesEnabled && (tpl.modes?.length ?? 0) > 0;
+      this.multiModesEnabled.set(enabled);
+      if (enabled) await this.loadWeeklyModes();
+      else {
+        this.wmEmployees.set([]);
+        this.wmAvailableModes.set([]);
+      }
+    } catch {
+      this.multiModesEnabled.set(false);
+    }
+  }
+
+  private async loadWeeklyModes(): Promise<void> {
+    const subId = this.wmSubServiceId();
+    if (subId == null || !this.multiModesEnabled()) return;
+    this.wmLoading.set(true);
+    this.wmError.set('');
+    this.wmSuccess.set('');
+    try {
+      const plan = await firstValueFrom(
+        this.planningService.getWeeklyShiftModePlan(
+          subId,
+          this.wmWeekCode(),
+          this.wmWeekStartDate(),
+        ),
+      );
+      this.applyWeeklyPlan(plan);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof HttpErrorResponse
+          ? (err.error as { message?: string } | null)?.message
+          : undefined;
+      this.wmError.set(msg ?? 'Impossible de charger les modes hebdomadaires.');
+    } finally {
+      this.wmLoading.set(false);
+    }
+  }
+
+  private parseDate(value: string): Date {
+    if (!value) return this.getMondayOfWeek(new Date());
+    const [y, m, d] = value.split('T')[0].split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  private getMondayOfWeek(date: Date): Date {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  private getWeekCode(monday: Date): string {
+    const weekNum = this.getISOWeek(monday);
+    const year = monday.getFullYear();
+    return `${year}-W${weekNum.toString().padStart(2, '0')}`;
+  }
+
+  private getISOWeek(date: Date): number {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+    const week1 = new Date(d.getFullYear(), 0, 4);
+    return (
+      1 +
+      Math.round(
+        ((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7,
+      )
+    );
+  }
+
+  private formatDate(d: Date): string {
+    return d.toLocaleDateString('en-CA');
   }
 
   onSearchInput(event: Event): void {
@@ -1605,6 +2016,7 @@ export class SuperviseurScopePageComponent {
       this.rows.set(mapped);
       this.loading.set(false);
       await this.refreshSaturdayMeta();
+      await this.refreshMultiModesFlag();
     });
   }
 }

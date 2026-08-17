@@ -836,23 +836,11 @@
                         } @else {
                           <ul class="org-chip-list">
                             @for (chip of selectedOrgChipItems; track chip.id) {
-                              <li class="org-chip" [class.org-chip--primary]="chip.isPrimary">
+                              <li class="org-chip">
                                 <div class="org-chip__body">
                                   <span class="org-chip__label">{{ chip.label }}</span>
-                                  @if (chip.isPrimary) {
-                                    <span class="org-chip__badge">Principal</span>
-                                  }
                                 </div>
                                 <div class="org-chip__actions">
-                                  @if (!chip.isPrimary) {
-                                    <button
-                                      type="button"
-                                      class="link-inline"
-                                      (click)="setSelectedOrgNodePrimary(chip.id)"
-                                    >
-                                      Définir principal
-                                    </button>
-                                  }
                                   <button
                                     type="button"
                                     class="org-chip__remove"

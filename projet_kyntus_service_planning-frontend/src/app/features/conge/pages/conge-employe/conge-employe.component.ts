@@ -41,6 +41,10 @@ export class CongeEmployeComponent implements OnInit, OnDestroy {
   employeId  = '';
   moisInterdits: number[] = [9, 10];
   disponibiliteMotif: string | null = null;
+  /** Jours yyyy-MM-dd saturés (quota) ou interdits pour le mois affiché. */
+  blockedDays = new Set<string>();
+  calendarMonth = new Date();
+  selectingEnd = false;
 
   TypeConge             = TypeConge;
   TypeCongeExceptionnel = TypeCongeExceptionnel;
@@ -123,6 +127,7 @@ export class CongeEmployeComponent implements OnInit, OnDestroy {
       next: (r) => {
         this.moisInterdits = r.moisInterdits?.length ? r.moisInterdits : this.moisInterdits;
         this.disponibiliteMotif = r.ok ? null : (r.motif || 'Période indisponible.');
+        for (const d of r.joursSatures ?? []) this.blockedDays.add(d);
         this.cdr.detectChanges();
       },
       error: () => {}
@@ -154,7 +159,9 @@ export class CongeEmployeComponent implements OnInit, OnDestroy {
       typeExceptionnel: null,
     };
     this.disponibiliteMotif = null;
+    this.selectingEnd = false;
     this.restartDraftBinder();
+    this.loadMonthBlockedDays();
     this.cdr.detectChanges();
   }
 
@@ -201,13 +208,140 @@ export class CongeEmployeComponent implements OnInit, OnDestroy {
       dateDebut: '', dateFin: '', motif: null, typeExceptionnel: null
     };
     this.disponibiliteMotif = null;
+    this.selectingEnd = false;
+    this.calendarMonth = new Date();
     this.showModal = true;
+    this.loadMonthBlockedDays();
     this.touchDraft();
+  }
+
+  shiftCalendarMonth(delta: number): void {
+    this.calendarMonth = new Date(
+      this.calendarMonth.getFullYear(),
+      this.calendarMonth.getMonth() + delta,
+      1,
+    );
+    this.loadMonthBlockedDays();
+  }
+
+  get calendarTitle(): string {
+    const m = this.calendarMonth.getMonth() + 1;
+    const y = this.calendarMonth.getFullYear();
+    return `${this.moisLabels[m] ?? m} ${y}`;
+  }
+
+  get calendarCells(): {
+    date: string | null;
+    day: number | null;
+    blocked: boolean;
+    selected: boolean;
+    inRange: boolean;
+  }[] {
+    const y = this.calendarMonth.getFullYear();
+    const m = this.calendarMonth.getMonth();
+    const first = new Date(y, m, 1);
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const startPad = (first.getDay() + 6) % 7;
+    const cells: {
+      date: string | null;
+      day: number | null;
+      blocked: boolean;
+      selected: boolean;
+      inRange: boolean;
+    }[] = [];
+    for (let i = 0; i < startPad; i++) {
+      cells.push({ date: null, day: null, blocked: false, selected: false, inRange: false });
+    }
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      cells.push({
+        date,
+        day,
+        blocked: this.isDayBlocked(date),
+        selected: date === this.form.dateDebut || date === this.form.dateFin,
+        inRange: this.isDateInSelectedRange(date),
+      });
+    }
+    return cells;
+  }
+
+  isDayBlocked(date: string): boolean {
+    if (this.blockedDays.has(date)) return true;
+    const month = Number(date.slice(5, 7));
+    return this.moisInterdits.includes(month);
+  }
+
+  isDateInSelectedRange(date: string): boolean {
+    if (!this.form.dateDebut) return false;
+    const fin = this.form.dateFin || this.form.dateDebut;
+    return date >= this.form.dateDebut && date <= fin;
+  }
+
+  onCalendarDayClick(cell: { date: string | null; blocked: boolean }): void {
+    if (!cell.date || cell.blocked) return;
+
+    if (!this.isDateFinManuelle()) {
+      this.form.dateDebut = cell.date;
+      this.form.dateFin = '';
+      this.selectingEnd = false;
+      this.checkDisponibilite();
+      return;
+    }
+
+    if (!this.form.dateDebut || !this.selectingEnd) {
+      this.form.dateDebut = cell.date;
+      this.form.dateFin = '';
+      this.selectingEnd = true;
+      this.checkDisponibilite();
+      return;
+    }
+
+    if (cell.date < this.form.dateDebut) {
+      this.form.dateFin = this.form.dateDebut;
+      this.form.dateDebut = cell.date;
+    } else {
+      this.form.dateFin = cell.date;
+    }
+    this.selectingEnd = false;
+    this.checkDisponibilite();
+  }
+
+  private loadMonthBlockedDays(): void {
+    if (!this.employeId) return;
+    const y = this.calendarMonth.getFullYear();
+    const m = this.calendarMonth.getMonth();
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const debut = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+    const fin = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    this.svc.getDisponibilite(this.employeId, debut + 'T00:00:00Z', fin + 'T00:00:00Z').subscribe({
+      next: (r) => {
+        this.moisInterdits = r.moisInterdits?.length ? r.moisInterdits : this.moisInterdits;
+        const next = new Set<string>(r.joursSatures ?? []);
+        if (this.moisInterdits.includes(m + 1)) {
+          for (let day = 1; day <= lastDay; day++) {
+            next.add(`${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+          }
+        }
+        this.blockedDays = next;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        const next = new Set<string>();
+        if (this.moisInterdits.includes(m + 1)) {
+          for (let day = 1; day <= lastDay; day++) {
+            next.add(`${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+          }
+        }
+        this.blockedDays = next;
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   onTypeCongeChange(): void {
     if (this.form.typeConge !== TypeConge.Exceptionnel) this.form.typeExceptionnel = null;
     this.form.dateFin = '';
+    this.selectingEnd = false;
     this.touchDraft();
   }
 

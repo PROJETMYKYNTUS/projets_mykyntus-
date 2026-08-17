@@ -1075,6 +1075,144 @@
   background: rgba(245, 158, 11, 0.04);
 }
 
+/* Groupes multi-modes : fond de ligne distinct par mode d’appartenance */
+.pgrid tbody tr.row-mode-0 {
+  background: color-mix(in srgb, #2563eb 7%, #fff);
+}
+.pgrid tbody tr.row-mode-1 {
+  background: color-mix(in srgb, #059669 8%, #fff);
+}
+.pgrid tbody tr.row-mode-2 {
+  background: color-mix(in srgb, #d97706 9%, #fff);
+}
+.pgrid tbody tr.row-mode-3 {
+  background: color-mix(in srgb, #db2777 7%, #fff);
+}
+.pgrid tbody tr.row-mode-4 {
+  background: color-mix(in srgb, #0891b2 8%, #fff);
+}
+.pgrid tbody tr.row-mode-5 {
+  background: color-mix(in srgb, #7c3aed 7%, #fff);
+}
+.pgrid tbody tr.row-mode-6 {
+  background: color-mix(in srgb, #4f46e5 7%, #fff);
+}
+.pgrid tbody tr.row-mode-7 {
+  background: color-mix(in srgb, #64748b 8%, #fff);
+}
+
+.pgrid tbody tr.row-mode-0:hover { background: color-mix(in srgb, #2563eb 12%, #fff); }
+.pgrid tbody tr.row-mode-1:hover { background: color-mix(in srgb, #059669 13%, #fff); }
+.pgrid tbody tr.row-mode-2:hover { background: color-mix(in srgb, #d97706 14%, #fff); }
+.pgrid tbody tr.row-mode-3:hover { background: color-mix(in srgb, #db2777 12%, #fff); }
+.pgrid tbody tr.row-mode-4:hover { background: color-mix(in srgb, #0891b2 13%, #fff); }
+.pgrid tbody tr.row-mode-5:hover { background: color-mix(in srgb, #7c3aed 12%, #fff); }
+.pgrid tbody tr.row-mode-6:hover { background: color-mix(in srgb, #4f46e5 12%, #fff); }
+.pgrid tbody tr.row-mode-7:hover { background: color-mix(in srgb, #64748b 13%, #fff); }
+
+.pgrid tbody tr.row-mode-header {
+  border-top: 2px solid rgba(15, 23, 42, 0.08);
+}
+
+.pgrid tbody tr.row-mode-header:hover {
+  filter: none;
+}
+
+.td-mode-group {
+  padding: 6px 14px 6px 18px;
+  vertical-align: middle;
+}
+
+.mode-group-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-primary, #0f172a);
+  margin-right: 0.55rem;
+}
+
+.mode-group-count {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-muted, #64748b);
+}
+
+.emp-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.2;
+  background: rgba(15, 23, 42, 0.08);
+  color: #334155;
+}
+
+.emp-ticket-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1.2;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emp-ticket-special {
+  background: #f3e8ff;
+  color: #6d28d9;
+}
+
+.emp-ticket-plateau {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.legend-ticket {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.legend-ticket-special {
+  background: #f3e8ff;
+  color: #6d28d9;
+  border-color: color-mix(in srgb, #6d28d9 28%, #e2e8f0);
+}
+
+.legend-ticket-plateau {
+  background: #ccfbf1;
+  color: #0f766e;
+  border-color: color-mix(in srgb, #0f766e 28%, #e2e8f0);
+}
+
+.emp-mode-chip[data-mode-index="0"],
+.legend-mode[data-mode-index="0"] { background: color-mix(in srgb, #2563eb 16%, #fff); color: #1d4ed8; border-color: color-mix(in srgb, #2563eb 35%, #e2e8f0); }
+.emp-mode-chip[data-mode-index="1"],
+.legend-mode[data-mode-index="1"] { background: color-mix(in srgb, #059669 16%, #fff); color: #047857; border-color: color-mix(in srgb, #059669 35%, #e2e8f0); }
+.emp-mode-chip[data-mode-index="2"],
+.legend-mode[data-mode-index="2"] { background: color-mix(in srgb, #d97706 18%, #fff); color: #b45309; border-color: color-mix(in srgb, #d97706 35%, #e2e8f0); }
+.emp-mode-chip[data-mode-index="3"],
+.legend-mode[data-mode-index="3"] { background: color-mix(in srgb, #db2777 14%, #fff); color: #be185d; border-color: color-mix(in srgb, #db2777 35%, #e2e8f0); }
+.emp-mode-chip[data-mode-index="4"],
+.legend-mode[data-mode-index="4"] { background: color-mix(in srgb, #0891b2 16%, #fff); color: #0e7490; border-color: color-mix(in srgb, #0891b2 35%, #e2e8f0); }
+.emp-mode-chip[data-mode-index="5"],
+.legend-mode[data-mode-index="5"] { background: color-mix(in srgb, #7c3aed 14%, #fff); color: #6d28d9; border-color: color-mix(in srgb, #7c3aed 35%, #e2e8f0); }
+.emp-mode-chip[data-mode-index="6"],
+.legend-mode[data-mode-index="6"] { background: color-mix(in srgb, #4f46e5 14%, #fff); color: #4338ca; border-color: color-mix(in srgb, #4f46e5 35%, #e2e8f0); }
+.emp-mode-chip[data-mode-index="7"],
+.legend-mode[data-mode-index="7"] { background: color-mix(in srgb, #64748b 16%, #fff); color: #475569; border-color: color-mix(in srgb, #64748b 35%, #e2e8f0); }
+
 .pgrid tbody tr:last-child {
   border-bottom: none;
 }
@@ -1273,6 +1411,69 @@
   font-size: 0.7rem;
   font-weight: 500;
   line-height: 1;
+}
+
+.sp-mode {
+  display: inline-block;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(15, 23, 42, 0.12);
+  color: inherit;
+  vertical-align: middle;
+}
+
+.sp-mode-switch {
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.legend-mode {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: color-mix(in srgb, #0f766e 12%, #fff);
+  color: #0f766e;
+  border: 1px solid color-mix(in srgb, #0f766e 28%, #e2e8f0);
+}
+
+.avail-mode-block {
+  margin-bottom: 1rem;
+}
+
+.avail-mode-title {
+  margin: 0 0 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.avail-mode-meta {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-muted, #64748b);
+}
+
+.quota-mode-group {
+  margin-bottom: 0.75rem;
 }
 
 .sp-time {

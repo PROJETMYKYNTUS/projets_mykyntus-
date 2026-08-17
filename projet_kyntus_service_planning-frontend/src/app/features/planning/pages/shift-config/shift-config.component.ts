@@ -12,6 +12,7 @@ import {
   WeekShiftConfigResponse,
   ShiftOption,
   ShiftConfigStatusItem,
+  ShiftModeProfileSaveDto,
 } from '../../services/planning.service';
 import { SubServiceService } from '../../../sub-services/services/sub-service.service';
 import { PrimeOrgApiService } from '../../../prime/services/prime-org-api.service';
@@ -50,6 +51,27 @@ type SubServiceOption = {
   hasTemplate: boolean;
 };
 
+type ModeDraft = {
+  id?: number | null;
+  title: string;
+  displayOrder: number;
+  isDefault: boolean;
+  isActive: boolean;
+  minPresencePercent: number;
+  isCriticalCell: boolean;
+  shifts: ShiftConfigItem[];
+};
+
+type ShiftConfigDraftState = {
+  subServiceId: number;
+  isCriticalCell: boolean;
+  minPresencePercent: number;
+  multiShiftModesEnabled: boolean;
+  modes: ModeDraft[];
+  activeModeIndex: number;
+  shifts: ShiftConfigItem[];
+};
+
 @Component({
   selector: 'app-shift-config',
   standalone: true,
@@ -60,12 +82,7 @@ type SubServiceOption = {
 export class ShiftConfigComponent implements OnInit, OnDestroy {
   private readonly formDrafts = inject(KyntusFormDraftService);
   private readonly confirmService = inject(KyntusConfirmService);
-  private draftBinder?: KyntusObjectDraftBinder<{
-    subServiceId: number;
-    isCriticalCell: boolean;
-    minPresencePercent: number;
-    shifts: ShiftConfigItem[];
-  }>;
+  private draftBinder?: KyntusObjectDraftBinder<ShiftConfigDraftState>;
 
   readonly icons = {
     settings: Settings,
@@ -115,6 +132,11 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
   minPresencePercent = 70;
   enforceMinPresence = true;
 
+  /** Multi-modes métier (chaque mode a ses shifts + % + présence min). */
+  multiShiftModesEnabled = false;
+  modes: ModeDraft[] = [];
+  activeModeIndex = 0;
+
   shifts: ShiftConfigItem[] = [];
 
   constructor(
@@ -130,23 +152,7 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
     this.startOptions = this.planningService.getShiftStartOptions();
     this.breakSlotOptions = this.planningService.getBreakSlotOptions();
     this.initShifts();
-    this.draftBinder = new KyntusObjectDraftBinder(
-      this.formDrafts,
-      'shift-config',
-      () => ({
-        subServiceId: this.subServiceId,
-        isCriticalCell: this.isCriticalCell,
-        minPresencePercent: this.minPresencePercent,
-        shifts: this.shifts,
-      }),
-      (s) => {
-        if (typeof s.subServiceId === 'number') this.subServiceId = s.subServiceId;
-        if (typeof s.isCriticalCell === 'boolean') this.isCriticalCell = s.isCriticalCell;
-        if (typeof s.minPresencePercent === 'number') this.minPresencePercent = s.minPresencePercent;
-        if (Array.isArray(s.shifts) && s.shifts.length) this.shifts = s.shifts;
-      },
-    );
-    this.draftBinder.start();
+    this.restartDraftBinder();
   }
 
   ngOnDestroy(): void {
@@ -156,6 +162,38 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
   /** Persiste le brouillon après édition locale. */
   touchDraft(): void {
     this.draftBinder?.touch();
+  }
+
+  private captureDraftState(): ShiftConfigDraftState {
+    return {
+      subServiceId: this.subServiceId,
+      isCriticalCell: this.isCriticalCell,
+      minPresencePercent: this.minPresencePercent,
+      multiShiftModesEnabled: this.multiShiftModesEnabled,
+      modes: this.modes,
+      activeModeIndex: this.activeModeIndex,
+      shifts: this.shifts,
+    };
+  }
+
+  private applyDraftState(s: ShiftConfigDraftState): void {
+    if (typeof s.subServiceId === 'number') this.subServiceId = s.subServiceId;
+    if (typeof s.isCriticalCell === 'boolean') this.isCriticalCell = s.isCriticalCell;
+    if (typeof s.minPresencePercent === 'number') this.minPresencePercent = s.minPresencePercent;
+    if (typeof s.multiShiftModesEnabled === 'boolean') {
+      this.multiShiftModesEnabled = s.multiShiftModesEnabled;
+    }
+    if (Array.isArray(s.modes)) {
+      this.modes = s.modes.map((m) => ({
+        ...m,
+        isCriticalCell: !!m.isCriticalCell,
+        minPresencePercent: m.minPresencePercent ?? 0,
+        shifts: m.shifts ?? [],
+      }));
+    }
+    if (typeof s.activeModeIndex === 'number') this.activeModeIndex = s.activeModeIndex;
+    if (Array.isArray(s.shifts) && s.shifts.length) this.shifts = s.shifts;
+    if (this.multiShiftModesEnabled) this.bindActiveModeShifts();
   }
 
   async resetDraftForm(): Promise<void> {
@@ -175,6 +213,9 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
       this.isCriticalCell = false;
       this.enforceMinPresence = true;
       this.minPresencePercent = 70;
+      this.multiShiftModesEnabled = false;
+      this.modes = [];
+      this.activeModeIndex = 0;
     }
     this.restartDraftBinder();
     this.cdr.detectChanges();
@@ -185,20 +226,165 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
     this.draftBinder = new KyntusObjectDraftBinder(
       this.formDrafts,
       'shift-config',
-      () => ({
-        subServiceId: this.subServiceId,
-        isCriticalCell: this.isCriticalCell,
-        minPresencePercent: this.minPresencePercent,
-        shifts: this.shifts,
-      }),
-      (s) => {
-        if (typeof s.subServiceId === 'number') this.subServiceId = s.subServiceId;
-        if (typeof s.isCriticalCell === 'boolean') this.isCriticalCell = s.isCriticalCell;
-        if (typeof s.minPresencePercent === 'number') this.minPresencePercent = s.minPresencePercent;
-        if (Array.isArray(s.shifts) && s.shifts.length) this.shifts = s.shifts;
-      },
+      () => this.captureDraftState(),
+      (s) => this.applyDraftState(s),
     );
     this.draftBinder.start();
+  }
+
+  /** Criticité utilisée pour les pauses du panneau courant (mode actif ou cellule mono). */
+  get effectiveCriticalCell(): boolean {
+    if (this.multiShiftModesEnabled) {
+      return !!this.activeMode?.isCriticalCell;
+    }
+    return this.isCriticalCell;
+  }
+
+  get activeMode(): ModeDraft | null {
+    if (!this.multiShiftModesEnabled) return null;
+    return this.modes[this.activeModeIndex] ?? null;
+  }
+
+  private bindActiveModeShifts(): void {
+    const mode = this.activeMode;
+    if (mode) this.shifts = mode.shifts;
+  }
+
+  private createDefaultMode(title: string, order: number, shifts?: ShiftConfigItem[]): ModeDraft {
+    return {
+      title,
+      displayOrder: order,
+      isDefault: order === 1,
+      isActive: true,
+      minPresencePercent: this.enforceMinPresence ? this.minPresencePercent : 0,
+      isCriticalCell: this.isCriticalCell,
+      shifts: shifts?.length
+        ? shifts.map((s, i) => ({ ...s, displayOrder: i + 1 }))
+        : [
+            this.createShift('Shift 1', '08:00', 1),
+            this.createShift('Shift 2', '09:00', 2),
+            this.createShift('Shift 3', '10:00', 3),
+            this.createShift('Shift 4', '11:00', 4),
+          ],
+    };
+  }
+
+  private cloneShifts(list: ShiftConfigItem[]): ShiftConfigItem[] {
+    return list.map((s, i) => ({
+      ...s,
+      breakSlots: s.breakSlots ? [...s.breakSlots] : undefined,
+      displayOrder: i + 1,
+    }));
+  }
+
+  onMultiModesChange(enabled: boolean): void {
+    this.multiShiftModesEnabled = enabled;
+    if (enabled) {
+      if (!this.modes.length) {
+        this.modes = [this.createDefaultMode('Mode 1', 1, this.cloneShifts(this.shifts))];
+      }
+      this.activeModeIndex = 0;
+      this.bindActiveModeShifts();
+    } else {
+      const fromMode = this.activeMode;
+      if (fromMode?.shifts?.length) {
+        this.shifts = this.cloneShifts(fromMode.shifts);
+        this.isCriticalCell = !!fromMode.isCriticalCell;
+        if (fromMode.minPresencePercent > 0) {
+          this.enforceMinPresence = true;
+          this.minPresencePercent = fromMode.minPresencePercent;
+        }
+      }
+      this.modes = [];
+      this.activeModeIndex = 0;
+    }
+    this.touchDraft();
+  }
+
+  selectMode(index: number): void {
+    if (index < 0 || index >= this.modes.length) return;
+    this.activeModeIndex = index;
+    this.bindActiveModeShifts();
+    this.touchDraft();
+  }
+
+  addMode(): void {
+    if (this.modes.length >= 8) return;
+    const order = this.modes.length + 1;
+    this.modes.push(this.createDefaultMode(`Mode ${order}`, order));
+    this.activeModeIndex = this.modes.length - 1;
+    this.bindActiveModeShifts();
+    this.touchDraft();
+  }
+
+  removeMode(index: number): void {
+    if (this.modes.length <= 1) return;
+    const removed = this.modes[index];
+    this.modes.splice(index, 1);
+    this.modes.forEach((m, i) => (m.displayOrder = i + 1));
+    if (removed?.isDefault && this.modes.length) {
+      this.modes[0].isDefault = true;
+    }
+    if (this.activeModeIndex >= this.modes.length) {
+      this.activeModeIndex = this.modes.length - 1;
+    }
+    this.bindActiveModeShifts();
+    this.touchDraft();
+  }
+
+  setDefaultMode(index: number): void {
+    this.modes.forEach((m, i) => (m.isDefault = i === index));
+    this.touchDraft();
+  }
+
+  onModeTitleChange(): void {
+    this.touchDraft();
+  }
+
+  onModePresenceChange(): void {
+    const mode = this.activeMode;
+    if (mode) {
+      mode.minPresencePercent = this.enforceMinPresence ? mode.minPresencePercent : 0;
+    }
+    this.touchDraft();
+  }
+
+  modePercentageSum(mode: ModeDraft): number {
+    return mode.shifts.reduce((sum, s) => sum + (Number(s.percentage) || 0), 0);
+  }
+
+  modePctOk(mode: ModeDraft): boolean {
+    return Math.abs(this.modePercentageSum(mode) - 100) <= 0.5;
+  }
+
+  private mapResponseShift(
+    s: {
+      label: string;
+      startTime: string;
+      workHours: number;
+      breakDurationMinutes: number;
+      breakSlots?: string[];
+      requiredCount: number;
+      percentage?: number;
+      displayOrder: number;
+    },
+    critical?: boolean,
+  ): ShiftConfigItem {
+    const isCritical = critical ?? this.effectiveCriticalCell;
+    const slots =
+      s.breakSlots?.length
+        ? [...s.breakSlots]
+        : this.buildAutoBreakSlots(s.startTime, isCritical);
+    return {
+      label: s.label,
+      startTime: s.startTime,
+      workHours: s.workHours,
+      breakDurationMinutes: s.breakDurationMinutes || 60,
+      breakSlots: slots,
+      requiredCount: s.requiredCount,
+      percentage: s.percentage ?? null,
+      displayOrder: s.displayOrder,
+    };
   }
 
   initShifts(): void {
@@ -216,8 +402,9 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
       startTime,
       workHours: 8,
       breakDurationMinutes: 60,
-      breakSlots: this.buildAutoBreakSlots(startTime, this.isCriticalCell),
+      breakSlots: this.buildAutoBreakSlots(startTime, this.effectiveCriticalCell),
       requiredCount: 0,
+      percentage: this.multiShiftModesEnabled ? 0 : null,
       displayOrder: order,
     };
   }
@@ -260,7 +447,7 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
     const startMin = this.parseTimeToMinutes(shift.startTime);
     if (startMin == null) return [];
     const early = Math.floor(startMin / 60) < 10;
-    const offsets = this.isCriticalCell
+    const offsets = this.effectiveCriticalCell
       ? (early
           ? [4, 4.5, 3.5, 5, 3] // Opening : max +5h
           : [4, 4.5, 3.5, 3, 5])
@@ -280,14 +467,23 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
   }
 
   onStartTimeChange(shift: ShiftConfigItem): void {
-    shift.breakSlots = this.buildAutoBreakSlots(shift.startTime, this.isCriticalCell);
+    shift.breakSlots = this.buildAutoBreakSlots(shift.startTime, this.effectiveCriticalCell);
     shift.breakDurationMinutes = 60;
   }
 
   onCriticalCellChange(): void {
-    for (const s of this.shifts) {
-      s.breakSlots = this.buildAutoBreakSlots(s.startTime, this.isCriticalCell);
-      s.breakDurationMinutes = 60;
+    const critical = this.effectiveCriticalCell;
+    const apply = (list: ShiftConfigItem[]) => {
+      for (const s of list) {
+        s.breakSlots = this.buildAutoBreakSlots(s.startTime, critical);
+        s.breakDurationMinutes = 60;
+      }
+    };
+    if (this.multiShiftModesEnabled) {
+      const mode = this.activeMode;
+      if (mode) apply(mode.shifts);
+    } else {
+      apply(this.shifts);
     }
     this.touchDraft();
   }
@@ -296,6 +492,14 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
     this.enforceMinPresence = enabled;
     if (enabled && (this.minPresencePercent == null || this.minPresencePercent < 50)) {
       this.minPresencePercent = 70;
+    }
+    if (this.multiShiftModesEnabled) {
+      for (const mode of this.modes) {
+        if (enabled && (mode.minPresencePercent == null || mode.minPresencePercent < 50)) {
+          mode.minPresencePercent = 70;
+        }
+        if (!enabled) mode.minPresencePercent = 0;
+      }
     }
     this.touchDraft();
   }
@@ -319,7 +523,7 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
   }
 
   resetBreakSlotsAuto(shift: ShiftConfigItem): void {
-    shift.breakSlots = this.buildAutoBreakSlots(shift.startTime, this.isCriticalCell);
+    shift.breakSlots = this.buildAutoBreakSlots(shift.startTime, this.effectiveCriticalCell);
   }
 
   loadStructure(): void {
@@ -591,7 +795,7 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
   getBreakRangeAuto(shift: ShiftConfigItem): string {
     const slots = shift.breakSlots?.length
       ? shift.breakSlots
-      : this.buildAutoBreakSlots(shift.startTime, this.isCriticalCell);
+      : this.buildAutoBreakSlots(shift.startTime, this.effectiveCriticalCell);
     if (!slots.length) return '';
     return slots
       .map((s) => this.formatBreakSlotLabel(s, shift.breakDurationMinutes || 60))
@@ -611,11 +815,30 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
   }
 
   getPercentage(shift: ShiftConfigItem): number {
+    if (this.multiShiftModesEnabled && shift.percentage != null && shift.percentage !== undefined) {
+      return Math.round(Number(shift.percentage) * 10) / 10;
+    }
     if (this.totalEffectif === 0) return 0;
     return Math.round((shift.requiredCount / this.totalEffectif) * 100);
   }
 
+  onPercentageChange(shift: ShiftConfigItem): void {
+    if (shift.percentage == null) return;
+    shift.percentage = Math.max(0, Math.min(100, Number(shift.percentage) || 0));
+    this.touchDraft();
+  }
+
   onRequiredCountChange(): void {
+    if (this.multiShiftModesEnabled) {
+      // En multi-mode les % sont la contrainte principale ; sync % depuis les counts si utile.
+      if (this.totalEffectif > 0) {
+        for (const s of this.shifts) {
+          s.percentage = Math.round((s.requiredCount / this.totalEffectif) * 1000) / 10;
+        }
+      }
+      this.touchDraft();
+      return;
+    }
     if (this.serviceEmployeeCount > 0 && this.totalEffectif > this.serviceEmployeeCount) {
       this.error = `Le total (${this.totalEffectif}) dépasse l'effectif du service (${this.serviceEmployeeCount}).`;
     } else if (
@@ -630,9 +853,30 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
     ) {
       this.error = '';
     }
+    this.touchDraft();
   }
 
   distributeEvenly(): void {
+    if (this.multiShiftModesEnabled) {
+      if (this.shifts.length === 0) {
+        this.error = 'Aucun shift à répartir pour ce mode.';
+        return;
+      }
+      const n = this.shifts.length;
+      const base = Math.floor(1000 / n) / 10;
+      let rest = Math.round((100 - base * n) * 10);
+      this.shifts.forEach((s) => {
+        const extra = rest > 0 ? 0.1 : 0;
+        if (rest > 0) rest--;
+        s.percentage = Math.round((base + extra) * 10) / 10;
+        s.requiredCount = 0;
+      });
+      this.error = '';
+      this.successMsg = `Pourcentages répartis à ~100 % sur ${n} shift(s).`;
+      this.touchDraft();
+      this.cdr.detectChanges();
+      return;
+    }
     if (this.serviceEmployeeCount <= 0 || this.shifts.length === 0) {
       this.error = 'Aucun effectif actif à répartir pour ce service.';
       return;
@@ -649,29 +893,85 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  private validateMultiModes(): string | null {
+    const active = this.modes.filter((m) => m.isActive);
+    if (active.length < 1) return 'Au moins un mode actif est requis.';
+
+    const titles = active.map((m) => m.title.trim().toLowerCase()).filter(Boolean);
+    if (titles.length !== active.length) return 'Chaque mode actif doit avoir un titre.';
+    if (new Set(titles).size !== titles.length) return 'Les titres des modes doivent être uniques.';
+
+    for (const mode of active) {
+      if (!mode.shifts.length) {
+        return `Le mode « ${mode.title} » doit contenir au moins un shift.`;
+      }
+      for (const s of mode.shifts) {
+        if (!(s.breakSlots?.length)) {
+          return `Au moins un créneau de pause est requis pour « ${s.label} » (${mode.title}).`;
+        }
+        if (s.percentage == null) {
+          return `Indiquez le % pour chaque shift du mode « ${mode.title} ».`;
+        }
+      }
+      const sum = this.modePercentageSum(mode);
+      if (Math.abs(sum - 100) > 0.5) {
+        return `Les pourcentages du mode « ${mode.title} » doivent totaliser 100 % (±0,5). Actuellement ${sum} %.`;
+      }
+      const p = mode.minPresencePercent ?? 0;
+      if (p > 0 && (p < 50 || p > 100)) {
+        return `Présence min du mode « ${mode.title} » invalide (50–100 %, ou 0).`;
+      }
+    }
+    return null;
+  }
+
+  private buildShiftPayload(list: ShiftConfigItem[], includePercentage: boolean, critical?: boolean): ShiftConfigItem[] {
+    const isCritical = critical ?? this.effectiveCriticalCell;
+    return list.map((s) => ({
+      ...s,
+      breakDurationMinutes: 60,
+      breakSlots: (s.breakSlots?.length
+        ? s.breakSlots
+        : this.buildAutoBreakSlots(s.startTime, isCritical)
+      ).slice(0, 3),
+      percentage: includePercentage ? (s.percentage ?? null) : undefined,
+      // Multi-mode : effectifs dérivés à la génération ; pas de NB employés en template.
+      requiredCount: includePercentage ? 0 : s.requiredCount,
+    }));
+  }
+
   saveConfig(): void {
     if (!this.subServiceId) {
       this.error = 'Veuillez sélectionner un service dans l’arbre.';
       return;
     }
-    if (this.totalEffectif === 0) {
-      this.error = "Veuillez définir le nombre d'employés pour chaque shift.";
-      return;
-    }
-    if (this.serviceEmployeeCount > 0 && this.totalEffectif !== this.serviceEmployeeCount) {
-      this.error = `La somme des NB employés (${this.totalEffectif}) doit égaler l'effectif actif (${this.serviceEmployeeCount}).`;
-      return;
-    }
-    for (const s of this.shifts) {
-      if (!(s.breakSlots?.length)) {
-        this.error = `Au moins un créneau de pause est requis pour « ${s.label} ».`;
+
+    if (this.multiShiftModesEnabled) {
+      const modeErr = this.validateMultiModes();
+      if (modeErr) {
+        this.error = modeErr;
         return;
       }
-    }
-    const p = this.minPresencePercent ?? 70;
-    if (this.enforceMinPresence && (p < 50 || p > 100)) {
-      this.error = 'Présence min cellule invalide (50–100 %).';
-      return;
+    } else {
+      if (this.totalEffectif === 0) {
+        this.error = "Veuillez définir le nombre d'employés pour chaque shift.";
+        return;
+      }
+      if (this.serviceEmployeeCount > 0 && this.totalEffectif !== this.serviceEmployeeCount) {
+        this.error = `La somme des NB employés (${this.totalEffectif}) doit égaler l'effectif actif (${this.serviceEmployeeCount}).`;
+        return;
+      }
+      for (const s of this.shifts) {
+        if (!(s.breakSlots?.length)) {
+          this.error = `Au moins un créneau de pause est requis pour « ${s.label} ».`;
+          return;
+        }
+      }
+      const p = this.minPresencePercent ?? 70;
+      if (this.enforceMinPresence && (p < 50 || p > 100)) {
+        this.error = 'Présence min cellule invalide (50–100 %).';
+        return;
+      }
     }
 
     this.saving = true;
@@ -682,16 +982,26 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
       subServiceId: this.subServiceId,
       weekCode: null,
       weekStartDate: null,
-      isCriticalCell: this.isCriticalCell,
+      isCriticalCell: this.multiShiftModesEnabled
+        ? this.modes.some((m) => m.isActive && m.isCriticalCell)
+        : this.isCriticalCell,
       minPresencePercent: this.enforceMinPresence ? this.minPresencePercent : 0,
-      shifts: this.shifts.map((s) => ({
-        ...s,
-        breakDurationMinutes: 60,
-        breakSlots: (s.breakSlots?.length
-          ? s.breakSlots
-          : this.buildAutoBreakSlots(s.startTime, this.isCriticalCell)
-        ).slice(0, 3),
-      })),
+      multiShiftModesEnabled: this.multiShiftModesEnabled,
+      modes: this.multiShiftModesEnabled
+        ? this.modes.map((m, i): ShiftModeProfileSaveDto => ({
+            id: m.id ?? null,
+            title: m.title.trim(),
+            displayOrder: i + 1,
+            isDefault: m.isDefault,
+            isActive: m.isActive,
+            minPresencePercent: m.minPresencePercent > 0 ? m.minPresencePercent : 0,
+            isCriticalCell: !!m.isCriticalCell,
+            shifts: this.buildShiftPayload(m.shifts, true, !!m.isCriticalCell),
+          }))
+        : [],
+      shifts: this.multiShiftModesEnabled
+        ? []
+        : this.buildShiftPayload(this.shifts, false),
     };
 
     this.planningService.saveShiftConfig(dto).subscribe({
@@ -699,7 +1009,10 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
         this.savedConfig = result;
         this.saving = false;
         this.draftBinder?.clear();
-        this.successMsg = `Modèle sauvegardé — ${result.totalEffectif} employés sur ${result.shifts.length} shifts (toutes les semaines)`;
+        this.applyLoadedConfig(result);
+        this.successMsg = this.multiShiftModesEnabled
+          ? `Modèle multi-modes sauvegardé — ${result.modes?.length ?? 0} mode(s)`
+          : `Modèle sauvegardé — ${result.totalEffectif} employés sur ${result.shifts.length} shifts (toutes les semaines)`;
         const opt = this.subServiceOptions.find((s) => s.id === this.subServiceId);
         if (opt) opt.hasTemplate = true;
         this.refreshStatusAfterSave();
@@ -713,40 +1026,67 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
     });
   }
 
+  private applyLoadedConfig(config: WeekShiftConfigResponse): void {
+    this.savedConfig = config;
+    this.isCriticalCell = !!config.isCriticalCell;
+    this.multiShiftModesEnabled = !!config.multiShiftModesEnabled && (config.modes?.length ?? 0) > 0;
+
+    if (this.multiShiftModesEnabled && config.modes?.length) {
+      this.modes = config.modes.map((m, i) => ({
+        id: m.id,
+        title: m.title,
+        displayOrder: m.displayOrder || i + 1,
+        isDefault: m.isDefault,
+        isActive: m.isActive,
+        minPresencePercent: m.minPresencePercent ?? 70,
+        isCriticalCell: !!m.isCriticalCell,
+        shifts: (m.shifts ?? []).map((s) =>
+          this.mapResponseShift(s, !!m.isCriticalCell),
+        ),
+      }));
+      if (!this.modes.some((m) => m.isDefault) && this.modes.length) {
+        this.modes[0].isDefault = true;
+      }
+      this.activeModeIndex = Math.max(
+        0,
+        this.modes.findIndex((m) => m.isDefault),
+      );
+      if (this.activeModeIndex < 0) this.activeModeIndex = 0;
+      this.bindActiveModeShifts();
+      const anyPresence = this.modes.some((m) => m.minPresencePercent > 0);
+      this.enforceMinPresence = anyPresence;
+      this.minPresencePercent =
+        this.activeMode?.minPresencePercent && this.activeMode.minPresencePercent > 0
+          ? this.activeMode.minPresencePercent
+          : 70;
+      this.isCriticalCell = this.modes.some((m) => m.isActive && m.isCriticalCell);
+    } else {
+      this.modes = [];
+      this.activeModeIndex = 0;
+      this.multiShiftModesEnabled = false;
+      const rawPresence =
+        typeof config.minPresencePercent === 'number'
+          ? config.minPresencePercent
+          : (config.shifts[0]?.minPresencePercent ?? 70);
+      if (rawPresence <= 0) {
+        this.enforceMinPresence = false;
+        this.minPresencePercent = 70;
+      } else {
+        this.enforceMinPresence = true;
+        this.minPresencePercent = rawPresence;
+      }
+      this.shifts = (config.shifts ?? []).map((s) => this.mapResponseShift(s));
+      if (!this.shifts.length) this.initShifts();
+    }
+  }
+
   loadExistingConfig(): void {
     if (!this.subServiceId) return;
     this.loading = true;
 
     this.planningService.getShiftTemplate(this.subServiceId).subscribe({
       next: (config) => {
-        this.savedConfig = config;
-        this.isCriticalCell = !!config.isCriticalCell;
-        const rawPresence =
-          typeof config.minPresencePercent === 'number'
-            ? config.minPresencePercent
-            : (config.shifts[0]?.minPresencePercent ?? 70);
-        if (rawPresence <= 0) {
-          this.enforceMinPresence = false;
-          this.minPresencePercent = 70;
-        } else {
-          this.enforceMinPresence = true;
-          this.minPresencePercent = rawPresence;
-        }
-        this.shifts = config.shifts.map((s) => {
-          const slots =
-            s.breakSlots?.length
-              ? [...s.breakSlots]
-              : this.buildAutoBreakSlots(s.startTime, this.isCriticalCell);
-          return {
-            label: s.label,
-            startTime: s.startTime,
-            workHours: s.workHours,
-            breakDurationMinutes: s.breakDurationMinutes || 60,
-            breakSlots: slots,
-            requiredCount: s.requiredCount,
-            displayOrder: s.displayOrder,
-          };
-        });
+        this.applyLoadedConfig(config);
         this.loading = false;
         this.cdr.detectChanges();
       },
@@ -755,6 +1095,9 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
         this.isCriticalCell = false;
         this.enforceMinPresence = true;
         this.minPresencePercent = 70;
+        this.multiShiftModesEnabled = false;
+        this.modes = [];
+        this.activeModeIndex = 0;
         this.initShifts();
         this.loading = false;
         this.cdr.detectChanges();

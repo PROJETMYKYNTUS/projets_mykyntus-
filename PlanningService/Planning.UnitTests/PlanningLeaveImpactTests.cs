@@ -387,6 +387,8 @@ public class PlanningLeaveImpactTests
         public Task<WeekShiftConfigResponseDto> SaveShiftTemplateAsync(SaveShiftConfigDto dto) => NIAsync<WeekShiftConfigResponseDto>();
         public Task<ShiftConfigStatusResponseDto> GetShiftConfigStatusAsync() => NIAsync<ShiftConfigStatusResponseDto>();
         public Task EnsureWeekSnapshotAsync(int subServiceId, string weekCode, DateOnly weekStartDate, bool forceRefresh = false) => NI();
+        public Task<WeeklyShiftModePlanDto> GetWeeklyShiftModePlanAsync(int subServiceId, string weekCode, DateOnly weekStartDate) => NIAsync<WeeklyShiftModePlanDto>();
+        public Task<WeeklyShiftModePlanDto> SaveWeeklyShiftModePlanAsync(SaveWeeklyShiftModePlanDto dto) => NIAsync<WeeklyShiftModePlanDto>();
         public Task<AutoGenerateWeekResultDto> AutoGenerateWeekAsync(string? weekCode = null, bool forceDraftRefresh = false) => NIAsync<AutoGenerateWeekResultDto>();
         public Task<AutoGenerateSettingsDto> GetAutoGenerateSettingsAsync() => NIAsync<AutoGenerateSettingsDto>();
         public Task<AutoGenerateSettingsDto> SaveAutoGenerateSettingsAsync(AutoGenerateSettingsDto dto, int? updatedByUserId) => NIAsync<AutoGenerateSettingsDto>();

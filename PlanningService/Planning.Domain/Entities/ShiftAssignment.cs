@@ -31,4 +31,11 @@ public class ShiftAssignment
     // ? NOUVEAU � FK vers SubServiceShiftConfig
     public int? SubServiceShiftConfigId { get; set; }
     public SubServiceShiftConfig? SubServiceShiftConfig { get; set; }
+
+    /// <summary>Mode effectivement travaillé ce jour (peut différer du mode hebdomadaire après switch).</summary>
+    public int? ShiftModeProfileId { get; set; }
+    public ShiftModeProfile? ShiftModeProfile { get; set; }
+
+    /// <summary>True si le mode du jour vient d’un switch approuvé (override protégé à la regen).</summary>
+    public bool IsModeOverride { get; set; }
 }

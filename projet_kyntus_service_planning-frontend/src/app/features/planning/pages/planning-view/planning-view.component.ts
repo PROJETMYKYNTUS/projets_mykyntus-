@@ -44,6 +44,10 @@ function dayKeyAliases(day: string): Set<string> {
   return new Set([key]);
 }
 
+type PlanningGridRow =
+  | { kind: 'header'; modeKey: string; modeTitle: string; modeIndex: number; count: number }
+  | { kind: 'employee'; emp: EmployeePlanning; modeKey: string; modeTitle: string; modeIndex: number };
+
 @Component({
   selector: 'app-planning-view',
   standalone: true,
@@ -101,7 +105,9 @@ export class PlanningViewComponent implements OnInit {
   showDayInsights = false;
   insightsDay = '';
   insightsDateLabel = '';
+  /** Index du point survolé + index du graphique (0 = global / mode i). */
   availHoverIndex: number | null = null;
+  availHoverChartKey: string | null = null;
   availTooltipLeft = 50;
   availTooltipTop = 0;
 
@@ -480,8 +486,176 @@ selectedHolidayShiftId      = 0;
     return this.planning?.coverageReport?.plateauAvailabilityTargetPercent ?? 70;
   }
 
-  get availHoverPoint() {
-    const pts = this.insightsSyn?.availabilityTimeline ?? [];
+  /** Modes présents sur les assignations (légende), ordre d’affichage stable. */
+  getUniqueModeTitles(): string[] {
+    return this.getOrderedModeKeys().map((m) => m.title);
+  }
+
+  get hasModeAssignments(): boolean {
+    return this.getOrderedModeKeys().length > 0;
+  }
+
+  get hasSpecialCaseTickets(): boolean {
+    return (this.planning?.assignments ?? []).some((e) => !!e.isSpecialCase);
+  }
+
+  get hasPlateauTrainingTickets(): boolean {
+    return (this.planning?.assignments ?? []).some((e) => !!e.isPlateauTraining);
+  }
+
+  /**
+   * Lignes grille : en multi-modes, en-têtes de groupe + employés triés par mode d’appartenance.
+   * Mono-mode / sans mode : liste plate inchangée.
+   */
+  get planningGridRows(): PlanningGridRow[] {
+    const assignments = this.planning?.assignments ?? [];
+    if (!assignments.length) return [];
+
+    const modes = this.getOrderedModeKeys();
+    if (!modes.length) {
+      return assignments.map((emp) => ({
+        kind: 'employee' as const,
+        emp,
+        modeKey: '',
+        modeTitle: '',
+        modeIndex: -1,
+      }));
+    }
+
+    const modeIndex = new Map(modes.map((m, i) => [m.key, i]));
+    const buckets = new Map<string, EmployeePlanning[]>();
+    for (const m of modes) buckets.set(m.key, []);
+    const orphan: EmployeePlanning[] = [];
+
+    for (const emp of assignments) {
+      const home = this.getEmployeeHomeMode(emp);
+      if (!home.key || !buckets.has(home.key)) {
+        orphan.push(emp);
+        continue;
+      }
+      buckets.get(home.key)!.push(emp);
+    }
+
+    const byName = (a: EmployeePlanning, b: EmployeePlanning) =>
+      a.fullName.localeCompare(b.fullName, 'fr', { sensitivity: 'base' });
+
+    const rows: PlanningGridRow[] = [];
+    for (const m of modes) {
+      const list = (buckets.get(m.key) ?? []).slice().sort(byName);
+      if (!list.length) continue;
+      const idx = modeIndex.get(m.key) ?? 0;
+      rows.push({
+        kind: 'header',
+        modeKey: m.key,
+        modeTitle: m.title,
+        modeIndex: idx,
+        count: list.length,
+      });
+      for (const emp of list) {
+        rows.push({
+          kind: 'employee',
+          emp,
+          modeKey: m.key,
+          modeTitle: m.title,
+          modeIndex: idx,
+        });
+      }
+    }
+
+    if (orphan.length) {
+      const orphanIdx = modes.length;
+      orphan.sort(byName);
+      rows.push({
+        kind: 'header',
+        modeKey: 'orphan',
+        modeTitle: 'Sans mode',
+        modeIndex: orphanIdx,
+        count: orphan.length,
+      });
+      for (const emp of orphan) {
+        rows.push({
+          kind: 'employee',
+          emp,
+          modeKey: 'orphan',
+          modeTitle: 'Sans mode',
+          modeIndex: orphanIdx,
+        });
+      }
+    }
+
+    return rows;
+  }
+
+  /** Mode d’appartenance hebdo = le plus fréquent hors congé/férié (priorité jours non-switch). */
+  getEmployeeHomeMode(emp: EmployeePlanning): { key: string; title: string; profileId: number | null } {
+    type Acc = { profileId: number | null; title: string; n: number; nonOverride: number };
+    const counts = new Map<string, Acc>();
+
+    for (const d of emp.days ?? []) {
+      if (d.isOnLeave || d.isHoliday) continue;
+      const title = (d.shiftModeTitle ?? '').trim();
+      const profileId = d.shiftModeProfileId ?? null;
+      if (!title && profileId == null) continue;
+      const key = profileId != null ? `id:${profileId}` : `t:${title}`;
+      const cur = counts.get(key) ?? { profileId, title, n: 0, nonOverride: 0 };
+      cur.n++;
+      if (!d.isModeOverride) cur.nonOverride++;
+      if (!cur.title && title) cur.title = title;
+      if (cur.profileId == null && profileId != null) cur.profileId = profileId;
+      counts.set(key, cur);
+    }
+
+    if (!counts.size) return { key: '', title: '', profileId: null };
+
+    const best = [...counts.entries()].sort((a, b) => {
+      if (b[1].nonOverride !== a[1].nonOverride) return b[1].nonOverride - a[1].nonOverride;
+      if (b[1].n !== a[1].n) return b[1].n - a[1].n;
+      return a[1].title.localeCompare(b[1].title, 'fr', { numeric: true });
+    })[0];
+
+    return { key: best[0], title: best[1].title || 'Mode', profileId: best[1].profileId };
+  }
+
+  private getOrderedModeKeys(): { key: string; title: string }[] {
+    const map = new Map<string, string>();
+    for (const emp of this.planning?.assignments ?? []) {
+      for (const d of emp.days ?? []) {
+        const title = (d.shiftModeTitle ?? '').trim();
+        const profileId = d.shiftModeProfileId ?? null;
+        if (!title && profileId == null) continue;
+        const key = profileId != null ? `id:${profileId}` : `t:${title}`;
+        if (!map.has(key)) map.set(key, title || `Mode ${profileId}`);
+        else if (title && map.get(key)?.startsWith('Mode ')) map.set(key, title);
+      }
+    }
+    return [...map.entries()]
+      .map(([key, title]) => ({ key, title }))
+      .sort((a, b) => a.title.localeCompare(b.title, 'fr', { numeric: true, sensitivity: 'base' }));
+  }
+
+  modeRowClass(modeIndex: number): string {
+    if (modeIndex < 0) return '';
+    return `row-mode-${modeIndex % 8}`;
+  }
+
+  /** Groupes de quotas par mode pour le modal insights. */
+  quotaGroupsByMode(syn = this.insightsSyn): { title: string; shifts: NonNullable<typeof syn>['shifts'] }[] {
+    const shifts = syn?.shifts ?? [];
+    if (!shifts.length) return [];
+    const hasModes = shifts.some((s) => !!s.shiftModeTitle);
+    if (!hasModes) return [{ title: '', shifts }];
+    const map = new Map<string, typeof shifts>();
+    for (const s of shifts) {
+      const key = s.shiftModeTitle?.trim() || 'Sans mode';
+      const list = map.get(key) ?? [];
+      list.push(s);
+      map.set(key, list);
+    }
+    return [...map.entries()].map(([title, group]) => ({ title, shifts: group }));
+  }
+
+  availHoverPoint(timeline?: { time: string; presentCount: number; onBreakCount: number; availableCount: number; availabilityPercent: number }[] | null) {
+    const pts = timeline ?? this.insightsSyn?.availabilityTimeline ?? [];
     if (this.availHoverIndex == null || this.availHoverIndex < 0 || this.availHoverIndex >= pts.length) {
       return null;
     }
@@ -490,15 +664,21 @@ selectedHolidayShiftId      = 0;
 
   clearAvailHover(): void {
     this.availHoverIndex = null;
+    this.availHoverChartKey = null;
   }
 
-  onAvailChartMove(event: MouseEvent, syn = this.insightsSyn): void {
-    const pts = syn?.availabilityTimeline ?? [];
+  onAvailChartMove(
+    event: MouseEvent,
+    chartKey: string,
+    timeline?: { time: string; availabilityPercent: number }[] | null,
+  ): void {
+    const pts = timeline ?? this.insightsSyn?.availabilityTimeline ?? [];
     if (pts.length === 0) {
       this.clearAvailHover();
       return;
     }
 
+    this.availHoverChartKey = chartKey;
     const el = event.currentTarget as HTMLElement;
     const rect = el.getBoundingClientRect();
     const xPct = Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(1, rect.width)));
@@ -507,13 +687,16 @@ selectedHolidayShiftId      = 0;
     this.availHoverIndex = idx;
     this.availTooltipLeft = n === 1 ? 50 : (idx / (n - 1)) * 100;
     const pct = Math.max(0, Math.min(100, Number(pts[idx].availabilityPercent)));
-    // Align with SVG y (0% at bottom of plot ≈ 40 in viewBox of height 48 → ~83% from top of svg)
     this.availTooltipTop = ((40 - pct * 0.38) / 48) * 100;
   }
 
+  isAvailChartHovered(chartKey: string): boolean {
+    return this.availHoverChartKey === chartKey && this.availHoverIndex != null;
+  }
+
   /** SVG polyline points for availability % (viewBox 0 0 100 40). */
-  availabilityChartPoints(syn = this.insightsSyn): { x: number; y: number }[] {
-    const pts = syn?.availabilityTimeline ?? [];
+  availabilityChartPoints(timeline?: { availabilityPercent: number }[] | null): { x: number; y: number }[] {
+    const pts = timeline ?? this.insightsSyn?.availabilityTimeline ?? [];
     if (pts.length === 0) return [];
     const n = pts.length;
     return pts.map((p, i) => ({
@@ -522,32 +705,33 @@ selectedHolidayShiftId      = 0;
     }));
   }
 
-  availHoverMarker(syn = this.insightsSyn): { x: number; y: number } | null {
-    if (this.availHoverIndex == null) return null;
-    const pts = this.availabilityChartPoints(syn);
+  availHoverMarker(chartKey: string, timeline?: { availabilityPercent: number }[] | null): { x: number; y: number } | null {
+    if (!this.isAvailChartHovered(chartKey) || this.availHoverIndex == null) return null;
+    const pts = this.availabilityChartPoints(timeline);
     return pts[this.availHoverIndex] ?? null;
   }
 
-  availabilityPolyline(syn = this.insightsSyn): string {
-    return this.availabilityChartPoints(syn)
+  availabilityPolyline(timeline?: { availabilityPercent: number }[] | null): string {
+    return this.availabilityChartPoints(timeline)
       .map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)
       .join(' ');
   }
 
-  availabilityAreaPath(syn = this.insightsSyn): string {
-    const pts = this.availabilityChartPoints(syn);
+  availabilityAreaPath(timeline?: { availabilityPercent: number }[] | null): string {
+    const pts = this.availabilityChartPoints(timeline);
     if (pts.length === 0) return '';
     const line = pts.map((p) => `L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
     const lastX = pts[pts.length - 1].x;
     return `M 0 40 ${line} L ${lastX.toFixed(2)} 40 Z`;
   }
 
-  targetLineY(): number {
-    return 40 - Math.max(0, Math.min(100, this.insightsTarget)) * 0.38;
+  targetLineY(targetPercent?: number): number {
+    const t = targetPercent ?? this.insightsTarget;
+    return 40 - Math.max(0, Math.min(100, t)) * 0.38;
   }
 
-  availabilityTickLabels(syn = this.insightsSyn): { x: number; label: string }[] {
-    const pts = syn?.availabilityTimeline ?? [];
+  availabilityTickLabels(timeline?: { time: string }[] | null): { x: number; label: string }[] {
+    const pts = timeline ?? this.insightsSyn?.availabilityTimeline ?? [];
     if (pts.length === 0) return [];
     const n = pts.length;
     const indexes =

@@ -10,7 +10,7 @@ public record CongeDisponibiliteResult(
     IReadOnlyList<string> JoursSatures);
 
 /// <summary>
-/// Règles période interdite + quota service (absents simultanés).
+/// Règles période interdite + quota cellule/service (absents simultanés).
 /// </summary>
 public class CongeReglesService
 {
@@ -43,21 +43,31 @@ public class CongeReglesService
             $"La période chevauche un mois interdit aux congés ({labels}).");
     }
 
-    public async Task AssertQuotaServiceDisponibleAsync(
+    /// <summary>Quota sur un nœud org (service ou cellule Directory).</summary>
+    public Task AssertQuotaServiceDisponibleAsync(
         Guid serviceId,
         DateTime debut,
         DateTime fin,
         Guid? excludeDemandeId = null,
         CancellationToken ct = default)
+        => AssertQuotaServiceDisponibleAsync(serviceId.ToString(), debut, fin, excludeDemandeId, ct);
+
+    public async Task AssertQuotaServiceDisponibleAsync(
+        string serviceId,
+        DateTime debut,
+        DateTime fin,
+        Guid? excludeDemandeId = null,
+        CancellationToken ct = default)
     {
-        if (serviceId == Guid.Empty)
+        var nodeId = QuotaCongeService.NormalizeNodeId(serviceId);
+        if (nodeId is null)
             return;
 
-        var quota = await _quotaRepo.GetByServiceIdAsync(serviceId, ct);
+        var quota = await _quotaRepo.GetByServiceIdAsync(nodeId, ct);
         if (quota is null)
-            return; // pas de limite configurée
+            return;
 
-        var employes = await _employeRepo.GetByServiceIdAsync(serviceId, ct);
+        var employes = await _employeRepo.GetByOrgNodeIdAsync(nodeId, ct);
         var employeIds = employes.Select(e => e.EmployeId).ToList();
         if (employeIds.Count == 0)
             return;
@@ -69,9 +79,28 @@ public class CongeReglesService
         if (saturated.Count == 0)
             return;
 
+        var scopeLabel = QuotaScopeKinds.Normalize(quota.ScopeKind) == QuotaScopeKinds.Cellule
+            ? "cellule"
+            : "service";
         throw new InvalidOperationException(
-            $"Quota service atteint le {saturated[0]:dd/MM/yyyy} " +
+            $"Quota {scopeLabel} atteint le {saturated[0]:dd/MM/yyyy} " +
             $"(max {quota.MaxAbsentsSimultanes} absent(s) simultané(s)).");
+    }
+
+    /// <summary>Applique d’abord le quota cellule de l’employé, sinon le quota service.</summary>
+    public async Task AssertQuotaForEmployeAsync(
+        EmployeSnapshot employe,
+        DateTime debut,
+        DateTime fin,
+        Guid? excludeDemandeId = null,
+        CancellationToken ct = default)
+    {
+        var resolved = await ResolveQuotaContextAsync(employe, ct);
+        if (resolved is null)
+            return;
+
+        await AssertQuotaServiceDisponibleAsync(
+            resolved.Value.NodeId, debut, fin, excludeDemandeId, ct);
     }
 
     public async Task<CongeDisponibiliteResult> EvaluerDisponibiliteAsync(
@@ -84,6 +113,9 @@ public class CongeReglesService
         var config = await _periodeRepo.GetOrCreateAsync(ct);
         var mois = config.GetMois().ToList();
 
+        // Jours des mois interdits dans la plage (pour griser le calendrier).
+        var forbiddenDays = ListForbiddenDaysInRange(debut, fin, mois);
+
         if (config.ChevauchePeriode(debut, fin))
         {
             var labels = string.Join(", ", mois.Select(MoisLabel));
@@ -91,35 +123,68 @@ public class CongeReglesService
                 false,
                 $"La période chevauche un mois interdit aux congés ({labels}).",
                 mois,
-                Array.Empty<string>());
+                forbiddenDays);
         }
 
-        if (employe is null || employe.ServiceId == Guid.Empty)
+        if (employe is null)
             return new CongeDisponibiliteResult(true, null, mois, Array.Empty<string>());
 
-        var quota = await _quotaRepo.GetByServiceIdAsync(employe.ServiceId, ct);
-        if (quota is null)
+        var resolved = await ResolveQuotaContextAsync(employe, ct);
+        if (resolved is null)
             return new CongeDisponibiliteResult(true, null, mois, Array.Empty<string>());
 
-        var peers = await _employeRepo.GetByServiceIdAsync(employe.ServiceId, ct);
+        var peers = await _employeRepo.GetByOrgNodeIdAsync(resolved.Value.NodeId, ct);
         var occupying = await _demandeRepo.GetOccupyingQuotaAsync(
             peers.Select(e => e.EmployeId), debut, fin, null, ct);
 
-        var saturated = FindSaturatedDays(debut, fin, occupying, quota.MaxAbsentsSimultanes);
+        var saturated = FindSaturatedDays(debut, fin, occupying, resolved.Value.Quota.MaxAbsentsSimultanes);
+        var jours = saturated.Select(d => d.ToString("yyyy-MM-dd")).ToList();
+
         if (saturated.Count == 0)
             return new CongeDisponibiliteResult(true, null, mois, Array.Empty<string>());
 
+        var scopeLabel = resolved.Value.ScopeKind == QuotaScopeKinds.Cellule ? "cellule" : "service";
         return new CongeDisponibiliteResult(
             false,
-            $"Quota service atteint le {saturated[0]:dd/MM/yyyy} (max {quota.MaxAbsentsSimultanes} absent(s)).",
+            $"Quota {scopeLabel} atteint le {saturated[0]:dd/MM/yyyy} (max {resolved.Value.Quota.MaxAbsentsSimultanes} absent(s)).",
             mois,
-            saturated.Select(d => d.ToString("yyyy-MM-dd")).ToList());
+            jours);
     }
 
     public async Task<IReadOnlyList<int>> GetMoisInterditsAsync(CancellationToken ct = default)
     {
         var config = await _periodeRepo.GetOrCreateAsync(ct);
         return config.GetMois();
+    }
+
+    private async Task<(string NodeId, QuotaCongeService Quota, string ScopeKind)?> ResolveQuotaContextAsync(
+        EmployeSnapshot employe,
+        CancellationToken ct)
+    {
+        // 1) Quota cellule (id Directory string)
+        var celluleId = QuotaCongeService.NormalizeNodeId(employe.CelluleId);
+        if (celluleId is not null)
+        {
+            var celluleQuota = await _quotaRepo.GetByServiceIdAsync(celluleId, ct);
+            if (celluleQuota is not null)
+            {
+                return (celluleId, celluleQuota, QuotaScopeKinds.Normalize(celluleQuota.ScopeKind));
+            }
+        }
+
+        // 2) Quota service (OrgServiceId Directory ou ServiceId legacy Guid)
+        string? serviceId = QuotaCongeService.NormalizeNodeId(employe.OrgServiceId);
+        if (serviceId is null && employe.ServiceId != Guid.Empty)
+            serviceId = employe.ServiceId.ToString();
+
+        if (serviceId is null)
+            return null;
+
+        var serviceQuota = await _quotaRepo.GetByServiceIdAsync(serviceId, ct);
+        if (serviceQuota is null)
+            return null;
+
+        return (serviceId, serviceQuota, QuotaScopeKinds.Normalize(serviceQuota.ScopeKind));
     }
 
     private static List<DateTime> FindSaturatedDays(
@@ -143,7 +208,30 @@ public class CongeReglesService
         return saturated;
     }
 
-    private static string MoisLabel(int m) => m switch
+    private static IReadOnlyList<string> ListForbiddenDaysInRange(
+        DateTime debut,
+        DateTime fin,
+        IReadOnlyList<int> moisInterdits)
+    {
+        if (moisInterdits.Count == 0)
+            return Array.Empty<string>();
+
+        var set = moisInterdits.ToHashSet();
+        var d = debut.Date;
+        var f = fin.Date;
+        if (f < d) (d, f) = (f, d);
+
+        var days = new List<string>();
+        for (var day = d; day <= f; day = day.AddDays(1))
+        {
+            if (set.Contains(day.Month))
+                days.Add(day.ToString("yyyy-MM-dd"));
+        }
+
+        return days;
+    }
+
+    private static string MoisLabel(int mois) => mois switch
     {
         1 => "janvier",
         2 => "février",
@@ -157,6 +245,6 @@ public class CongeReglesService
         10 => "octobre",
         11 => "novembre",
         12 => "décembre",
-        _ => $"mois {m}"
+        _ => mois.ToString()
     };
 }

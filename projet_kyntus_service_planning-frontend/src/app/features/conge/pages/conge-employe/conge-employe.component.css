@@ -35,7 +35,87 @@
 .badge-cancel { background: var(--bg-input); color: var(--text-muted); }
 .ce-btn-cancel { background: var(--danger-bg); color: var(--danger-text); border: 1px solid var(--danger-border); border-radius: var(--radius-md, 0.5rem); padding: 4px 10px; cursor: pointer; font-size: 12px; font-weight: 600; }
 .ce-modal-overlay { position: fixed; inset: 0; background: color-mix(in srgb, var(--navy-950, #0f172a) 40%, transparent); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.ce-modal { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-card, 0.875rem); width: 100%; max-width: 520px; box-shadow: var(--shadow-3, 0 12px 32px rgb(2 6 23 / 0.16)); overflow: hidden; }
+.ce-modal { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-card, 0.875rem); width: 100%; max-width: 560px; box-shadow: var(--shadow-3, 0 12px 32px rgb(2 6 23 / 0.16)); overflow: hidden; }
+.ce-calendar {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 0.5rem);
+  padding: 12px;
+  background: var(--bg-input);
+}
+.ce-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.ce-cal-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+.ce-cal-nav {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--text-primary);
+}
+.ce-cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.ce-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.ce-cal-day {
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-card);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.ce-cal-day.is-empty {
+  background: transparent;
+  cursor: default;
+}
+.ce-cal-day.is-blocked {
+  background: #e2e8f0;
+  color: #94a3b8;
+  text-decoration: line-through;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+.ce-cal-day.is-range {
+  background: color-mix(in srgb, var(--blue-600) 14%, var(--bg-card));
+}
+.ce-cal-day.is-selected {
+  background: var(--blue-600);
+  color: #fff;
+}
+.ce-cal-day:not(.is-blocked):not(.is-empty):hover {
+  outline: 1px solid var(--blue-600);
+}
+.ce-cal-hint {
+  margin: 8px 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
 .ce-modal-head { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border-color); }
 .ce-modal-head h3 { font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0; }
 .ce-modal-head button { background: none; border: none; font-size: 18px; color: var(--text-muted); cursor: pointer; }

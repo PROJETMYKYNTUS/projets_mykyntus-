@@ -76,14 +76,14 @@ describe('multi-org-selection', () => {
     });
   });
 
-  it('validates empty and primary inclusion', () => {
+  it('validates empty and selection coherence', () => {
     expect(validateMultiOrgSelection(clearMultiOrgSelection(), true)).toMatch(/au moins/);
     expect(
       validateMultiOrgSelection(
         { selectedOrgNodeIds: ['a'], primaryOrgNodeId: 'b' },
         true,
       ),
-    ).toMatch(/principal/);
+    ).toMatch(/incohérente/);
     expect(
       validateMultiOrgSelection(
         { selectedOrgNodeIds: ['a'], primaryOrgNodeId: 'a' },

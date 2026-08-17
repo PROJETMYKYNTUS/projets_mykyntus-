@@ -39,8 +39,8 @@ public class ValiderCongeSuperviseurHandler : IRequestHandler<ValiderCongeSuperv
             ?? throw new EmployeNotFoundException(demande.EmployeId);
 
         await _regles.AssertHorsPeriodeInterditeAsync(demande.DateDebut, demande.DateFin, ct);
-        await _regles.AssertQuotaServiceDisponibleAsync(
-            employe.ServiceId, demande.DateDebut, demande.DateFin, demande.Id, ct);
+        await _regles.AssertQuotaForEmployeAsync(
+            employe, demande.DateDebut, demande.DateFin, demande.Id, ct);
 
         var acteur = await _employeRepo.GetByEmployeIdAsync(request.SuperviseurId, ct);
         demande.ValiderParSuperviseur(
@@ -92,8 +92,8 @@ public class ValiderCongeRhHandler : IRequestHandler<ValiderCongeRhCommand, bool
 
         await _regles.AssertHorsPeriodeInterditeAsync(demande.DateDebut, demande.DateFin, ct);
         // excludeDemandeId : la demande occupe déjà le quota en EnAttenteRh
-        await _regles.AssertQuotaServiceDisponibleAsync(
-            employe.ServiceId, demande.DateDebut, demande.DateFin, demande.Id, ct);
+        await _regles.AssertQuotaForEmployeAsync(
+            employe, demande.DateDebut, demande.DateFin, demande.Id, ct);
 
         var acteur = await _employeRepo.GetByEmployeIdAsync(request.RhId, ct);
         var acteurNom = acteur?.NomComplet;

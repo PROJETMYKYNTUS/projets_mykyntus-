@@ -475,4 +475,109 @@ public static class PlanningSchemaPatches
             """,
             ct);
     }
+
+    /// <summary>
+    /// Multi-modes de shifts : profils, flag cellule, FK mode, matrices hebdomadaires.
+    /// Idempotent. Convertit le template existant en « Mode par défaut » si multi-mode activé plus tard.
+    /// </summary>
+    public static async Task EnsureShiftModeProfilesSchemaAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE "SubServices"
+              ADD COLUMN IF NOT EXISTS "MultiShiftModesEnabled" boolean NOT NULL DEFAULT false;
+
+            CREATE TABLE IF NOT EXISTS "ShiftModeProfiles" (
+                "Id" serial PRIMARY KEY,
+                "SubServiceId" integer NOT NULL,
+                "Title" character varying(100) NOT NULL,
+                "DisplayOrder" integer NOT NULL DEFAULT 0,
+                "IsDefault" boolean NOT NULL DEFAULT false,
+                "IsActive" boolean NOT NULL DEFAULT true,
+                "MinPresencePercent" integer NOT NULL DEFAULT 70,
+                "IsCriticalCell" boolean NOT NULL DEFAULT false,
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp with time zone NULL,
+                "ArchivedAt" timestamp with time zone NULL,
+                CONSTRAINT "FK_ShiftModeProfiles_SubServices"
+                    FOREIGN KEY ("SubServiceId") REFERENCES "SubServices" ("Id") ON DELETE CASCADE
+            );
+            ALTER TABLE "ShiftModeProfiles"
+              ADD COLUMN IF NOT EXISTS "IsCriticalCell" boolean NOT NULL DEFAULT false;
+            CREATE INDEX IF NOT EXISTS "IX_ShiftModeProfiles_SubServiceId_Title"
+              ON "ShiftModeProfiles" ("SubServiceId", "Title");
+
+            ALTER TABLE "SubServiceShiftConfigs"
+              ADD COLUMN IF NOT EXISTS "ShiftModeProfileId" integer NULL;
+            DO $$ BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname = 'FK_SubServiceShiftConfigs_ShiftModeProfiles'
+              ) THEN
+                ALTER TABLE "SubServiceShiftConfigs"
+                  ADD CONSTRAINT "FK_SubServiceShiftConfigs_ShiftModeProfiles"
+                  FOREIGN KEY ("ShiftModeProfileId") REFERENCES "ShiftModeProfiles" ("Id")
+                  ON DELETE SET NULL;
+              END IF;
+            END $$;
+
+            DROP INDEX IF EXISTS "IX_SubServiceShiftConfigs_Template_SubServiceId_Label";
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_SubServiceShiftConfigs_Template_SubService_Mode_Label"
+              ON "SubServiceShiftConfigs" ("SubServiceId", "ShiftModeProfileId", "Label")
+              WHERE "IsTemplate" = TRUE;
+
+            DROP INDEX IF EXISTS "IX_SubServiceShiftConfigs_Snapshot_SubServiceId_WeekCode_Label";
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_SubServiceShiftConfigs_Snapshot_SubService_Week_Mode_Label"
+              ON "SubServiceShiftConfigs" ("SubServiceId", "WeekCode", "ShiftModeProfileId", "Label")
+              WHERE "IsTemplate" = FALSE AND "WeekCode" IS NOT NULL;
+
+            CREATE TABLE IF NOT EXISTS "WeeklyCellShiftModePlans" (
+                "Id" serial PRIMARY KEY,
+                "SubServiceId" integer NOT NULL,
+                "WeekCode" character varying(16) NOT NULL,
+                "WeekStartDate" date NOT NULL,
+                "IsValidated" boolean NOT NULL DEFAULT false,
+                "ValidatedAt" timestamp with time zone NULL,
+                "ValidatedByUserId" integer NULL,
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp with time zone NULL,
+                CONSTRAINT "FK_WeeklyCellShiftModePlans_SubServices"
+                    FOREIGN KEY ("SubServiceId") REFERENCES "SubServices" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_WeeklyCellShiftModePlans_Users"
+                    FOREIGN KEY ("ValidatedByUserId") REFERENCES "Users" ("Id") ON DELETE SET NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_WeeklyCellShiftModePlans_SubService_Week"
+              ON "WeeklyCellShiftModePlans" ("SubServiceId", "WeekCode");
+
+            CREATE TABLE IF NOT EXISTS "WeeklyEmployeeShiftModes" (
+                "Id" serial PRIMARY KEY,
+                "WeeklyCellShiftModePlanId" integer NOT NULL,
+                "UserId" integer NOT NULL,
+                "ShiftModeProfileId" integer NOT NULL,
+                CONSTRAINT "FK_WeeklyEmployeeShiftModes_Plan"
+                    FOREIGN KEY ("WeeklyCellShiftModePlanId") REFERENCES "WeeklyCellShiftModePlans" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_WeeklyEmployeeShiftModes_Users"
+                    FOREIGN KEY ("UserId") REFERENCES "Users" ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_WeeklyEmployeeShiftModes_Profiles"
+                    FOREIGN KEY ("ShiftModeProfileId") REFERENCES "ShiftModeProfiles" ("Id") ON DELETE RESTRICT
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_WeeklyEmployeeShiftModes_Plan_User"
+              ON "WeeklyEmployeeShiftModes" ("WeeklyCellShiftModePlanId", "UserId");
+
+            ALTER TABLE "ShiftAssignments"
+              ADD COLUMN IF NOT EXISTS "ShiftModeProfileId" integer NULL;
+            ALTER TABLE "ShiftAssignments"
+              ADD COLUMN IF NOT EXISTS "IsModeOverride" boolean NOT NULL DEFAULT false;
+            DO $$ BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname = 'FK_ShiftAssignments_ShiftModeProfiles'
+              ) THEN
+                ALTER TABLE "ShiftAssignments"
+                  ADD CONSTRAINT "FK_ShiftAssignments_ShiftModeProfiles"
+                  FOREIGN KEY ("ShiftModeProfileId") REFERENCES "ShiftModeProfiles" ("Id")
+                  ON DELETE SET NULL;
+              END IF;
+            END $$;
+            """,
+            ct);
+    }
 }

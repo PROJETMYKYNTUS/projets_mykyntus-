@@ -63,8 +63,8 @@ public class DemanderCongeHandler : IRequestHandler<DemanderCongeCommand, Guid>
             : request.DateFin;
 
         await _regles.AssertHorsPeriodeInterditeAsync(request.DateDebut, dateFinEffective, ct);
-        await _regles.AssertQuotaServiceDisponibleAsync(
-            employe.ServiceId, request.DateDebut, dateFinEffective, null, ct);
+        await _regles.AssertQuotaForEmployeAsync(
+            employe, request.DateDebut, dateFinEffective, null, ct);
 
         var chevauchement = await _demandeRepo.ExistsCongeEnChevauchementAsync(
             request.EmployeId, request.DateDebut, dateFinEffective, ct);

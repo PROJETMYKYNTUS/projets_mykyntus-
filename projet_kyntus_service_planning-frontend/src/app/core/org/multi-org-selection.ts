@@ -192,10 +192,10 @@ export function validateMultiOrgSelection(
   }
   const primary = state.primaryOrgNodeId.trim();
   if (!primary) {
-    return 'Définissez un périmètre principal.';
+    return 'Sélectionnez au moins un périmètre organisationnel.';
   }
   if (!state.selectedOrgNodeIds.includes(primary)) {
-    return 'Le périmètre principal doit faire partie de la sélection.';
+    return 'La sélection de périmètres est incohérente.';
   }
   return null;
 }
@@ -208,9 +208,6 @@ export function summarizeMultiOrgSelection(
 ): string {
   if (state.selectedOrgNodeIds.length === 0) return '—';
   return state.selectedOrgNodeIds
-    .map((id) => {
-      const label = resolveOrgNodePathLabel(operationalDepartments, unassignedPoles, depth, id);
-      return id === state.primaryOrgNodeId ? `${label} (principal)` : label;
-    })
+    .map((id) => resolveOrgNodePathLabel(operationalDepartments, unassignedPoles, depth, id))
     .join(' · ');
 }

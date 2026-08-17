@@ -4,6 +4,8 @@ import { catchError } from 'rxjs/operators';
 import { PrimeNotificationService } from '../services/notification.service';
 import type { PrimeNotification, PrimeNotificationType } from '../models/notification.model';
 import { KyntusShellUiService } from '../../../core/notifications/kyntus-shell-ui.service';
+import { KyntusSessionService } from '../../../core/session/kyntus-session.service';
+import { mapJwtRoleToPrimeRole } from '../../../core/session/kyntus-role-ui.config';
 import { PrimeAdminService, type AnomalyDto } from '../services/prime-admin.service';
 
 export type { PrimeNotification, PrimeNotificationType } from '../models/notification.model';
@@ -18,9 +20,13 @@ export interface PrimeApiNotification {
   adminSection: 'anomalies';
 }
 
+/** Admin anomalies API — do not call for roles without access (avoids noisy 401s). */
+const ANOMALY_API_ROLES = new Set(['Admin']);
+
 @Injectable({ providedIn: 'root' })
 export class NotificationUiService {
   private readonly shellUi = inject(KyntusShellUiService);
+  private readonly session = inject(KyntusSessionService);
   private readonly primeAdmin = inject(PrimeAdminService);
 
   /** Notifications client (localStorage) — événements UI poussés localement. */
@@ -59,8 +65,13 @@ export class NotificationUiService {
     );
   }
 
-  /** Charge les anomalies ouvertes depuis l’API Prime (échoue silencieusement hors Admin). */
+  /** Charge les anomalies ouvertes depuis l’API Prime (Admin uniquement). */
   async refreshFromApi(): Promise<void> {
+    const primeRole = mapJwtRoleToPrimeRole(this.session.getRole()) ?? this.session.getRole();
+    if (!ANOMALY_API_ROLES.has(primeRole)) {
+      this.apiNotifications.set([]);
+      return;
+    }
     try {
       const rows = await firstValueFrom(
         this.primeAdmin.listAnomalies({ status: 'Open' }).pipe(catchError(() => of<AnomalyDto[]>([]))),

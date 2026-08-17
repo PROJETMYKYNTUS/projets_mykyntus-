@@ -11,7 +11,7 @@ using Planning.Domain.Entities;
 
 namespace Planning.Infrastructure.Services;
 
-public class PlanningService : IPlanningService
+public partial class PlanningService : IPlanningService
 {
     private readonly AppDbContext _context;
     private readonly IHubContext<PlanningHub> _hubContext;
@@ -97,6 +97,18 @@ public class PlanningService : IPlanningService
     private async Task<WeekShiftConfigResponseDto> SaveShiftConfigInternalAsync(
         SaveShiftConfigDto dto, bool isTemplate)
     {
+        var subService = await _context.SubServices.FindAsync(dto.SubServiceId)
+            ?? throw new InvalidOperationException("Sous-service introuvable.");
+
+        if (dto.MultiShiftModesEnabled
+            || (subService.MultiShiftModesEnabled && dto.Modes is { Count: > 0 }))
+        {
+            return await SaveMultiModeShiftConfigAsync(dto, isTemplate);
+        }
+
+        if (subService.MultiShiftModesEnabled && !dto.MultiShiftModesEnabled)
+            subService.MultiShiftModesEnabled = false;
+
         // Upsert (pas delete-all) : conserve les Ids pour les FK
         // PlanningExceptionalRequests.RequestedShiftTemplateId (ON DELETE RESTRICT).
         List<SubServiceShiftConfig> existing;
@@ -141,6 +153,7 @@ public class PlanningService : IPlanningService
             incoming.Add((shift, i, new SubServiceShiftConfig
             {
                 SubServiceId = dto.SubServiceId,
+                ShiftModeProfileId = null,
                 WeekCode = isTemplate ? null : dto.WeekCode,
                 WeekStartDate = isTemplate ? null : dto.WeekStartDate,
                 IsTemplate = isTemplate,
@@ -244,6 +257,7 @@ public class PlanningService : IPlanningService
 
         foreach (var (row, desired) in pairs)
         {
+            row.ShiftModeProfileId = desired.ShiftModeProfileId;
             row.WeekCode = desired.WeekCode;
             row.WeekStartDate = desired.WeekStartDate;
             row.IsTemplate = desired.IsTemplate;
@@ -289,32 +303,7 @@ public class PlanningService : IPlanningService
     }
 
     public async Task<WeekShiftConfigResponseDto?> GetShiftTemplateAsync(int subServiceId)
-    {
-        var subService = await _context.SubServices.FindAsync(subServiceId);
-        if (subService == null) return null;
-
-        var configs = await _context.SubServiceShiftConfigs
-            .Where(c => c.SubServiceId == subServiceId && c.IsTemplate)
-            .OrderBy(c => c.DisplayOrder)
-            .ToListAsync();
-
-        if (configs.Count == 0) return null;
-
-        return new WeekShiftConfigResponseDto
-        {
-            SubServiceId = subServiceId,
-            SubServiceName = subService.Name,
-            WeekCode = string.Empty,
-            WeekStartDate = default,
-            IsTemplate = true,
-            IsCriticalCell = configs.Any(c => c.IsCriticalCell),
-            MinPresencePercent = configs.First().MinPresencePercent <= 0
-                ? 0
-                : configs.First().MinPresencePercent,
-            TotalEffectif = configs.Sum(c => c.RequiredCount),
-            Shifts = configs.Select(MapToShiftConfigResponseDto).ToList()
-        };
-    }
+        => await BuildWeekShiftConfigResponseAsync(subServiceId, isTemplate: true, weekCode: null);
 
     public async Task<ShiftConfigStatusResponseDto> GetShiftConfigStatusAsync()
     {
@@ -374,43 +363,20 @@ public class PlanningService : IPlanningService
     public async Task<WeekShiftConfigResponseDto?> GetShiftConfigAsync(
         int subServiceId, string weekCode)
     {
-        var subService = await _context.SubServices.FindAsync(subServiceId);
-        if (subService == null) return null;
-
-        var configs = await _context.SubServiceShiftConfigs
-            .Where(c => c.SubServiceId == subServiceId
-                     && !c.IsTemplate
-                     && c.WeekCode == weekCode)
-            .OrderBy(c => c.DisplayOrder)
-            .ToListAsync();
+        var snapshot = await BuildWeekShiftConfigResponseAsync(
+            subServiceId, isTemplate: false, weekCode);
+        if (snapshot != null) return snapshot;
 
         // Fallback template si pas encore de snapshot
-        if (configs.Count == 0)
+        var template = await GetShiftTemplateAsync(subServiceId);
+        if (template != null)
         {
-            var template = await GetShiftTemplateAsync(subServiceId);
-            if (template != null)
-            {
-                template.WeekCode = weekCode;
-                template.IsTemplate = true;
-                return template;
-            }
-            return null;
+            template.WeekCode = weekCode;
+            template.IsTemplate = true;
+            return template;
         }
 
-        return new WeekShiftConfigResponseDto
-        {
-            SubServiceId = subServiceId,
-            SubServiceName = subService.Name,
-            WeekCode = weekCode,
-            WeekStartDate = configs.FirstOrDefault()?.WeekStartDate ?? DateOnly.MinValue,
-            IsTemplate = false,
-            IsCriticalCell = configs.Any(c => c.IsCriticalCell),
-            MinPresencePercent = configs.First().MinPresencePercent <= 0
-                ? 0
-                : configs.First().MinPresencePercent,
-            TotalEffectif = configs.Sum(c => c.RequiredCount),
-            Shifts = configs.Select(MapToShiftConfigResponseDto).ToList()
-        };
+        return null;
     }
 
     public async Task EnsureWeekSnapshotAsync(
@@ -446,6 +412,7 @@ public class PlanningService : IPlanningService
             _context.SubServiceShiftConfigs.Add(new SubServiceShiftConfig
             {
                 SubServiceId = subServiceId,
+                ShiftModeProfileId = t.ShiftModeProfileId,
                 WeekCode = weekCode,
                 WeekStartDate = weekStartDate,
                 IsTemplate = false,
@@ -488,22 +455,48 @@ public class PlanningService : IPlanningService
     {
         if (template.Count == 0 || snapshotRows.Count == 0) return;
 
-        var minPresence = template[0].MinPresencePercent <= 0
-            ? 0
-            : Math.Clamp(template[0].MinPresencePercent, 50, 100);
         var isCritical = template.Any(t => t.IsCriticalCell);
+        var multiMode = template.Any(t => t.ShiftModeProfileId.HasValue);
         var changed = false;
 
         foreach (var row in snapshotRows)
         {
+            SubServiceShiftConfig? match = null;
+            if (multiMode && row.ShiftModeProfileId.HasValue)
+            {
+                match = template.FirstOrDefault(t =>
+                    t.ShiftModeProfileId == row.ShiftModeProfileId
+                    && string.Equals(t.Label?.Trim(), row.Label?.Trim(), StringComparison.OrdinalIgnoreCase));
+                match ??= template.FirstOrDefault(t => t.ShiftModeProfileId == row.ShiftModeProfileId);
+            }
+            else
+            {
+                match = template.FirstOrDefault(t =>
+                    string.Equals(t.Label?.Trim(), row.Label?.Trim(), StringComparison.OrdinalIgnoreCase));
+                match ??= template[0];
+            }
+
+            var minPresence = (match ?? template[0]).MinPresencePercent <= 0
+                ? 0
+                : Math.Clamp((match ?? template[0]).MinPresencePercent, 50, 100);
+            var rowCritical = multiMode
+                ? (match ?? template[0]).IsCriticalCell
+                : isCritical;
+
             if (row.MinPresencePercent != minPresence)
             {
                 row.MinPresencePercent = minPresence;
                 changed = true;
             }
-            if (row.IsCriticalCell != isCritical)
+            if (row.IsCriticalCell != rowCritical)
             {
-                row.IsCriticalCell = isCritical;
+                row.IsCriticalCell = rowCritical;
+                changed = true;
+            }
+            if (match?.ShiftModeProfileId != null
+                && row.ShiftModeProfileId != match.ShiftModeProfileId)
+            {
+                row.ShiftModeProfileId = match.ShiftModeProfileId;
                 changed = true;
             }
         }
@@ -586,10 +579,15 @@ public class PlanningService : IPlanningService
                 .ToListAsync();
             frozenSnapshot = frozen.Select(CloneShiftAssignment).ToList();
 
-            var toRemove = await _context.ShiftAssignments
+            var toRemoveQuery = await _context.ShiftAssignments
                 .Where(a => a.WeeklyPlanningId == planning.Id
                             && a.AssignedDate >= regenerateFrom!.Value)
                 .ToListAsync();
+
+            // Overrides de mode (switch approuvé) : conserver, ne pas régénérer
+            var modeOverrides = toRemoveQuery.Where(a => a.IsModeOverride).ToList();
+            frozenSnapshot.AddRange(modeOverrides.Select(CloneShiftAssignment));
+            var toRemove = toRemoveQuery.Where(a => !a.IsModeOverride).ToList();
             _context.ShiftAssignments.RemoveRange(toRemove);
             await _context.SaveChangesAsync();
 
@@ -638,7 +636,19 @@ public class PlanningService : IPlanningService
 
         planning.TotalEffectif = employees.Count;
 
-        // RequiredCount = besoin prod RH : ne jamais le modifier à la génération.
+        var subService = planning.SubService
+            ?? await _context.SubServices.FindAsync(subServiceId);
+        Dictionary<int, int>? employeeModeMap = null;
+        if (subService?.MultiShiftModesEnabled == true)
+        {
+            employeeModeMap = await ResolveEmployeeModeMapAsync(
+                subServiceId, weekCode, employees.Select(e => e.Id).ToList());
+            var headcountByMode = employeeModeMap
+                .GroupBy(kv => kv.Value)
+                .ToDictionary(g => g.Key, g => g.Count());
+            ApplyModeRequiredCounts(shiftConfigs, headcountByMode);
+            await _context.SaveChangesAsync(); // persist adjusted RequiredCount on snapshot
+        }
 
         await AutoAssignSaturdayGroupsAsync(planning.SubServiceId);
 
@@ -675,26 +685,44 @@ public class PlanningService : IPlanningService
         var orderedShifts = shiftConfigs.OrderBy(sc => sc.DisplayOrder).ToList();
 
         var employeeStartShiftIndex = new Dictionary<int, int>();
-        int cumulative = 0;
-        for (int shiftIdx = 0; shiftIdx < orderedShifts.Count; shiftIdx++)
+        if (employeeModeMap != null)
         {
-            for (int q = 0; q < orderedShifts[shiftIdx].RequiredCount; q++)
+            foreach (var modeId in employeeModeMap.Values.Distinct())
             {
-                if (cumulative < employees.Count)
-                {
-                    var empStartIdx = (shiftIdx + currentWeekNumber) % orderedShifts.Count;
-                    employeeStartShiftIndex[employees[cumulative].Id] = empStartIdx;
-                    cumulative++;
-                }
+                var modeEmployees = employees
+                    .Where(e => employeeModeMap[e.Id] == modeId)
+                    .OrderBy(e => e.Id)
+                    .ToList();
+                var modeShifts = orderedShifts
+                    .Where(s => s.ShiftModeProfileId == modeId)
+                    .ToList();
+                foreach (var kv in BuildEmployeeStartShiftIndex(
+                             modeEmployees, modeShifts, currentWeekNumber))
+                    employeeStartShiftIndex[kv.Key] = kv.Value;
             }
         }
-
-        // Employés au-delà de la somme des quotas prod → rotation libre (surplus)
-        while (cumulative < employees.Count)
+        else
         {
-            var empStartIdx = (cumulative + currentWeekNumber) % orderedShifts.Count;
-            employeeStartShiftIndex[employees[cumulative].Id] = empStartIdx;
-            cumulative++;
+            foreach (var kv in BuildEmployeeStartShiftIndex(
+                         employees, orderedShifts, currentWeekNumber))
+                employeeStartShiftIndex[kv.Key] = kv.Value;
+        }
+
+        var modeOverrideKeys = frozenSnapshot
+            .Where(a => a.IsModeOverride)
+            .Select(a => (a.UserId, a.AssignedDate))
+            .ToHashSet();
+
+        int? ResolveAssignmentModeId(int empId, SubServiceShiftConfig? config) =>
+            employeeModeMap != null && employeeModeMap.TryGetValue(empId, out var mid)
+                ? mid
+                : config?.ShiftModeProfileId;
+
+        List<SubServiceShiftConfig> ShiftsForEmployee(int empId)
+        {
+            if (employeeModeMap != null && employeeModeMap.TryGetValue(empId, out var mid))
+                return orderedShifts.Where(s => s.ShiftModeProfileId == mid).ToList();
+            return orderedShifts;
         }
 
         // Demandes exceptionnelles Approved → pin (userId, date) → snapshot shift
@@ -729,11 +757,14 @@ public class PlanningService : IPlanningService
                 continue;
             }
 
-            // ? Jour f�ri� ? tous F�RI�
+            // ? Jour férié ? tous FÉRIÉ
             if (holidays.Contains(date))
             {
                 foreach (var emp in employees)
                 {
+                    if (modeOverrideKeys.Contains((emp.Id, date)))
+                        continue;
+
                     assignments.Add(new ShiftAssignment
                     {
                         WeeklyPlanningId = planning.Id,
@@ -744,7 +775,8 @@ public class PlanningService : IPlanningService
                         IsSaturday = false,
                         IsOnLeave = false,
                         IsHoliday = true,
-                        IsNewEmployee = IsBeginnerLevel(emp)
+                        IsNewEmployee = IsBeginnerLevel(emp),
+                        ShiftModeProfileId = ResolveAssignmentModeId(emp.Id, null)
                     });
                 }
                 dayIdx++;
@@ -752,13 +784,15 @@ public class PlanningService : IPlanningService
             }
 
             var availableEmployees = employees.Where(e =>
-                !conges.Any(c =>
+                !modeOverrideKeys.Contains((e.Id, date))
+                && !conges.Any(c =>
                     c.UserId == e.Id &&
                     c.StartDate <= date &&
                     c.EndDate >= date)).ToList();
 
             var onLeaveEmployees = employees.Where(e =>
-                conges.Any(c =>
+                !modeOverrideKeys.Contains((e.Id, date))
+                && conges.Any(c =>
                     c.UserId == e.Id &&
                     c.StartDate <= date &&
                     c.EndDate >= date))
@@ -776,7 +810,8 @@ public class PlanningService : IPlanningService
                     IsSaturday = false,
                     IsOnLeave = true,
                     IsHoliday = false,
-                    IsNewEmployee = IsBeginnerLevel(emp)
+                    IsNewEmployee = IsBeginnerLevel(emp),
+                    ShiftModeProfileId = ResolveAssignmentModeId(emp.Id, null)
                 });
             }
 
@@ -785,6 +820,10 @@ public class PlanningService : IPlanningService
             foreach (var emp in availableEmployees)
             {
                 SubServiceShiftConfig finalShift;
+                var empShifts = ShiftsForEmployee(emp.Id);
+                if (empShifts.Count == 0)
+                    continue;
+
                 var isPinned = exceptionalPins.TryGetValue((emp.Id, date), out var pinnedShift)
                                && pinnedShift != null;
 
@@ -799,7 +838,7 @@ public class PlanningService : IPlanningService
                         : 0;
 
                     var selected = ShiftDispersionSelector.Select(
-                        orderedShifts,
+                        empShifts,
                         startIdx,
                         dayIdx,
                         emp.Id,
@@ -831,7 +870,8 @@ public class PlanningService : IPlanningService
                     IsHoliday = false,
                     IsNewEmployee = IsBeginnerLevel(emp),
                     IsManagerOverride = isPinned,
-                    IsExceptionalRequest = isPinned
+                    IsExceptionalRequest = isPinned,
+                    ShiftModeProfileId = ResolveAssignmentModeId(emp.Id, finalShift)
                 });
             }
 
@@ -874,6 +914,9 @@ public class PlanningService : IPlanningService
             // Samedi férié → affichage FÉRIÉ pour tous ; rotation intended déjà calculée
             foreach (var emp in employees)
             {
+                if (modeOverrideKeys.Contains((emp.Id, saturdayDate)))
+                    continue;
+
                 assignments.Add(new ShiftAssignment
                 {
                     WeeklyPlanningId = planning.Id,
@@ -884,7 +927,8 @@ public class PlanningService : IPlanningService
                     IsSaturday = true,
                     IsOnLeave = false,
                     IsHoliday = true,
-                    IsNewEmployee = IsBeginnerLevel(emp)
+                    IsNewEmployee = IsBeginnerLevel(emp),
+                    ShiftModeProfileId = ResolveAssignmentModeId(emp.Id, null)
                 });
             }
         }
@@ -892,10 +936,25 @@ public class PlanningService : IPlanningService
         {
             // Compteurs d'équité demi-journée Débutant (créneau 1 = plus tôt, 2 = suivant)
             var beginnerHalfDaySlotCounts = new Dictionary<int, int> { [1] = 0, [2] = 0 };
+            var modeLocalIndex = new Dictionary<int, int>();
 
             for (int empIndex = 0; empIndex < employees.Count; empIndex++)
             {
                 var employee = employees[empIndex];
+                if (modeOverrideKeys.Contains((employee.Id, saturdayDate)))
+                    continue;
+
+                var empSatShifts = ShiftsForEmployee(employee.Id);
+                var localIdx = 0;
+                if (employeeModeMap != null && employeeModeMap.TryGetValue(employee.Id, out var satModeId))
+                {
+                    localIdx = modeLocalIndex.GetValueOrDefault(satModeId, 0);
+                    modeLocalIndex[satModeId] = localIdx + 1;
+                }
+                else
+                {
+                    localIdx = empIndex;
+                }
 
                 bool isOnLeaveSaturday = conges.Any(c =>
                     c.UserId == employee.Id &&
@@ -914,7 +973,8 @@ public class PlanningService : IPlanningService
                         IsSaturday = true,
                         IsOnLeave = true,
                         IsHoliday = false,
-                        IsNewEmployee = IsBeginnerLevel(employee)
+                        IsNewEmployee = IsBeginnerLevel(employee),
+                        ShiftModeProfileId = ResolveAssignmentModeId(employee.Id, null)
                     });
                 }
                 else if (exceptionalPins.TryGetValue((employee.Id, saturdayDate), out var satPinned)
@@ -932,7 +992,8 @@ public class PlanningService : IPlanningService
                         IsHoliday = false,
                         IsNewEmployee = IsBeginnerLevel(employee),
                         IsManagerOverride = true,
-                        IsExceptionalRequest = true
+                        IsExceptionalRequest = true,
+                        ShiftModeProfileId = ResolveAssignmentModeId(employee.Id, satPinned)
                     });
                     saturdayShiftCountToday[satPinned.Id] =
                         saturdayShiftCountToday.GetValueOrDefault(satPinned.Id, 0) + 1;
@@ -959,7 +1020,8 @@ public class PlanningService : IPlanningService
                         IsNewEmployee = IsBeginnerLevel(employee),
                         IsManagerOverride = true,
                         IsReinforcement = true,
-                        IsHalfDaySaturday = renPinned.WorkHours <= 4
+                        IsHalfDaySaturday = renPinned.WorkHours <= 4,
+                        ShiftModeProfileId = ResolveAssignmentModeId(employee.Id, renPinned)
                     });
                     saturdayShiftCountToday[renPinned.Id] =
                         saturdayShiftCountToday.GetValueOrDefault(renPinned.Id, 0) + 1;
@@ -973,7 +1035,7 @@ public class PlanningService : IPlanningService
                 else
                 {
                     var satAssignment = await GenerateSaturdayAssignmentFromConfigAsync(
-                        employee, planning, shiftConfigs, saturdayGroups, empIndex,
+                        employee, planning, empSatShifts, saturdayGroups, localIdx,
                         beginnerHalfDaySlotCounts,
                         weekShiftHistoryByUser,
                         usersByIdForSelect,
@@ -982,6 +1044,12 @@ public class PlanningService : IPlanningService
 
                     if (satAssignment != null)
                     {
+                        var satCfg = satAssignment.SubServiceShiftConfigId is int sid0
+                            ? empSatShifts.FirstOrDefault(c => c.Id == sid0)
+                              ?? shiftConfigs.FirstOrDefault(c => c.Id == sid0)
+                            : null;
+                        satAssignment.ShiftModeProfileId =
+                            ResolveAssignmentModeId(employee.Id, satCfg);
                         assignments.Add(satAssignment);
                         if (satAssignment.SubServiceShiftConfigId.HasValue)
                         {
@@ -1002,10 +1070,41 @@ public class PlanningService : IPlanningService
         } // end regenerateSaturday
 
         var usersById = employees.ToDictionary(e => e.Id);
-        ShiftDispersionSelector.RepairWeekdayDispersion(assignments, shiftConfigs, usersById);
-        ShiftDispersionSelector.RepairFairness(assignments, shiftConfigs, usersById);
-        // Niveau en dernier : priorité production (débutant jamais seul) > permutations.
-        LevelBalanceRepairer.Repair(assignments, shiftConfigs, usersById, employees, planning);
+        if (employeeModeMap != null)
+        {
+            foreach (var modeId in employeeModeMap.Values.Distinct())
+            {
+                var modeEmpIds = employees
+                    .Where(e => employeeModeMap[e.Id] == modeId)
+                    .Select(e => e.Id)
+                    .ToHashSet();
+                var modeAssignments = assignments
+                    .Where(a => a.ShiftModeProfileId == modeId
+                                || (a.ShiftModeProfileId == null && modeEmpIds.Contains(a.UserId)))
+                    .ToList();
+                var modeConfigs = shiftConfigs
+                    .Where(c => c.ShiftModeProfileId == modeId)
+                    .ToList();
+                var modeUsers = usersById
+                    .Where(kv => modeEmpIds.Contains(kv.Key))
+                    .ToDictionary(kv => kv.Key, kv => kv.Value);
+                var modeRoster = employees.Where(e => modeEmpIds.Contains(e.Id)).ToList();
+
+                ShiftDispersionSelector.RepairWeekdayDispersion(
+                    modeAssignments, modeConfigs, modeUsers);
+                ShiftDispersionSelector.RepairFairness(
+                    modeAssignments, modeConfigs, modeUsers);
+                LevelBalanceRepairer.Repair(
+                    modeAssignments, modeConfigs, modeUsers, modeRoster, planning);
+            }
+        }
+        else
+        {
+            ShiftDispersionSelector.RepairWeekdayDispersion(assignments, shiftConfigs, usersById);
+            ShiftDispersionSelector.RepairFairness(assignments, shiftConfigs, usersById);
+            // Niveau en dernier : priorité production (débutant jamais seul) > permutations.
+            LevelBalanceRepairer.Repair(assignments, shiftConfigs, usersById, employees, planning);
+        }
 
         if (regenerateSaturday)
         {
@@ -1036,16 +1135,60 @@ public class PlanningService : IPlanningService
             .ToList();
 
         foreach (var dayGroup in workDayAssignments)
-            AssignBreakTimesFromConfig(
-                dayGroup.ToList(), shiftConfigs, employees.Count, fairnessCounters, specialCaseUserIds);
+        {
+            if (employeeModeMap != null)
+            {
+                foreach (var modeGroup in dayGroup.GroupBy(a => a.ShiftModeProfileId))
+                {
+                    var modeConfigs = modeGroup.Key is int mid
+                        ? shiftConfigs.Where(c => c.ShiftModeProfileId == mid).ToList()
+                        : shiftConfigs;
+                    if (modeConfigs.Count == 0)
+                        modeConfigs = shiftConfigs;
+                    AssignBreakTimesFromConfig(
+                        modeGroup.ToList(),
+                        modeConfigs,
+                        modeGroup.Count(),
+                        fairnessCounters,
+                        specialCaseUserIds);
+                }
+            }
+            else
+            {
+                AssignBreakTimesFromConfig(
+                    dayGroup.ToList(), shiftConfigs, employees.Count, fairnessCounters, specialCaseUserIds);
+            }
+        }
 
         var saturdayWorkAssignments = assignments
             .Where(a => a.IsSaturday && !a.IsOnLeave && !a.IsHoliday
                      && a.SubServiceShiftConfigId != null)
             .ToList();
         if (saturdayWorkAssignments.Any())
-            AssignBreakTimesFromConfig(
-                saturdayWorkAssignments, shiftConfigs, employees.Count, fairnessCounters, specialCaseUserIds);
+        {
+            if (employeeModeMap != null)
+            {
+                foreach (var modeGroup in saturdayWorkAssignments.GroupBy(a => a.ShiftModeProfileId))
+                {
+                    var modeConfigs = modeGroup.Key is int mid
+                        ? shiftConfigs.Where(c => c.ShiftModeProfileId == mid).ToList()
+                        : shiftConfigs;
+                    if (modeConfigs.Count == 0)
+                        modeConfigs = shiftConfigs;
+                    AssignBreakTimesFromConfig(
+                        modeGroup.ToList(),
+                        modeConfigs,
+                        modeGroup.Count(),
+                        fairnessCounters,
+                        specialCaseUserIds);
+                }
+            }
+            else
+            {
+                AssignBreakTimesFromConfig(
+                    saturdayWorkAssignments, shiftConfigs, employees.Count, fairnessCounters, specialCaseUserIds);
+            }
+        }
 
         // Diversité +3h / +4h / +5h : même niveau, même shift — sans casser P
         RepairBreakOffsetDiversity(assignments, shiftConfigs, usersById);
@@ -1097,8 +1240,47 @@ public class PlanningService : IPlanningService
         IsHalfDaySaturday = a.IsHalfDaySaturday,
         SaturdaySlot = a.SaturdaySlot,
         IsHoliday = a.IsHoliday,
-        SubServiceShiftConfigId = a.SubServiceShiftConfigId
+        SubServiceShiftConfigId = a.SubServiceShiftConfigId,
+        ShiftModeProfileId = a.ShiftModeProfileId,
+        IsModeOverride = a.IsModeOverride
     };
+
+    private static Dictionary<int, int> BuildEmployeeStartShiftIndex(
+        IReadOnlyList<User> modeEmployees,
+        IReadOnlyList<SubServiceShiftConfig> modeShifts,
+        int currentWeekNumber)
+    {
+        var employeeStartShiftIndex = new Dictionary<int, int>();
+        if (modeEmployees.Count == 0)
+            return employeeStartShiftIndex;
+
+        var orderedShifts = modeShifts.OrderBy(sc => sc.DisplayOrder).ToList();
+        if (orderedShifts.Count == 0)
+            return employeeStartShiftIndex;
+
+        int cumulative = 0;
+        for (int shiftIdx = 0; shiftIdx < orderedShifts.Count; shiftIdx++)
+        {
+            for (int q = 0; q < orderedShifts[shiftIdx].RequiredCount; q++)
+            {
+                if (cumulative < modeEmployees.Count)
+                {
+                    var empStartIdx = (shiftIdx + currentWeekNumber) % orderedShifts.Count;
+                    employeeStartShiftIndex[modeEmployees[cumulative].Id] = empStartIdx;
+                    cumulative++;
+                }
+            }
+        }
+
+        while (cumulative < modeEmployees.Count)
+        {
+            var empStartIdx = (cumulative + currentWeekNumber) % orderedShifts.Count;
+            employeeStartShiftIndex[modeEmployees[cumulative].Id] = empStartIdx;
+            cumulative++;
+        }
+
+        return employeeStartShiftIndex;
+    }
 
     // ----------------------------------------------------
     // METTRE SAMEDI OFF (supprimer l'assignation)
@@ -1436,6 +1618,8 @@ public class PlanningService : IPlanningService
                 .ThenInclude(a => a.Shift)
             .Include(p => p.ShiftAssignments)
                 .ThenInclude(a => a.SubServiceShiftConfig)
+            .Include(p => p.ShiftAssignments)
+                .ThenInclude(a => a.ShiftModeProfile)
             .Where(p => p.Status == PlanningStatus.Published
                      && p.ShiftAssignments.Any(a => a.UserId == userId))
             .OrderByDescending(p => p.WeekStartDate)
@@ -2110,6 +2294,8 @@ public class PlanningService : IPlanningService
                 .ThenInclude(a => a.Shift)
             .Include(p => p.ShiftAssignments)
                 .ThenInclude(a => a.SubServiceShiftConfig)
+            .Include(p => p.ShiftAssignments)
+                .ThenInclude(a => a.ShiftModeProfile)
             .FirstOrDefaultAsync(p => p.WeekCode == weekCode &&
                                       p.ShiftAssignments.Any(a => a.UserId == userId) &&
                                       p.Status == PlanningStatus.Published);
@@ -2142,6 +2328,8 @@ public class PlanningService : IPlanningService
                 .ThenInclude(a => a.Shift)
             .Include(p => p.ShiftAssignments.Where(a => a.UserId == userId))
                 .ThenInclude(a => a.SubServiceShiftConfig)
+            .Include(p => p.ShiftAssignments.Where(a => a.UserId == userId))
+                .ThenInclude(a => a.ShiftModeProfile)
             .Where(p => p.ShiftAssignments.Any(a => a.UserId == userId) &&
                         p.Status == PlanningStatus.Published)
             .OrderByDescending(p => p.WeekStartDate)
@@ -2185,6 +2373,8 @@ public class PlanningService : IPlanningService
                 .ThenInclude(a => a.Shift)
             .Include(p => p.ShiftAssignments.Where(a => a.UserId == planningUserId))
                 .ThenInclude(a => a.SubServiceShiftConfig)
+            .Include(p => p.ShiftAssignments.Where(a => a.UserId == planningUserId))
+                .ThenInclude(a => a.ShiftModeProfile)
             .Where(p => p.ShiftAssignments.Any(a => a.UserId == planningUserId)
                         && p.Status == PlanningStatus.Published);
 
@@ -2313,6 +2503,7 @@ public class PlanningService : IPlanningService
             .Include(p => p.WeeklyShiftConfigs).ThenInclude(c => c.Shift)
             .Include(p => p.ShiftAssignments).ThenInclude(a => a.Shift)
             .Include(p => p.ShiftAssignments).ThenInclude(a => a.SubServiceShiftConfig)
+            .Include(p => p.ShiftAssignments).ThenInclude(a => a.ShiftModeProfile)
             .Include(p => p.ShiftAssignments).ThenInclude(a => a.User)
             .FirstOrDefaultAsync(p => p.Id == id);
 
@@ -2385,7 +2576,11 @@ public class PlanningService : IPlanningService
             .Where(u => u != null)
             .GroupBy(u => u!.Id)
             .ToDictionary(g => g.Key, g => g.First()!);
-        var coverage = BuildCoverageReport(planning, subConfigs, usersForCoverage);
+        var modeProfiles = await _context.ShiftModeProfiles
+            .AsNoTracking()
+            .Where(p => p.SubServiceId == planning.SubServiceId)
+            .ToListAsync();
+        var coverage = BuildCoverageReport(planning, subConfigs, usersForCoverage, modeProfiles);
 
         var exceptionalApplied = await LoadExceptionalAppliedKeysAsync(
             planning.WeekCode, planning.SubServiceId);
@@ -2404,16 +2599,25 @@ public class PlanningService : IPlanningService
             CoverageReport = coverage,
             Assignments = planning.ShiftAssignments
                 .GroupBy(a => a.UserId)
-                .Select(g => new EmployeePlanningDto
+                .Select(g =>
                 {
-                    UserId = g.Key,
-                    FullName = $"{g.First().User.FirstName} {g.First().User.LastName}",
-                    IsNewEmployee = g.First().IsNewEmployee,
-                    Level = g.First().User.Level,
-                    ManagerComment = comments.FirstOrDefault(c => c.UserId == g.Key)?.Comment,
-                    Days = g.OrderBy(a => a.AssignedDate)
-                             .Select(a => MapToDayDtoNew(a, conges, exceptionalApplied))
-                             .ToList()
+                    var user = g.First().User;
+                    return new EmployeePlanningDto
+                    {
+                        UserId = g.Key,
+                        FullName = $"{user.FirstName} {user.LastName}",
+                        IsNewEmployee = g.First().IsNewEmployee,
+                        Level = user.Level,
+                        ManagerComment = comments.FirstOrDefault(c => c.UserId == g.Key)?.Comment,
+                        IsSpecialCase = user.IsSpecialCase,
+                        SpecialCaseDescription = user.IsSpecialCase
+                            ? user.SpecialCaseDescription
+                            : null,
+                        IsPlateauTraining = user.IsPlateauTraining,
+                        Days = g.OrderBy(a => a.AssignedDate)
+                                 .Select(a => MapToDayDtoNew(a, conges, exceptionalApplied))
+                                 .ToList()
+                    };
                 }).ToList()
         };
     }
@@ -3107,7 +3311,8 @@ public class PlanningService : IPlanningService
     private static CoverageReportDto BuildCoverageReport(
         WeeklyPlanning planning,
         List<SubServiceShiftConfig> shiftConfigs,
-        IReadOnlyDictionary<int, User>? usersById = null)
+        IReadOnlyDictionary<int, User>? usersById = null,
+        IReadOnlyList<ShiftModeProfile>? modeProfiles = null)
     {
         var report = new CoverageReportDto();
         if (shiftConfigs.Count == 0)
@@ -3117,6 +3322,15 @@ public class PlanningService : IPlanningService
             .Where(a => a.User != null)
             .GroupBy(a => a.UserId)
             .ToDictionary(g => g.Key, g => g.First().User);
+
+        var modeTitleById = (modeProfiles ?? Array.Empty<ShiftModeProfile>())
+            .GroupBy(p => p.Id)
+            .ToDictionary(g => g.Key, g => g.First());
+        foreach (var a in planning.ShiftAssignments)
+        {
+            if (a.ShiftModeProfile != null && !modeTitleById.ContainsKey(a.ShiftModeProfile.Id))
+                modeTitleById[a.ShiftModeProfile.Id] = a.ShiftModeProfile;
+        }
 
         var levelAnomalies = LevelBalanceEvaluator.Evaluate(
             planning.ShiftAssignments, shiftConfigs, usersById, usersById?.Values.ToList());
@@ -3211,6 +3425,42 @@ public class PlanningService : IPlanningService
                 ? 100m
                 : daySynth.AvailabilityTimeline.Min(p => p.AvailabilityPercent);
             dailyPlateauValues.Add(daySynth.PlateauAvailabilityPercent);
+
+            if (dayPresent.Any(a => a.ShiftModeProfileId.HasValue))
+            {
+                foreach (var modeId in dayPresent
+                             .Where(a => a.ShiftModeProfileId.HasValue)
+                             .Select(a => a.ShiftModeProfileId!.Value)
+                             .Distinct()
+                             .OrderBy(id => id))
+                {
+                    var modePresent = dayPresent
+                        .Where(a => a.ShiftModeProfileId == modeId)
+                        .ToList();
+                    var modeConfigs = shiftConfigs
+                        .Where(c => c.ShiftModeProfileId == modeId)
+                        .ToList();
+                    if (modeConfigs.Count == 0)
+                        modeConfigs = shiftConfigs;
+
+                    var modeTimeline = BuildDayAvailabilityTimeline(
+                        modePresent, modeConfigs, breakDurationMinutes);
+                    modeTitleById.TryGetValue(modeId, out var profile);
+                    var target = profile?.MinPresencePercent ?? cellMinPresence;
+                    daySynth.AvailabilityByMode.Add(new DayModeAvailabilityDto
+                    {
+                        ShiftModeProfileId = modeId,
+                        ShiftModeTitle = profile?.Title ?? string.Empty,
+                        TargetPercent = target <= 0
+                            ? 0
+                            : Math.Clamp(target, 50, 100),
+                        PlateauAvailabilityPercent = modeTimeline.Count == 0
+                            ? 100m
+                            : modeTimeline.Min(p => p.AvailabilityPercent),
+                        AvailabilityTimeline = modeTimeline
+                    });
+                }
+            }
 
             // Présence min cellule : pic de pauses qui se chevauchent (durée 1h)
             var cellPresenceIssue = false;
@@ -3323,6 +3573,11 @@ public class PlanningService : IPlanningService
                     ShiftConfigId = cfg.Id,
                     ShiftLabel = cfg.Label,
                     ShiftKind = cfg.ShiftKind.ToString(),
+                    ShiftModeProfileId = cfg.ShiftModeProfileId,
+                    ShiftModeTitle = cfg.ShiftModeProfileId is int mid
+                        && modeTitleById.TryGetValue(mid, out var modeProf)
+                        ? modeProf.Title
+                        : null,
                     AssignedCount = assigned,
                     RequiredCount = dayRequired,
                     Delta = assigned - dayRequired,
@@ -3651,7 +3906,10 @@ public class PlanningService : IPlanningService
             IsHoliday = a.IsHoliday,
             HolidayName = a.IsHoliday
                 ? FrenchHolidayHelper.GetHolidayName(a.AssignedDate)
-                : string.Empty
+                : string.Empty,
+            ShiftModeProfileId = a.ShiftModeProfileId,
+            ShiftModeTitle = a.ShiftModeProfile?.Title,
+            IsModeOverride = a.IsModeOverride
         };
     }
 
@@ -3696,7 +3954,8 @@ public class PlanningService : IPlanningService
             Percentage = c.Percentage,
             MinPresencePercent = c.MinPresencePercent,
             DisplayOrder = c.DisplayOrder,
-            ShiftKind = c.ShiftKind.ToString()
+            ShiftKind = c.ShiftKind.ToString(),
+            ShiftModeProfileId = c.ShiftModeProfileId
         };
     }
 

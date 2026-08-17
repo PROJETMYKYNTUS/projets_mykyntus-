@@ -32,6 +32,9 @@ public class AppDbContext : DbContext
     public DbSet<PlanningComment> PlanningComments { get; set; } = null!;
     public DbSet<SaturdayHistory> SaturdayHistories => Set<SaturdayHistory>();
     public DbSet<SubServiceShiftConfig> SubServiceShiftConfigs { get; set; } = null!;
+    public DbSet<ShiftModeProfile> ShiftModeProfiles { get; set; } = null!;
+    public DbSet<WeeklyCellShiftModePlan> WeeklyCellShiftModePlans { get; set; } = null!;
+    public DbSet<WeeklyEmployeeShiftMode> WeeklyEmployeeShiftModes { get; set; } = null!;
     public DbSet<PlanningConsultation> PlanningConsultations { get; set; } = null!;
     public DbSet<PlanningAutoGenerateSettings> PlanningAutoGenerateSettings { get; set; } = null!;
     public DbSet<PlanningChangeRequest> PlanningChangeRequests { get; set; } = null!;
@@ -156,6 +159,55 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.SetNull)
             .IsRequired(false);
 
+        modelBuilder.Entity<ShiftAssignment>()
+            .HasOne(a => a.ShiftModeProfile)
+            .WithMany()
+            .HasForeignKey(a => a.ShiftModeProfileId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
+
+        // ── ShiftModeProfile ──
+        modelBuilder.Entity<ShiftModeProfile>(entity =>
+        {
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => new { e.SubServiceId, e.Title });
+            entity.HasOne(e => e.SubService)
+                .WithMany(s => s.ShiftModeProfiles)
+                .HasForeignKey(e => e.SubServiceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WeeklyCellShiftModePlan>(entity =>
+        {
+            entity.Property(e => e.WeekCode).IsRequired().HasMaxLength(16);
+            entity.HasIndex(e => new { e.SubServiceId, e.WeekCode }).IsUnique();
+            entity.HasOne(e => e.SubService)
+                .WithMany()
+                .HasForeignKey(e => e.SubServiceId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.ValidatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.ValidatedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<WeeklyEmployeeShiftMode>(entity =>
+        {
+            entity.HasIndex(e => new { e.WeeklyCellShiftModePlanId, e.UserId }).IsUnique();
+            entity.HasOne(e => e.Plan)
+                .WithMany(p => p.EmployeeModes)
+                .HasForeignKey(e => e.WeeklyCellShiftModePlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.ShiftModeProfile)
+                .WithMany()
+                .HasForeignKey(e => e.ShiftModeProfileId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         // ── WeeklyPlanning ──
         modelBuilder.Entity<WeeklyPlanning>()
             .HasOne(p => p.Validator)
@@ -215,14 +267,19 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.SubServiceId)
                   .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.ShiftModeProfile)
+                  .WithMany(p => p.ShiftConfigs)
+                  .HasForeignKey(e => e.ShiftModeProfileId)
+                  .OnDelete(DeleteBehavior.SetNull)
+                  .IsRequired(false);
 
-            // Template: unique (SubServiceId, Label) when IsTemplate
-            entity.HasIndex(e => new { e.SubServiceId, e.Label })
+            // Template: unique (SubServiceId, Mode, Label) when IsTemplate
+            entity.HasIndex(e => new { e.SubServiceId, e.ShiftModeProfileId, e.Label })
                 .IsUnique()
                 .HasFilter("\"IsTemplate\" = TRUE");
 
-            // Snapshot: unique (SubServiceId, WeekCode, Label) when not template
-            entity.HasIndex(e => new { e.SubServiceId, e.WeekCode, e.Label })
+            // Snapshot: unique (SubServiceId, WeekCode, Mode, Label) when not template
+            entity.HasIndex(e => new { e.SubServiceId, e.WeekCode, e.ShiftModeProfileId, e.Label })
                 .IsUnique()
                 .HasFilter("\"IsTemplate\" = FALSE AND \"WeekCode\" IS NOT NULL");
         });

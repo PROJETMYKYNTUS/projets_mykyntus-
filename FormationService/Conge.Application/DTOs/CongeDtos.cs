@@ -74,10 +74,11 @@ public record SuiviEquipeDto(
 public record PeriodesInterditesDto(IReadOnlyList<int> Mois, DateTime UpdatedAt);
 
 public record QuotaCongeServiceDto(
-    Guid ServiceId,
+    string ServiceId,
     string ServiceNom,
     int? MaxAbsentsSimultanes,
-    int Effectif);
+    int Effectif,
+    string ScopeKind = "Service");
 
 public record CongeDisponibiliteDto(
     bool Ok,

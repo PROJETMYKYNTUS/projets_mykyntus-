@@ -109,6 +109,36 @@
             <input class="ky-input" type="date" [(ngModel)]="form.dateFin" (ngModelChange)="checkDisponibilite()" />
           </div>
         </div>
+
+        <div class="ce-calendar">
+          <div class="ce-cal-head">
+            <button type="button" class="ce-cal-nav" (click)="shiftCalendarMonth(-1)" aria-label="Mois précédent">‹</button>
+            <span class="ce-cal-title">{{ calendarTitle }}</span>
+            <button type="button" class="ce-cal-nav" (click)="shiftCalendarMonth(1)" aria-label="Mois suivant">›</button>
+          </div>
+          <div class="ce-cal-weekdays">
+            <span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+          </div>
+          <div class="ce-cal-grid">
+            <button
+              type="button"
+              class="ce-cal-day"
+              *ngFor="let cell of calendarCells"
+              [disabled]="!cell.date || cell.blocked"
+              [class.is-empty]="!cell.date"
+              [class.is-blocked]="cell.blocked"
+              [class.is-selected]="cell.selected"
+              [class.is-range]="cell.inRange && !cell.selected"
+              (click)="onCalendarDayClick(cell)">
+              {{ cell.day || '' }}
+            </button>
+          </div>
+          <p class="ce-cal-hint">
+            Jours grisés = quota atteint ou mois interdit.
+            <span *ngIf="isDateFinManuelle()"> Cliquez début puis fin.</span>
+          </p>
+        </div>
+
         <p class="ce-disponibilite-error" *ngIf="disponibiliteMotif">{{ disponibiliteMotif }}</p>
         <div class="ce-field">
           <label>Motif <small>(optionnel)</small></label>

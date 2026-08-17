@@ -28,6 +28,8 @@ interface DayAssignment {
   slotLabel: string;
   isExceptionalRequest?: boolean;
   isReinforcement?: boolean;
+  shiftModeTitle?: string | null;
+  isModeOverride?: boolean;
 }
 
 interface MyPlanning {
@@ -468,6 +470,8 @@ export class MesPlanningsComponent implements OnInit, OnDestroy {
       slotLabel: String(d['slotLabel'] ?? d['SlotLabel'] ?? ''),
       isExceptionalRequest: Boolean(d['isExceptionalRequest'] ?? d['IsExceptionalRequest']),
       isReinforcement: Boolean(d['isReinforcement'] ?? d['IsReinforcement']),
+      shiftModeTitle: (d['shiftModeTitle'] ?? d['ShiftModeTitle'] ?? null) as string | null,
+      isModeOverride: Boolean(d['isModeOverride'] ?? d['IsModeOverride']),
     };
   }
 }

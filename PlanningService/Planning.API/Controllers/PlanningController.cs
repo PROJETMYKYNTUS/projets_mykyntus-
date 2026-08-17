@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Kyntus.Identity.Jwt;
 using Planning.Application.DTOs.Planning;
 using Planning.Application.Abstractions;
 using Planning.Application.Exceptions;
@@ -122,6 +123,51 @@ public class PlanningController(
     {
         var result = await _planningService.GetShiftConfigAsync(subServiceId, weekCode);
         return result == null ? NotFound() : Ok(result);
+    }
+
+    // GET api/planning/config/weekly-modes/{subServiceId}/{weekCode}?weekStartDate=yyyy-MM-dd
+    [HttpGet("config/weekly-modes/{subServiceId:int}/{weekCode}")]
+    public async Task<IActionResult> GetWeeklyShiftModes(
+        int subServiceId,
+        string weekCode,
+        [FromQuery] DateOnly weekStartDate)
+    {
+        try
+        {
+            var result = await _planningService.GetWeeklyShiftModePlanAsync(
+                subServiceId, weekCode, weekStartDate);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // PUT api/planning/config/weekly-modes
+    [HttpPut("config/weekly-modes")]
+    public async Task<IActionResult> SaveWeeklyShiftModes([FromBody] SaveWeeklyShiftModePlanDto dto)
+    {
+        try
+        {
+            if (dto.ActorUserId is null or <= 0)
+            {
+                var authUserId = User.GetAuthUserId();
+                if (authUserId is > 0)
+                {
+                    var user = await _userService.GetUserByAuthIdAsync(authUserId.Value);
+                    if (user != null)
+                        dto.ActorUserId = user.Id;
+                }
+            }
+
+            var result = await _planningService.SaveWeeklyShiftModePlanAsync(dto);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     // ----------------------------------------------------

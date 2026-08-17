@@ -19,6 +19,7 @@
         [class.apw-day-exceptional]="d.isExceptionalRequest"
       >
         <span class="apw-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle">DE</span>
+        <span class="apw-mode-tag" *ngIf="d.shiftModeTitle" [title]="d.shiftModeTitle">{{ d.shiftModeTitle }}</span>
         <span class="apw-day-name">{{ d.day }} {{ d.assignedDate | date:'dd/MM' }}</span>
         <span class="apw-day-shift">{{ cellLabel(d) }}</span>
         <span class="apw-day-hours" *ngIf="!d.isOnLeave && !d.isHoliday && d.startTime">
@@ -43,6 +44,7 @@
           [class.apw-day-exceptional]="d.isExceptionalRequest"
         >
           <span class="apw-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle">DE</span>
+          <span class="apw-mode-tag" *ngIf="d.shiftModeTitle" [title]="d.shiftModeTitle">{{ d.shiftModeTitle }}</span>
           <span class="apw-day-name">{{ d.day }} {{ d.assignedDate | date:'dd/MM' }}</span>
           <span class="apw-day-shift">{{ cellLabel(d) }}</span>
           <span class="apw-day-hours" *ngIf="!d.isOnLeave && !d.isHoliday && d.startTime">
@@ -68,6 +70,7 @@
           [class.apw-day-exceptional]="d.isExceptionalRequest"
         >
           <span class="apw-de-tag" *ngIf="d.isExceptionalRequest" title="Demande exceptionnelle">DE</span>
+          <span class="apw-mode-tag" *ngIf="d.shiftModeTitle" [title]="d.shiftModeTitle">{{ d.shiftModeTitle }}</span>
           <span class="apw-day-name">{{ d.day }} {{ d.assignedDate | date:'dd/MM' }}</span>
           <span class="apw-day-shift">{{ cellLabel(d) }}</span>
           <span class="apw-day-hours" *ngIf="!d.isOnLeave && !d.isHoliday && d.startTime">

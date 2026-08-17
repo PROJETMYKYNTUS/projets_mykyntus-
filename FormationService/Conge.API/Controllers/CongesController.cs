@@ -135,12 +135,16 @@ public class CongesController : ControllerBase
         CancellationToken ct)
     {
         var result = await _mediator.Send(
-            new UpsertQuotaServiceCommand(body.ServiceId, body.MaxAbsentsSimultanes, body.SuperviseurId), ct);
+            new UpsertQuotaServiceCommand(
+                body.ServiceId,
+                body.MaxAbsentsSimultanes,
+                body.SuperviseurId,
+                body.ScopeKind), ct);
         return Ok(result);
     }
 
-    [HttpGet("config/quotas-service/{serviceId:guid}")]
-    public async Task<IActionResult> GetQuotaService(Guid serviceId, CancellationToken ct)
+    [HttpGet("config/quotas-service/{serviceId}")]
+    public async Task<IActionResult> GetQuotaService(string serviceId, CancellationToken ct)
         => Ok(await _mediator.Send(new GetQuotaServiceByIdQuery(serviceId), ct));
 
     // ── Validation / Refus ───────────────────────────────────────────────────
@@ -293,4 +297,8 @@ public class CongesController : ControllerBase
 public record ValiderCongeRequest(string? Commentaire);
 public record RefuserCongeRequest(string Commentaire);
 public record UpdatePeriodesInterditesRequest(IReadOnlyList<int>? Mois, Guid? UpdatedBy = null);
-public record UpsertQuotaServiceRequest(Guid ServiceId, int MaxAbsentsSimultanes, Guid SuperviseurId);
+public record UpsertQuotaServiceRequest(
+    string ServiceId,
+    int MaxAbsentsSimultanes,
+    Guid SuperviseurId,
+    string? ScopeKind = null);

@@ -1,3 +1,4 @@
+using Conge.Application.Abstractions;
 using Conge.Application.Behaviors;
 using Conge.Application.Contracts;
 using Conge.Domain.Interfaces;
@@ -7,6 +8,7 @@ using Conge.Infrastructure.Messaging.Consumers;
 using Conge.Infrastructure.Messaging.Publishers;
 using Conge.Infrastructure.Persistence;
 using Conge.Infrastructure.Persistence.Repositories;
+using Conge.Infrastructure.Services;
 using FluentValidation;
 using Kyntus.Identity.Jwt;
 using Kyntus.Iam;
@@ -33,8 +35,31 @@ builder.Services.AddScoped<ISoldeCongeRepository, SoldeCongeRepository>();
 builder.Services.AddScoped<IEmployeSnapshotRepository, EmployeSnapshotRepository>();
 builder.Services.AddScoped<IPeriodeInterditeRepository, PeriodeInterditeRepository>();
 builder.Services.AddScoped<IQuotaCongeServiceRepository, QuotaCongeServiceRepository>();
+builder.Services.AddScoped<IOrgNodeCongeRepository, OrgNodeCongeRepository>();
 builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<CongeDbContext>());
 builder.Services.AddScoped<Conge.Application.Services.CongeReglesService>();
+
+var directoryBaseUrl = builder.Configuration["Directory:BaseUrl"] ?? "http://employee-directory-backend:8080";
+builder.Services.AddKyntusJwtAuthentication(builder.Configuration);
+builder.Services.AddKyntusIamViaDirectoryHttp(directoryBaseUrl);
+
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient("directory-org", c =>
+{
+    c.BaseAddress = new Uri(directoryBaseUrl.TrimEnd('/') + "/");
+}).AddHttpMessageHandler<DirectoryForwardAuthorizationHandler>();
+builder.Services.AddScoped<DirectoryOrgCatalog>(sp =>
+{
+    var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("directory-org");
+    return new DirectoryOrgCatalog(
+        http,
+        sp.GetRequiredService<IOrgNodeCongeRepository>(),
+        sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),
+        sp.GetRequiredService<ILogger<DirectoryOrgCatalog>>());
+});
+builder.Services.AddScoped<IDirectoryOrgCatalog>(sp => sp.GetRequiredService<DirectoryOrgCatalog>());
+if (!isTesting)
+    builder.Services.AddHostedService<CongeDirectoryOrgBootstrap>();
 
 // ?? MediatR + FluentValidation ???????????????????????????????????????????????
 builder.Services.AddMediatR(cfg =>
@@ -43,10 +68,6 @@ builder.Services.AddMediatR(cfg =>
     cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
 });
 builder.Services.AddValidatorsFromAssembly(typeof(DemanderCongeValidator).Assembly);
-
-builder.Services.AddKyntusJwtAuthentication(builder.Configuration);
-builder.Services.AddKyntusIamViaDirectoryHttp(
-    builder.Configuration["Directory:BaseUrl"] ?? "http://employee-directory-backend:8080");
 
 // ?? MassTransit + RabbitMQ ???????????????????????????????????????????????????
 if (isTesting)
@@ -61,6 +82,8 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<OrgAssignmentCongeSyncConsumer>();
     x.AddConsumer<DirectoryEmployeeCongeProjectionConsumer>();
     x.AddConsumer<DirectoryEmployeeHrProfileCongeProjectionConsumer>();
+    x.AddConsumer<DirectoryOrgNodeCongeProjectionConsumer>();
+    x.AddConsumer<DirectoryAssignmentCongeSyncConsumer>();
 
     x.UsingRabbitMq((ctx, cfg) =>
     {
@@ -90,6 +113,16 @@ builder.Services.AddMassTransit(x =>
         cfg.ReceiveEndpoint("conge-directory-hr-profile", e =>
         {
             e.ConfigureConsumer<DirectoryEmployeeHrProfileCongeProjectionConsumer>(ctx);
+        });
+
+        cfg.ReceiveEndpoint("conge-directory-org-nodes", e =>
+        {
+            e.ConfigureConsumer<DirectoryOrgNodeCongeProjectionConsumer>(ctx);
+        });
+
+        cfg.ReceiveEndpoint("conge-directory-assignments", e =>
+        {
+            e.ConfigureConsumer<DirectoryAssignmentCongeSyncConsumer>(ctx);
         });
 
         cfg.ConfigureEndpoints(ctx);

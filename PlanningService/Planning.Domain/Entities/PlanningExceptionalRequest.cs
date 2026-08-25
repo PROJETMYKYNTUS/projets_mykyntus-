@@ -21,9 +21,9 @@ public class PlanningExceptionalRequest
     public int SubServiceId { get; set; }
     public SubService SubService { get; set; } = null!;
 
-    /// <summary>FK vers SubServiceShiftConfig template (IsTemplate=true).</summary>
-    public int RequestedShiftTemplateId { get; set; }
-    public SubServiceShiftConfig RequestedShiftTemplate { get; set; } = null!;
+    /// <summary>FK vers SubServiceShiftConfig template (IsTemplate=true). Null si le template a été retiré (historique).</summary>
+    public int? RequestedShiftTemplateId { get; set; }
+    public SubServiceShiftConfig? RequestedShiftTemplate { get; set; }
 
     [Required, MaxLength(1000)]
     public string Reason { get; set; } = string.Empty;

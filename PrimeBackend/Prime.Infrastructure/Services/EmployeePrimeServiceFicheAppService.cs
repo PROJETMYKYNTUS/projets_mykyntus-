@@ -10,7 +10,8 @@ public sealed class EmployeePrimeServiceFicheAppService(
     PrimeDbContext db,
     PrimeOrgScopeService org,
     PrimeFicheValidationSubmissionService submission,
-    AnomalyDetectionService anomalies) : IEmployeePrimeServiceFicheAppService
+    AnomalyDetectionService anomalies,
+    ICommonLinePonderationResolver ponderations) : IEmployeePrimeServiceFicheAppService
 {
     private static EmployeePrimeServiceFicheResponseDto Map(
         EmployeePrimeServiceFiche e,
@@ -320,6 +321,11 @@ public sealed class EmployeePrimeServiceFicheAppService(
         entity.ChallengeAmount = body.ChallengeAmount;
         entity.TotalAmount = body.TotalAmount;
         entity.UpdatedAt = DateTimeOffset.UtcNow;
+
+        var draftForWeights = await db.SupervisorCellulePrimeDrafts
+            .FirstOrDefaultAsync(x => x.Id == entity.CellulePrimeDraftId, ct);
+        await ponderations.FreezeOntoFicheIfMissingAsync(entity, draftForWeights?.TemplateId ?? "", ct);
+
         await db.SaveChangesAsync(ct);
         await anomalies.RecomputeForFicheAsync(entity.Id, ct);
 

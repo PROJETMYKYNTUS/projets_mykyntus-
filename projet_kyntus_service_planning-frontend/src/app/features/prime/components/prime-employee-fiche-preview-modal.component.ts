@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { Download } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { BodyPortalDirective } from '@/shared/directives/body-portal.directive';
@@ -6,13 +14,16 @@ import { MERGED_PREVIEW_MISSING_SNAPSHOT_HINT } from '../lib/prime-employee-fich
 import {
   PrimeEmployeeFichePreviewService,
   previewHttpError,
+  type MergedFichePreviewContextDto,
 } from '../services/prime-employee-fiche-preview.service';
 import { KyntusToastService } from '../../../shared/components/ui/kyntus-toast.service';
+import { PrimeTemplatePreviewComponent } from './prime-template-preview.component';
+import { toPreviewStoredTemplate, type StoredPrimeTemplate } from '../models/prime-template.model';
 
 @Component({
   selector: 'app-prime-employee-fiche-preview-modal',
   standalone: true,
-  imports: [LucideIconComponent, BodyPortalDirective],
+  imports: [LucideIconComponent, BodyPortalDirective, PrimeTemplatePreviewComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (open()) {
@@ -80,15 +91,9 @@ import { KyntusToastService } from '../../../shared/components/ui/kyntus-toast.s
               </div>
             }
             <div class="flex-1 min-h-0 overflow-auto p-3">
-              <table class="text-[11px] border-collapse border border-default text-primary">
-                @for (row of rows(); track ri; let ri = $index) {
-                  <tr>
-                    @for (cell of row; track ci; let ci = $index) {
-                      <td class="border border-default px-1 py-0.5 whitespace-nowrap align-top">{{ cell }}</td>
-                    }
-                  </tr>
-                }
-              </table>
+              @if (previewTpl(); as tpl) {
+                <app-prime-template-preview [tpl]="tpl" />
+              }
             </div>
           }
         </div>
@@ -113,13 +118,12 @@ export class PrimeEmployeeFichePreviewModalComponent {
 
   readonly busy = signal(false);
   readonly downloadBusy = signal(false);
-  readonly rows = signal<string[][]>([]);
+  readonly previewTpl = signal<StoredPrimeTemplate | null>(null);
   readonly errors = signal<string[]>([]);
   readonly banner = signal<string | null>(null);
   readonly canDownload = signal(false);
 
-  private loadedContext: import('../services/prime-employee-fiche-preview.service').MergedFichePreviewContextDto | null =
-    null;
+  private loadedContext: MergedFichePreviewContextDto | null = null;
 
   constructor() {
     effect(() => {
@@ -151,7 +155,7 @@ export class PrimeEmployeeFichePreviewModalComponent {
 
   private load(ficheId: string): void {
     this.busy.set(true);
-    this.rows.set([]);
+    this.previewTpl.set(null);
     this.errors.set([]);
     this.banner.set(null);
     this.canDownload.set(false);
@@ -160,8 +164,21 @@ export class PrimeEmployeeFichePreviewModalComponent {
     this.previewSvc.loadAndCompute(ficheId).subscribe({
       next: ({ context, preview }) => {
         this.loadedContext = context;
-        this.rows.set(preview.rows);
         this.errors.set(preview.errors);
+        if (preview.rows.length || preview.previewTemplate) {
+          this.previewTpl.set(
+            preview.previewTemplate ??
+              toPreviewStoredTemplate(
+                {
+                  rows: preview.rows,
+                  previewSheetName: preview.previewSheetName ?? 'Fiche',
+                },
+                this.title(),
+              ),
+          );
+        } else {
+          this.previewTpl.set(null);
+        }
         if (!context.previewAvailable) {
           this.banner.set(context.previewUnavailableReason ?? 'Aperçu indisponible.');
         } else if (preview.missingSnapshot) {
@@ -172,7 +189,10 @@ export class PrimeEmployeeFichePreviewModalComponent {
           this.banner.set(null);
         }
         this.canDownload.set(
-          context.previewAvailable && !preview.missingSnapshot && preview.rows.length > 0 && !!preview.effectiveSchema,
+          context.previewAvailable &&
+            !preview.missingSnapshot &&
+            preview.rows.length > 0 &&
+            !!preview.effectiveSchema,
         );
         this.busy.set(false);
       },
@@ -186,7 +206,7 @@ export class PrimeEmployeeFichePreviewModalComponent {
   private reset(): void {
     this.busy.set(false);
     this.downloadBusy.set(false);
-    this.rows.set([]);
+    this.previewTpl.set(null);
     this.errors.set([]);
     this.banner.set(null);
     this.canDownload.set(false);

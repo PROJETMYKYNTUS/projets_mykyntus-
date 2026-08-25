@@ -76,6 +76,14 @@ export const routes: Routes = [
           import('./features/reclamation/admin/reclamation-admin.component')
             .then(m => m.ReclamationAdminComponent),
       },
+      {
+        path: 'qualite/cq',
+        canActivate: [AuthGuard],
+        data: { roles: [...ROLE_SETS.qualiteCq, ...ROLE_SETS.qualiteCqPilot] },
+        loadComponent: () =>
+          import('./features/qualite/qualite-cq-host.component')
+            .then(m => m.QualiteCqHostComponent),
+      },
 
       // ─── FORMATION ───────────────────────────────
       // Routes spécifiques AVANT `formations` (évite collision de préfixe).

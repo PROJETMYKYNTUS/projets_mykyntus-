@@ -11,13 +11,13 @@
 }
 
 .fqe-card {
-  border: 1px solid var(--border, #e2e8f0);
+  border: 1px solid var(--border-color);
   border-radius: 0.75rem;
   padding: 0.9rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  background: color-mix(in srgb, var(--border, #e2e8f0) 12%, transparent);
+  background: color-mix(in srgb, var(--border-color) 12%, transparent);
 }
 
 .fqe-card__head {
@@ -43,7 +43,7 @@
   cursor: pointer;
   padding: 0.25rem;
   border-radius: 0.35rem;
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
 }
 
 .fqe-icon-btn:disabled {
@@ -52,7 +52,7 @@
 }
 
 .fqe-icon-btn--danger {
-  color: #be123c;
+  color: var(--danger-text);
 }
 
 .fqe-type-switch {
@@ -88,13 +88,13 @@
 .fqe-label {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
 }
 
 .fqe-muted {
   display: block;
   font-size: 0.75rem;
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
   font-weight: 400;
 }
 
@@ -141,11 +141,11 @@
   max-height: 160px;
   object-fit: contain;
   border-radius: 0.35rem;
-  background: #0f172a0a;
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 
 .fqe-error {
   margin: 0.25rem 0 0;
   font-size: 0.8rem;
-  color: #be123c;
+  color: var(--danger-text);
 }

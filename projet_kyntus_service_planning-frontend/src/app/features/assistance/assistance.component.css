@@ -38,7 +38,7 @@
 }
 
 a.assist-card:hover {
-  border-color: color-mix(in srgb, var(--electric-blue, #3b82f6) 45%, var(--border-color));
+  border-color: color-mix(in srgb, var(--soft-blue) 45%, var(--border-color));
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
@@ -54,7 +54,7 @@ a.assist-card:hover {
 }
 
 .assist-card--action strong {
-  color: var(--electric-blue, #3b82f6);
+  color: var(--soft-blue);
 }
 
 .assist-faq {

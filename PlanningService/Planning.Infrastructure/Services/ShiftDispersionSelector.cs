@@ -11,6 +11,20 @@ public static class ShiftDispersionSelector
 {
     public const int MaxSameShiftPerWeek = 2;
     private const int FairnessRepairMaxPasses = 40;
+    private const int DispersionRepairMaxPasses = 24;
+    private const int OverrunPenaltyWeight = 100;
+
+    /// <summary>
+    /// Max d’occurrences d’un même shift. Si jours_travaillés &gt; 2 × nb_shifts,
+    /// un « extra » (3×) est inévitable.
+    /// </summary>
+    public static int EffectiveMaxSame(int shiftCount, int workedDays)
+    {
+        if (shiftCount <= 1) return int.MaxValue;
+        if (workedDays > MaxSameShiftPerWeek * shiftCount)
+            return MaxSameShiftPerWeek + 1;
+        return MaxSameShiftPerWeek;
+    }
 
     public sealed class SelectionResult
     {
@@ -54,8 +68,22 @@ public static class ShiftDispersionSelector
         return list[^1];
     }
 
-    private static int EffectiveMax(int shiftCount) =>
-        shiftCount <= 1 ? int.MaxValue : MaxSameShiftPerWeek;
+    /// <summary>Nombre de jours travaillés d’affilée sur le dernier shift (fin d’historique).</summary>
+    public static int ConsecutiveStreak(
+        IReadOnlyDictionary<int, List<int>> weekAssignmentsByUser,
+        int userId)
+    {
+        if (!weekAssignmentsByUser.TryGetValue(userId, out var list) || list.Count == 0)
+            return 0;
+        var last = list[^1];
+        var n = 0;
+        for (var i = list.Count - 1; i >= 0 && list[i] == last; i--)
+            n++;
+        return n;
+    }
+
+    private static int EffectiveMax(int shiftCount, int workedDays = 0) =>
+        EffectiveMaxSame(shiftCount, workedDays);
 
     /// <summary>
     /// Moyenne des occurrences d'un shift parmi les users du même Level (hors user courant).
@@ -109,9 +137,10 @@ public static class ShiftDispersionSelector
                               && usersById.TryGetValue(userId, out var plateauUser)
                               && plateauUser.IsPlateauTraining;
 
+        // Quota 0 = aucun siège à pourvoir. Ne pas le traiter comme un « trou » à remplir.
         bool UnderQuota(SubServiceShiftConfig s) =>
-            s.RequiredCount <= 0
-            || shiftCountToday.GetValueOrDefault(s.Id, 0) < s.RequiredCount;
+            s.RequiredCount > 0
+            && shiftCountToday.GetValueOrDefault(s.Id, 0) < s.RequiredCount;
 
         bool UnderMax(SubServiceShiftConfig s) =>
             CountThisWeek(weekAssignmentsByUser, userId, s.Id) < maxSame;
@@ -141,42 +170,64 @@ public static class ShiftDispersionSelector
         if (strict.Count > 0)
             return new SelectionResult { Shift = RankPick(strict) };
 
-        // 2) Siège libre + max2 (autorise consécutif)
-        var underQuotaMax = PlateauFilter(preferred.Where(s => UnderQuota(s) && UnderMax(s)));
-        if (underQuotaMax.Count > 0)
-            return new SelectionResult
-            {
-                Shift = RankPick(underQuotaMax),
-                SoftConsecutiveAllowed = true
-            };
+        // 2) Siège libre prioritaire, encore sans consécutif
+        var underQuotaNotConsec = PlateauFilter(preferred.Where(s =>
+            UnderQuota(s) && s.Id != yesterdayId));
+        if (underQuotaNotConsec.Count > 0)
+            return new SelectionResult { Shift = RankPick(underQuotaNotConsec) };
 
-        // 3) Siège libre prioritaire sur max2 (besoin prod > dispersion)
-        var underQuotaAny = PlateauFilter(preferred.Where(UnderQuota));
-        if (underQuotaAny.Count > 0)
-            return new SelectionResult
-            {
-                Shift = RankPick(underQuotaAny),
-                SoftConsecutiveAllowed = true,
-                SoftQuotaExceeded = false
-            };
+        var streak = ConsecutiveStreak(weekAssignmentsByUser, userId);
+        var canRepeatYesterday = yesterdayId.HasValue && streak < 2;
 
-        // 4) Tous les quotas sont remplis → surplus d'effectif (autorise dépassement sous max2)
-        var underCap = PlateauFilter(preferred.Where(UnderMax));
-        if (underCap.Count > 0)
+        // 3) Dernier recours : 2e jour identique uniquement si aucun autre siège
+        if (canRepeatYesterday)
         {
-            var chosen = RankPick(underCap);
-            return new SelectionResult
-            {
-                Shift = chosen,
-                SoftQuotaExceeded = true,
-                SoftConsecutiveAllowed = chosen.Id == yesterdayId
-            };
+            var underQuotaMax = PlateauFilter(preferred.Where(s => UnderQuota(s) && UnderMax(s)));
+            if (underQuotaMax.Count > 0)
+                return new SelectionResult
+                {
+                    Shift = RankPick(underQuotaMax),
+                    SoftConsecutiveAllowed = true
+                };
+
+            var underQuotaAny = PlateauFilter(preferred.Where(UnderQuota));
+            if (underQuotaAny.Count > 0)
+                return new SelectionResult
+                {
+                    Shift = RankPick(underQuotaAny),
+                    SoftConsecutiveAllowed = true
+                };
         }
 
-        // 5) Un seul shift possible
+        // 4) Quotas remplis → surplus, sans consécutif
+        var underCapAlt = PlateauFilter(preferred.Where(s => UnderMax(s) && s.Id != yesterdayId));
+        if (underCapAlt.Count > 0)
+        {
+            var chosen = RankPick(underCapAlt);
+            return new SelectionResult { Shift = chosen, SoftQuotaExceeded = true };
+        }
+
+        if (canRepeatYesterday)
+        {
+            var underCapAny = PlateauFilter(preferred.Where(UnderMax));
+            if (underCapAny.Count > 0)
+            {
+                var chosen = RankPick(underCapAny);
+                return new SelectionResult
+                {
+                    Shift = chosen,
+                    SoftQuotaExceeded = true,
+                    SoftConsecutiveAllowed = chosen.Id == yesterdayId
+                };
+            }
+        }
+
+        var lastPool = PlateauFilter(preferred.Where(s => s.Id != yesterdayId || canRepeatYesterday));
+        if (lastPool.Count == 0)
+            lastPool = PlateauFilter(preferred);
         return new SelectionResult
         {
-            Shift = RankPick(PlateauFilter(preferred)),
+            Shift = RankPick(lastPool),
             SoftQuotaExceeded = true,
             SoftConsecutiveAllowed = true
         };
@@ -220,8 +271,8 @@ public static class ShiftDispersionSelector
         bool UnderQuota(SubServiceShiftConfig s)
         {
             var quota = SaturdayRequiredCount(s.RequiredCount);
-            return quota <= 0
-                   || shiftCountToday.GetValueOrDefault(s.Id, 0) < quota;
+            return quota > 0
+                   && shiftCountToday.GetValueOrDefault(s.Id, 0) < quota;
         }
 
         bool UnderMax(SubServiceShiftConfig s) =>
@@ -250,22 +301,39 @@ public static class ShiftDispersionSelector
         if (strict.Count > 0)
             return RankPick(strict);
 
-        // 2) Siège libre + max2 (autorise = vendredi)
-        var underQuotaMax = PlateauFilter(preferred.Where(s => UnderQuota(s) && UnderMax(s)));
-        if (underQuotaMax.Count > 0)
-            return RankPick(underQuotaMax);
+        // 2) Siège libre, toujours ≠ vendredi
+        var underQuotaAlt = PlateauFilter(preferred.Where(s => UnderQuota(s) && s.Id != fridayShiftId));
+        if (underQuotaAlt.Count > 0)
+            return RankPick(underQuotaAlt);
 
-        // 3) Siège libre prioritaire (besoin prod samedi = 50 %)
-        var underQuotaAny = PlateauFilter(preferred.Where(UnderQuota));
-        if (underQuotaAny.Count > 0)
-            return RankPick(underQuotaAny);
+        var satStreak = ConsecutiveStreak(weekAssignmentsByUser, userId);
+        var canRepeatFriday = fridayShiftId.HasValue && satStreak < 2;
 
-        // 4) Quotas remplis → surplus sous max2
-        var underCap = PlateauFilter(preferred.Where(UnderMax));
+        // 3) Dernier recours = vendredi
+        if (canRepeatFriday)
+        {
+            var underQuotaMax = PlateauFilter(preferred.Where(s => UnderQuota(s) && UnderMax(s)));
+            if (underQuotaMax.Count > 0)
+                return RankPick(underQuotaMax);
+
+            var underQuotaAny = PlateauFilter(preferred.Where(UnderQuota));
+            if (underQuotaAny.Count > 0)
+                return RankPick(underQuotaAny);
+        }
+
+        var underCap = PlateauFilter(preferred.Where(s => UnderMax(s) && s.Id != fridayShiftId));
         if (underCap.Count > 0)
             return RankPick(underCap);
 
-        return RankPick(PlateauFilter(preferred));
+        if (canRepeatFriday)
+        {
+            var underCapAny = PlateauFilter(preferred.Where(UnderMax));
+            if (underCapAny.Count > 0)
+                return RankPick(underCapAny);
+        }
+
+        var last = PlateauFilter(preferred.Where(s => s.Id != fridayShiftId || canRepeatFriday));
+        return RankPick(last.Count > 0 ? last : PlateauFilter(preferred));
     }
 
     /// <summary>
@@ -286,44 +354,62 @@ public static class ShiftDispersionSelector
 
         if (workDays.Count == 0) return;
 
-        for (var dayIndex = 0; dayIndex < workDays.Count; dayIndex++)
+        for (var pass = 0; pass < DispersionRepairMaxPasses; pass++)
         {
-            var dayGroup = workDays[dayIndex].ToList();
-            var prevDate = dayIndex > 0 ? workDays[dayIndex - 1].Key : (DateOnly?)null;
-            var isSaturday = dayGroup[0].AssignedDate.DayOfWeek == DayOfWeek.Saturday
-                             || dayGroup[0].IsSaturday;
-
-            foreach (var a in dayGroup)
+            var swapped = false;
+            for (var dayIndex = 0; dayIndex < workDays.Count; dayIndex++)
             {
-                if (a.IsManagerOverride) continue;
-                if (!NeedsRepair(a, assignments, prevDate, shiftConfigs.Count))
-                    continue;
+                var dayGroup = workDays[dayIndex].ToList();
+                var prevDate = dayIndex > 0 ? workDays[dayIndex - 1].Key : (DateOnly?)null;
+                var nextDate = dayIndex + 1 < workDays.Count ? workDays[dayIndex + 1].Key : (DateOnly?)null;
+                var isSaturday = dayGroup[0].AssignedDate.DayOfWeek == DayOfWeek.Saturday
+                                 || dayGroup[0].IsSaturday;
 
-                foreach (var b in dayGroup)
+                foreach (var a in dayGroup)
                 {
-                    if (b.UserId == a.UserId) continue;
-                    if (b.IsManagerOverride) continue;
-                    if (b.SubServiceShiftConfigId == a.SubServiceShiftConfigId) continue;
-                    // Ne pas mélanger demi-journée débutant / journée pleine
-                    if (a.IsHalfDaySaturday != b.IsHalfDaySaturday) continue;
-
-                    if (!SwapImprovesDispersion(a, b, assignments, prevDate, shiftConfigs.Count))
+                    if (a.IsManagerOverride) continue;
+                    if (!NeedsRepair(a, assignments, prevDate, nextDate, shiftConfigs.Count))
                         continue;
 
-                    if (usersById != null
-                        && !SwapPreservesBeginnerRule(a, b, dayGroup, usersById, isSaturday))
-                        continue;
+                    foreach (var b in dayGroup)
+                    {
+                        if (b.UserId == a.UserId) continue;
+                        if (b.IsManagerOverride) continue;
+                        if (b.SubServiceShiftConfigId == a.SubServiceShiftConfigId) continue;
+                        // Ne pas mélanger demi-journée débutant / journée pleine
+                        if (a.IsHalfDaySaturday != b.IsHalfDaySaturday) continue;
 
-                    if (usersById != null
-                        && !SwapPreservesPlateauTrainingRule(a, b, shiftConfigs, usersById))
-                        continue;
+                        if (!SwapImprovesDispersion(a, b, assignments, prevDate, nextDate, shiftConfigs.Count))
+                            continue;
 
-                    (a.SubServiceShiftConfigId, b.SubServiceShiftConfigId) =
-                        (b.SubServiceShiftConfigId, a.SubServiceShiftConfigId);
-                    break;
+                        if (usersById != null
+                            && !SwapPreservesBeginnerRule(a, b, dayGroup, usersById, isSaturday))
+                            continue;
+
+                        if (usersById != null
+                            && !SwapPreservesPlateauTrainingRule(a, b, shiftConfigs, usersById))
+                            continue;
+
+                        (a.SubServiceShiftConfigId, b.SubServiceShiftConfigId) =
+                            (b.SubServiceShiftConfigId, a.SubServiceShiftConfigId);
+                        swapped = true;
+                        break;
+                    }
                 }
             }
+
+            if (!swapped) break;
         }
+    }
+
+    /// <summary>Dispersion puis équité (à rejouer après le repairer de niveau).</summary>
+    public static void RepairWeekQuality(
+        List<ShiftAssignment> assignments,
+        List<SubServiceShiftConfig> shiftConfigs,
+        IReadOnlyDictionary<int, User> usersById)
+    {
+        RepairWeekdayDispersion(assignments, shiftConfigs, usersById);
+        RepairFairness(assignments, shiftConfigs, usersById);
     }
 
     /// <summary>
@@ -459,7 +545,13 @@ public static class ShiftDispersionSelector
                         improved = true;
                     }
                 }
+
+                if (!improved && TrySameDayThreeCycle(dayGroup, assignments, shiftConfigs, usersById))
+                    improved = true;
             }
+
+            if (!improved && TryTwoDayFairnessRotations(assignments, shiftConfigs, usersById, workDays))
+                improved = true;
 
             if (!improved) break;
         }
@@ -473,21 +565,55 @@ public static class ShiftDispersionSelector
         DateOnly? nextDate,
         int shiftCount)
     {
-        var maxSame = EffectiveMax(shiftCount);
+        var workedA = WorkedDays(all, a.UserId);
+        var workedB = WorkedDays(all, b.UserId);
+        var maxA = EffectiveMax(shiftCount, workedA);
+        var maxB = EffectiveMax(shiftCount, workedB);
         var aNew = b.SubServiceShiftConfigId!.Value;
         var bNew = a.SubServiceShiftConfigId!.Value;
+        var aOld = a.SubServiceShiftConfigId!.Value;
+        var bOld = b.SubServiceShiftConfigId!.Value;
 
-        // Max 2 après swap (Lun–Sam travaillés)
-        if (WorkedCount(all, a.UserId, aNew, exclude: a) + 1 > maxSame) return false;
-        if (WorkedCount(all, b.UserId, bNew, exclude: b) + 1 > maxSame) return false;
+        var aWouldOver = WorkedCount(all, a.UserId, aNew, exclude: a) + 1 > maxA;
+        var bWouldOver = WorkedCount(all, b.UserId, bNew, exclude: b) + 1 > maxB;
+        if (aWouldOver || bWouldOver)
+        {
+            var before = TotalOverruns(all, shiftCount);
+            a.SubServiceShiftConfigId = aNew;
+            b.SubServiceShiftConfigId = bNew;
+            var after = TotalOverruns(all, shiftCount);
+            a.SubServiceShiftConfigId = aOld;
+            b.SubServiceShiftConfigId = bOld;
+            if (after >= before)
+                return false;
+        }
 
-        // Non-consécutif avec veille / lendemain
-        if (AdjacentEquals(all, a.UserId, prevDate, aNew)) return false;
-        if (AdjacentEquals(all, a.UserId, nextDate, aNew)) return false;
-        if (AdjacentEquals(all, b.UserId, prevDate, bNew)) return false;
-        if (AdjacentEquals(all, b.UserId, nextDate, bNew)) return false;
+        var consecutive =
+            AdjacentEquals(all, a.UserId, prevDate, aNew)
+            || AdjacentEquals(all, a.UserId, nextDate, aNew)
+            || AdjacentEquals(all, b.UserId, prevDate, bNew)
+            || AdjacentEquals(all, b.UserId, nextDate, bNew);
+        if (consecutive && !aWouldOver && !bWouldOver)
+            return false;
 
         return true;
+    }
+
+    private static int TotalOverruns(List<ShiftAssignment> all, int shiftCount)
+    {
+        var total = 0;
+        foreach (var g in all
+                     .Where(x => !x.IsOnLeave && !x.IsHoliday && x.SubServiceShiftConfigId != null)
+                     .GroupBy(x => x.UserId))
+        {
+            var maxSame = EffectiveMax(shiftCount, g.Count());
+            if (maxSame == int.MaxValue) continue;
+            total += g
+                .GroupBy(x => x.SubServiceShiftConfigId!.Value)
+                .Sum(sg => Math.Max(0, sg.Count() - maxSame));
+        }
+
+        return total;
     }
 
     private static bool AdjacentEquals(
@@ -510,6 +636,12 @@ public static class ShiftDispersionSelector
             && x.SubServiceShiftConfigId == configId
             && (exclude == null || !ReferenceEquals(x, exclude)));
 
+    private static int WorkedDays(List<ShiftAssignment> all, int userId) =>
+        all.Count(x =>
+            x.UserId == userId
+            && !x.IsOnLeave && !x.IsHoliday
+            && x.SubServiceShiftConfigId != null);
+
     private static bool FairnessSwapImproves(
         ShiftAssignment a,
         ShiftAssignment b,
@@ -530,7 +662,7 @@ public static class ShiftDispersionSelector
         return after < before;
     }
 
-    /// <summary>Somme des (max-min) par shift et par niveau.</summary>
+    /// <summary>Écarts au carré à la moyenne du niveau, plus poids sur les dépassements max-2.</summary>
     private static int FairnessPenalty(
         List<ShiftAssignment> all,
         IReadOnlyDictionary<int, User> usersById,
@@ -554,38 +686,215 @@ public static class ShiftDispersionSelector
                 var counts = ids
                     .Select(uid => WorkedCount(all, uid, cfg.Id))
                     .ToList();
-                penalty += counts.Max() - counts.Min();
+                var mean = counts.Average();
+                for (var i = 0; i < ids.Count; i++)
+                {
+                    var d = counts[i] - mean;
+                    penalty += (int)Math.Round(d * d * 10);
+                    var maxSame = EffectiveMax(shiftConfigs.Count, WorkedDays(all, ids[i]));
+                    if (maxSame != int.MaxValue && counts[i] > maxSame)
+                        penalty += (counts[i] - maxSame) * OverrunPenaltyWeight;
+                }
             }
         }
 
         return penalty;
     }
 
+    private static bool TrySameDayThreeCycle(
+        List<ShiftAssignment> dayGroup,
+        List<ShiftAssignment> all,
+        List<SubServiceShiftConfig> shiftConfigs,
+        IReadOnlyDictionary<int, User> usersById)
+    {
+        var movable = dayGroup
+            .Where(a =>
+                !a.IsManagerOverride
+                && !a.IsOnLeave
+                && !a.IsHoliday
+                && a.SubServiceShiftConfigId != null
+                && usersById.ContainsKey(a.UserId))
+            .ToList();
+        if (movable.Count < 3) return false;
+
+        var before = FairnessPenalty(all, usersById, shiftConfigs);
+        var isSaturday = dayGroup[0].AssignedDate.DayOfWeek == DayOfWeek.Saturday
+                         || dayGroup[0].IsSaturday;
+
+        for (var i = 0; i < movable.Count; i++)
+        for (var j = i + 1; j < movable.Count; j++)
+        for (var k = j + 1; k < movable.Count; k++)
+        {
+            var a = movable[i];
+            var b = movable[j];
+            var c = movable[k];
+            if (usersById[a.UserId].Level != usersById[b.UserId].Level
+                || usersById[a.UserId].Level != usersById[c.UserId].Level)
+                continue;
+            if (a.IsHalfDaySaturday != b.IsHalfDaySaturday
+                || a.IsHalfDaySaturday != c.IsHalfDaySaturday)
+                continue;
+            var idA = a.SubServiceShiftConfigId!.Value;
+            var idB = b.SubServiceShiftConfigId!.Value;
+            var idC = c.SubServiceShiftConfigId!.Value;
+            if (idA == idB || idB == idC || idA == idC) continue;
+
+            a.SubServiceShiftConfigId = idB;
+            b.SubServiceShiftConfigId = idC;
+            c.SubServiceShiftConfigId = idA;
+            var after = FairnessPenalty(all, usersById, shiftConfigs);
+            var ok = after < before
+                     && PlateauOk(a, shiftConfigs, usersById)
+                     && PlateauOk(b, shiftConfigs, usersById)
+                     && PlateauOk(c, shiftConfigs, usersById)
+                     && !DayHasBeginnerAlone(dayGroup, usersById, isSaturday);
+            if (ok)
+                return true;
+
+            a.SubServiceShiftConfigId = idA;
+            b.SubServiceShiftConfigId = idB;
+            c.SubServiceShiftConfigId = idC;
+        }
+
+        return false;
+    }
+
+    private static bool TryTwoDayFairnessRotations(
+        List<ShiftAssignment> all,
+        List<SubServiceShiftConfig> shiftConfigs,
+        IReadOnlyDictionary<int, User> usersById,
+        List<IGrouping<DateOnly, ShiftAssignment>> workDays)
+    {
+        var before = FairnessPenalty(all, usersById, shiftConfigs);
+
+        for (var d1 = 0; d1 < workDays.Count; d1++)
+        for (var d2 = d1 + 1; d2 < workDays.Count; d2++)
+        {
+            var day1 = workDays[d1].ToList();
+            var day2 = workDays[d2].ToList();
+            var prev1 = d1 > 0 ? workDays[d1 - 1].Key : (DateOnly?)null;
+            var next1 = d1 + 1 < workDays.Count ? workDays[d1 + 1].Key : (DateOnly?)null;
+            var prev2 = d2 > 0 ? workDays[d2 - 1].Key : (DateOnly?)null;
+            var next2 = d2 + 1 < workDays.Count ? workDays[d2 + 1].Key : (DateOnly?)null;
+            var sat1 = day1[0].AssignedDate.DayOfWeek == DayOfWeek.Saturday || day1[0].IsSaturday;
+            var sat2 = day2[0].AssignedDate.DayOfWeek == DayOfWeek.Saturday || day2[0].IsSaturday;
+
+            var pairs1 = SameLevelPairs(day1, usersById);
+            foreach (var (a1, b1) in pairs1)
+            {
+                var a2 = day2.FirstOrDefault(x => x.UserId == a1.UserId);
+                var b2 = day2.FirstOrDefault(x => x.UserId == b1.UserId);
+                if (a2?.SubServiceShiftConfigId == null || b2?.SubServiceShiftConfigId == null)
+                    continue;
+                if (a2.IsManagerOverride || b2.IsManagerOverride) continue;
+                if (a2.IsHalfDaySaturday != b2.IsHalfDaySaturday) continue;
+                if (a2.SubServiceShiftConfigId == b2.SubServiceShiftConfigId) continue;
+
+                if (!FairnessSwapAllowed(a1, b1, all, prev1, next1, shiftConfigs.Count))
+                    continue;
+                if (!FairnessSwapAllowed(a2, b2, all, prev2, next2, shiftConfigs.Count))
+                    continue;
+
+                var a1Old = a1.SubServiceShiftConfigId;
+                var b1Old = b1.SubServiceShiftConfigId;
+                var a2Old = a2.SubServiceShiftConfigId;
+                var b2Old = b2.SubServiceShiftConfigId;
+
+                (a1.SubServiceShiftConfigId, b1.SubServiceShiftConfigId) = (b1Old, a1Old);
+                (a2.SubServiceShiftConfigId, b2.SubServiceShiftConfigId) = (b2Old, a2Old);
+
+                var after = FairnessPenalty(all, usersById, shiftConfigs);
+                var ok = after < before
+                         && PlateauOk(a1, shiftConfigs, usersById)
+                         && PlateauOk(b1, shiftConfigs, usersById)
+                         && PlateauOk(a2, shiftConfigs, usersById)
+                         && PlateauOk(b2, shiftConfigs, usersById)
+                         && !DayHasBeginnerAlone(day1, usersById, sat1)
+                         && !DayHasBeginnerAlone(day2, usersById, sat2);
+                if (ok)
+                    return true;
+
+                a1.SubServiceShiftConfigId = a1Old;
+                b1.SubServiceShiftConfigId = b1Old;
+                a2.SubServiceShiftConfigId = a2Old;
+                b2.SubServiceShiftConfigId = b2Old;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool DayHasBeginnerAlone(
+        IReadOnlyList<ShiftAssignment> dayGroup,
+        IReadOnlyDictionary<int, User> usersById,
+        bool isSaturday)
+    {
+        if (isSaturday) return false;
+        foreach (var g in dayGroup
+                     .Where(x => x.SubServiceShiftConfigId != null && !x.IsOnLeave && !x.IsHoliday)
+                     .GroupBy(x => x.SubServiceShiftConfigId!.Value))
+        {
+            if (LevelBalanceEvaluator.HasBeginnerAlone(g, usersById))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool PlateauOk(
+        ShiftAssignment a,
+        IReadOnlyList<SubServiceShiftConfig> shiftConfigs,
+        IReadOnlyDictionary<int, User> usersById)
+    {
+        if (!usersById.TryGetValue(a.UserId, out var u) || !u.IsPlateauTraining)
+            return true;
+        if (a.SubServiceShiftConfigId is null) return true;
+        var cfg = shiftConfigs.FirstOrDefault(c => c.Id == a.SubServiceShiftConfigId.Value);
+        return cfg is null || cfg.ShiftKind is not (ShiftKind.Opening or ShiftKind.Closing);
+    }
+
+    private static List<(ShiftAssignment A, ShiftAssignment B)> SameLevelPairs(
+        List<ShiftAssignment> day,
+        IReadOnlyDictionary<int, User> usersById)
+    {
+        var pairs = new List<(ShiftAssignment, ShiftAssignment)>();
+        for (var i = 0; i < day.Count; i++)
+        for (var j = i + 1; j < day.Count; j++)
+        {
+            var a = day[i];
+            var b = day[j];
+            if (a.IsManagerOverride || b.IsManagerOverride) continue;
+            if (a.SubServiceShiftConfigId == null || b.SubServiceShiftConfigId == null) continue;
+            if (a.SubServiceShiftConfigId == b.SubServiceShiftConfigId) continue;
+            if (a.IsHalfDaySaturday != b.IsHalfDaySaturday) continue;
+            if (!usersById.TryGetValue(a.UserId, out var ua)
+                || !usersById.TryGetValue(b.UserId, out var ub)
+                || ua.Level != ub.Level)
+                continue;
+            pairs.Add((a, b));
+        }
+
+        return pairs;
+    }
+
     private static bool NeedsRepair(
         ShiftAssignment a,
         List<ShiftAssignment> all,
         DateOnly? prevDate,
+        DateOnly? nextDate,
         int shiftCount)
     {
-        var maxSame = EffectiveMax(shiftCount);
+        var maxSame = EffectiveMax(shiftCount, WorkedDays(all, a.UserId));
         var cfgId = a.SubServiceShiftConfigId!.Value;
 
-        if (prevDate.HasValue)
-        {
-            var yesterday = all.FirstOrDefault(x =>
-                x.UserId == a.UserId
-                && x.AssignedDate == prevDate.Value
-                && !x.IsOnLeave && !x.IsHoliday
-                && x.SubServiceShiftConfigId != null);
-            if (yesterday?.SubServiceShiftConfigId == cfgId)
-                return true;
-        }
+        if (AdjacentEquals(all, a.UserId, prevDate, cfgId)
+            || AdjacentEquals(all, a.UserId, nextDate, cfgId))
+            return true;
 
         var count = all.Count(x =>
             x.UserId == a.UserId
             && !x.IsOnLeave && !x.IsHoliday
-            && x.SubServiceShiftConfigId == cfgId
-            && x.AssignedDate <= a.AssignedDate);
+            && x.SubServiceShiftConfigId == cfgId);
 
         return count > maxSame;
     }
@@ -595,15 +904,16 @@ public static class ShiftDispersionSelector
         ShiftAssignment b,
         List<ShiftAssignment> all,
         DateOnly? prevDate,
+        DateOnly? nextDate,
         int shiftCount)
     {
         var aId = a.SubServiceShiftConfigId!.Value;
         var bId = b.SubServiceShiftConfigId!.Value;
 
-        var aBadBefore = ViolationScore(a.UserId, aId, a.AssignedDate, all, prevDate, shiftCount);
-        var bBadBefore = ViolationScore(b.UserId, bId, b.AssignedDate, all, prevDate, shiftCount);
-        var aBadAfter = ViolationScore(a.UserId, bId, a.AssignedDate, all, prevDate, shiftCount, a, bId);
-        var bBadAfter = ViolationScore(b.UserId, aId, b.AssignedDate, all, prevDate, shiftCount, b, aId);
+        var aBadBefore = ViolationScore(a.UserId, aId, a.AssignedDate, all, prevDate, nextDate, shiftCount);
+        var bBadBefore = ViolationScore(b.UserId, bId, b.AssignedDate, all, prevDate, nextDate, shiftCount);
+        var aBadAfter = ViolationScore(a.UserId, bId, a.AssignedDate, all, prevDate, nextDate, shiftCount, a, bId);
+        var bBadAfter = ViolationScore(b.UserId, aId, b.AssignedDate, all, prevDate, nextDate, shiftCount, b, aId);
 
         return (aBadAfter + bBadAfter) < (aBadBefore + bBadBefore);
     }
@@ -614,11 +924,12 @@ public static class ShiftDispersionSelector
         DateOnly date,
         List<ShiftAssignment> all,
         DateOnly? prevDate,
+        DateOnly? nextDate,
         int shiftCount,
         ShiftAssignment? replaceAssignment = null,
         int? replaceWithConfigId = null)
     {
-        var maxSame = EffectiveMax(shiftCount);
+        var maxSame = EffectiveMax(shiftCount, WorkedDays(all, userId));
         var score = 0;
         var effectiveForDate = replaceAssignment != null && replaceWithConfigId.HasValue
             ? replaceWithConfigId.Value
@@ -635,12 +946,22 @@ public static class ShiftDispersionSelector
                 score += 2;
         }
 
+        if (nextDate.HasValue)
+        {
+            var tomorrow = all.FirstOrDefault(x =>
+                x.UserId == userId
+                && x.AssignedDate == nextDate.Value
+                && !x.IsOnLeave && !x.IsHoliday
+                && x.SubServiceShiftConfigId != null);
+            if (tomorrow?.SubServiceShiftConfigId == effectiveForDate)
+                score += 2;
+        }
+
         var count = 0;
         foreach (var x in all.Where(x =>
                      x.UserId == userId
                      && !x.IsOnLeave && !x.IsHoliday
-                     && x.SubServiceShiftConfigId != null
-                     && x.AssignedDate <= date))
+                     && x.SubServiceShiftConfigId != null))
         {
             var id = replaceAssignment != null
                      && ReferenceEquals(x, replaceAssignment)

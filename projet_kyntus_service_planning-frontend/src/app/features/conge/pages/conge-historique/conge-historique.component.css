@@ -284,6 +284,11 @@
   border-color: color-mix(in srgb, var(--text-muted) 28%, var(--border-color));
 }
 
+tr.row-highlight td {
+  background: color-mix(in srgb, var(--electric-blue) 12%, var(--bg-card));
+  box-shadow: inset 3px 0 0 var(--electric-blue);
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

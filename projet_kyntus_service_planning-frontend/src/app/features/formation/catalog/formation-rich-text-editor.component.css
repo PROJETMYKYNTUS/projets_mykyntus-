@@ -1,10 +1,10 @@
 .frte {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border, #e2e8f0);
+  border: 1px solid var(--border-color);
   border-radius: .65rem;
   overflow: hidden;
-  background: var(--surface, #fff);
+  background: var(--bg-card);
 }
 
 .frte-disabled {
@@ -16,8 +16,8 @@
   flex-wrap: wrap;
   gap: .25rem;
   padding: .4rem .5rem;
-  border-bottom: 1px solid var(--border, #e2e8f0);
-  background: var(--surface-2, #f8fafc);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-input);
 }
 
 .frte-btn {
@@ -29,12 +29,12 @@
   border: none;
   border-radius: .4rem;
   background: transparent;
-  color: var(--text, #0f172a);
+  color: var(--text-primary);
   cursor: pointer;
 }
 
 .frte-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--primary, #4f46e5) 12%, transparent);
+  background: color-mix(in srgb, var(--blue-600) 12%, transparent);
 }
 
 .frte-btn:disabled {
@@ -58,7 +58,7 @@
 
 .frte-editor:empty::before {
   content: attr(data-placeholder);
-  color: var(--muted, #94a3b8);
+  color: var(--text-muted);
   pointer-events: none;
 }
 
@@ -77,13 +77,13 @@
 .frte-error {
   margin: 0;
   padding: .4rem .75rem;
-  color: #b91c1c;
+  color: var(--danger-text);
   font-size: .8rem;
 }
 
 .frte-hint {
   margin: 0;
   padding: .4rem .75rem;
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
   font-size: .8rem;
 }

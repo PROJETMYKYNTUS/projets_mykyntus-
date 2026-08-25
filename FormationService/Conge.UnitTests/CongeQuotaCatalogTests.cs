@@ -2,6 +2,7 @@ using Conge.Application.Abstractions;
 using Conge.Application.Commands.ConfigConge;
 using Conge.Domain.Entities;
 using Conge.Domain.Interfaces;
+using Kyntus.Iam;
 using Xunit;
 
 namespace Conge.UnitTests;
@@ -91,6 +92,95 @@ public class CongeQuotaCatalogTests
     }
 
     [Fact]
+    public async Task GetQuotas_superviseur_avec_rebac_expose_aussi_services_equipe()
+    {
+        const string celluleId = "cell-reseaux-d2";
+        const string serviceId = "svc-blo-ftto";
+        var superviseurId = Guid.NewGuid();
+        var empRepo = new FakeEmployeRepo();
+        empRepo.Employees.Add(EmployeSnapshot.Creer(
+            superviseurId, "Sup", "S", "s@t.com", Guid.Empty, Guid.Empty, "",
+            DateTime.UtcNow.AddYears(-3), false, "Superviseur", null, celluleId, null));
+        empRepo.Employees.Add(EmployeSnapshot.Creer(
+            Guid.NewGuid(), "A", "A", "a@t.com", superviseurId, Guid.Empty, "BLO FTTO",
+            DateTime.UtcNow.AddYears(-1), false, "Employee", null, celluleId, serviceId));
+
+        var catalog = new FakeCatalog(new DirectoryOrgCatalogSnapshot(
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [celluleId] = "RESEAUX D2",
+                [serviceId] = "BLO / FTTO"
+            },
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { [celluleId] = 6 },
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { [serviceId] = 3 },
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [serviceId] = celluleId }));
+
+        var rebac = new FakeRebac(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Superviseur"] = new[] { celluleId },
+            ["ReferentTechnique"] = Array.Empty<string>()
+        });
+
+        var handler = new GetQuotasServiceHandler(empRepo, new FakeQuotaRepo(), catalog, rebac);
+        var rows = await handler.Handle(new GetQuotasServiceQuery(superviseurId), CancellationToken.None);
+
+        Assert.Equal(2, rows.Count);
+        Assert.Contains(rows, r => r.ScopeKind == QuotaScopeKinds.Cellule && r.ServiceId == celluleId);
+        Assert.Contains(rows, r => r.ScopeKind == QuotaScopeKinds.Service && r.ServiceId == serviceId && r.ServiceNom == "BLO / FTTO");
+    }
+
+    [Fact]
+    public async Task GetQuotas_exclut_service_hors_cellule_supervisee_meme_si_OrgServiceId_obsolete()
+    {
+        const string celluleId = "cell-reseaux-d2";
+        const string serviceOk = "svc-blo-ftto";
+        const string serviceHors = "svc-cible-prio";
+        const string autreCellule = "cell-cible-prio";
+        var superviseurId = Guid.NewGuid();
+        var empRepo = new FakeEmployeRepo();
+        // Superviseur rattaché à RESEAUX D2 mais OrgServiceId encore sur « Cible Prio ».
+        empRepo.Employees.Add(EmployeSnapshot.Creer(
+            superviseurId, "Sup", "S", "s@t.com", Guid.Empty, Guid.Empty, "Cible Prio",
+            DateTime.UtcNow.AddYears(-3), false, "Superviseur", null, celluleId, serviceHors));
+        empRepo.Employees.Add(EmployeSnapshot.Creer(
+            Guid.NewGuid(), "A", "A", "a@t.com", superviseurId, Guid.Empty, "BLO FTTO",
+            DateTime.UtcNow.AddYears(-1), false, "Employee", null, celluleId, serviceOk));
+
+        var catalog = new FakeCatalog(new DirectoryOrgCatalogSnapshot(
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [celluleId] = "RESEAUX D2",
+                [serviceOk] = "BLO / FTTO",
+                [serviceHors] = "Cible Prio",
+                [autreCellule] = "Cible Prio"
+            },
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { [celluleId] = 6 },
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                [serviceOk] = 1,
+                [serviceHors] = 5
+            },
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [serviceOk] = celluleId,
+                [serviceHors] = autreCellule
+            }));
+
+        var rebac = new FakeRebac(new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Superviseur"] = new[] { celluleId },
+            ["ReferentTechnique"] = Array.Empty<string>()
+        });
+
+        var handler = new GetQuotasServiceHandler(empRepo, new FakeQuotaRepo(), catalog, rebac);
+        var rows = await handler.Handle(new GetQuotasServiceQuery(superviseurId), CancellationToken.None);
+
+        Assert.DoesNotContain(rows, r => r.ServiceId == serviceHors || r.ServiceNom == "Cible Prio");
+        Assert.Contains(rows, r => r.ScopeKind == QuotaScopeKinds.Cellule && r.ServiceId == celluleId);
+        Assert.Contains(rows, r => r.ScopeKind == QuotaScopeKinds.Service && r.ServiceId == serviceOk);
+    }
+
+    [Fact]
     public void ResolveNodeLabel_ignore_ServiceNom_qui_est_un_id()
     {
         const string celluleId = "cell-xyz789abc012";
@@ -107,5 +197,21 @@ public class CongeQuotaCatalogTests
             new Dictionary<string, int>());
         var nice = CongeQuotaPerimeter.ResolveNodeLabel(e, celluleId, QuotaScopeKinds.Cellule, catalog);
         Assert.Equal("Cellule Nord", nice);
+    }
+
+    private sealed class FakeRebac : IRebacClient
+    {
+        private readonly IReadOnlyDictionary<string, IReadOnlyList<string>> _byRelation;
+        public FakeRebac(IReadOnlyDictionary<string, IReadOnlyList<string>> byRelation) => _byRelation = byRelation;
+        public Task<bool> IsDescendantAsync(Guid viewerId, Guid targetId, CancellationToken ct = default)
+            => Task.FromResult(false);
+        public Task<IReadOnlyList<string>> GetManagedNodeIdsAsync(Guid employeeId, string kind, CancellationToken ct = default)
+            => Task.FromResult(_byRelation.TryGetValue(kind, out var ids) ? ids : Array.Empty<string>());
+        public Task<IReadOnlyList<Guid>> GetManagedEmployeeIdsAsync(Guid actorId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<Guid>>([]);
+        public Task<bool> CanActOnAsync(Guid actorId, Guid targetEmployeeId, CancellationToken ct = default)
+            => Task.FromResult(false);
+        public Task<IReadOnlyList<Guid>> GetResponsibleIdsAsync(string kind, string nodeId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<Guid>>([]);
     }
 }

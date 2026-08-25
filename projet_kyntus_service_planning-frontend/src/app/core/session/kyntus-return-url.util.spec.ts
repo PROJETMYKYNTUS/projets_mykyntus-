@@ -20,9 +20,10 @@ describe('kyntus-return-url.util', () => {
     expect(sanitizeReturnUrl('javascript:alert(1)')).toBeNull();
   });
 
-  it('rejette auth-callback et login', () => {
+  it('rejette auth-callback, login et unauthorized', () => {
     expect(sanitizeReturnUrl('/auth-callback')).toBeNull();
     expect(sanitizeReturnUrl('/login')).toBeNull();
+    expect(sanitizeReturnUrl('/unauthorized')).toBeNull();
   });
 
   it('resolveReturnUrl préfère la query puis sessionStorage', () => {

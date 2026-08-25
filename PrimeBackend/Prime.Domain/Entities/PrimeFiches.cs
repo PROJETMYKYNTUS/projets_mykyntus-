@@ -57,6 +57,8 @@ public class EmployeePrimeServiceFiche
     public string? DetailGridPreviewSheetName { get; set; }
     public string? TemplateVersionRef { get; set; }
     public DateTimeOffset? DetailGridFrozenAt { get; set; }
+    /// <summary>Pondérations partie commune réellement utilisées, figées à la finalisation.</summary>
+    public string? PonderationsSnapshotJson { get; set; }
     public ICollection<EmployeePrimeFicheValidationHistory> ValidationHistory { get; set; } =
         new List<EmployeePrimeFicheValidationHistory>();
 }

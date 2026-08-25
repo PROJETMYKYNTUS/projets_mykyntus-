@@ -12,19 +12,25 @@ namespace Planning.Infrastructure.Services
         private readonly AppDbContext _context;
         private readonly ILogger<PropositionService> _logger;
         private readonly IReclamationNotificationService _notif;
+        private readonly IMediaAssetService _media;
+        private readonly ITicketCommentService _comments;
 
         public PropositionService(
             AppDbContext context,
             ILogger<PropositionService> logger,
-            IReclamationNotificationService notif)
+            IReclamationNotificationService notif,
+            IMediaAssetService media,
+            ITicketCommentService comments)
         {
             _context = context;
             _logger = logger;
             _notif = notif;
+            _media = media;
+            _comments = comments;
         }
 
         // ------------------------------------------
-        // Soumettre (tous les rÙles)
+        // Soumettre (tous les rùles)
         // ------------------------------------------
         public async Task<PropositionDto> SoumettreAsync(
             CreatePropositionDto dto, string auteurId, string auteurNom, string auteurRole)
@@ -42,23 +48,23 @@ namespace Planning.Infrastructure.Services
             _context.Propositions.Add(proposition);
             await _context.SaveChangesAsync();
 
+            if (dto.MediaIds is { Count: > 0 })
+                await _media.AttachAsync(dto.MediaIds, MediaOwnerType.Proposition, proposition.Id);
+
             await AddHistoriqueAsync(proposition.Id, "Proposition soumise",
                 proposition.Status.ToString(), auteurId, auteurNom);
 
-            // ? Notifier les managers
-            Console.WriteLine($"?? ENVOI NOTIFICATION managers ó {dto.Titre}");
             await _notif.NotifyManagersAsync(
                 "Nouvelle proposition",
                 $"{auteurNom} a soumis une proposition : {dto.Titre}",
-                "info"
-            );
+                "info");
 
             _logger.LogInformation("Proposition {Id} soumise par {Auteur}", proposition.Id, auteurNom);
-            return MapToDto(proposition);
+            return await MapToDtoAsync(proposition);
         }
 
         // ------------------------------------------
-        // Mes demandes (tous les rÙles)
+        // Mes demandes (tous les rùles)
         // ------------------------------------------
         public async Task<PaginatedResult<PropositionDto>> GetMesDemandesAsync(
             string auteurId, int page = 1, int pageSize = 20)
@@ -71,7 +77,7 @@ namespace Planning.Infrastructure.Services
         }
 
         // ------------------------------------------
-        // DÈtail
+        // Dùtail
         // ------------------------------------------
         public async Task<PropositionDetailDto?> GetByIdAsync(int id, string userId)
         {
@@ -79,7 +85,7 @@ namespace Planning.Infrastructure.Services
                 .Include(p => p.Historique)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            return prop is null ? null : MapToDetailDto(prop);
+            return prop is null ? null : await MapToDetailDtoAsync(prop);
         }
 
         // ------------------------------------------
@@ -99,7 +105,7 @@ namespace Planning.Infrastructure.Services
         }
 
         // ------------------------------------------
-        // …valuer (RH, Manager, RP, Admin)
+        // ùvaluer (RH, Manager, RP, Admin)
         // ------------------------------------------
         public async Task EvaluerAsync(
             int id, UpdatePropositionStatusDto dto, string evaluateurId, string evaluateurNom)
@@ -122,13 +128,13 @@ namespace Planning.Infrastructure.Services
                 prop.ImplementeeAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-            await AddHistoriqueAsync(id, "Statut changÈ",
+            await AddHistoriqueAsync(id, "Statut changù",
                 $"{ancienStatut} ? {dto.Status}", evaluateurId, evaluateurNom);
 
             // ? Notifier l'auteur
             await _notif.NotifyAuteurAsync(
                 prop.AuteurId,
-                "Proposition ÈvaluÈe",
+                "Proposition ùvaluùe",
                 $"Votre proposition '{prop.Titre}' est maintenant : {dto.Status}",
                 dto.Status == PropositionStatus.Approuvee ? "success" :
                 dto.Status == PropositionStatus.Implementee ? "success" :
@@ -148,13 +154,13 @@ namespace Planning.Infrastructure.Services
             prop.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-            await AddHistoriqueAsync(id, "AssignÈ ‡", dto.AssigneeNom, assigneurId, assigneurNom);
+            await AddHistoriqueAsync(id, "Assignù ù", dto.AssigneeNom, assigneurId, assigneurNom);
 
             // ? Notifier l'auteur
             await _notif.NotifyAuteurAsync(
                 prop.AuteurId,
-                "Proposition assignÈe",
-                $"Votre proposition '{prop.Titre}' a ÈtÈ assignÈe ‡ {dto.AssigneeNom}",
+                "Proposition assignùe",
+                $"Votre proposition '{prop.Titre}' a ùtù assignùe ù {dto.AssigneeNom}",
                 "info"
             );
         }
@@ -171,14 +177,14 @@ namespace Planning.Infrastructure.Services
             prop.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-            await AddHistoriqueAsync(id, "PrioritÈ changÈe",
+            await AddHistoriqueAsync(id, "Prioritù changùe",
                 $"{ancienne} ? {dto.Priorite}", userId, userNom);
 
             // ? Notifier l'auteur
             await _notif.NotifyAuteurAsync(
                 prop.AuteurId,
-                "PrioritÈ mise ‡ jour",
-                $"La prioritÈ de votre proposition '{prop.Titre}' est maintenant : {dto.Priorite}",
+                "Prioritù mise ù jour",
+                $"La prioritù de votre proposition '{prop.Titre}' est maintenant : {dto.Priorite}",
                 dto.Priorite == Priority.Critique ? "warning" : "info"
             );
         }
@@ -227,8 +233,19 @@ namespace Planning.Infrastructure.Services
                 query = query.Where(p => p.Id == propositionId.Value);
 
             query = query.OrderByDescending(p => p.CreatedAt);
+            var total = await query.CountAsync();
+            var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+            var mapped = new List<PropositionDetailDto>();
+            foreach (var p in items)
+                mapped.Add(await MapToDetailDtoAsync(p));
 
-            return await PaginateAsync(query, page, pageSize, MapToDetailDto);
+            return new PaginatedResult<PropositionDetailDto>
+            {
+                Items = mapped,
+                TotalCount = total,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         // ------------------------------------------
@@ -245,19 +262,19 @@ namespace Planning.Infrastructure.Services
                 prop.Status != PropositionStatus.Approuvee &&
                 prop.Status != PropositionStatus.Rejetee)
                 throw new InvalidOperationException(
-                    "La proposition doit Ítre ÈvaluÈe ou implÈmentÈe pour noter la satisfaction.");
+                    "La proposition doit ùtre ùvaluùe ou implùmentùe pour noter la satisfaction.");
 
             prop.SatisfactionNote = dto.Note;
             prop.SatisfactionCommentaire = dto.Commentaire;
             prop.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-            await AddHistoriqueAsync(id, "Satisfaction notÈe",
+            await AddHistoriqueAsync(id, "Satisfaction notùe",
                 $"{dto.Note}/5", auteurId, prop.AuteurNom);
         }
 
         // ------------------------------------------
-        // Helpers privÈs
+        // Helpers privùs
         // ------------------------------------------
         private async Task<Proposition> GetOrThrowAsync(int id)
         {
@@ -316,25 +333,52 @@ namespace Planning.Infrastructure.Services
             ImplementeeAt = p.ImplementeeAt
         };
 
-        private static PropositionDetailDto MapToDetailDto(Proposition p)
+        private async Task<PropositionDto> MapToDtoAsync(Proposition p)
         {
-            var dto = new PropositionDetailDto();
-            var baseDto = MapToDto(p);
-            foreach (var prop in typeof(PropositionDto).GetProperties())
-                prop.SetValue(dto, prop.GetValue(baseDto));
-
-            dto.Historique = p.Historique
-                .OrderByDescending(h => h.CreatedAt)
-                .Select(h => new HistoriqueDto
-                {
-                    Id = h.Id,
-                    Action = h.Action,
-                    Valeur = h.Valeur,
-                    EffectueParNom = h.EffectueParNom,
-                    CreatedAt = h.CreatedAt
-                }).ToList();
-
+            var dto = MapToDto(p);
+            var media = await _media.ListByOwnerAsync(MediaOwnerType.Proposition, p.Id);
+            dto.Media = media.ToList();
+            dto.MediaCount = media.Count;
             return dto;
+        }
+
+        private async Task<PropositionDetailDto> MapToDetailDtoAsync(Proposition p)
+        {
+            var baseDto = await MapToDtoAsync(p);
+            return new PropositionDetailDto
+            {
+                Id = baseDto.Id,
+                Titre = baseDto.Titre,
+                Description = baseDto.Description,
+                BeneficeAttendu = baseDto.BeneficeAttendu,
+                Status = baseDto.Status,
+                Priorite = baseDto.Priorite,
+                AuteurId = baseDto.AuteurId,
+                AuteurNom = baseDto.AuteurNom,
+                AuteurRole = baseDto.AuteurRole,
+                AssigneeId = baseDto.AssigneeId,
+                AssigneeNom = baseDto.AssigneeNom,
+                CommentaireEvaluation = baseDto.CommentaireEvaluation,
+                SatisfactionNote = baseDto.SatisfactionNote,
+                SatisfactionCommentaire = baseDto.SatisfactionCommentaire,
+                CreatedAt = baseDto.CreatedAt,
+                UpdatedAt = baseDto.UpdatedAt,
+                EvalueeAt = baseDto.EvalueeAt,
+                ImplementeeAt = baseDto.ImplementeeAt,
+                Media = baseDto.Media,
+                MediaCount = baseDto.MediaCount,
+                Historique = p.Historique
+                    .OrderByDescending(h => h.CreatedAt)
+                    .Select(h => new HistoriqueDto
+                    {
+                        Id = h.Id,
+                        Action = h.Action,
+                        Valeur = h.Valeur,
+                        EffectueParNom = h.EffectueParNom,
+                        CreatedAt = h.CreatedAt
+                    }).ToList(),
+                Comments = (await _comments.ListAsync(MediaOwnerType.Proposition, p.Id)).ToList()
+            };
         }
     }
 }

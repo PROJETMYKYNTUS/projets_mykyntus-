@@ -50,6 +50,7 @@ import {
   buildStoredTemplateForDirectCommonUpload,
   loadStoredTemplates,
   serializeTemplateCalcSnapshotV1,
+  type StoredPrimeTemplate,
 } from '../models/prime-template.model';
 import { parsePrimeTemplateExcel } from '../lib/excel-fiche-template.parser';
 import { parsePrimeFicheGrid } from '../lib/prime-fiche-grid.parser';
@@ -65,7 +66,15 @@ import { draftListOrganizationalKey, draftResponseSaisieJson, PrimeCellPrimeApiS
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
 import { RoleService } from '../state/role.service';
 import { computePreviewGridWithFormulas } from '../lib/prime-fiche-formula-eval';
+import { computeMergedEmployeeFichePreview } from '../lib/prime-employee-fiche-merged-preview';
 import { filterTemplatePayloadToPoleContracts, isPoleContract, isSavContract } from '../lib/prime-pole-saisie-filter';
+import {
+  confirmAllCarriedLines,
+  countUnconfirmedCarriedLines,
+  markLineConfirmedOnMeasureEdit,
+} from '../lib/prime-carried-lines';
+import { PrimeScopeStore } from '../state/prime-scope.store';
+import { PrimeCelluleIndicatorsPageComponent } from './prime-cellule-indicators-page.component';
 
 export type PrimeSaisieContext = 'RACC' | 'SAV';
 
@@ -246,7 +255,12 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
 @Component({
   selector: 'app-prime-saisie',
   standalone: true,
-  imports: [LucideIconComponent, PrimeCardComponent, PrimeTemplatePreviewComponent],
+  imports: [
+    LucideIconComponent,
+    PrimeCardComponent,
+    PrimeTemplatePreviewComponent,
+    PrimeCelluleIndicatorsPageComponent,
+  ],
   template: `
     <div class="flex flex-col min-h-0">
       <header
@@ -264,7 +278,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
               Retour à la liste
             </button>
           }
-          <h1 class="truncate text-lg font-bold tracking-tight text-primary sm:text-xl">Fiche PRIME — saisie</h1>
+          <h1 class="truncate text-lg font-bold tracking-tight text-primary sm:text-xl">Résultats communs — saisie</h1>
           @if (session.useWizardFlow()) {
             <span
               class="shrink-0 rounded-md border border-blue-500/40 bg-blue-600/15 px-2 py-1 text-xs font-semibold text-primary"
@@ -278,7 +292,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
               (click)="session.startWizardForSupervisor()"
               class="shrink-0 rounded-lg border border-blue-500/40 bg-blue-600/15 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-blue-600/25"
             >
-              Assistant fiche (période / template)
+              Nouvelle fiche commune
             </button>
           }
           @if (hasGridTemplate()) {
@@ -341,53 +355,26 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
           class="flex flex-wrap items-center justify-between gap-2 border-b border-blue-500/30 bg-blue-600/10 px-4 py-2 text-xs text-primary sm:px-6 sm:text-sm"
         >
           <span>
-            Mode <strong>template Excel</strong> (schéma v{{ schemaForUi()?.templateFormatVersion }}). Fichier :
-            {{ schemaForUi()?.fileName }} — activez un autre template depuis « Templates fiche PRIME » si besoin.
+            Modèle actif : {{ schemaForUi()?.fileName }}
           </span>
           <button
             type="button"
             (click)="clearActiveTemplate()"
             class="shrink-0 rounded-md border border-default bg-card px-2 py-1 text-xs font-medium hover:bg-input/40"
           >
-            {{ session.useWizardFlow() ? 'Quitter le flux assistant' : 'Revenir au mode RACC / SAV' }}
+            Changer de modèle
           </button>
-        </div>
-      }
-
-      @if (hasGridTemplate() && isSuperviseur()) {
-        <div
-          class="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-500/30 bg-emerald-600/10 px-4 py-2 text-xs text-primary sm:px-6 sm:text-sm"
-        >
-          <span>
-            <strong>Partie cellule</strong> — saisie sur une interface séparée (pilotage + formulaire par employé).
-          </span>
-          <div class="flex flex-wrap gap-2">
-            <button
-              type="button"
-              (click)="nav.requestView('/prime-fiches-pilotes')"
-              class="shrink-0 rounded-md border border-emerald-600/50 bg-card px-2 py-1 text-xs font-semibold text-primary hover:bg-input/40"
-            >
-              Pilotage fiches
-            </button>
-            <button
-              type="button"
-              (click)="goConfigureIndicatorsAndPonderations()"
-              class="shrink-0 rounded-md border border-emerald-600/50 bg-card px-2 py-1 text-xs font-semibold text-primary hover:bg-input/40"
-            >
-              Indicateurs &amp; pondérations
-            </button>
-          </div>
         </div>
       }
 
       @if (session.useWizardFlow() && session.step() === 'setup') {
         <main class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
           <app-prime-card
-            title="Configuration de la fiche"
-            description="Période de référence ; sous « Partie personnalisée », reprenez une fiche en cours pour préremplir période et template. Ensuite : template enregistré ou import Excel — même période."
+            title="Démarrer les résultats communs"
+            description="Choisissez la période et un modèle Excel. Reconduisez le mois précédent si possible, ou ouvrez directement la saisie."
           >
             <div class="flex flex-col gap-6">
-              <div class="flex flex-wrap gap-4">
+              <div class="flex flex-wrap gap-4 items-end">
                 <div>
                   <label class="mb-1 block text-sm font-medium text-muted">Mois</label>
                   <select
@@ -412,170 +399,79 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                     }
                   </select>
                 </div>
-              </div>
-
-              <div class="rounded-xl border border-default/80 bg-card/40 p-4">
-                <h3 class="text-sm font-semibold tracking-tight text-primary">Partie personnalisée</h3>
-                <p class="mt-1 text-xs text-muted leading-relaxed">
-                  Fiches en cours de remplissage pour vos cellules : cliquez une ligne pour appliquer la période et le
-                  template de ce brouillon (alternative au choix manuel mois / année ci-dessus).
-                </p>
-                <div class="mt-3">
-                  @if (wizardDraftsLoading()) {
-                    <p class="text-sm text-muted">Chargement…</p>
-                  } @else if (!wizardDraftListItems().length) {
-                    <p class="text-sm text-muted">Aucune fiche en cours pour vos cellules.</p>
-                  } @else {
-                    <ul class="max-h-56 divide-y divide-default overflow-y-auto rounded-lg border border-default">
-                      @for (it of wizardDraftListItems(); track it.id) {
-                        <li>
-                          <button
-                            type="button"
-                            class="w-full px-3 py-2 text-left text-sm text-primary hover:bg-input/30"
-                            (click)="openWizardDraftFromList(it)"
-                          >
-                            <span class="font-semibold">{{ it.period }}</span>
-                            <span class="text-muted"> · {{ it.templateDisplayName || it.templateId }}</span>
-                          </button>
-                        </li>
-                      }
-                    </ul>
-                  }
-                </div>
-              </div>
-
-              <div
-                class="grid grid-cols-1 gap-6 border-t border-default/50 pt-5 lg:grid-cols-2 lg:items-start lg:gap-8"
-              >
-                <div class="flex min-w-0 flex-col gap-2">
-                  <h3 class="text-sm font-semibold tracking-tight text-primary">Template enregistré</h3>
-                  <p class="text-xs text-muted">
-                    Modèle importé depuis « Templates fiche PRIME », puis aperçu et saisie structurée.
-                  </p>
-                  <label class="mb-1 block text-sm font-medium text-muted">Choisir un template</label>
-                  <select
-                    [value]="session.selectedTemplateId() ?? ''"
-                    (change)="onWizardTemplateChange($any($event.target).value)"
-                    [class]="inputFieldClass"
+                @if (rolloverHint()) {
+                  <button
+                    type="button"
+                    (click)="rolloverForCurrentCellule()"
+                    [disabled]="rolloverBusy()"
+                    class="inline-flex items-center gap-2 rounded-lg border border-violet-500/40 bg-violet-600/15 px-4 py-2 text-sm font-semibold text-primary hover:bg-violet-600/25 disabled:opacity-50"
                   >
-                    <option value="">— Choisir un template —</option>
-                    @for (t of storedTemplateList(); track t.id) {
-                      <option [value]="t.id">{{ t.displayName }}</option>
-                    }
-                  </select>
-                  @if (!storedTemplateList().length) {
-                    <p class="text-xs text-muted">
-                      Aucun template enregistré. Importez-en un depuis « Templates fiche PRIME ».
-                    </p>
-                  }
-                </div>
+                    Reconduire depuis {{ rolloverHint() }}
+                  </button>
+                }
+              </div>
 
-                <div
-                  class="flex min-w-0 flex-col gap-3 rounded-xl border border-blue-500/35 bg-blue-600/10 p-4 dark:bg-blue-950/30"
+              <div class="flex min-w-0 flex-col gap-2">
+                <h3 class="text-sm font-semibold tracking-tight text-primary">Modèle Excel</h3>
+                <p class="text-xs text-muted">
+                  Importez ou activez un modèle via Templates fiche PRIME, puis sélectionnez-le ici.
+                </p>
+                <label class="mb-1 block text-sm font-medium text-muted">Choisir un modèle</label>
+                <select
+                  [value]="session.selectedTemplateId() ?? ''"
+                  (change)="onWizardTemplateChange($any($event.target).value)"
+                  [class]="inputFieldClass"
                 >
-                  <h3 class="text-sm font-semibold tracking-tight text-primary">Import rapide — Excel pré-rempli</h3>
-                  <p class="text-xs text-muted leading-relaxed">
-                    Même période que ci-dessus. Fiche type exemplaire PRIME : analyse locale du .xlsx, enregistrement du
-                    brouillon en base, puis saisie pour contrôle.
-                  </p>
-                  <input
-                    #commonExcelInput
-                    type="file"
-                    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    class="hidden"
-                    (change)="onCommonExcelFileSelected($event)"
-                  />
-                  <div class="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      (click)="commonExcelInput.click()"
-                      [disabled]="commonExcelDirectBusy()"
-                      class="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-500/50 bg-blue-600/20 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-blue-600/30 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <app-lucide-icon [icon]="icons.file" className="w-4 h-4" />
-                      Choisir un Excel pré-rempli…
-                    </button>
-                    @if (commonExcelDirectBusy()) {
-                      <span class="text-sm text-muted">Traitement en cours…</span>
-                    }
-                  </div>
-                  @if (commonExcelDirectError()) {
-                    <div
-                      class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-primary"
-                      role="alert"
-                    >
-                      {{ commonExcelDirectError() }}
-                    </div>
+                  <option value="">— Choisir un modèle —</option>
+                  @for (t of storedTemplateList(); track t.id) {
+                    <option [value]="t.id">{{ t.displayName }}</option>
                   }
-                  @if (commonExcelDirectDiagnostics().length) {
-                    <div class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-primary">
-                      <p class="mb-1 font-semibold uppercase text-muted">Avertissements grille</p>
-                      <ul class="list-disc pl-4 space-y-0.5">
-                        @for (w of commonExcelDirectDiagnostics(); track w) {
-                          <li>{{ w }}</li>
-                        }
-                      </ul>
-                    </div>
-                  }
-                </div>
+                </select>
+                @if (!storedTemplateList().length) {
+                  <button
+                    type="button"
+                    (click)="nav.requestView('/template-manager')"
+                    class="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-blue-300 hover:text-blue-200"
+                  >
+                    Ouvrir Templates fiche PRIME
+                    <app-lucide-icon [icon]="icons.file" className="w-3.5 h-3.5" />
+                  </button>
+                }
               </div>
 
               <div class="flex flex-wrap gap-2 border-t border-default/50 pt-4">
                 <button
                   type="button"
-                  (click)="session.goPreview()"
-                  [disabled]="!session.selectedTemplateId()"
+                  (click)="session.goPonderations()"
+                  [disabled]="!session.selectedTemplateId() || !session.sessionTemplate()?.ficheGridSchema"
                   class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Voir l’aperçu
+                  Continuer vers indicateurs et pondérations
                 </button>
-                <button
-                  type="button"
-                  (click)="saveWizardDraftEarly()"
-                  [disabled]="
-                    !session.selectedTemplateId() ||
-                    wizardEarlySaveBusy() ||
-                    !session.sessionTemplate()?.ficheGridSchema
-                  "
-                  class="inline-flex items-center gap-2 rounded-lg border border-emerald-600/50 bg-emerald-600/15 px-4 py-2 text-sm font-semibold text-primary hover:bg-emerald-600/25 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <app-lucide-icon [icon]="icons.save" className="w-4 h-4" />
-                  Enregistrer
-                </button>
-                <button
-                  type="button"
-                  (click)="session.exitWizardToLegacy()"
-                  class="rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-input/40"
-                >
-                  Mode saisie classique (RACC / SAV)
-                </button>
+                @if (wizardEarlySaveMessage()) {
+                  <p class="text-xs text-muted">{{ wizardEarlySaveMessage() }}</p>
+                }
               </div>
-              @if (wizardEarlySaveMessage()) {
-                <p class="text-xs text-muted">{{ wizardEarlySaveMessage() }}</p>
-              }
             </div>
           </app-prime-card>
         </main>
-      } @else if (session.useWizardFlow() && session.step() === 'preview') {
-        <main class="flex-1 overflow-y-auto p-4 sm:p-6">
-          <app-prime-card title="Aperçu du template" description="Lecture seule — valeurs et formules détectées à l’import.">
-            <app-prime-template-preview [tpl]="session.sessionTemplate()" />
-            <div class="mt-6 flex flex-wrap gap-2 border-t border-default pt-4">
+      } @else if (session.useWizardFlow() && session.step() === 'ponderations') {
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-base font-bold text-primary">Indicateurs &amp; pondérations</h2>
+              <p class="text-xs text-muted">
+                Configurez les pondérations pour la période {{ session.periodLabel() }}, puis continuez la saisie
+                commune.
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
               <button
                 type="button"
                 (click)="session.goBackToSetup()"
                 class="rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-input/40"
               >
-                Retour
-              </button>
-              <button
-                type="button"
-                (click)="saveWizardDraftEarly()"
-                [disabled]="wizardEarlySaveBusy() || !session.sessionTemplate()?.ficheGridSchema"
-                class="inline-flex items-center gap-2 rounded-lg border border-emerald-600/50 bg-emerald-600/15 px-4 py-2 text-sm font-semibold text-primary hover:bg-emerald-600/25 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <app-lucide-icon [icon]="icons.save" className="w-4 h-4" />
-                Enregistrer
+                Retour période / modèle
               </button>
               <button
                 type="button"
@@ -583,49 +479,23 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                 [disabled]="!session.sessionTemplate()?.ficheGridSchema"
                 class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Passer à la saisie
+                Continuer vers saisie RACC/SAV
               </button>
             </div>
-            @if (wizardEarlySaveMessage()) {
-              <p class="mt-2 text-xs text-muted">{{ wizardEarlySaveMessage() }}</p>
-            }
-            @if (!session.sessionTemplate()?.ficheGridSchema) {
-              <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">
-                Ce template n’a pas de schéma grille (import incomplet). Choisissez un autre fichier ou complétez l’import.
-              </p>
-            }
-          </app-prime-card>
+          </div>
+          <app-prime-cellule-indicators-page />
         </main>
       } @else if (session.useWizardFlow() && session.step() === 'result') {
         <main class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           <app-prime-card
             title="Résultat calculé (aperçu Excel)"
-            description="Recalcul HyperFormula sur les lignes d’aperçu importées ; les formules hors plage peuvent être ignorées."
+            description="Même aperçu feuille Excel que le template (recalcul HyperFormula après injection de la saisie)."
           >
-            @if (resultPreview().errors.length) {
-              <div class="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-primary">
-                @for (e of resultPreview().errors; track e) {
-                  <div>{{ e }}</div>
-                }
-              </div>
+            @if (resultPreviewTemplate(); as tpl) {
+              <app-prime-template-preview [tpl]="tpl" />
+            } @else {
+              <p class="text-sm text-muted">Aucun template de session.</p>
             }
-            <div class="max-h-[min(60vh,560px)] overflow-auto rounded-lg border border-default bg-input">
-              <table class="w-full border-collapse text-left text-xs">
-                <tbody>
-                  @for (row of resultPreview().rows; track $index) {
-                    <tr class="border-b border-default/60">
-                      @for (cell of row; track $index) {
-                        <td
-                          class="min-w-[3rem] max-w-[14rem] border-r border-default/40 px-2 py-1 font-mono text-primary whitespace-pre-wrap break-all"
-                        >
-                          {{ cell }}
-                        </td>
-                      }
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
             <div class="mt-6 flex flex-wrap gap-2 border-t border-default pt-4">
               <button
                 type="button"
@@ -651,20 +521,13 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
             description="Brouillon pôle (RACC/SAV) enregistré automatiquement. Complétez la partie cellule depuis le pilotage."
           >
             <p class="text-sm text-primary">{{ saveMessage() }}</p>
-            <div class="mt-6 flex flex-wrap gap-2">
+            <div class="mt-6">
               <button
                 type="button"
-                (click)="goConfigureIndicatorsAndPonderations()"
-                class="rounded-lg border border-emerald-600/50 bg-emerald-600/15 px-4 py-2 text-sm font-semibold text-primary hover:bg-emerald-600/25"
-              >
-                Configurer indicateurs &amp; pondérations RACC/SAV
-              </button>
-              <button
-                type="button"
-                (click)="session.restartWizard()"
+                (click)="nav.requestViewWithTab('/prime-fiches-agents', 'pilotage')"
                 class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
               >
-                Nouvelle fiche
+                Continuer vers fiches agents
               </button>
             </div>
           </app-prime-card>
@@ -734,9 +597,33 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                 [description]="
                   isSavContract(tl.contract)
                     ? 'Prime, Challenge et KPI additionnels — pas d’indicateur répartition RDV pour le contrat SAV.'
-                    : 'Répartition, Prime, Challenge et KPI (pondérations = config service)'
+                    : 'Répartition, Prime, Challenge et KPI (pondérations = config cellule)'
                 "
               >
+                @if (dynRow(k).carriedFrom && !dynRow(k).carriedConfirmed) {
+                  <div
+                    class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-primary"
+                  >
+                    <span>
+                      Ligne reconduite depuis <strong>{{ dynRow(k).carriedFrom }}</strong> — confirmez les mesures
+                      modifiées.
+                    </span>
+                  </div>
+                }
+                @if (unconfirmedCarriedCount() > 0) {
+                  <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
+                    <span class="text-xs text-amber-200">
+                      {{ unconfirmedCarriedCount() }} ligne(s) reconduite(s) à confirmer
+                    </span>
+                    <button
+                      type="button"
+                      (click)="confirmAllCarried()"
+                      class="rounded-md border border-amber-500/50 bg-amber-600/15 px-2 py-1 text-xs font-semibold text-primary hover:bg-amber-600/25"
+                    >
+                      Tout confirmer
+                    </button>
+                  </div>
+                }
                 <div class="space-y-8">
                   @if (!isSavContract(tl.contract)) {
                     <div class="space-y-4 rounded-lg border border-default bg-input p-4">
@@ -774,7 +661,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                                   {{ fl.label }}
                                   @if (fl.key === 'ponderationPrime') {
                                     <span class="normal-case font-normal text-[11px] text-muted">
-                                      (config service)
+                                      (config cellule)
                                     </span>
                                   }
                                 </label>
@@ -787,7 +674,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                                   [readOnly]="fl.key === 'ponderationPrime'"
                                   [title]="
                                     fl.key === 'ponderationPrime'
-                                      ? 'Pondération définie dans Indicateurs & pondérations (par service)'
+                                      ? 'Pondération définie dans Indicateurs & pondérations (par cellule)'
                                       : ''
                                   "
                                   [value]="dynSector(k, s.sectorIndex)[fl.key]"
@@ -810,7 +697,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                                   {{ fl.label }}
                                   @if (fl.key === 'ponderationChallenge') {
                                     <span class="normal-case font-normal text-[11px] text-muted">
-                                      (config service)
+                                      (config cellule)
                                     </span>
                                   }
                                 </label>
@@ -823,7 +710,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                                   [readOnly]="fl.key === 'ponderationChallenge'"
                                   [title]="
                                     fl.key === 'ponderationChallenge'
-                                      ? 'Pondération définie dans Indicateurs & pondérations (par service)'
+                                      ? 'Pondération définie dans Indicateurs & pondérations (par cellule)'
                                       : ''
                                   "
                                   [value]="dynSector(k, s.sectorIndex)[fl.key]"
@@ -867,18 +754,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
 
                 <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
                   @if (saveMessage()) {
-                    <div class="space-y-2 max-w-xl">
-                      <p class="text-sm text-muted">{{ saveMessage() }}</p>
-                      @if (showPostUploadConfigCta()) {
-                        <button
-                          type="button"
-                          (click)="goConfigureIndicatorsAndPonderations()"
-                          class="inline-flex items-center rounded-lg border border-emerald-600/50 bg-emerald-600/15 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-emerald-600/25"
-                        >
-                          Configurer pondérations RACC/SAV par service
-                        </button>
-                      }
-                    </div>
+                    <p class="text-sm text-muted max-w-xl">{{ saveMessage() }}</p>
                   } @else {
                     <span></span>
                   }
@@ -888,23 +764,28 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                         type="button"
                         (click)="goResultFromWizard()"
                         [disabled]="poleDraftSaving()"
-                        class="rounded-lg border border-default bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-input/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        Aperçu calculé
+                        @if (poleDraftSaving()) {
+                          Enregistrement…
+                        } @else {
+                          Enregistrer et contrôler
+                        }
+                      </button>
+                    } @else {
+                      <button
+                        type="button"
+                        (click)="saveCurrent()"
+                        [disabled]="poleDraftSaving()"
+                        class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        @if (poleDraftSaving()) {
+                          Enregistrement…
+                        } @else {
+                          Enregistrer
+                        }
                       </button>
                     }
-                    <button
-                      type="button"
-                      (click)="saveCurrent()"
-                      [disabled]="poleDraftSaving()"
-                      class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      @if (poleDraftSaving()) {
-                        Enregistrement…
-                      } @else {
-                        Enregistrer
-                      }
-                    </button>
                   </div>
                 </div>
               </app-prime-card>
@@ -981,7 +862,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                       <div class="min-w-0">
                         <label class="mb-1 block text-sm font-medium text-muted">
                           Pondération
-                          <span class="normal-case font-normal text-[11px] text-muted">(config service)</span>
+                          <span class="normal-case font-normal text-[11px] text-muted">(config cellule)</span>
                         </label>
                         <input
                           type="number"
@@ -989,7 +870,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                           min="0"
                           [class]="inputFieldClass + ' opacity-70'"
                           readOnly
-                          title="Pondération définie dans Indicateurs & pondérations (par service)"
+                          title="Pondération définie dans Indicateurs & pondérations (par cellule)"
                           [value]="ligne(k).ponderationPrime"
                         />
                       </div>
@@ -1048,7 +929,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                       <div class="min-w-0">
                         <label class="mb-1 block text-sm font-medium text-muted">
                           Pondération
-                          <span class="normal-case font-normal text-[11px] text-muted">(config service)</span>
+                          <span class="normal-case font-normal text-[11px] text-muted">(config cellule)</span>
                         </label>
                         <input
                           type="number"
@@ -1056,7 +937,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
                           min="0"
                           [class]="inputFieldClass + ' opacity-70'"
                           readOnly
-                          title="Pondération définie dans Indicateurs & pondérations (par service)"
+                          title="Pondération définie dans Indicateurs & pondérations (par cellule)"
                           [value]="ligne(k).ponderationChallenge"
                         />
                       </div>
@@ -1088,18 +969,7 @@ function buildNavBlocksLegacy(ctx: PrimeSaisieContext): NavBlock[] {
 
                 <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
                   @if (saveMessage()) {
-                    <div class="space-y-2 max-w-xl">
-                      <p class="text-sm text-muted">{{ saveMessage() }}</p>
-                      @if (showPostUploadConfigCta()) {
-                        <button
-                          type="button"
-                          (click)="goConfigureIndicatorsAndPonderations()"
-                          class="inline-flex items-center rounded-lg border border-emerald-600/50 bg-emerald-600/15 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-emerald-600/25"
-                        >
-                          Configurer pondérations RACC/SAV par service
-                        </button>
-                      }
-                    </div>
+                    <p class="text-sm text-muted max-w-xl">{{ saveMessage() }}</p>
                   } @else {
                     <span></span>
                   }
@@ -1156,6 +1026,7 @@ export class PrimeSaisieComponent {
 
   readonly activeTpl = inject(PrimeFicheTemplateActiveService);
   readonly session = inject(PrimeFicheSessionService);
+  readonly scope = inject(PrimeScopeStore);
   readonly role = inject(RoleService);
   readonly ficheApi = inject(PrimeFicheApiService);
   readonly cellPrimeApi = inject(PrimeCellPrimeApiService);
@@ -1177,8 +1048,38 @@ export class PrimeSaisieComponent {
 
   readonly resultPreview = computed(() => {
     const t = this.session.sessionTemplate();
+    const schema = this.schemaForUi();
     if (!t) return { rows: [] as string[][], errors: [] as string[] };
-    return computePreviewGridWithFormulas(t);
+    if (!schema?.lines?.length) return computePreviewGridWithFormulas(t);
+
+    const snapJson = serializeTemplateCalcSnapshotV1(t);
+    if (!snapJson) return computePreviewGridWithFormulas(t);
+
+    const fullPayload = this.buildPayload() as Record<string, unknown>;
+    const polePayload = filterTemplatePayloadToPoleContracts(schema, fullPayload);
+    const merged = computeMergedEmployeeFichePreview({
+      schema,
+      poleSaisieJson: JSON.stringify(polePayload),
+      cellSaisieJson: '{}',
+      templateCalcSnapshotJson: snapJson,
+      indicators: [],
+      templateId: t.id,
+    });
+    return {
+      rows: merged.rows,
+      errors: merged.errors,
+      template: merged.previewTemplate ?? t,
+    };
+  });
+
+  /** Aperçu Excel unifié (même composant / chrome que le gestionnaire de templates). */
+  readonly resultPreviewTemplate = computed((): StoredPrimeTemplate | null => {
+    const preview = this.resultPreview() as {
+      rows: string[][];
+      errors: string[];
+      template?: StoredPrimeTemplate | null;
+    };
+    return preview.template ?? this.session.sessionTemplate();
   });
 
   readonly wizardYearChoices = computed(() => {
@@ -1216,8 +1117,6 @@ export class PrimeSaisieComponent {
   readonly progress = signal<Record<string, IndicateurProgress>>({});
   readonly validationMessage = signal<string | null>(null);
   readonly saveMessage = signal<string | null>(null);
-  /** Après upload / enregistrement modèle : proposer la config pondérations par service. */
-  readonly showPostUploadConfigCta = signal(false);
   /** Après remplissage complet partie pôle, passage auto une fois vers l’étape aperçu. */
   readonly poleAutoNavigated = signal(false);
   readonly poleDraftSaving = signal(false);
@@ -1231,7 +1130,10 @@ export class PrimeSaisieComponent {
   readonly wizardDraftListItems = signal<SupervisorPolePrimeDraftListItemDto[]>([]);
   readonly wizardEarlySaveBusy = signal(false);
   readonly wizardEarlySaveMessage = signal<string | null>(null);
-  readonly draftListOrganizationalKey = draftListOrganizationalKey;
+  readonly rolloverBusy = signal(false);
+  readonly rolloverHint = signal<string | null>(null);
+
+  readonly unconfirmedCarriedCount = computed(() => countUnconfirmedCarriedLines(this.lignesDynamic()));
 
   readonly hasGridTemplate = computed(() => this.schemaForUi() !== null);
 
@@ -1293,6 +1195,11 @@ export class PrimeSaisieComponent {
       if (this.session.preferLegacySaisie()) return;
       if (this.session.step() !== 'idle') return;
       this.session.startWizardForSupervisor();
+    });
+
+    effect(() => {
+      if (this.session.step() !== 'setup') return;
+      void this.loadRolloverHint();
     });
 
     /**
@@ -1473,6 +1380,10 @@ export class PrimeSaisieComponent {
   }
 
   private validateBeforeResultOrSubmit(): string | null {
+    const carried = this.unconfirmedCarriedCount();
+    if (carried > 0) {
+      return `${carried} ligne(s) reconduite(s) non confirmée(s). Relisez les mesures ou cliquez « Tout confirmer ».`;
+    }
     if (this.hasGridTemplate() && this.session.useWizardFlow()) {
       return this.validatePoleTemplatePart();
     }
@@ -1545,7 +1456,7 @@ export class PrimeSaisieComponent {
     this.wizardEarlySaveMessage.set(null);
     const u = this.role.currentUser();
     if (!u?.id) return;
-    const org = this.draftListOrganizationalKey(item);
+    const org = draftListOrganizationalKey(item);
     const draft = await firstValueFrom(
       this.cellPrimeApi.getPoleDraft(u.id, org, item.period, item.templateId).pipe(catchError(() => of(null))),
     );
@@ -1771,7 +1682,7 @@ export class PrimeSaisieComponent {
   onDynRepartition(key: string, value: string): void {
     const next = sanitizeNonNegativeNumberInput(value);
     this.lignesDynamic.update((m) => {
-      const cur = m[key] ?? this.dynRow(key);
+      const cur = markLineConfirmedOnMeasureEdit(m[key] ?? this.dynRow(key));
       return { ...m, [key]: { ...cur, repartitionRdv: next } };
     });
     this.bumpProgress(key);
@@ -1782,11 +1693,12 @@ export class PrimeSaisieComponent {
     if (field === 'ponderationPrime' || field === 'ponderationChallenge') return;
     const next = sanitizeNonNegativeNumberInput(value);
     this.lignesDynamic.update((m) => {
-      const cur = { ...(m[key] ?? this.dynRow(key)) };
+      let cur = markLineConfirmedOnMeasureEdit(m[key] ?? this.dynRow(key));
       const sects = [...cur.secteurValues];
       const prev = sects[sectorIndex] ?? { core: emptySecteurPairValues(), custom: {} };
       sects[sectorIndex] = { ...prev, core: { ...prev.core, [field]: next } };
-      return { ...m, [key]: { ...cur, secteurValues: sects } };
+      cur = { ...cur, secteurValues: sects };
+      return { ...m, [key]: cur };
     });
     this.bumpProgress(key);
     this.saveMessage.set(null);
@@ -1795,14 +1707,68 @@ export class PrimeSaisieComponent {
   onDynCustomInput(key: string, sectorIndex: number, customId: string, value: string): void {
     const next = sanitizeNonNegativeNumberInput(value);
     this.lignesDynamic.update((m) => {
-      const cur = { ...(m[key] ?? this.dynRow(key)) };
+      let cur = markLineConfirmedOnMeasureEdit(m[key] ?? this.dynRow(key));
       const sects = [...cur.secteurValues];
       const prev = sects[sectorIndex] ?? { core: emptySecteurPairValues(), custom: {} };
       sects[sectorIndex] = { ...prev, custom: { ...prev.custom, [customId]: next } };
-      return { ...m, [key]: { ...cur, secteurValues: sects } };
+      cur = { ...cur, secteurValues: sects };
+      return { ...m, [key]: cur };
     });
     this.bumpProgress(key);
     this.saveMessage.set(null);
+  }
+
+  confirmAllCarried(): void {
+    this.lignesDynamic.update((m) => confirmAllCarriedLines(m));
+    this.validationMessage.set(null);
+  }
+
+  async loadRolloverHint(): Promise<void> {
+    const u = this.role.currentUser();
+    const celluleId = this.scope.selectedCelluleId().trim();
+    const period = this.session.periodLabel();
+    if (!u?.id || !celluleId || !period) {
+      this.rolloverHint.set(null);
+      return;
+    }
+    const rows = await firstValueFrom(
+      this.cellPrimeApi.getSupervisorCampaign(u.id, period).pipe(catchError(() => of([]))),
+    );
+    const hit = rows.find((r) => r.celluleId === celluleId);
+    this.rolloverHint.set(hit?.canRolloverFromPrevious ? hit.previousPeriod ?? null : null);
+  }
+
+  async rolloverForCurrentCellule(): Promise<void> {
+    const u = this.role.currentUser();
+    const celluleId = this.scope.selectedCelluleId().trim();
+    const period = this.session.periodLabel();
+    const source = this.rolloverHint();
+    if (!u?.id || !celluleId || !period || !source) return;
+    this.rolloverBusy.set(true);
+    this.validationMessage.set(null);
+    try {
+      await firstValueFrom(
+        this.cellPrimeApi.rolloverPoleDraft({
+          supervisorUserId: u.id,
+          celluleId,
+          targetPeriod: period,
+          sourcePeriod: source,
+          includeEmployeeFiches: true,
+          overwrite: false,
+        }),
+      );
+      this.session.bumpDraftListRefresh();
+      this.rolloverHint.set(null);
+      this.saveMessage.set(`Campagne reconduite depuis ${source}.`);
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === 'object' && 'message' in e && typeof (e as Error).message === 'string'
+          ? (e as Error).message
+          : 'Reconduction impossible.';
+      this.validationMessage.set(msg);
+    } finally {
+      this.rolloverBusy.set(false);
+    }
   }
 
   private bumpProgress(key: string): void {
@@ -2016,12 +1982,12 @@ export class PrimeSaisieComponent {
 
   onWizardMonthChange(value: string): void {
     const n = Number(value);
-    if (n >= 1 && n <= 12) this.session.periodMonth.set(n);
+    if (n >= 1 && n <= 12) this.session.setPeriodMonth(n);
   }
 
   onWizardYearChange(value: string): void {
     const n = Number(value);
-    if (Number.isFinite(n)) this.session.periodYear.set(n);
+    if (Number.isFinite(n)) this.session.setPeriodYear(n);
   }
 
   onWizardTemplateChange(id: string): void {
@@ -2100,10 +2066,7 @@ export class PrimeSaisieComponent {
       this.session.goResult();
       this.poleAutoNavigated.set(false);
       this.validationMessage.set(null);
-      this.showPostUploadConfigCta.set(true);
-      this.saveMessage.set(
-        `Modèle enregistré (${saved.id}). Configurez ensuite les indicateurs et les pondérations RACC/SAV (Pondération Prime / Challenge) par service.`,
-      );
+      this.saveMessage.set(`Modèle enregistré (${saved.id}). Poursuivez la saisie commune.`);
     } catch (e: unknown) {
       const msg =
         e && typeof e === 'object' && 'message' in e && typeof (e as Error).message === 'string'
@@ -2116,12 +2079,11 @@ export class PrimeSaisieComponent {
   }
 
   goConfigureIndicatorsAndPonderations(): void {
-    const period = this.session.periodLabel().trim();
-    if (period && /^\d{4}-\d{2}$/.test(period)) {
-      this.nav.requestViewWithPeriod('/prime-cellule-indicateurs', period);
-    } else {
-      this.nav.requestView('/prime-cellule-indicateurs');
+    if (this.session.useWizardFlow()) {
+      this.session.goPonderations();
+      return;
     }
+    this.nav.requestView('/prime-saisie');
   }
 
   goResultFromWizard(): void {
@@ -2177,10 +2139,7 @@ export class PrimeSaisieComponent {
       this.session.setPolePrimeDraftId(saved.id);
       this.session.markSubmitted();
       this.validationMessage.set(null);
-      this.showPostUploadConfigCta.set(true);
-      this.saveMessage.set(
-        `Partie commune validée (${saved.id}). Configurez les indicateurs et pondérations RACC/SAV par service, puis complétez le pilotage cellule.`,
-      );
+      this.saveMessage.set(`Partie commune validée (${saved.id}).`);
     } catch (e: unknown) {
       let msg = 'Erreur lors de l’enregistrement. Réessayez ultérieurement.';
       if (e && typeof e === 'object' && 'message' in e && typeof (e as Error).message === 'string') {

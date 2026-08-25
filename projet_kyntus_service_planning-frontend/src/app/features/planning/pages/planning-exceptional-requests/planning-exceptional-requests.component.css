@@ -35,8 +35,9 @@
   top: 1rem;
   right: 1rem;
   z-index: 50;
-  background: #065f46;
-  color: #fff;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
   padding: 0.6rem 1rem;
   border-radius: 8px;
 }
@@ -60,7 +61,7 @@
   flex-direction: column;
   gap: 4px;
   font-size: 0.8rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 .mdc-filters select,
 .mdc-filters input {
@@ -70,6 +71,8 @@
   border-radius: 0.5rem;
   min-width: 10rem;
   max-width: 18rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
 }
 
 .mdc-recap {
@@ -89,8 +92,8 @@
 .mdc-recap-scope {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #64748b;
-  background: #f1f5f9;
+  color: var(--text-muted);
+  background: var(--bg-input);
   padding: 0.2rem 0.55rem;
   border-radius: 0.4rem;
 }
@@ -99,10 +102,10 @@
   flex-wrap: wrap;
   gap: 12px 18px;
   font-size: 0.85rem;
-  color: #475569;
+  color: var(--text-muted);
 }
 .mdc-recap-stats strong {
-  color: #0f172a;
+  color: var(--text-primary);
   margin-right: 0.2rem;
 }
 
@@ -120,7 +123,7 @@
   color: var(--text-primary);
   border: 1px solid var(--border-color);
 }
-.mdc-btn-danger { background: #b91c1c; }
+.mdc-btn-danger { background: var(--danger); color: #fff; }
 
 .mdc-table {
   width: 100%;
@@ -130,7 +133,7 @@
 .mdc-table th,
 .mdc-table td {
   padding: 8px 10px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
   text-align: left;
   vertical-align: top;
 }
@@ -138,20 +141,20 @@
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .mdc-status { font-weight: 600; font-size: 0.8rem; }
-.mdc-status[data-status='Approved'] { color: #15803d; }
-.mdc-status[data-status='Rejected'] { color: #b91c1c; }
+.mdc-status[data-status='Approved'] { color: var(--success-text); }
+.mdc-status[data-status='Rejected'] { color: var(--danger-text); }
 .mdc-status[data-status='PendingSupervisor'],
-.mdc-status[data-status='PendingRh'] { color: #b45309; }
-.mdc-status[data-status='Cancelled'] { color: #64748b; }
+.mdc-status[data-status='PendingRh'] { color: var(--warning-text); }
+.mdc-status[data-status='Cancelled'] { color: var(--text-muted); }
 
 .mdc-reject {
   display: block;
   margin-top: 2px;
-  color: #b91c1c;
+  color: var(--danger-text);
   font-size: 0.75rem;
 }
 
@@ -159,19 +162,19 @@
 .mdc-link {
   background: none;
   border: none;
-  color: var(--soft-blue, #2563eb);
+  color: var(--info-text);
   cursor: pointer;
   font: inherit;
   padding: 0;
   text-decoration: underline;
 }
-.mdc-ok { color: #15803d; }
-.mdc-bad { color: #b91c1c; }
+.mdc-ok { color: var(--success-text); }
+.mdc-bad { color: var(--danger-text); }
 
 .mdc-modal {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: color-mix(in srgb, var(--navy-950, #0f172a) 45%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -179,7 +182,8 @@
   padding: 16px;
 }
 .mdc-modal-card {
-  background: var(--bg-card, #fff);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 0.875rem;
   padding: 1.25rem;
   width: min(420px, 100%);
@@ -193,6 +197,8 @@
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
   resize: vertical;
+  background: var(--bg-input);
+  color: var(--text-primary);
 }
 .mdc-modal-actions {
   display: flex;

@@ -1,0 +1,10 @@
+<div class="ky-page-shell cq-host">
+  <app-kyntus-page-header [title]="title" subtitle="Contrôle d’appels" />
+  <iframe
+    #frame
+    class="cq-frame"
+    [src]="iframeSrc"
+    title="Contrôle qualité"
+    (load)="onFrameLoad()"
+  ></iframe>
+</div>

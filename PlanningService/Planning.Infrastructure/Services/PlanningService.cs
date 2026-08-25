@@ -7,6 +7,7 @@ using Planning.Domain.Enums;
 using Planning.Infrastructure.Helpers;
 using Planning.Infrastructure.Hubs;
 using Planning.Application.Abstractions;
+using Planning.Application.Exceptions;
 using Planning.Domain.Entities;
 
 namespace Planning.Infrastructure.Services;
@@ -110,7 +111,8 @@ public partial class PlanningService : IPlanningService
             subService.MultiShiftModesEnabled = false;
 
         // Upsert (pas delete-all) : conserve les Ids pour les FK
-        // PlanningExceptionalRequests.RequestedShiftTemplateId (ON DELETE RESTRICT).
+        // PlanningExceptionalRequests.RequestedShiftTemplateId (pending = blocage app ;
+        // historique = ON DELETE SET NULL).
         List<SubServiceShiftConfig> existing;
         if (isTemplate)
         {
@@ -226,30 +228,13 @@ public partial class PlanningService : IPlanningService
         foreach (var item in remainingIncoming.Skip(byPos))
             toAdd.Add(item.Built);
 
-        // Ne pas supprimer un template encore référencé par une demande exceptionnelle
+        // Ne pas supprimer un template encore référencé par une demande exceptionnelle *en attente*
+        // (Approved/Rejected/Cancelled : détachés puis FK SET NULL).
         if (isTemplate && unmatchedExisting.Count > 0)
         {
-            var removeIds = unmatchedExisting.Select(e => e.Id).ToList();
-            var blocked = await _context.PlanningExceptionalRequests
-                .AsNoTracking()
-                .Where(r => removeIds.Contains(r.RequestedShiftTemplateId))
-                .Select(r => r.RequestedShiftTemplateId)
-                .Distinct()
-                .ToListAsync();
-
-            if (blocked.Count > 0)
-            {
-                var labels = unmatchedExisting
-                    .Where(e => blocked.Contains(e.Id))
-                    .Select(e => e.Label)
-                    .Distinct()
-                    .ToList();
-                throw new InvalidOperationException(
-                    "Impossible de supprimer le(s) shift(s) « "
-                    + string.Join(" », « ", labels)
-                    + " » : des demandes exceptionnelles y font encore référence. "
-                    + "Modifiez ces shifts ou traitez les demandes avant de les retirer.");
-            }
+            await EnsureTemplatesNotReferencedByActiveExceptionalRequestsAsync(unmatchedExisting);
+            await DetachClosedExceptionalRequestsFromTemplatesAsync(
+                unmatchedExisting.Select(e => e.Id).ToList());
         }
 
         if (unmatchedExisting.Count > 0)
@@ -496,8 +481,21 @@ public partial class PlanningService : IPlanningService
             if (match?.ShiftModeProfileId != null
                 && row.ShiftModeProfileId != match.ShiftModeProfileId)
             {
-                row.ShiftModeProfileId = match.ShiftModeProfileId;
-                changed = true;
+                var targetModeId = match.ShiftModeProfileId;
+                var label = (row.Label ?? string.Empty).Trim();
+                var wouldDup = snapshotRows.Any(other =>
+                    !ReferenceEquals(other, row)
+                    && other.WeekCode == row.WeekCode
+                    && other.ShiftModeProfileId == targetModeId
+                    && string.Equals(
+                        (other.Label ?? string.Empty).Trim(),
+                        label,
+                        StringComparison.OrdinalIgnoreCase));
+                if (!wouldDup)
+                {
+                    row.ShiftModeProfileId = targetModeId;
+                    changed = true;
+                }
             }
         }
 
@@ -507,6 +505,71 @@ public partial class PlanningService : IPlanningService
                 row.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
+    }
+
+    /// <summary>
+    /// Bloque la suppression d'un template uniquement s'il est encore cité par une demande
+    /// exceptionnelle en attente (superviseur ou RH). Historique Approved/Rejected/Cancelled : OK.
+    /// </summary>
+    private async Task EnsureTemplatesNotReferencedByActiveExceptionalRequestsAsync(
+        List<SubServiceShiftConfig> unmatchedExisting)
+    {
+        var removeIds = unmatchedExisting.Select(e => e.Id).ToList();
+        var blocked = await _context.PlanningExceptionalRequests
+            .AsNoTracking()
+            .Where(r => r.RequestedShiftTemplateId != null
+                        && removeIds.Contains(r.RequestedShiftTemplateId.Value)
+                        && (r.Status == PlanningExceptionalRequestStatus.PendingSupervisor
+                            || r.Status == PlanningExceptionalRequestStatus.PendingRh))
+            .Select(r => r.RequestedShiftTemplateId!.Value)
+            .Distinct()
+            .ToListAsync();
+
+        if (blocked.Count == 0) return;
+
+        var labels = unmatchedExisting
+            .Where(e => blocked.Contains(e.Id))
+            .Select(e => e.Label)
+            .Distinct()
+            .ToList();
+        throw new InvalidOperationException(
+            "Impossible de supprimer le(s) shift(s) « "
+            + string.Join(" », « ", labels)
+            + " » : des demandes exceptionnelles en attente y font encore référence. "
+            + "Modifiez ces shifts ou traitez les demandes avant de les retirer.");
+    }
+
+    /// <summary>
+    /// Détache les demandes historiques (Approved/Rejected/Cancelled) d'un template
+    /// avant suppression, pour éviter le blocage FK.
+    /// </summary>
+    private async Task DetachClosedExceptionalRequestsFromTemplatesAsync(List<int> removeIds)
+    {
+        if (removeIds.Count == 0) return;
+        var closed = await _context.PlanningExceptionalRequests
+            .Where(r => r.RequestedShiftTemplateId != null
+                        && removeIds.Contains(r.RequestedShiftTemplateId.Value)
+                        && r.Status != PlanningExceptionalRequestStatus.PendingSupervisor
+                        && r.Status != PlanningExceptionalRequestStatus.PendingRh)
+            .ToListAsync();
+        foreach (var row in closed)
+            row.RequestedShiftTemplateId = null;
+    }
+
+    /// <summary>
+    /// Après passage en multi-modes : retire les snapshots semaine sans profil
+    /// (ancien modèle unique) pour éviter IX_SubServiceShiftConfigs_Snapshot_SubService_Week_Mode_Label.
+    /// </summary>
+    private async Task RemoveOrphanUnmodedWeekSnapshotsAsync(int subServiceId)
+    {
+        var orphans = await _context.SubServiceShiftConfigs
+            .Where(c => c.SubServiceId == subServiceId
+                        && !c.IsTemplate
+                        && c.ShiftModeProfileId == null)
+            .ToListAsync();
+        if (orphans.Count == 0) return;
+        _context.SubServiceShiftConfigs.RemoveRange(orphans);
+        await _context.SaveChangesAsync();
     }
 
     /// <summary>
@@ -641,6 +704,8 @@ public partial class PlanningService : IPlanningService
         Dictionary<int, int>? employeeModeMap = null;
         if (subService?.MultiShiftModesEnabled == true)
         {
+            await EnsureValidatedModePlanForWeekAsync(
+                subServiceId, weekCode, planning.WeekStartDate);
             employeeModeMap = await ResolveEmployeeModeMapAsync(
                 subServiceId, weekCode, employees.Select(e => e.Id).ToList());
             var headcountByMode = employeeModeMap
@@ -682,31 +747,7 @@ public partial class PlanningService : IPlanningService
         var currentWeekNumber = System.Globalization.ISOWeek.GetWeekOfYear(
             planning.WeekStartDate.ToDateTime(TimeOnly.MinValue));
 
-        var orderedShifts = shiftConfigs.OrderBy(sc => sc.DisplayOrder).ToList();
-
-        var employeeStartShiftIndex = new Dictionary<int, int>();
-        if (employeeModeMap != null)
-        {
-            foreach (var modeId in employeeModeMap.Values.Distinct())
-            {
-                var modeEmployees = employees
-                    .Where(e => employeeModeMap[e.Id] == modeId)
-                    .OrderBy(e => e.Id)
-                    .ToList();
-                var modeShifts = orderedShifts
-                    .Where(s => s.ShiftModeProfileId == modeId)
-                    .ToList();
-                foreach (var kv in BuildEmployeeStartShiftIndex(
-                             modeEmployees, modeShifts, currentWeekNumber))
-                    employeeStartShiftIndex[kv.Key] = kv.Value;
-            }
-        }
-        else
-        {
-            foreach (var kv in BuildEmployeeStartShiftIndex(
-                         employees, orderedShifts, currentWeekNumber))
-                employeeStartShiftIndex[kv.Key] = kv.Value;
-        }
+        var orderedShifts = shiftConfigs.OrderBy(sc => sc.DisplayOrder).ThenBy(sc => sc.StartTime).ToList();
 
         var modeOverrideKeys = frozenSnapshot
             .Where(a => a.IsModeOverride)
@@ -731,8 +772,11 @@ public partial class PlanningService : IPlanningService
         var reinforcementPins = await LoadReinforcementShiftPinsAsync(
             weekCode, planning.SubServiceId, planning.WeekStartDate.AddDays(5), orderedShifts);
 
+        var patternSeeds = BuildModePatternSeeds(
+            employees, employeeModeMap, ShiftsForEmployee, currentWeekNumber);
+
         // ------------------------------------------------
-        // GÉNÉRATION Lun → Ven (dispersion max2 + non-consécutif)
+        // GÉNÉRATION Lun → Ven (motif semaine + matching quotas)
         // ------------------------------------------------
         var weekShiftHistoryByUser = new Dictionary<int, List<int>>();
         foreach (var fa in frozenSnapshot
@@ -748,12 +792,10 @@ public partial class PlanningService : IPlanningService
         }
 
         var usersByIdForSelect = employees.ToDictionary(e => e.Id);
-        int dayIdx = 0;
         foreach (var (day, date) in weekDays)
         {
             if (isPartial && date < regenerateFrom!.Value)
             {
-                dayIdx++;
                 continue;
             }
 
@@ -779,7 +821,6 @@ public partial class PlanningService : IPlanningService
                         ShiftModeProfileId = ResolveAssignmentModeId(emp.Id, null)
                     });
                 }
-                dayIdx++;
                 continue;
             }
 
@@ -815,41 +856,30 @@ public partial class PlanningService : IPlanningService
                 });
             }
 
-            var shiftCountToday = orderedShifts.ToDictionary(s => s.Id, s => 0);
+            var pinsByUser = new Dictionary<int, SubServiceShiftConfig>();
+            foreach (var emp in availableEmployees)
+            {
+                if (exceptionalPins.TryGetValue((emp.Id, date), out var pinnedShift)
+                    && pinnedShift != null)
+                    pinsByUser[emp.Id] = pinnedShift;
+            }
+
+            var chosen = AssignDayByMode(
+                availableEmployees,
+                employeeModeMap,
+                ShiftsForEmployee,
+                patternSeeds,
+                weekShiftHistoryByUser,
+                usersByIdForSelect,
+                pinsByUser,
+                orderedShifts);
 
             foreach (var emp in availableEmployees)
             {
-                SubServiceShiftConfig finalShift;
-                var empShifts = ShiftsForEmployee(emp.Id);
-                if (empShifts.Count == 0)
+                if (!chosen.TryGetValue(emp.Id, out var finalShift))
                     continue;
 
-                var isPinned = exceptionalPins.TryGetValue((emp.Id, date), out var pinnedShift)
-                               && pinnedShift != null;
-
-                if (isPinned)
-                {
-                    finalShift = pinnedShift!;
-                }
-                else
-                {
-                    var startIdx = employeeStartShiftIndex.ContainsKey(emp.Id)
-                        ? employeeStartShiftIndex[emp.Id]
-                        : 0;
-
-                    var selected = ShiftDispersionSelector.Select(
-                        empShifts,
-                        startIdx,
-                        dayIdx,
-                        emp.Id,
-                        weekShiftHistoryByUser,
-                        shiftCountToday,
-                        usersByIdForSelect);
-
-                    finalShift = selected.Shift;
-                }
-
-                shiftCountToday[finalShift.Id] = shiftCountToday.GetValueOrDefault(finalShift.Id, 0) + 1;
+                var isPinned = pinsByUser.ContainsKey(emp.Id);
 
                 if (!weekShiftHistoryByUser.TryGetValue(emp.Id, out var hist))
                 {
@@ -874,8 +904,6 @@ public partial class PlanningService : IPlanningService
                     ShiftModeProfileId = ResolveAssignmentModeId(emp.Id, finalShift)
                 });
             }
-
-            dayIdx++;
         }
 
         // ------------------------------------------------
@@ -1069,6 +1097,15 @@ public partial class PlanningService : IPlanningService
         }
         } // end regenerateSaturday
 
+        RebalanceSaturdayModeQuotas(
+            assignments,
+            employees,
+            employeeModeMap,
+            ShiftsForEmployee,
+            orderedShifts,
+            usersByIdForSelect,
+            weekShiftHistoryByUser);
+
         var usersById = employees.ToDictionary(e => e.Id);
         if (employeeModeMap != null)
         {
@@ -1090,20 +1127,23 @@ public partial class PlanningService : IPlanningService
                     .ToDictionary(kv => kv.Key, kv => kv.Value);
                 var modeRoster = employees.Where(e => modeEmpIds.Contains(e.Id)).ToList();
 
-                ShiftDispersionSelector.RepairWeekdayDispersion(
-                    modeAssignments, modeConfigs, modeUsers);
-                ShiftDispersionSelector.RepairFairness(
+                ShiftDispersionSelector.RepairWeekQuality(
                     modeAssignments, modeConfigs, modeUsers);
                 LevelBalanceRepairer.Repair(
                     modeAssignments, modeConfigs, modeUsers, modeRoster, planning);
+                ShiftDispersionSelector.RepairWeekQuality(
+                    modeAssignments, modeConfigs, modeUsers);
+                WeekShiftPatternAssigner.RebalanceWeekAssignments(
+                    modeAssignments, modeConfigs, modeUsers);
             }
         }
         else
         {
-            ShiftDispersionSelector.RepairWeekdayDispersion(assignments, shiftConfigs, usersById);
-            ShiftDispersionSelector.RepairFairness(assignments, shiftConfigs, usersById);
-            // Niveau en dernier : priorité production (débutant jamais seul) > permutations.
+            ShiftDispersionSelector.RepairWeekQuality(assignments, shiftConfigs, usersById);
             LevelBalanceRepairer.Repair(assignments, shiftConfigs, usersById, employees, planning);
+            ShiftDispersionSelector.RepairWeekQuality(assignments, shiftConfigs, usersById);
+            WeekShiftPatternAssigner.RebalanceWeekAssignments(
+                assignments, shiftConfigs, usersById);
         }
 
         if (regenerateSaturday)
@@ -1244,43 +1284,6 @@ public partial class PlanningService : IPlanningService
         ShiftModeProfileId = a.ShiftModeProfileId,
         IsModeOverride = a.IsModeOverride
     };
-
-    private static Dictionary<int, int> BuildEmployeeStartShiftIndex(
-        IReadOnlyList<User> modeEmployees,
-        IReadOnlyList<SubServiceShiftConfig> modeShifts,
-        int currentWeekNumber)
-    {
-        var employeeStartShiftIndex = new Dictionary<int, int>();
-        if (modeEmployees.Count == 0)
-            return employeeStartShiftIndex;
-
-        var orderedShifts = modeShifts.OrderBy(sc => sc.DisplayOrder).ToList();
-        if (orderedShifts.Count == 0)
-            return employeeStartShiftIndex;
-
-        int cumulative = 0;
-        for (int shiftIdx = 0; shiftIdx < orderedShifts.Count; shiftIdx++)
-        {
-            for (int q = 0; q < orderedShifts[shiftIdx].RequiredCount; q++)
-            {
-                if (cumulative < modeEmployees.Count)
-                {
-                    var empStartIdx = (shiftIdx + currentWeekNumber) % orderedShifts.Count;
-                    employeeStartShiftIndex[modeEmployees[cumulative].Id] = empStartIdx;
-                    cumulative++;
-                }
-            }
-        }
-
-        while (cumulative < modeEmployees.Count)
-        {
-            var empStartIdx = (cumulative + currentWeekNumber) % orderedShifts.Count;
-            employeeStartShiftIndex[modeEmployees[cumulative].Id] = empStartIdx;
-            cumulative++;
-        }
-
-        return employeeStartShiftIndex;
-    }
 
     // ----------------------------------------------------
     // METTRE SAMEDI OFF (supprimer l'assignation)
@@ -2535,6 +2538,7 @@ public partial class PlanningService : IPlanningService
             .ToListAsync();
 
         var subConfigs = await _context.SubServiceShiftConfigs
+            .Include(c => c.ShiftModeProfile)
             .Where(c => c.SubServiceId == planning.SubServiceId && c.WeekCode == planning.WeekCode)
             .OrderBy(c => c.DisplayOrder)
             .ToListAsync();
@@ -2567,7 +2571,9 @@ public partial class PlanningService : IPlanningService
                 BreakSlots = BreakSlotPlanner.ResolveBreakSlots(c)
                     .Select(s => s.ToString("HH:mm")).ToList(),
                 BreakDurationMinutes = c.BreakDurationMinutes > 0 ? c.BreakDurationMinutes : 60,
-                IsCriticalCell = c.IsCriticalCell
+                IsCriticalCell = c.IsCriticalCell,
+                ShiftModeProfileId = c.ShiftModeProfileId,
+                ShiftModeTitle = c.ShiftModeProfile?.Title
             }).ToList();
         }
 
@@ -3493,6 +3499,10 @@ public partial class PlanningService : IPlanningService
                     report.HasUnderstaffing = true;
                     report.Warnings.Add(
                         $"{dayName} {date:dd/MM} — trop de pauses simultanées (présence min cellule {cellMinPresence} %, pic {peak}/{dayPresent.Count})");
+                    var configsById = shiftConfigs.ToDictionary(c => c.Id);
+                    foreach (var w in PlateauBreakPacker.BuildRestrictedBandWarnings(
+                                 dayPresent, configsById, cellMinPresence, dayName, date))
+                        report.Warnings.Add(w);
                 }
             }
 
@@ -4118,6 +4128,171 @@ public partial class PlanningService : IPlanningService
         var weekNumber = System.Globalization.ISOWeek.GetWeekOfYear(
             weekStart.ToDateTime(TimeOnly.MinValue));
         return weekNumber % 2 == 0 ? 1 : 2;
+    }
+
+    private static Dictionary<int, int> BuildModePatternSeeds(
+        IReadOnlyList<User> employees,
+        Dictionary<int, int>? employeeModeMap,
+        Func<int, IReadOnlyList<SubServiceShiftConfig>> shiftsFor,
+        int weekNumber)
+    {
+        if (employeeModeMap is null || employeeModeMap.Count == 0)
+            return WeekShiftPatternAssigner.BuildSeeds(employees, shiftsFor, weekNumber);
+
+        var seeds = new Dictionary<int, int>();
+        foreach (var group in employees.GroupBy(e => employeeModeMap.GetValueOrDefault(e.Id)))
+        {
+            var roster = group.OrderBy(e => e.Id).ToList();
+            foreach (var kv in WeekShiftPatternAssigner.BuildSeeds(roster, shiftsFor, weekNumber))
+                seeds[kv.Key] = kv.Value;
+        }
+
+        return seeds;
+    }
+
+    private static Dictionary<int, SubServiceShiftConfig> AssignDayByMode(
+        IReadOnlyList<User> available,
+        Dictionary<int, int>? employeeModeMap,
+        Func<int, IReadOnlyList<SubServiceShiftConfig>> shiftsFor,
+        IReadOnlyDictionary<int, int> seeds,
+        IReadOnlyDictionary<int, List<int>> weekHistory,
+        IReadOnlyDictionary<int, User> usersById,
+        IReadOnlyDictionary<int, SubServiceShiftConfig> pinsByUser,
+        IReadOnlyList<SubServiceShiftConfig> orderedShifts)
+    {
+        if (employeeModeMap is null || employeeModeMap.Count == 0)
+        {
+            return WeekShiftPatternAssigner.AssignDay(
+                available, shiftsFor, seeds, weekHistory, usersById, pinsByUser, orderedShifts);
+        }
+
+        var merged = new Dictionary<int, SubServiceShiftConfig>();
+        foreach (var group in available.GroupBy(e => employeeModeMap.GetValueOrDefault(e.Id)))
+        {
+            var roster = group.ToList();
+            if (roster.Count == 0)
+                continue;
+
+            var modeId = group.Key;
+            var modeShifts = modeId == 0
+                ? orderedShifts.ToList()
+                : orderedShifts.Where(s => s.ShiftModeProfileId == modeId).ToList();
+            if (modeShifts.Count == 0)
+                modeShifts = orderedShifts.ToList();
+
+            var modePins = new Dictionary<int, SubServiceShiftConfig>();
+            foreach (var emp in roster)
+            {
+                if (pinsByUser.TryGetValue(emp.Id, out var pin) && pin != null)
+                    modePins[emp.Id] = pin;
+            }
+
+            var part = WeekShiftPatternAssigner.AssignDay(
+                roster, shiftsFor, seeds, weekHistory, usersById, modePins, modeShifts);
+            foreach (var kv in part)
+                merged[kv.Key] = kv.Value;
+        }
+
+        return merged;
+    }
+
+    private static List<SubServiceShiftConfig> CloneWithRequiredCounts(
+        IEnumerable<SubServiceShiftConfig> configs,
+        Func<int, int> requiredOf)
+        => configs.Select(c => new SubServiceShiftConfig
+        {
+            Id = c.Id,
+            SubServiceId = c.SubServiceId,
+            Label = c.Label,
+            StartTime = c.StartTime,
+            WorkHours = c.WorkHours,
+            RequiredCount = requiredOf(c.RequiredCount),
+            DisplayOrder = c.DisplayOrder,
+            ShiftKind = c.ShiftKind,
+            ShiftModeProfileId = c.ShiftModeProfileId,
+            IsTemplate = c.IsTemplate
+        }).ToList();
+
+    private static void RebalanceSaturdayModeQuotas(
+        List<ShiftAssignment> assignments,
+        IReadOnlyList<User> employees,
+        Dictionary<int, int>? employeeModeMap,
+        Func<int, List<SubServiceShiftConfig>> shiftsFor,
+        IReadOnlyList<SubServiceShiftConfig> orderedShifts,
+        IReadOnlyDictionary<int, User> usersById,
+        Dictionary<int, List<int>> weekHistory)
+    {
+        var satWork = assignments
+            .Where(a => a.IsSaturday && !a.IsOnLeave && !a.IsHoliday && a.SubServiceShiftConfigId != null)
+            .ToList();
+        if (satWork.Count == 0)
+            return;
+
+        void RebalanceGroup(
+            List<ShiftAssignment> group,
+            IReadOnlyList<SubServiceShiftConfig> modeShifts)
+        {
+            var satShifts = CloneWithRequiredCounts(
+                modeShifts, ShiftDispersionSelector.SaturdayRequiredCount);
+            var satById = satShifts.ToDictionary(s => s.Id);
+            var assigned = new Dictionary<int, SubServiceShiftConfig>();
+            var pins = new Dictionary<int, SubServiceShiftConfig>();
+            foreach (var a in group)
+            {
+                if (!satById.TryGetValue(a.SubServiceShiftConfigId!.Value, out var cfg))
+                    continue;
+                assigned[a.UserId] = cfg;
+                if (a.IsManagerOverride || a.IsHalfDaySaturday)
+                    pins[a.UserId] = cfg;
+            }
+
+            if (assigned.Count == 0)
+                return;
+
+            var historyFri = new Dictionary<int, List<int>>();
+            foreach (var uid in assigned.Keys)
+            {
+                if (!weekHistory.TryGetValue(uid, out var hist) || hist.Count == 0)
+                    continue;
+                historyFri[uid] = hist.Take(hist.Count - 1).ToList();
+            }
+
+            IReadOnlyList<SubServiceShiftConfig> Allowed(int id) =>
+                CloneWithRequiredCounts(shiftsFor(id), ShiftDispersionSelector.SaturdayRequiredCount);
+
+            WeekShiftPatternAssigner.RebalanceToQuotas(
+                assigned, Allowed, historyFri, usersById, pins, satShifts);
+
+            foreach (var a in group)
+            {
+                if (pins.ContainsKey(a.UserId))
+                    continue;
+                if (!assigned.TryGetValue(a.UserId, out var neu))
+                    continue;
+                a.SubServiceShiftConfigId = neu.Id;
+                if (neu.ShiftModeProfileId.HasValue)
+                    a.ShiftModeProfileId = neu.ShiftModeProfileId;
+                if (weekHistory.TryGetValue(a.UserId, out var hist) && hist.Count > 0)
+                    hist[^1] = neu.Id;
+            }
+        }
+
+        if (employeeModeMap is { Count: > 0 })
+        {
+            foreach (var group in satWork.GroupBy(a => employeeModeMap.GetValueOrDefault(a.UserId)))
+            {
+                var modeShifts = group.Key == 0
+                    ? orderedShifts.ToList()
+                    : orderedShifts.Where(s => s.ShiftModeProfileId == group.Key).ToList();
+                if (modeShifts.Count == 0)
+                    modeShifts = orderedShifts.ToList();
+                RebalanceGroup(group.ToList(), modeShifts);
+            }
+        }
+        else
+        {
+            RebalanceGroup(satWork, orderedShifts);
+        }
     }
 
     private static List<(DayOfWeekEnum day, DateOnly date)> GetWeekDays(DateOnly weekStart)

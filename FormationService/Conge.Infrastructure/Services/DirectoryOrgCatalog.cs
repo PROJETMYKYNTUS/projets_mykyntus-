@@ -52,6 +52,7 @@ public sealed class DirectoryOrgCatalog(
         var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var celluleCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var serviceCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var serviceParents = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         // Miroir local d’abord (offline / rename events).
         try
@@ -75,7 +76,7 @@ public sealed class DirectoryOrgCatalog(
             {
                 var overview = await resp.Content.ReadFromJsonAsync<DirectoryOrgOverviewDto>(JsonOptions, ct);
                 if (overview is not null)
-                    MergeOverview(overview, names, celluleCounts, serviceCounts);
+                    MergeOverview(overview, names, celluleCounts, serviceCounts, serviceParents);
             }
             else
             {
@@ -87,14 +88,15 @@ public sealed class DirectoryOrgCatalog(
             logger.LogWarning(ex, "Directory org overview unavailable — using mirror names only");
         }
 
-        return new DirectoryOrgCatalogSnapshot(names, celluleCounts, serviceCounts);
+        return new DirectoryOrgCatalogSnapshot(names, celluleCounts, serviceCounts, serviceParents);
     }
 
     private static void MergeOverview(
         DirectoryOrgOverviewDto overview,
         Dictionary<string, string> names,
         Dictionary<string, int> celluleCounts,
-        Dictionary<string, int> serviceCounts)
+        Dictionary<string, int> serviceCounts,
+        Dictionary<string, string> serviceParents)
     {
         // Flat lists (legacy shape).
         foreach (var c in overview.Services ?? [])
@@ -117,15 +119,7 @@ public sealed class DirectoryOrgCatalog(
                 if (!string.IsNullOrWhiteSpace(pole.Id) && !string.IsNullOrWhiteSpace(pole.Name))
                     names[pole.Id.Trim()] = pole.Name.Trim();
                 foreach (var cell in pole.Cellules ?? [])
-                {
-                    if (!string.IsNullOrWhiteSpace(cell.Id) && !string.IsNullOrWhiteSpace(cell.Name))
-                        names[cell.Id.Trim()] = cell.Name.Trim();
-                    foreach (var svc in cell.Services ?? [])
-                    {
-                        if (!string.IsNullOrWhiteSpace(svc.Id) && !string.IsNullOrWhiteSpace(svc.Name))
-                            names[svc.Id.Trim()] = svc.Name.Trim();
-                    }
-                }
+                    RegisterCelluleServices(cell, names, serviceParents);
             }
         }
 
@@ -134,15 +128,7 @@ public sealed class DirectoryOrgCatalog(
             if (!string.IsNullOrWhiteSpace(pole.Id) && !string.IsNullOrWhiteSpace(pole.Name))
                 names[pole.Id.Trim()] = pole.Name.Trim();
             foreach (var cell in pole.Cellules ?? [])
-            {
-                if (!string.IsNullOrWhiteSpace(cell.Id) && !string.IsNullOrWhiteSpace(cell.Name))
-                    names[cell.Id.Trim()] = cell.Name.Trim();
-                foreach (var svc in cell.Services ?? [])
-                {
-                    if (!string.IsNullOrWhiteSpace(svc.Id) && !string.IsNullOrWhiteSpace(svc.Name))
-                        names[svc.Id.Trim()] = svc.Name.Trim();
-                }
-            }
+                RegisterCelluleServices(cell, names, serviceParents);
         }
 
         foreach (var emp in overview.Employees ?? [])
@@ -160,6 +146,26 @@ public sealed class DirectoryOrgCatalog(
                 serviceCounts.TryGetValue(serviceId, out var sc);
                 serviceCounts[serviceId] = sc + 1;
             }
+        }
+    }
+
+    private static void RegisterCelluleServices(
+        CelluleDto cell,
+        Dictionary<string, string> names,
+        Dictionary<string, string> serviceParents)
+    {
+        var cellId = cell.Id?.Trim();
+        if (!string.IsNullOrWhiteSpace(cellId) && !string.IsNullOrWhiteSpace(cell.Name))
+            names[cellId] = cell.Name.Trim();
+
+        foreach (var svc in cell.Services ?? [])
+        {
+            var svcId = svc.Id?.Trim();
+            if (string.IsNullOrWhiteSpace(svcId)) continue;
+            if (!string.IsNullOrWhiteSpace(svc.Name))
+                names[svcId] = svc.Name.Trim();
+            if (!string.IsNullOrWhiteSpace(cellId))
+                serviceParents[svcId] = cellId;
         }
     }
 

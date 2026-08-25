@@ -24,11 +24,13 @@ export interface Reclamation {
   updatedAt: string;
   traiteeAt?: string;
   clotureeAt?: string;
+  mediaCount?: number;
+  media?: import('../services/media.service').MediaAsset[];
 }
 
 export interface ReclamationDetail extends Reclamation {
   historique?: HistoriqueItem[];
-
+  comments?: import('../services/media.service').TicketComment[];
 }
 
 export interface Proposition {
@@ -50,10 +52,13 @@ export interface Proposition {
   updatedAt: string;
   evalueeAt?: string;
   implementeeAt?: string;
+  mediaCount?: number;
+  media?: import('../services/media.service').MediaAsset[];
 }
 
 export interface PropositionDetail extends Proposition {
   historique?: HistoriqueItem[];
+  comments?: import('../services/media.service').TicketComment[];
 }
 
 export interface HistoriqueItem {
@@ -86,12 +91,14 @@ export interface CreateReclamationPayload {
   titre: string;
   description: string;
   type: ReclamationType;
+  mediaIds?: number[];
 }
 
 export interface CreatePropositionPayload {
   titre: string;
   description: string;
   beneficeAttendu?: string;
+  mediaIds?: number[];
 }
 
 export interface UpdateStatusPayload {

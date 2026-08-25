@@ -5,14 +5,30 @@ export type NavBlock =
   | { kind: 'single'; id: string; key: string; label: string }
   | { kind: 'group'; id: string; title: string; items: { key: string; shortLabel: string }[] };
 
+function uniqueNavParts(parts: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const raw of parts) {
+    const t = (raw ?? '').trim();
+    if (!t) continue;
+    if (out.some((x) => x.toLowerCase() === t.toLowerCase())) continue;
+    out.push(t);
+  }
+  return out;
+}
+
 function lineNavLabel(l: PrimeFicheTemplateLine): string {
-  const parts = [l.indicator, l.bareme, l.groupe].filter((x) => x.trim().length > 0);
-  return parts.join(' — ');
+  return uniqueNavParts([l.indicator, l.bareme, l.groupe]).join(' — ') || l.stableId;
 }
 
 function shortVariant(l: PrimeFicheTemplateLine): string {
-  const parts = [l.bareme, l.groupe].filter((x) => x.trim().length > 0);
-  return parts.join(' · ') || l.stableId;
+  const ind = (l.indicator ?? '').trim();
+  let bareme = (l.bareme ?? '').trim();
+  let groupe = (l.groupe ?? '').trim();
+  if (bareme && ind && bareme.toLowerCase() === ind.toLowerCase()) bareme = '';
+  if (groupe && ind && groupe.toLowerCase() === ind.toLowerCase()) groupe = '';
+  if (groupe && bareme && groupe.toLowerCase() === bareme.toLowerCase()) groupe = '';
+  const parts = uniqueNavParts([bareme, groupe]);
+  return parts.join(' · ') || ind || l.stableId;
 }
 
 /** Navigation latérale pour les lignes d’un même contrat (schéma template v1). */

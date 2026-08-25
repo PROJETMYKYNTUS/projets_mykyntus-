@@ -13,6 +13,7 @@ import {
   DayAssignment,
   ShiftSimple,
   ShiftOption,
+  ShiftConfig,
   SavePlanningCommentDto,
   SetSaturdayHistoryDto
 } from '../../services/planning.service';
@@ -74,6 +75,8 @@ export class PlanningViewComponent implements OnInit {
   fromSource: 'validation' | 'equipe' | 'other' = 'other';
   readOnlyBanner = false;
   coverageOpen  = false;
+  /** Label de shift dont le détail par mode est déplié (KPI bar multi-mode). */
+  expandedShiftKpiLabel: string | null = null;
   error         = '';
   successMsg    = '';
   private planningUserId: number | null = null;
@@ -495,6 +498,70 @@ selectedHolidayShiftId      = 0;
     return this.getOrderedModeKeys().length > 0;
   }
 
+  /**
+   * KPI shifts : en multi-mode, une carte par label (effectif total),
+   * détail modes via clic. Mono-mode : une carte par config (inchangé).
+   */
+  get shiftKpiCards(): {
+    shiftLabel: string;
+    requiredCount: number;
+    percentage: number;
+    expandable: boolean;
+    modes: { modeTitle: string; requiredCount: number; percentage: number; startTime: string }[];
+  }[] {
+    const configs = this.planning?.shiftConfigs ?? [];
+    if (!configs.length) return [];
+
+    const multi =
+      this.hasModeAssignments ||
+      configs.some((c) => !!c.shiftModeTitle) ||
+      new Set(configs.map((c) => c.shiftLabel)).size < configs.length;
+
+    if (!multi) {
+      return configs.map((c) => ({
+        shiftLabel: c.shiftLabel,
+        requiredCount: c.requiredCount,
+        percentage: Number(c.percentage) || 0,
+        expandable: false,
+        modes: [],
+      }));
+    }
+
+    const total = configs.reduce((s, c) => s + (c.requiredCount || 0), 0) || 1;
+    const byLabel = new Map<string, ShiftConfig[]>();
+    for (const c of configs) {
+      const key = c.shiftLabel || '—';
+      const list = byLabel.get(key) ?? [];
+      list.push(c);
+      byLabel.set(key, list);
+    }
+
+    return [...byLabel.entries()].map(([shiftLabel, list]) => {
+      const requiredCount = list.reduce((s, c) => s + (c.requiredCount || 0), 0);
+      const percentage = Math.round((requiredCount / total) * 1000) / 10;
+      const modes = list
+        .map((c) => ({
+          modeTitle: (c.shiftModeTitle || '').trim() || 'Sans mode',
+          requiredCount: c.requiredCount || 0,
+          percentage: Number(c.percentage) || 0,
+          startTime: c.startTime || '',
+        }))
+        .sort((a, b) => a.modeTitle.localeCompare(b.modeTitle, 'fr', { sensitivity: 'base' }));
+      return {
+        shiftLabel,
+        requiredCount,
+        percentage,
+        expandable: modes.length > 1 || modes.some((m) => m.modeTitle !== 'Sans mode'),
+        modes,
+      };
+    });
+  }
+
+  toggleShiftKpiDetail(label: string, expandable: boolean): void {
+    if (!expandable) return;
+    this.expandedShiftKpiLabel = this.expandedShiftKpiLabel === label ? null : label;
+  }
+
   get hasSpecialCaseTickets(): boolean {
     return (this.planning?.assignments ?? []).some((e) => !!e.isSpecialCase);
   }
@@ -636,6 +703,22 @@ selectedHolidayShiftId      = 0;
   modeRowClass(modeIndex: number): string {
     if (modeIndex < 0) return '';
     return `row-mode-${modeIndex % 8}`;
+  }
+
+  /** Index couleur mode pour une cellule jour (override inclus), sinon fallback ligne. */
+  modeIndexForAssignment(
+    a: { shiftModeTitle?: string | null; shiftModeProfileId?: number | null } | null | undefined,
+    fallback: number
+  ): number {
+    if (!a) return fallback >= 0 ? fallback % 8 : 0;
+    const title = (a.shiftModeTitle ?? '').trim();
+    const profileId = a.shiftModeProfileId ?? null;
+    if (!title && profileId == null) return fallback >= 0 ? fallback % 8 : 0;
+    const key = profileId != null ? `id:${profileId}` : `t:${title}`;
+    const modes = this.getOrderedModeKeys();
+    const idx = modes.findIndex((m) => m.key === key);
+    if (idx >= 0) return idx % 8;
+    return fallback >= 0 ? fallback % 8 : 0;
   }
 
   /** Groupes de quotas par mode pour le modal insights. */

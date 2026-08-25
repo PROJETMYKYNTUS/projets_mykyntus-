@@ -222,7 +222,7 @@
           Liste des bénéficiaires
           <span class="kap-count">{{ beneficiaryList().length }}</span>
         </h3>
-        @if (beneficiaryList().length > 0) {
+        @if (hasRemovableBeneficiaries()) {
           <button type="button" class="ky-btn-secondary text-xs" (click)="clearBeneficiaryList()">Vider</button>
         }
       </div>
@@ -231,15 +231,47 @@
       } @else {
         <div class="kap-chips kap-chips-wrap">
           @for (row of beneficiaryList(); track row.user.id) {
-            <button
-              type="button"
+            @let prog = progressFor(row);
+            @let locked = isBeneficiaryLocked(row);
+            <span
               class="kap-chip"
-              [title]="row.user.email + ' · ' + (row.user.roleName || '') + ' · ' + perimeterLabel(row)"
-              (click)="removeBeneficiary(row)"
+              [class.kap-chip--locked]="locked"
+              [class.kap-chip--btn]="!locked"
+              [title]="
+                locked
+                  ? 'Déjà terminé — conservé comme tracabilité'
+                  : row.user.email + ' · ' + (row.user.roleName || '') + ' · ' + perimeterLabel(row)
+              "
+              (click)="!locked && removeBeneficiary(row)"
             >
-              {{ row.displayName }}
-              <app-lucide-icon [icon]="icons.remove" className="w-3 h-3" />
-            </button>
+              <span class="kap-chip-name">{{ row.displayName }}</span>
+              @if (prog) {
+                <span class="kap-prog-row">
+                  <span
+                    class="kap-prog"
+                    [class.on]="prog.attendedInPerson"
+                    title="{{ prog.attendedInPerson ? 'A déjà passé la formation présentielle' : 'Présentiel non validé' }}"
+                  >Présentiel</span>
+                  @if (prog.hasContentTrack) {
+                    <span
+                      class="kap-prog"
+                      [class.on]="prog.contentCompleted"
+                      title="{{ prog.contentCompleted ? 'A terminé le contenu' : 'Contenu non terminé' }}"
+                    >Contenu</span>
+                  }
+                  @if (prog.hasQuizTrack) {
+                    <span
+                      class="kap-prog"
+                      [class.on]="prog.quizPassed"
+                      title="{{ prog.quizPassed ? 'A passé le quiz' : 'Quiz non réussi' }}"
+                    >Quiz</span>
+                  }
+                </span>
+              }
+              @if (!locked) {
+                <app-lucide-icon [icon]="icons.remove" className="w-3 h-3" />
+              }
+            </span>
           }
         </div>
       }

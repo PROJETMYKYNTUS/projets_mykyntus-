@@ -17,17 +17,20 @@ namespace Planning.Infrastructure.Services
         private readonly AppDbContext _context;
         private readonly IHubContext<NewsletterHub> _hubContext;
         private readonly IUserService _userService;
+        private readonly IMediaAssetService _media;
         private readonly ILogger<NewsletterService> _logger;
 
         public NewsletterService(
             AppDbContext context,
             IHubContext<NewsletterHub> hubContext,
             IUserService userService,
+            IMediaAssetService media,
             ILogger<NewsletterService> logger)
         {
             _context = context;
             _hubContext = hubContext;
             _userService = userService;
+            _media = media;
             _logger = logger;
         }
 
@@ -65,6 +68,7 @@ namespace Planning.Infrastructure.Services
 
             if (n is null) return null;
 
+            var media = await _media.ListByOwnerAsync(MediaOwnerType.Newsletter, id);
             return new NewsletterResponseDto
             {
                 Id = n.Id,
@@ -72,11 +76,12 @@ namespace Planning.Infrastructure.Services
                 Subject = n.Subject,
                 HtmlContent = n.HtmlContent,
                 TextContent = n.TextContent,
-                CoverImageUrl = n.CoverImageUrl,
+                CoverImageUrl = n.CoverImageUrl ?? media.FirstOrDefault(m => m.Kind == "Image")?.Url,
                 CreatedAt = n.CreatedAt,
                 UpdatedAt = n.UpdatedAt,
                 CreatedByUserId = n.CreatedByUserId,
-                CampaignsCount = n.Campaigns.Count
+                CampaignsCount = n.Campaigns.Count,
+                Media = media.ToList()
             };
         }
 
@@ -97,7 +102,84 @@ namespace Planning.Infrastructure.Services
 
             _context.Newsletters.Add(newsletter);
             await _context.SaveChangesAsync();
+
+            if (dto.MediaIds is { Count: > 0 })
+            {
+                await _media.AttachAsync(dto.MediaIds, MediaOwnerType.Newsletter, newsletter.Id);
+                var media = await _media.ListByOwnerAsync(MediaOwnerType.Newsletter, newsletter.Id);
+                var cover = media.FirstOrDefault(m => m.Kind == "Image");
+                if (cover is not null && string.IsNullOrWhiteSpace(newsletter.CoverImageUrl))
+                {
+                    newsletter.CoverImageUrl = cover.Url;
+                    newsletter.HtmlContent = BuildHtmlContent(newsletter.TextContent ?? "", cover.Url);
+                    await _context.SaveChangesAsync();
+                }
+            }
+
             return (await GetNewsletterByIdAsync(newsletter.Id))!;
+        }
+
+        public async Task<PublicationResponseDto> CreatePublicationAsync(CreatePublicationDto dto, string userId)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Title))
+                throw new InvalidOperationException("Le titre est obligatoire.");
+            if (string.IsNullOrWhiteSpace(dto.TextContent))
+                throw new InvalidOperationException("Le contenu du message est obligatoire.");
+
+            var mode = (dto.Mode ?? "publish").Trim().ToLowerInvariant();
+            if (mode is not ("draft" or "publish" or "schedule"))
+                throw new InvalidOperationException("Mode invalide (draft, publish ou schedule).");
+            if (mode == "schedule" && !dto.ScheduledAt.HasValue)
+                throw new InvalidOperationException("La date de planification est obligatoire.");
+
+            var newsletter = await CreateNewsletterAsync(new CreateNewsletterDto
+            {
+                Title = dto.Title.Trim(),
+                Subject = string.IsNullOrWhiteSpace(dto.Subject) ? dto.Title.Trim() : dto.Subject.Trim(),
+                TextContent = dto.TextContent,
+                MediaIds = dto.MediaIds
+            }, userId);
+
+            var campaignName = string.IsNullOrWhiteSpace(dto.CampaignName)
+                ? dto.Title.Trim()
+                : dto.CampaignName.Trim();
+
+            var beneficiaryIds = (dto.BeneficiaryUserIds ?? new List<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (beneficiaryIds.Count == 0 && mode is "publish" or "schedule")
+                throw new InvalidOperationException("Sélectionnez au moins un bénéficiaire (même logique que la formation continue).");
+
+            var campaign = await CreateCampaignAsync(new CreateCampaignDto
+            {
+                Name = campaignName,
+                NewsletterId = newsletter.Id,
+                AudienceTarget = beneficiaryIds.Count > 0 ? AudienceTarget.Custom : dto.AudienceTarget,
+                ScheduledAt = mode == "schedule" ? dto.ScheduledAt : null,
+                BeneficiaryUserIds = beneficiaryIds
+            }, userId);
+
+            if (mode == "publish")
+            {
+                var ok = await PublishCampaignAsync(campaign.Id);
+                if (!ok)
+                    throw new InvalidOperationException("Publication impossible (aucun destinataire pour l'audience choisie).");
+                campaign = (await GetCampaignByIdAsync(campaign.Id))!;
+            }
+            else if (mode == "schedule" && dto.ScheduledAt.HasValue)
+            {
+                await ScheduleCampaignAsync(campaign.Id, dto.ScheduledAt.Value);
+                campaign = (await GetCampaignByIdAsync(campaign.Id))!;
+            }
+
+            return new PublicationResponseDto
+            {
+                Newsletter = newsletter,
+                Campaign = campaign
+            };
         }
 
         public async Task<NewsletterResponseDto?> UpdateNewsletterAsync(int id, UpdateNewsletterDto dto)
@@ -166,11 +248,20 @@ namespace Planning.Infrastructure.Services
 
         public async Task<CampaignResponseDto> CreateCampaignAsync(CreateCampaignDto dto, string userId)
         {
+            var beneficiaryIds = (dto.BeneficiaryUserIds ?? new List<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
             var campaign = new NewsletterCampaign
             {
                 Name = dto.Name,
                 NewsletterId = dto.NewsletterId,
-                AudienceTarget = dto.AudienceTarget,
+                AudienceTarget = beneficiaryIds.Count > 0 ? AudienceTarget.Custom : dto.AudienceTarget,
+                RecipientUserIdsJson = beneficiaryIds.Count > 0
+                    ? System.Text.Json.JsonSerializer.Serialize(beneficiaryIds)
+                    : null,
                 ScheduledAt = dto.ScheduledAt,
                 Status = dto.ScheduledAt.HasValue ? CampaignStatus.Scheduled : CampaignStatus.Draft,
                 CreatedByUserId = userId
@@ -196,7 +287,7 @@ namespace Planning.Infrastructure.Services
 
             await _userService.SyncMissingAuthUsersAsync();
 
-            var users = await GetUsersByAudienceAsync(campaign.AudienceTarget);
+            var users = await ResolveCampaignRecipientsAsync(campaign);
             if (users.Count == 0)
             {
                 _logger.LogWarning(
@@ -262,6 +353,7 @@ namespace Planning.Infrastructure.Services
                 AudienceTarget.Employees => "Employee",
                 AudienceTarget.Managers  => "Manager",
                 AudienceTarget.Admins    => "Admin",
+                AudienceTarget.Custom    => "All",
                 _                        => "All"
             };
 
@@ -331,6 +423,17 @@ namespace Planning.Infrastructure.Services
                 })
                 .ToListAsync();
 
+            foreach (var item in results)
+            {
+                var campaign = await _context.NewsletterCampaigns.AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == item.CampaignId);
+                if (campaign is null) continue;
+                var media = await _media.ListByOwnerAsync(MediaOwnerType.Newsletter, campaign.NewsletterId);
+                item.Media = media.ToList();
+                if (string.IsNullOrWhiteSpace(item.CoverImageUrl))
+                    item.CoverImageUrl = media.FirstOrDefault(m => m.Kind == "Image")?.Url;
+            }
+
             _logger.LogInformation(
                 "Newsletters inbox userId={UserId} email={Email} ids=[{Ids}] → {Count} résultat(s)",
                 userId, email ?? "-", string.Join(',', userIds), results.Count);
@@ -383,6 +486,58 @@ namespace Planning.Infrastructure.Services
         // ────────────────────────────────────────────────────────────────────────
         // HELPERS
         // ────────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Destinataires : liste nominative (Custom / RecipientUserIdsJson) ou audience par rôle.
+        /// </summary>
+        private async Task<List<User>> ResolveCampaignRecipientsAsync(NewsletterCampaign campaign)
+        {
+            if (campaign.AudienceTarget == AudienceTarget.Custom
+                || !string.IsNullOrWhiteSpace(campaign.RecipientUserIdsJson))
+            {
+                var ids = ParseRecipientIds(campaign.RecipientUserIdsJson);
+                if (ids.Count == 0)
+                    return new List<User>();
+
+                var guidSet = new HashSet<Guid>();
+                var stringIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var id in ids)
+                {
+                    stringIds.Add(id);
+                    if (Guid.TryParse(id, out var g))
+                        guidSet.Add(g);
+                }
+
+                return await _context.Users
+                    .Include(u => u.Role)
+                    .Where(u => u.IsActive && (
+                        guidSet.Contains(u.Guid)
+                        || stringIds.Contains(u.Guid.ToString())
+                        || (u.AuthUserId.HasValue && stringIds.Contains(u.AuthUserId.Value.ToString()))
+                        || stringIds.Contains(u.Id.ToString())))
+                    .ToListAsync();
+            }
+
+            return await GetUsersByAudienceAsync(campaign.AudienceTarget);
+        }
+
+        private static List<string> ParseRecipientIds(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return new List<string>();
+            try
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json)
+                    ?.Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList()
+                    ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
 
         /// <summary>
         /// Récupère les users par rôle Identity selon l'audience de la campagne.

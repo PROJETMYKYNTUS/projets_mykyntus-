@@ -16,11 +16,13 @@ export class PrimeNavRequestService {
   private readonly _requestedPeriod = signal<string | null>(null);
   private readonly _requestedAction = signal<PrimeNavRequestedAction | null>(null);
   private readonly _requestedStatusFilter = signal<string | null>(null);
+  private readonly _requestedTab = signal<string | null>(null);
 
   readonly pendingPath = this._pendingPath.asReadonly();
   readonly requestedPeriod = this._requestedPeriod.asReadonly();
   readonly requestedAction = this._requestedAction.asReadonly();
   readonly requestedStatusFilter = this._requestedStatusFilter.asReadonly();
+  readonly requestedTab = this._requestedTab.asReadonly();
 
   /** Vue Prime active (synchronisée par le layout pour le menu global). */
   private readonly _activePath = signal<string>('/');
@@ -31,6 +33,14 @@ export class PrimeNavRequestService {
   }
 
   requestView(path: string): void {
+    const [base, query] = path.split('?');
+    const tab = query ? new URLSearchParams(query).get('tab') : null;
+    if (tab) this._requestedTab.set(tab);
+    this._pendingPath.set(base || path);
+  }
+
+  requestViewWithTab(path: string, tab: string): void {
+    this._requestedTab.set(tab.trim() || null);
     this._pendingPath.set(path);
   }
 
@@ -50,6 +60,17 @@ export class PrimeNavRequestService {
 
   clearRequestedStatusFilter(): void {
     this._requestedStatusFilter.set(null);
+  }
+
+  clearRequestedTab(): void {
+    this._requestedTab.set(null);
+  }
+
+  /** Navigation + période et onglet vers la page cible. */
+  requestViewWithPeriodAndTab(path: string, period: string, tab: string): void {
+    this._requestedPeriod.set(period);
+    this._requestedTab.set(tab.trim() || null);
+    this._pendingPath.set(path);
   }
 
   /** Navigation + transmission d'une période pré-sélectionnée à la page cible. */
@@ -79,6 +100,39 @@ export class PrimeNavRequestService {
     this._requestedSynthesisScope.set(null);
   }
 
+  private readonly _requestedOrgFocus = signal<{
+    celluleId: string;
+    serviceId?: string;
+    period?: string;
+  } | null>(null);
+
+  readonly requestedOrgFocus = this._requestedOrgFocus.asReadonly();
+
+  /** Navigation vers indicateurs/pondérations avec cellule (et service) pré-sélectionnés. */
+  requestViewWithOrgFocus(
+    path: string,
+    focus: { celluleId: string; serviceId?: string; period?: string },
+  ): void {
+    const celluleId = (focus.celluleId ?? '').trim();
+    if (!celluleId) {
+      this.requestView(path);
+      return;
+    }
+    this._requestedOrgFocus.set({
+      celluleId,
+      serviceId: (focus.serviceId ?? '').trim() || undefined,
+      period: (focus.period ?? '').trim() || undefined,
+    });
+    if (focus.period && /^\d{4}-\d{2}$/.test(focus.period.trim())) {
+      this._requestedPeriod.set(focus.period.trim());
+    }
+    this._pendingPath.set(path);
+  }
+
+  clearRequestedOrgFocus(): void {
+    this._requestedOrgFocus.set(null);
+  }
+
   clearPending(): void {
     this._pendingPath.set(null);
   }
@@ -92,7 +146,9 @@ export class PrimeNavRequestService {
     this._pendingPath.set(null);
     this._requestedPeriod.set(null);
     this._requestedSynthesisScope.set(null);
+    this._requestedOrgFocus.set(null);
     this._requestedAction.set(null);
     this._requestedStatusFilter.set(null);
+    this._requestedTab.set(null);
   }
 }

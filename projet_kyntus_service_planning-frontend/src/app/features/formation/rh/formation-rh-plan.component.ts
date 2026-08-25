@@ -1,13 +1,14 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Search, X } from 'lucide';
 import { FormationTrainingService } from '../../../core/services/formation-training.service';
 import type {
+  ProgramBeneficiaryProgressDto,
   TrainingCatalogItemDto,
   TrainingQuizTemplateListItemDto,
   TrainingSessionDto,
@@ -34,8 +35,18 @@ import {
   KyntusAudiencePickerComponent,
   type AudiencePickerSelection,
 } from '../shared/kyntus-audience-picker.component';
-
-type WizardStep = 1 | 2 | 3 | 'recap';
+import { FormationCatalogOutlineComponent } from '../catalog/formation-catalog-outline.component';
+import { FormationQuizQuestionsEditorComponent } from '../shared/formation-quiz-questions-editor.component';
+import {
+  buildQuizQuestionPayload,
+  type QuizDraftQuestion,
+} from '../shared/formation-quiz-draft.types';
+import type { DraftModule } from '../catalog/formation-catalog-draft.types';
+import {
+  buildCatalogStructureRequest,
+  countDraftLessons,
+  uploadCatalogPendingFiles,
+} from '../catalog/formation-catalog-structure.util';
 
 @Component({
   selector: 'app-formation-rh-plan',
@@ -43,10 +54,11 @@ type WizardStep = 1 | 2 | 3 | 'recap';
   imports: [
     CommonModule,
     FormsModule,
-    RouterLink,
     KyntusPageHeaderComponent,
     LucideIconComponent,
     KyntusAudiencePickerComponent,
+    FormationCatalogOutlineComponent,
+    FormationQuizQuestionsEditorComponent,
   ],
   templateUrl: './formation-rh-plan.component.html',
   styleUrls: ['./formation-rh-plan.component.css'],
@@ -58,6 +70,7 @@ export class FormationRhPlanComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly orgApi = inject(PrimeOrgApiService);
   private readonly subServiceService = inject(SubServiceService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly icons = { search: Search, remove: X };
   readonly sessions = signal<TrainingSessionDto[]>([]);
@@ -65,8 +78,14 @@ export class FormationRhPlanComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly assignSessionId = signal<string | null>(null);
   readonly assignMsg = signal<string | null>(null);
-  readonly step = signal<WizardStep>(1);
   readonly orgReady = signal(false);
+  readonly editingProgramId = signal<string | null>(null);
+  readonly progressByEmployeeId = signal<Record<string, ProgramBeneficiaryProgressDto>>({});
+  readonly lockedEmployeeIds = computed(() =>
+    Object.values(this.progressByEmployeeId())
+      .filter((p) => p.isComplete)
+      .map((p) => p.employeeId),
+  );
 
   employeeRows: EmployeePickerRow[] = [];
   operationalDepartments: OperationalDepartmentNode[] = [];
@@ -82,6 +101,9 @@ export class FormationRhPlanComponent implements OnInit {
   readonly assignPickerKey = signal(0);
 
   private readonly searchTick = signal(0);
+
+  draftModules: DraftModule[] = [];
+  quizQuestions: QuizDraftQuestion[] = [];
 
   readonly visibleAnimatorRows = computed(() => {
     this.searchTick();
@@ -113,16 +135,29 @@ export class FormationRhPlanComponent implements OnInit {
     catalogItemId: '',
     quizTemplateId: '',
     learningGateMode: '' as '' | 'Attendance' | 'Content' | 'Both',
+    contentSource: 'none' as 'none' | 'existing' | 'define',
+    quizSource: 'none' as 'none' | 'existing' | 'define',
+    quizTitle: '',
+    quizPassThreshold: 70,
+    quizAllowMultiple: false,
   };
 
   catalogItems: TrainingCatalogItemDto[] = [];
   quizTemplates: TrainingQuizTemplateListItemDto[] = [];
 
   ngOnInit(): void {
+    const pid = this.route.snapshot.queryParamMap.get('programId');
+    this.editingProgramId.set(pid || null);
     this.ensureDefaultSlots();
     void this.reload();
-    void this.loadOrgAndEmployees();
     void this.loadCatalogAndTemplates();
+    void this.bootstrapOrg();
+  }
+
+  private async bootstrapOrg(): Promise<void> {
+    await this.loadOrgAndEmployees();
+    const pid = this.editingProgramId();
+    if (pid) await this.loadExistingProgram(pid);
   }
 
   async loadCatalogAndTemplates(): Promise<void> {
@@ -169,8 +204,176 @@ export class FormationRhPlanComponent implements OnInit {
     }
   }
 
+  private async loadExistingProgram(programId: string): Promise<void> {
+    try {
+      const detail = await this.api.getProgram(programId);
+      this.form.title = detail.title;
+      this.form.description = detail.description ?? '';
+      this.form.capacity = detail.capacity;
+      const modeNum = typeof detail.mode === 'number' ? detail.mode : detail.mode === 'Multiple' ? 1 : 0;
+      this.form.mode = modeNum === 1 ? 'Multiple' : 'Single';
+      this.form.sessionCount = detail.sessionCount || detail.sessions?.length || 1;
+      this.form.sessionSlots = (detail.sessions ?? []).map((s) => ({
+        plannedStart: toLocalDateTimeValue(new Date(s.plannedStart)),
+        plannedEnd: toLocalDateTimeValue(new Date(s.plannedEnd)),
+      }));
+      if (!this.form.sessionSlots.length) this.form.sessionSlots = [createDefaultSlot(0)];
+      const animNum =
+        typeof detail.animatorKind === 'number' ? detail.animatorKind : detail.animatorKind === 'External' ? 1 : 0;
+      this.form.animatorKind = animNum === 1 ? 'External' : 'Internal';
+      this.form.animatorUserId = detail.animatorUserId ?? '';
+      this.form.externalAnimatorName = detail.externalAnimatorName ?? '';
+      this.form.externalAnimatorOrganization = detail.externalAnimatorOrganization ?? '';
+      this.form.externalAnimatorEmail = detail.externalAnimatorEmail ?? '';
+      this.form.externalAnimatorPhone = detail.externalAnimatorPhone ?? '';
+      this.form.catalogItemId = detail.catalogItemId ?? '';
+      this.form.quizTemplateId = detail.quizTemplateId ?? '';
+      this.form.contentSource = this.form.catalogItemId ? 'existing' : 'none';
+      this.form.quizSource = this.form.quizTemplateId ? 'existing' : 'none';
+      const gate = parseLearningGate(detail.learningGateMode);
+      this.form.learningGateMode = gate;
+
+      if (this.form.animatorUserId) {
+        const row = this.employeeRows.find((r) => resolveUserGuid(r.user) === this.form.animatorUserId);
+        if (row) this.selectAnimator(row);
+      }
+
+      const map: Record<string, ProgramBeneficiaryProgressDto> = {};
+      for (const p of detail.beneficiaries ?? []) {
+        map[p.employeeId] = p;
+        map[p.employeeId.toLowerCase()] = p;
+      }
+      this.progressByEmployeeId.set(map);
+
+      const rows: EmployeePickerRow[] = [];
+      for (const p of detail.beneficiaries ?? []) {
+        const row = this.employeeRows.find((r) => resolveUserGuid(r.user).toLowerCase() === p.employeeId.toLowerCase());
+        if (row) rows.push(row);
+      }
+      this.beneficiaryList.set(rows);
+      this.searchTick.update((n) => n + 1);
+      this.wizardStep.set(5);
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : 'Impossible de charger le programme');
+    }
+  }
+
+  readonly wizardStep = signal(1);
+  readonly wizardSteps = [
+    { id: 1, label: 'Programme' },
+    { id: 2, label: 'Contenu' },
+    { id: 3, label: 'Quiz' },
+    { id: 4, label: 'Présentiel' },
+    { id: 5, label: 'Bénéficiaires' },
+  ] as const;
+
   publishedQuizTemplates(): TrainingQuizTemplateListItemDto[] {
     return this.quizTemplates;
+  }
+
+  goToStep(step: number): void {
+    if (step < 1 || step > 5) return;
+    if (step > this.wizardStep()) {
+      try {
+        for (let i = this.wizardStep(); i < step; i++) this.validateStep(i);
+      } catch (e) {
+        this.error.set(e instanceof Error ? e.message : 'Complétez cette étape avant de continuer.');
+        return;
+      }
+    }
+    this.error.set(null);
+    this.wizardStep.set(step);
+  }
+
+  nextStep(): void {
+    try {
+      this.validateStep(this.wizardStep());
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : 'Étape incomplète.');
+      return;
+    }
+    this.error.set(null);
+    if (this.wizardStep() < 5) this.wizardStep.update((s) => s + 1);
+  }
+
+  prevStep(): void {
+    this.error.set(null);
+    if (this.wizardStep() > 1) this.wizardStep.update((s) => s - 1);
+  }
+
+  private validateStep(step: number): void {
+    if (step === 1) {
+      if (!this.form.title.trim()) throw new Error('L’intitulé est obligatoire.');
+      if (this.form.capacity < 1) throw new Error('La capacité doit être au moins 1.');
+      return;
+    }
+    if (this.editingProgramId() && step < 5) return;
+    if (step === 2) {
+      if (this.form.contentSource === 'existing' && !this.form.catalogItemId) {
+        throw new Error('Sélectionnez un contenu publié.');
+      }
+      if (this.form.contentSource === 'define' && countDraftLessons(this.draftModules) < 1) {
+        throw new Error('Ajoutez au moins une leçon au contenu.');
+      }
+      return;
+    }
+    if (step === 3) {
+      if (this.form.quizSource === 'existing' && !this.form.quizTemplateId) {
+        throw new Error('Sélectionnez un modèle de quiz publié.');
+      }
+      if (this.form.quizSource === 'define') {
+        const questions = buildQuizQuestionPayload(this.quizQuestions);
+        if (!questions.length) throw new Error('Ajoutez au moins une question au quiz.');
+      }
+      return;
+    }
+    if (step === 4) {
+      this.syncSessionSlots();
+      for (let i = 0; i < this.form.sessionSlots.length; i++) {
+        const slot = this.form.sessionSlots[i];
+        if (!slot.plannedStart || !slot.plannedEnd) {
+          throw new Error(`Séance ${i + 1} : dates de début et de fin obligatoires.`);
+        }
+      }
+      if (this.form.animatorKind === 'Internal' && !this.form.animatorUserId) {
+        throw new Error('Sélectionnez un animateur interne.');
+      }
+      if (this.form.animatorKind === 'External') {
+        if (!this.form.externalAnimatorName.trim() || !this.form.externalAnimatorEmail.trim()) {
+          throw new Error('Nom et email de l’animateur externe sont obligatoires.');
+        }
+      }
+      return;
+    }
+    if (step === 5) {
+      const beneficiaries = this.beneficiaryList();
+      if (beneficiaries.length === 0) {
+        throw new Error('Ajoutez au moins un bénéficiaire.');
+      }
+      if (beneficiaries.length > this.form.capacity) {
+        throw new Error(`Trop de bénéficiaires pour la capacité (${this.form.capacity}).`);
+      }
+    }
+  }
+
+  onContentSourceChange(source: 'none' | 'existing' | 'define'): void {
+    this.form.contentSource = source;
+    if (source !== 'existing') this.form.catalogItemId = '';
+    if (source === 'none' && (this.form.learningGateMode === 'Content' || this.form.learningGateMode === 'Both')) {
+      this.form.learningGateMode = 'Attendance';
+    }
+  }
+
+  onQuizSourceChange(source: 'none' | 'existing' | 'define'): void {
+    this.form.quizSource = source;
+    if (source !== 'existing') this.form.quizTemplateId = '';
+    if (source === 'define' && !this.form.quizTitle.trim()) {
+      this.form.quizTitle = this.form.title ? `Quiz — ${this.form.title}` : 'Quiz';
+    }
+  }
+
+  onDraftModulesChange(next: DraftModule[]): void {
+    this.draftModules = next;
   }
 
   onCatalogItemChange(id: string): void {
@@ -182,9 +385,12 @@ export class FormationRhPlanComponent implements OnInit {
       return;
     }
     const item = this.catalogItems.find((c) => c.id === id);
-    if (item?.defaultQuizTemplateId) {
+    if (item?.defaultQuizTemplateId && this.form.quizSource === 'none') {
       const exists = this.quizTemplates.some((t) => t.id === item.defaultQuizTemplateId);
-      if (exists) this.form.quizTemplateId = item.defaultQuizTemplateId;
+      if (exists) {
+        this.form.quizSource = 'existing';
+        this.form.quizTemplateId = item.defaultQuizTemplateId;
+      }
     }
   }
 
@@ -199,84 +405,28 @@ export class FormationRhPlanComponent implements OnInit {
     this.assignSelected.set([...sel.beneficiaries]);
   }
 
-  stepLabel(s: WizardStep): string {
-    switch (s) {
-      case 1:
-        return 'Contenu';
-      case 2:
-        return 'Séances';
-      case 3:
-        return 'Bénéficiaires';
-      case 'recap':
-        return 'Récap';
+  contentRecapLabel(): string {
+    if (this.form.contentSource === 'existing' && this.form.catalogItemId) {
+      return `existant : ${this.catalogTitle(this.form.catalogItemId)}`;
     }
+    if (this.form.contentSource === 'define') {
+      return `créé pour ce programme (${countDraftLessons(this.draftModules)} leçon(s))`;
+    }
+    return 'Aucun';
   }
 
-  stepIndex(s: WizardStep | string | number): number {
-    if (s === 1 || s === '1') return 1;
-    if (s === 2 || s === '2') return 2;
-    if (s === 3 || s === '3') return 3;
-    return 4;
+  quizRecapLabel(): string {
+    if (this.form.quizSource === 'existing' && this.form.quizTemplateId) {
+      return `existant : ${this.quizTemplateTitle(this.form.quizTemplateId)}`;
+    }
+    if (this.form.quizSource === 'define') {
+      return `créé pour ce programme (${this.quizQuestions.length} question(s))`;
+    }
+    return 'Aucun';
   }
 
-  goNext(): void {
-    this.error.set(null);
-    try {
-      const current = this.step();
-      if (current === 1) {
-        this.validateStep1();
-        this.step.set(2);
-      } else if (current === 2) {
-        this.validateStep2();
-        this.step.set(3);
-      } else if (current === 3) {
-        this.validateStep3();
-        this.step.set('recap');
-      }
-    } catch (e) {
-      this.error.set(e instanceof Error ? e.message : 'Étape invalide');
-    }
-  }
-
-  goBack(): void {
-    this.error.set(null);
-    const current = this.step();
-    if (current === 2) this.step.set(1);
-    else if (current === 3) this.step.set(2);
-    else if (current === 'recap') this.step.set(3);
-  }
-
-  private validateStep1(): void {
-    if (!this.form.title.trim()) throw new Error('L’intitulé est obligatoire.');
-    if (this.form.capacity < 1) throw new Error('La capacité doit être au moins 1.');
-  }
-
-  private validateStep2(): void {
-    this.syncSessionSlots();
-    for (let i = 0; i < this.form.sessionSlots.length; i++) {
-      const slot = this.form.sessionSlots[i];
-      if (!slot.plannedStart || !slot.plannedEnd) {
-        throw new Error(`Séance ${i + 1} : dates de début et de fin obligatoires.`);
-      }
-    }
-    if (this.form.animatorKind === 'Internal' && !this.form.animatorUserId) {
-      throw new Error('Sélectionnez un animateur interne.');
-    }
-    if (this.form.animatorKind === 'External') {
-      if (!this.form.externalAnimatorName.trim() || !this.form.externalAnimatorEmail.trim()) {
-        throw new Error('Nom et email de l’animateur externe sont obligatoires.');
-      }
-    }
-  }
-
-  private validateStep3(): void {
-    const beneficiaries = this.beneficiaryList();
-    if (beneficiaries.length === 0) {
-      throw new Error('Ajoutez au moins un bénéficiaire.');
-    }
-    if (beneficiaries.length > this.form.capacity) {
-      throw new Error(`Trop de bénéficiaires pour la capacité (${this.form.capacity}).`);
-    }
+  private validateForm(): void {
+    for (let i = 1; i <= 5; i++) this.validateStep(i);
   }
 
   catalogTitle(id: string): string {
@@ -436,7 +586,9 @@ export class FormationRhPlanComponent implements OnInit {
 
   private async reload(): Promise<void> {
     try {
-      this.sessions.set(await this.api.listSessions());
+      const all = await this.api.listSessions();
+      const pid = this.editingProgramId();
+      this.sessions.set(pid ? all.filter((s) => s.programId === pid) : all);
     } catch {
       this.sessions.set([]);
     }
@@ -473,6 +625,8 @@ export class FormationRhPlanComponent implements OnInit {
       this.assignMsg.set(`${selected.length} bénéficiaire(s) affecté(s).`);
       this.assignSessionId.set(null);
       await this.reload();
+      const pid = session?.programId || this.editingProgramId();
+      if (pid) await this.loadExistingProgram(pid);
     } catch (e) {
       this.assignMsg.set(e instanceof Error ? e.message : 'Échec de l’affectation');
     } finally {
@@ -501,11 +655,63 @@ export class FormationRhPlanComponent implements OnInit {
     this.busy.set(true);
     this.error.set(null);
     try {
-      this.validateStep1();
-      this.validateStep2();
-      this.validateStep3();
-
+      this.validateForm();
       const beneficiaries = this.beneficiaryList();
+      const employees = beneficiaries.map((r) => ({
+        employeeId: resolveUserGuid(r.user),
+        employeeName: r.displayName,
+      }));
+
+      const editId = this.editingProgramId();
+      if (editId) {
+        await this.api.assignEmployeesToProgram(editId, employees);
+        const progress = await this.api.getProgramBeneficiaryProgress(editId);
+        const map: Record<string, ProgramBeneficiaryProgressDto> = {};
+        for (const p of progress) {
+          map[p.employeeId] = p;
+          map[p.employeeId.toLowerCase()] = p;
+        }
+        this.progressByEmployeeId.set(map);
+        await this.reload();
+        return;
+      }
+
+      let catalogItemId = this.form.contentSource === 'existing' ? this.form.catalogItemId : '';
+      let quizTemplateId = this.form.quizSource === 'existing' ? this.form.quizTemplateId : '';
+
+      if (this.form.contentSource === 'define') {
+        const saved = await this.api.createCatalogItem({
+          title: this.form.title.trim(),
+          description: this.form.description.trim(),
+          category: 'formation-continue',
+          defaultGateMode: 1,
+          audienceMatchMode: 0,
+          selfServiceEnabled: false,
+          dueMode: 0,
+        });
+        const structureBody = buildCatalogStructureRequest(this.draftModules);
+        const structureResult = await this.api.replaceCatalogStructure(saved.id, structureBody);
+        await uploadCatalogPendingFiles(this.draftModules, structureResult, (lessonId, file, title, type, sortOrder) =>
+          this.api.uploadCatalogResource(lessonId, file, title, type, sortOrder),
+        );
+        await this.api.publishCatalogItem(saved.id);
+        catalogItemId = saved.id;
+      }
+
+      if (this.form.quizSource === 'define') {
+        const questions = buildQuizQuestionPayload(this.quizQuestions);
+        const saved = await this.api.createQuizTemplate({
+          title: (this.form.quizTitle || `Quiz — ${this.form.title}`).trim(),
+          description: '',
+          category: 'formation-continue',
+          passThreshold: Math.min(100, Math.max(1, Number(this.form.quizPassThreshold) || 70)),
+          allowMultipleAttempts: this.form.quizAllowMultiple,
+          catalogItemId: catalogItemId || null,
+          questions,
+        });
+        await this.api.publishQuizTemplate(saved.id);
+        quizTemplateId = saved.id;
+      }
 
       const created = await this.api.createProgram({
         title: this.form.title,
@@ -531,14 +737,7 @@ export class FormationRhPlanComponent implements OnInit {
         throw new Error('Programme créé sans identifiant.');
       }
 
-      // Une seule affectation programme (pas via linkSessionCatalog.assignAudience).
-      await this.api.assignEmployeesToProgram(
-        created.id,
-        beneficiaries.map((r) => ({
-          employeeId: resolveUserGuid(r.user),
-          employeeName: r.displayName,
-        })),
-      );
+      await this.api.assignEmployeesToProgram(created.id, employees);
 
       let sessionList = created.sessions ?? [];
       if (!sessionList.length) {
@@ -546,19 +745,19 @@ export class FormationRhPlanComponent implements OnInit {
         sessionList = all.filter((s) => s.programId === created.id);
       }
 
-      if (this.form.catalogItemId && sessionList.length) {
+      if (catalogItemId && sessionList.length) {
         for (const session of sessionList) {
           await this.api.linkSessionCatalog(session.id, {
-            catalogItemId: this.form.catalogItemId,
+            catalogItemId,
             learningGateMode: this.form.learningGateMode || null,
             assignAudience: false,
           });
         }
       }
 
-      if (this.form.quizTemplateId && sessionList.length) {
+      if (quizTemplateId && sessionList.length) {
         for (const session of sessionList) {
-          await this.api.instantiateQuizTemplate(this.form.quizTemplateId, {
+          await this.api.instantiateQuizTemplate(quizTemplateId, {
             sessionId: session.id,
           });
         }
@@ -590,10 +789,16 @@ export class FormationRhPlanComponent implements OnInit {
       catalogItemId: '',
       quizTemplateId: '',
       learningGateMode: '',
+      contentSource: 'none',
+      quizSource: 'none',
+      quizTitle: '',
+      quizPassThreshold: 70,
+      quizAllowMultiple: false,
     };
+    this.draftModules = [];
+    this.quizQuestions = [];
     this.clearAnimator();
     this.beneficiaryList.set([]);
-    this.step.set(1);
     this.searchTick.update((n) => n + 1);
   }
 
@@ -617,6 +822,14 @@ export class FormationRhPlanComponent implements OnInit {
     }
     return this.selectedAnimator()?.displayName || '—';
   }
+}
+
+function parseLearningGate(value: unknown): '' | 'Attendance' | 'Content' | 'Both' {
+  const v = String(value ?? '');
+  if (v === 'Attendance' || v === '0') return 'Attendance';
+  if (v === 'Content' || v === '1') return 'Content';
+  if (v === 'Both' || v === '2') return 'Both';
+  return '';
 }
 
 function toIsoDateTime(localValue: string): string {

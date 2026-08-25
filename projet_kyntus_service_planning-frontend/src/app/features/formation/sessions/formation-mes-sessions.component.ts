@@ -25,7 +25,7 @@ import { KyntusEmptyStateComponent } from '../../../shared/components/ui/kyntus-
     <section class="ky-page-shell">
       <app-kyntus-page-header
         title="Mes sessions"
-        subtitle="Présences, compte rendu et quiz pour vos séances continues"
+        subtitle="Présences, compte rendu et quiz pour vos séances"
       />
       <div class="card-navy p-4 space-y-3">
         @for (s of animated(); track s.id) {

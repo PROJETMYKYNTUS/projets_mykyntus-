@@ -30,4 +30,26 @@ public class ShiftModeQuotaAllocatorTests
         Assert.Equal(a, b);
         Assert.Equal(7, a.Sum());
     }
+
+    [Fact]
+    public void AllocateModeRequiredCounts_solo_multi_shift_zeros_quotas()
+    {
+        var counts = ShiftModeQuotaAllocator.AllocateModeRequiredCounts([50m, 50m], headcount: 1);
+        Assert.Equal(new[] { 0, 0 }, counts);
+    }
+
+    [Fact]
+    public void AllocateModeRequiredCounts_solo_single_shift_keeps_one()
+    {
+        var counts = ShiftModeQuotaAllocator.AllocateModeRequiredCounts([100m], headcount: 1);
+        Assert.Equal(new[] { 1 }, counts);
+    }
+
+    [Fact]
+    public void AllocateModeRequiredCounts_two_agents_uses_percentages()
+    {
+        var counts = ShiftModeQuotaAllocator.AllocateModeRequiredCounts([50m, 50m], headcount: 2);
+        Assert.Equal(2, counts.Sum());
+        Assert.Equal(new[] { 1, 1 }, counts);
+    }
 }

@@ -1,0 +1,18 @@
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Builds front
+dist
+build
+
+# Env secrets
+.env
+.env.local
+.env.production
+.env.development
+
+# Logs
+logs
+*.log

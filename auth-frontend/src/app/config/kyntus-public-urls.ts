@@ -23,5 +23,21 @@ const COMPILED_FALLBACK: KyntusPublicUrls = {
   planningAuthCallback: 'http://localhost:8200/auth-callback',
 };
 
-export const KYNTUS_PUBLIC_URLS: KyntusPublicUrls =
-  (typeof window !== 'undefined' && window.__KYNTUS_PUBLIC_URLS__) || COMPILED_FALLBACK;
+/** Lit window.__KYNTUS_PUBLIC_URLS__ à chaque appel (évite un profil figé au import). */
+export function getKyntusPublicUrls(): KyntusPublicUrls {
+  if (typeof window !== 'undefined' && window.__KYNTUS_PUBLIC_URLS__) {
+    return window.__KYNTUS_PUBLIC_URLS__;
+  }
+  return COMPILED_FALLBACK;
+}
+
+/** Accès propriété dynamique — préférer getKyntusPublicUrls() dans le nouveau code. */
+export const KYNTUS_PUBLIC_URLS: KyntusPublicUrls = new Proxy({} as KyntusPublicUrls, {
+  get(_target, prop: string | symbol) {
+    const urls = getKyntusPublicUrls();
+    if (typeof prop === 'string' && prop in urls) {
+      return urls[prop as keyof KyntusPublicUrls];
+    }
+    return undefined;
+  },
+});

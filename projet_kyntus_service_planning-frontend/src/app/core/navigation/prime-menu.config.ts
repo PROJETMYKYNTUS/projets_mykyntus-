@@ -14,6 +14,48 @@ import type { MenuItem } from './microservices.config';
 
 const PRIME_ROUTE = '/prime';
 
+/**
+ * Menu Prime Superviseur : parcours mensuel (Périmètre = entrée menu global, hors Prime).
+ * Indicateurs/pondérations = étape du wizard partie commune.
+ */
+export const SUPERVISEUR_PRIME_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
+  {
+    label: 'Tableau de bord',
+    route: PRIME_ROUTE,
+    primePath: '/',
+    primeRoles: ['Superviseur'],
+    hat: 'team',
+  },
+  {
+    label: 'Partie commune (RACC / SAV)',
+    route: PRIME_ROUTE,
+    primePath: '/prime-saisie',
+    primeRoles: ['Superviseur'],
+    hat: 'team',
+  },
+  {
+    label: 'Fiches PRIME agents',
+    route: PRIME_ROUTE,
+    primePath: '/prime-fiches-agents',
+    primeRoles: ['Superviseur'],
+    hat: 'team',
+  },
+  {
+    label: 'Validation',
+    route: PRIME_ROUTE,
+    primePath: '/prime-validation-hub',
+    primeRoles: ['Superviseur'],
+    hat: 'team',
+  },
+  {
+    label: 'Templates fiche PRIME',
+    route: PRIME_ROUTE,
+    primePath: '/template-manager',
+    primeRoles: ['Superviseur'],
+    hat: 'team',
+  },
+];
+
 /** Entrées menu chemin (RH, Manager, Superviseur, Pilote, etc.). */
 export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
   {
@@ -27,6 +69,7 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
     route: PRIME_ROUTE,
     primePath: '/employee/dashboard',
     primeRoles: ['Pilote'],
+    hat: 'self',
   },
   { label: 'Types de prime', route: PRIME_ROUTE, primePath: '/types', primeRoles: ['Admin'] },
   { label: 'Règles de prime', route: PRIME_ROUTE, primePath: '/rules', primeRoles: ['Admin'] },
@@ -34,19 +77,19 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
     label: 'Résultats',
     route: PRIME_ROUTE,
     primePath: '/results',
-    primeRoles: ['Admin', 'RH', 'RP', 'Chef de projet', 'Manager', 'Superviseur', 'Coach', 'Référent technique'],
+    primeRoles: ['Admin', 'RH', 'RP', 'Chef de projet', 'Manager', 'Coach', 'Référent technique'],
   },
   {
     label: 'Valider les primes',
     route: PRIME_ROUTE,
     primePath: '/validation',
-    primeRoles: ['Admin', 'RP', 'Chef de projet', 'Superviseur', 'Coach', 'Référent technique'],
+    primeRoles: ['Admin', 'RP', 'Chef de projet', 'Coach', 'Référent technique'],
   },
   {
     label: 'Suivi validation',
     route: PRIME_ROUTE,
     primePath: '/validation-history',
-    primeRoles: ['Admin', 'RP', 'Chef de projet', 'Superviseur', 'Coach', 'Référent technique'],
+    primeRoles: ['Admin', 'RP', 'Chef de projet', 'Coach', 'Référent technique'],
   },
   {
     label: 'Synthèse globale PRIME',
@@ -65,7 +108,7 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
     label: 'Performance équipe',
     route: PRIME_ROUTE,
     primePath: '/team-performance',
-    primeRoles: ['Manager', 'Chef de projet', 'Superviseur', 'Coach', 'Référent technique'],
+    primeRoles: ['Manager', 'Chef de projet', 'Coach', 'Référent technique'],
   },
   {
     label: 'Périmètre chef de projet',
@@ -74,34 +117,10 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
     primeRoles: ['Chef de projet', 'RP'],
   },
   {
-    label: 'Périmètre superviseur',
-    route: PRIME_ROUTE,
-    primePath: '/superviseur/scope',
-    primeRoles: ['Superviseur'],
-  },
-  {
-    label: 'Indicateurs & pondérations (par service)',
-    route: PRIME_ROUTE,
-    primePath: '/prime-cellule-indicateurs',
-    primeRoles: ['Superviseur'],
-  },
-  {
-    label: 'Partie commune (RACC / SAV)',
-    route: PRIME_ROUTE,
-    primePath: '/prime-saisie',
-    primeRoles: ['Superviseur'],
-  },
-  {
-    label: 'Partie service (pilotes)',
-    route: PRIME_ROUTE,
-    primePath: '/prime-fiches-pilotes',
-    primeRoles: ['Superviseur'],
-  },
-  {
     label: 'Import fiche prête',
     route: PRIME_ROUTE,
     primePath: '/prime-fiche-import',
-    primeRoles: ['Superviseur', 'Admin'],
+    primeRoles: ['Admin'],
   },
   {
     label: 'Templates fiche PRIME',
@@ -110,8 +129,8 @@ export const PRIME_PATH_MENU_ITEMS: Array<MenuItem & { primeRoles: Role[] }> = [
     primeRoles: ['Superviseur', 'Admin'],
   },
   { label: 'Configuration Prime', route: PRIME_ROUTE, primePath: '/configuration', primeRoles: ['Admin'] },
-  { label: 'Mes primes', route: PRIME_ROUTE, primePath: '/employee/primes', primeRoles: ['Pilote'] },
-  { label: 'Ma performance', route: PRIME_ROUTE, primePath: '/employee/performance', primeRoles: ['Pilote'] },
+  { label: 'Mes primes', route: PRIME_ROUTE, primePath: '/employee/primes', primeRoles: ['Pilote'], hat: 'self' },
+  { label: 'Ma performance', route: PRIME_ROUTE, primePath: '/employee/performance', primeRoles: ['Pilote'], hat: 'self' },
 ];
 
 /** Ordre menu manager Support : action principale en premier. */
@@ -184,6 +203,7 @@ export const PRIME_ALLOWANCE_MENU_ITEMS: Array<
     primePath: '/allowances/my',
     primeRoles: ['Pilote'],
     departmentKinds: ['Support'],
+    hat: 'self',
   },
   {
     label: 'Suivi global',
@@ -260,6 +280,10 @@ export function buildPrimeMenuItemsForRole(
   }
   if (role === 'Audit') {
     return PRIME_AUDIT_MENU_ITEMS.filter((i) => i.primeRoles.includes(role));
+  }
+
+  if (role === 'Superviseur') {
+    return SUPERVISEUR_PRIME_MENU_ITEMS.filter((i) => i.primeRoles.includes(role));
   }
 
   const base = PRIME_PATH_MENU_ITEMS.filter((i) => i.primeRoles.includes(role));

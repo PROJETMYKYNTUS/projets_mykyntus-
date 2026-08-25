@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import type { PrimeFicheTemplateSchema } from '../models/prime-fiche-template.schema';
 import type { StoredPrimeTemplate } from '../models/prime-template.model';
 import {
@@ -8,27 +8,35 @@ import {
 } from '../models/prime-template.model';
 import type { SupervisorPolePrimeDraftDto } from './prime-cell-prime-api.service';
 import { PrimeFicheTemplateActiveService } from './prime-fiche-template-active.service';
+import { PrimeScopeStore } from '../state/prime-scope.store';
+import { RoleService } from '../state/role.service';
 
-export type PrimeFicheWizardStep = 'idle' | 'setup' | 'preview' | 'entry' | 'result' | 'submitted';
-
-function defaultPreviousMonth(): { year: number; month: number } {
-  const d = new Date();
-  d.setDate(1);
-  d.setMonth(d.getMonth() - 1);
-  return { year: d.getFullYear(), month: d.getMonth() + 1 };
-}
+export type PrimeFicheWizardStep =
+  | 'idle'
+  | 'setup'
+  | 'ponderations'
+  | 'preview'
+  | 'entry'
+  | 'result'
+  | 'submitted';
 
 @Injectable({ providedIn: 'root' })
 export class PrimeFicheSessionService {
   private readonly activeTpl = inject(PrimeFicheTemplateActiveService);
+  private readonly scope = inject(PrimeScopeStore);
+  private readonly role = inject(RoleService);
 
   /** Flux superviseur : idle = pas de wizard (ex. autre rôle ou mode legacy). */
   readonly step = signal<PrimeFicheWizardStep>('idle');
 
-  readonly periodYear = signal(defaultPreviousMonth().year);
-  readonly periodMonth = signal(defaultPreviousMonth().month);
+  readonly periodYear = computed(() => this.scope.periodYear());
+  readonly periodMonth = computed(() => this.scope.periodMonth());
 
-  readonly selectedTemplateId = signal<string | null>(null);
+  readonly selectedTemplateId = computed(() => {
+    const id = this.scope.selectedTemplateId().trim();
+    return id || null;
+  });
+
   /** Copie du template choisi pour aperçu / recalcul (hors localStorage mutable). */
   readonly sessionTemplate = signal<StoredPrimeTemplate | null>(null);
   /** Schéma grille actif pour la fiche en cours (saisie + résultat). */
@@ -56,11 +64,14 @@ export class PrimeFicheSessionService {
   /** Après « mode sans assistant », ne pas relancer automatiquement le wizard tant que l’utilisateur ne reprend pas le flux. */
   readonly preferLegacySaisie = signal(false);
 
+  private currentUserId(): string {
+    return (this.role.currentUser()?.id ?? '').trim();
+  }
+
   startWizardForSupervisor(): void {
-    const d = defaultPreviousMonth();
-    this.periodYear.set(d.year);
-    this.periodMonth.set(d.month);
-    this.selectedTemplateId.set(null);
+    const uid = this.currentUserId();
+    if (uid) this.scope.hydrateFromStorage(uid);
+    this.scope.setSelectedTemplateId(null, uid);
     this.sessionTemplate.set(null);
     this.sessionSchema.set(null);
     this.polePrimeDraftId.set(null);
@@ -73,7 +84,7 @@ export class PrimeFicheSessionService {
     this.step.set('idle');
     this.sessionTemplate.set(null);
     this.sessionSchema.set(null);
-    this.selectedTemplateId.set(null);
+    this.scope.setSelectedTemplateId(null, this.currentUserId());
     this.preferLegacySaisie.set(true);
   }
 
@@ -86,7 +97,7 @@ export class PrimeFicheSessionService {
     this.step.set('idle');
     this.sessionTemplate.set(null);
     this.sessionSchema.set(null);
-    this.selectedTemplateId.set(null);
+    this.scope.setSelectedTemplateId(null, this.currentUserId());
     this.polePrimeDraftId.set(null);
     this.preferLegacySaisie.set(false);
     this.bumpDraftListRefresh();
@@ -97,7 +108,7 @@ export class PrimeFicheSessionService {
     this.step.set('idle');
     this.sessionTemplate.set(null);
     this.sessionSchema.set(null);
-    this.selectedTemplateId.set(null);
+    this.scope.setSelectedTemplateId(null, this.currentUserId());
     this.preferLegacySaisie.set(false);
   }
 
@@ -128,52 +139,71 @@ export class PrimeFicheSessionService {
       tpl = storedTemplateFromCalcSnapshotForPreview(snap, schema, draft.templateId);
       tpl.displayName = draft.templateDisplayName || tpl.displayName;
     } else {
-      // Fallback : template stocké en localStorage (anciens drafts sans snapshot serveur).
       tpl = loadStoredTemplates().find((t) => t.id === draft.templateId) ?? null;
       if (tpl) tpl = { ...tpl, ficheGridSchema: schema };
     }
     if (!tpl) return false;
 
-    this.periodYear.set(y);
-    this.periodMonth.set(m);
-    this.selectedTemplateId.set(draft.templateId);
+    const uid = this.currentUserId();
+    this.scope.setPeriodParts(y, m, uid);
+    const celluleId = (draft.celluleId ?? draft.poleId ?? '').trim();
+    if (celluleId) this.scope.setSelectedCelluleId(celluleId, uid);
+    this.scope.setSelectedTemplateId(draft.templateId, uid);
     this.sessionTemplate.set(tpl);
     this.sessionSchema.set(null);
     this.polePrimeDraftId.set(draft.id);
     this.preferLegacySaisie.set(false);
     this.entryEpoch.set(0);
-    this.step.set('preview');
+    this.step.set('ponderations');
     return true;
   }
 
   setSelectedTemplateId(id: string | null): void {
-    this.selectedTemplateId.set(id);
+    const uid = this.currentUserId();
+    this.scope.setSelectedTemplateId(id, uid);
     const list = loadStoredTemplates();
     const t = id ? list.find((x) => x.id === id) ?? null : null;
     this.sessionTemplate.set(t);
   }
 
+  setPeriodMonth(month: number): void {
+    const uid = this.currentUserId();
+    this.scope.setPeriodParts(this.scope.periodYear(), month, uid);
+  }
+
+  setPeriodYear(year: number): void {
+    const uid = this.currentUserId();
+    this.scope.setPeriodParts(year, this.scope.periodMonth(), uid);
+  }
+
   /** Template courant hors liste locale (ex. import Excel direct partie commune). */
   setSessionTemplateFromDirectUpload(tpl: StoredPrimeTemplate): void {
-    this.selectedTemplateId.set(tpl.id);
+    this.scope.setSelectedTemplateId(tpl.id, this.currentUserId());
     this.sessionTemplate.set(tpl);
   }
 
   goPreview(): void {
-    if (!this.selectedTemplateId() || !this.sessionTemplate()) return;
-    this.step.set('preview');
+    this.goPonderations();
+  }
+
+  /** Après période / modèle : étape indicateurs & pondérations (wizard). */
+  goPonderations(): void {
+    if (!this.selectedTemplateId() || !this.sessionTemplate()?.ficheGridSchema) return;
+    this.step.set('ponderations');
   }
 
   goBackToSetup(): void {
-    if (this.step() === 'preview') this.step.set('setup');
+    if (this.step() === 'preview' || this.step() === 'ponderations') this.step.set('setup');
+  }
+
+  goBackToPonderations(): void {
+    if (this.step() === 'entry') this.step.set('ponderations');
   }
 
   goEntry(): void {
     const tpl = this.sessionTemplate();
     const schema = tpl?.ficheGridSchema ?? null;
     if (!schema) return;
-    // Copie profonde : évite toute mutation partagée avec le template listé / localStorage,
-    // et garantit que secteurs.defaults restent bien attachés à la saisie en cours.
     const clone =
       typeof structuredClone === 'function'
         ? structuredClone(schema)
@@ -207,8 +237,6 @@ export class PrimeFicheSessionService {
   }
 
   periodLabel(): string {
-    const y = this.periodYear();
-    const m = String(this.periodMonth()).padStart(2, '0');
-    return `${y}-${m}`;
+    return this.scope.period();
   }
 }

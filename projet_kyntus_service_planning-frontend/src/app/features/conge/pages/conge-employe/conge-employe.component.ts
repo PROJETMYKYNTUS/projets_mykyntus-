@@ -16,6 +16,7 @@ import {
   MOIS_LABELS, normalizeStatutDemande
 } from '../../../../core/models/conge.models';
 import { KyntusConfirmService } from '../../../../shared/components/kyntus-confirm/kyntus-confirm.service';
+import { formatHttpErrorMessage } from '../../../../core/lib/http-error-message.util';
 
 @Component({
   selector: 'app-conge-employe',
@@ -401,7 +402,7 @@ export class CongeEmployeComponent implements OnInit, OnDestroy {
         this.showToast('Demande envoyée !', 'success');
       },
       error: (err) => {
-        this.showToast(err?.error?.message || JSON.stringify(err?.error) || 'Erreur.', 'error');
+        this.showToast(formatHttpErrorMessage(err, 'Impossible d’enregistrer la demande.'), 'error');
       }
     });
   }

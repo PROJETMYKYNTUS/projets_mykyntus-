@@ -3,7 +3,6 @@ using Prime.Application;
 using Prime.Application.Abstractions;
 using Prime.Application.DTOs;
 using Prime.Infrastructure.Persistence;
-using Prime.Infrastructure.Services;
 
 namespace Prime.Infrastructure.Services;
 
@@ -85,94 +84,6 @@ public sealed class ServicePrimeIndicatorsAppService(PrimeDbContext db, PrimeOrg
         var list = await db.ServicePrimeIndicators.AsNoTracking()
             .Where(x => x.ServiceId == cid)
             .OrderBy(x => x.SortOrder)
-            .ToListAsync(ct);
-        return list.ConvertAll(Map);
-    }
-}
-
-public sealed class ServicePoleLinePonderationsAppService(PrimeDbContext db, PrimeOrgScopeService org)
-    : IServicePoleLinePonderationsAppService
-{
-    private static ServicePoleLinePonderationDto Map(ServicePoleLinePonderationEntity e) =>
-        new()
-        {
-            Id = e.Id,
-            ServiceId = e.ServiceId,
-            TemplateStableId = e.TemplateStableId,
-            Label = e.Label,
-            SortOrder = e.SortOrder,
-            PonderationPrimePct = e.PonderationPrimePct,
-            PonderationChallengePct = e.PonderationChallengePct,
-            CreatedAt = e.CreatedAt,
-            UpdatedAt = e.UpdatedAt,
-        };
-
-    public async Task<IReadOnlyList<ServicePoleLinePonderationDto>> GetAsync(
-        string serviceId,
-        string supervisorUserId,
-        CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(supervisorUserId))
-            throw new ArgumentException("supervisorUserId requis.");
-
-        var celluleId = await org.GetCelluleIdForServiceAsync(serviceId, ct)
-            ?? throw new KeyNotFoundException("Cellule introuvable.");
-        if (!await org.SupervisorOwnsCelluleAsync(supervisorUserId, celluleId, ct))
-            throw new UnauthorizedAccessException("Accès refusé pour ce périmètre.");
-
-        var list = await db.ServicePoleLinePonderations.AsNoTracking()
-            .Where(x => x.ServiceId == serviceId.Trim())
-            .OrderBy(x => x.SortOrder)
-            .ThenBy(x => x.TemplateStableId)
-            .ToListAsync(ct);
-        return list.ConvertAll(Map);
-    }
-
-    public async Task<IReadOnlyList<ServicePoleLinePonderationDto>> PutAsync(
-        string serviceId,
-        string supervisorUserId,
-        PutServicePoleLinePonderationsRequest body,
-        CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(supervisorUserId))
-            throw new ArgumentException("supervisorUserId requis.");
-
-        var celluleId = await org.GetCelluleIdForServiceAsync(serviceId, ct)
-            ?? throw new KeyNotFoundException("Cellule introuvable.");
-        if (!await org.SupervisorOwnsCelluleAsync(supervisorUserId, celluleId, ct))
-            throw new UnauthorizedAccessException("Accès refusé pour ce périmètre.");
-
-        var cid = serviceId.Trim();
-        var now = DateTimeOffset.UtcNow;
-        var existing = await db.ServicePoleLinePonderations.Where(x => x.ServiceId == cid).ToListAsync(ct);
-        db.ServicePoleLinePonderations.RemoveRange(existing);
-
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in body.Items.OrderBy(i => i.SortOrder))
-        {
-            var sid = (item.TemplateStableId ?? "").Trim();
-            if (sid.Length == 0) continue;
-            if (!seen.Add(sid)) continue;
-
-            db.ServicePoleLinePonderations.Add(new ServicePoleLinePonderationEntity
-            {
-                Id = Guid.NewGuid(),
-                ServiceId = cid,
-                TemplateStableId = sid,
-                Label = (item.Label ?? "").Trim(),
-                SortOrder = item.SortOrder,
-                PonderationPrimePct = item.PonderationPrimePct,
-                PonderationChallengePct = item.PonderationChallengePct,
-                CreatedAt = now,
-                UpdatedAt = now,
-            });
-        }
-
-        await db.SaveChangesAsync(ct);
-        var list = await db.ServicePoleLinePonderations.AsNoTracking()
-            .Where(x => x.ServiceId == cid)
-            .OrderBy(x => x.SortOrder)
-            .ThenBy(x => x.TemplateStableId)
             .ToListAsync(ct);
         return list.ConvertAll(Map);
     }

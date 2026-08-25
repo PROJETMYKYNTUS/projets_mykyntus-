@@ -138,7 +138,10 @@
           </thead>
           <tbody>
             @for (d of filteredDemandes; track d.id) {
-              <tr>
+              <tr
+                [attr.data-demande-id]="d.id"
+                [class.row-highlight]="d.id === highlightDemandeId"
+              >
                 <td class="td-user">
                   <span class="user-name">{{ employeDisplayName(d) }}</span>
                 </td>

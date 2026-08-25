@@ -367,7 +367,7 @@ body {
 .newsletter-hero {
   position: relative; overflow: hidden;
   border-radius: 20px;
-  background: linear-gradient(120deg, #0c1527 0%, #112044 52%, #14265a 100%);
+  background: linear-gradient(120deg, var(--ky-navy-950) 0%, var(--ky-navy-900) 52%, var(--ky-blue) 100%);
   border: 1px solid rgba(100,145,255,0.18);
   box-shadow: 0 12px 48px rgba(14,22,55,0.22);
   padding: 36px 36px 36px 40px;

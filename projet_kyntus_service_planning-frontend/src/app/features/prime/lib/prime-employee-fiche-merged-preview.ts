@@ -1,9 +1,11 @@
 import * as XLSX from 'xlsx';
+import type { CellulePrimeIndicatorDto } from '../services/prime-cell-prime-api.service';
 import type {
-  CellulePrimeIndicatorDto,
-  ServicePoleLinePonderationDto,
-} from '../services/prime-cell-prime-api.service';
-import type { DetectedFormulaCell } from '../models/prime-template.model';
+  DetectedFormulaCell,
+  PrimeCalcSheetOrigin,
+  PrimeTemplateCalcSheets,
+  StoredPrimeTemplate,
+} from '../models/prime-template.model';
 import {
   PRIME_FICHE_TEMPLATE_FORMAT_V1,
   type PrimeFicheTemplateLine,
@@ -14,7 +16,6 @@ import {
   ligneDynamicFromTemplateLine,
   type PrimeFicheLigneDynamic,
 } from '../models/prime-fiche-template.schema';
-import type { PrimeCalcSheetOrigin, PrimeTemplateCalcSheets } from '../models/prime-template.model';
 import { parseTemplateCalcSnapshotV1, storedTemplateFromCalcSnapshotForPreview } from '../models/prime-template.model';
 import { computePreviewGridWithFormulas } from './prime-fiche-formula-eval';
 import {
@@ -42,6 +43,13 @@ import {
   type ParsedCellSaisie,
 } from './prime-cell-schema-merge';
 import { isPoleContract } from './prime-pole-saisie-filter';
+
+/** Champs utilisés pour appliquer les pondérations RACC/SAV à l’aperçu fusionné. */
+export interface MergedFichePonderationInput {
+  templateStableId: string;
+  ponderationPrimePct: number | null;
+  ponderationChallengePct: number | null;
+}
 
 export const MERGED_PREVIEW_MISSING_SNAPSHOT_HINT =
   'Ré-enregistrez la partie commune depuis « Fiche PRIME — saisie » (ou réimportez l’Excel) pour activer l’aperçu et l’export recalculés.';
@@ -533,7 +541,7 @@ function buildDynamicByStableId(
   parsedCell: ParsedCellSaisie,
   cellLines: PrimeFicheTemplateLine[],
   actives: CellulePrimeIndicatorDto[],
-  poleLinePonderations: ServicePoleLinePonderationDto[] = [],
+  poleLinePonderations: MergedFichePonderationInput[] = [],
 ): Map<string, PrimeFicheLigneDynamic> {
   const pondBySid = new Map(
     poleLinePonderations
@@ -581,6 +589,11 @@ export interface MergedEmployeeFichePreviewResult {
   totals: MergedFicheTotals | null;
   /** True lorsque les lignes proviennent du snapshot DB figé (pas de recalcul). */
   fromStoredSnapshot?: boolean;
+  /**
+   * Template prêt pour `app-prime-template-preview` (calcSheets + formules après injection saisie).
+   * Même chrome Excel que l’aperçu gabarit.
+   */
+  previewTemplate?: StoredPrimeTemplate | null;
 }
 
 /** Montants de la ligne « TOTAL Général » (colonnes Montant Prime / Montant Challenge). */
@@ -603,7 +616,7 @@ export function computeMergedEmployeeFichePreview(params: {
   cellSaisieJson: string;
   templateCalcSnapshotJson: string | null | undefined;
   indicators: CellulePrimeIndicatorDto[];
-  poleLinePonderations?: ServicePoleLinePonderationDto[];
+  poleLinePonderations?: MergedFichePonderationInput[];
   templateId: string;
 }): MergedEmployeeFichePreviewResult {
   const snap = parseTemplateCalcSnapshotV1(params.templateCalcSnapshotJson ?? null);
@@ -712,5 +725,7 @@ export function computeMergedEmployeeFichePreview(params: {
     effectiveSchema,
     parsedCell,
     totals: extractMergedFicheTotals(rows, effectiveSchema),
+    /** Même moteur que l’aperçu gabarit (HyperFormula + chrome Excel). */
+    previewTemplate: tpl,
   };
 }

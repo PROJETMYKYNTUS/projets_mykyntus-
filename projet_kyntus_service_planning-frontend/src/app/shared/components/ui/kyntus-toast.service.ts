@@ -30,7 +30,9 @@ export class KyntusToastService {
   }
 
   error(message: string, durationMs = 5000): void {
-    this.show(message, 'error', durationMs);
+    const lines = message.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    const long = message.length >= 160 || lines.length >= 3;
+    this.show(message, 'error', long ? Math.max(durationMs, 9000) : durationMs);
   }
 
   info(message: string, durationMs = 4000): void {

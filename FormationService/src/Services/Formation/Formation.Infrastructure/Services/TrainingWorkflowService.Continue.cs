@@ -108,6 +108,159 @@ public sealed partial class TrainingWorkflowService
             sessions.Select(s => ToSessionDto(s, 0)).ToList());
     }
 
+    public async Task<TrainingProgramDetailDto> GetProgramAsync(Guid programId, CancellationToken ct)
+    {
+        var program = await db.TrainingPrograms.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == programId, ct)
+            ?? throw new InvalidOperationException("Programme introuvable.");
+
+        var sessions = await db.TrainingSessions.AsNoTracking()
+            .Where(s => s.ProgramId == programId)
+            .OrderBy(s => s.SequenceNumber)
+            .ToListAsync(ct);
+        var mapped = await MapSessionsAsync(sessions, ct);
+        var beneficiaries = await GetProgramBeneficiaryProgressAsync(programId, ct);
+
+        var catalogItemId = sessions.Select(s => s.CatalogItemId).FirstOrDefault(id => id is not null);
+        var sessionIds = sessions.Select(s => s.Id).ToList();
+        var quizTemplateId = await db.TrainingQuizzes.AsNoTracking()
+            .Where(q => q.SessionId != null && sessionIds.Contains(q.SessionId.Value) && q.TemplateId != null)
+            .Select(q => q.TemplateId)
+            .FirstOrDefaultAsync(ct);
+        var gate = sessions.Select(s => s.LearningGateMode).FirstOrDefault(g => g is not null);
+
+        return new TrainingProgramDetailDto(
+            program.Id,
+            program.Title,
+            program.Description,
+            program.Mode,
+            program.SessionCount,
+            program.AnimatorKind,
+            program.AnimatorUserId,
+            program.ExternalAnimatorName,
+            program.ExternalAnimatorOrganization,
+            program.ExternalAnimatorEmail,
+            program.ExternalAnimatorPhone,
+            program.Capacity,
+            catalogItemId,
+            quizTemplateId,
+            gate?.ToString(),
+            mapped,
+            beneficiaries);
+    }
+
+    public async Task<IReadOnlyList<ProgramBeneficiaryProgressDto>> GetProgramBeneficiaryProgressAsync(
+        Guid programId,
+        CancellationToken ct)
+    {
+        var sessions = await db.TrainingSessions.AsNoTracking()
+            .Where(s => s.ProgramId == programId)
+            .ToListAsync(ct);
+        if (sessions.Count == 0)
+            return [];
+
+        var sessionIds = sessions.Select(s => s.Id).ToList();
+        var assignments = await db.TrainingAssignments.AsNoTracking()
+            .Where(a => sessionIds.Contains(a.SessionId))
+            .ToListAsync(ct);
+
+        var catalogIds = sessions
+            .Where(s => s.CatalogItemId != null)
+            .Select(s => s.CatalogItemId!.Value)
+            .Distinct()
+            .ToList();
+        var hasContentTrack = catalogIds.Count > 0;
+
+        var quizzes = await db.TrainingQuizzes.AsNoTracking()
+            .Where(q => q.SessionId != null && sessionIds.Contains(q.SessionId.Value))
+            .ToListAsync(ct);
+        var hasQuizTrack = quizzes.Count > 0;
+        var quizIds = quizzes.Select(q => q.Id).ToList();
+
+        var employeeIds = assignments.Select(a => a.EmployeeId).Distinct().ToList();
+        var enrollments = catalogIds.Count == 0 || employeeIds.Count == 0
+            ? new List<TrainingCatalogEnrollment>()
+            : await db.TrainingCatalogEnrollments.AsNoTracking()
+                .Where(e => employeeIds.Contains(e.EmployeeId) && catalogIds.Contains(e.CatalogItemId))
+                .ToListAsync(ct);
+
+        var enrollmentIds = enrollments.Select(e => e.Id).ToList();
+        var progresses = enrollmentIds.Count == 0
+            ? new List<TrainingLessonProgress>()
+            : await db.TrainingLessonProgresses.AsNoTracking()
+                .Where(p => enrollmentIds.Contains(p.EnrollmentId) && p.CompletedAt != null)
+                .ToListAsync(ct);
+
+        var requiredByCatalog = catalogIds.Count == 0
+            ? new List<(Guid CatalogItemId, Guid Id)>()
+            : (await (
+                from l in db.TrainingLessons.AsNoTracking()
+                join m in db.TrainingModules.AsNoTracking() on l.ModuleId equals m.Id
+                where catalogIds.Contains(m.CatalogItemId) && l.IsRequired
+                select new { m.CatalogItemId, l.Id }).ToListAsync(ct))
+              .Select(x => (x.CatalogItemId, x.Id))
+              .ToList();
+
+        var attempts = quizIds.Count == 0 || employeeIds.Count == 0
+            ? new List<TrainingQuizAttempt>()
+            : await db.TrainingQuizAttempts.AsNoTracking()
+                .Where(t => quizIds.Contains(t.QuizId) && employeeIds.Contains(t.EmployeeId) && t.Passed == true)
+                .ToListAsync(ct);
+
+        var byEmployee = assignments
+            .GroupBy(a => a.EmployeeId)
+            .Select(g =>
+            {
+                var name = g.OrderBy(a => a.EmployeeName).First().EmployeeName;
+                var attended = g.Any(a => a.Status == TrainingAssignmentStatus.Completed);
+                var contentDone = false;
+                if (hasContentTrack)
+                {
+                    var requiredIds = requiredByCatalog
+                        .Where(x => catalogIds.Contains(x.CatalogItemId))
+                        .Select(x => x.Id)
+                        .Distinct()
+                        .ToList();
+                    if (requiredIds.Count == 0)
+                    {
+                        contentDone = true;
+                    }
+                    else
+                    {
+                        var enrollment = enrollments.FirstOrDefault(e =>
+                            e.EmployeeId == g.Key && catalogIds.Contains(e.CatalogItemId));
+                        if (enrollment is not null
+                            && (enrollment.Status == CatalogEnrollmentStatus.Completed || enrollment.CompletedAt != null))
+                        {
+                            contentDone = true;
+                        }
+                        else if (enrollment is not null)
+                        {
+                            contentDone = requiredIds.All(lid =>
+                                progresses.Any(p => p.EnrollmentId == enrollment.Id && p.LessonId == lid));
+                        }
+                    }
+                }
+
+                var quizPassed = hasQuizTrack && attempts.Any(t => t.EmployeeId == g.Key);
+                var complete = ProgramBeneficiaryCompletion.IsComplete(
+                    attended, hasContentTrack, contentDone, hasQuizTrack, quizPassed);
+                return new ProgramBeneficiaryProgressDto(
+                    g.Key,
+                    name,
+                    attended,
+                    contentDone,
+                    quizPassed,
+                    hasContentTrack,
+                    hasQuizTrack,
+                    complete);
+            })
+            .OrderBy(p => p.EmployeeName)
+            .ToList();
+
+        return byEmployee;
+    }
+
     public async Task<IReadOnlyList<TrainingAssignmentDto>> AssignEmployeesToProgramAsync(
         Guid programId,
         AssignTrainingEmployeesRequest request,
@@ -120,10 +273,20 @@ public sealed partial class TrainingWorkflowService
         if (sessions.Count == 0)
             throw new InvalidOperationException("Programme introuvable ou sans séances.");
 
+        var progress = await GetProgramBeneficiaryProgressAsync(programId, ct);
+        var completed = progress.Where(p => p.IsComplete).Select(p => p.EmployeeId).ToHashSet();
+
         var allAssigned = new List<TrainingAssignmentDto>();
         foreach (var session in sessions)
         {
-            var body = new AssignTrainingEmployeesRequest { Employees = request.Employees };
+            var already = session.Assignments.Select(a => a.EmployeeId).ToHashSet();
+            var incoming = request.Employees
+                .Where(e => ProgramBeneficiaryCompletion.ShouldAssignToSession(e.EmployeeId, already, completed))
+                .ToList();
+            if (incoming.Count == 0)
+                continue;
+
+            var body = new AssignTrainingEmployeesRequest { Employees = incoming };
             var assigned = await AssignEmployeesAsync(session.Id, body, ct);
             allAssigned.AddRange(assigned);
         }

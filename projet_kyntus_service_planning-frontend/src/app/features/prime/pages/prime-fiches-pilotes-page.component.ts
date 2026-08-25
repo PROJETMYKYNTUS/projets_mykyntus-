@@ -1,7 +1,7 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  Input,
   OnInit,
   computed,
   inject,
@@ -11,20 +11,18 @@ import {
   Check,
   ChevronRight,
   ClipboardList,
-  Download,
   ExternalLink,
-  Eye,
   Grid3x3,
   RefreshCw,
   User,
 } from 'lucide';
 import { catchError, forkJoin, map, of, type Observable } from 'rxjs';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
-import { BodyPortalDirective } from '@/shared/directives/body-portal.directive';
 import {
   PrimeCellSaisieBlockComponent,
   type CellSaisieSaveResult,
 } from '../components/prime-cell-saisie-block.component';
+import { PrimeEmployeeFichePreviewActionsComponent } from '../components/prime-employee-fiche-preview-actions.component';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
 import {
   draftResponseSaisieJson,
@@ -37,30 +35,17 @@ import {
 import { PrimeOrgApiService } from '../services/prime-org-api.service';
 import { PrimeCellSaisieContextService } from '../services/prime-cell-saisie-context.service';
 import { RoleService } from '../state/role.service';
+import { PrimeScopeStore } from '../state/prime-scope.store';
 import { parsePrimeSchemaFromDraftJson } from '../lib/prime-cell-schema-merge';
 import {
   computeMergedEmployeeFichePreview,
-  MERGED_PREVIEW_MISSING_SNAPSHOT_HINT,
   type MergedEmployeeFichePreviewResult,
 } from '../lib/prime-employee-fiche-merged-preview';
-import {
-  buildStyledMergedFicheWorkbook,
-  downloadStyledFicheWorkbook,
-} from '../lib/prime-fiche-xlsx-export';
 import {
   mergedFicheActionsDisabledHint,
   mergedFicheActionsEnabled,
 } from '../lib/prime-fiche-distribution-access';
-import { KyntusToastService } from '../../../shared/components/ui/kyntus-toast.service';
-
-function httpErr(err: unknown): string {
-  if (err instanceof HttpErrorResponse) {
-    const b = err.error as { error?: string } | undefined;
-    if (b?.error) return b.error;
-    return err.message;
-  }
-  return err instanceof Error ? err.message : 'Erreur';
-}
+import { primeHttpErrorMessage } from '../lib/primeHttpErrorMessage';
 
 /** Pilote sélectionné + contexte cellule pour le panneau de droite. */
 interface PilotSelection {
@@ -99,49 +84,60 @@ interface PilotageCelluleGroup {
 @Component({
   selector: 'app-prime-fiches-pilotes-page',
   standalone: true,
-  imports: [LucideIconComponent, PrimeCellSaisieBlockComponent, BodyPortalDirective],
+  imports: [LucideIconComponent, PrimeCellSaisieBlockComponent, PrimeEmployeeFichePreviewActionsComponent],
   template: `
-    <div class="p-4 sm:p-6 pb-20 bg-app min-h-full">
-      <div class="max-w-[1600px] mx-auto space-y-5">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 class="text-2xl font-bold tracking-tight text-primary sm:text-3xl flex items-center gap-2">
-              <app-lucide-icon [icon]="icons.board" className="w-8 h-8 text-blue-400 shrink-0" />
-              Fiches PRIME — pilotage
-            </h1>
-            <p class="text-muted mt-2 max-w-2xl text-sm leading-relaxed">
-              Choisissez la <strong class="text-primary">période</strong> : le brouillon (partie commune RACC/SAV)
-              s’applique à toute la cellule. À gauche : <strong class="text-primary">Pôle → Cellule → Service → Pilote</strong>
-              (pilotes uniquement, depuis les affectations RH). À droite : saisie du pilote sélectionné.
-            </p>
-          </div>
-          <button
-            type="button"
-            (click)="reload()"
-            [disabled]="loading()"
-            class="inline-flex items-center gap-2 rounded-lg border border-default bg-input px-4 py-2 text-sm font-medium text-primary hover:bg-input disabled:opacity-50"
-          >
-            <app-lucide-icon [icon]="icons.refresh" className="w-4 h-4" />
-            Actualiser
-          </button>
+    <div [class]="embeddedInShell ? 'min-h-0 w-full' : 'ky-page-shell'">
+      <div class="w-full space-y-6">
+        @if (!embeddedInShell) {
+        <div class="space-y-2">
+          <h1 class="ky-page-title text-2xl sm:text-3xl flex items-center gap-2">
+            <app-lucide-icon [icon]="icons.board" className="w-8 h-8 text-blue-400 shrink-0" />
+            Fiches PRIME — pilotage
+          </h1>
+          <p class="ky-page-subtitle max-w-2xl">
+            Choisissez la <strong class="text-primary">période</strong> : le brouillon (partie commune RACC/SAV)
+            s’applique à toute la cellule. À gauche : <strong class="text-primary">Pôle → Cellule → Service → Pilote</strong>
+            (pilotes uniquement, depuis les affectations RH). À droite : saisie du pilote sélectionné.
+          </p>
         </div>
+        }
 
-        <div class="flex flex-wrap items-end gap-4">
-          <div>
-            <label class="block text-xs font-medium text-muted mb-1">Période</label>
+        <div
+          class="flex flex-wrap items-end gap-4 rounded-xl border border-default bg-card px-4 py-4 sm:px-5"
+        >
+          @if (embeddedInShell) {
+            <p class="text-sm text-muted mr-auto pb-1 min-w-0">
+              Période <strong class="text-primary">{{ period() }}</strong>
+              @if (globalTemplateHint()) {
+                <span class="text-muted"> · Partie commune :</span>
+                <span class="text-primary"> {{ globalTemplateHint() }}</span>
+              }
+            </p>
+          }
+          <div class="shrink-0">
+            <label class="block text-xs font-medium text-muted mb-1.5">Période</label>
             <input
               type="month"
               [value]="period()"
               (change)="onPeriodChange($event)"
-              class="rounded-lg border border-default bg-input px-3 py-2 text-sm text-primary"
+              class="rounded-lg border border-default bg-input px-3 py-2.5 text-sm text-primary"
             />
           </div>
-          @if (globalTemplateHint()) {
+          @if (!embeddedInShell && globalTemplateHint()) {
             <p class="text-xs text-muted max-w-xl pb-1">
               Partie commune liée :
-              <span class="text-muted font-medium">{{ globalTemplateHint() }}</span>
+              <span class="text-primary font-medium">{{ globalTemplateHint() }}</span>
             </p>
           }
+          <button
+            type="button"
+            (click)="reload()"
+            [disabled]="loading()"
+            class="inline-flex items-center gap-2 rounded-lg border border-default bg-input px-4 py-2.5 text-sm font-medium text-primary hover:bg-input disabled:opacity-50 shrink-0"
+          >
+            <app-lucide-icon [icon]="icons.refresh" className="w-4 h-4" />
+            Actualiser
+          </button>
         </div>
 
         @if (error()) {
@@ -175,95 +171,84 @@ interface PilotageCelluleGroup {
           </div>
         } @else {
           <div
-            class="flex flex-col lg:flex-row gap-6 lg:items-stretch lg:min-h-[calc(100dvh-12rem)]"
+            class="flex flex-col lg:flex-row gap-5 lg:items-stretch lg:min-h-[calc(100dvh-16rem)] w-full"
           >
             <aside
-              class="lg:w-[min(100%,380px)] shrink-0 flex flex-col rounded-xl border border-default bg-card overflow-hidden max-h-[52vh] lg:max-h-none"
+              class="lg:w-[min(100%,28rem)] xl:w-[30rem] shrink-0 flex flex-col rounded-xl border border-default bg-card overflow-hidden max-h-[52vh] lg:max-h-none"
             >
               <div
-                class="px-4 py-3 border-b border-default text-xs font-semibold uppercase tracking-wide text-muted"
+                class="px-5 py-4 border-b border-default text-xs font-semibold uppercase tracking-wide text-muted"
               >
                 Cellule, services et pilotes
               </div>
-              <div class="overflow-y-auto flex-1 p-3 space-y-4">
+              <div class="overflow-y-auto flex-1 p-4 sm:p-5 space-y-4">
                 @for (grp of pilotageTree(); track grp.celluleId) {
-                  <section class="rounded-lg border border-default bg-input overflow-hidden">
-                    <div class="flex items-center gap-2 px-3 py-2.5 bg-card border-b border-default">
-                      <span [class]="cellRollupDot(grp.aggregateState)" aria-hidden="true"></span>
-                      <div class="min-w-0 flex-1">
-                        <div class="text-[10px] uppercase tracking-wide text-muted">Cellule</div>
-                        <div class="font-semibold text-primary text-sm truncate">{{ grp.celluleName }}</div>
+                  <section class="rounded-xl border border-default bg-input overflow-hidden">
+                    <div class="flex items-start gap-3 px-5 py-4 bg-card border-b border-default">
+                      <span [class]="cellRollupDot(grp.aggregateState) + ' mt-1.5'" aria-hidden="true"></span>
+                      <div class="min-w-0 flex-1 space-y-1.5">
+                        <div class="text-xs uppercase tracking-wide text-muted">Cellule</div>
+                        <div class="font-semibold text-primary text-sm truncate leading-snug">{{ grp.celluleName }}</div>
                         @if (grp.poleName) {
-                          <div class="text-[11px] text-muted truncate">Pôle : {{ grp.poleName }}</div>
+                          <div class="text-xs text-muted truncate">Pôle : {{ grp.poleName }}</div>
                         }
-                        <div class="text-[11px] text-muted mt-0.5">
+                        <div class="text-xs text-primary pt-1 leading-relaxed">
                           {{ rollupCountsLabel(grp) }}
                         </div>
                         @if (grp.commonPartStatus) {
-                          <div class="text-[10px] text-muted mt-0.5">
+                          <div class="text-xs text-primary leading-relaxed">
                             Partie commune : {{ commonPartStatusLabel(grp.commonPartStatus) }}
                           </div>
                         }
                       </div>
-                      <span class="text-[10px] font-medium text-muted shrink-0">{{
+                      <span class="text-xs font-medium text-primary shrink-0 pt-0.5">{{
                         stateShortLabel(grp.aggregateState)
                       }}</span>
                     </div>
                     @for (svc of grp.services; track svc.serviceId) {
                       <div class="border-t border-default">
-                        <div class="flex items-center gap-2 px-3 py-2 bg-card">
-                          <span [class]="cellRollupDot(svc.serviceAggregateState)" aria-hidden="true"></span>
-                          <div class="min-w-0 flex-1">
-                            <div class="text-[10px] uppercase tracking-wide text-muted">Service</div>
+                        <div class="flex items-start gap-3 px-5 py-3.5 bg-card">
+                          <span [class]="cellRollupDot(svc.serviceAggregateState) + ' mt-1.5'" aria-hidden="true"></span>
+                          <div class="min-w-0 flex-1 space-y-1.5">
+                            <div class="text-xs uppercase tracking-wide text-muted">Service</div>
                             <div class="font-medium text-primary text-sm truncate">{{ svc.serviceName }}</div>
-                            <div class="text-[11px] text-muted mt-0.5">
+                            <div class="text-xs text-primary leading-relaxed">
                               {{ serviceCountsLabel(svc) }}
                             </div>
                           </div>
                         </div>
                         <ul class="divide-y divide-default">
                           @for (emp of employeesForService(svc.serviceId); track emp.employeeId) {
-                            <li class="flex items-stretch gap-0.5">
+                            <li class="flex items-stretch gap-0">
                               <button
                                 type="button"
                                 (click)="selectPilot(emp, svc)"
                                 [class]="pilotRowClass(emp.employeeId) + ' flex-1 min-w-0 rounded-none border-0'"
                               >
                                 <span [class]="pilotEmployeeDotClass(emp)" aria-hidden="true"></span>
-                                <span class="min-w-0 flex-1 text-left">
+                                <span class="min-w-0 flex-1 text-left space-y-1">
                                   <span class="block text-sm font-medium text-primary truncate"
                                     >{{ emp.firstName }} {{ emp.lastName }}</span
                                   >
-                                  <span class="block text-[11px] text-muted truncate">{{ emp.email }}</span>
+                                  <span class="block text-xs text-muted truncate">{{ emp.email }}</span>
                                 </span>
-                                <span class="text-[10px] text-muted shrink-0" [title]="pilotValidationTitle(emp)">{{
+                                <span class="text-xs text-primary shrink-0" [title]="pilotValidationTitle(emp)">{{
                                   pilotValidationShort(emp)
                                 }}</span>
                                 <app-lucide-icon [icon]="icons.chev" className="w-3.5 h-3.5 text-muted shrink-0" />
                               </button>
-                              <div class="flex flex-col justify-center gap-0.5 py-1 pr-1 shrink-0 border-l border-default">
-                                <button
-                                  type="button"
-                                  [title]="mergedActionsHint(emp, svc) || 'Aperçu fiche fusionnée (pôle + cellule)'"
-                                  (click)="openMergedPreview($event, emp, svc)"
+                              <div class="flex items-center justify-center gap-1 px-3 shrink-0 border-l border-default bg-card/40">
+                                <app-prime-employee-fiche-preview-actions
+                                  [ficheId]="emp.ficheId"
+                                  [employeeLabel]="emp.firstName + ' ' + emp.lastName"
+                                  [period]="period()"
                                   [disabled]="!mergedActionsEnabled(emp, svc)"
-                                  class="rounded px-1.5 py-1 text-[10px] font-medium text-blue-300 hover:bg-input disabled:opacity-30 disabled:pointer-events-none"
-                                >
-                                  <app-lucide-icon [icon]="icons.eye" className="w-4 h-4 mx-auto" />
-                                </button>
-                                <button
-                                  type="button"
-                                  [title]="mergedActionsHint(emp, svc) || 'Télécharger .xlsx (une feuille)'"
-                                  (click)="downloadMergedXlsx($event, emp, svc)"
-                                  [disabled]="!mergedActionsEnabled(emp, svc)"
-                                  class="rounded px-1.5 py-1 text-[10px] font-medium text-emerald-300 hover:bg-input disabled:opacity-30 disabled:pointer-events-none"
-                                >
-                                  <app-lucide-icon [icon]="icons.download" className="w-4 h-4 mx-auto" />
-                                </button>
+                                  [disabledHint]="mergedActionsHint(emp, svc)"
+                                />
                               </div>
                             </li>
                           } @empty {
-                            <li class="px-3 py-3 text-xs text-muted">Aucun pilote sur ce service.</li>
+                            <li class="px-5 py-5 text-xs text-muted">Aucun pilote sur ce service.</li>
                           }
                         </ul>
                       </div>
@@ -271,59 +256,59 @@ interface PilotageCelluleGroup {
                   </section>
                 }
                 @if (pilotageTree().length === 0) {
-                  <p class="text-sm text-muted px-2">Aucune cellule ou aucun service dans votre périmètre superviseur.</p>
+                  <p class="text-sm text-muted px-4 py-6">Aucune cellule ou aucun service dans votre périmètre superviseur.</p>
                 }
               </div>
             </aside>
 
             <main class="flex-1 min-w-0 flex flex-col rounded-xl border border-default bg-card overflow-hidden">
               <div
-                class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-default bg-card"
+                class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-default bg-card"
               >
-                <div class="min-w-0 flex-1 space-y-2">
+                <div class="min-w-0 flex-1 space-y-3">
                   <h2 class="text-sm font-semibold text-primary">Saisie cellule</h2>
                   @if (selectedPilot(); as sp) {
-                    <div class="flex flex-col sm:flex-row flex-wrap gap-2 min-w-0">
+                    <div class="flex flex-col sm:flex-row flex-wrap gap-3 min-w-0">
                       @if (sp.poleName) {
                         <div
-                          class="min-w-[8rem] flex-1 rounded-lg border border-default bg-input px-3 py-2.5"
+                          class="min-w-[8rem] flex-1 rounded-lg border border-default bg-input px-4 py-3"
                         >
-                          <div class="text-[10px] font-semibold uppercase tracking-wide text-muted mb-1">Pôle</div>
+                          <div class="text-xs font-semibold uppercase tracking-wide text-muted mb-1.5">Pôle</div>
                           <div class="text-sm font-medium text-primary truncate">{{ sp.poleName }}</div>
                         </div>
                       }
                       <div
-                        class="flex-1 min-w-0 rounded-lg border border-default bg-input/50 px-3 py-2.5 shadow-sm"
+                        class="flex-1 min-w-0 rounded-lg border border-default bg-input/50 px-4 py-3 shadow-sm"
                       >
-                        <div class="text-[10px] font-semibold uppercase tracking-wide text-muted mb-1">Cellule</div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-muted mb-1.5">Cellule</div>
                         <div class="flex items-center gap-2 text-sm font-medium text-primary">
                           <app-lucide-icon [icon]="icons.grid" className="w-4 h-4 text-muted shrink-0" />
                           <span class="truncate">{{ sp.celluleName }}</span>
                         </div>
                       </div>
                       <div
-                        class="min-w-[8rem] flex-1 rounded-lg border border-indigo-500/30 bg-indigo-950/30 px-3 py-2.5"
+                        class="min-w-[8rem] flex-1 rounded-lg border border-[color:var(--info-border)] bg-input px-4 py-3"
                       >
-                        <div class="text-[10px] font-semibold uppercase tracking-wide text-indigo-300/80 mb-1">Service</div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-[color:var(--info-text)] mb-1.5">Service</div>
                         <div class="text-sm font-medium text-primary truncate">{{ sp.serviceName }}</div>
                       </div>
                       <div
-                        class="flex-1 min-w-0 rounded-lg border border-blue-500/35 bg-blue-950/40 px-3 py-2.5 ring-1 ring-inset ring-blue-500/25 shadow-sm"
+                        class="flex-1 min-w-0 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-bg)] px-4 py-3 shadow-sm"
                       >
-                        <div class="text-[10px] font-semibold uppercase tracking-wide text-blue-300/80 mb-1">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-[color:var(--info-text)] mb-1.5">
                           Pilote
                         </div>
                         <div class="flex items-start gap-2 text-sm text-primary">
-                          <app-lucide-icon [icon]="icons.user" className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                          <app-lucide-icon [icon]="icons.user" className="w-4 h-4 shrink-0 mt-0.5 text-[color:var(--info-text)]" />
                           <div class="min-w-0">
                             <div class="font-medium truncate">{{ sp.firstName }} {{ sp.lastName }}</div>
-                            <div class="text-[11px] text-muted truncate">{{ sp.email }}</div>
+                            <div class="text-xs text-muted truncate mt-0.5">{{ sp.email }}</div>
                           </div>
                         </div>
                       </div>
                     </div>
                   } @else {
-                    <p class="text-xs text-muted">Sélectionnez un pilote dans la liste de gauche.</p>
+                    <p class="text-sm text-muted">Sélectionnez un pilote dans la liste de gauche.</p>
                   }
                 </div>
                 @if (selectedPilot()) {
@@ -337,7 +322,7 @@ interface PilotageCelluleGroup {
                   </button>
                 }
               </div>
-              <div class="flex-1 overflow-y-auto p-3 sm:p-4">
+              <div class="flex-1 overflow-y-auto p-5 sm:p-6">
                 @for (p of pilotBlockRows(); track p.employeeId) {
                   <app-prime-cell-saisie-block
                     [employeeId]="p.employeeId"
@@ -346,16 +331,18 @@ interface PilotageCelluleGroup {
                     [poleId]="p.poleId"
                     [linkedTemplateId]="p.linkedTemplateId"
                     [celluleName]="p.celluleName"
+                    [celluleIdHint]="p.celluleId"
+                    [serviceIdHint]="p.serviceId"
                     [embedded]="true"
                     (saved)="onPilotSaved($event)"
                   />
                 }
                 @if (!selectedPilot()) {
                   <div
-                    class="h-full min-h-[240px] flex flex-col items-center justify-center text-center text-muted text-sm px-6"
+                    class="mx-auto max-w-md min-h-[200px] flex flex-col items-center justify-center text-center text-sm px-6 py-12"
                   >
-                    <p>Les indicateurs verts, jaunes et rouges indiquent l’avancement de chaque fiche pilote.</p>
-                    <p class="mt-2 text-xs">Sans brouillon pôle pour cette période, la saisie affichera une erreur : complétez d’abord la partie commune dans « Fiche PRIME — saisie ».</p>
+                    <p class="text-primary leading-relaxed">Les indicateurs verts, jaunes et rouges indiquent l’avancement de chaque fiche pilote.</p>
+                    <p class="mt-4 text-xs text-muted leading-relaxed">Sans brouillon pôle pour cette période, la saisie affichera une erreur : complétez d’abord la partie commune dans « Fiche PRIME — saisie ».</p>
                   </div>
                 }
               </div>
@@ -364,80 +351,18 @@ interface PilotageCelluleGroup {
         }
       </div>
     </div>
-
-    @if (previewOpen()) {
-      <div
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
-        appBodyPortal
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="prime-pilot-preview-title"
-        (click)="closeMergedPreview()"
-      >
-        <div
-          class="max-w-[min(96vw,1400px)] w-full max-h-[min(90vh,900px)] flex flex-col rounded-xl border border-default bg-input shadow-xl"
-          (click)="$event.stopPropagation()"
-        >
-          <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-default shrink-0">
-            <h3 id="prime-pilot-preview-title" class="text-sm font-semibold text-primary truncate">
-              {{ previewTitle() }}
-            </h3>
-            <button
-              type="button"
-              (click)="closeMergedPreview()"
-              class="rounded-lg border border-default px-3 py-1.5 text-xs font-medium text-primary hover:bg-input shrink-0"
-            >
-              Fermer
-            </button>
-          </div>
-          @if (previewBusy()) {
-            <div class="flex justify-center py-16 shrink-0">
-              <div class="animate-spin rounded-full h-10 w-10 border-2 border-blue-500 border-t-transparent"></div>
-            </div>
-          } @else {
-            @if (previewBanner()) {
-              <div
-                class="mx-4 mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-[var(--warning-text)] shrink-0"
-                role="status"
-              >
-                {{ previewBanner() }}
-              </div>
-            }
-            @if (previewErrors().length) {
-              <div
-                class="mx-4 mt-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-100 max-h-28 overflow-y-auto shrink-0 space-y-0.5"
-                role="status"
-              >
-                @for (er of previewErrors(); track er) {
-                  <p>{{ er }}</p>
-                }
-              </div>
-            }
-            <div class="flex-1 min-h-0 overflow-auto p-3">
-              <table class="text-[11px] border-collapse border border-default text-primary">
-                @for (row of previewRows(); track pr; let pr = $index) {
-                  <tr>
-                    @for (cell of row; track pc; let pc = $index) {
-                      <td class="border border-default px-1 py-0.5 whitespace-nowrap align-top">{{ cell }}</td>
-                    }
-                  </tr>
-                }
-              </table>
-            </div>
-          }
-        </div>
-      </div>
-    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PrimeFichesPilotesPageComponent implements OnInit {
+  @Input() embeddedInShell = false;
+
   private readonly api = inject(PrimeCellPrimeApiService);
   private readonly orgApi = inject(PrimeOrgApiService);
   private readonly role = inject(RoleService);
+  private readonly scope = inject(PrimeScopeStore);
   private readonly nav = inject(PrimeNavRequestService);
   private readonly cellCtx = inject(PrimeCellSaisieContextService);
-  private readonly toast = inject(KyntusToastService);
 
   readonly icons = {
     board: ClipboardList,
@@ -447,23 +372,14 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     external: ExternalLink,
     grid: Grid3x3,
     user: User,
-    eye: Eye,
-    download: Download,
   };
 
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly summary = signal<CellPilotageSummaryDto[]>([]);
-  readonly period = signal(this.defaultPeriod());
+  readonly period = this.scope.period;
   readonly employeesByServiceId = signal<Record<string, EmployeePrimeCellFicheListItemDto[]>>({});
   readonly selectedPilot = signal<PilotSelection | null>(null);
-
-  readonly previewOpen = signal(false);
-  readonly previewBusy = signal(false);
-  readonly previewTitle = signal('');
-  readonly previewRows = signal<string[][]>([]);
-  readonly previewErrors = signal<string[]>([]);
-  readonly previewBanner = signal<string | null>(null);
   readonly pageNotice = signal<string | null>(null);
 
   readonly pilotBlockRows = computed(() => {
@@ -546,26 +462,17 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     // avant le premier chargement.
     const requested = this.nav.requestedPeriod();
     if (requested && /^\d{4}-\d{2}$/.test(requested)) {
-      this.period.set(requested);
+      this.scope.setPeriod(requested);
       this.nav.clearRequestedPeriod();
     }
     void this.reload();
-  }
-
-  defaultPeriod(): string {
-    const d = new Date();
-    d.setDate(1);
-    d.setMonth(d.getMonth() - 1);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`;
   }
 
   onPeriodChange(ev: Event): void {
     const v = (ev.target as HTMLInputElement).value;
     if (!v) return;
     this.pageNotice.set(null);
-    this.period.set(v);
+    this.scope.setPeriod(v);
     this.selectedPilot.set(null);
     void this.reload();
   }
@@ -619,13 +526,13 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
             this.backfillMergedTotals(rows);
           },
           error: (e) => {
-            this.error.set(httpErr(e));
+            this.error.set(primeHttpErrorMessage(e));
             if (fullPageSpinner) this.loading.set(false);
           },
         });
       },
       error: (e) => {
-        this.error.set(httpErr(e));
+        this.error.set(primeHttpErrorMessage(e));
         if (fullPageSpinner) this.loading.set(false);
       },
     });
@@ -671,7 +578,7 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
 
   pilotRowClass(employeeId: string): string {
     const base =
-      'w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-input ';
+      'w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-input ';
     const sel = this.selectedPilot()?.employeeId === employeeId;
     return sel ? base + 'bg-blue-600/15 ring-1 ring-inset ring-blue-500/40' : base;
   }
@@ -704,7 +611,9 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
       draft: this.api.getPoleDraft(u.id, cell.celluleId.trim(), this.period(), tid),
       fiche: this.api.getFicheForEmployee(u.id, emp.employeeId, this.period(), tid),
       inds: this.api.getIndicators(emp.serviceId, u.id),
-      polePonds: this.api.getPoleLinePonderations(emp.serviceId, u.id).pipe(catchError(() => of([]))),
+      polePonds: this.api
+        .getServiceCommonLinePonderations(emp.serviceId, u.id, { templateId: tid || undefined })
+        .pipe(catchError(() => of([]))),
     }).pipe(
       map(({ draft, fiche, inds, polePonds }) => {
         const schema = parsePrimeSchemaFromDraftJson(draft.schemaJson);
@@ -757,70 +666,6 @@ export class PrimeFichesPilotesPageComponent implements OnInit {
     }
     if (tasks.length === 0) return;
     forkJoin(tasks).subscribe({ error: () => undefined });
-  }
-
-  openMergedPreview(ev: Event, emp: EmployeePrimeCellFicheListItemDto, cell: CellPilotageSummaryDto): void {
-    ev.stopPropagation();
-    if (!this.mergedActionsEnabled(emp, cell)) return;
-    this.previewOpen.set(true);
-    this.previewBusy.set(true);
-    this.previewRows.set([]);
-    this.previewErrors.set([]);
-    this.previewBanner.set(null);
-    this.previewTitle.set(`Aperçu — ${emp.firstName} ${emp.lastName} — ${this.period()}`);
-    this.fetchMerged$(emp, cell).subscribe({
-      next: (res) => {
-        this.persistMergedTotals(emp, res);
-        this.previewRows.set(res.rows);
-        this.previewErrors.set(res.errors);
-        if (res.missingSnapshot) this.previewBanner.set(MERGED_PREVIEW_MISSING_SNAPSHOT_HINT);
-        else if (!res.rows.length && !res.errors.length) this.previewBanner.set('Aucune donnée à afficher.');
-        else this.previewBanner.set(null);
-        this.previewBusy.set(false);
-      },
-      error: (e) => {
-        this.previewBanner.set(httpErr(e));
-        this.previewBusy.set(false);
-      },
-    });
-  }
-
-  downloadMergedXlsx(ev: Event, emp: EmployeePrimeCellFicheListItemDto, cell: CellPilotageSummaryDto): void {
-    ev.stopPropagation();
-    if (!this.mergedActionsEnabled(emp, cell)) return;
-    this.fetchMerged$(emp, cell).subscribe({
-      next: (res) => {
-        this.persistMergedTotals(emp, res);
-        if (res.missingSnapshot) {
-          this.toast.error(MERGED_PREVIEW_MISSING_SNAPSHOT_HINT);
-          return;
-        }
-        if (!res.rows.length) {
-          this.toast.error(res.errors[0] ?? 'Export impossible — grille vide.');
-          return;
-        }
-        if (!res.effectiveSchema) {
-          this.toast.error('Schéma indisponible : impossible de générer le livrable stylé.');
-          return;
-        }
-        const sheetName =
-          (res.previewSheetName || 'Fiche_PRIME').replace(/[:\\/?*[\]]/g, '_').slice(0, 31) || 'Fiche_PRIME';
-        const safe =
-          `${emp.lastName}_${emp.firstName}_${this.period()}`.replace(/[<>:"/\\|?*]+/g, '_').trim() || 'fiche';
-        void buildStyledMergedFicheWorkbook(res.rows, res.effectiveSchema, sheetName)
-          .then((wb) => downloadStyledFicheWorkbook(wb, `PRIME_fiche_${safe}.xlsx`))
-          .catch((e: unknown) => this.toast.error(httpErr(e)));
-      },
-      error: (e) => this.toast.error(httpErr(e)),
-    });
-  }
-
-  closeMergedPreview(): void {
-    this.previewOpen.set(false);
-    this.previewBusy.set(false);
-    this.previewBanner.set(null);
-    this.previewErrors.set([]);
-    this.previewRows.set([]);
   }
 
   pilotEmployeeDotClass(emp: EmployeePrimeCellFicheListItemDto): string {

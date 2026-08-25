@@ -410,6 +410,7 @@ public static class PlateauBreakPacker
             if (DayMinAvailabilityPercent(ranges, placedNow) + 0.05m < 83m)
                 PreferIdealPlus4WhenPossible(packable, configsById, ranges, minPresencePercent);
             EnforcePeakCap(packable, configsById, ranges, minPresencePercent);
+            ClampToAllowedBands(packable, configsById, specialCaseUserIds);
             return;
         }
 
@@ -425,9 +426,11 @@ public static class PlateauBreakPacker
                 ? config.BreakDurationMinutes
                 : BreakSlotPlanner.BreakDurationMinutes;
             var excludeExtremes = specialCaseUserIds.Contains(assignment.UserId);
-            var candidates = BreakSlotPlanner.PackingCandidates(
-                config.StartTime, false, excludeExtremes);
-            var ideal = config.StartTime.AddHours(4);
+            var candidates = AllowedCandidates(
+                config,
+                BreakSlotPlanner.PackingCandidates(config.StartTime, false, excludeExtremes),
+                excludeExtremes);
+            var ideal = BreakSlotPlanner.FirstAllowedBreak(config, excludeExtremes);
             var chosen = PickBreakSlot(
                 candidates, ranges, placed, duration, minPresencePercent,
                 out _, preferEarliest: false, idealBreakStart: ideal)
@@ -439,6 +442,7 @@ public static class PlateauBreakPacker
 
         RepairToPresenceTarget(packable, configsById, ranges, minPresencePercent);
         EnforcePeakCap(packable, configsById, ranges, minPresencePercent);
+        ClampToAllowedBands(packable, configsById, specialCaseUserIds);
     }
 
     /// <summary>
@@ -502,9 +506,12 @@ public static class PlateauBreakPacker
         {
             var cfg = configsById[a.SubServiceShiftConfigId!.Value];
             var duration = cfg.BreakDurationMinutes > 0 ? cfg.BreakDurationMinutes : 60;
-            var openingSlots = specialCaseUserIds.Contains(a.UserId)
-                ? new[] { cfg.StartTime.AddHours(3.5), cfg.StartTime.AddHours(4) }
-                : new[] { cfg.StartTime.AddHours(3), cfg.StartTime.AddHours(3.5) };
+            var openingSlots = AllowedCandidates(
+                cfg,
+                specialCaseUserIds.Contains(a.UserId)
+                    ? new[] { cfg.StartTime.AddHours(3.5), cfg.StartTime.AddHours(4) }
+                    : new[] { cfg.StartTime.AddHours(3), cfg.StartTime.AddHours(3.5) },
+                specialCaseUserIds.Contains(a.UserId));
             foreach (var s in openingSlots)
             {
                 if (BreakSlotPlanner.IsExtremeCaseBreak(cfg.StartTime, s)
@@ -521,10 +528,10 @@ public static class PlateauBreakPacker
         foreach (var a in later)
         {
             var cfg = configsById[a.SubServiceShiftConfigId!.Value];
-            var order = BreakSlotPlanner.PackingCandidatesSpread(
-                cfg.StartTime, true);
-            if (specialCaseUserIds.Contains(a.UserId))
-                order = BreakSlotPlanner.WithoutExtremeCaseBreaks(cfg.StartTime, order);
+            var order = AllowedCandidates(
+                cfg,
+                BreakSlotPlanner.PackingCandidatesSpread(cfg.StartTime, true),
+                specialCaseUserIds.Contains(a.UserId));
             var slot = PickStrict(a, order);
             if (slot != null) Commit(a, slot.Value);
         }
@@ -533,7 +540,7 @@ public static class PlateauBreakPacker
         foreach (var a in opening.Where(x => !x.BreakTime.HasValue))
         {
             var cfg = configsById[a.SubServiceShiftConfigId!.Value];
-            var order = new List<TimeOnly>
+            var remainder = new List<TimeOnly>
             {
                 cfg.StartTime.AddHours(4),
                 cfg.StartTime.AddHours(4.5),
@@ -542,11 +549,10 @@ public static class PlateauBreakPacker
             foreach (var s in BreakSlotPlanner.DenseWindowSlots(
                          cfg.StartTime, true, 30, isOpeningShift: true))
             {
-                if (!order.Contains(s) && s >= cfg.StartTime.AddHours(4))
-                    order.Add(s);
+                if (!remainder.Contains(s) && s >= cfg.StartTime.AddHours(4))
+                    remainder.Add(s);
             }
-            if (specialCaseUserIds.Contains(a.UserId))
-                order = BreakSlotPlanner.WithoutExtremeCaseBreaks(cfg.StartTime, order);
+            var order = AllowedCandidates(cfg, remainder, specialCaseUserIds.Contains(a.UserId));
             var slot = PickStrict(a, order);
             if (slot != null) Commit(a, slot.Value);
         }
@@ -568,12 +574,12 @@ public static class PlateauBreakPacker
         {
             var cfg = configsById[a.SubServiceShiftConfigId!.Value];
             var duration = cfg.BreakDurationMinutes > 0 ? cfg.BreakDurationMinutes : 60;
-            var order = BreakSlotPlanner.DenseWindowSlots(
-                cfg.StartTime, true, 30,
-                cfg.StartTime == openingStart || BreakSlotPlanner.IsOpeningShift(cfg.StartTime));
-
-            if (specialCaseUserIds.Contains(a.UserId))
-                order = BreakSlotPlanner.WithoutExtremeCaseBreaks(cfg.StartTime, order);
+            var order = AllowedCandidates(
+                cfg,
+                BreakSlotPlanner.DenseWindowSlots(
+                    cfg.StartTime, true, 30,
+                    cfg.StartTime == openingStart || BreakSlotPlanner.IsOpeningShift(cfg.StartTime)),
+                specialCaseUserIds.Contains(a.UserId));
 
             var preferLate = BreakSlotPlanner.IsOpeningShift(cfg.StartTime)
                 && fairnessCounters.EarlyCounts.GetValueOrDefault(a.UserId) > 0
@@ -595,7 +601,8 @@ public static class PlateauBreakPacker
                         best = s;
                     }
                 }
-                slot = best ?? cfg.StartTime.AddHours(4);
+                slot = best ?? BreakSlotPlanner.FirstAllowedBreak(
+                    cfg, specialCaseUserIds.Contains(a.UserId));
             }
             Commit(a, slot.Value);
         }
@@ -631,9 +638,12 @@ public static class PlateauBreakPacker
                     ? config.BreakDurationMinutes
                     : BreakSlotPlanner.BreakDurationMinutes;
                 var isOpening = config.StartTime == openingStart;
-                var candidates = isOpening
-                    ? BreakSlotPlanner.PackingCandidatesEarlyWave(config.StartTime, config.IsCriticalCell)
-                    : BreakSlotPlanner.PackingCandidatesSpread(config.StartTime, config.IsCriticalCell);
+                var candidates = AllowedCandidates(
+                    config,
+                    isOpening
+                        ? BreakSlotPlanner.PackingCandidatesEarlyWave(config.StartTime, config.IsCriticalCell)
+                        : BreakSlotPlanner.PackingCandidatesSpread(config.StartTime, config.IsCriticalCell),
+                    excludeExtremes: false);
 
                 var others = packable
                     .Where(a => !ReferenceEquals(a, assignment) && a.BreakTime.HasValue)
@@ -727,6 +737,9 @@ public static class PlateauBreakPacker
 
             foreach (var slot in new[] { ideal, idealAlt })
             {
+                if (BreakSlotPlanner.HasExplicitBreakSelection(config)
+                    && !BreakSlotPlanner.AllowedBreakStarts(config).Contains(slot))
+                    continue;
                 if (!FitsPresence(ranges, others, slot, duration, minPresencePercent))
                     continue;
                 assignment.BreakTime = slot;
@@ -803,11 +816,14 @@ public static class PlateauBreakPacker
                     ? config.BreakDurationMinutes
                     : BreakSlotPlanner.BreakDurationMinutes;
                 var isOpening = config.StartTime == openingStart;
-                var candidates = isOpening
-                    ? BreakSlotPlanner.PackingCandidatesEarlyWave(
-                        config.StartTime, config.IsCriticalCell)
-                    : BreakSlotPlanner.PackingCandidatesSpread(
-                        config.StartTime, config.IsCriticalCell);
+                var candidates = AllowedCandidates(
+                    config,
+                    isOpening
+                        ? BreakSlotPlanner.PackingCandidatesEarlyWave(
+                            config.StartTime, config.IsCriticalCell)
+                        : BreakSlotPlanner.PackingCandidatesSpread(
+                            config.StartTime, config.IsCriticalCell),
+                    excludeExtremes: false);
 
                 var others = packable
                     .Where(a => !ReferenceEquals(a, assignment) && a.BreakTime.HasValue)
@@ -889,11 +905,14 @@ public static class PlateauBreakPacker
                     ? config.BreakDurationMinutes
                     : BreakSlotPlanner.BreakDurationMinutes;
                 var isOpening = config.StartTime == openingStart;
-                var candidates = isOpening
-                    ? BreakSlotPlanner.PackingCandidatesEarlyWave(
-                        config.StartTime, config.IsCriticalCell)
-                    : BreakSlotPlanner.PackingCandidatesSpread(
-                        config.StartTime, config.IsCriticalCell);
+                var candidates = AllowedCandidates(
+                    config,
+                    isOpening
+                        ? BreakSlotPlanner.PackingCandidatesEarlyWave(
+                            config.StartTime, config.IsCriticalCell)
+                        : BreakSlotPlanner.PackingCandidatesSpread(
+                            config.StartTime, config.IsCriticalCell),
+                    excludeExtremes: false);
 
                 var others = packable
                     .Where(a => !ReferenceEquals(a, assignment) && a.BreakTime.HasValue)
@@ -968,5 +987,79 @@ public static class PlateauBreakPacker
             list.Add(new BreakPlacement(a.BreakTime.Value, d));
         }
         return list;
+    }
+
+    private static void ClampToAllowedBands(
+        List<ShiftAssignment> packable,
+        IReadOnlyDictionary<int, SubServiceShiftConfig> configsById,
+        IReadOnlySet<int> specialCaseUserIds)
+    {
+        foreach (var a in packable)
+        {
+            if (a.SubServiceShiftConfigId == null
+                || !configsById.TryGetValue(a.SubServiceShiftConfigId.Value, out var cfg))
+                continue;
+            if (!BreakSlotPlanner.HasExplicitBreakSelection(cfg)
+                && !specialCaseUserIds.Contains(a.UserId))
+                continue;
+            var exclude = specialCaseUserIds.Contains(a.UserId);
+            var allowed = BreakSlotPlanner.KeepAllowed(cfg, BreakSlotPlanner.AllowedBreakStarts(cfg), exclude);
+            if (allowed.Count == 0) continue;
+            if (!a.BreakTime.HasValue || !allowed.Contains(a.BreakTime.Value))
+                a.BreakTime = allowed[0];
+        }
+    }
+
+    private static List<TimeOnly> AllowedCandidates(
+        SubServiceShiftConfig config,
+        IEnumerable<TimeOnly> preferredOrder,
+        bool excludeExtremes) =>
+        BreakSlotPlanner.KeepAllowed(config, preferredOrder, excludeExtremes);
+
+    /// <summary>
+    /// Avertit RH quand les bandes cochées ne suffisent pas à tenir la présence min.
+    /// </summary>
+    public static List<string> BuildRestrictedBandWarnings(
+        IReadOnlyList<ShiftAssignment> dayAssignments,
+        IReadOnlyDictionary<int, SubServiceShiftConfig> configsById,
+        int minPresencePercent,
+        string dayName,
+        DateOnly date)
+    {
+        var warnings = new List<string>();
+        var packable = dayAssignments
+            .Where(a => a.SubServiceShiftConfigId != null
+                        && configsById.ContainsKey(a.SubServiceShiftConfigId.Value)
+                        && !a.IsOnLeave
+                        && !a.IsHoliday)
+            .ToList();
+        if (packable.Count == 0) return warnings;
+
+        var ranges = packable
+            .Select(a =>
+            {
+                var cfg = configsById[a.SubServiceShiftConfigId!.Value];
+                return new ShiftRange(cfg.StartTime, cfg.EndTime);
+            })
+            .ToList();
+        var breaks = BuildPlacements(packable, configsById);
+        if (DayRespectsPresence(ranges, breaks, minPresencePercent))
+            return warnings;
+
+        foreach (var g in packable.GroupBy(a => a.SubServiceShiftConfigId!.Value))
+        {
+            if (!configsById.TryGetValue(g.Key, out var cfg)) continue;
+            if (!BreakSlotPlanner.HasExplicitBreakSelection(cfg)) continue;
+            var bands = BreakSlotPlanner.AllowedBreakStarts(cfg);
+            var offBand = g.Count(a =>
+                a.BreakTime.HasValue && !bands.Contains(a.BreakTime.Value));
+            if (offBand > 0)
+                continue;
+            warnings.Add(
+                $"Présence min non tenue le {dayName} {date:dd/MM} sur {cfg.Label} — " +
+                $"bandes de pause trop restreintes ({bands.Count} bande(s) cochée(s) pour {g.Count()} agent(s)).");
+        }
+
+        return warnings;
     }
 }

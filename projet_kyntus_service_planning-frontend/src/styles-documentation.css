@@ -168,7 +168,11 @@ body.theme-dark .ks-content h1.ky-page-title {
 /* Alertes standardisées (Prime-aligned) */
 .ky-alert,
 .ks-content .alert {
-  @apply flex items-center gap-3 rounded-lg px-4 py-3 text-sm;
+  @apply flex items-start gap-3 rounded-lg px-4 py-3 text-sm;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: min(36vh, 240px);
+  overflow-y: auto;
 }
 
 .ky-alert-error,

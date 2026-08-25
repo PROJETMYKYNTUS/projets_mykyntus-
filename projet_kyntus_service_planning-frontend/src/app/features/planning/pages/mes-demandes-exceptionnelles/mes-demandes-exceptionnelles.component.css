@@ -35,8 +35,9 @@
   top: 1rem;
   right: 1rem;
   z-index: 50;
-  background: #065f46;
-  color: #fff;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
   padding: 0.6rem 1rem;
   border-radius: 8px;
 }
@@ -81,8 +82,8 @@
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 600;
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--warning-bg);
+  color: var(--warning-text);
 }
 
 .mdc-form-title {
@@ -100,7 +101,7 @@
   flex-direction: column;
   gap: 4px;
   font-size: 0.8rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 .mdc-form-grid select,
 .mdc-form-grid textarea,
@@ -136,9 +137,9 @@
   margin: -6px 0 14px;
   padding: 8px 12px;
   border-radius: 0.5rem;
-  background: #fff7ed;
-  color: #9a3412;
-  border: 1px solid #fdba74;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  border: 1px solid var(--warning-border);
 }
 
 .mdc-table {
@@ -149,7 +150,7 @@
 .mdc-table th,
 .mdc-table td {
   padding: 8px 10px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
   text-align: left;
   vertical-align: top;
 }
@@ -157,20 +158,20 @@
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .mdc-status { font-weight: 600; font-size: 0.8rem; }
-.mdc-status[data-status='Approved'] { color: #15803d; }
-.mdc-status[data-status='Rejected'] { color: #b91c1c; }
+.mdc-status[data-status='Approved'] { color: var(--success-text); }
+.mdc-status[data-status='Rejected'] { color: var(--danger-text); }
 .mdc-status[data-status='PendingSupervisor'],
-.mdc-status[data-status='PendingRh'] { color: #b45309; }
-.mdc-status[data-status='Cancelled'] { color: #64748b; }
+.mdc-status[data-status='PendingRh'] { color: var(--warning-text); }
+.mdc-status[data-status='Cancelled'] { color: var(--text-muted); }
 
 .mdc-reject {
   display: block;
   margin-top: 2px;
-  color: #b91c1c;
+  color: var(--danger-text);
   font-size: 0.75rem;
 }
 
@@ -178,7 +179,7 @@
 .mdc-link {
   background: none;
   border: none;
-  color: var(--soft-blue, #2563eb);
+  color: var(--info-text);
   cursor: pointer;
   font: inherit;
   padding: 0;

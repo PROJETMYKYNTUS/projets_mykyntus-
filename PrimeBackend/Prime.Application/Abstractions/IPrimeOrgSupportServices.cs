@@ -17,20 +17,6 @@ public interface IServicePrimeIndicatorsAppService
         CancellationToken ct = default);
 }
 
-public interface IServicePoleLinePonderationsAppService
-{
-    Task<IReadOnlyList<ServicePoleLinePonderationDto>> GetAsync(
-        string serviceId,
-        string supervisorUserId,
-        CancellationToken ct = default);
-
-    Task<IReadOnlyList<ServicePoleLinePonderationDto>> PutAsync(
-        string serviceId,
-        string supervisorUserId,
-        PutServicePoleLinePonderationsRequest body,
-        CancellationToken ct = default);
-}
-
 public interface IPrimePeriodRecapReportsAppService
 {
     Task<FileExportResultDto> DownloadPeriodRecapAsync(

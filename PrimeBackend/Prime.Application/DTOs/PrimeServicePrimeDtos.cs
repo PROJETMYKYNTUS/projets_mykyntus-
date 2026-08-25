@@ -40,20 +40,84 @@ public sealed class ServicePoleLinePonderationDto
     public decimal? PonderationChallengePct { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset? UpdatedAt { get; init; }
+    public string? SourceScope { get; init; }
+    public bool Inherited { get; init; }
+    public DateTimeOffset? EffectiveFrom { get; init; }
 }
 
-public sealed class PutServicePoleLinePonderationsRequest
+public static class CommonLinePonderationScopeTypes
 {
-    public List<PutServicePoleLinePonderationItem> Items { get; set; } = [];
+    public const string Cellule = "Cellule";
+    public const string Service = "Service";
 }
 
-public sealed class PutServicePoleLinePonderationItem
+public static class CommonLinePonderationSourceKinds
+{
+    public const string Service = "Service";
+    public const string Cellule = "Cellule";
+    public const string PreviousPeriod = "PreviousPeriod";
+    public const string Template = "Template";
+    public const string Undefined = "Undefined";
+}
+
+public sealed class CommonLinePonderationDto
+{
+    public Guid Id { get; init; }
+    public string ScopeType { get; init; } = "";
+    public string ScopeId { get; init; } = "";
+    public string TemplateId { get; init; } = "";
+    public string TemplateStableId { get; init; } = "";
+    public string Label { get; init; } = "";
+    public string Contract { get; init; } = "";
+    public int SortOrder { get; init; }
+    public decimal? PonderationPrimePct { get; init; }
+    public decimal? PonderationChallengePct { get; init; }
+    public DateTimeOffset EffectiveFrom { get; init; }
+    public DateTimeOffset? EffectiveTo { get; init; }
+    public string? CreatedBy { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
+}
+
+public sealed class EffectiveCommonLinePonderationDto
+{
+    public string TemplateStableId { get; init; } = "";
+    public string Label { get; init; } = "";
+    public string Contract { get; init; } = "";
+    public int SortOrder { get; init; }
+    public decimal? PonderationPrimePct { get; init; }
+    public decimal? PonderationChallengePct { get; init; }
+    public string SourceScope { get; init; } = CommonLinePonderationSourceKinds.Undefined;
+    public string? SourceScopeId { get; init; }
+    public bool Inherited { get; init; }
+    public DateTimeOffset? EffectiveFrom { get; init; }
+    public Guid? VersionId { get; init; }
+}
+
+public sealed class PutCommonLinePonderationsRequest
+{
+    public string? TemplateId { get; set; }
+    public DateTimeOffset? EffectiveFrom { get; set; }
+    public List<PutCommonLinePonderationItem> Items { get; set; } = [];
+}
+
+public sealed class PutCommonLinePonderationItem
 {
     public string TemplateStableId { get; set; } = "";
     public string Label { get; set; } = "";
+    public string Contract { get; set; } = "";
     public int SortOrder { get; set; }
     public decimal? PonderationPrimePct { get; set; }
     public decimal? PonderationChallengePct { get; set; }
+}
+
+public sealed class TemplateCommonLineHint
+{
+    public string TemplateStableId { get; init; } = "";
+    public string Label { get; init; } = "";
+    public string Contract { get; init; } = "";
+    public int SortOrder { get; init; }
+    public decimal? TemplatePrimePct { get; init; }
+    public decimal? TemplateChallengePct { get; init; }
 }
 
 public sealed class SupervisorCellulePrimeDraftResponseDto
@@ -196,4 +260,69 @@ public sealed class ServicePilotageSummaryDto
     public string? LinkedTemplateId { get; init; }
     public string? LinkedTemplateDisplayName { get; init; }
     public bool PoolDistributionUnlocked { get; init; }
+}
+
+public sealed class CampaignStepStatusDto
+{
+    public string Key { get; init; } = "";
+    public string Label { get; init; } = "";
+    /// <summary>done | todo | blocked</summary>
+    public string State { get; init; } = "todo";
+    public string? Reason { get; init; }
+    public string? ActionPath { get; init; }
+}
+
+public sealed class SupervisorCelluleCampaignDto
+{
+    public string CelluleId { get; init; } = "";
+    public string CelluleName { get; init; } = "";
+    public string Period { get; init; } = "";
+    public string? NextActionLabel { get; init; }
+    public string? NextActionPath { get; init; }
+    public Guid? DraftId { get; init; }
+    public string? TemplateId { get; init; }
+    public string? TemplateDisplayName { get; init; }
+    public string? CommonPartStatus { get; init; }
+    public int TotalEmployees { get; init; }
+    public int CompleteEmployees { get; init; }
+    public int InProgressEmployees { get; init; }
+    public int NotStartedEmployees { get; init; }
+    public int PendingValidationCount { get; init; }
+    public int SupervisorApprovedCount { get; init; }
+    public int RejectedCount { get; init; }
+    public bool CanRolloverFromPrevious { get; init; }
+    public string? PreviousPeriod { get; init; }
+    public IReadOnlyList<CampaignStepStatusDto> Steps { get; init; } = [];
+}
+
+public sealed class RolloverCellulePrimeDraftRequest
+{
+    public string SupervisorUserId { get; set; } = "";
+    public string CelluleId { get; set; } = "";
+    public string? PoleId { get; set; }
+    public string TargetPeriod { get; set; } = "";
+    public string? SourcePeriod { get; set; }
+    public bool IncludeEmployeeFiches { get; set; } = true;
+    public bool Overwrite { get; set; }
+    public bool AllowUnvalidatedSource { get; set; }
+}
+
+public sealed class CelluleDraftRolloverSkippedFicheDto
+{
+    public string EmployeeId { get; init; } = "";
+    public string Reason { get; init; } = "";
+}
+
+public sealed class CelluleDraftRolloverResultDto
+{
+    public Guid DraftId { get; init; }
+    public string SourcePeriod { get; init; } = "";
+    public string TargetPeriod { get; init; } = "";
+    public string TemplateId { get; init; } = "";
+    public int LinesCarried { get; init; }
+    public IReadOnlyList<string> LinesNew { get; init; } = [];
+    public IReadOnlyList<string> LinesDropped { get; init; } = [];
+    public int FichesCreated { get; init; }
+    public IReadOnlyList<CelluleDraftRolloverSkippedFicheDto> FichesSkipped { get; init; } = [];
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 }

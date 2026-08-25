@@ -66,6 +66,13 @@ public static class LevelBalanceRepairer
 
                     var target = PickMiddleTarget(assignments, shiftConfigs, date, cfg.Id) ?? middle;
                     if (target.Id == a.SubServiceShiftConfigId) continue;
+                    if (TrySwapPlateauOffExtreme(assignments, usersById, date, a, target.Id))
+                    {
+                        moved = true;
+                        break;
+                    }
+                    if (MoveBreaksDailyQuota(assignments, configsById, date, a.SubServiceShiftConfigId.Value, target.Id))
+                        continue;
                     a.SubServiceShiftConfigId = target.Id;
                     moved = true;
                     break;
@@ -251,6 +258,8 @@ public static class LevelBalanceRepairer
         }
 
         if (best == null) return false;
+        if (MoveBreaksDailyQuota(assignments, configsById, date, best.SubServiceShiftConfigId!.Value, deficientShiftId))
+            return false;
         best.SubServiceShiftConfigId = deficientShiftId;
         return true;
     }
@@ -274,6 +283,9 @@ public static class LevelBalanceRepairer
 
         var middleTarget = PickMiddleTarget(assignments, shiftConfigs, date, deficientShiftId);
         if (middleTarget == null) return false;
+        var configsById = shiftConfigs.ToDictionary(c => c.Id);
+        if (MoveBreaksDailyQuota(assignments, configsById, date, deficientShiftId, middleTarget.Id))
+            return false;
 
         beginner.SubServiceShiftConfigId = middleTarget.Id;
         return true;
@@ -327,4 +339,58 @@ public static class LevelBalanceRepairer
                 && !a.IsHoliday
                 && !a.IsManagerOverride)
             .GroupBy(a => a.SubServiceShiftConfigId!.Value);
+
+    private static bool TrySwapPlateauOffExtreme(
+        List<ShiftAssignment> assignments,
+        IReadOnlyDictionary<int, User> usersById,
+        DateOnly date,
+        ShiftAssignment plateau,
+        int middleShiftId)
+    {
+        var partner = assignments.FirstOrDefault(x =>
+            x.AssignedDate == date
+            && x.SubServiceShiftConfigId == middleShiftId
+            && !x.IsOnLeave
+            && !x.IsHoliday
+            && !x.IsManagerOverride
+            && !x.IsExceptionalRequest
+            && x.UserId != plateau.UserId
+            && usersById.TryGetValue(x.UserId, out var u)
+            && !u.IsPlateauTraining);
+        if (partner == null)
+            return false;
+
+        (plateau.SubServiceShiftConfigId, partner.SubServiceShiftConfigId) =
+            (partner.SubServiceShiftConfigId, plateau.SubServiceShiftConfigId);
+        return true;
+    }
+
+    /// <summary>
+    /// Un déplacement (pas un swap) ne doit ni vider un siège requis ni dépasser un quota.
+    /// </summary>
+    private static bool MoveBreaksDailyQuota(
+        List<ShiftAssignment> assignments,
+        IReadOnlyDictionary<int, SubServiceShiftConfig> configsById,
+        DateOnly date,
+        int fromShiftId,
+        int toShiftId)
+    {
+        if (!configsById.TryGetValue(fromShiftId, out var fromCfg)
+            || !configsById.TryGetValue(toShiftId, out var toCfg))
+            return false;
+
+        int Count(int shiftId) => assignments.Count(a =>
+            a.AssignedDate == date
+            && a.SubServiceShiftConfigId == shiftId
+            && !a.IsOnLeave
+            && !a.IsHoliday);
+
+        var fromAfter = Count(fromShiftId) - 1;
+        var toAfter = Count(toShiftId) + 1;
+        if (fromCfg.RequiredCount > 0 && fromAfter < fromCfg.RequiredCount)
+            return true;
+        if (toCfg.RequiredCount > 0 && toAfter > toCfg.RequiredCount)
+            return true;
+        return false;
+    }
 }

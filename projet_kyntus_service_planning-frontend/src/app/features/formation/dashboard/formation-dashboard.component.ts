@@ -108,17 +108,30 @@ export class FormationDashboardComponent implements OnInit {
   filterCellule = '';
   filterService = '';
 
+  /** Couleurs d'encre ECharts lues au runtime (theme-aware). */
+  private chartThemeInk(): { muted: string; primary: string; border: string } {
+    const s = typeof document !== 'undefined' ? getComputedStyle(document.body) : null;
+    const read = (name: string, fallback: string) =>
+      (s?.getPropertyValue(name).trim() || fallback);
+    return {
+      muted: read('--text-muted', '#64748b'),
+      primary: read('--text-primary', '#0f172a'),
+      border: read('--border-color', '#e2e8f0'),
+    };
+  }
+
   readonly continueAttendanceChart = computed<EChartsCoreOption>(() => {
     const s = this.stats() ?? EMPTY_CONTINUE;
+    const ink = this.chartThemeInk();
     const absent = Math.max(0, s.assignmentCount - s.presentCount);
     return {
       tooltip: { trigger: 'item' },
-      legend: { bottom: 0, textStyle: { color: '#94a3b8' } },
+      legend: { bottom: 0, textStyle: { color: ink.muted } },
       series: [
         {
           type: 'pie',
           radius: ['42%', '68%'],
-          label: { color: '#cbd5e1' },
+          label: { color: ink.primary },
           data: [
             { name: 'Présents', value: s.presentCount, itemStyle: { color: '#34d399' } },
             { name: 'Autres', value: absent, itemStyle: { color: '#64748b' } },
@@ -130,15 +143,16 @@ export class FormationDashboardComponent implements OnInit {
 
   readonly continueQuizChart = computed<EChartsCoreOption>(() => {
     const s = this.stats() ?? EMPTY_CONTINUE;
+    const ink = this.chartThemeInk();
     const pending = Math.max(0, s.quizCount - s.quizzesValidated);
     return {
       tooltip: { trigger: 'item' },
-      legend: { bottom: 0, textStyle: { color: '#94a3b8' } },
+      legend: { bottom: 0, textStyle: { color: ink.muted } },
       series: [
         {
           type: 'pie',
           radius: ['42%', '68%'],
-          label: { color: '#cbd5e1' },
+          label: { color: ink.primary },
           data: [
             { name: 'Validés', value: s.quizzesValidated, itemStyle: { color: '#60a5fa' } },
             { name: 'À valider / brouillon', value: pending, itemStyle: { color: '#fbbf24' } },
@@ -150,15 +164,21 @@ export class FormationDashboardComponent implements OnInit {
 
   readonly continueOpsChart = computed<EChartsCoreOption>(() => {
     const s = this.stats() ?? EMPTY_CONTINUE;
+    const ink = this.chartThemeInk();
     return {
       tooltip: { trigger: 'axis' },
       grid: { left: 40, right: 16, top: 24, bottom: 32 },
       xAxis: {
         type: 'category',
         data: ['À venir', 'CR manquants', 'Quiz à valider'],
-        axisLabel: { color: '#94a3b8' },
+        axisLabel: { color: ink.muted },
       },
-      yAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#94a3b8' }, splitLine: { lineStyle: { color: '#334155' } } },
+      yAxis: {
+        type: 'value',
+        minInterval: 1,
+        axisLabel: { color: ink.muted },
+        splitLine: { lineStyle: { color: ink.border } },
+      },
       series: [
         {
           type: 'bar',
@@ -175,15 +195,21 @@ export class FormationDashboardComponent implements OnInit {
 
   readonly initialPipelineChart = computed<EChartsCoreOption>(() => {
     const s = this.initialStats() ?? EMPTY_INITIAL;
+    const ink = this.chartThemeInk();
     return {
       tooltip: { trigger: 'axis' },
       grid: { left: 48, right: 16, top: 24, bottom: 48 },
       xAxis: {
         type: 'category',
         data: ['En cours', 'Att. formateur', 'Att. RH', 'Production', 'Rejeté'],
-        axisLabel: { color: '#94a3b8', interval: 0, rotate: 20 },
+        axisLabel: { color: ink.muted, interval: 0, rotate: 20 },
       },
-      yAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#94a3b8' }, splitLine: { lineStyle: { color: '#334155' } } },
+      yAxis: {
+        type: 'value',
+        minInterval: 1,
+        axisLabel: { color: ink.muted },
+        splitLine: { lineStyle: { color: ink.border } },
+      },
       series: [
         {
           type: 'bar',
@@ -202,16 +228,17 @@ export class FormationDashboardComponent implements OnInit {
 
   readonly initialDocsChart = computed<EChartsCoreOption>(() => {
     const s = this.initialStats() ?? EMPTY_INITIAL;
+    const ink = this.chartThemeInk();
     const active = Math.max(0, s.enCours + s.attenteValidationFormateur + s.attenteValidationRh);
     const complete = Math.max(0, active - s.pathsWithMissingDocs);
     return {
       tooltip: { trigger: 'item' },
-      legend: { bottom: 0, textStyle: { color: '#94a3b8' } },
+      legend: { bottom: 0, textStyle: { color: ink.muted } },
       series: [
         {
           type: 'pie',
           radius: ['42%', '68%'],
-          label: { color: '#cbd5e1' },
+          label: { color: ink.primary },
           data: [
             { name: 'Docs OK', value: complete, itemStyle: { color: '#34d399' } },
             { name: 'Docs manquants', value: s.pathsWithMissingDocs, itemStyle: { color: '#fb7185' } },

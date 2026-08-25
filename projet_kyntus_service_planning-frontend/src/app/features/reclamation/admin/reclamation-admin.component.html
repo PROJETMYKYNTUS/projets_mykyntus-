@@ -1,340 +1,317 @@
-<!-- src/app/features/reclamation/admin/reclamation-admin.component.html -->
-
 <div class="ky-page-shell rp-root">
 
   <app-kyntus-page-header
-    title="Gestion des réclamations"
-    subtitle="Traitement, assignation et reporting dans le même cadre visuel que les autres modules.">
+    title="Traiter les demandes"
+    subtitle="Liste unifiée des réclamations et propositions. Traitez chaque demande sans quitter l’écran.">
+    <div actions>
+      <button type="button" class="ky-btn-secondary" [class.active-mode]="mode==='demandes' && !detailOpen" (click)="setMode('demandes')">
+        Demandes
+      </button>
+      <button type="button" class="ky-btn-secondary" [class.active-mode]="mode==='stats'" (click)="setMode('stats')">
+        Statistiques
+      </button>
+      <button type="button" class="ky-btn-secondary" [class.active-mode]="mode==='historique'" (click)="setMode('historique')">
+        Historique
+      </button>
+    </div>
   </app-kyntus-page-header>
 
-  <!-- ══ MAIN TABS ══ -->
-  <div class="rp-tabs">
-    <button class="rp-tab" [class.active]="mainTab==='reclamations'" (click)="setTab('reclamations')">
-      Réclamations
-      <span class="rp-tab-count">{{ recTotal }}</span>
-    </button>
-    <button class="rp-tab" [class.active]="mainTab==='propositions'" (click)="setTab('propositions')">
-      Propositions
-      <span class="rp-tab-count">{{ propTotal }}</span>
-    </button>
-  </div>
-
-  <!-- ══ SUB VIEW TABS ══ -->
-  <div class="rpa-sub-tabs" *ngIf="adminView !== 'detail'">
-    <button class="rpa-sub-tab" [class.active]="adminView==='list'"       (click)="setView('list')">Liste</button>
-    <button class="rpa-sub-tab" [class.active]="adminView==='reporting'"  (click)="setView('reporting')">Reporting</button>
-    <button class="rpa-sub-tab" [class.active]="adminView==='historique'" (click)="setView('historique')">Audit &amp; Historique</button>
-  </div>
-
-  <!-- ══ LOADING ══ -->
-  <div class="emp-loading" *ngIf="loading && reclamations.length === 0 && propositions.length === 0">
+  <div class="emp-loading" *ngIf="loading && !detailOpen">
     <div class="emp-spinner"></div>
     <p>Chargement…</p>
   </div>
 
-  <!-- ════════════════════════════════════════════
-       VUE LIST
-  ════════════════════════════════════════════ -->
-  <ng-container *ngIf="adminView==='list'">
-
-    <!-- Filtres -->
-    <div class="filters-panel ky-card rpa-filters">
-      <div class="filters-toolbar">
-      <select class="filter-ctl ky-input" [(ngModel)]="filterStatus" (change)="applyFilters()">
-        <option value="">Tous les statuts</option>
-        <option *ngFor="let s of currentStatuts" [value]="s">{{ s }}</option>
-      </select>
-      <select class="filter-ctl ky-input" [(ngModel)]="filterPriorite" (change)="applyFilters()" *ngIf="mainTab==='reclamations'">
-        <option value="">Toutes les priorités</option>
-        <option *ngFor="let p of priorities" [value]="p">{{ p }}</option>
-      </select>
-      <button type="button" class="ky-btn-secondary" (click)="filterStatus=''; filterPriorite=''; applyFilters()">Réinitialiser</button>
-      </div>
-    </div>
-
-    <!-- Tableau Réclamations -->
-    <ng-container *ngIf="mainTab==='reclamations'">
-      <div class="rp-empty" *ngIf="reclamations.length===0">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        <h3>Aucune réclamation</h3><p>Aucun résultat pour ces filtres.</p>
-      </div>
-      <div class="rp-list" *ngIf="reclamations.length>0">
-        <div class="rp-item ky-card" *ngFor="let r of reclamations" (click)="openDetail(r.id)">
-          <div class="rp-item-left">
-            <div class="rp-item-icon">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-            </div>
-            <div class="rp-item-body">
-              <div class="rp-item-title">{{ r.titre }}</div>
-              <div class="rp-item-meta">
-                <span class="rp-badge-type">{{ getTypeLabel(r.type) }}</span>
-                <span>{{ r.auteurNom }} · {{ r.createdAt | date:'dd/MM/yyyy' }}</span>
-                <span class="rp-aging" [class.rp-aging-warn]="daysOpen(r.createdAt) >= 3" [class.rp-aging-breach]="daysOpen(r.createdAt) >= 7">
-                  · {{ daysOpen(r.createdAt) }} j
-                </span>
-                <span *ngIf="r.assigneeNom">· → {{ r.assigneeNom }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="rp-item-right">
-            <span class="rp-prio" [ngClass]="getPriorityClass(r.priorite)">{{ r.priorite }}</span>
-            <span class="rp-status" [ngClass]="getStatusClass(r.status)">{{ r.status }}</span>
-            <span class="rp-rated" *ngIf="r.satisfactionNote">★ {{ r.satisfactionNote }}/5</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>
-      </div>
-      <div class="rp-pagination" *ngIf="recPages.length>1">
-        <button *ngFor="let p of recPages" [class.active]="p===recPage" (click)="changePage(p)">{{ p }}</button>
-      </div>
-    </ng-container>
-
-    <!-- Tableau Propositions -->
-    <ng-container *ngIf="mainTab==='propositions'">
-      <div class="rp-empty" *ngIf="propositions.length===0">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-        <h3>Aucune proposition</h3><p>Aucun résultat pour ces filtres.</p>
-      </div>
-      <div class="rp-list" *ngIf="propositions.length>0">
-        <div class="rp-item ky-card" *ngFor="let p of propositions" (click)="openDetail(p.id)">
-          <div class="rp-item-left">
-            <div class="rp-item-icon rp-icon-prop">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-            </div>
-            <div class="rp-item-body">
-              <div class="rp-item-title">{{ p.titre }}</div>
-              <div class="rp-item-meta">
-                <span>{{ p.auteurNom }} · {{ p.createdAt | date:'dd/MM/yyyy' }}</span>
-                <span *ngIf="p.assigneeNom">· → {{ p.assigneeNom }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="rp-item-right">
-            <span class="rp-prio" [ngClass]="getPriorityClass(p.priorite)">{{ p.priorite }}</span>
-            <span class="rp-status" [ngClass]="getStatusClass(p.status)">{{ p.status }}</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>
-      </div>
-      <div class="rp-pagination" *ngIf="propPages.length>1">
-        <button *ngFor="let p of propPages" [class.active]="p===propPage" (click)="changePage(p)">{{ p }}</button>
-      </div>
-    </ng-container>
-  </ng-container>
-
-  <!-- ════════════════════════════════════════════
-       VUE DETAIL + ACTIONS
-  ════════════════════════════════════════════ -->
-  <ng-container *ngIf="adminView==='detail'">
-    <div class="rp-detail-nav">
-      <button class="rp-back-btn" (click)="goBack()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-        Retour à la liste
-      </button>
-      <!-- Action buttons -->
-      <div class="rpa-actions">
-        <button class="rpa-btn-action rpa-btn-amber" (click)="activePanel = activePanel==='traiter' ? 'none' : 'traiter'">Changer statut</button>
-        <button class="rpa-btn-action rpa-btn-blue"  (click)="activePanel = activePanel==='assigner' ? 'none' : 'assigner'">Assigner</button>
-        <button class="rpa-btn-action rpa-btn-green" (click)="activePanel = activePanel==='prioriser' ? 'none' : 'prioriser'">Prioriser</button>
-      </div>
-    </div>
-
-    <!-- Panel : changer statut -->
-    <div class="rpa-panel" *ngIf="activePanel==='traiter'">
-      <h4>Changer le statut</h4>
-      <div class="rpa-panel-form">
-        <select class="rp-select" [(ngModel)]="traiterForm.status">
-          <option *ngFor="let s of currentStatuts" [value]="s">{{ s }}</option>
-        </select>
-        <textarea class="rp-textarea" [(ngModel)]="traiterForm.commentaire" placeholder="Commentaire (optionnel)" rows="2"></textarea>
-        <button class="ky-btn-primary" (click)="submitTraiter()" [disabled]="submitting">
-          <span *ngIf="submitting" class="rp-spinner-sm"></span>
-          {{ submitting ? '…' : 'Valider' }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Panel : assigner -->
-    <div class="rpa-panel" *ngIf="activePanel==='assigner'">
-      <h4>Assigner à un agent</h4>
-      <div class="rpa-panel-form">
-        <input type="text" class="rp-input" [(ngModel)]="assignerForm.assigneeId" placeholder="ID de l'agent"/>
-        <input type="text" class="rp-input" [(ngModel)]="assignerForm.assigneeNom" placeholder="Nom de l'agent"/>
-        <button class="ky-btn-primary" (click)="submitAssigner()" [disabled]="submitting">
-          {{ submitting ? '…' : 'Assigner' }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Panel : prioriser -->
-    <div class="rpa-panel" *ngIf="activePanel==='prioriser'">
-      <h4>Changer la priorité</h4>
-      <div class="rpa-panel-form">
-        <select class="rp-select" [(ngModel)]="prioriserForm.priorite">
-          <option *ngFor="let p of priorities" [value]="p">{{ p }}</option>
-        </select>
-        <button class="ky-btn-primary" (click)="submitPrioriser()" [disabled]="submitting">
-          {{ submitting ? '…' : 'Valider' }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Détail réclamation -->
-    <div class="rp-detail-card ky-card" *ngIf="selectedRec">
-      <div class="rp-detail-header">
-        <h2>{{ selectedRec.titre }}</h2>
-        <div class="rp-detail-meta">
-          <span class="rp-badge-type">{{ getTypeLabel(selectedRec.type) }}</span>
-          <span class="rp-prio" [ngClass]="getPriorityClass(selectedRec.priorite)">{{ selectedRec.priorite }}</span>
-          <span class="rp-status" [ngClass]="getStatusClass(selectedRec.status)">{{ selectedRec.status }}</span>
-          <span>Auteur : <strong>{{ selectedRec.auteurNom }}</strong> ({{ selectedRec.auteurRole }})</span>
-          <span>· {{ selectedRec.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
-          <span *ngIf="selectedRec.assigneeNom">· Assigné à <strong>{{ selectedRec.assigneeNom }}</strong></span>
-        </div>
-      </div>
-      <div class="rp-detail-section">
-        <div class="rp-section-label">Description</div>
-        <p class="rp-detail-text">{{ selectedRec.description }}</p>
-      </div>
-      <div class="rp-detail-section" *ngIf="selectedRec.commentaireTraitement">
-        <div class="rp-section-label">Commentaire de traitement</div>
-        <div class="rp-comment-box">{{ selectedRec.commentaireTraitement }}</div>
-      </div>
-      <div class="rp-detail-section" *ngIf="selectedRec.satisfactionNote">
-        <div class="rp-section-label">Satisfaction employé</div>
-        <div class="rp-sat-display">
-          <span class="rp-stars">
-            <span *ngFor="let s of [1,2,3,4,5]" [class.filled]="(selectedRec.satisfactionNote || 0) >= s">★</span>
-          </span>
-          <span>{{ selectedRec.satisfactionNote }}/5</span>
-          <span *ngIf="selectedRec.satisfactionCommentaire">— {{ selectedRec.satisfactionCommentaire }}</span>
-        </div>
-      </div>
-      <div class="rp-detail-section" *ngIf="selectedRec.historique?.length">
-        <div class="rp-section-label">Historique</div>
-        <div class="rp-timeline">
-          <div class="rp-timeline-item" *ngFor="let h of selectedRec.historique">
-            <div class="rp-timeline-dot"></div>
-            <div class="rp-timeline-content">
-              <div class="rp-timeline-action"><strong>{{ h.action }}</strong> : {{ h.valeur }}</div>
-              <div class="rp-timeline-meta">{{ h.effectueParNom }} · {{ h.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Détail proposition -->
-    <div class="rp-detail-card ky-card" *ngIf="selectedProp">
-      <div class="rp-detail-header">
-        <h2>{{ selectedProp.titre }}</h2>
-        <div class="rp-detail-meta">
-          <span class="rp-prio" [ngClass]="getPriorityClass(selectedProp.priorite)">{{ selectedProp.priorite }}</span>
-          <span class="rp-status" [ngClass]="getStatusClass(selectedProp.status)">{{ selectedProp.status }}</span>
-          <span>Auteur : <strong>{{ selectedProp.auteurNom }}</strong> ({{ selectedProp.auteurRole }})</span>
-          <span>· {{ selectedProp.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
-          <span *ngIf="selectedProp.assigneeNom">· Assigné à <strong>{{ selectedProp.assigneeNom }}</strong></span>
-        </div>
-      </div>
-      <div class="rp-detail-section">
-        <div class="rp-section-label">Description</div>
-        <p class="rp-detail-text">{{ selectedProp.description }}</p>
-      </div>
-      <div class="rp-detail-section" *ngIf="selectedProp.beneficeAttendu">
-        <div class="rp-section-label">Bénéfice attendu</div>
-        <p class="rp-detail-text">{{ selectedProp.beneficeAttendu }}</p>
-      </div>
-      <div class="rp-detail-section" *ngIf="selectedProp.commentaireEvaluation">
-        <div class="rp-section-label">Commentaire d'évaluation</div>
-        <div class="rp-comment-box">{{ selectedProp.commentaireEvaluation }}</div>
-      </div>
-      <div class="rp-detail-section" *ngIf="selectedProp.satisfactionNote">
-        <div class="rp-section-label">Satisfaction employé</div>
-        <div class="rp-sat-display">
-          <span class="rp-stars">
-            <span *ngFor="let s of [1,2,3,4,5]" [class.filled]="(selectedProp.satisfactionNote || 0) >= s">★</span>
-          </span>
-          <span>{{ selectedProp.satisfactionNote }}/5</span>
-        </div>
-      </div>
-      <div class="rp-detail-section" *ngIf="selectedProp.historique?.length">
-        <div class="rp-section-label">Historique</div>
-        <div class="rp-timeline">
-          <div class="rp-timeline-item" *ngFor="let h of selectedProp.historique">
-            <div class="rp-timeline-dot"></div>
-            <div class="rp-timeline-content">
-              <div class="rp-timeline-action"><strong>{{ h.action }}</strong> : {{ h.valeur }}</div>
-              <div class="rp-timeline-meta">{{ h.effectueParNom }} · {{ h.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </ng-container>
-
-  <!-- ════════════════════════════════════════════
-       VUE REPORTING
-  ════════════════════════════════════════════ -->
-  <ng-container *ngIf="adminView==='reporting' && report">
-    <div class="rpa-filters">
-      <input type="date" class="rp-input" [(ngModel)]="reportFrom" placeholder="Du"/>
-      <input type="date" class="rp-input" [(ngModel)]="reportTo"   placeholder="Au"/>
-      <button class="ky-btn-primary" (click)="loadReport()">Actualiser</button>
-    </div>
-
-    <div class="kpi-row">
+  <!-- ══ DEMANDES — liste ══ -->
+  <ng-container *ngIf="mode==='demandes' && !detailOpen">
+    <div class="kpi-row" *ngIf="!loading">
       <div class="kpi-card ky-card kc-blue">
-        <div class="kpi-value">{{ report.totalDemandes }}</div>
-        <div class="kpi-label">Total demandes</div>
+        <span class="kpi-label">Réclamations</span>
+        <span class="kpi-value">{{ recTotal }}</span>
       </div>
       <div class="kpi-card ky-card kc-green">
-        <div class="kpi-value">{{ report.totalAvecNote }}</div>
-        <div class="kpi-label">Avec évaluation</div>
+        <span class="kpi-label">Propositions</span>
+        <span class="kpi-value">{{ propTotal }}</span>
       </div>
       <div class="kpi-card ky-card kc-amber">
-        <div class="kpi-value">{{ report.moyenneNote | number:'1.1-1' }}</div>
-        <div class="kpi-label">Note moyenne /5</div>
+        <span class="kpi-label">À traiter</span>
+        <span class="kpi-value">{{ totalOpen }}</span>
       </div>
     </div>
 
-    <div class="rpa-report-grid">
-      <div class="rp-detail-card">
-        <div class="rp-section-label">Par statut</div>
-        <div *ngFor="let e of getStatutEntries()" class="rpa-bar-group">
-          <div class="rpa-bar-label"><span>{{ e.key }}</span><span>{{ e.val }}</span></div>
-          <div class="rpa-bar-track"><div class="rpa-bar-fill" [style.width]="getBarWidth(e.val)"></div></div>
-        </div>
+    <div class="rp-tabs">
+      <button type="button" class="rp-tab" [class.active]="kindFilter==='all'" (click)="setKindFilter('all')">
+        Toutes
+        <span class="rp-tab-count">{{ recTotal + propTotal }}</span>
+      </button>
+      <button type="button" class="rp-tab" [class.active]="kindFilter==='reclamations'" (click)="setKindFilter('reclamations')">
+        Réclamations
+        <span class="rp-tab-count">{{ recTotal }}</span>
+      </button>
+      <button type="button" class="rp-tab" [class.active]="kindFilter==='propositions'" (click)="setKindFilter('propositions')">
+        Propositions
+        <span class="rp-tab-count">{{ propTotal }}</span>
+      </button>
+    </div>
+
+    <div class="filters-panel ky-card rpa-filters">
+      <div class="filters-toolbar">
+        <input
+          class="filter-ctl ky-input rpa-search"
+          type="search"
+          placeholder="Rechercher un titre, un auteur…"
+          [(ngModel)]="searchTerm"
+        />
+        <select class="filter-ctl ky-input" [(ngModel)]="filterStatus">
+          <option value="">Tous les statuts</option>
+          <option *ngFor="let s of filterStatuts" [value]="s">{{ getStatusLabel(s) }}</option>
+        </select>
+        <select class="filter-ctl ky-input" [(ngModel)]="filterPriorite">
+          <option value="">Toutes les priorités</option>
+          <option *ngFor="let p of priorities" [value]="p">{{ p }}</option>
+        </select>
+        <button type="button" class="ky-btn-secondary" (click)="clearFilters()">Réinitialiser</button>
       </div>
-      <div class="rp-detail-card">
-        <div class="rp-section-label">Répartition notes</div>
-        <div *ngFor="let e of getNoteEntries()" class="rpa-bar-group">
-          <div class="rpa-bar-label">
-            <span>{{ '★'.repeat(e.key) }}</span>
-            <span>{{ e.val }}</span>
+    </div>
+
+    <div class="rp-empty ky-card" *ngIf="!loading && unifiedList.length===0">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+      </svg>
+      <h3>Aucune demande</h3>
+      <p>Les réclamations et propositions à traiter apparaîtront ici.</p>
+    </div>
+
+    <div class="rp-list" *ngIf="!loading && unifiedList.length">
+      <article
+        class="rp-item ky-card"
+        *ngFor="let item of unifiedList"
+        role="button"
+        tabindex="0"
+        (click)="openItem(item)"
+        (keydown.enter)="openItem(item)">
+        <div class="rp-item-left">
+          <div class="rp-item-icon" [class.rp-icon-prop]="item._kind==='proposition'">
+            <span>{{ item._kind==='reclamation' ? 'R' : 'P' }}</span>
           </div>
-          <div class="rpa-bar-track"><div class="rpa-bar-fill rpa-bar-fill--amber" [style.width]="getBarWidth(e.val)"></div></div>
+          <div class="rp-item-body">
+            <div class="rp-item-title">{{ item.titre }}</div>
+            <div class="rp-item-meta">
+              <span class="rp-badge-type">{{ item._kind==='reclamation' ? 'Réclamation' : 'Proposition' }}</span>
+              <span *ngIf="item._kind==='reclamation' && $any(item).type">· {{ getTypeLabel($any(item).type) }}</span>
+              <span>· {{ item.auteurNom }}</span>
+              <span>· {{ item.createdAt | date:'dd/MM/yyyy' }}</span>
+              <span
+                class="rp-aging"
+                [class.rp-aging-warn]="daysOpen(item.createdAt) >= 3"
+                [class.rp-aging-breach]="daysOpen(item.createdAt) >= 7">
+                · {{ daysOpen(item.createdAt) }} j
+              </span>
+              <span *ngIf="item.assigneeNom">· Responsable : {{ item.assigneeNom }}</span>
+            </div>
+          </div>
         </div>
-      </div>
+        <div class="rp-item-right">
+          <span class="rp-prio" [ngClass]="getPriorityClass(item.priorite)">{{ item.priorite }}</span>
+          <span class="rp-status" [ngClass]="getStatusClass(item.status)">{{ getStatusLabel(item.status) }}</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </article>
     </div>
   </ng-container>
 
-  <!-- ════════════════════════════════════════════
-       VUE HISTORIQUE / AUDIT
-  ════════════════════════════════════════════ -->
-  <ng-container *ngIf="adminView==='historique'">
-    <div class="rp-list">
-      <div
-        class="rp-detail-card rpa-history-card"
+  <!-- ══ DEMANDES — détail + traitement ══ -->
+  <ng-container *ngIf="mode==='demandes' && detailOpen">
+    <div class="rp-detail-nav">
+      <button type="button" class="rp-back-btn" (click)="goBack()">← Retour aux demandes</button>
+      <span class="rp-badge-type">{{ detailKind==='reclamation' ? 'Réclamation' : 'Proposition' }}</span>
+    </div>
+
+    <div class="rpa-detail-split">
+      <div class="rpa-detail-main">
+        <div class="rp-detail-card ky-card" *ngIf="selectedRec">
+          <div class="rp-detail-header">
+            <h2>{{ selectedRec.titre }}</h2>
+            <div class="rp-detail-meta">
+              <span class="rp-badge-type">{{ getTypeLabel(selectedRec.type) }}</span>
+              <span class="rp-prio" [ngClass]="getPriorityClass(selectedRec.priorite)">{{ selectedRec.priorite }}</span>
+              <span class="rp-status" [ngClass]="getStatusClass(selectedRec.status)">{{ getStatusLabel(selectedRec.status) }}</span>
+              <span>Auteur : <strong>{{ selectedRec.auteurNom }}</strong></span>
+              <span>· {{ selectedRec.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+          </div>
+          <div class="rp-detail-section">
+            <div class="rp-section-label">Description</div>
+            <p class="rp-detail-text">{{ selectedRec.description }}</p>
+          </div>
+          <div class="rp-detail-section" *ngIf="selectedRec.media?.length">
+            <div class="rp-section-label">Pièces jointes</div>
+            <app-ky-media-gallery [media]="selectedRec.media!"></app-ky-media-gallery>
+          </div>
+          <div class="rp-detail-section" *ngIf="selectedRec.historique?.length">
+            <div class="rp-section-label">Historique</div>
+            <div class="rp-timeline">
+              <div class="rp-timeline-item" *ngFor="let h of selectedRec.historique">
+                <div class="rp-timeline-dot"></div>
+                <div class="rp-timeline-content">
+                  <div class="rp-timeline-action"><strong>{{ h.action }}</strong> : {{ h.valeur }}</div>
+                  <div class="rp-timeline-meta">{{ h.effectueParNom }} · {{ h.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rp-detail-card ky-card" *ngIf="selectedProp">
+          <div class="rp-detail-header">
+            <h2>{{ selectedProp.titre }}</h2>
+            <div class="rp-detail-meta">
+              <span class="rp-prio" [ngClass]="getPriorityClass(selectedProp.priorite)">{{ selectedProp.priorite }}</span>
+              <span class="rp-status" [ngClass]="getStatusClass(selectedProp.status)">{{ getStatusLabel(selectedProp.status) }}</span>
+              <span>Auteur : <strong>{{ selectedProp.auteurNom }}</strong></span>
+              <span>· {{ selectedProp.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+          </div>
+          <div class="rp-detail-section">
+            <div class="rp-section-label">Description</div>
+            <p class="rp-detail-text">{{ selectedProp.description }}</p>
+          </div>
+          <div class="rp-detail-section" *ngIf="selectedProp.beneficeAttendu">
+            <div class="rp-section-label">Bénéfice attendu</div>
+            <p class="rp-detail-text">{{ selectedProp.beneficeAttendu }}</p>
+          </div>
+          <div class="rp-detail-section" *ngIf="selectedProp.media?.length">
+            <div class="rp-section-label">Pièces jointes</div>
+            <app-ky-media-gallery [media]="selectedProp.media!"></app-ky-media-gallery>
+          </div>
+        </div>
+
+        <div class="rp-detail-card ky-card">
+          <div class="rp-section-label">Échanges</div>
+          <div class="rp-timeline" *ngIf="comments.length">
+            <div class="rp-timeline-item" *ngFor="let c of comments">
+              <div class="rp-timeline-dot"></div>
+              <div class="rp-timeline-content">
+                <div class="rp-timeline-action"><strong>{{ c.authorNom }}</strong> — {{ c.text }}</div>
+                <div class="rp-timeline-meta">{{ c.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
+                <app-ky-media-gallery *ngIf="c.media.length" [media]="c.media"></app-ky-media-gallery>
+              </div>
+            </div>
+          </div>
+          <p *ngIf="!comments.length" class="rp-detail-text">Aucun échange pour le moment.</p>
+        </div>
+      </div>
+
+      <aside class="rpa-treat-panel ky-card">
+        <h3>Traitement</h3>
+        <p class="rpa-treat-sub">Mettez à jour le statut, la priorité et le responsable, puis répondez à l’auteur.</p>
+
+        <div class="rp-form-group">
+          <label for="treat-status">Statut</label>
+          <select id="treat-status" class="rp-select" [(ngModel)]="treatForm.status">
+            <option *ngFor="let s of treatStatuts" [value]="s">{{ getStatusLabel(s) }}</option>
+          </select>
+        </div>
+        <div class="rp-form-group">
+          <label for="treat-prio">Priorité</label>
+          <select id="treat-prio" class="rp-select" [(ngModel)]="treatForm.priorite">
+            <option *ngFor="let p of priorities" [value]="p">{{ p }}</option>
+          </select>
+        </div>
+        <div class="rp-form-group">
+          <label for="treat-assignee">Responsable</label>
+          <input id="treat-assignee" class="rp-input" type="text" [(ngModel)]="treatForm.assigneeNom" placeholder="Nom de la personne assignée" />
+        </div>
+        <div class="rp-form-group">
+          <label for="treat-comment">Réponse à l’auteur</label>
+          <textarea id="treat-comment" class="rp-textarea" rows="4" [(ngModel)]="treatForm.commentaire" placeholder="Message visible par l’auteur…"></textarea>
+        </div>
+        <app-ky-media-uploader [(items)]="commentMedia" hint="Pièces jointes de la réponse (optionnel)"></app-ky-media-uploader>
+        <button type="button" class="ky-btn-primary rpa-treat-submit" (click)="submitTreatment()" [disabled]="submitting">
+          {{ submitting ? 'Enregistrement…' : 'Enregistrer le traitement' }}
+        </button>
+      </aside>
+    </div>
+  </ng-container>
+
+  <!-- ══ STATISTIQUES ══ -->
+  <ng-container *ngIf="mode==='stats'">
+    <div class="filters-panel ky-card rpa-filters">
+      <div class="filters-toolbar">
+        <select class="filter-ctl ky-input" [(ngModel)]="reportKind" (change)="loadReport()">
+          <option value="reclamations">Réclamations</option>
+          <option value="propositions">Propositions</option>
+        </select>
+        <input type="date" class="filter-ctl ky-input" [(ngModel)]="reportFrom" aria-label="Date de début" />
+        <input type="date" class="filter-ctl ky-input" [(ngModel)]="reportTo" aria-label="Date de fin" />
+        <button type="button" class="ky-btn-primary" (click)="loadReport()">Actualiser</button>
+      </div>
+    </div>
+
+    <div class="rp-empty ky-card" *ngIf="!loading && !report">
+      <h3>Aucune statistique</h3>
+      <p>Choisissez une période puis actualisez.</p>
+    </div>
+
+    <ng-container *ngIf="report">
+      <div class="kpi-row">
+        <div class="kpi-card ky-card kc-blue">
+          <span class="kpi-label">Total demandes</span>
+          <span class="kpi-value">{{ report.totalDemandes }}</span>
+        </div>
+        <div class="kpi-card ky-card kc-green">
+          <span class="kpi-label">Avec évaluation</span>
+          <span class="kpi-value">{{ report.totalAvecNote }}</span>
+        </div>
+        <div class="kpi-card ky-card kc-amber">
+          <span class="kpi-label">Note moyenne /5</span>
+          <span class="kpi-value">{{ report.moyenneNote | number:'1.1-1' }}</span>
+        </div>
+      </div>
+
+      <div class="rpa-report-grid">
+        <div class="rp-detail-card ky-card">
+          <div class="rp-section-label">Par statut</div>
+          <div *ngIf="!getStatutEntries().length" class="rp-detail-text">Pas encore de données.</div>
+          <div *ngFor="let e of getStatutEntries()" class="rpa-bar-group">
+            <div class="rpa-bar-label"><span>{{ getStatusLabel(e.key) }}</span><span>{{ e.val }}</span></div>
+            <div class="rpa-bar-track"><div class="rpa-bar-fill" [style.width]="getBarWidth(e.val)"></div></div>
+          </div>
+        </div>
+        <div class="rp-detail-card ky-card">
+          <div class="rp-section-label">Répartition des notes</div>
+          <div *ngIf="!getNoteEntries().length" class="rp-detail-text">Pas encore d’évaluations.</div>
+          <div *ngFor="let e of getNoteEntries()" class="rpa-bar-group">
+            <div class="rpa-bar-label">
+              <span>{{ '★'.repeat(e.key) }}</span>
+              <span>{{ e.val }}</span>
+            </div>
+            <div class="rpa-bar-track"><div class="rpa-bar-fill rpa-bar-fill--amber" [style.width]="getBarWidth(e.val)"></div></div>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </ng-container>
+
+  <!-- ══ HISTORIQUE ══ -->
+  <ng-container *ngIf="mode==='historique'">
+    <div class="rp-empty ky-card" *ngIf="!loading && historique.length===0">
+      <h3>Aucun historique</h3>
+      <p>Les demandes déjà traitées et leurs actions apparaîtront ici.</p>
+    </div>
+
+    <div class="rp-list" *ngIf="!loading && historique.length">
+      <article
+        class="rp-detail-card ky-card rpa-history-card"
         *ngFor="let item of historique"
         role="button"
         tabindex="0"
-        (click)="openDetail(item.id)"
-        (keydown.enter)="openDetail(item.id)"
-      >
+        (click)="openDetail(item.id, item._kind)"
+        (keydown.enter)="openDetail(item.id, item._kind)">
         <div class="rp-detail-header">
           <div class="rpa-history-title-row">
             <strong class="rpa-history-title">{{ item.titre }}</strong>
-            <span class="rp-status" [ngClass]="getStatusClass(item.status)">{{ item.status }}</span>
+            <span class="rp-badge-type">{{ item._kind==='reclamation' ? 'Réclamation' : 'Proposition' }}</span>
+            <span class="rp-status" [ngClass]="getStatusClass(item.status)">{{ getStatusLabel(item.status) }}</span>
           </div>
           <div class="rp-detail-meta">
             <span>{{ item.auteurNom }}</span>
@@ -353,7 +330,7 @@
             + {{ (item.historique?.length ?? 0) - 3 }} action(s) supplémentaire(s)
           </div>
         </div>
-      </div>
+      </article>
     </div>
   </ng-container>
 

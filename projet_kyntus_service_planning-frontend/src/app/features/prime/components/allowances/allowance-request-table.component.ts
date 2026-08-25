@@ -73,8 +73,8 @@ function defaultDepartmentLabel(_id: string): string {
                   <div class="allowance-empty__icon" aria-hidden="true">
                     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
                   </div>
-                  <p class="allowance-empty__title">Aucune demande</p>
-                  <p class="allowance-empty__text">Créez une prime pour un membre de votre équipe N-1.</p>
+                  <p class="allowance-empty__title">{{ emptyTitle() }}</p>
+                  <p class="allowance-empty__text">{{ emptyText() }}</p>
                   @if (showEmptyCreateAction()) {
                     <button type="button" class="allowance-btn allowance-btn--primary" (click)="createRequest.emit()">
                       + Créer une demande
@@ -146,7 +146,7 @@ function defaultDepartmentLabel(_id: string): string {
     .allowance-link--success { color: var(--success); }
     .allowance-link--success:hover { background: color-mix(in srgb, var(--success) 12%, transparent); }
     .allowance-empty {
-      padding: 3rem 1.5rem;
+      padding: 2.25rem 1.5rem;
       text-align: center;
     }
     .allowance-empty__icon {
@@ -192,6 +192,8 @@ export class AllowanceRequestTableComponent {
   readonly showDepartment = input(false);
   readonly showDraftActions = input(false);
   readonly showEmptyCreateAction = input(false);
+  readonly emptyTitle = input('Aucune demande');
+  readonly emptyText = input('Créez une prime pour un membre de votre équipe N-1.');
   readonly compact = input(false);
   readonly statusViewer = input<'manager' | 'stakeholder'>('stakeholder');
   readonly submitDraft = output<string>();

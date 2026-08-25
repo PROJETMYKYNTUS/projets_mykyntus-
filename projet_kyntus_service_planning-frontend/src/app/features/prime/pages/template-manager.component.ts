@@ -11,10 +11,11 @@ import {
 } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
 import { PrimeCardComponent } from '../components/prime-card.component';
+import { PrimeTemplatePreviewComponent } from '../components/prime-template-preview.component';
 import { parsePrimeTemplateExcel } from '../lib/excel-fiche-template.parser';
 import { parsePrimeFicheGrid } from '../lib/prime-fiche-grid.parser';
 import type { ParsedPrimeTemplate, StoredPrimeTemplate } from '../models/prime-template.model';
-import { loadStoredTemplates, persistTemplates } from '../models/prime-template.model';
+import { loadStoredTemplates, persistTemplates, toPreviewStoredTemplate } from '../models/prime-template.model';
 import type { PrimeFicheGridImportResult, PrimeFicheTemplateSchema } from '../models/prime-fiche-template.schema';
 import { PrimeFicheTemplateActiveService } from '../services/prime-fiche-template-active.service';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
@@ -22,7 +23,7 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
 @Component({
   selector: 'app-template-manager',
   standalone: true,
-  imports: [LucideIconComponent, PrimeCardComponent],
+  imports: [LucideIconComponent, PrimeCardComponent, PrimeTemplatePreviewComponent],
   template: `
     <div class="p-6 sm:p-8 space-y-6 max-w-6xl mx-auto pb-16">
       <div class="flex flex-wrap items-start justify-between gap-4">
@@ -220,23 +221,11 @@ import { PrimeNavRequestService } from '../services/prime-nav-request.service';
         <app-prime-card
           className="mt-6"
           [title]="'Aperçu — ' + p.previewSheetName"
-          description="Extrait de la première feuille (valeurs et références de formules courtes)"
+          description="Aperçu feuille Excel (mêmes rendu et recalcul que partout dans Prime)"
         >
-          <div class="overflow-x-auto rounded-lg border border-default">
-            <table class="w-full border-collapse text-xs">
-              <tbody>
-                @for (row of p.previewRows; track $index) {
-                  <tr class="border-b border-default/80 hover:bg-input/20">
-                    @for (cell of row.cells; track $index) {
-                      <td class="max-w-[10rem] truncate border-r border-default/50 px-2 py-1.5 text-primary whitespace-nowrap">
-                        {{ cell || '·' }}
-                      </td>
-                    }
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+          @if (previewTemplate(); as tpl) {
+            <app-prime-template-preview [tpl]="tpl" />
+          }
         </app-prime-card>
 
         <app-prime-card
@@ -391,6 +380,23 @@ export class TemplateManagerComponent {
   /** Affiche le bouton « Ouvrir la fiche PRIME » après activation / sauvegarde avec grille. */
   readonly saisieCtaVisible = signal(false);
   readonly stored = signal<StoredPrimeTemplate[]>(loadStoredTemplates());
+
+  /** Même rendu Excel que les autres aperçus fiches Prime. */
+  readonly previewTemplate = computed(() => {
+    const p = this.parsed();
+    if (!p) return null;
+    return toPreviewStoredTemplate(
+      {
+        fileName: p.fileName,
+        previewRows: p.previewRows,
+        previewSheetName: p.previewSheetName,
+        formulas: p.formulas,
+        calcSheets: p.calcSheets,
+        calcSheetOrigins: p.calcSheetOrigins,
+      },
+      p.fileName || 'Aperçu template',
+    );
+  });
 
   readonly formulasPreview = computed(() => {
     const p = this.parsed();

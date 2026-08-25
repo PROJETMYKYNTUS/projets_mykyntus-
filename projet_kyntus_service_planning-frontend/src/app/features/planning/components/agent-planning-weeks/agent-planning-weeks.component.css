@@ -8,23 +8,23 @@
 .apw-empty {
   padding: 2rem 1rem;
   text-align: center;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 
 .apw-card {
-  background: var(--bg-card, #fff);
-  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 0.875rem;
   padding: 1rem 1.15rem;
   margin-bottom: 0.85rem;
-  box-shadow: 0 1px 2px rgb(2 6 23 / 0.06);
+  box-shadow: var(--shadow-1, 0 1px 2px rgb(2 6 23 / 0.06));
 }
 
 .apw-card-head h3 {
   margin: 0.35rem 0 0.15rem;
   font-size: 1.05rem;
-  color: var(--text-primary, #0f172a);
+  color: var(--text-primary);
 }
 
 .apw-card-head-row {
@@ -38,7 +38,7 @@
 .apw-sub {
   margin: 0;
   font-size: 0.82rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .apw-badge {
@@ -47,25 +47,25 @@
   font-weight: 600;
   padding: 0.15rem 0.65rem;
   border-radius: 999px;
-  background: #e0f2fe;
-  color: #0369a1;
+  background: var(--info-bg);
+  color: var(--info-text);
 }
 
 .apw-badge-current {
-  background: #dcfce7;
-  color: #15803d;
+  background: var(--success-bg);
+  color: var(--success-text);
 }
 
 .apw-badge-upcoming {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: var(--info-bg);
+  color: var(--info-text);
 }
 
 .apw-section-title {
   margin: 0.75rem 0 0.55rem;
   font-size: 0.95rem;
   font-weight: 700;
-  color: var(--text-primary, #0f172a);
+  color: var(--text-primary);
 }
 
 .apw-week-grid {
@@ -87,16 +87,16 @@
   gap: 0.15rem;
   padding: 0.65rem 0.75rem;
   border-radius: 0.5rem;
-  border: 1px solid var(--border-color, #e2e8f0);
-  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
   position: relative;
   min-height: 4.5rem;
 }
 
 .apw-day-exceptional {
-  border-color: #dc2626;
-  box-shadow: inset 0 0 0 1px #dc2626;
-  background: color-mix(in srgb, #dc2626 7%, #f8fafc);
+  border-color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger);
+  background: color-mix(in srgb, var(--danger) 7%, var(--bg-input));
 }
 
 .apw-de-tag {
@@ -105,7 +105,7 @@
   right: 6px;
   padding: 1px 5px;
   border-radius: 4px;
-  background: #dc2626;
+  background: var(--danger);
   color: #fff;
   font-size: 0.58rem;
   font-weight: 800;
@@ -117,8 +117,8 @@
   align-self: flex-start;
   padding: 1px 6px;
   border-radius: 4px;
-  background: color-mix(in srgb, #0f766e 14%, #fff);
-  color: #0f766e;
+  background: color-mix(in srgb, var(--success) 14%, var(--bg-card));
+  color: var(--success-text);
   font-size: 0.62rem;
   font-weight: 700;
   max-width: 100%;
@@ -130,38 +130,38 @@
 .apw-day-name {
   font-weight: 600;
   font-size: 0.8rem;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .apw-day-shift {
   font-size: 0.92rem;
   font-weight: 700;
   margin-top: 0.2rem;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .apw-day-hours {
   font-size: 0.76rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .cell-work {
-  border-left: 3px solid #2563eb;
+  border-left: 3px solid var(--info);
 }
 
 .cell-saturday {
-  border-left: 3px solid #d97706;
-  background: #fffbeb;
+  border-left: 3px solid var(--warning);
+  background: var(--warning-bg);
 }
 
 .cell-leave {
-  border-left: 3px solid #16a34a;
-  background: #f0fdf4;
+  border-left: 3px solid var(--success);
+  background: var(--success-bg);
 }
 
 .cell-holiday {
-  border-left: 3px solid #dc2626;
-  background: #fef2f2;
+  border-left: 3px solid var(--danger);
+  background: var(--danger-bg);
 }
 
 .apw-history-item summary {

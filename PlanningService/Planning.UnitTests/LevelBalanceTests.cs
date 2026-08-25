@@ -299,6 +299,81 @@ public class LevelBalanceTests
     }
 
     [Fact]
+    public void Repair_does_not_empty_a_required_opening_seat()
+    {
+        var monday = new DateOnly(2026, 7, 20);
+        var cfgOpen = new SubServiceShiftConfig
+        {
+            Id = 1, Label = "8h", StartTime = new TimeOnly(8, 0), ShiftKind = ShiftKind.Opening,
+            DisplayOrder = 1, RequiredCount = 1
+        };
+        var cfgStd = new SubServiceShiftConfig
+        {
+            Id = 2, Label = "9h", StartTime = new TimeOnly(9, 0), ShiftKind = ShiftKind.Standard,
+            DisplayOrder = 2, RequiredCount = 1
+        };
+        var users = new Dictionary<int, User>
+        {
+            [1] = MakeUser(1, "b@t.ma", 1),
+            [2] = MakeUser(2, "c@t.ma", 2),
+        };
+        var planning = new WeeklyPlanning { Id = 10, WeekStartDate = monday, SubServiceId = 1 };
+        var assignments = new List<ShiftAssignment>
+        {
+            new()
+            {
+                WeeklyPlanningId = 10, UserId = 1, AssignedDate = monday,
+                SubServiceShiftConfigId = 1, IsOnLeave = false, IsHoliday = false
+            },
+            new()
+            {
+                WeeklyPlanningId = 10, UserId = 2, AssignedDate = monday,
+                SubServiceShiftConfigId = 2, IsOnLeave = false, IsHoliday = false
+            },
+        };
+
+        LevelBalanceRepairer.Repair(
+            assignments, [cfgOpen, cfgStd], users, users.Values.ToList(), planning);
+
+        Assert.Equal(1, assignments.Count(a => a.SubServiceShiftConfigId == 1));
+        Assert.Equal(1, assignments.Count(a => a.SubServiceShiftConfigId == 2));
+    }
+
+    [Fact]
+    public void RebalanceWeek_moves_surplus_to_open_required_seat()
+    {
+        var monday = new DateOnly(2026, 8, 24);
+        var s1 = new SubServiceShiftConfig
+        {
+            Id = 10, Label = "S1", StartTime = new TimeOnly(8, 0), RequiredCount = 1, DisplayOrder = 1
+        };
+        var s2 = new SubServiceShiftConfig
+        {
+            Id = 11, Label = "S2", StartTime = new TimeOnly(9, 0), RequiredCount = 1, DisplayOrder = 2
+        };
+        var s3 = new SubServiceShiftConfig
+        {
+            Id = 12, Label = "S3", StartTime = new TimeOnly(10, 0), RequiredCount = 0, DisplayOrder = 3
+        };
+        var users = new Dictionary<int, User>
+        {
+            [7] = MakeUser(7, "aya@t.ma", 2),
+            [8] = MakeUser(8, "chay@t.ma", 2),
+        };
+        var assignments = new List<ShiftAssignment>
+        {
+            new() { UserId = 7, AssignedDate = monday, SubServiceShiftConfigId = 11, IsOnLeave = false, IsHoliday = false },
+            new() { UserId = 8, AssignedDate = monday, SubServiceShiftConfigId = 11, IsOnLeave = false, IsHoliday = false },
+        };
+
+        WeekShiftPatternAssigner.RebalanceWeekAssignments(assignments, [s1, s2, s3], users);
+
+        Assert.Equal(1, assignments.Count(a => a.SubServiceShiftConfigId == 10));
+        Assert.Equal(1, assignments.Count(a => a.SubServiceShiftConfigId == 11));
+        Assert.Equal(0, assignments.Count(a => a.SubServiceShiftConfigId == 12));
+    }
+
+    [Fact]
     public void Repair_prefers_standard_donor_when_swapping_to_fix_opening()
     {
         var monday = new DateOnly(2026, 7, 20);
@@ -494,16 +569,18 @@ public class LevelBalanceTests
         });
 
         Assert.NotNull(result);
-        // Sans senior : LevelBalance déplace le débutant Opening/Closing → Standard (milieu).
-        // Pas de skip / sous-remplissage.
-        var weekdayAnomalies = (result.CoverageReport?.LevelBalanceAnomalies ?? [])
-            .Where(a => !string.Equals(a.Day, "Saturday", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        Assert.DoesNotContain(weekdayAnomalies, a =>
-            a.Message.Contains("ouverture", StringComparison.OrdinalIgnoreCase)
-            || a.Message.Contains("fermeture", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(weekdayAnomalies, a =>
-            a.Message.Contains("plateau", StringComparison.OrdinalIgnoreCase));
+        var snapshot = await db.SubServiceShiftConfigs
+            .Where(c => c.SubServiceId == 1 && !c.IsTemplate && c.WeekCode == "2026-W30")
+            .OrderBy(c => c.DisplayOrder)
+            .ToListAsync();
+        var openingId = snapshot[0].Id;
+        var weekdays = await db.ShiftAssignments
+            .Where(a => a.WeeklyPlanningId == planning.Id && !a.IsSaturday && !a.IsOnLeave && !a.IsHoliday)
+            .ToListAsync();
+        foreach (var date in weekdays.Select(a => a.AssignedDate).Distinct())
+        {
+            Assert.Equal(1, weekdays.Count(a => a.AssignedDate == date && a.SubServiceShiftConfigId == openingId));
+        }
     }
 
     [Fact]
@@ -544,11 +621,22 @@ public class LevelBalanceTests
         });
 
         Assert.NotNull(result);
-        // Lun–Ven : le repairer doit coller Confirmé + débutant. Le samedi peut rester en anomalie
-        // si le Confirmé est Off (alternance ON/OFF jamais forcée).
-        Assert.DoesNotContain(
-            result.CoverageReport!.LevelBalanceAnomalies,
-            a => !string.Equals(a.Day, "Saturday", StringComparison.OrdinalIgnoreCase));
+        var snapshot = await db.SubServiceShiftConfigs
+            .Where(c => c.SubServiceId == 1 && !c.IsTemplate && c.WeekCode == "2026-W30")
+            .OrderBy(c => c.DisplayOrder)
+            .ToListAsync();
+        var weekdays = await db.ShiftAssignments
+            .Where(a => a.WeeklyPlanningId == planning.Id && !a.IsSaturday && !a.IsOnLeave && !a.IsHoliday)
+            .ToListAsync();
+        foreach (var date in weekdays.Select(a => a.AssignedDate).Distinct())
+        {
+            foreach (var cfg in snapshot)
+            {
+                var assigned = weekdays.Count(a =>
+                    a.AssignedDate == date && a.SubServiceShiftConfigId == cfg.Id);
+                Assert.Equal(cfg.RequiredCount, assigned);
+            }
+        }
         Assert.NotNull(result.CoverageReport.DaySynthesis);
         Assert.True(result.CoverageReport.DaySynthesis.Count >= 6);
         Assert.Contains(result.CoverageReport.DaySynthesis[0].Shifts, s => s.BeginnerCount + s.SeniorCount > 0);

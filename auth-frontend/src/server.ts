@@ -32,6 +32,14 @@ app.use(
   }),
 );
 
+// URLs publiques (profil local/deploy) : jamais en cache navigateur
+app.get('/kyntus-public-urls.js', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.sendFile(join(browserDistFolder, 'kyntus-public-urls.js'));
+});
+
 // Serve static files
 app.use(
   express.static(browserDistFolder, {

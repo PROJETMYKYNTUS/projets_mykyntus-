@@ -20,5 +20,9 @@ public interface ISupervisorCellulePrimeDraftAppService
         UpsertSupervisorCellulePrimeDraftRequest body,
         CancellationToken ct = default);
 
+    Task<CelluleDraftRolloverResultDto> RolloverAsync(
+        RolloverCellulePrimeDraftRequest body,
+        CancellationToken ct = default);
+
     Task DeleteAsync(Guid id, string supervisorUserId, CancellationToken ct = default);
 }

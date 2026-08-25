@@ -201,15 +201,37 @@
     </div>
 
     <!-- ══════════════ KPI SHIFTS ══════════════ -->
-    <div class="kpi-bar">
-      <div class="kpi-card" *ngFor="let cfg of planning.shiftConfigs; let i = index">
+    <div class="kpi-bar" [class.kpi-bar-multimode]="hasModeAssignments">
+      <div class="kpi-card"
+           *ngFor="let card of shiftKpiCards"
+           [class.kpi-card-expandable]="card.expandable"
+           [class.kpi-card-expanded]="expandedShiftKpiLabel === card.shiftLabel"
+           (click)="toggleShiftKpiDetail(card.shiftLabel, card.expandable)"
+           [attr.title]="card.expandable ? 'Voir l’effectif par mode' : null"
+           [attr.role]="card.expandable ? 'button' : null"
+           [attr.tabindex]="card.expandable ? 0 : null"
+           (keydown.enter)="toggleShiftKpiDetail(card.shiftLabel, card.expandable)"
+           (keydown.space)="$event.preventDefault(); toggleShiftKpiDetail(card.shiftLabel, card.expandable)">
         <div class="kpi-label-row">
-          <span class="kpi-shift-tag" [ngClass]="getShiftColor(cfg.shiftLabel)">{{ cfg.shiftLabel }}</span>
-          <span class="kpi-pct">{{ cfg.percentage }}%</span>
+          <span class="kpi-shift-tag" [ngClass]="getShiftColor(card.shiftLabel)">{{ card.shiftLabel }}</span>
+          <span class="kpi-pct">{{ card.percentage }}%</span>
         </div>
-        <div class="kpi-val">{{ cfg.requiredCount }}</div>
-        <div class="kpi-desc">employés / jour</div>
-        <div class="kpi-bar-fill" [style.width.%]="cfg.percentage" [ngClass]="getShiftColor(cfg.shiftLabel)"></div>
+        <div class="kpi-val">{{ card.requiredCount }}</div>
+        <div class="kpi-desc">
+          employés / jour
+          <span class="kpi-modes-hint" *ngIf="card.expandable">
+            {{ expandedShiftKpiLabel === card.shiftLabel ? '· masquer modes' : '· détail modes' }}
+          </span>
+        </div>
+        <div class="kpi-mode-breakdown" *ngIf="card.expandable && expandedShiftKpiLabel === card.shiftLabel" (click)="$event.stopPropagation()">
+          <div class="kpi-mode-row" *ngFor="let m of card.modes">
+            <span class="kpi-mode-name" [title]="m.modeTitle">{{ m.modeTitle }}</span>
+            <span class="kpi-mode-meta" *ngIf="m.startTime">{{ m.startTime }}</span>
+            <span class="kpi-mode-count">{{ m.requiredCount }}</span>
+            <span class="kpi-mode-pct">{{ m.percentage }}%</span>
+          </div>
+        </div>
+        <div class="kpi-bar-fill" [style.width.%]="card.percentage" [ngClass]="getShiftColor(card.shiftLabel)"></div>
       </div>
 
       <div class="kpi-card kpi-total">
@@ -270,7 +292,7 @@
 
       <!-- Table -->
       <div class="grid-scroll">
-        <table class="pgrid">
+        <table class="pgrid" [class.pgrid-multimode]="hasModeAssignments">
           <thead>
             <tr>
               <th class="th-emp">
@@ -327,8 +349,10 @@
                   [ngClass]="modeRowClass(row.modeIndex)"
                   [attr.data-mode-index]="row.modeIndex">
                 <td [attr.colspan]="days.length + 1" class="td-mode-group">
-                  <span class="mode-group-label">{{ row.modeTitle }}</span>
-                  <span class="mode-group-count">{{ row.count }} employé(s)</span>
+                  <div class="mode-group-banner" [attr.data-mode-index]="row.modeIndex">
+                    <span class="mode-group-label">{{ row.modeTitle }}</span>
+                    <span class="mode-group-count">{{ row.count }} employé(s)</span>
+                  </div>
                 </td>
               </tr>
 
@@ -445,8 +469,7 @@
                          [class.shift-pill-exceptional]="a.isExceptionalRequest"
                          (click)="canEdit ? (day === 'Saturday' ? openSaturdayOverride(row.emp, $event) : openOverride(row.emp, day, $event)) : null">
                       <span class="sp-time">{{ a.startTime }}</span>
-  <span class="sp-label">{{ getShiftNumber(a.shiftLabel) }}</span>
-                      <span class="sp-mode" *ngIf="a.shiftModeTitle" [title]="a.shiftModeTitle">{{ a.shiftModeTitle }}</span>
+                      <span class="sp-label">{{ getShiftNumber(a.shiftLabel) }}</span>
                       <span class="sp-mode-switch" *ngIf="a.isModeOverride" title="Override de mode">Switch</span>
                       <span class="sp-de" *ngIf="a.isExceptionalRequest" title="Demande exceptionnelle appliquée">DE</span>
                       <span class="sp-ren" *ngIf="a.isReinforcement && !a.isExceptionalRequest" title="Renfort samedi">REN</span>

@@ -34,14 +34,13 @@ import { FormationCatalogOutlineComponent, modulesToDraft } from './formation-ca
 import { FormationResourceViewerComponent } from './formation-resource-viewer.component';
 import { BodyPortalDirective } from '../../../shared/directives/body-portal.directive';
 import type { DraftModule } from './formation-catalog-draft.types';
-import { partSortOrder, groupResourcesByPart, newClientKey } from '../../../core/lib/formation-parts.util';
+import { groupResourcesByPart } from '../../../core/lib/formation-parts.util';
 import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
-import type {
-  ReplaceCatalogStructureRequest,
-  StructureLessonRequest,
-  StructureModuleRequest,
-  StructureResourceRequest,
-} from '../../../core/models/formation-training.models';
+import {
+  buildCatalogStructureRequest,
+  countDraftLessons,
+  uploadCatalogPendingFiles,
+} from './formation-catalog-structure.util';
 
 type MainTab = 'contents' | 'templates' | 'stats';
 type WizardStep = 1 | 2 | 3;
@@ -206,31 +205,6 @@ export class FormationCatalogAdminComponent implements OnInit {
     }
   }
 
-  openCreate(): void {
-    this.selected.set(null);
-    this.draft = {
-      title: '',
-      description: '',
-      category: '',
-      defaultGateMode: 'Content',
-      selfServiceEnabled: true,
-      dueMode: 'None',
-      dueDate: '',
-      dueInDays: null,
-      defaultQuizTemplateId: '',
-    };
-    this.selectedRoles = [];
-    this.selectedStructureKeys = [];
-    this.selectedUserIds = [];
-    this.draftModules = [];
-    this.outlineSeed = null;
-    this.structureDirty.set(false);
-    this.wizardStep.set(1);
-    this.contentEditing.set(true);
-    this.tab.set('contents');
-    void this.ensurePublishedTemplatesLoaded();
-  }
-
   async openEdit(id: string, preferStep?: WizardStep): Promise<void> {
     this.busy.set(true);
     try {
@@ -279,7 +253,7 @@ export class FormationCatalogAdminComponent implements OnInit {
   }
 
   lessonCount(): number {
-    return this.draftModules.reduce((n, m) => n + m.lessons.length, 0);
+    return countDraftLessons(this.draftModules);
   }
 
   async backToContentsList(): Promise<void> {
@@ -330,11 +304,11 @@ export class FormationCatalogAdminComponent implements OnInit {
       };
 
       let saved: TrainingCatalogItemDto;
-      if (this.selected()?.id) {
-        saved = await this.api.updateCatalogItem(this.selected()!.id, body);
-      } else {
-        saved = await this.api.createCatalogItem(body);
+      if (!this.selected()?.id) {
+        this.error.set('La création de contenu se fait depuis Planifier une formation continue.');
+        return;
       }
+      saved = await this.api.updateCatalogItem(this.selected()!.id, body);
 
       await this.api.upsertCatalogAudience(saved.id, {
         matchMode: 0,
@@ -343,9 +317,11 @@ export class FormationCatalogAdminComponent implements OnInit {
         userIds: [...this.selectedUserIds],
       });
 
-      const structureBody = this.buildStructureRequest(this.draftModules);
+      const structureBody = buildCatalogStructureRequest(this.draftModules);
       const structureResult = await this.api.replaceCatalogStructure(saved.id, structureBody);
-      await this.uploadPendingFiles(structureResult);
+      await uploadCatalogPendingFiles(this.draftModules, structureResult, (lessonId, file, title, type, sortOrder) =>
+        this.api.uploadCatalogResource(lessonId, file, title, type, sortOrder),
+      );
 
       this.message.set('Formation catalogue enregistrée.');
       this.structureDirty.set(false);
@@ -355,132 +331,6 @@ export class FormationCatalogAdminComponent implements OnInit {
       this.error.set(e instanceof Error ? e.message : 'Enregistrement impossible');
     } finally {
       this.busy.set(false);
-    }
-  }
-
-  private resourceTypeNum(type: string): number {
-    if (type === 'Video') return 1;
-    if (type === 'Link') return 2;
-    if (type === 'Text') return 3;
-    if (type === 'Image') return 4;
-    return 0;
-  }
-
-  private buildStructureRequest(modules: DraftModule[]): ReplaceCatalogStructureRequest {
-    const mods: StructureModuleRequest[] = modules.map((m, mi) => {
-      const lessons: StructureLessonRequest[] = m.lessons.map((l, li) => {
-        const resources: StructureResourceRequest[] = [];
-        l.parts.forEach((part, pi) => {
-          const title = part.title.trim() || `Partie ${pi + 1}`;
-          if (part.title.trim() || part.textContent.trim()) {
-            resources.push({
-              clientKey: part.textResourceId ? `txt_${part.textResourceId}` : newClientKey('txt'),
-              id: part.textResourceId || null,
-              type: this.resourceTypeNum('Text'),
-              title,
-              textContent: part.textContent || null,
-              sortOrder: partSortOrder(pi, 'Text'),
-            });
-          }
-          for (const f of part.existingFiles) {
-            resources.push({
-              clientKey: `ex_${f.id}`,
-              id: f.id,
-              type: this.resourceTypeNum(f.type),
-              title: f.title || title,
-              url: f.url,
-              sortOrder: partSortOrder(pi, f.type),
-            });
-          }
-          if (part.videoUrl.trim() && !part.videoFile) {
-            resources.push({
-              clientKey: part.existingVideoId ? `vid_${part.existingVideoId}` : newClientKey('vidurl'),
-              id: part.existingVideoId || null,
-              type: this.resourceTypeNum('Video'),
-              title: `${title} — Vidéo`,
-              url: part.videoUrl.trim(),
-              sortOrder: partSortOrder(pi, 'Video'),
-            });
-          }
-          if (part.linkUrl.trim()) {
-            resources.push({
-              clientKey: part.existingLinkId ? `lnk_${part.existingLinkId}` : newClientKey('lnk'),
-              id: part.existingLinkId || null,
-              type: this.resourceTypeNum('Link'),
-              title: `${title} — Lien`,
-              url: part.linkUrl.trim(),
-              sortOrder: partSortOrder(pi, 'Link'),
-            });
-          }
-        });
-        return {
-          clientKey: l.clientKey,
-          id: l.id || null,
-          title: l.title.trim() || 'Nouvelle leçon',
-          description: l.description ?? '',
-          sortOrder: li,
-          isRequired: l.isRequired,
-          resources,
-        };
-      });
-      return {
-        clientKey: m.clientKey,
-        id: m.id || null,
-        title: m.title.trim() || 'Nouveau module',
-        description: m.description ?? '',
-        sortOrder: mi,
-        lessons,
-      };
-    });
-    return { modules: mods };
-  }
-
-  private async uploadPendingFiles(
-    structure: Awaited<ReturnType<FormationTrainingService['replaceCatalogStructure']>>,
-  ): Promise<void> {
-    const lessonIdByKey = new Map<string, string>();
-    for (const mod of structure.modules) {
-      for (const les of mod.lessons) {
-        lessonIdByKey.set(les.clientKey, les.id);
-      }
-    }
-
-    for (const m of this.draftModules) {
-      for (const l of m.lessons) {
-        const lessonId = lessonIdByKey.get(l.clientKey);
-        if (!lessonId) continue;
-        for (let pi = 0; pi < l.parts.length; pi++) {
-          const part = l.parts[pi];
-          const title = part.title.trim() || `Partie ${pi + 1}`;
-          if (part.pdfFile) {
-            await this.api.uploadCatalogResource(
-              lessonId,
-              part.pdfFile,
-              `${title} — PDF`,
-              'Pdf',
-              partSortOrder(pi, 'Pdf'),
-            );
-          }
-          if (part.videoFile) {
-            await this.api.uploadCatalogResource(
-              lessonId,
-              part.videoFile,
-              `${title} — Vidéo`,
-              'Video',
-              partSortOrder(pi, 'Video'),
-            );
-          }
-          if (part.imageFile) {
-            await this.api.uploadCatalogResource(
-              lessonId,
-              part.imageFile,
-              `${title} — Image`,
-              'Image',
-              partSortOrder(pi, 'Image'),
-            );
-          }
-        }
-      }
     }
   }
 
@@ -780,7 +630,7 @@ export class FormationCatalogAdminComponent implements OnInit {
     if (!stash) {
       this.templateEditing.set(false);
       this.tab.set('contents');
-      this.contentEditing.set(true);
+      this.contentEditing.set(false);
       return;
     }
 
@@ -802,6 +652,15 @@ export class FormationCatalogAdminComponent implements OnInit {
         }
       } else {
         this.selected.set(null);
+      }
+
+      // Sans contenu existant : pas de formulaire de création ici.
+      if (!this.selected()) {
+        this.contentEditing.set(false);
+        this.tab.set('contents');
+        this.clearContentDraftStash();
+        this.error.set('La création de contenu se fait depuis Planifier une formation continue.');
+        return;
       }
 
       this.templateEditing.set(false);

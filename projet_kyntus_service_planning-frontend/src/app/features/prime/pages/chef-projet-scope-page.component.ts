@@ -10,6 +10,7 @@ import {
 import { PrimeOrgApiService, type OrgAssignmentsOverview } from '../services/prime-org-api.service';
 import { PrimeService } from '../services/prime.service';
 import { RoleService } from '../state/role.service';
+import { PrimeScopeStore } from '../state/prime-scope.store';
 import type { OperationalDepartmentNode, OrgPoleNode } from '../models/org-tree.types';
 
 interface ScopeRow {
@@ -25,10 +26,6 @@ interface ScopeRow {
 interface PoleOption {
   id: string;
   label: string;
-}
-
-function poleStorageKey(userId: string): string {
-  return `kyntus.scope.pole.${userId.trim().toLowerCase()}`;
 }
 
 function resolvePoleLabel(
@@ -127,17 +124,17 @@ function resolvePoleLabel(
         max-width: 22rem;
         font-size: 0.8rem;
         font-weight: 600;
-        color: var(--text-secondary, #64748b);
+        color: var(--text-muted);
       }
 
       .scope-pole-select {
-        border: 1px solid var(--border-color, #e2e8f0);
+        border: 1px solid var(--border-color);
         border-radius: 0.5rem;
         padding: 0.5rem 0.75rem;
         font-size: 0.9rem;
         font-weight: 500;
-        background: var(--bg-card, #fff);
-        color: var(--text-primary, #0f172a);
+        background: var(--bg-card);
+        color: var(--text-primary);
       }
     `,
   ],
@@ -146,11 +143,12 @@ function resolvePoleLabel(
 export class ChefProjetScopePageComponent {
   private readonly roleService = inject(RoleService);
   private readonly orgApi = inject(PrimeOrgApiService);
+  private readonly scope = inject(PrimeScopeStore);
 
   readonly rows = signal<ScopeRow[]>([]);
   readonly loading = signal(true);
   readonly poleOptions = signal<PoleOption[]>([]);
-  readonly selectedPoleId = signal('');
+  readonly selectedPoleId = this.scope.selectedPoleId;
 
   constructor() {
     effect(() => {
@@ -162,26 +160,12 @@ export class ChefProjetScopePageComponent {
 
   onPoleChange(event: Event): void {
     const id = (event.target as HTMLSelectElement).value;
-    this.selectedPoleId.set(id);
-    const userId = this.roleService.currentUser().id;
-    try {
-      localStorage.setItem(poleStorageKey(userId), id);
-    } catch {
-      /* ignore */
-    }
+    this.scope.setSelectedPoleId(id, this.roleService.currentUser().id);
     this.fetch(true);
   }
 
   private pickActivePoleId(userId: string, ids: string[]): string {
-    if (ids.length === 0) return '';
-    let stored = '';
-    try {
-      stored = (localStorage.getItem(poleStorageKey(userId)) ?? '').trim();
-    } catch {
-      stored = '';
-    }
-    if (stored && ids.includes(stored)) return stored;
-    return ids[0];
+    return this.scope.pickAndSetActivePoleId(ids, userId);
   }
 
   private fetch(keepSelection = false): void {

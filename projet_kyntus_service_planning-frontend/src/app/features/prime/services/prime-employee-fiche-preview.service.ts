@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { parsePrimeSchemaFromDraftJson } from '../lib/prime-cell-schema-merge';
@@ -6,16 +6,15 @@ import {
   MERGED_PREVIEW_MISSING_SNAPSHOT_HINT,
   computeMergedEmployeeFichePreview,
   type MergedEmployeeFichePreviewResult,
+  type MergedFichePonderationInput,
 } from '../lib/prime-employee-fiche-merged-preview';
 import {
   buildStyledMergedFicheWorkbook,
   downloadStyledFicheWorkbook,
 } from '../lib/prime-fiche-xlsx-export';
-import type {
-  CellulePrimeIndicatorDto,
-  ServicePoleLinePonderationDto,
-} from '../services/prime-cell-prime-api.service';
+import type { CellulePrimeIndicatorDto } from '../services/prime-cell-prime-api.service';
 import { RoleService } from '../state/role.service';
+import { primeHttpErrorMessage } from '../lib/primeHttpErrorMessage';
 
 const base = '/api/prime/fiches';
 
@@ -30,18 +29,13 @@ export interface MergedFichePreviewContextDto {
   cellSaisieJson: string;
   templateCalcSnapshotJson?: string | null;
   indicators: CellulePrimeIndicatorDto[];
-  poleLinePonderations?: ServicePoleLinePonderationDto[];
+  poleLinePonderations?: MergedFichePonderationInput[];
   previewAvailable: boolean;
   previewUnavailableReason?: string | null;
 }
 
 export function previewHttpError(err: unknown): string {
-  if (err instanceof HttpErrorResponse) {
-    const b = err.error as { error?: string } | undefined;
-    if (b?.error) return b.error;
-    return err.message;
-  }
-  return err instanceof Error ? err.message : 'Erreur';
+  return primeHttpErrorMessage(err);
 }
 
 @Injectable({ providedIn: 'root' })

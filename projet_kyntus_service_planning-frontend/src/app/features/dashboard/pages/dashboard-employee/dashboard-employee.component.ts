@@ -8,6 +8,7 @@ import { ReclamationEmployeeComponent } from '../../../reclamation/employee/recl
 import { FormationEmployeeComponent } from '../../../formation/employee/formation-employee.component';
 import { CongeEmployeComponent } from '../../../conge/pages/conge-employe/conge-employe.component';
 import { CongeManagerComponent } from '../../../conge/pages/conge-manager/conge-manager.component'; // ← AJOUT
+import { NewsletterReaderComponent } from '../../../newsletter-inbox/newsletter-reader.component';
 
 interface DayAssignment {
   assignmentId: number;
@@ -39,7 +40,8 @@ interface MyPlanning {
     ReclamationEmployeeComponent,
     FormationEmployeeComponent,
     CongeEmployeComponent,
-    CongeManagerComponent,  // ← AJOUT
+    CongeManagerComponent,
+    NewsletterReaderComponent,
   ],
   templateUrl: './dashboard-employee.component.html',
   styleUrls: ['./dashboard-employee.component.css']
@@ -318,18 +320,18 @@ navigateConges(sub: 'mes-conges' | 'equipe'): void {
 
   getShiftBg(label: string): string {
     const map: Record<string, string> = {
-      'Shift 1': '#eff6ff', 'Shift 2': '#fffbeb',
-      'Shift 3': '#f5f3ff', 'OFF': '#f8fafc'
+      'Shift 1': 'var(--info-bg)', 'Shift 2': 'var(--warning-bg)',
+      'Shift 3': 'color-mix(in srgb, var(--soft-blue) 14%, var(--bg-card))', 'OFF': 'var(--bg-input)'
     };
-    return map[label] || '#f0fdf4';
+    return map[label] || 'var(--success-bg)';
   }
 
   getShiftColor(label: string): string {
     const map: Record<string, string> = {
-      'Shift 1': '#1d4ed8', 'Shift 2': '#b45309',
-      'Shift 3': '#7c3aed', 'OFF': '#64748b'
+      'Shift 1': 'var(--info-text)', 'Shift 2': 'var(--warning-text)',
+      'Shift 3': 'var(--blue-600)', 'OFF': 'var(--text-muted)'
     };
-    return map[label] || '#166534';
+    return map[label] || 'var(--success-text)';
   }
 
   getCurrentDate(): string {

@@ -390,6 +390,51 @@ public static class PlanningSchemaPatches
               ADD COLUMN IF NOT EXISTS "ProcessedAt" timestamp with time zone NULL;
             """,
             ct);
+
+        // Séparé : si le changement de FK échoue, le DROP NOT NULL doit quand même rester.
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE "PlanningExceptionalRequests"
+              ALTER COLUMN "RequestedShiftTemplateId" DROP NOT NULL;
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            DO $$ BEGIN
+              IF EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'FK_PlanningExceptionalRequests_ShiftTemplate'
+              ) THEN
+                ALTER TABLE "PlanningExceptionalRequests"
+                  DROP CONSTRAINT "FK_PlanningExceptionalRequests_ShiftTemplate";
+              END IF;
+              IF EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'FK_PlanningExceptionalRequests_SubServiceShiftConfigs_RequestedShiftTemplateId'
+              ) THEN
+                ALTER TABLE "PlanningExceptionalRequests"
+                  DROP CONSTRAINT "FK_PlanningExceptionalRequests_SubServiceShiftConfigs_RequestedShiftTemplateId";
+              END IF;
+            END $$;
+            """,
+            ct);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            DO $$ BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'FK_PlanningExceptionalRequests_ShiftTemplate'
+              ) THEN
+                ALTER TABLE "PlanningExceptionalRequests"
+                  ADD CONSTRAINT "FK_PlanningExceptionalRequests_ShiftTemplate"
+                  FOREIGN KEY ("RequestedShiftTemplateId") REFERENCES "SubServiceShiftConfigs" ("Id")
+                  ON DELETE SET NULL;
+              END IF;
+            END $$;
+            """,
+            ct);
     }
 
     /// <summary>Colonne ShiftAssignments.IsExceptionalRequest (tag DE sur la grille).</summary>
@@ -577,6 +622,44 @@ public static class PlanningSchemaPatches
                   ON DELETE SET NULL;
               END IF;
             END $$;
+            """,
+            ct);
+    }
+
+    public static async Task EnsureMediaAndTicketCommentsAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "MediaAssets" (
+                "Id" serial PRIMARY KEY,
+                "OwnerType" integer NOT NULL DEFAULT 0,
+                "OwnerId" integer NULL,
+                "Kind" integer NOT NULL DEFAULT 0,
+                "FileName" character varying(260) NOT NULL,
+                "ContentType" character varying(128) NOT NULL DEFAULT 'application/octet-stream',
+                "StoragePath" character varying(512) NOT NULL,
+                "SizeBytes" bigint NOT NULL DEFAULT 0,
+                "SortOrder" integer NOT NULL DEFAULT 0,
+                "UploadedByUserId" character varying(128) NOT NULL DEFAULT '',
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT now()
+            );
+            CREATE INDEX IF NOT EXISTS "IX_MediaAssets_OwnerType_OwnerId"
+              ON "MediaAssets" ("OwnerType", "OwnerId");
+
+            CREATE TABLE IF NOT EXISTS "TicketComments" (
+                "Id" serial PRIMARY KEY,
+                "OwnerType" integer NOT NULL,
+                "OwnerId" integer NOT NULL,
+                "AuthorId" character varying(128) NOT NULL,
+                "AuthorNom" character varying(200) NOT NULL DEFAULT '',
+                "Text" character varying(4000) NOT NULL,
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT now()
+            );
+            CREATE INDEX IF NOT EXISTS "IX_TicketComments_OwnerType_OwnerId"
+              ON "TicketComments" ("OwnerType", "OwnerId");
+
+            ALTER TABLE "NewsletterCampaigns"
+              ADD COLUMN IF NOT EXISTS "RecipientUserIdsJson" text NULL;
             """,
             ct);
     }

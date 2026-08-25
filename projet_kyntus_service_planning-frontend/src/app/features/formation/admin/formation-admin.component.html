@@ -129,7 +129,10 @@
             </thead>
             <tbody>
               @for (p of filteredPaths; track p.id) {
-                <tr>
+                <tr
+                  [attr.data-highlight-id]="p.id"
+                  [class.row-highlight]="p.id === highlightId"
+                >
                   <td class="td-title">{{ p.employeeName }}</td>
                   <td class="td-date">
                     {{ p.dateDebut | date:'dd/MM/yy' }} → {{ p.dateFinPrevue | date:'dd/MM/yy' }}
@@ -319,7 +322,10 @@
             </thead>
             <tbody>
               @for (s of filteredSessions; track s.id) {
-                <tr>
+                <tr
+                  [attr.data-highlight-id]="s.id"
+                  [class.row-highlight]="s.id === highlightId"
+                >
                   <td class="td-title">{{ s.title }}</td>
                   <td>{{ animatorLabel(s) }}</td>
                   <td class="td-date">
@@ -337,7 +343,11 @@
                     </span>
                   </td>
                   <td class="td-actions">
-                    <a routerLink="/formations/planifier" class="ky-btn-secondary fa-btn">
+                    <a
+                      routerLink="/formations/planifier"
+                      [queryParams]="s.programId ? { programId: s.programId } : {}"
+                      class="ky-btn-secondary fa-btn"
+                    >
                       Gérer
                       <app-lucide-icon [icon]="icons.arrow" className="w-3.5 h-3.5" />
                     </a>

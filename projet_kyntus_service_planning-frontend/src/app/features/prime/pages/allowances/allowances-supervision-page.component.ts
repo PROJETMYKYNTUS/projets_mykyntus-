@@ -9,6 +9,7 @@ import {
 import { RoleService } from '../../state/role.service';
 import { PrimeNavRequestService } from '../../services/prime-nav-request.service';
 import { AllowanceRequestTableComponent } from '../../components/allowances/allowance-request-table.component';
+import { AllowancesPageShellComponent } from '../../components/allowances/allowances-page-shell.component';
 import {
   ALLOWANCE_STATUSES,
   allowanceStatusLabel,
@@ -19,36 +20,40 @@ import {
 @Component({
   selector: 'app-allowances-supervision-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, AllowanceRequestTableComponent],
+  imports: [CommonModule, FormsModule, AllowanceRequestTableComponent, AllowancesPageShellComponent],
   template: `
-    <div class="space-y-6">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 class="text-xl font-semibold text-primary">Supervision — Primes Support</h1>
-          <p class="text-sm text-muted mt-1">Vue globale des demandes tous départements Support (lecture seule).</p>
-        </div>
-        <button type="button" class="btn-secondary text-sm" (click)="exportCsv()" [disabled]="filteredRows().length === 0">
+    <app-allowances-page-shell
+      title="Supervision — Primes Support"
+      subtitle="Vue globale des demandes tous départements Support (lecture seule)."
+    >
+      <div pageActions>
+        <button
+          type="button"
+          class="prime-btn-secondary"
+          (click)="exportCsv()"
+          [disabled]="filteredRows().length === 0"
+        >
           Exporter CSV
         </button>
       </div>
 
-      <div class="flex flex-wrap gap-3 items-end">
-        <label class="text-sm">
-          Période
-          <input class="input mt-1" type="month" [(ngModel)]="filterPeriod" (ngModelChange)="reload()" />
+      <div class="sup-toolbar">
+        <label class="sup-field">
+          <span>Période</span>
+          <input class="doc-field" type="month" [(ngModel)]="filterPeriod" (ngModelChange)="reload()" />
         </label>
-        <label class="text-sm">
-          Département
-          <select class="input mt-1 min-w-[200px]" [(ngModel)]="filterDeptId" (ngModelChange)="reload()">
+        <label class="sup-field">
+          <span>Département</span>
+          <select class="doc-field" [(ngModel)]="filterDeptId" (ngModelChange)="reload()">
             <option value="">Tous</option>
             @for (d of departments(); track d.id) {
               <option [value]="d.id">{{ d.code }} — {{ d.name }}</option>
             }
           </select>
         </label>
-        <label class="text-sm">
-          Statut
-          <select class="input mt-1 min-w-[180px]" [(ngModel)]="filterStatus" (ngModelChange)="applyStatusFilter()">
+        <label class="sup-field">
+          <span>Statut</span>
+          <select class="doc-field" [(ngModel)]="filterStatus" (ngModelChange)="applyStatusFilter()">
             <option value="">Tous</option>
             @for (s of statusOptions; track s) {
               <option [value]="s">{{ statusLabel(s) }}</option>
@@ -58,26 +63,88 @@ import {
       </div>
 
       @if (loading()) {
-        <p class="text-muted text-sm">Chargement…</p>
+        <p class="sup-hint">Chargement…</p>
       } @else {
-        <p class="text-sm text-muted">{{ filteredRows().length }} demande(s)</p>
+        <div class="sup-meta">
+          <p class="sup-count">{{ filteredRows().length }} demande(s)</p>
+          @if (rhActionableCount() > 0 && isRh()) {
+            <button type="button" class="sup-inbox-link" (click)="goInbox()">
+              {{ rhActionableCount() }} demande(s) en attente dans votre file RH
+            </button>
+          }
+        </div>
+
         <app-allowance-request-table
           [rows]="filteredRows()"
           [employeeLabel]="employeeLabelFn"
           [departmentLabel]="deptLabelFn"
           [showDepartment]="true"
           [showDraftActions]="false"
+          emptyTitle="Aucune demande"
+          emptyText="Aucune demande pour ces filtres. Les managers Support créent les primes depuis leur espace."
         />
-        @if (rhActionableCount() > 0 && isRh()) {
-          <p class="text-sm">
-            <button type="button" class="text-blue-400 underline" (click)="goInbox()">
-              {{ rhActionableCount() }} demande(s) en attente dans votre file RH
-            </button>
-          </p>
-        }
       }
-    </div>
+    </app-allowances-page-shell>
   `,
+  styles: [`
+    .sup-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem 1.25rem;
+      align-items: flex-end;
+      padding: 1rem 1.15rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card, 0.875rem);
+    }
+    .sup-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-width: 10rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .sup-field .doc-field {
+      min-width: 11rem;
+      font-weight: 500;
+    }
+    .sup-hint {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+    .sup-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem 1rem;
+      margin-top: 0.15rem;
+    }
+    .sup-count {
+      margin: 0;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .sup-inbox-link {
+      border: none;
+      background: none;
+      padding: 0;
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--electric-blue);
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .sup-inbox-link:hover {
+      color: var(--text-primary);
+    }
+  `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AllowancesSupervisionPageComponent implements OnInit {

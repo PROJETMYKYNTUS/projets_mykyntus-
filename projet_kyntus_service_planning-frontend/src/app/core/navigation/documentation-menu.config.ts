@@ -31,24 +31,25 @@ function docPath(tab: DocumentationTabId): string {
   return `${DOC_ROUTE}/${tab}`;
 }
 
-function item(labelKey: string, tab: DocumentationTabId): MenuItem {
+function item(labelKey: string, tab: DocumentationTabId, hat?: MenuItem['hat']): MenuItem {
   return {
     label: NAV_LABELS[labelKey] ?? labelKey,
     route: docPath(tab),
     documentationTab: tab,
+    hat,
   };
 }
 
 const PILOTE_ITEMS: MenuItem[] = [
-  item('nav.dashboard', 'dashboard'),
-  item('nav.myDocs', 'my-docs'),
-  item('nav.requestDoc', 'request'),
-  item('nav.requestTracking', 'tracking'),
+  item('nav.dashboard', 'dashboard', 'self'),
+  item('nav.myDocs', 'my-docs', 'self'),
+  item('nav.requestDoc', 'request', 'self'),
+  item('nav.requestTracking', 'tracking', 'self'),
 ];
 
 const MANAGER_ITEMS: MenuItem[] = [
-  item('nav.teamDocs', 'team-docs'),
-  item('nav.teamRequests', 'team-requests'),
+  item('nav.teamDocs', 'team-docs', 'team'),
+  item('nav.teamRequests', 'team-requests', 'team'),
 ];
 
 const RH_ITEMS: MenuItem[] = [

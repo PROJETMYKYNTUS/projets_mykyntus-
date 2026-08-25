@@ -31,25 +31,31 @@ export interface PutServicePrimeIndicatorItem {
   templateStableId?: string | null;
 }
 
-/** @deprecated Utilisez `PutServicePrimeIndicatorItem`. */
-export type PutCellulePrimeIndicatorItem = PutServicePrimeIndicatorItem;
+export type CommonLinePonderationSource =
+  | 'Service'
+  | 'Cellule'
+  | 'PreviousPeriod'
+  | 'Template'
+  | 'Undefined';
 
-/** Aligné sur `ServicePoleLinePonderationDto` (`api/prime/services/{id}/pole-line-ponderations`). */
-export interface ServicePoleLinePonderationDto {
-  id: string;
-  serviceId: string;
+export interface EffectiveCommonLinePonderationDto {
   templateStableId: string;
   label: string;
+  contract: string;
   sortOrder: number;
   ponderationPrimePct: number | null;
   ponderationChallengePct: number | null;
-  createdAt: string;
-  updatedAt: string | null;
+  sourceScope: CommonLinePonderationSource | string;
+  sourceScopeId?: string | null;
+  inherited: boolean;
+  effectiveFrom?: string | null;
+  versionId?: string | null;
 }
 
-export interface PutServicePoleLinePonderationItem {
+export interface PutCommonLinePonderationItem {
   templateStableId: string;
   label: string;
+  contract?: string;
   sortOrder: number;
   ponderationPrimePct?: number | null;
   ponderationChallengePct?: number | null;
@@ -316,6 +322,61 @@ export interface CelluleDraftGlobalPoolStateDto {
   poolDistributionUnlocked: boolean;
 }
 
+export interface CampaignStepStatusDto {
+  key: string;
+  label: string;
+  /** done | todo | blocked */
+  state: string;
+  reason?: string | null;
+  actionPath?: string | null;
+}
+
+export interface SupervisorCelluleCampaignDto {
+  celluleId: string;
+  celluleName: string;
+  period: string;
+  nextActionLabel?: string | null;
+  nextActionPath?: string | null;
+  draftId?: string | null;
+  templateId?: string | null;
+  templateDisplayName?: string | null;
+  commonPartStatus?: string | null;
+  totalEmployees: number;
+  completeEmployees: number;
+  inProgressEmployees: number;
+  notStartedEmployees: number;
+  pendingValidationCount: number;
+  supervisorApprovedCount: number;
+  rejectedCount: number;
+  canRolloverFromPrevious: boolean;
+  previousPeriod?: string | null;
+  steps: CampaignStepStatusDto[];
+}
+
+export interface RolloverCellulePrimeDraftRequest {
+  supervisorUserId: string;
+  celluleId: string;
+  poleId?: string | null;
+  targetPeriod: string;
+  sourcePeriod?: string | null;
+  includeEmployeeFiches?: boolean;
+  overwrite?: boolean;
+  allowUnvalidatedSource?: boolean;
+}
+
+export interface CelluleDraftRolloverResultDto {
+  draftId: string;
+  sourcePeriod: string;
+  targetPeriod: string;
+  templateId: string;
+  linesCarried: number;
+  linesNew: string[];
+  linesDropped: string[];
+  fichesCreated: number;
+  fichesSkipped: { employeeId: string; reason: string }[];
+  warnings: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class PrimeCellPrimeApiService {
   private readonly http = inject(HttpClient);
@@ -341,26 +402,79 @@ export class PrimeCellPrimeApiService {
     );
   }
 
-  getPoleLinePonderations(
-    serviceId: string,
+  getCelluleCommonLinePonderations(
+    celluleId: string,
     supervisorUserId: string,
-  ): Observable<ServicePoleLinePonderationDto[]> {
-    const q = new HttpParams().set('supervisorUserId', supervisorUserId);
-    return this.http.get<ServicePoleLinePonderationDto[]>(
-      `${base}/services/${encodeURIComponent(serviceId)}/pole-line-ponderations`,
+    opts?: { templateId?: string; effectiveAt?: string },
+  ): Observable<EffectiveCommonLinePonderationDto[]> {
+    let q = new HttpParams().set('supervisorUserId', supervisorUserId);
+    if (opts?.templateId) q = q.set('templateId', opts.templateId);
+    if (opts?.effectiveAt) q = q.set('effectiveAt', opts.effectiveAt);
+    return this.http.get<EffectiveCommonLinePonderationDto[]>(
+      `${base}/cellules/${encodeURIComponent(celluleId)}/common-line-ponderations`,
       { params: q },
     );
   }
 
-  putPoleLinePonderations(
+  putCelluleCommonLinePonderations(
+    celluleId: string,
+    supervisorUserId: string,
+    body: {
+      templateId?: string;
+      effectiveFrom?: string;
+      items: PutCommonLinePonderationItem[];
+    },
+  ): Observable<unknown> {
+    const q = new HttpParams().set('supervisorUserId', supervisorUserId);
+    return this.http.put(
+      `${base}/cellules/${encodeURIComponent(celluleId)}/common-line-ponderations`,
+      body,
+      { params: q },
+    );
+  }
+
+  getServiceCommonLinePonderations(
     serviceId: string,
     supervisorUserId: string,
-    items: PutServicePoleLinePonderationItem[],
-  ): Observable<ServicePoleLinePonderationDto[]> {
+    opts?: { templateId?: string; effectiveAt?: string },
+  ): Observable<EffectiveCommonLinePonderationDto[]> {
+    let q = new HttpParams().set('supervisorUserId', supervisorUserId);
+    if (opts?.templateId) q = q.set('templateId', opts.templateId);
+    if (opts?.effectiveAt) q = q.set('effectiveAt', opts.effectiveAt);
+    return this.http.get<EffectiveCommonLinePonderationDto[]>(
+      `${base}/services/${encodeURIComponent(serviceId)}/common-line-ponderations`,
+      { params: q },
+    );
+  }
+
+  putServiceCommonLinePonderations(
+    serviceId: string,
+    supervisorUserId: string,
+    body: {
+      templateId?: string;
+      effectiveFrom?: string;
+      items: PutCommonLinePonderationItem[];
+    },
+  ): Observable<unknown> {
     const q = new HttpParams().set('supervisorUserId', supervisorUserId);
-    return this.http.put<ServicePoleLinePonderationDto[]>(
-      `${base}/services/${encodeURIComponent(serviceId)}/pole-line-ponderations`,
-      { items },
+    return this.http.put(
+      `${base}/services/${encodeURIComponent(serviceId)}/common-line-ponderations`,
+      body,
+      { params: q },
+    );
+  }
+
+  deleteServiceCommonLinePonderation(
+    serviceId: string,
+    templateStableId: string,
+    supervisorUserId: string,
+    opts?: { templateId?: string; effectiveAt?: string },
+  ): Observable<void> {
+    let q = new HttpParams().set('supervisorUserId', supervisorUserId);
+    if (opts?.templateId) q = q.set('templateId', opts.templateId);
+    if (opts?.effectiveAt) q = q.set('effectiveAt', opts.effectiveAt);
+    return this.http.delete<void>(
+      `${base}/services/${encodeURIComponent(serviceId)}/common-line-ponderations/${encodeURIComponent(templateStableId)}`,
       { params: q },
     );
   }
@@ -681,5 +795,28 @@ export class PrimeCellPrimeApiService {
       `${base}/fiche-imports/historical/${encodeURIComponent(historicalFicheId)}/detail-snapshot`,
       { params: q },
     );
+  }
+
+  getSupervisorCampaign(
+    supervisorUserId: string,
+    period: string,
+  ): Observable<SupervisorCelluleCampaignDto[]> {
+    const q = new HttpParams()
+      .set('supervisorUserId', supervisorUserId.trim())
+      .set('period', period.trim());
+    return this.http.get<SupervisorCelluleCampaignDto[]>(`${base}/supervisor-campaign`, { params: q });
+  }
+
+  rolloverPoleDraft(body: RolloverCellulePrimeDraftRequest): Observable<CelluleDraftRolloverResultDto> {
+    const cid = body.celluleId.trim();
+    const pid = (body.poleId ?? cid).trim();
+    return this.http.post<CelluleDraftRolloverResultDto>(`${base}/supervisor-pole-prime-drafts/rollover`, {
+      ...body,
+      celluleId: cid,
+      poleId: pid,
+      includeEmployeeFiches: body.includeEmployeeFiches ?? true,
+      overwrite: body.overwrite ?? false,
+      allowUnvalidatedSource: body.allowUnvalidatedSource ?? false,
+    });
   }
 }

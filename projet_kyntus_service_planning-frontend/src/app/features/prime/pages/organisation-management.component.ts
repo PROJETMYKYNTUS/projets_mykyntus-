@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -59,6 +58,7 @@ import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-
 import { KyntusSessionService } from '../../../core/session/kyntus-session.service';
 import { evaluatePilotRotationEligibility } from '../../../core/directory/pilot-rotation-eligibility.util';
 import type { OperationalDepartmentNode, OrgCelluleNode, OrgPoleNode } from '../models/org-tree.types';
+import { primeHttpErrorMessage } from '../lib/primeHttpErrorMessage';
 
 function matchAssignmentUserId(
   assignments: { userId: string; etageId?: string; serviceId?: string; celluleId?: string; sousServiceId?: string }[],
@@ -112,28 +112,6 @@ export type StructureLogEntry = {
   /** Ids nœuds (dept / pôle / cellule / service) pour filtrer le journal selon la sélection. */
   scopeIds?: string[];
 };
-
-function httpErrMessage(err: unknown): string {
-  if (err instanceof HttpErrorResponse) {
-    const body = err.error as
-      | { error?: string; title?: string; detail?: string; message?: string }
-      | string
-      | null;
-    if (body && typeof body === 'object') {
-      if (typeof body.error === 'string' && body.error.trim()) return body.error;
-      if (typeof body.detail === 'string' && body.detail.trim()) return body.detail;
-      if (typeof body.title === 'string' && body.title.trim()) return body.title;
-      if (typeof body.message === 'string' && body.message.trim()) return body.message;
-    }
-    if (typeof body === 'string' && body.trim()) return body.trim();
-    if (err.status === 0) return 'Impossible de joindre le serveur. Vérifiez votre connexion.';
-    if (err.status >= 500) {
-      return `Erreur serveur (${err.status}). Réessayez ou contactez l’administrateur.`;
-    }
-    return `Erreur HTTP ${err.status}. Réessayez ultérieurement.`;
-  }
-  return err instanceof Error ? err.message : 'Erreur inconnue';
-}
 
 @Component({
   selector: 'app-organisation-management',
@@ -1835,7 +1813,7 @@ function httpErrMessage(err: unknown): string {
 
       /* —— Arbre organisation (sans cartes imbriquées) —— */
       .org-tree-scroll {
-        background: color-mix(in srgb, var(--bg-input, #0f172a) 40%, transparent);
+        background: color-mix(in srgb, var(--bg-input) 40%, transparent);
         border-top: 1px solid var(--border-color);
       }
 
@@ -1879,12 +1857,12 @@ function httpErrMessage(err: unknown): string {
       }
 
       .org-tree-row:hover {
-        background: color-mix(in srgb, var(--bg-input, #1e293b) 70%, transparent);
+        background: color-mix(in srgb, var(--bg-input) 70%, transparent);
       }
 
       .org-tree-row.is-selected {
-        border-color: var(--info-border, #38bdf8);
-        background: var(--info-bg, color-mix(in srgb, #0ea5e9 18%, transparent));
+        border-color: var(--info-border);
+        background: var(--info-bg);
       }
 
       .org-tree-row--dept {
@@ -1894,7 +1872,7 @@ function httpErrMessage(err: unknown): string {
 
       .org-tree-row--svc {
         font-size: 0.875rem;
-        color: var(--text-muted, #94a3b8);
+        color: var(--text-muted);
       }
 
       .org-tree-chev {
@@ -1924,7 +1902,7 @@ function httpErrMessage(err: unknown): string {
         min-width: 0;
         font-size: 0.75rem;
         line-height: 1.3;
-        color: var(--text-muted, #94a3b8);
+        color: var(--text-muted);
         text-align: right;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1949,9 +1927,9 @@ function httpErrMessage(err: unknown): string {
       }
 
       .org-badge--pole {
-        background: color-mix(in srgb, #0ea5e9 22%, transparent);
-        color: #e0f2fe;
-        box-shadow: inset 0 0 0 1px color-mix(in srgb, #0ea5e9 40%, transparent);
+        background: var(--info-bg);
+        color: var(--info-text);
+        box-shadow: inset 0 0 0 1px var(--info-border);
       }
 
       .org-badge--cell {
@@ -1961,9 +1939,9 @@ function httpErrMessage(err: unknown): string {
       }
 
       .org-badge--svc {
-        background: color-mix(in srgb, #8b5cf6 22%, transparent);
-        color: #ede9fe;
-        box-shadow: inset 0 0 0 1px color-mix(in srgb, #8b5cf6 40%, transparent);
+        background: color-mix(in srgb, var(--soft-blue) 22%, transparent);
+        color: var(--info-text);
+        box-shadow: inset 0 0 0 1px var(--info-border);
       }
 
       .org-tree-row-wrap {
@@ -2007,16 +1985,16 @@ function httpErrMessage(err: unknown): string {
       }
 
       .org-role-dot--chef {
-        background: var(--warning-text, #d97706);
+        background: var(--warning-text);
       }
       .org-role-dot--superviseur {
-        background: var(--success-text, #16a34a);
+        background: var(--success-text);
       }
       .org-role-dot--referent {
-        background: var(--info-text, #0284c7);
+        background: var(--info-text);
       }
       .org-role-dot--pilote {
-        background: #0d9488;
+        background: var(--soft-blue);
       }
 
       .org-member-card {
@@ -2036,8 +2014,8 @@ function httpErrMessage(err: unknown): string {
         background: color-mix(in srgb, var(--info-bg) 55%, var(--bg-card));
       }
       .org-member-card--pilote {
-        border-color: color-mix(in srgb, #0d9488 45%, var(--border-color));
-        background: color-mix(in srgb, #0d9488 12%, var(--bg-card));
+        border-color: color-mix(in srgb, var(--soft-blue) 45%, var(--border-color));
+        background: color-mix(in srgb, var(--soft-blue) 12%, var(--bg-card));
       }
       .org-member-card--autre {
         border-color: var(--border-color);
@@ -2056,8 +2034,8 @@ function httpErrMessage(err: unknown): string {
         color: var(--success-text);
       }
       .org-member-card--pilote .org-member-avatar {
-        background: color-mix(in srgb, #0d9488 20%, transparent);
-        color: #0f766e;
+        background: color-mix(in srgb, var(--soft-blue) 18%, transparent);
+        color: var(--blue-600);
       }
 
       .org-role-badge {
@@ -2083,8 +2061,8 @@ function httpErrMessage(err: unknown): string {
         color: var(--info-text);
       }
       .org-role-badge[data-role='pilote'] {
-        background: color-mix(in srgb, #0d9488 18%, transparent);
-        color: #0f766e;
+        background: color-mix(in srgb, var(--soft-blue) 18%, transparent);
+        color: var(--blue-600);
       }
 
       @media (max-width: 768px) {
@@ -2268,7 +2246,7 @@ export class OrganisationManagementComponent implements OnInit {
         },
         error: (err: unknown) => {
           this.data.set(null);
-          this.error.set(httpErrMessage(err));
+          this.error.set(primeHttpErrorMessage(err));
         },
       });
   }
@@ -3909,7 +3887,7 @@ export class OrganisationManagementComponent implements OnInit {
         this.structurePilotPickerOpen.set(false);
         this.load(true);
       },
-      error: (err: unknown) => this.error.set(httpErrMessage(err)),
+      error: (err: unknown) => this.error.set(primeHttpErrorMessage(err)),
     });
   }
 }

@@ -317,7 +317,7 @@
   align-items: center;
   gap: 6px;
   border: 1px solid var(--border-color);
-  background: var(--bg-card, #fff);
+  background: var(--bg-card);
   border-radius: 8px;
   padding: 8px 12px;
   cursor: pointer;
@@ -326,9 +326,9 @@
 }
 
 .mode-tab.is-active {
-  border-color: var(--blue-600, #2563eb);
-  box-shadow: inset 0 0 0 1px var(--blue-600, #2563eb);
-  color: var(--blue-600, #2563eb);
+  border-color: var(--blue-600);
+  box-shadow: inset 0 0 0 1px var(--blue-600);
+  color: var(--blue-600);
 }
 
 .mode-tab.is-inactive {
@@ -340,8 +340,8 @@
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
-  background: color-mix(in srgb, var(--blue-600, #2563eb) 12%, #fff);
-  color: var(--blue-600, #2563eb);
+  background: color-mix(in srgb, var(--blue-600) 12%, var(--bg-card));
+  color: var(--blue-600);
 }
 
 .mode-fields {
@@ -354,12 +354,12 @@
 .mode-pct-hint {
   margin: 10px 0 0;
   font-size: 0.82rem;
-  color: #b45309;
+  color: var(--warning-text);
   font-weight: 600;
 }
 
 .mode-pct-hint.mode-pct-ok {
-  color: #047857;
+  color: var(--success-text);
 }
 
 .input-pct {

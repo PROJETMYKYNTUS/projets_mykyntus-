@@ -1,66 +1,87 @@
-import { Component, OnInit, ViewEncapsulation } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject } from '@angular/core';
+import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Inbox, Loader2, Mail, MailOpen, Search } from 'lucide';
 import { LucideIconComponent } from '../../shared/lucide-icon.component';
 import { KyntusPageHeaderComponent } from '../../shared/components/ui/kyntus-page-header.component';
-import { NewsletterService, EmployeeNewsletter } from '../../core/services/newsletter.service';
+import { EmployeeNewsletter, NewsletterService } from '../../core/services/newsletter.service';
+import { NewsletterReaderComponent } from './newsletter-reader.component';
+import { KyAuthMediaImgComponent } from '../../shared/components/ui/ky-auth-media-img.component';
 
 @Component({
   selector: 'app-my-newsletters-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideIconComponent, KyntusPageHeaderComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DatePipe,
+    LucideIconComponent,
+    KyntusPageHeaderComponent,
+    NewsletterReaderComponent,
+    KyAuthMediaImgComponent,
+  ],
   templateUrl: './my-newsletters-page.component.html',
-  styleUrls: ['./my-newsletters-page.component.css'],
-  encapsulation: ViewEncapsulation.None,
+  styleUrls: ['./my-newsletters-page.component.css']
 })
 export class MyNewslettersPageComponent implements OnInit {
-  readonly icons = { mail: Mail, mailOpen: MailOpen, search: Search, inbox: Inbox, loader: Loader2 };
+  private readonly newsletterSvc = inject(NewsletterService);
+
+  readonly icons = { search: Search, loader: Loader2, inbox: Inbox, mail: Mail, mailOpen: MailOpen };
 
   myNewsletters: EmployeeNewsletter[] = [];
   filteredNewsletters: EmployeeNewsletter[] = [];
   selectedNewsletter: EmployeeNewsletter | null = null;
   searchTerm = '';
+  readFilter: 'all' | 'unread' | 'read' = 'all';
   loading = false;
-  error = '';
+  error: string | null = null;
 
   ngOnInit(): void {
-    this.loadMyNewsletters();
+    this.load();
   }
 
-  loadMyNewsletters(): void {
+  load(): void {
     this.loading = true;
-    this.error = '';
+    this.error = null;
     this.newsletterSvc.getMyNewsletters().subscribe({
-      next: (data) => {
-        this.myNewsletters = data ?? [];
+      next: list => {
+        this.myNewsletters = list;
         this.applyFilters();
         this.loading = false;
       },
       error: () => {
-        this.myNewsletters = [];
-        this.filteredNewsletters = [];
+        this.error = 'Impossible de charger les communications.';
         this.loading = false;
-        this.error = 'Impossible de charger vos newsletters.';
-      },
+      }
     });
   }
 
   applyFilters(): void {
     const q = this.searchTerm.trim().toLowerCase();
-    this.filteredNewsletters = q
-      ? this.myNewsletters.filter(
-          (nl) =>
-            nl.newsletterTitle.toLowerCase().includes(q) ||
-            nl.newsletterSubject.toLowerCase().includes(q) ||
-            nl.campaignName.toLowerCase().includes(q),
-        )
-      : [...this.myNewsletters];
+    this.filteredNewsletters = this.myNewsletters.filter(n => {
+      if (this.readFilter === 'unread' && n.isRead) return false;
+      if (this.readFilter === 'read' && !n.isRead) return false;
+      if (!q) return true;
+      return (
+        n.newsletterTitle.toLowerCase().includes(q) ||
+        n.newsletterSubject.toLowerCase().includes(q) ||
+        n.campaignName.toLowerCase().includes(q)
+      );
+    });
   }
 
   clearFilters(): void {
     this.searchTerm = '';
+    this.readFilter = 'all';
     this.applyFilters();
+  }
+
+  getReadCount(): number {
+    return this.myNewsletters.filter(n => n.isRead).length;
+  }
+
+  getUnreadCount(): number {
+    return this.myNewsletters.filter(n => !n.isRead).length;
   }
 
   openNewsletter(nl: EmployeeNewsletter): void {
@@ -70,7 +91,7 @@ export class MyNewslettersPageComponent implements OnInit {
         next: () => {
           nl.isRead = true;
           nl.readAt = new Date().toISOString();
-        },
+        }
       });
     }
   }
@@ -78,14 +99,4 @@ export class MyNewslettersPageComponent implements OnInit {
   closeNewsletter(): void {
     this.selectedNewsletter = null;
   }
-
-  getReadCount(): number {
-    return this.myNewsletters.filter((n) => n.isRead).length;
-  }
-
-  getUnreadCount(): number {
-    return this.myNewsletters.filter((n) => !n.isRead).length;
-  }
-
-  constructor(private readonly newsletterSvc: NewsletterService) {}
 }

@@ -1,8 +1,8 @@
-<div class="ky-page-shell">
+<div class="ky-page-shell nl-inbox">
 
   <app-kyntus-page-header
-    title="Mes newsletters"
-    [subtitle]="!loading && !error ? filteredNewsletters.length + ' message(s) · ' + getReadCount() + ' lu(s)' + (getUnreadCount() > 0 ? ' · ' + getUnreadCount() + ' non lu(s)' : '') : 'Communications internes reçues selon votre rôle'">
+    title="Fil d'actualités"
+    [subtitle]="!loading && !error ? filteredNewsletters.length + ' message(s) · ' + getReadCount() + ' lu(s)' + (getUnreadCount() > 0 ? ' · ' + getUnreadCount() + ' non lu(s)' : '') : 'Messages internes qui vous sont destinés'">
   </app-kyntus-page-header>
 
   <div class="kpi-row" *ngIf="!loading && !error && myNewsletters.length > 0">
@@ -20,7 +20,7 @@
     </div>
   </div>
 
-  <div class="filters-panel ky-card" *ngIf="!selectedNewsletter && !loading && myNewsletters.length > 0">
+  <div class="filters-panel ky-card" *ngIf="!loading && myNewsletters.length > 0">
     <div class="filters-toolbar">
       <div class="filter-search">
         <app-lucide-icon [icon]="icons.search" className="w-4 h-4" />
@@ -32,75 +32,78 @@
           (input)="applyFilters()"
         />
       </div>
+      <select class="ky-input filter-ctl" [(ngModel)]="readFilter" (change)="applyFilters()">
+        <option value="all">Toutes</option>
+        <option value="unread">Non lues</option>
+        <option value="read">Lues</option>
+      </select>
       <button type="button" class="ky-btn-secondary" (click)="clearFilters()">Réinitialiser</button>
     </div>
   </div>
 
   <div class="state-loading ky-card" *ngIf="loading">
     <app-lucide-icon [icon]="icons.loader" className="w-5 h-5 spin" />
-    <span>Chargement des newsletters…</span>
+    <span>Chargement…</span>
   </div>
 
   <div class="state-error ky-card" *ngIf="!loading && error">{{ error }}</div>
 
   <div class="state-empty ky-card" *ngIf="!loading && !error && myNewsletters.length === 0">
     <app-lucide-icon [icon]="icons.inbox" className="w-10 h-10" />
-    <h3>Aucune newsletter reçue</h3>
-    <p>Les campagnes ciblant votre rôle apparaîtront ici après publication par le RH.</p>
+    <h3>Aucune actualité</h3>
+    <p>Les messages qui vous sont destinés apparaîtront ici.</p>
   </div>
 
-  <div class="state-empty ky-card" *ngIf="!loading && !error && myNewsletters.length > 0 && filteredNewsletters.length === 0 && !selectedNewsletter">
-    <p>Aucun résultat pour cette recherche.</p>
-    <button type="button" class="ky-btn-secondary" (click)="clearFilters()">Réinitialiser</button>
-  </div>
-
-  <div class="inbox-list" *ngIf="!loading && !error && filteredNewsletters.length > 0 && !selectedNewsletter">
-    <button
-      type="button"
-      class="inbox-item ky-card"
-      *ngFor="let nl of filteredNewsletters"
-      [class.unread]="!nl.isRead"
-      (click)="openNewsletter(nl)">
-      <div class="inbox-thumb" *ngIf="nl.coverImageUrl">
-        <img [src]="nl.coverImageUrl" alt="" />
-      </div>
-      <div class="inbox-thumb inbox-thumb--empty" *ngIf="!nl.coverImageUrl">
-        <app-lucide-icon [icon]="icons.mail" className="w-5 h-5" />
-      </div>
-      <div class="inbox-main">
-        <strong [class.bold]="!nl.isRead">{{ nl.newsletterTitle }}</strong>
-        <span class="inbox-subject">{{ nl.newsletterSubject }}</span>
-        <small>Campagne : {{ nl.campaignName }}</small>
-      </div>
-      <div class="inbox-meta">
-        <span>{{ nl.receivedAt | date:'dd/MM HH:mm' }}</span>
-        <span class="status-badge" [class.status-new]="!nl.isRead">
-          <app-lucide-icon [icon]="nl.isRead ? icons.mailOpen : icons.mail" className="w-3.5 h-3.5" />
-          {{ nl.isRead ? 'Lu' : 'Nouveau' }}
-        </span>
-      </div>
-    </button>
-  </div>
-
-  <article class="detail-card ky-card" *ngIf="selectedNewsletter">
-    <button type="button" class="ky-btn-secondary btn-back" (click)="closeNewsletter()">← Retour à la liste</button>
-    <h2>{{ selectedNewsletter.newsletterTitle }}</h2>
-    <p class="detail-subject">{{ selectedNewsletter.newsletterSubject }}</p>
-    <p class="detail-meta">
-      Campagne : {{ selectedNewsletter.campaignName }} —
-      Reçue le {{ selectedNewsletter.receivedAt | date:'dd/MM/yyyy à HH:mm' }}
-    </p>
-    <img
-      *ngIf="selectedNewsletter.coverImageUrl"
-      class="detail-cover"
-      [src]="selectedNewsletter.coverImageUrl"
-      alt="Illustration"
-    />
-    <div class="detail-content" *ngIf="selectedNewsletter.textContent; else htmlFallback">
-      {{ selectedNewsletter.textContent }}
+  <div class="nl-split" *ngIf="!loading && !error && filteredNewsletters.length > 0">
+    <div class="inbox-list" [class.hidden-mobile]="!!selectedNewsletter">
+      <button
+        type="button"
+        class="inbox-item ky-card"
+        *ngFor="let nl of filteredNewsletters"
+        [class.unread]="!nl.isRead"
+        [class.active]="selectedNewsletter?.analyticsId === nl.analyticsId"
+        (click)="openNewsletter(nl)">
+        <div class="inbox-thumb" *ngIf="nl.coverImageUrl || nl.media?.length">
+          <app-ky-auth-media-img
+            [url]="nl.coverImageUrl"
+            [mediaId]="nl.media?.length ? nl.media![0].id : null"
+            alt="">
+          </app-ky-auth-media-img>
+        </div>
+        <div class="inbox-thumb inbox-thumb--empty" *ngIf="!nl.coverImageUrl && !nl.media?.length">
+          <app-lucide-icon [icon]="icons.mail" className="w-5 h-5" />
+        </div>
+        <div class="inbox-main">
+          <strong [class.bold]="!nl.isRead">{{ nl.newsletterTitle }}</strong>
+          <span class="inbox-subject">{{ nl.newsletterSubject }}</span>
+          <small>{{ nl.campaignName }}</small>
+        </div>
+        <div class="inbox-meta">
+          <span>{{ nl.receivedAt | date:'dd/MM HH:mm' }}</span>
+          <span class="status-badge" [class.status-new]="!nl.isRead">
+            {{ nl.isRead ? 'Lu' : 'Nouveau' }}
+          </span>
+        </div>
+      </button>
     </div>
-    <ng-template #htmlFallback>
-      <div class="detail-content detail-content--html" [innerHTML]="selectedNewsletter.htmlContent"></div>
+
+    <div class="inbox-reader" *ngIf="selectedNewsletter; else pickHint" [class.full-mobile]="!!selectedNewsletter">
+      <button type="button" class="ky-btn-secondary btn-back mobile-only" (click)="closeNewsletter()">← Retour</button>
+      <app-newsletter-reader
+        [title]="selectedNewsletter.newsletterTitle"
+        [subject]="selectedNewsletter.newsletterSubject"
+        [textContent]="selectedNewsletter.textContent"
+        [htmlContent]="selectedNewsletter.htmlContent"
+        [coverImageUrl]="selectedNewsletter.coverImageUrl"
+        [receivedAt]="selectedNewsletter.receivedAt"
+        [media]="selectedNewsletter.media || []"
+        [meta]="selectedNewsletter.campaignName ? ('Publication : ' + selectedNewsletter.campaignName) : ''">
+      </app-newsletter-reader>
+    </div>
+    <ng-template #pickHint>
+      <div class="pick-hint ky-card desktop-only">
+        <p>Sélectionnez une actualité pour la lire.</p>
+      </div>
     </ng-template>
-  </article>
+  </div>
 </div>

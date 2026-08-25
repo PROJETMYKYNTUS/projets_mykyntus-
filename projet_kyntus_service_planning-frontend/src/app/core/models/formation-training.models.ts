@@ -54,6 +54,37 @@ export interface TrainingProgramDto {
   sessions: TrainingSessionDto[];
 }
 
+export interface ProgramBeneficiaryProgressDto {
+  employeeId: string;
+  employeeName: string;
+  attendedInPerson: boolean;
+  contentCompleted: boolean;
+  quizPassed: boolean;
+  hasContentTrack: boolean;
+  hasQuizTrack: boolean;
+  isComplete: boolean;
+}
+
+export interface TrainingProgramDetailDto {
+  id: string;
+  title: string;
+  description: string;
+  mode: TrainingProgramMode | number;
+  sessionCount: number;
+  animatorKind: AnimatorKind | number;
+  animatorUserId?: string | null;
+  externalAnimatorName?: string | null;
+  externalAnimatorOrganization?: string | null;
+  externalAnimatorEmail?: string | null;
+  externalAnimatorPhone?: string | null;
+  capacity: number;
+  catalogItemId?: string | null;
+  quizTemplateId?: string | null;
+  learningGateMode?: string | null;
+  sessions: TrainingSessionDto[];
+  beneficiaries: ProgramBeneficiaryProgressDto[];
+}
+
 export interface TrainingAssignmentDto {
   id: string;
   sessionId: string;

@@ -49,4 +49,46 @@ public class SaturdayQuotaTests
         // Quota opening samedi atteint (10) → peut aller sur mid
         Assert.Equal(2, next.Id);
     }
+
+    [Fact]
+    public void SelectSaturday_does_not_fill_zero_quota_before_open_seat()
+    {
+        var shifts = new List<SubServiceShiftConfig>
+        {
+            new() { Id = 10, Label = "S1", StartTime = new TimeOnly(8, 0), RequiredCount = 1, DisplayOrder = 1 },
+            new() { Id = 11, Label = "S2", StartTime = new TimeOnly(9, 0), RequiredCount = 1, DisplayOrder = 2 },
+            new() { Id = 12, Label = "S3", StartTime = new TimeOnly(10, 0), RequiredCount = 0, DisplayOrder = 3 },
+            new() { Id = 13, Label = "S4", StartTime = new TimeOnly(11, 0), RequiredCount = 0, DisplayOrder = 4 },
+        };
+        var counts = new Dictionary<int, int> { [10] = 1, [11] = 0, [12] = 0, [13] = 0 };
+        var history = new Dictionary<int, List<int>> { [2] = [10, 10, 10, 10, 10] };
+
+        var chosen = ShiftDispersionSelector.SelectSaturday(
+            shifts, preferredIndex: 0, fridayShiftId: 10,
+            history, userId: 2, shiftCountToday: counts);
+
+        Assert.Equal(11, chosen.Id);
+    }
+
+    [Fact]
+    public void RebalanceToQuotas_moves_zero_quota_surplus_to_open_seat()
+    {
+        var aya = new User { Id = 7, Email = "aya@t.ma", Level = 2 };
+        var chay = new User { Id = 8, Email = "chay@t.ma", Level = 2 };
+        var s1 = new SubServiceShiftConfig { Id = 10, Label = "S1", StartTime = new TimeOnly(8, 0), RequiredCount = 1, DisplayOrder = 1 };
+        var s2 = new SubServiceShiftConfig { Id = 11, Label = "S2", StartTime = new TimeOnly(9, 0), RequiredCount = 1, DisplayOrder = 2 };
+        var s3 = new SubServiceShiftConfig { Id = 12, Label = "S3", StartTime = new TimeOnly(10, 0), RequiredCount = 0, DisplayOrder = 3 };
+        var shifts = new List<SubServiceShiftConfig> { s1, s2, s3 };
+        var assigned = new Dictionary<int, SubServiceShiftConfig> { [7] = s1, [8] = s3 };
+        var users = new Dictionary<int, User> { [7] = aya, [8] = chay };
+        var history = new Dictionary<int, List<int>> { [7] = [10], [8] = [11] };
+
+        WeekShiftPatternAssigner.RebalanceToQuotas(
+            assigned, _ => shifts, history, users,
+            new Dictionary<int, SubServiceShiftConfig>(), shifts);
+
+        Assert.Equal(1, assigned.Values.Count(s => s.Id == 10));
+        Assert.Equal(1, assigned.Values.Count(s => s.Id == 11));
+        Assert.Equal(0, assigned.Values.Count(s => s.Id == 12));
+    }
 }

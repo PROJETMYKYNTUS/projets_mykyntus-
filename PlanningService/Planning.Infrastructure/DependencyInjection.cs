@@ -100,6 +100,8 @@ public static class DependencyInjection
         services.AddScoped<IPropositionService, PropositionService>();
         services.AddScoped<IReclamationNotificationService, ReclamationNotificationService>();
         services.AddScoped<INewsletterService, NewsletterService>();
+        services.AddScoped<IMediaAssetService, MediaAssetService>();
+        services.AddScoped<ITicketCommentService, TicketCommentService>();
         services.AddScoped<IEmployePublisher, EmployePublisher>();
 
         if (isTesting)

@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  Input,
   OnInit,
   computed,
   inject,
@@ -22,6 +23,7 @@ import {
   type SupervisorOrgScopeCellule,
 } from '../services/prime-org-api.service';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
+import { PrimeScopeStore } from '../state/prime-scope.store';
 import { RoleService } from '../state/role.service';
 import {
   closedMonthsForYear,
@@ -44,6 +46,7 @@ import { toPreviewStoredTemplate, type StoredPrimeTemplate } from '../models/pri
   imports: [FormsModule, LucideIconComponent, PrimeCardComponent, PrimeTemplatePreviewComponent],
   template: `
     <div class="flex flex-col min-h-0 p-4 sm:p-6 space-y-6 max-w-5xl mx-auto pb-16">
+      @if (!embeddedInShell) {
       <div>
         <h1 class="text-xl font-bold tracking-tight text-primary sm:text-2xl">
           Import fiche PRIME prête
@@ -53,6 +56,14 @@ import { toPreviewStoredTemplate, type StoredPrimeTemplate } from '../models/pri
           Cochez « Historique » pour enregistrer directement (hors workflow) ; sinon la fiche entre en validation.
         </p>
       </div>
+      } @else {
+        <p class="text-sm text-muted">
+          Import pour la période <strong class="text-primary">{{ periodFriendly() }}</strong>
+          @if (celluleLabel()) {
+            · cellule <strong class="text-primary">{{ celluleLabel() }}</strong>
+          }
+        </p>
+      }
 
       @if (banner()) {
         <div
@@ -242,7 +253,7 @@ import { toPreviewStoredTemplate, type StoredPrimeTemplate } from '../models/pri
         @if (!isHistorical()) {
           <button
             type="button"
-            (click)="nav.requestView('/prime-fiches-pilotes')"
+            (click)="nav.requestViewWithTab('/prime-fiches-agents', 'pilotage')"
             class="rounded-lg border border-default px-4 py-2 text-sm font-medium text-primary hover:bg-input/40"
           >
             Aller au pilotage
@@ -254,17 +265,20 @@ import { toPreviewStoredTemplate, type StoredPrimeTemplate } from '../models/pri
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PrimeFicheImportComponent implements OnInit {
+  @Input() embeddedInShell = false;
+
   private readonly api = inject(PrimeCellPrimeApiService);
   private readonly orgApi = inject(PrimeOrgApiService);
   readonly role = inject(RoleService);
   readonly nav = inject(PrimeNavRequestService);
+  private readonly scope = inject(PrimeScopeStore);
 
   readonly icons = { upload: Upload, eye: Eye, check: CheckCircle, alert: AlertTriangle };
   readonly inputFieldClass = PRIME_INPUT_FIELD_CLASS;
 
-  readonly periodYear = signal(new Date().getFullYear());
-  readonly periodMonth = signal(new Date().getMonth());
-  readonly celluleId = signal('');
+  readonly periodYear = computed(() => this.scope.periodYear());
+  readonly periodMonth = computed(() => this.scope.periodMonth());
+  readonly celluleId = this.scope.selectedCelluleId;
   readonly employeeId = signal('');
   readonly employeeExternalName = signal('');
   readonly isHistorical = signal(false);
@@ -297,6 +311,12 @@ export class PrimeFicheImportComponent implements OnInit {
   );
   readonly periodClosed = computed(() => isPrimePeriodClosed(this.periodYear(), this.periodMonth()));
   readonly periodClosedError = computed(() => primePeriodClosedErrorMessage(this.periodLabel()));
+
+  readonly celluleLabel = computed(() => {
+    const id = this.celluleId().trim();
+    if (!id) return '';
+    return this.cellules().find((c) => c.id === id)?.name ?? id;
+  });
 
   readonly previewSummary = computed(() => {
     const p = this.primeAmount();
@@ -333,17 +353,14 @@ export class PrimeFicheImportComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.clampPeriodToEligible();
+    const uid = this.role.currentUser()?.id?.trim();
+    if (uid) this.scope.hydrateFromStorage(uid);
+    const requested = this.nav.requestedPeriod()?.trim();
+    if (requested && /^\d{4}-\d{2}$/.test(requested)) {
+      this.scope.setPeriod(requested, uid);
+      this.nav.clearRequestedPeriod();
+    }
     void this.loadScope();
-  }
-
-  private clampPeriodToEligible(): void {
-    const now = new Date();
-    const d = new Date(now);
-    d.setDate(1);
-    d.setMonth(d.getMonth() - 1);
-    this.periodYear.set(d.getFullYear());
-    this.periodMonth.set(d.getMonth() + 1);
   }
 
   private async loadScope(): Promise<void> {
@@ -356,13 +373,16 @@ export class PrimeFicheImportComponent implements OnInit {
         for (const c of p.cellules ?? []) cells.push(c);
       }
       this.cellules.set(cells);
-      if (cells.length === 1) {
-        this.celluleId.set(cells[0]!.id);
+      const storedCell = this.scope.selectedCelluleId().trim();
+      if (storedCell && cells.some((c) => c.id === storedCell)) {
+        await this.loadPilots(storedCell);
+      } else if (cells.length === 1) {
+        this.scope.setSelectedCelluleId(cells[0]!.id, u.id);
         await this.loadPilots(cells[0]!.id);
       } else if (u.celluleId?.trim()) {
         const match = cells.find((c) => c.id === u.celluleId?.trim());
         if (match) {
-          this.celluleId.set(match.id);
+          this.scope.setSelectedCelluleId(match.id, u.id);
           await this.loadPilots(match.id);
         }
       }
@@ -373,25 +393,29 @@ export class PrimeFicheImportComponent implements OnInit {
   }
 
   onYearChange(y: number): void {
-    this.periodYear.set(y);
+    const uid = this.role.currentUser()?.id;
+    this.scope.setPeriodParts(y, this.scope.periodMonth(), uid);
     this.clampMonthInYear();
   }
 
   onMonthChange(m: number): void {
-    this.periodMonth.set(m);
+    const uid = this.role.currentUser()?.id;
+    this.scope.setPeriodParts(this.scope.periodYear(), m, uid);
   }
 
   private clampMonthInYear(): void {
     const opts = this.monthOptions();
     if (opts.length === 0) return;
-    const cur = this.periodMonth();
+    const cur = this.scope.periodMonth();
     if (!opts.some((o) => o.value === cur)) {
-      this.periodMonth.set(opts[opts.length - 1]!.value);
+      const uid = this.role.currentUser()?.id;
+      this.scope.setPeriodParts(this.scope.periodYear(), opts[opts.length - 1]!.value, uid);
     }
   }
 
   async onCelluleChange(id: string): Promise<void> {
-    this.celluleId.set(id);
+    const uid = this.role.currentUser()?.id;
+    this.scope.setSelectedCelluleId(id, uid);
     this.employeeId.set('');
     await this.loadPilots(id);
   }

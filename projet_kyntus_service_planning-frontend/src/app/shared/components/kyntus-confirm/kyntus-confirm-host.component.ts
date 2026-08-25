@@ -81,7 +81,10 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
     }
 
     .ky-confirm-box {
-      width: min(100%, 440px);
+      width: min(100%, 420px);
+      max-height: min(72vh, 520px);
+      display: flex;
+      flex-direction: column;
       border-radius: var(--radius-card, 0.875rem);
       overflow: hidden;
       box-shadow: 0 24px 64px color-mix(in srgb, #000 28%, transparent);
@@ -144,13 +147,20 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
 
     .ky-confirm-body {
       padding: 16px 24px 8px;
+      min-height: 0;
+      overflow-y: auto;
+      flex: 1 1 auto;
     }
 
     .ky-confirm-message {
       margin: 0;
       color: var(--text-secondary, var(--text-muted));
-      font-size: 0.95rem;
-      line-height: 1.55;
+      font-size: 0.92rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: min(32vh, 220px);
+      overflow-y: auto;
     }
 
     .ky-confirm-choices {
@@ -160,7 +170,7 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
       display: flex;
       flex-direction: column;
       gap: 8px;
-      max-height: 220px;
+      max-height: min(28vh, 180px);
       overflow-y: auto;
     }
 
@@ -198,7 +208,10 @@ import { KyntusConfirmService } from './kyntus-confirm.service';
       display: flex;
       justify-content: flex-end;
       gap: 12px;
-      padding: 18px 24px 24px;
+      padding: 14px 24px 20px;
+      flex-shrink: 0;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-card);
     }
 
     /* Confirmation destructive : bouton plein rouge (contraste AA garanti sur les 2 thèmes) */

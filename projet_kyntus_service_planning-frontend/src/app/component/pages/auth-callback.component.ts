@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { RedirectService } from '../../core/services/redirect.service';
 import { DocumentationIdentityService } from '../../core/services/documentation-identity.service';
 import { KyntusNotificationInitService } from '../../core/notifications/kyntus-notification-init.service';
-import { persistAccessTokens, clearStoredTokens } from '../../core/session/kyntus-auth-token.util';
+import { persistAccessTokens, clearStoredTokens, decodeJwtPayload, readJwtEmail, readJwtName, readJwtNameIdentifier, readJwtRole } from '../../core/session/kyntus-auth-token.util';
 import { redirectToAuthLogin } from '../../core/session/kyntus-auth-refresh.service';
 import { persistReturnUrl } from '../../core/session/kyntus-return-url.util';
 import { KyntusThemeService, type KyntusTheme } from '../../core/theme/kyntus-theme.service';
@@ -49,11 +49,6 @@ import { KyntusThemeService, type KyntusTheme } from '../../core/theme/kyntus-th
 })
 export class AuthCallbackComponent implements OnInit {
 
-  private readonly ROLE_CLAIM  = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
-  private readonly ID_CLAIM    = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
-  private readonly NAME_CLAIM  = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
-  private readonly EMAIL_CLAIM = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress';
-
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -81,21 +76,22 @@ export class AuthCallbackComponent implements OnInit {
     persistAccessTokens(token, refresh ?? undefined);
 
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const payload = decodeJwtPayload(token);
+      if (!payload) throw new Error('JWT payload illisible');
 
-      const role     = payload[this.ROLE_CLAIM]  || '';
-      const nameIdentifier = payload[this.ID_CLAIM];
+      const role = readJwtRole(token);
+      const nameIdentifier = readJwtNameIdentifier(token);
       const sub = payload['sub'];
-      const authUserIdRaw = nameIdentifier != null ? parseInt(String(nameIdentifier), 10) : NaN;
+      const authUserIdRaw = nameIdentifier ? parseInt(String(nameIdentifier), 10) : NaN;
       const authUserId = Number.isFinite(authUserIdRaw) && authUserIdRaw > 0 ? authUserIdRaw : 0;
       const subjectId =
         typeof sub === 'string' && sub.trim().length > 0
           ? sub.trim()
-          : nameIdentifier != null && String(nameIdentifier).trim() !== ''
-            ? String(nameIdentifier).trim()
+          : nameIdentifier.trim() !== ''
+            ? nameIdentifier.trim()
             : '';
-      const username = payload[this.NAME_CLAIM]  || 'Utilisateur';
-      const email    = payload[this.EMAIL_CLAIM] || '';
+      const username = readJwtName(token) || 'Utilisateur';
+      const email = readJwtEmail(token);
 
       localStorage.setItem('user', JSON.stringify({
         id: subjectId,

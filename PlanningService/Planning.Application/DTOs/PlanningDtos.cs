@@ -281,6 +281,8 @@ public class ShiftConfigResponseDto
     public List<string> BreakSlots { get; set; } = new();
     public int BreakDurationMinutes { get; set; } = 60;
     public bool IsCriticalCell { get; set; }
+    public int? ShiftModeProfileId { get; set; }
+    public string? ShiftModeTitle { get; set; }
 }
 
 // -- Shift d'un jour --
@@ -401,7 +403,7 @@ public class ShiftConfigItemDto
     public int BreakDurationMinutes { get; set; } = 60;
     public string? BreakRangeStart { get; set; }
     public string? BreakRangeEnd { get; set; }
-    /// <summary>Heures de début de pause (max 3), ex. ["12:00","12:30","13:00"].</summary>
+    /// <summary>Heures de début de pause cochées par RH (fenêtre autorisée du shift).</summary>
     public List<string>? BreakSlots { get; set; }
     public int RequiredCount { get; set; }
     /// <summary>Pourcentage du groupe mode (ou cellule). Prioritaire sur RequiredCount en multi-mode.</summary>
@@ -480,6 +482,12 @@ public class WeeklyShiftModePlanDto
     public bool IsValidated { get; set; }
     public bool IsLocked { get; set; }
     public DateTime? ValidatedAt { get; set; }
+    /// <summary>True si aucun plan persisté : lignes recopiées de la dernière semaine validée.</summary>
+    public bool IsCopiedPreview { get; set; }
+    public string? SourceWeekCode { get; set; }
+    public bool IsSupervisorSaved { get; set; }
+    public DateTime? DeadlineLocal { get; set; }
+    public bool DeadlinePassed { get; set; }
     public List<ShiftModeProfileDto> AvailableModes { get; set; } = new();
     public List<WeeklyEmployeeShiftModeDto> Employees { get; set; } = new();
 }

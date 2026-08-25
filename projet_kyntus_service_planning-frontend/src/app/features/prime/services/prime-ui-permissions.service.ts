@@ -42,6 +42,8 @@ const PATH_REQUIREMENTS: Record<string, { action: UiPermissionAction; scope?: Rb
   '/chef-projet/scope': { action: 'Read', scope: 'Pole' },
   '/prime-cellule-indicateurs': { action: 'Read', scope: 'Cellule' },
   '/prime-saisie': { action: 'Edit', scope: 'Cellule' },
+  '/prime-fiches-agents': { action: 'Edit', scope: 'Cellule' },
+  '/prime-validation-hub': { action: 'Validate', scope: 'Cellule' },
   '/prime-fiches-pilotes': { action: 'Edit', scope: 'Cellule' },
   '/prime-fiche-import': { action: 'Edit', scope: 'Cellule' },
   '/prime-saisie-cellule': { action: 'Edit', scope: 'Cellule' },

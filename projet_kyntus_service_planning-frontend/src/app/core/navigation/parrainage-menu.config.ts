@@ -16,10 +16,10 @@ const RH_ITEMS: ParrainageMenuDef[] = [
 ];
 
 const PILOTE_ITEMS: ParrainageMenuDef[] = [
-  { label: 'Soumettre un parrainage', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-submit', parrainageRoles: ['PILOTE'] },
-  { label: 'Tableau de bord', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-dashboard', parrainageRoles: ['PILOTE'] },
-  { label: 'Suivi des parrainages', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-referrals', parrainageRoles: ['PILOTE'] },
-  { label: 'Suivi des primes', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-bonus', parrainageRoles: ['PILOTE'] },
+  { label: 'Soumettre un parrainage', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-submit', parrainageRoles: ['PILOTE'], hat: 'self' },
+  { label: 'Tableau de bord', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-dashboard', parrainageRoles: ['PILOTE'], hat: 'self' },
+  { label: 'Suivi des parrainages', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-referrals', parrainageRoles: ['PILOTE'], hat: 'self' },
+  { label: 'Suivi des primes', route: PARRAINAGE_ROUTE, parrainageView: 'pilote-bonus', parrainageRoles: ['PILOTE'], hat: 'self' },
 ];
 
 const ADMIN_ITEMS: ParrainageMenuDef[] = [
@@ -32,10 +32,10 @@ const ADMIN_ITEMS: ParrainageMenuDef[] = [
 ];
 
 const PM_ITEMS: ParrainageMenuDef[] = [
-  { label: "Tableau de bord équipe", route: PARRAINAGE_ROUTE, parrainageView: 'pm-dashboard', parrainageRoles: ['MANAGER', 'COACH', 'RP'] },
-  { label: "Membres de l'équipe", route: PARRAINAGE_ROUTE, parrainageView: 'pm-team', parrainageRoles: ['MANAGER', 'COACH', 'RP'] },
-  { label: 'Parrainages', route: PARRAINAGE_ROUTE, parrainageView: 'pm-referrals', parrainageRoles: ['MANAGER', 'COACH', 'RP'] },
-  { label: 'Performance', route: PARRAINAGE_ROUTE, parrainageView: 'pm-performance', parrainageRoles: ['MANAGER', 'COACH', 'RP'] },
+  { label: "Tableau de bord équipe", route: PARRAINAGE_ROUTE, parrainageView: 'pm-dashboard', parrainageRoles: ['MANAGER', 'COACH', 'RP'], hat: 'team' },
+  { label: "Membres de l'équipe", route: PARRAINAGE_ROUTE, parrainageView: 'pm-team', parrainageRoles: ['MANAGER', 'COACH', 'RP'], hat: 'team' },
+  { label: 'Parrainages', route: PARRAINAGE_ROUTE, parrainageView: 'pm-referrals', parrainageRoles: ['MANAGER', 'COACH', 'RP'], hat: 'team' },
+  { label: 'Performance', route: PARRAINAGE_ROUTE, parrainageView: 'pm-performance', parrainageRoles: ['MANAGER', 'COACH', 'RP'], hat: 'team' },
 ];
 
 const COMPTA_ITEMS: ParrainageMenuDef[] = [

@@ -107,9 +107,9 @@
   margin-bottom: 1rem;
   padding: 0.9rem 1.1rem;
   border-radius: 0.75rem;
-  border: 1px solid #f59e0b;
-  background: #fffbeb;
-  color: #92400e;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -128,7 +128,7 @@
 }
 
 .pv-pending-links a {
-  color: #b45309;
+  color: var(--warning-text);
   font-weight: 700;
   text-decoration: underline;
 }

@@ -515,7 +515,6 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
       if (current.length <= 1) return; // au moins 1 créneau
       current.splice(idx, 1);
     } else {
-      if (current.length >= 3) return;
       current.push(slot);
       current.sort();
     }
@@ -932,8 +931,7 @@ export class ShiftConfigComponent implements OnInit, OnDestroy {
       breakDurationMinutes: 60,
       breakSlots: (s.breakSlots?.length
         ? s.breakSlots
-        : this.buildAutoBreakSlots(s.startTime, isCritical)
-      ).slice(0, 3),
+        : this.buildAutoBreakSlots(s.startTime, isCritical)),
       percentage: includePercentage ? (s.percentage ?? null) : undefined,
       // Multi-mode : effectifs dérivés à la génération ; pas de NB employés en template.
       requiredCount: includePercentage ? 0 : s.requiredCount,

@@ -20,7 +20,7 @@ export interface PrimeFilterBarFilter {
   imports: [LucideIconComponent, KyntusSelectSyncDirective],
   template: `
     <div
-      class="flex flex-col sm:flex-row gap-4 items-center bg-card p-4 rounded-xl shadow-sm border border-default mb-6"
+      class="flex flex-col sm:flex-row gap-4 items-center bg-input p-4 rounded-xl shadow-sm border border-default mb-6"
     >
       @if (onSearch) {
         <div class="relative flex-1 w-full">
@@ -29,7 +29,7 @@ export interface PrimeFilterBarFilter {
           </div>
           <input
             type="text"
-            class="block w-full pl-10 pr-3 py-2 border border-default rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 bg-app text-primary placeholder:text-muted"
+            class="block w-full pl-10 pr-3 py-2 border border-default rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 bg-card text-primary placeholder:text-muted"
             placeholder="Search..."
             (input)="onSearch($any($event.target).value)"
           />
@@ -44,7 +44,7 @@ export interface PrimeFilterBarFilter {
           </div>
           @for (filter of filters; track filter.name) {
             <select
-              class="block w-full sm:w-auto pl-3 pr-8 py-2 text-sm border border-default rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-app text-primary"
+              class="block w-full sm:w-auto pl-3 pr-8 py-2 text-sm border border-default rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-card text-primary"
               [kyntusSelectSync]="filter.value"
               (kyntusSelectSyncChange)="filter.onChange($event)"
             >

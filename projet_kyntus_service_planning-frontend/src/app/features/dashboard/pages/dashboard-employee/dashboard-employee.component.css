@@ -191,7 +191,7 @@
 /* Hero : panneau navy de marque, fixe sur les 2 thèmes */
 .emp-hero {
   position: relative; border-radius: var(--radius-card, 0.875rem); overflow: hidden;
-  background: linear-gradient(135deg, #0c1527 0%, #1e3a8a 100%);
+  background: linear-gradient(135deg, var(--ky-navy-950) 0%, var(--ky-blue) 100%);
   padding: 48px 48px; min-height: 240px;
   display: flex; align-items: center;
 }

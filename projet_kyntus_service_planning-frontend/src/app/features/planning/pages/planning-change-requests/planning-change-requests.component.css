@@ -8,7 +8,7 @@
 }
 .pcr-readonly-hint {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--text-muted);
   margin-bottom: 8px;
 }
 .pcr-filters label {
@@ -22,8 +22,10 @@
 .pcr-filters select {
   padding: 6px 10px;
   border-radius: 8px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-color);
   min-width: 160px;
+  background: var(--bg-input);
+  color: var(--text-primary);
 }
 .pcr-filters select {
   max-width: 280px;
@@ -46,14 +48,14 @@
 .pcr-recap-scope {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #64748b;
-  background: #f1f5f9;
+  color: var(--text-muted);
+  background: var(--bg-input);
   padding: 0.2rem 0.55rem;
   border-radius: 0.4rem;
 }
 .pcr-empty-row {
   text-align: center;
-  color: #64748b;
+  color: var(--text-muted);
   padding: 1.25rem !important;
 }
 .pcr-table {
@@ -64,7 +66,7 @@
 .pcr-table th,
 .pcr-table td {
   padding: 8px 10px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
   text-align: left;
   vertical-align: top;
 }
@@ -83,23 +85,24 @@
   cursor: pointer;
   white-space: nowrap;
 }
-.pcr-approve { background: #dcfce7; color: #166534; }
-.pcr-reject { background: #fee2e2; color: #991b1b; }
-.pcr-error { color: #b91c1c; margin-bottom: 8px; }
+.pcr-approve { background: var(--success-bg); color: var(--success-text); }
+.pcr-reject { background: var(--danger-bg); color: var(--danger-text); }
+.pcr-error { color: var(--danger-text); margin-bottom: 8px; }
 .pcr-toast {
   position: fixed;
   top: 1rem;
   right: 1rem;
   z-index: 50;
-  background: #065f46;
-  color: #fff;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
   padding: 0.6rem 1rem;
   border-radius: 8px;
 }
 .pcr-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: color-mix(in srgb, var(--navy-950, #0f172a) 40%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -108,7 +111,7 @@
 .pcr-hint {
   margin: 0 0 10px;
   font-size: 0.8rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 .pcr-emp-cell {
   display: flex;
@@ -122,19 +125,20 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: #f8fafc;
-  color: #0369a1;
+  background: var(--bg-input);
+  color: var(--info-text);
   cursor: pointer;
   flex-shrink: 0;
 }
 .pcr-eye-btn:hover {
-  background: #e0f2fe;
-  border-color: #7dd3fc;
+  background: var(--info-bg);
+  border-color: var(--info-border);
 }
 .pcr-modal {
-  background: #fff;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 1.25rem;
   width: min(400px, 92vw);
@@ -160,7 +164,7 @@
   font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
-  color: #64748b;
+  color: var(--text-muted);
 }
 .pcr-history-stats {
   display: flex;
@@ -168,17 +172,19 @@
   gap: 12px 18px;
   margin: 0 0 14px;
   padding: 10px 12px;
-  background: #f1f5f9;
+  background: var(--bg-input);
   border-radius: 8px;
   font-size: 0.82rem;
-  color: #334155;
+  color: var(--text-primary);
 }
 .pcr-modal textarea {
   width: 100%;
   margin: 10px 0;
   border-radius: 8px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-color);
   padding: 8px;
+  background: var(--bg-input);
+  color: var(--text-primary);
 }
 .pcr-modal-actions {
   display: flex;
@@ -186,8 +192,8 @@
   gap: 8px;
 }
 .gen-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;

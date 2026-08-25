@@ -80,6 +80,34 @@ public sealed class SupervisorCellulePrimeDraftController(
         }
     }
 
+    [HttpPost("rollover")]
+    public async Task<ActionResult<CelluleDraftRolloverResultDto>> Rollover(
+        [FromBody] RolloverCellulePrimeDraftRequest body,
+        CancellationToken ct)
+    {
+        if (drafts is null) return StatusCode(503, new { error = "Base de données non configurée." });
+        try
+        {
+            return Ok(await mediator.Send(new RolloverSupervisorCellulePrimeDraftCommand(body), ct));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { error = ex.Message });
+        }
+        catch (PrimeApiException ex)
+        {
+            return StatusCode(ex.StatusCode, new { error = ex.Message });
+        }
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(
         Guid id,

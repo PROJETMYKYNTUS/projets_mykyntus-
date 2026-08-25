@@ -102,12 +102,16 @@ export class FormationAdminComponent implements OnInit {
   rejectReason = '';
   feedback = '';
   feedbackKind: 'info' | 'error' = 'info';
+  /** Deep-link recherche globale (session ou parcours). */
+  highlightId: string | null = null;
 
   ngOnInit(): void {
     const tabParam = this.route.snapshot.queryParamMap.get('tab');
     if (tabParam === 'continue' || tabParam === 'initial') {
       this.tab = tabParam;
     }
+
+    this.highlightId = this.route.snapshot.queryParamMap.get('highlight')?.trim() || null;
 
     const statutParam = this.route.snapshot.queryParamMap.get('statut');
     if (statutParam) {
@@ -156,7 +160,9 @@ export class FormationAdminComponent implements OnInit {
       ]);
       this.paths = paths ?? [];
       this.sessions = sessions ?? [];
+      this.applyHighlightFromQuery();
       this.applyFilters();
+      this.scrollToHighlight();
     } catch {
       this.paths = [];
       this.sessions = [];
@@ -165,6 +171,31 @@ export class FormationAdminComponent implements OnInit {
       this.loading = false;
       this.cdr.markForCheck();
     }
+  }
+
+  private applyHighlightFromQuery(): void {
+    const id = this.highlightId;
+    if (!id) return;
+    const path = this.paths.find((p) => p.id === id);
+    if (path) {
+      this.tab = 'initial';
+      this.searchTerm = path.employeeName || path.employeeId;
+      return;
+    }
+    const session = this.sessions.find((s) => s.id === id);
+    if (session) {
+      this.tab = 'continue';
+      this.searchTerm = session.title || '';
+    }
+  }
+
+  private scrollToHighlight(): void {
+    const id = this.highlightId;
+    if (!id) return;
+    setTimeout(() => {
+      const el = document.querySelector(`[data-highlight-id="${CSS.escape(id)}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
   }
 
   setTab(tab: AdminTab): void {

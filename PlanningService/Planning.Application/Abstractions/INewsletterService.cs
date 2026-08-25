@@ -28,5 +28,8 @@ namespace Planning.Application.Abstractions
 
         // -- Analytics ---------------------------------------------------------
         Task<CampaignAnalyticsDto?> GetCampaignAnalyticsAsync(int campaignId);
+
+        /// <summary>Formulaire unique : crée contenu + campagne (+ publie ou planifie).</summary>
+        Task<PublicationResponseDto> CreatePublicationAsync(CreatePublicationDto dto, string userId);
     }
 }

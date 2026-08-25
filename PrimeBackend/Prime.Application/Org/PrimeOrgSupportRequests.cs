@@ -25,26 +25,6 @@ public sealed class PutServicePrimeIndicatorsCommandHandler(IServicePrimeIndicat
         indicators.PutAsync(request.ServiceId, request.SupervisorUserId, request.Body, ct);
 }
 
-public record GetServicePoleLinePonderationsQuery(string ServiceId, string SupervisorUserId)
-    : IRequest<IReadOnlyList<ServicePoleLinePonderationDto>>;
-
-public sealed class GetServicePoleLinePonderationsQueryHandler(IServicePoleLinePonderationsAppService ponderations)
-    : IRequestHandler<GetServicePoleLinePonderationsQuery, IReadOnlyList<ServicePoleLinePonderationDto>>
-{
-    public Task<IReadOnlyList<ServicePoleLinePonderationDto>> Handle(GetServicePoleLinePonderationsQuery request, CancellationToken ct) =>
-        ponderations.GetAsync(request.ServiceId, request.SupervisorUserId, ct);
-}
-
-public record PutServicePoleLinePonderationsCommand(string ServiceId, string SupervisorUserId, PutServicePoleLinePonderationsRequest Body)
-    : IRequest<IReadOnlyList<ServicePoleLinePonderationDto>>;
-
-public sealed class PutServicePoleLinePonderationsCommandHandler(IServicePoleLinePonderationsAppService ponderations)
-    : IRequestHandler<PutServicePoleLinePonderationsCommand, IReadOnlyList<ServicePoleLinePonderationDto>>
-{
-    public Task<IReadOnlyList<ServicePoleLinePonderationDto>> Handle(PutServicePoleLinePonderationsCommand request, CancellationToken ct) =>
-        ponderations.PutAsync(request.ServiceId, request.SupervisorUserId, request.Body, ct);
-}
-
 public record DownloadPeriodRecapReportQuery(string Period, string ActingUserId) : IRequest<FileExportResultDto>;
 
 public sealed class DownloadPeriodRecapReportQueryHandler(IPrimePeriodRecapReportsAppService reports)

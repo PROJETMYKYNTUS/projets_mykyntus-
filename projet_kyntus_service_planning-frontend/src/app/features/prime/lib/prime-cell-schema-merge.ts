@@ -1,6 +1,7 @@
 import type { CellulePrimeIndicatorDto } from '../services/prime-cell-prime-api.service';
 import { emptySecteurPairValues } from '../models/prime-fiche-ligne.model';
 import { isPoleContract, isSavContract } from './prime-pole-saisie-filter';
+import { isSummaryLikeIndicatorLabel } from './prime-line-classification';
 import {
   flattenDynamicLigneForPayload,
   ligneDynamicFromFlatPayload,
@@ -145,17 +146,12 @@ export function parsePrimeSchemaFromDraftJson(schemaJson: string | null | undefi
   }
 }
 
-function isSummaryLikeTemplateLine(ln: PrimeFicheTemplateLine): boolean {
-  const t = (ln.indicator ?? '').trim();
-  return /^somme\b/i.test(t) || /^total\b/i.test(t);
-}
-
 /**
  * Ligne pôle à cloner pour la structure secteurs / colonnes du bloc Cellule dérivé
  * (dernière ligne SAV « métier », sinon dernière RACC).
  */
 export function pickPoleReferenceLineForCellClone(lines: PrimeFicheTemplateLine[]): PrimeFicheTemplateLine | null {
-  const pole = lines.filter((l) => isPoleContract(l.contract) && !isSummaryLikeTemplateLine(l));
+  const pole = lines.filter((l) => isPoleContract(l.contract) && !isSummaryLikeIndicatorLabel(l.indicator ?? ''));
   if (!pole.length) return null;
   const sav = pole.filter((l) => isSavContract(l.contract));
   if (sav.length) return cloneLine(sav[sav.length - 1]!);

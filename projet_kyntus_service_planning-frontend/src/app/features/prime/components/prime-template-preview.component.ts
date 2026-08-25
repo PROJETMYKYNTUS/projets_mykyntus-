@@ -21,7 +21,7 @@ export function excelColumnLabel(index: number): string {
       <div class="space-y-3">
         <p class="text-xs text-muted">
           Feuille : <span class="font-medium text-primary">{{ t.previewSheetName }}</span> ·
-          {{ t.previewRows.length }} ligne(s) · {{ t.formulas.length }} formule(s) · aperçu style feuille Excel (valeurs
+          {{ resolved().rows.length }} ligne(s) · {{ t.formulas.length }} formule(s) · aperçu style feuille Excel (valeurs
           recalculées lorsque possible)
         </p>
         @if (resolved().errors.length) {
@@ -40,11 +40,11 @@ export function excelColumnLabel(index: number): string {
             <thead>
               <tr>
                 <th
-                  class="excel-corner h-7 w-10 min-w-[2.5rem] p-0 text-center text-[10px] font-normal"
+                  class="excel-corner h-7 w-10 min-w-[2.5rem] sticky left-0 z-[2] p-0 text-center text-[10px] font-normal"
                 ></th>
                 @for (ci of columnIndices(); track ci) {
                   <th
-                    class="excel-col-head h-7 min-w-[5.5rem] max-w-[14rem] px-1 py-0.5 text-center text-[11px] font-semibold tracking-wide"
+                    class="excel-col-head h-7 min-w-[4.5rem] px-1 py-0.5 text-center text-[11px] font-semibold tracking-wide"
                   >
                     {{ excelColumnLabel(ci) }}
                   </th>
@@ -55,16 +55,16 @@ export function excelColumnLabel(index: number): string {
               @for (row of resolved().rows; track $index; let ri = $index) {
                 <tr>
                   <th
-                    class="excel-row-head w-10 min-w-[2.5rem] py-0.5 text-center text-[11px] font-normal tabular-nums"
+                    class="excel-row-head sticky left-0 z-[1] w-10 min-w-[2.5rem] py-0.5 text-center text-[11px] font-normal tabular-nums"
                   >
                     {{ ri + 1 }}
                   </th>
                   @for (cell of row; track $index) {
                     <td
-                      class="excel-cell max-w-[14rem] px-1.5 py-0.5 text-[11px] leading-snug align-top"
-                      [attr.title]="cell.length > 80 ? cell : null"
+                      class="excel-cell min-w-[4.5rem] px-1.5 py-0.5 text-[11px] leading-snug align-top whitespace-pre-wrap break-words"
+                      [attr.title]="cell.length > 40 ? cell : null"
                     >
-                      <span class="block truncate">{{ cell }}</span>
+                      {{ cell }}
                     </td>
                   }
                 </tr>
@@ -84,7 +84,7 @@ export function excelColumnLabel(index: number): string {
       border-radius: var(--radius-md);
     }
     .excel-sheet-table {
-      table-layout: fixed;
+      table-layout: auto;
     }
     .excel-corner,
     .excel-col-head,

@@ -253,8 +253,8 @@ import { KyntusEmptyStateComponent } from '../../../shared/components/ui/kyntus-
       color: var(--text-muted);
     }
     .ffi-feedback-error {
-      color: #fda4af;
-      border-color: color-mix(in srgb, #fda4af 40%, var(--border-color));
+      color: var(--danger-text);
+      border-color: var(--danger-border);
     }
     .ffi-inline-confirm {
       display: inline-flex;
@@ -306,8 +306,8 @@ import { KyntusEmptyStateComponent } from '../../../shared/components/ui/kyntus-
       font-weight: 700;
       min-width: 3.25rem;
     }
-    .ffi-ok { color: #34d399; }
-    .ffi-ko { color: #fda4af; }
+    .ffi-ok { color: var(--success); }
+    .ffi-ko { color: var(--danger-text); }
     .ffi-actions {
       display: flex;
       flex-wrap: nowrap;
@@ -321,7 +321,7 @@ import { KyntusEmptyStateComponent } from '../../../shared/components/ui/kyntus-
       line-height: 1.2;
       white-space: nowrap;
     }
-    .ffi-reject { color: var(--danger-text, #fda4af); }
+    .ffi-reject { color: var(--danger-text); }
     .ffi-quiz-list {
       margin: 0;
       padding: 0;
@@ -353,14 +353,14 @@ import { KyntusEmptyStateComponent } from '../../../shared/components/ui/kyntus-
       background: none;
       border: none;
       padding: 0;
-      color: var(--accent, #60a5fa);
+      color: var(--blue-600);
       text-decoration: underline;
       cursor: pointer;
       font-size: 0.72rem;
       line-height: 1;
     }
     .ffi-link-danger {
-      color: #fda4af;
+      color: var(--danger-text);
       text-decoration: none;
       font-size: 0.95rem;
       font-weight: 600;
@@ -385,13 +385,13 @@ import { KyntusEmptyStateComponent } from '../../../shared/components/ui/kyntus-
     }
     .ffi-panel-reject {
       align-items: start;
-      border-color: color-mix(in srgb, #fda4af 45%, var(--border-color));
+      border-color: var(--danger-border);
     }
     .ffi-panel-warn {
       margin: 0;
       flex: 1 1 100%;
       font-size: 0.72rem;
-      color: #fda4af;
+      color: var(--danger-text);
     }
     .ffi-panel-field {
       flex: 1 1 12rem;
@@ -409,7 +409,7 @@ import { KyntusEmptyStateComponent } from '../../../shared/components/ui/kyntus-
       align-items: center;
     }
     .ffi-btn-danger {
-      background: color-mix(in srgb, #e11d48 85%, #000);
+      background: var(--danger);
       border-color: transparent;
       color: #fff;
     }

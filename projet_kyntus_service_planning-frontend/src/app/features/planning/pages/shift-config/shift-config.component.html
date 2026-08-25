@@ -413,7 +413,6 @@
                         class="break-chip"
                         *ngFor="let slot of getAllowedBreakStarts(shift)"
                         [class.break-chip--on]="isBreakSlotSelected(shift, slot)"
-                        [disabled]="!isBreakSlotSelected(shift, slot) && (shift.breakSlots?.length ?? 0) >= 3"
                         (click)="toggleBreakSlot(shift, slot)"
                         [title]="formatBreakSlotLabel(slot)">
                         {{ formatBreakSlotLabel(slot) }}
@@ -422,7 +421,7 @@
                         type="button"
                         class="break-auto-btn"
                         (click)="resetBreakSlotsAuto(shift)"
-                        title="Recalculer les 3 créneaux auto">
+                        title="Recalculer les créneaux auto">
                         Auto
                       </button>
                     </div>

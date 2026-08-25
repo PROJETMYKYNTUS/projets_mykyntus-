@@ -1,7 +1,7 @@
 .status-published {
   font-size: 12px;
   font-weight: 600;
-  color: var(--success-text, #15803d);
+  color: var(--success-text);
 }
 
 .equipe-loading,
@@ -11,13 +11,13 @@
 }
 
 .equipe-error {
-  color: var(--danger-text, #b91c1c);
+  color: var(--danger-text);
 }
 
 .equipe-hint {
   margin: 0 0 14px;
   font-size: 0.85rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .equipe-filters {
@@ -36,7 +36,7 @@
 .equipe-empty-filter {
   padding: 1rem 0;
   font-size: 0.9rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .equipe-list {
@@ -54,16 +54,16 @@
   width: 100%;
   text-align: left;
   padding: 14px 16px;
-  border: 1px solid var(--border-color, #e2e8f0);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
-  background: var(--bg-card, #fff);
+  background: var(--bg-card);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
 
 .equipe-row:hover {
-  border-color: #7dd3fc;
-  background: #f0f9ff;
+  border-color: var(--info-border);
+  background: var(--info-bg);
 }
 
 .equipe-row-main {
@@ -76,12 +76,12 @@
 .equipe-week {
   font-weight: 700;
   font-size: 0.95rem;
-  color: var(--text-primary, #0f172a);
+  color: var(--text-primary);
 }
 
 .equipe-svc {
   font-size: 0.85rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .equipe-row-meta {
@@ -93,17 +93,17 @@
 }
 
 .equipe-count {
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
 }
 
 .equipe-open {
   font-weight: 600;
-  color: #0369a1;
+  color: var(--info-text);
 }
 
 .gen-card {
-  background: var(--bg-card, #fff);
-  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 16px 18px;
   margin-top: 12px;

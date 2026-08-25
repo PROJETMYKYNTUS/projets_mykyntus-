@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { CongeService } from '../../../../core/services/conge.service';
 import { UserService } from '../../../users/services/user.service';
@@ -57,6 +58,8 @@ export class CongeHistoriqueComponent implements OnInit {
   filterCellule = '';
   filterService = '';
   searchTerm = '';
+  /** Deep-link depuis la recherche globale. */
+  highlightDemandeId: string | null = null;
 
   operationalDepartmentOptions: string[] = [];
   poleOptions: string[] = [];
@@ -68,6 +71,8 @@ export class CongeHistoriqueComponent implements OnInit {
   private perimeterByEmployeGuid = new Map<string, UserOrgPerimeterView>();
 
   readonly orgPerimeterSummary = orgPerimeterSummary;
+
+  private readonly route = inject(ActivatedRoute);
 
   constructor(
     private congeService: CongeService,
@@ -81,6 +86,14 @@ export class CongeHistoriqueComponent implements OnInit {
   ngOnInit(): void {
     const current = new Date().getFullYear();
     this.yearOptions = Array.from({ length: 6 }, (_, i) => current - i);
+
+    const qp = this.route.snapshot.queryParamMap;
+    const annee = Number(qp.get('annee'));
+    if (Number.isFinite(annee) && annee >= 2000) {
+      this.filterAnnee = annee;
+    }
+    this.highlightDemandeId = qp.get('demandeId')?.trim() || null;
+
     this.loadData();
   }
 
@@ -102,6 +115,7 @@ export class CongeHistoriqueComponent implements OnInit {
         this.buildPerimeters(users ?? [], overview, subServices ?? []);
         this.refreshOrgFilterOptions();
         this.applyFilters();
+        this.focusHighlightedDemande();
         this.loading = false;
         this.cdr.detectChanges();
       },
@@ -111,6 +125,18 @@ export class CongeHistoriqueComponent implements OnInit {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  private focusHighlightedDemande(): void {
+    const id = this.highlightDemandeId;
+    if (!id) return;
+    const found = this.allDemandes.find((d) => d.id === id);
+    if (!found) return;
+    this.filteredDemandes = [found, ...this.filteredDemandes.filter((d) => d.id !== id)];
+    setTimeout(() => {
+      const el = document.querySelector(`[data-demande-id="${CSS.escape(id)}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
   }
 
   private buildPerimeters(

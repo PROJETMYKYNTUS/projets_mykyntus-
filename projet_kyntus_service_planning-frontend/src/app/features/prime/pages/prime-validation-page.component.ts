@@ -9,6 +9,7 @@ import {
 import { firstValueFrom, forkJoin, switchMap } from 'rxjs';
 import { resolvePlatformOrgLabels } from '../../../core/org/platform-org-perimeter';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
+import { PrimeScopeStore } from '../state/prime-scope.store';
 import { PrimeOrgApiService } from '../services/prime-org-api.service';
 import { AlertCircle, Check, CheckCheck, History, X } from 'lucide';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
@@ -156,7 +157,7 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
               <button
                 type="button"
                 (click)="goToValidationHistory()"
-                class="text-indigo-400 hover:text-indigo-300 underline ml-1"
+                class="text-[color:var(--info-text)] hover:underline ml-1"
               >
                 Voir toutes vos actions sur Suivi validation
               </button>.
@@ -175,11 +176,11 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
           }
         </div>
 
-        <div class="prime-callout-info">
-          <app-lucide-icon [icon]="icons.alert" className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" />
+        <div class="ky-alert ky-alert-info">
+          <app-lucide-icon [icon]="icons.alert" className="w-5 h-5 shrink-0 mt-0.5 text-[color:var(--info-text)]" />
           <div>
-            <h4 class="prime-callout-title">Rôle : {{ roleService.currentRole() }}</h4>
-            <p class="prime-callout-body">{{ roleHelper() }}</p>
+            <h4 class="font-semibold text-primary text-sm m-0">Rôle : {{ roleService.currentRole() }}</h4>
+            <p class="text-sm text-muted m-0 mt-0.5">{{ roleHelper() }}</p>
           </div>
         </div>
 
@@ -191,18 +192,18 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
 
         @if (readyNotSubmittedCount() > 0) {
           <div
-            class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-primary flex flex-wrap items-start justify-between gap-3"
+            class="rounded-xl border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] px-4 py-3 text-sm text-primary flex flex-wrap items-start justify-between gap-3"
             role="status"
           >
             <div class="min-w-0 space-y-1">
-              <p class="font-semibold text-amber-200">
+              <p class="font-semibold text-[color:var(--warning-text)]">
                 {{ readyNotSubmittedCount() }} fiche(s) prête(s) — bascule en Pending en cours
               </p>
               <p class="text-muted text-xs leading-relaxed">
                 Partie commune validée et saisie pilote complète : la fiche doit passer automatiquement en
-                <span class="font-mono text-amber-200/90">Pending</span> pour entrer dans le circuit de validation
+                <span class="font-mono text-[color:var(--warning-text)]">Pending</span> pour entrer dans le circuit de validation
                 (le statut
-                <span class="font-mono text-amber-200/90">AwaitingData</span> signifie seulement « hors circuit », pas
+                <span class="font-mono text-[color:var(--warning-text)]">AwaitingData</span> signifie seulement « hors circuit », pas
                 « données manquantes »). Si le compteur persiste, cliquez « Réessayer la soumission ».
               </p>
             </div>
@@ -210,7 +211,7 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
               type="button"
               (click)="retryWorkflowSubmission()"
               [disabled]="reconcileBusy()"
-              class="shrink-0 rounded-lg border border-amber-500/50 bg-amber-600/20 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-600/30 disabled:opacity-50"
+              class="shrink-0 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] px-3 py-2 text-xs font-semibold text-[color:var(--warning-text)] hover:brightness-105 disabled:opacity-50"
             >
               {{ reconcileBusy() ? 'Actualisation…' : 'Réessayer la soumission' }}
             </button>
@@ -293,11 +294,11 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
                         </div>
                       </td>
                       <td>
-                        <span class="prime-status-badge">
+                        <span [class]="statusBadgeClass(item.validationStatus)">
                           {{ statusLabel(item.validationStatus) }}
                         </span>
                         @if (item.validationStatus === 'Rejected' && item.rejectionReason) {
-                          <div class="text-xs text-rose-500 mt-1 italic max-w-xs truncate" [title]="item.rejectionReason">
+                          <div class="text-xs text-[color:var(--danger-text)] mt-1 italic max-w-xs truncate" [title]="item.rejectionReason">
                             « {{ item.rejectionReason }} »
                           </div>
                         }
@@ -388,7 +389,7 @@ function isPreWorkflowSubmissionStatus(status: string): boolean {
                             }
                           } @else if (isAwaitingWorkflowSubmission(item)) {
                             <p
-                              class="max-w-[14rem] text-right text-[11px] leading-snug text-amber-300/95"
+                              class="max-w-[14rem] text-right text-xs leading-snug text-[color:var(--warning-text)]"
                               [title]="submissionHoldReason(item)"
                             >
                               {{ submissionHoldReason(item) }}
@@ -428,6 +429,7 @@ export class PrimeValidationPageComponent {
   readonly roleService = inject(RoleService);
   private readonly api = inject(PrimeFicheResultService);
   private readonly nav = inject(PrimeNavRequestService);
+  private readonly scope = inject(PrimeScopeStore);
   private readonly orgApi = inject(PrimeOrgApiService);
 
   readonly icons = { alert: AlertCircle, check: Check, x: X, checkAll: CheckCheck, history: History };
@@ -459,7 +461,7 @@ export class PrimeValidationPageComponent {
   };
 
   goToValidationHistory(): void {
-    this.nav.requestView('/validation-history');
+    this.nav.requestViewWithTab('/prime-validation-hub', 'history');
   }
 
   readonly workflowPipelineLabel = computed(() =>
@@ -602,6 +604,17 @@ export class PrimeValidationPageComponent {
   });
 
   constructor() {
+    const uid = this.roleService.currentUser()?.id?.trim();
+    if (uid) this.scope.hydrateFromStorage(uid);
+    const fromScope = this.scope.period().trim();
+    if (fromScope) this.periodFilter.set(fromScope);
+    const requested = this.nav.requestedPeriod()?.trim();
+    if (requested && /^\d{4}-\d{2}$/.test(requested)) {
+      this.periodFilter.set(requested);
+      this.scope.setPeriod(requested, uid);
+      this.nav.clearRequestedPeriod();
+    }
+
     void this.api.periods().subscribe({
       next: (periods) => {
         const opts = periods.map((p) => ({ label: p, value: p }));
@@ -732,6 +745,17 @@ export class PrimeValidationPageComponent {
 
   statusLabel(status: string): string {
     return status;
+  }
+
+  statusBadgeClass(status: string): string {
+    const base = 'prime-status-badge';
+    const s = (status ?? '').toLowerCase();
+    if (s.includes('reject') || s.includes('refus')) return `${base} prime-status-badge--danger`;
+    if (s.includes('approv') || s.includes('valid') || s.includes('paid') || s === 'complete') {
+      return `${base} prime-status-badge--success`;
+    }
+    if (s.includes('pending') || s.includes('await')) return `${base} prime-status-badge--warning`;
+    return `${base} prime-status-badge--neutral`;
   }
 
   formatAmount(value: number | null | undefined): string {

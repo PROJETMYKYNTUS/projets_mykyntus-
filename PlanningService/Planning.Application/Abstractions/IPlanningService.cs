@@ -24,6 +24,8 @@ public interface IPlanningService
     // -- Modes de shifts hebdomadaires --
     Task<WeeklyShiftModePlanDto> GetWeeklyShiftModePlanAsync(int subServiceId, string weekCode, DateOnly weekStartDate);
     Task<WeeklyShiftModePlanDto> SaveWeeklyShiftModePlanAsync(SaveWeeklyShiftModePlanDto dto);
+    Task NotifyModeConfigPendingAsync(
+        int planningUserId, int authUserId, string weekCode, string subServiceName, string message);
 
     // -- Génération depuis config / auto --
     Task<WeeklyPlanningResponseDto> GeneratePlanningFromConfigAsync(GeneratePlanningFromConfigDto dto);

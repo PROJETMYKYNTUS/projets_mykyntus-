@@ -50,6 +50,8 @@ public class AppDbContext : DbContext
     public DbSet<NewsletterCampaign> NewsletterCampaigns { get; set; } = null!;
   
     public DbSet<CampaignAnalytics> CampaignAnalytics { get; set; } = null!;
+    public DbSet<MediaAsset> MediaAssets { get; set; } = null!;
+    public DbSet<TicketComment> TicketComments { get; set; } = null!;
 
     // 🆕 Ajouter le DbSet
     public DbSet<UserManagedService> UserManagedServices { get; set; } = null!;
@@ -361,7 +363,8 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.RequestedShiftTemplate)
                 .WithMany()
                 .HasForeignKey(e => e.RequestedShiftTemplateId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false);
             entity.HasOne(e => e.SupervisorProcessedBy)
                 .WithMany()
                 .HasForeignKey(e => e.SupervisorProcessedByUserId)
@@ -520,6 +523,27 @@ public class AppDbContext : DbContext
                 .WithOne()
                 .HasForeignKey<UserHrProfile>(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MediaAsset>(e =>
+        {
+            e.ToTable("MediaAssets");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.FileName).HasMaxLength(260);
+            e.Property(x => x.ContentType).HasMaxLength(128);
+            e.Property(x => x.StoragePath).HasMaxLength(512);
+            e.Property(x => x.UploadedByUserId).HasMaxLength(128);
+            e.HasIndex(x => new { x.OwnerType, x.OwnerId });
+        });
+
+        modelBuilder.Entity<TicketComment>(e =>
+        {
+            e.ToTable("TicketComments");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.AuthorId).HasMaxLength(128);
+            e.Property(x => x.AuthorNom).HasMaxLength(200);
+            e.Property(x => x.Text).HasMaxLength(4000);
+            e.HasIndex(x => new { x.OwnerType, x.OwnerId });
         });
     }
 }

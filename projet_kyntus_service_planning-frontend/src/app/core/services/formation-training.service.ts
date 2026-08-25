@@ -22,6 +22,8 @@ import type {
   TrainingLessonDto,
   TrainingModuleDto,
   TrainingProgramDto,
+  TrainingProgramDetailDto,
+  ProgramBeneficiaryProgressDto,
   TrainingQuizAttemptDto,
   TrainingQuizDto,
   TrainingQuizForEmployeeDto,
@@ -100,6 +102,20 @@ export class FormationTrainingService {
   createProgram(body: Record<string, unknown>): Promise<TrainingProgramDto> {
     return firstValueFrom(this.http.post<TrainingProgramDto>(`${PREFIX}/programs`, body)).catch((err) => {
       throw new Error(extractError(err, 'Échec de la création du programme'));
+    });
+  }
+
+  getProgram(id: string): Promise<TrainingProgramDetailDto> {
+    return firstValueFrom(this.http.get<TrainingProgramDetailDto>(`${PREFIX}/programs/${id}`)).catch((err) => {
+      throw new Error(extractError(err, 'Échec du chargement du programme'));
+    });
+  }
+
+  getProgramBeneficiaryProgress(id: string): Promise<ProgramBeneficiaryProgressDto[]> {
+    return firstValueFrom(
+      this.http.get<ProgramBeneficiaryProgressDto[]>(`${PREFIX}/programs/${id}/beneficiary-progress`),
+    ).catch((err) => {
+      throw new Error(extractError(err, 'Échec du chargement de l’avancement'));
     });
   }
 

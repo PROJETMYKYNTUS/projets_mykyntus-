@@ -215,12 +215,12 @@ import { resolveUserGuid } from '../../../core/lib/user-guid.util';
       font-weight: 700;
       min-width: 3.25rem;
     }
-    .frpq-ok { color: #059669; }
-    .frpq-ko { color: #dc2626; }
-    .frpq-docs-ko { color: #dc2626; font-weight: 600; }
+    .frpq-ok { color: var(--success); }
+    .frpq-ko { color: var(--danger); }
+    .frpq-docs-ko { color: var(--danger); font-weight: 600; }
     .frpq-check-link {
       font-size: 0.72rem;
-      color: var(--accent, #2563eb);
+      color: var(--blue-600);
       text-decoration: underline;
       white-space: nowrap;
     }
@@ -238,12 +238,12 @@ import { resolveUserGuid } from '../../../core/lib/user-guid.util';
       white-space: nowrap;
     }
     .frpq-actions .ky-btn-primary.frpq-btn {
-      background-color: #2563eb !important;
-      background-image: linear-gradient(135deg, #1e4fd8, #3b82f6) !important;
+      background-color: var(--blue-600) !important;
+      background-image: var(--ky-gradient) !important;
       border: none !important;
-      color: #f8fafc !important;
+      color: #fff !important;
     }
-    .frpq-reject { color: #b91c1c !important; }
+    .frpq-reject { color: var(--danger-text) !important; }
     .frpq-quiz-list {
       margin: 0;
       padding: 0;
@@ -278,7 +278,7 @@ import { resolveUserGuid } from '../../../core/lib/user-guid.util';
       font-size: 0.72rem;
       color: var(--text-muted);
     }
-    .frpq-missing-inline { color: #dc2626; }
+    .frpq-missing-inline { color: var(--danger); }
     .frpq-panel-form {
       display: flex;
       flex-wrap: wrap;
@@ -290,11 +290,11 @@ import { resolveUserGuid } from '../../../core/lib/user-guid.util';
       background: color-mix(in srgb, var(--bg-input) 55%, transparent);
     }
     .frpq-panel-warn {
-      border-color: color-mix(in srgb, #f59e0b 45%, var(--border-color));
+      border-color: var(--warning-border);
     }
     .frpq-panel-danger {
       align-items: start;
-      border-color: color-mix(in srgb, #fda4af 45%, var(--border-color));
+      border-color: var(--danger-border);
     }
     .frpq-panel-title {
       margin: 0;
@@ -308,7 +308,7 @@ import { resolveUserGuid } from '../../../core/lib/user-guid.util';
       padding-left: 1.1rem;
       flex: 1 1 100%;
       font-size: 0.75rem;
-      color: #b45309;
+      color: var(--warning-text);
     }
     .frpq-field {
       display: grid;
@@ -336,9 +336,9 @@ import { resolveUserGuid } from '../../../core/lib/user-guid.util';
       font-size: 0.78rem;
       color: var(--text-muted);
     }
-    .frpq-feedback-error { color: #dc2626; }
+    .frpq-feedback-error { color: var(--danger); }
     .frpq-btn-danger {
-      background: color-mix(in srgb, #e11d48 85%, #000) !important;
+      background: var(--danger) !important;
       background-image: none !important;
       border-color: transparent !important;
       color: #fff !important;

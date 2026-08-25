@@ -86,7 +86,7 @@
             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
             <polyline points="22,6 12,13 2,6"/>
           </svg>
-          <span>Newsletters</span>
+          <span>Actualités</span>
           <span class="emp-nav-badge" *ngIf="unreadNewsletters > 0">{{ unreadNewsletters }}</span>
         </button>
 
@@ -141,7 +141,7 @@
                currentView === 'planning'         ? 'Mon Planning'                 :
                currentView === 'equipe-planning'  ? 'Planning Équipe'              :
                currentView === 'conges'           ? (isManager ? 'Congés Équipe' : 'Mes Congés') :
-               currentView === 'newsletters'   ? 'Newsletters'                  :
+               currentView === 'newsletters'   ? 'Actualités'                  :
                currentView === 'reclamations'  ? 'Réclamations & Propositions'  :
                currentView === 'formations'    ? 'Formations'                   :
                                                  'Paramètres' }}
@@ -319,7 +319,7 @@
                 </svg>
               </div>
               <div class="emp-menu-card-body">
-                <h3>Newsletters</h3>
+                <h3>Actualités</h3>
                 <p>Consultez les communications internes</p>
               </div>
               <div class="emp-menu-card-arrow">
@@ -494,7 +494,7 @@
               </svg>
             </div>
             <div>
-              <h2 class="enl-title">Mes Newsletters</h2>
+              <h2 class="enl-title">Mes actualités</h2>
               <p class="enl-sub">Communications internes de votre organisation</p>
             </div>
           </div>
@@ -516,7 +516,7 @@
 
         <div class="enl-loading" *ngIf="nlLoading">
           <div class="enl-spinner"></div>
-          <p>Chargement des newsletters…</p>
+          <p>Chargement des actualités…</p>
         </div>
 
         <div class="enl-empty" *ngIf="!nlLoading && myNewsletters.length === 0">
@@ -526,8 +526,8 @@
               <polyline points="22,6 12,13 2,6"/>
             </svg>
           </div>
-          <h3>Aucune newsletter reçue</h3>
-          <p>Les communications de votre organisation apparaîtront ici.</p>
+          <h3>Aucune actualité</h3>
+          <p>Les messages qui vous sont destinés apparaîtront ici.</p>
         </div>
 
         <div class="enl-inbox" *ngIf="!nlLoading && myNewsletters.length > 0 && !selectedNewsletter">
@@ -548,7 +548,7 @@
                   {{ nl.newsletterTitle }}
                 </div>
                 <div class="enl-inbox-subject">{{ nl.newsletterSubject }}</div>
-                <div class="enl-inbox-campaign">Campagne : {{ nl.campaignName }}</div>
+                <div class="enl-inbox-campaign">Publication : {{ nl.campaignName }}</div>
               </div>
             </div>
             <div class="enl-inbox-right">
@@ -577,12 +577,21 @@
               <h2 class="enl-detail-title">{{ selectedNewsletter.newsletterTitle }}</h2>
               <p class="enl-detail-subject">{{ selectedNewsletter.newsletterSubject }}</p>
               <div class="enl-detail-meta">
-                <span>Campagne : {{ selectedNewsletter.campaignName }}</span>
+                <span>Publication : {{ selectedNewsletter.campaignName }}</span>
                 <span>Reçue le {{ selectedNewsletter.receivedAt | date:'dd/MM/yyyy à HH:mm' }}</span>
               </div>
             </div>
             <div class="enl-detail-divider"></div>
-            <div class="enl-detail-content" [innerHTML]="selectedNewsletter.htmlContent"></div>
+            <app-newsletter-reader
+              [title]="selectedNewsletter.newsletterTitle"
+              [subject]="selectedNewsletter.newsletterSubject"
+              [textContent]="selectedNewsletter.textContent"
+              [htmlContent]="selectedNewsletter.htmlContent"
+              [coverImageUrl]="selectedNewsletter.coverImageUrl"
+              [receivedAt]="selectedNewsletter.receivedAt"
+              [media]="selectedNewsletter.media || []"
+              [meta]="'Publication : ' + selectedNewsletter.campaignName">
+            </app-newsletter-reader>
           </div>
         </div>
 

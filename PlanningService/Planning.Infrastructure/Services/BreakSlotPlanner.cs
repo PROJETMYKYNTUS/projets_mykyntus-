@@ -343,7 +343,6 @@ public static class BreakSlotPlanner
                 if (!allowed.Contains(t)) continue;
                 if (!parsed.Contains(t))
                     parsed.Add(t);
-                if (parsed.Count >= MaxSlots) break;
             }
         }
 
@@ -351,6 +350,57 @@ public static class BreakSlotPlanner
             return OrderByIdeal(BuildPreferredBreakSlots(shiftStart, isCriticalCell), shiftStart, isCriticalCell);
 
         return OrderByIdeal(parsed, shiftStart, isCriticalCell);
+    }
+
+    /// <summary>
+    /// True si RH a enregistré des bandes (liste fermée). JSON vide = pas de restriction génération.
+    /// </summary>
+    public static bool HasExplicitBreakSelection(SubServiceShiftConfig config) =>
+        DeserializeSlots(config.BreakSlotsJson).Count > 0;
+
+    /// <summary>
+    /// Bandes cochées par RH. Si jamais configuré, fenêtre métier complète (pas de filtre).
+    /// </summary>
+    public static List<TimeOnly> AllowedBreakStarts(SubServiceShiftConfig config)
+    {
+        if (HasExplicitBreakSelection(config))
+            return ResolveBreakSlots(config);
+        return AllowedStarts(config.StartTime, config.IsCriticalCell);
+    }
+
+    /// <summary>
+    /// Intersecte les candidats avec les bandes cochées, en conservant l'ordre fourni.
+    /// Sans sélection RH : conserve les candidats (comportement packing historique).
+    /// </summary>
+    public static List<TimeOnly> KeepAllowed(
+        SubServiceShiftConfig config,
+        IEnumerable<TimeOnly> candidates,
+        bool excludeExtremes = false)
+    {
+        var source = candidates.Distinct().ToList();
+        if (excludeExtremes)
+            source = WithoutExtremeCaseBreaks(config.StartTime, source);
+
+        if (!HasExplicitBreakSelection(config))
+            return source;
+
+        var allowed = ResolveBreakSlots(config);
+        if (excludeExtremes)
+            allowed = WithoutExtremeCaseBreaks(config.StartTime, allowed);
+
+        var set = allowed.ToHashSet();
+        var kept = source.Where(set.Contains).ToList();
+        return kept.Count > 0 ? kept : allowed;
+    }
+
+    public static TimeOnly FirstAllowedBreak(SubServiceShiftConfig config, bool excludeExtremes = false)
+    {
+        var allowed = AllowedBreakStarts(config);
+        if (excludeExtremes)
+            allowed = WithoutExtremeCaseBreaks(config.StartTime, allowed);
+        if (allowed.Count > 0)
+            return allowed[0];
+        return config.StartTime.AddHours(4);
     }
 
     public static List<TimeOnly> ResolveBreakSlots(SubServiceShiftConfig config)
@@ -382,7 +432,7 @@ public static class BreakSlotPlanner
                 config.StartTime,
                 config.IsCriticalCell);
 
-        return OrderByIdeal(fromRange.Take(MaxSlots).ToList(), config.StartTime, config.IsCriticalCell);
+        return OrderByIdeal(fromRange, config.StartTime, config.IsCriticalCell);
     }
 
     public static string SerializeSlots(IReadOnlyList<TimeOnly> slots) =>
@@ -441,7 +491,6 @@ public static class BreakSlotPlanner
                 return idx >= 0 ? idx : 1000 + DistanceMinutes(s, shiftStart.AddHours(4));
             })
             .ThenBy(s => s)
-            .Take(MaxSlots)
             .ToList();
     }
 

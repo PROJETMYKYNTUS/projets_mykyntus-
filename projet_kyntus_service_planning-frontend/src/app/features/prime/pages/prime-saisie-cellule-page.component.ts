@@ -65,6 +65,6 @@ export class PrimeSaisieCellulePageComponent {
   readonly ctxCelluleName = computed(() => this.ctx.celluleName());
 
   goPilot(): void {
-    this.nav.requestView('/prime-fiches-pilotes');
+    this.nav.requestViewWithTab('/prime-fiches-agents', 'pilotage');
   }
 }

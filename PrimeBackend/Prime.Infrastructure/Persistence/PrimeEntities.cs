@@ -58,6 +58,43 @@ public class ServicePoleLinePonderationEntity
     public DateTimeOffset? UpdatedAt { get; set; }
 }
 
+public static class CommonLinePonderationScopes
+{
+    public const string Cellule = "Cellule";
+    public const string Service = "Service";
+}
+
+public static class CommonLinePonderationSources
+{
+    public const string Service = "Service";
+    public const string Cellule = "Cellule";
+    public const string PreviousPeriod = "PreviousPeriod";
+    public const string Template = "Template";
+    public const string Undefined = "Undefined";
+}
+
+/// <summary>
+/// Pondération Prime/Challenge d'une ligne partie commune, versionnée par cellule ou service.
+/// TemplateId vide = joker (lignes migrées depuis l'ancien stockage par service).
+/// </summary>
+public class CommonLinePonderationEntity
+{
+    public Guid Id { get; set; }
+    public string ScopeType { get; set; } = CommonLinePonderationScopes.Cellule;
+    public string ScopeId { get; set; } = "";
+    public string TemplateId { get; set; } = "";
+    public string TemplateStableId { get; set; } = "";
+    public string Label { get; set; } = "";
+    public string Contract { get; set; } = "";
+    public int SortOrder { get; set; }
+    public decimal? PonderationPrimePct { get; set; }
+    public decimal? PonderationChallengePct { get; set; }
+    public DateTimeOffset EffectiveFrom { get; set; }
+    public DateTimeOffset? EffectiveTo { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
 /// <summary>Archive autonome d'une fiche PRIME importée (employé introuvable ou nom libre).</summary>
 public class PrimeHistoricalFicheEntity
 {

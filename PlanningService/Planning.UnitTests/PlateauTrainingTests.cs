@@ -68,7 +68,8 @@ public class PlateauTrainingTests
         var cfgClose = Shift(3, ShiftKind.Closing, "11h", 11);
         var trainee = MakeUser(1, 2, plateau: true);
         var senior = MakeUser(2, 3, plateau: false);
-        var users = new Dictionary<int, User> { [1] = trainee, [2] = senior };
+        var other = MakeUser(3, 3, plateau: false);
+        var users = new Dictionary<int, User> { [1] = trainee, [2] = senior, [3] = other };
         var planning = new WeeklyPlanning { Id = 1, WeekStartDate = monday, SubServiceId = 1 };
         var assignments = new List<ShiftAssignment>
         {
@@ -82,14 +83,19 @@ public class PlateauTrainingTests
                 WeeklyPlanningId = 1, UserId = 2, AssignedDate = monday,
                 SubServiceShiftConfigId = 1, IsOnLeave = false, IsHoliday = false
             },
+            new()
+            {
+                WeeklyPlanningId = 1, UserId = 3, AssignedDate = monday,
+                SubServiceShiftConfigId = 2, IsOnLeave = false, IsHoliday = false
+            },
         };
 
         LevelBalanceRepairer.Repair(
             assignments, [cfgOpen, cfgStd, cfgClose], users, users.Values.ToList(), planning);
 
         Assert.Equal(2, assignments.First(a => a.UserId == 1).SubServiceShiftConfigId);
-        // Senior may stay on opening — rule is only for plateau trainee
-        Assert.Equal(1, assignments.First(a => a.UserId == 2).SubServiceShiftConfigId);
+        Assert.Equal(2, assignments.Count(a => a.SubServiceShiftConfigId == 1));
+        Assert.Equal(1, assignments.Count(a => a.SubServiceShiftConfigId == 2));
     }
 
     [Fact]

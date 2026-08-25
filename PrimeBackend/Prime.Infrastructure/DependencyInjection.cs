@@ -70,6 +70,7 @@ public static class DependencyInjection
             services.AddScoped<IEmployeePrimeServiceFicheAppService, EmployeePrimeServiceFicheAppService>();
             services.AddScoped<IPrimeValidationAppService, PrimeValidationAppService>();
             services.AddScoped<ISupervisorCellulePrimeDraftAppService, SupervisorCellulePrimeDraftAppService>();
+            services.AddScoped<ISupervisorCampaignAppService, SupervisorCampaignAppService>();
             services.AddScoped<ISupervisorPrimeFicheAppService, SupervisorPrimeFicheAppService>();
             services.AddScoped<IPrimeCelluleDraftGlobalPoolAppService, PrimeCelluleDraftGlobalPoolAppService>();
             services.AddScoped<IPrimeFichePreviewAppService, PrimeFichePreviewAppService>();
@@ -77,7 +78,8 @@ public static class DependencyInjection
             services.AddScoped<IPrimeGlobalPoolStakeholderAppService, PrimeGlobalPoolStakeholderAppService>();
             services.AddScoped<IPrimeGlobalPoolScopeAppService, PrimeGlobalPoolScopeAppService>();
             services.AddScoped<IServicePrimeIndicatorsAppService, ServicePrimeIndicatorsAppService>();
-            services.AddScoped<IServicePoleLinePonderationsAppService, ServicePoleLinePonderationsAppService>();
+            services.AddScoped<ICommonLinePonderationResolver, CommonLinePonderationResolver>();
+            services.AddScoped<ICommonLinePonderationsAppService, CommonLinePonderationsAppService>();
             services.AddScoped<IPrimePeriodRecapReportsAppService, PrimePeriodRecapReportsAppService>();
             services.AddScoped<IPrimeFicheImportAppService, PrimeFicheImportAppService>();
             services.AddScoped<IPrimeCoreQueryAppService, PrimeCoreQueryAppService>();

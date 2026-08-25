@@ -23,7 +23,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--electric-blue, #2563eb);
+  color: var(--electric-blue);
 }
 
 .fe-section-title {
@@ -47,9 +47,9 @@
   border-radius: 999px;
   font-size: 0.82rem;
   font-weight: 700;
-  color: var(--electric-blue, #2563eb);
-  background: color-mix(in srgb, var(--electric-blue, #2563eb) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--electric-blue, #2563eb) 22%, transparent);
+  color: var(--electric-blue);
+  background: color-mix(in srgb, var(--electric-blue) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--electric-blue) 22%, transparent);
 }
 
 .fe-path-list,
@@ -65,8 +65,8 @@
   background:
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--electric-blue, #2563eb) 4%, var(--bg-card, #fff)) 0%,
-      var(--bg-card, #fff) 42%
+      color-mix(in srgb, var(--electric-blue) 4%, var(--bg-card)) 0%,
+      var(--bg-card) 42%
     );
   padding: 0.95rem 1rem;
 }
@@ -78,8 +78,8 @@
 }
 
 .fe-session-card:hover {
-  border-color: color-mix(in srgb, var(--electric-blue, #2563eb) 28%, var(--border-color));
-  box-shadow: 0 8px 20px color-mix(in srgb, #0f172a 6%, transparent);
+  border-color: color-mix(in srgb, var(--electric-blue) 28%, var(--border-color));
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--text-primary) 6%, transparent);
 }
 
 .fe-path-main,
@@ -129,28 +129,28 @@
 }
 
 .badge-scheduled {
-  background: color-mix(in srgb, var(--electric-blue, #2563eb) 10%, transparent);
-  color: var(--electric-blue, #1d4ed8);
-  border-color: color-mix(in srgb, var(--electric-blue, #2563eb) 22%, transparent);
+  background: color-mix(in srgb, var(--electric-blue) 10%, transparent);
+  color: var(--info-text);
+  border-color: color-mix(in srgb, var(--electric-blue) 22%, transparent);
 }
 
 .badge-progress {
-  background: color-mix(in srgb, #f59e0b 14%, transparent);
-  color: #b45309;
-  border-color: color-mix(in srgb, #f59e0b 28%, transparent);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  border-color: var(--warning-border);
 }
 
 .badge-done {
-  background: var(--success-bg, #ecfdf5);
-  color: var(--success-text, #047857);
-  border-color: var(--success-border, #a7f3d0);
+  background: var(--success-bg);
+  color: var(--success-text);
+  border-color: var(--success-border);
 }
 
 .badge-cancel,
 .badge-reject {
-  background: var(--danger-bg, #fef2f2);
-  color: var(--danger-text, #b91c1c);
-  border-color: var(--danger-border, #fecaca);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border-color: var(--danger-border);
 }
 
 .badge-pending {
@@ -160,15 +160,15 @@
 }
 
 .badge-present {
-  background: #ecfdf5;
-  color: #047857;
-  border-color: #a7f3d0;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border-color: var(--success-border);
 }
 
 .badge-absent {
-  background: #fef2f2;
-  color: #b91c1c;
-  border-color: #fecaca;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border-color: var(--danger-border);
 }
 
 .fe-session-footer {
@@ -194,8 +194,8 @@
   border-radius: 0.4rem;
   font-size: 0.72rem;
   font-weight: 650;
-  color: #4338ca;
-  background: color-mix(in srgb, #6366f1 12%, transparent);
+  color: var(--info-text);
+  background: var(--info-bg);
 }
 
 .fe-result-line {
@@ -205,11 +205,11 @@
 }
 
 .fe-result-line.is-ok {
-  color: #047857;
+  color: var(--success-text);
 }
 
 .fe-result-line.is-ko {
-  color: #b91c1c;
+  color: var(--danger-text);
 }
 
 .fe-session-actions {
@@ -231,7 +231,7 @@
 .fe-reject {
   margin: 0.55rem 0 0;
   font-size: 0.78rem;
-  color: #b91c1c;
+  color: var(--danger-text);
 }
 
 .state-loading,

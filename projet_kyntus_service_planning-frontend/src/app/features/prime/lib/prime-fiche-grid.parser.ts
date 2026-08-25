@@ -11,6 +11,7 @@ import {
   type PrimeFicheTemplateSchema,
   type PrimeFicheTemplateSecteurSlice,
 } from '../models/prime-fiche-template.schema';
+import { isSummaryLikeIndicatorLabel } from './prime-line-classification';
 
 /** Ligne Excel 2 = indice 1 : sous-en-têtes secteurs. Ligne 3+ = données (indice 2+). */
 export const GRID_HEADER_SUB_ROW = 1;
@@ -298,7 +299,7 @@ function isReservedNoDataRow(contractCell: string): boolean {
 }
 
 function isSommeSummaryRow(indicator: string): boolean {
-  return /^somme\b/i.test(indicator.trim());
+  return isSummaryLikeIndicatorLabel(indicator);
 }
 
 function stableIdV2(r: number): string {

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { Award, CalendarDays, GraduationCap, History, Search, Tag } from 'lucide';
@@ -27,7 +28,9 @@ import { AgentPlanningWeeksComponent } from '../../planning/components/agent-pla
 import { PrimeOrgApiService, type OrgAssignmentsOverview } from '../services/prime-org-api.service';
 import { PrimeService } from '../services/prime.service';
 import { RoleService } from '../state/role.service';
+import { PrimeScopeStore } from '../state/prime-scope.store';
 import { KyntusSessionService } from '../../../core/session/kyntus-session.service';
+import { contractLevelLabel } from '../../../core/hr/user-hr-display.util';
 import { HttpErrorResponse } from '@angular/common/http';
 import type { OperationalDepartmentNode, OrgPoleNode } from '../models/org-tree.types';
 
@@ -84,9 +87,9 @@ function resolveCelluleLabel(
 @Component({
   selector: 'app-superviseur-scope-page',
   standalone: true,
-  imports: [PrimeCardComponent, LucideIconComponent, BodyPortalDirective, AgentPlanningWeeksComponent],
+  imports: [FormsModule, PrimeCardComponent, LucideIconComponent, BodyPortalDirective, AgentPlanningWeeksComponent],
   template: `
-    @if (loading()) {
+    @if (loading() && celluleOptions().length === 0) {
       <div class="p-8 flex justify-center">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
@@ -104,16 +107,21 @@ function resolveCelluleLabel(
             <span>Cellule active</span>
             <select
               class="scope-cellule-select"
-              [value]="selectedCelluleId()"
-              (change)="onCelluleChange($event)"
+              [ngModel]="selectedCelluleId()"
+              (ngModelChange)="onCelluleIdChange($event)"
             >
               @for (opt of celluleOptions(); track opt.id) {
-                <option [value]="opt.id">{{ opt.label }}</option>
+                <option [ngValue]="opt.id">{{ opt.label }}</option>
               }
             </select>
           </label>
         }
 
+        @if (loading()) {
+          <div class="p-6 flex justify-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+          </div>
+        } @else {
         @if (balanceAlert(); as alert) {
           <div class="sat-imbalance-banner" role="alert">
             <strong>Déséquilibre des effectifs du samedi</strong>
@@ -161,15 +169,6 @@ function resolveCelluleLabel(
           <app-prime-card title="Modes hebdomadaires" className="weekly-modes-card">
             <div class="wm-toolbar">
               <label class="wm-field">
-                <span>Semaine ISO</span>
-                <div class="wm-week-nav">
-                  <button type="button" class="ky-btn-secondary wm-week-btn" (click)="prevWmWeek()">‹</button>
-                  <strong>{{ wmWeekCode() }}</strong>
-                  <button type="button" class="ky-btn-secondary wm-week-btn" (click)="nextWmWeek()">›</button>
-                </div>
-                <span class="wm-week-start">Début {{ wmWeekStartDate() }}</span>
-              </label>
-              <label class="wm-field">
                 <span>Assignation groupée</span>
                 <select
                   class="scope-cellule-select"
@@ -211,8 +210,8 @@ function resolveCelluleLabel(
               </div>
             </div>
 
-            @if (wmLocked()) {
-              <p class="wm-locked">Plan verrouillé (planning généré/validé) — consultation seule.</p>
+            @if (wmHint()) {
+              <p [class.wm-locked]="wmLocked()" [class.wm-hint]="!wmLocked()">{{ wmHint() }}</p>
             }
             @if (wmError()) {
               <p class="wm-error">{{ wmError() }}</p>
@@ -245,7 +244,7 @@ function resolveCelluleLabel(
                       @for (emp of wmEmployees(); track emp.userId) {
                         <tr>
                           <td><span class="prime-cell-strong">{{ emp.fullName }}</span></td>
-                          <td>{{ emp.level }}</td>
+                          <td>{{ contractLevelLabel(emp.level) }}</td>
                           <td>{{ saturdayModeLabel(emp.saturdayWorkMode, emp.level) }}</td>
                           <td>
                             <select
@@ -254,7 +253,7 @@ function resolveCelluleLabel(
                               (change)="onWmEmployeeModeChange(emp.userId, $event)"
                               [disabled]="wmLocked()"
                             >
-                              <option value="">— Choisir —</option>
+                              <option value="" disabled [hidden]="!!emp.shiftModeProfileId">— Choisir —</option>
                               @for (m of wmAvailableModes(); track m.id) {
                                 <option [value]="m.id">{{ m.title }}</option>
                               }
@@ -395,6 +394,7 @@ function resolveCelluleLabel(
             </table>
           </div>
         </app-prime-card>
+        }
       </div>
     }
 
@@ -676,33 +676,33 @@ function resolveCelluleLabel(
       }
 
       .scope-level-btn {
-        background: color-mix(in srgb, var(--warning, #d97706) 12%, var(--bg-card, #fff));
-        color: #b45309;
-        border: 1px solid color-mix(in srgb, var(--warning, #d97706) 35%, var(--border-color));
+        background: var(--warning-bg);
+        color: var(--warning-text);
+        border: 1px solid var(--warning-border);
       }
 
       .scope-sat-btn {
-        background: color-mix(in srgb, #0369a1 10%, var(--bg-card, #fff));
-        color: #0369a1;
-        border: 1px solid color-mix(in srgb, #0369a1 30%, var(--border-color));
+        background: var(--info-bg);
+        color: var(--info-text);
+        border: 1px solid var(--info-border);
       }
 
       .scope-special-btn {
-        background: color-mix(in srgb, #7c3aed 10%, var(--bg-card, #fff));
-        color: #6d28d9;
-        border: 1px solid color-mix(in srgb, #7c3aed 30%, var(--border-color));
+        background: color-mix(in srgb, var(--soft-blue) 12%, var(--bg-card));
+        color: var(--blue-600);
+        border: 1px solid color-mix(in srgb, var(--soft-blue) 35%, var(--border-color));
       }
 
       .scope-formation-btn {
-        background: color-mix(in srgb, #0f766e 10%, var(--bg-card, #fff));
-        color: #0f766e;
-        border: 1px solid color-mix(in srgb, #0f766e 30%, var(--border-color));
+        background: var(--success-bg);
+        color: var(--success-text);
+        border: 1px solid var(--success-border);
       }
 
       .scope-hist-btn {
-        background: color-mix(in srgb, #475569 8%, var(--bg-card, #fff));
-        color: #334155;
-        border: 1px solid color-mix(in srgb, #64748b 28%, var(--border-color));
+        background: color-mix(in srgb, var(--bg-input) 80%, var(--bg-card));
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
       }
 
       .scope-sat-btn:disabled,
@@ -728,8 +728,8 @@ function resolveCelluleLabel(
         font-weight: 700;
         padding: 0.15rem 0.45rem;
         border-radius: 0.35rem;
-        background: #f3e8ff;
-        color: #6d28d9;
+        background: color-mix(in srgb, var(--soft-blue) 14%, var(--bg-card));
+        color: var(--blue-600);
         vertical-align: middle;
       }
 
@@ -740,8 +740,8 @@ function resolveCelluleLabel(
         font-weight: 700;
         padding: 0.15rem 0.45rem;
         border-radius: 0.35rem;
-        background: #ccfbf1;
-        color: #0f766e;
+        background: var(--success-bg);
+        color: var(--success-text);
         vertical-align: middle;
       }
 
@@ -761,12 +761,12 @@ function resolveCelluleLabel(
         gap: 0.35rem;
         font-size: 0.8rem;
         font-weight: 600;
-        color: var(--text-secondary, #64748b);
+        color: var(--text-muted);
         margin-top: 0.5rem;
       }
 
       .special-desc-input {
-        border: 1px solid var(--border-color, #e2e8f0);
+        border: 1px solid var(--border-color);
         border-radius: 0.5rem;
         padding: 0.5rem 0.65rem;
         font-size: 0.875rem;
@@ -778,7 +778,7 @@ function resolveCelluleLabel(
       .level-modal-hint {
         margin: 0 0 0.5rem;
         font-size: 0.8rem;
-        color: var(--text-muted, #64748b);
+        color: var(--text-muted);
         line-height: 1.4;
       }
 
@@ -799,7 +799,7 @@ function resolveCelluleLabel(
         font-size: 1.5rem;
         line-height: 1;
         cursor: pointer;
-        color: #64748b;
+        color: var(--text-muted);
         padding: 0 0.25rem;
       }
 
@@ -817,24 +817,24 @@ function resolveCelluleLabel(
         gap: 0.35rem;
         font-size: 0.8rem;
         font-weight: 600;
-        color: var(--text-secondary, #64748b);
+        color: var(--text-muted);
         margin: 0.75rem 0 0.5rem;
       }
 
       .hist-period-select {
-        border: 1px solid var(--border-color, #e2e8f0);
+        border: 1px solid var(--border-color);
         border-radius: 0.5rem;
         padding: 0.45rem 0.65rem;
         font-size: 0.875rem;
-        background: var(--bg-card, #fff);
-        color: var(--text-primary, #0f172a);
+        background: var(--bg-card);
+        color: var(--text-primary);
         max-width: 220px;
       }
 
       .hist-empty {
         margin: 1rem 0;
         font-size: 0.875rem;
-        color: var(--text-secondary, #64748b);
+        color: var(--text-muted);
         text-align: center;
       }
 
@@ -844,27 +844,27 @@ function resolveCelluleLabel(
         font-weight: 600;
         padding: 0.2rem 0.5rem;
         border-radius: 0.4rem;
-        background: #f1f5f9;
-        color: #334155;
+        background: var(--bg-input);
+        color: var(--text-primary);
       }
 
       .sat-mode-chip[data-mode='1'] {
-        background: #ecfdf5;
-        color: #047857;
+        background: var(--success-bg);
+        color: var(--success-text);
       }
 
       .sat-mode-chip[data-mode='2'] {
-        background: #eff6ff;
-        color: #1d4ed8;
+        background: var(--info-bg);
+        color: var(--info-text);
       }
 
       .sat-imbalance-banner {
         margin-bottom: 1rem;
         padding: 0.9rem 1.1rem;
         border-radius: 0.75rem;
-        border: 1px solid #f59e0b;
-        background: #fffbeb;
-        color: #92400e;
+        border: 1px solid var(--warning-border);
+        background: var(--warning-bg);
+        color: var(--warning-text);
       }
 
       .sat-imbalance-banner strong {
@@ -881,7 +881,7 @@ function resolveCelluleLabel(
         margin-top: 0.25rem;
         border: none;
         background: transparent;
-        color: #92400e;
+        color: var(--warning-text);
         font-weight: 700;
         font-size: 0.85rem;
         text-decoration: underline;
@@ -899,7 +899,7 @@ function resolveCelluleLabel(
         margin-bottom: 1rem;
         padding: 0.65rem 1rem;
         border-radius: 0.65rem;
-        background: #f8fafc;
+        background: var(--bg-input);
         border: 1px solid var(--border-color);
       }
 
@@ -911,7 +911,7 @@ function resolveCelluleLabel(
         padding: 0.5rem 0.75rem;
         border: 1px solid var(--border-color);
         border-radius: 0.65rem;
-        background: var(--bg-card, #fff);
+        background: var(--bg-card);
       }
 
       .scope-search-icon {
@@ -925,7 +925,7 @@ function resolveCelluleLabel(
         outline: none;
         background: transparent;
         font-size: 0.9rem;
-        color: var(--text-primary, #0f172a);
+        color: var(--text-primary);
         min-width: 0;
       }
 
@@ -940,7 +940,7 @@ function resolveCelluleLabel(
       }
 
       .scope-search-clear:hover {
-        color: var(--text-primary, #0f172a);
+        color: var(--text-primary);
       }
 
       .scope-search-count {
@@ -962,7 +962,7 @@ function resolveCelluleLabel(
       }
 
       .level-modal {
-        background: var(--bg-card, #fff);
+        background: var(--bg-card);
         border-radius: 12px;
         padding: 1.25rem 1.5rem;
         width: min(420px, 100%);
@@ -1009,7 +1009,7 @@ function resolveCelluleLabel(
         border: 1px solid var(--border-color);
         border-radius: 10px;
         padding: 10px 12px;
-        background: var(--bg-input, #f8fafc);
+        background: var(--bg-input);
         cursor: pointer;
         display: flex;
         flex-direction: column;
@@ -1026,9 +1026,9 @@ function resolveCelluleLabel(
       }
 
       .level-choice.active {
-        border-color: #0f172a;
-        background: color-mix(in srgb, #0f172a 6%, #fff);
-        box-shadow: inset 0 0 0 1px #0f172a;
+        border-color: var(--text-primary);
+        background: color-mix(in srgb, var(--text-primary) 6%, var(--bg-card));
+        box-shadow: inset 0 0 0 1px var(--text-primary);
       }
 
       .sat-group-picker {
@@ -1050,21 +1050,21 @@ function resolveCelluleLabel(
         border: 1px solid var(--border-color);
         border-radius: 8px;
         padding: 8px;
-        background: #fff;
+        background: var(--bg-card);
         cursor: pointer;
         font-weight: 600;
         font-size: 0.8rem;
       }
 
       .sat-group-btn.active {
-        border-color: #0369a1;
-        background: #e0f2fe;
-        color: #0369a1;
+        border-color: var(--info-text);
+        background: var(--info-bg);
+        color: var(--info-text);
       }
 
       .level-modal-error {
         margin: 10px 0 0;
-        color: #b91c1c;
+        color: var(--danger-text);
         font-size: 0.82rem;
       }
 
@@ -1083,17 +1083,17 @@ function resolveCelluleLabel(
         max-width: 28rem;
         font-size: 0.8rem;
         font-weight: 600;
-        color: var(--text-secondary, #64748b);
+        color: var(--text-muted);
       }
 
       .scope-cellule-select {
-        border: 1px solid var(--border-color, #e2e8f0);
+        border: 1px solid var(--border-color);
         border-radius: 0.5rem;
         padding: 0.5rem 0.75rem;
         font-size: 0.9rem;
         font-weight: 500;
-        background: var(--bg-card, #fff);
-        color: var(--text-primary, #0f172a);
+        background: var(--bg-card);
+        color: var(--text-primary);
       }
 
       .weekly-modes-card {
@@ -1114,23 +1114,7 @@ function resolveCelluleLabel(
         gap: 0.35rem;
         font-size: 0.78rem;
         font-weight: 600;
-        color: var(--text-secondary, #64748b);
-      }
-
-      .wm-week-nav {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }
-
-      .wm-week-btn {
-        min-width: 2rem;
-        padding: 0.35rem 0.5rem;
-      }
-
-      .wm-week-start {
-        font-size: 0.72rem;
-        font-weight: 500;
+        color: var(--text-muted);
       }
 
       .wm-bulk-actions {
@@ -1144,21 +1128,32 @@ function resolveCelluleLabel(
         margin: 0 0 0.75rem;
         padding: 0.6rem 0.75rem;
         border-radius: 0.5rem;
-        background: #fef3c7;
-        color: #92400e;
+        background: var(--warning-bg);
+        color: var(--warning-text);
         font-size: 0.82rem;
         font-weight: 600;
       }
 
+      .wm-hint {
+        margin: 0 0 0.75rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 0.5rem;
+        background: var(--info-bg);
+        color: var(--info-text);
+        font-size: 0.82rem;
+        font-weight: 500;
+        line-height: 1.4;
+      }
+
       .wm-error {
         margin: 0 0 0.5rem;
-        color: #b91c1c;
+        color: var(--danger-text);
         font-size: 0.82rem;
       }
 
       .wm-success {
         margin: 0 0 0.5rem;
-        color: #047857;
+        color: var(--success-text);
         font-size: 0.82rem;
       }
     `,
@@ -1167,6 +1162,7 @@ function resolveCelluleLabel(
 })
 export class SuperviseurScopePageComponent {
   private readonly roleService = inject(RoleService);
+  private readonly scope = inject(PrimeScopeStore);
   private readonly orgApi = inject(PrimeOrgApiService);
   private readonly userService = inject(UserService);
   private readonly planningService = inject(PlanningService);
@@ -1292,6 +1288,8 @@ export class SuperviseurScopePageComponent {
   readonly wmEmployees = signal<WeeklyEmployeeShiftMode[]>([]);
   readonly wmBulkModeId = signal<number | null>(null);
   readonly wmSubServiceId = signal<number | null>(null);
+  readonly wmHint = signal('');
+  readonly contractLevelLabel = contractLevelLabel;
 
   private planningUsersByGuid = new Map<string, User>();
 
@@ -1334,25 +1332,6 @@ export class SuperviseurScopePageComponent {
     if (mode === 1) return saturdayWorkMode == null ? 'Tous sam. 4h (défaut)' : 'Tous sam. 4h';
     if (mode === 2) return saturdayWorkMode == null ? 'Alternance 8h (défaut)' : 'Alternance 8h';
     return '—';
-  }
-
-  prevWmWeek(): void {
-    const d = this.parseDate(this.wmWeekStartDate());
-    d.setDate(d.getDate() - 7);
-    this.applyWmWeek(d);
-  }
-
-  nextWmWeek(): void {
-    const d = this.parseDate(this.wmWeekStartDate());
-    d.setDate(d.getDate() + 7);
-    this.applyWmWeek(d);
-  }
-
-  private applyWmWeek(monday: Date): void {
-    const m = this.getMondayOfWeek(monday);
-    this.wmWeekStartDate.set(this.formatDate(m));
-    this.wmWeekCode.set(this.getWeekCode(m));
-    void this.loadWeeklyModes();
   }
 
   onWmBulkModeChange(event: Event): void {
@@ -1448,6 +1427,68 @@ export class SuperviseurScopePageComponent {
     this.wmAvailableModes.set(plan.availableModes ?? []);
     this.wmEmployees.set(plan.employees ?? []);
     this.multiModesEnabled.set((plan.availableModes?.length ?? 0) > 0);
+    this.wmHint.set(this.buildWmHint(plan));
+  }
+
+  private buildWmHint(plan: WeeklyShiftModePlan): string {
+    const weekStart = this.formatHintDate(plan.weekStartDate || this.wmWeekStartDate());
+    const weekEnd = this.formatHintDate(
+      this.addDaysIso(plan.weekStartDate || this.wmWeekStartDate(), 6),
+    );
+    const range =
+      weekStart && weekEnd ? ` (du ${weekStart} au ${weekEnd})` : weekStart ? ` (début ${weekStart})` : '';
+    const parts: string[] = [`Semaine ${plan.weekCode || this.wmWeekCode()}${range}.`];
+    if (plan.isLocked) {
+      parts.push('Semaine commencée — consultation seule.');
+      return parts.join(' ');
+    }
+    if (plan.isCopiedPreview && plan.sourceWeekCode) {
+      parts.push(
+        `Modes préremplis depuis la config de ${plan.sourceWeekCode} (semaine actuelle ou dernière enregistrée). Enregistrez seulement si vous changez un mode.`,
+      );
+    } else if (!plan.isSupervisorSaved) {
+      parts.push(
+        'Modes préremplis (semaine actuelle / dernière config / mode défaut). Enregistrez seulement en cas de changement.',
+      );
+    } else {
+      parts.push('Configuration enregistrée pour cette semaine.');
+    }
+    const deadline = this.formatDeadlineLocal(plan.deadlineLocal);
+    if (deadline && !plan.deadlinePassed) {
+      parts.push(`Deadline superviseur : ${deadline} (veille de la génération auto RH).`);
+    }
+    parts.push(
+      'Sans action, la même configuration s’applique à la semaine suivante. Un changement n’impacte pas le planning déjà généré de la semaine en cours.',
+    );
+    return parts.join(' ');
+  }
+
+  private addDaysIso(value: string, days: number): string {
+    if (!value) return '';
+    const d = this.parseDate(value);
+    d.setDate(d.getDate() + days);
+    return this.formatDate(d);
+  }
+
+  private formatHintDate(value?: string | null): string {
+    if (!value) return '';
+    const d = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+  }
+
+  private formatDeadlineLocal(value?: string | null): string {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString('fr-FR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   }
 
   private async refreshMultiModesFlag(): Promise<void> {
@@ -1923,28 +1964,25 @@ export class SuperviseurScopePageComponent {
     );
   }
 
-  onCelluleChange(event: Event): void {
-    const id = (event.target as HTMLSelectElement).value;
-    this.selectedCelluleId.set(id);
+  onCelluleIdChange(id: string): void {
+    const next = (id ?? '').trim();
+    if (!next || next === this.selectedCelluleId()) return;
+    this.selectedCelluleId.set(next);
     const userId = this.roleService.currentUser().id;
-    try {
-      localStorage.setItem(celluleStorageKey(userId), id);
-    } catch {
-      /* ignore */
-    }
+    this.scope.setSelectedCelluleId(next, userId);
     this.fetch(true);
   }
 
   private pickActiveCelluleId(userId: string, ids: string[]): string {
     if (ids.length === 0) return '';
-    let stored = '';
-    try {
-      stored = (localStorage.getItem(celluleStorageKey(userId)) ?? '').trim();
-    } catch {
-      stored = '';
+    const normalized = ids.map((id) => id.trim());
+    this.scope.hydrateFromStorage(userId);
+    const stored = this.scope.selectedCelluleId().trim();
+    if (stored) {
+      const match = normalized.find((id) => id.toLowerCase() === stored.toLowerCase());
+      if (match) return match;
     }
-    if (stored && ids.includes(stored)) return stored;
-    return ids[0];
+    return normalized[0];
   }
 
   private fetch(keepSelection = false): void {
@@ -1971,10 +2009,15 @@ export class SuperviseurScopePageComponent {
         ),
       }));
       this.celluleOptions.set(options);
-      const celluleId = keepSelection
+      const preferred = keepSelection
         ? this.selectedCelluleId() || this.pickActiveCelluleId(current.id, celluleIds)
         : this.pickActiveCelluleId(current.id, celluleIds);
+      const celluleId =
+        options.find((o) => o.id.toLowerCase() === preferred.trim().toLowerCase())?.id
+        ?? options[0]?.id
+        ?? '';
       this.selectedCelluleId.set(celluleId);
+      if (celluleId) this.scope.setSelectedCelluleId(celluleId, current.id);
       const scopeEmployees = dedupeEmployeesByEmail(
         employeesInSuperviseurCellule(employees, celluleId),
       );

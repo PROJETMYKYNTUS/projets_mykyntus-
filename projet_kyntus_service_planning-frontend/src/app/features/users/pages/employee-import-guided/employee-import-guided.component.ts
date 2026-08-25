@@ -702,23 +702,34 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
   private async confirmMappingWarnings(): Promise<boolean> {
     const errors = this.mappingErrors();
     if (errors.length) {
-      this.toast.error(errors.map((e) => e.message).join('\n'));
+      this.toast.error(this.formatIssueList(errors.map((e) => e.message), 'Erreur(s) de mapping'));
       return false;
     }
 
     const warnings = this.mappingWarnings();
     if (warnings.length) {
+      const preview = this.formatIssueList(
+        warnings.map((w) => `• ${w.message}`),
+        null,
+        8
+      );
       return this.confirmService.confirm({
         title: 'Mapping incohérent',
-        message:
-          'Le mapping semble incohérent :\n\n' +
-          warnings.map((w) => `• ${w.message}`).join('\n') +
-          '\n\nContinuer quand même ?',
+        message: `Le mapping semble incohérent :\n\n${preview}\n\nContinuer quand même ?`,
         confirmLabel: 'Continuer',
       });
     }
 
     return true;
+  }
+
+  /** Liste compacte pour dialogs/toasts : évite une fenêtre trop longue. */
+  private formatIssueList(lines: string[], title: string | null, maxItems = 10): string {
+    const shown = lines.slice(0, maxItems);
+    const rest = lines.length - shown.length;
+    const body = shown.join('\n');
+    const more = rest > 0 ? `\n… et ${rest} autre(s)` : '';
+    return title ? `${title} (${lines.length})\n\n${body}${more}` : `${body}${more}`;
   }
 
 
@@ -874,7 +885,12 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
   private async validateOrgStep(): Promise<boolean> {
     const errors = this.orgErrors();
     if (errors.length) {
-      this.toast.error(errors.map((e) => `Ligne ${e.lineNumber} : ${e.message}`).join('\n'));
+      this.toast.error(
+        this.formatIssueList(
+          errors.map((e) => `Ligne ${e.lineNumber} : ${e.message}`),
+          'Erreur(s) organisation'
+        )
+      );
       return false;
     }
 
@@ -886,7 +902,11 @@ export class EmployeeImportGuidedComponent implements OnInit, OnDestroy {
 
     const pending = approved;
     if (pending.length > 0) {
-      const labels = pending.map((p) => `• ${p.confirmationLabel}`).join('\n');
+      const labels = this.formatIssueList(
+        pending.map((p) => `• ${p.confirmationLabel}`),
+        null,
+        8
+      );
       return this.confirmService.confirm({
         title: 'Créer les organisations',
         message: `Êtes-vous sûr de créer les organisations suivantes ?\n\n${labels}\n\nCes nœuds seront créés dans votre référentiel organisationnel local.`,

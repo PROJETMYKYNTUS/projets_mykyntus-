@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
-using Prime.Infrastructure.Persistence;
+using Prime.Application;
+using Prime.Application.Abstractions;
 using Prime.Application.DTOs;
+using Prime.Infrastructure.Persistence;
 
 namespace Prime.Infrastructure.Services;
 
@@ -10,7 +12,8 @@ public sealed class PrimeFicheMergedPreviewAccessService(
     PrimeRbacReadService rbac,
     PrimeOrgScopeService org,
     PrimeFicheValidationSubmissionService submission,
-    GlobalPoolWorkflowService poolWf)
+    GlobalPoolWorkflowService poolWf,
+    ICommonLinePonderationResolver resolver)
 {
     private const string MissingSnapshotHint =
         "Ré-enregistrez la partie commune depuis « Fiche PRIME — saisie » (ou réimportez l'Excel) pour activer l'aperçu et l'export recalculés.";
@@ -99,23 +102,7 @@ public sealed class PrimeFicheMergedPreviewAccessService(
             })
             .ToListAsync(ct);
 
-        var poleLinePonderations = await db.ServicePoleLinePonderations.AsNoTracking()
-            .Where(x => x.ServiceId == fiche.ServiceId)
-            .OrderBy(x => x.SortOrder)
-            .ThenBy(x => x.TemplateStableId)
-            .Select(x => new ServicePoleLinePonderationDto
-            {
-                Id = x.Id,
-                ServiceId = x.ServiceId,
-                TemplateStableId = x.TemplateStableId,
-                Label = x.Label,
-                SortOrder = x.SortOrder,
-                PonderationPrimePct = x.PonderationPrimePct,
-                PonderationChallengePct = x.PonderationChallengePct,
-                CreatedAt = x.CreatedAt,
-                UpdatedAt = x.UpdatedAt,
-            })
-            .ToListAsync(ct);
+        var poleLinePonderations = await ResolvePoleLinePonderationsAsync(fiche, templateId, ct);
 
         return new MergedFichePreviewContextDto
         {
@@ -151,6 +138,27 @@ public sealed class PrimeFicheMergedPreviewAccessService(
             string.Equals(draft.TemplateCalcSnapshotJson.Trim(), "null", StringComparison.OrdinalIgnoreCase))
             return MissingSnapshotHint;
         return null;
+    }
+
+    private async Task<List<ServicePoleLinePonderationDto>> ResolvePoleLinePonderationsAsync(
+        EmployeePrimeServiceFiche fiche,
+        string templateId,
+        CancellationToken ct)
+    {
+        var frozen = CommonLinePonderationResolver.TryParseSnapshot(fiche.PonderationsSnapshotJson);
+        if (frozen is not null)
+            return CommonLinePonderationPeriod.ToPoleLineDtos(fiche.ServiceId, frozen);
+
+        var at = CommonLinePonderationPeriod.ForLiveResolve();
+        var resolved = await resolver.ResolveAsync(
+            fiche.ServiceId,
+            fiche.CelluleId,
+            templateId,
+            at,
+            templateLines: null,
+            previousPeriodLines: null,
+            ct);
+        return CommonLinePonderationPeriod.ToPoleLineDtos(fiche.ServiceId, resolved);
     }
 
     private async Task<bool> FicheInGlobalPoolScopeAsync(

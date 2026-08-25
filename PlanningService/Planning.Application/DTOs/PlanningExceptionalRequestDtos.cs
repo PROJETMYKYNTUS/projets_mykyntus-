@@ -9,7 +9,7 @@ public class PlanningExceptionalRequestDto
     public string RequesterName { get; set; } = string.Empty;
     public int SubServiceId { get; set; }
     public string SubServiceName { get; set; } = string.Empty;
-    public int RequestedShiftTemplateId { get; set; }
+    public int? RequestedShiftTemplateId { get; set; }
     public string ShiftLabel { get; set; } = string.Empty;
     public string ShiftStartTime { get; set; } = string.Empty;
     public string Reason { get; set; } = string.Empty;

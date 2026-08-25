@@ -1,11 +1,15 @@
 ﻿import { Injectable } from '@angular/core';
-import { KYNTUS_JWT_CLAIMS, type KyntusStoredUser } from './kyntus-session.constants';
+import type { KyntusStoredUser } from './kyntus-session.constants';
 import {
   clearStoredTokens,
   isJwtExpired,
   persistAccessTokens,
   readStoredAccessToken,
   readStoredRefreshToken,
+  decodeJwtPayload,
+  readJwtEmail,
+  readJwtNameIdentifier,
+  readJwtRole,
 } from './kyntus-auth-token.util';
 
 @Injectable({ providedIn: 'root' })
@@ -63,8 +67,9 @@ export class KyntusSessionService {
   getEmail(): string {
     const fromUser = this.getStoredUser()?.email;
     if (fromUser?.includes('@')) return fromUser;
-    const fromJwt = this.getJwtPayload()[KYNTUS_JWT_CLAIMS.email];
-    if (typeof fromJwt === 'string' && fromJwt.includes('@')) return fromJwt.trim();
+    const token = readStoredAccessToken();
+    const fromJwt = token ? readJwtEmail(token) : '';
+    if (fromJwt.includes('@')) return fromJwt.trim();
     const name = this.getStoredUser()?.username ?? '';
     return name.includes('@') ? name.trim() : '';
   }
@@ -76,7 +81,9 @@ export class KyntusSessionService {
   }
 
   getSubjectId(): string | null {
-    const sub = this.getJwtPayload()['sub'];
+    const token = readStoredAccessToken();
+    const payload = token ? decodeJwtPayload(token) : null;
+    const sub = payload?.['sub'];
     return typeof sub === 'string' && sub.length > 0 ? sub : null;
   }
 
@@ -88,25 +95,15 @@ export class KyntusSessionService {
     if (typeof legacyId === 'string' && /^\d+$/.test(legacyId.trim())) {
       return parseInt(legacyId.trim(), 10);
     }
-    const raw = this.getJwtPayload()[KYNTUS_JWT_CLAIMS.nameIdentifier];
-    const n = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
+    const token = readStoredAccessToken();
+    const raw = token ? readJwtNameIdentifier(token) : '';
+    const n = parseInt(raw, 10);
     return Number.isFinite(n) ? n : 0;
   }
 
   private getJwtRole(): string {
-    const v = this.getJwtPayload()[KYNTUS_JWT_CLAIMS.role];
-    return typeof v === 'string' ? v.trim() : '';
-  }
-
-  private getJwtPayload(): Record<string, unknown> {
     const token = readStoredAccessToken();
-    if (!token) return {};
-    try {
-      const part = token.split('.')[1];
-      if (!part) return {};
-      return JSON.parse(atob(part)) as Record<string, unknown>;
-    } catch {
-      return {};
-    }
+    if (!token) return '';
+    return readJwtRole(token);
   }
 }

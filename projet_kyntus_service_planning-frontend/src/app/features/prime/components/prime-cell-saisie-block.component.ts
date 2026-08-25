@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -57,15 +57,12 @@ import {
 import { PrimeCellSaisieContextService } from '../services/prime-cell-saisie-context.service';
 import { RoleService } from '../state/role.service';
 import type { Employee } from '../models';
-
-function httpErr(err: unknown): string {
-  if (err instanceof HttpErrorResponse) {
-    const b = err.error as { error?: string } | undefined;
-    if (b?.error) return b.error;
-    return err.message;
-  }
-  return err instanceof Error ? err.message : 'Erreur';
-}
+import { primeHttpErrorMessage } from '../lib/primeHttpErrorMessage';
+import {
+  confirmAllCarriedLines,
+  countUnconfirmedCarriedLines,
+  markLineConfirmedOnMeasureEdit,
+} from '../lib/prime-carried-lines';
 
 export interface CellIndicatorRun {
   indicator: CellulePrimeIndicatorDto;
@@ -148,6 +145,20 @@ export interface CellSaisieSaveResult {
           </button>
         </app-prime-card>
       } @else {
+        @if (unconfirmedCarriedCount() > 0) {
+          <div
+            class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-primary"
+          >
+            <span>{{ unconfirmedCarriedCount() }} indicateur(s) reconduit(s) à confirmer</span>
+            <button
+              type="button"
+              (click)="confirmAllCarried()"
+              class="rounded-md border border-amber-500/50 bg-amber-600/15 px-2 py-1 text-xs font-semibold hover:bg-amber-600/25"
+            >
+              Tout confirmer
+            </button>
+          </div>
+        }
         <div class="space-y-4">
           <div
             class="rounded-xl border border-default bg-card p-4 sm:p-5 shadow-sm space-y-4"
@@ -191,6 +202,13 @@ export interface CellSaisieSaveResult {
               <div class="flex flex-wrap items-baseline justify-between gap-2">
                 <div class="min-w-0">
                   <h3 class="text-base font-semibold text-primary leading-snug">{{ run.indicator.label }}</h3>
+                  @if (dynRow(run.indicator.id).carriedFrom && !dynRow(run.indicator.id).carriedConfirmed) {
+                    <span
+                      class="mt-1 inline-flex rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-200"
+                    >
+                      Reconduit — {{ dynRow(run.indicator.id).carriedFrom }}
+                    </span>
+                  }
                   @if (run.subtitle) {
                     <p class="text-xs text-muted mt-1">{{ run.subtitle }}</p>
                   }
@@ -350,6 +368,9 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
   readonly poleId = input<string | null>(null);
   readonly linkedTemplateId = input<string | null>(null);
   readonly celluleName = input<string | null>(null);
+  /** Contexte org pour navigation « Indicateurs & pondérations ». */
+  readonly celluleIdHint = input<string | null>(null);
+  readonly serviceIdHint = input<string | null>(null);
   readonly embedded = input(false);
   readonly saved = output<CellSaisieSaveResult>();
 
@@ -366,6 +387,7 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
   readonly poleDraftId = signal<string | null>(null);
   readonly fillingStatus = signal<string>('NotStarted');
   readonly celluleId = signal<string | null>(null);
+  readonly serviceId = signal<string | null>(null);
   readonly dynamicByIndicator = signal<Record<string, PrimeFicheLigneDynamic>>({});
   readonly plafondPrime = signal('');
   readonly plafondChallenge = signal('');
@@ -402,11 +424,26 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
     );
   });
 
+  readonly unconfirmedCarriedCount = computed(() => countUnconfirmedCarriedLines(this.dynamicByIndicator()));
+
   ngOnInit(): void {
     void this.runLoad(this.employeeId(), this.period());
   }
 
   goIndicators(): void {
+    const celluleId =
+      (this.celluleId()?.trim() || this.celluleIdHint()?.trim() || '').trim();
+    const serviceId =
+      (this.serviceId()?.trim() || this.serviceIdHint()?.trim() || '').trim();
+    const period = (this.period() ?? '').trim();
+    if (celluleId) {
+      this.nav.requestViewWithOrgFocus('/prime-cellule-indicateurs', {
+        celluleId,
+        serviceId: serviceId || undefined,
+        period: period || undefined,
+      });
+      return;
+    }
     this.nav.requestView('/prime-cellule-indicateurs');
   }
 
@@ -438,11 +475,12 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
     if (field === 'ponderationPrime' || field === 'ponderationChallenge') return;
     const next = sanitizeNonNegativeNumberInput(value);
     this.dynamicByIndicator.update((m) => {
-      const cur = { ...(m[indicatorId] ?? this.dynRow(indicatorId)) };
+      let cur = markLineConfirmedOnMeasureEdit(m[indicatorId] ?? this.dynRow(indicatorId));
       const sects = [...cur.secteurValues];
       const prev = sects[sectorIndex] ?? { core: emptySecteurPairValues(), custom: {} };
       sects[sectorIndex] = { ...prev, core: { ...prev.core, [field]: next } };
-      return { ...m, [indicatorId]: { ...cur, secteurValues: sects } };
+      cur = { ...cur, secteurValues: sects };
+      return { ...m, [indicatorId]: cur };
     });
     this.saveBanner.set(null);
   }
@@ -450,14 +488,19 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
   onCustomInput(indicatorId: string, sectorIndex: number, customId: string, value: string): void {
     const next = sanitizeNonNegativeNumberInput(value);
     this.dynamicByIndicator.update((m) => {
-      const cur = { ...(m[indicatorId] ?? this.dynRow(indicatorId)) };
+      let cur = markLineConfirmedOnMeasureEdit(m[indicatorId] ?? this.dynRow(indicatorId));
       const sects = [...cur.secteurValues];
       const prev = sects[sectorIndex] ?? { core: emptySecteurPairValues(), custom: {} };
       const custom = { ...prev.custom, [customId]: next };
       sects[sectorIndex] = { ...prev, custom };
-      return { ...m, [indicatorId]: { ...cur, secteurValues: sects } };
+      cur = { ...cur, secteurValues: sects };
+      return { ...m, [indicatorId]: cur };
     });
     this.saveBanner.set(null);
+  }
+
+  confirmAllCarried(): void {
+    this.dynamicByIndicator.update((m) => confirmAllCarriedLines(m));
   }
 
   private runLoad(empId: string, period: string): void {
@@ -482,6 +525,7 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
         this.poleDraftId.set(ficheDraftIdString(fiche));
         this.fillingStatus.set(fiche.fillingStatus);
         this.celluleId.set(fiche.celluleId);
+        this.serviceId.set(fiche.serviceId);
         const poleResolved = (explicitPole || fiche.celluleId || '').trim();
 
         this.api.getIndicators(fiche.serviceId, sup.id).subscribe({
@@ -516,13 +560,13 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
             });
           },
           error: (err) => {
-            this.loadError.set(httpErr(err));
+            this.loadError.set(primeHttpErrorMessage(err));
             this.loading.set(false);
           },
         });
       },
       error: (err) => {
-        this.loadError.set(httpErr(err));
+        this.loadError.set(primeHttpErrorMessage(err));
         this.loading.set(false);
       },
     });
@@ -664,7 +708,7 @@ export class PrimeCellSaisieBlockComponent implements OnInit {
         },
         error: (e) => {
           this.saving.set(false);
-          this.saveError.set(httpErr(e));
+          this.saveError.set(primeHttpErrorMessage(e));
         },
       });
   }

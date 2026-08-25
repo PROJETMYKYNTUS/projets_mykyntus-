@@ -6,14 +6,17 @@ import { UserService } from '../../features/users/services/user.service';
 import { ContractService, type ContractResponse } from '../../features/contract/services/contract.service';
 import { ParrainageApiService } from '../../features/parrainage/services/parrainage-api.service';
 import { DocumentationDataApiService } from '../services/documentation-data-api.service';
-import { FormationService } from '../services/formation.service';
+import { FormationTrainingService } from '../services/formation-training.service';
 import { CongeService } from '../services/conge.service';
 import { PrimeService } from '../../features/prime/services/prime.service';
 import type { Employee } from '../../features/prime/models';
 import type { User } from '../../features/users/users-module';
 import { userMatchesSearch } from '../hr/user-hr-display.util';
 import { StatutDemandeLabels, TypeCongeLabels } from '../models/conge.models';
-import { StatutFormationLabels } from '../models/formation.models';
+import {
+  INITIAL_TRAINING_STATUS_LABELS,
+  TRAINING_SESSION_STATUS_LABELS,
+} from '../models/formation-training.models';
 
 export type GlobalSearchType =
   | 'employee'
@@ -30,6 +33,11 @@ export interface GlobalSearchResult {
   id: string;
   title: string;
   subtitle: string;
+  /** Métadonnées de navigation (onglet formation, année congé, etc.). */
+  meta?: {
+    kind?: 'session' | 'path';
+    year?: number;
+  };
 }
 
 export interface GlobalSearchGroup {
@@ -64,7 +72,7 @@ export class GlobalSearchService {
   private readonly contractService = inject(ContractService);
   private readonly parrainageApi = inject(ParrainageApiService);
   private readonly docApi = inject(DocumentationDataApiService);
-  private readonly formationService = inject(FormationService);
+  private readonly trainingApi = inject(FormationTrainingService);
   private readonly congeService = inject(CongeService);
 
   private usersCache$: Observable<User[]> | null = null;
@@ -189,20 +197,57 @@ export class GlobalSearchService {
   }
 
   private searchFormations(term: string): Observable<GlobalSearchResult[]> {
-    return this.formationService.getAll().pipe(
-      map((list) =>
-        (list ?? [])
-          .filter((f) =>
-            [f.titre, f.formateur, f.description].filter(Boolean).join(' ').toLowerCase().includes(term),
+    return from(
+      Promise.all([
+        this.trainingApi.listInitialOverview().catch(() => []),
+        this.trainingApi.listSessions().catch(() => []),
+      ]),
+    ).pipe(
+      map(([paths, sessions]) => {
+        const sessionHits = (sessions ?? [])
+          .filter((s) =>
+            [s.title, s.description, s.externalAnimatorName]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase()
+              .includes(term),
           )
-          .slice(0, PER_GROUP_LIMIT)
-          .map<GlobalSearchResult>((f) => ({
+          .map<GlobalSearchResult>((s) => ({
             type: 'formation',
-            id: f.id,
-            title: f.titre || 'Formation',
-            subtitle: [f.formateur, StatutFormationLabels[f.statut]].filter(Boolean).join(' · ') || '—',
-          })),
-      ),
+            id: s.id,
+            title: s.title || 'Session continue',
+            subtitle: [
+              'Continue',
+              TRAINING_SESSION_STATUS_LABELS[s.status],
+            ]
+              .filter(Boolean)
+              .join(' · '),
+            meta: { kind: 'session' },
+          }));
+
+        const pathHits = (paths ?? [])
+          .filter((p) =>
+            [p.employeeName, p.employeeId]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase()
+              .includes(term),
+          )
+          .map<GlobalSearchResult>((p) => ({
+            type: 'formation',
+            id: p.id,
+            title: p.employeeName || 'Parcours initial',
+            subtitle: [
+              'Initiale',
+              INITIAL_TRAINING_STATUS_LABELS[p.status],
+            ]
+              .filter(Boolean)
+              .join(' · '),
+            meta: { kind: 'path' },
+          }));
+
+        return [...sessionHits, ...pathHits].slice(0, PER_GROUP_LIMIT);
+      }),
       catchError(() => of<GlobalSearchResult[]>([])),
     );
   }
@@ -215,6 +260,8 @@ export class GlobalSearchService {
           .filter((d) =>
             [
               d.employeId,
+              d.prenomEmploye,
+              d.nomEmploye,
               TypeCongeLabels[d.typeConge],
               StatutDemandeLabels[d.statut],
               d.motif,
@@ -225,14 +272,18 @@ export class GlobalSearchService {
               .includes(term),
           )
           .slice(0, PER_GROUP_LIMIT)
-          .map<GlobalSearchResult>((d) => ({
-            type: 'conge',
-            id: d.id,
-            title: TypeCongeLabels[d.typeConge] || 'Congé',
-            subtitle: [d.employeId, StatutDemandeLabels[d.statut], `${d.dateDebut} → ${d.dateFin}`]
-              .filter(Boolean)
-              .join(' · '),
-          })),
+          .map<GlobalSearchResult>((d) => {
+            const name = [d.prenomEmploye, d.nomEmploye].filter(Boolean).join(' ').trim();
+            return {
+              type: 'conge',
+              id: d.id,
+              title: TypeCongeLabels[d.typeConge] || 'Congé',
+              subtitle: [name || d.employeId, StatutDemandeLabels[d.statut], `${d.dateDebut} → ${d.dateFin}`]
+                .filter(Boolean)
+                .join(' · '),
+              meta: { year },
+            };
+          }),
       ),
       catchError(() => of<GlobalSearchResult[]>([])),
     );

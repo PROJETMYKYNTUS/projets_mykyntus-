@@ -90,6 +90,10 @@ export interface PrimeFicheSecteurDynamicSlice {
 export interface PrimeFicheLigneDynamic {
   repartitionRdv: string;
   secteurValues: PrimeFicheSecteurDynamicSlice[];
+  /** Période source si ligne reconduite (rollover). */
+  carriedFrom?: string;
+  /** Confirmation superviseur après relecture des mesures reconduites. */
+  carriedConfirmed?: boolean;
 }
 
 export function emptyPrimeFicheLigneDynamic(secteurCount: number): PrimeFicheLigneDynamic {
@@ -108,6 +112,9 @@ export function flattenDynamicLigneForPayload(
   row: PrimeFicheLigneDynamic,
 ): Record<string, unknown> {
   const base: Record<string, unknown> = { stableId, repartitionRdv: Number(row.repartitionRdv) };
+  if (row.carriedFrom?.trim()) base['carriedFrom'] = row.carriedFrom.trim();
+  if (row.carriedConfirmed === true) base['carriedConfirmed'] = true;
+  else if (row.carriedFrom?.trim()) base['carriedConfirmed'] = false;
   row.secteurValues.forEach((sv, i) => {
     const prefix = `secteur_${i}`;
     const c = sv.core;
@@ -185,6 +192,14 @@ export function ligneDynamicFromFlatPayload(
   };
   const rep = str(flat['repartitionRdv']);
   if (rep !== '') base.repartitionRdv = rep;
+  const carriedFrom = str(flat['carriedFrom']);
+  if (carriedFrom) base.carriedFrom = carriedFrom;
+  if (Object.prototype.hasOwnProperty.call(flat, 'carriedConfirmed')) {
+    const cc = flat['carriedConfirmed'];
+    base.carriedConfirmed = cc === true || cc === 'true';
+  } else if (carriedFrom) {
+    base.carriedConfirmed = false;
+  }
   for (let i = 0; i < base.secteurValues.length; i++) {
     const prefix = `secteur_${i}_`;
     const core: PrimeFicheSecteurPairValues = { ...base.secteurValues[i].core };

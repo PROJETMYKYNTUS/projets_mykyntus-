@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Prime.Infrastructure.Persistence;
+using Prime.Application.Abstractions;
 using Prime.Application.DTOs;
+using Prime.Infrastructure.Persistence;
 
 namespace Prime.Infrastructure.Services;
 
@@ -9,7 +10,8 @@ public sealed class PrimeFicheImportService(
     PrimeDbContext db,
     PrimeOrgScopeService org,
     PrimeFicheValidationSubmissionService submission,
-    PrimeValidationWorkflowRuntime wfRuntime)
+    PrimeValidationWorkflowRuntime wfRuntime,
+    ICommonLinePonderationResolver ponderations)
 {
     public const string ImportTemplateId = "fiche-import";
     public const string ImportTemplateDisplayName = "Import fiche prête";
@@ -197,6 +199,8 @@ public sealed class PrimeFicheImportService(
         if (!PrimeFicheDetailSnapshotService.TryApplySnapshot(fiche, snap, freeze: true, now, out var snapErr))
             return (false, snapErr, null);
 
+        await ponderations.FreezeOntoFicheIfMissingAsync(fiche, draft.TemplateId, ct);
+
         await submission.SyncValidationSubmissionStatusAsync(fiche, draft, now, ct);
 
         await db.SaveChangesAsync(ct);
@@ -270,6 +274,8 @@ public sealed class PrimeFicheImportService(
 
             if (!PrimeFicheDetailSnapshotService.TryApplySnapshot(fiche, snap, freeze: true, now, out var snapErr))
                 return (false, snapErr, null);
+
+            await ponderations.FreezeOntoFicheIfMissingAsync(fiche, draft.TemplateId, ct);
 
             await db.SaveChangesAsync(ct);
             return (true, null, new ImportReadyFicheResponseDto
@@ -382,6 +388,7 @@ public sealed class PrimeFicheImportService(
     {
         if (PrimeFicheDetailSnapshotService.IsFrozen(fiche))
             fiche.DetailGridFrozenAt = null;
+        fiche.PonderationsSnapshotJson = null;
     }
 
     private static string NormalizeSaisieJson(string? json)

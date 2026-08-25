@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 namespace Planning.Application.DTOs
 {
     // ------------------------------------------
-    // R…CLAMATION ó DTOs
+    // RùCLAMATION ù DTOs
     // ------------------------------------------
 
     public class CreateReclamationDto
@@ -17,6 +17,8 @@ namespace Planning.Application.DTOs
 
         [Required]
         public ReclamationType Type { get; set; }
+
+        public List<int>? MediaIds { get; set; }
     }
 
     public class UpdateReclamationStatusDto
@@ -72,15 +74,18 @@ namespace Planning.Application.DTOs
         public DateTime UpdatedAt { get; set; }
         public DateTime? TraiteeAt { get; set; }
         public DateTime? ClotureeAt { get; set; }
+        public int MediaCount { get; set; }
+        public List<MediaAssetDto> Media { get; set; } = new();
     }
 
     public class ReclamationDetailDto : ReclamationDto
     {
         public List<HistoriqueDto> Historique { get; set; } = new();
+        public List<TicketCommentDto> Comments { get; set; } = new();
     }
 
     // ------------------------------------------
-    // PROPOSITION ó DTOs
+    // PROPOSITION ù DTOs
     // ------------------------------------------
 
     public class CreatePropositionDto
@@ -93,6 +98,8 @@ namespace Planning.Application.DTOs
 
         [MaxLength(1000)]
         public string? BeneficeAttendu { get; set; }
+
+        public List<int>? MediaIds { get; set; }
     }
 
     public class UpdatePropositionStatusDto
@@ -139,15 +146,18 @@ namespace Planning.Application.DTOs
         public DateTime UpdatedAt { get; set; }
         public DateTime? EvalueeAt { get; set; }
         public DateTime? ImplementeeAt { get; set; }
+        public int MediaCount { get; set; }
+        public List<MediaAssetDto> Media { get; set; } = new();
     }
 
     public class PropositionDetailDto : PropositionDto
     {
         public List<HistoriqueDto> Historique { get; set; } = new();
+        public List<TicketCommentDto> Comments { get; set; } = new();
     }
 
     // ------------------------------------------
-    // COMMUN ó DTOs
+    // COMMUN ù DTOs
     // ------------------------------------------
 
     public class HistoriqueDto

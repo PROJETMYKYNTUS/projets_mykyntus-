@@ -21,13 +21,13 @@
   font-weight: 700;
   padding: 0.25rem 0.65rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--soft-blue, #93c5fd) 28%, transparent);
+  background: color-mix(in srgb, var(--soft-blue) 28%, transparent);
 }
 
 .tabs {
   display: flex;
   gap: 0.35rem;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .tab {
@@ -36,15 +36,15 @@
   padding: 0.65rem 1rem;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--ky-muted, #6b7280);
+  color: var(--text-muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
 }
 
 .tab--active {
-  color: var(--text-primary, #111827);
-  border-bottom-color: var(--soft-blue, #3b82f6);
+  color: var(--text-primary);
+  border-bottom-color: var(--soft-blue);
 }
 
 .editor-card,
@@ -59,7 +59,7 @@
 .field-label {
   display: block;
   font-size: 0.75rem;
-  color: var(--ky-muted, #6b7280);
+  color: var(--text-muted);
   margin-bottom: 0.35rem;
 }
 
@@ -70,13 +70,13 @@
 }
 
 .question-card {
-  border: 1px solid var(--border-color, #e5e7eb);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-card, 0.65rem);
   padding: 0.9rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  background: color-mix(in srgb, var(--border-color, #e5e7eb) 12%, transparent);
+  background: color-mix(in srgb, var(--border-color) 12%, transparent);
 }
 
 .question-card__head {
@@ -91,7 +91,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: var(--ky-muted, #6b7280);
+  color: var(--text-muted);
 }
 
 .question-card__actions {
@@ -100,13 +100,13 @@
 }
 
 .icon-btn {
-  border: 1px solid var(--border-color, #e5e7eb);
-  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
   border-radius: 0.4rem;
   padding: 0.3rem;
   display: inline-flex;
   cursor: pointer;
-  color: var(--text-primary, #111827);
+  color: var(--text-primary);
 }
 
 .icon-btn:disabled {
@@ -115,7 +115,7 @@
 }
 
 .icon-btn--danger {
-  color: #b91c1c;
+  color: var(--danger-text);
 }
 
 .type-switch {
@@ -168,8 +168,8 @@
   padding: 0.75rem;
   margin-top: 0.5rem;
   border-radius: var(--radius-card, 0.65rem);
-  background: color-mix(in srgb, var(--bg-card, #fff) 92%, transparent);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+  border: 1px solid var(--border-color);
   backdrop-filter: blur(6px);
 }
 
@@ -192,7 +192,7 @@
 }
 
 .stat {
-  border: 1px solid var(--border-color, #e5e7eb);
+  border: 1px solid var(--border-color);
   border-radius: 0.55rem;
   padding: 0.65rem 0.75rem;
   display: flex;
@@ -207,7 +207,7 @@
 
 .stat-lbl {
   font-size: 0.72rem;
-  color: var(--ky-muted, #6b7280);
+  color: var(--text-muted);
 }
 
 .table-wrap {
@@ -224,7 +224,7 @@
 .results-table td {
   text-align: left;
   padding: 0.55rem 0.45rem;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  border-bottom: 1px solid var(--border-color);
   vertical-align: middle;
 }
 
@@ -245,7 +245,7 @@
 }
 
 .answers-detail-row td {
-  background: color-mix(in srgb, var(--bg-input, #f3f4f6) 70%, transparent);
+  background: color-mix(in srgb, var(--bg-input) 70%, transparent);
   padding: 0.75rem 1rem 1rem;
 }
 
@@ -257,22 +257,22 @@
 .answers-panel-title {
   margin: 0;
   font-size: 0.92rem;
-  color: var(--text-primary, #111);
+  color: var(--text-primary);
 }
 
 .answer-card {
-  border: 1px solid color-mix(in srgb, var(--border-color, #d1d5db) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
   border-radius: 0.5rem;
   padding: 0.65rem 0.75rem;
-  background: var(--bg-card, #fff);
+  background: var(--bg-card);
 }
 
 .answer-card--ok {
-  border-color: color-mix(in srgb, #059669 45%, transparent);
+  border-color: var(--success-border);
 }
 
 .answer-card--ko {
-  border-color: color-mix(in srgb, #dc2626 45%, transparent);
+  border-color: var(--danger-border);
 }
 
 .answer-head {
@@ -295,23 +295,23 @@
 }
 
 .badge-ok {
-  background: #ecfdf5;
-  color: #047857;
+  background: var(--success-bg);
+  color: var(--success-text);
 }
 
 .badge-ko {
-  background: #fef2f2;
-  color: #b91c1c;
+  background: var(--danger-bg);
+  color: var(--danger-text);
 }
 
 .badge-free {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--info-bg);
+  color: var(--info-text);
 }
 
 .badge-multi {
-  background: #f5f3ff;
-  color: #6d28d9;
+  background: var(--info-bg);
+  color: var(--info-text);
 }
 
 .option-review {
@@ -329,20 +329,20 @@
   align-items: start;
   padding: 0.4rem 0.55rem;
   border-radius: 0.4rem;
-  background: color-mix(in srgb, var(--bg-input, #f3f4f6) 80%, transparent);
+  background: color-mix(in srgb, var(--bg-input) 80%, transparent);
   font-size: 0.86rem;
 }
 
 .option-review__item.is-correct {
-  background: #ecfdf5;
+  background: var(--success-bg);
 }
 
 .option-review__item.is-wrong-pick {
-  background: #fef2f2;
+  background: var(--danger-bg);
 }
 
 .option-review__item.is-selected.is-correct {
-  outline: 1px solid color-mix(in srgb, #059669 50%, transparent);
+  outline: 1px solid var(--success-border);
 }
 
 .option-review__mark {
@@ -351,11 +351,11 @@
 }
 
 .option-review__item.is-correct .option-review__mark {
-  color: #059669;
+  color: var(--success);
 }
 
 .option-review__item.is-wrong-pick .option-review__mark {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .option-review__tags {
@@ -367,19 +367,19 @@
 
 .option-review__tags em {
   font-style: normal;
-  color: var(--ky-muted, #6b7280);
+  color: var(--text-muted);
 }
 
 .option-review__tags .tag-correct {
-  color: #047857;
+  color: var(--success-text);
   font-weight: 600;
 }
 
 .answer-free {
   margin: 0.35rem 0 0;
   padding: 0.65rem 0.75rem;
-  border-left: 3px solid #3b82f6;
-  background: #eff6ff;
+  border-left: 3px solid var(--info);
+  background: var(--info-bg);
   font-size: 0.9rem;
   white-space: pre-wrap;
   border-radius: 0 0.4rem 0.4rem 0;
@@ -398,17 +398,17 @@
 }
 
 .ok {
-  color: #059669;
+  color: var(--success);
   font-weight: 600;
 }
 
 .ko {
-  color: #dc2626;
+  color: var(--danger);
   font-weight: 600;
 }
 
 .muted {
-  color: var(--ky-muted, #6b7280);
+  color: var(--text-muted);
 }
 
 .multi-toggle {
@@ -418,8 +418,8 @@
   margin-bottom: 0.65rem;
   padding: 0.55rem 0.65rem;
   border-radius: 0.45rem;
-  border: 1px solid color-mix(in srgb, var(--border-color, #d1d5db) 85%, transparent);
-  background: color-mix(in srgb, var(--bg-input, #f3f4f6) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+  background: color-mix(in srgb, var(--bg-input) 55%, transparent);
   font-size: 0.86rem;
   cursor: pointer;
 }
@@ -450,8 +450,8 @@
 }
 
 .pill-btn {
-  border: 1px solid color-mix(in srgb, var(--border-color, #d1d5db) 90%, transparent);
-  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
+  background: var(--bg-card);
   border-radius: 999px;
   padding: 0.2rem 0.7rem;
   font-size: 0.75rem;
@@ -465,21 +465,21 @@
 }
 
 .pill-btn--ok {
-  color: #047857;
+  color: var(--success-text);
 }
 
 .pill-btn--ko {
-  color: #b91c1c;
+  color: var(--danger-text);
 }
 
 .pill-btn--ok.pill-btn--active {
-  background: #ecfdf5;
-  border-color: #6ee7b7;
+  background: var(--success-bg);
+  border-color: var(--success-border);
 }
 
 .pill-btn--ko.pill-btn--active {
-  background: #fef2f2;
-  border-color: #fca5a5;
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
 }
 
 .alert {
@@ -489,21 +489,21 @@
 }
 
 .alert-error {
-  background: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
 }
 
 .alert-ok {
-  background: #ecfdf5;
-  color: #065f46;
-  border: 1px solid #a7f3d0;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
 }
 
 .state-box {
   padding: 2rem;
   text-align: center;
-  color: var(--ky-muted, #6b7280);
+  color: var(--text-muted);
 }
 
 .space-y-3 > * + *,
@@ -524,7 +524,7 @@
 }
 
 .text-rose-300 {
-  color: #fca5a5;
+  color: var(--danger-text);
 }
 
 .m-0 {

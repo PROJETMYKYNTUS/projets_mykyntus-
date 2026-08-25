@@ -36,7 +36,7 @@ import { MOIS_LABELS, PeriodesInterditesDto } from '../../../../core/models/cong
     </div>
   `,
   styles: [`
-    .hint { color: var(--ky-muted, #64748b); }
+    .hint { color: var(--text-muted); }
     .months-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -45,11 +45,11 @@ import { MOIS_LABELS, PeriodesInterditesDto } from '../../../../core/models/cong
     }
     .month-chip {
       display: flex; align-items: center; gap: 0.5rem;
-      padding: 0.75rem 1rem; border: 1px solid var(--ky-border, #e2e8f0);
-      border-radius: 8px; cursor: pointer; background: #fff;
+      padding: 0.75rem 1rem; border: 1px solid var(--border-color);
+      border-radius: 8px; cursor: pointer; background: var(--bg-card);
     }
-    .month-chip.on { border-color: var(--ky-primary, #0f766e); background: #f0fdfa; }
-    .meta { margin-top: 1.25rem; font-size: 0.85rem; color: #64748b; }
+    .month-chip.on { border-color: var(--success); background: var(--success-bg); }
+    .meta { margin-top: 1.25rem; font-size: 0.85rem; color: var(--text-muted); }
   `]
 })
 export class CongePeriodesInterditesComponent implements OnInit {

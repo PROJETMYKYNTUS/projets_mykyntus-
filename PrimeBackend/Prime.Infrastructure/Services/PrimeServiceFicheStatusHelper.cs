@@ -57,6 +57,9 @@ public static class PrimeServiceFicheStatusHelper
         using (doc)
         {
             var root = doc!.RootElement;
+            if (HasUnconfirmedCarriedServiceRows(root))
+                return "InProgress";
+
             if (!root.TryGetProperty("rows", out var rowsEl) || rowsEl.ValueKind != JsonValueKind.Array)
                 return "NotStarted";
 
@@ -254,5 +257,26 @@ public static class PrimeServiceFicheStatusHelper
             return false;
         var s = el.ValueKind == JsonValueKind.String ? el.GetString() : el.ToString();
         return Guid.TryParse(s, out guid);
+    }
+
+    private static bool HasUnconfirmedCarriedServiceRows(JsonElement root)
+    {
+        if (root.TryGetProperty("carriedFrom", out _) &&
+            (!root.TryGetProperty("carriedConfirmed", out var cc) ||
+             cc.ValueKind != JsonValueKind.True))
+            return true;
+
+        if (!root.TryGetProperty("rows", out var rows) || rows.ValueKind != JsonValueKind.Array)
+            return false;
+
+        foreach (var row in rows.EnumerateArray())
+        {
+            if (row.ValueKind != JsonValueKind.Object) continue;
+            if (!row.TryGetProperty("carriedFrom", out _)) continue;
+            if (!row.TryGetProperty("carriedConfirmed", out var confirmed) || confirmed.ValueKind != JsonValueKind.True)
+                return true;
+        }
+
+        return false;
     }
 }

@@ -49,10 +49,9 @@
         <input type="checkbox" [(ngModel)]="includeArchived" (change)="reload()" />
         Inclure archivées
       </label>
-      <button type="button" class="ky-btn-primary" (click)="openCreate()">
-        <app-lucide-icon [icon]="icons.add" className="w-4 h-4" />
-        Nouvelle formation
-      </button>
+      <a routerLink="/formations/planifier" class="ky-btn-secondary btn-link">
+        Planifier une formation continue
+      </a>
     </div>
 
     @if (loading()) {
@@ -60,8 +59,11 @@
     } @else if (!items().length) {
       <div class="ky-card state-empty">
         <app-lucide-icon [icon]="icons.book" className="w-10 h-10" />
-        <h3>Aucune formation catalogue</h3>
-        <p>Créez une formation avec modules, leçons et ressources PDF/vidéo.</p>
+        <h3>Aucun contenu</h3>
+        <p>Les contenus se créent depuis Planifier une formation continue (étape Contenu → Définir ici).</p>
+        <a routerLink="/formations/planifier" class="ky-btn-primary btn-link">
+          Planifier une formation continue
+        </a>
       </div>
     } @else {
       <div class="fcat-grid">
@@ -90,7 +92,7 @@
 
   @if (tab() === 'contents' && contentEditing()) {
     <section class="ky-card fcat-form">
-      <h2>{{ selected() ? 'Modifier la formation' : 'Créer une formation' }}</h2>
+      <h2>Modifier le contenu</h2>
 
       <nav class="fcat-wizard-steps" aria-label="Étapes">
         <button type="button" class="fcat-wizard-step" [class.active]="wizardStep() === 1" (click)="goToStep(1)">1. Informations</button>
@@ -148,7 +150,7 @@
               (click)="draft.selfServiceEnabled = false"
             >
               <strong>Uniquement en séance</strong>
-              <span>Uniquement via Planifier une formation</span>
+              <span>Uniquement via Planifier une formation continue</span>
             </button>
           </div>
         </div>

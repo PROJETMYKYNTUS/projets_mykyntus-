@@ -21,12 +21,14 @@ import {
 } from 'lucide';
 import { catchError, firstValueFrom, of } from 'rxjs';
 import { LucideIconComponent } from '@/shared/lucide-icon.component';
+import { PrimeCampaignStepperComponent } from '@/shared/components/prime-campaign-stepper.component';
 import { PrimeCardComponent } from '../components/prime-card.component';
 import { PrimeNavRequestService } from '../services/prime-nav-request.service';
 import {
   draftListOrganizationalKey,
   PrimeCellPrimeApiService,
   type CelluleDraftGlobalPoolStateDto,
+  type SupervisorCelluleCampaignDto,
   type SupervisorPolePrimeDraftDto,
   type SupervisorPolePrimeDraftListItemDto,
 } from '../services/prime-cell-prime-api.service';
@@ -36,6 +38,8 @@ import {
   type SupervisorSynthesisTrackingItemDto,
 } from '../services/prime-global-pool-api.service';
 import { RoleService } from '../state/role.service';
+import { PrimeScopeStore } from '../state/prime-scope.store';
+import { navigatePrimeCampaignPath, resolveCampaignSaisieWizardStep } from '../lib/prime-campaign-nav';
 import { KyntusConfirmService } from '../../../shared/components/kyntus-confirm/kyntus-confirm.service';
 
 interface PeriodGroup {
@@ -97,7 +101,7 @@ function httpErrMessage(err: unknown): string {
 @Component({
   selector: 'app-prime-fiches-communes-list',
   standalone: true,
-  imports: [LucideIconComponent, PrimeCardComponent],
+  imports: [LucideIconComponent, PrimeCardComponent, PrimeCampaignStepperComponent],
   template: `
     <div class="flex flex-col min-h-0">
       <header
@@ -105,11 +109,10 @@ function httpErrMessage(err: unknown): string {
       >
         <div class="flex min-w-0 flex-1 flex-col gap-1">
           <h1 class="truncate text-lg font-bold tracking-tight text-primary sm:text-xl">
-            Fiches communes — en cours
+            Partie commune (RACC / SAV)
           </h1>
           <p class="text-xs text-muted sm:text-sm">
-            Partie commune RACC / SAV de chaque période non totalement terminée. Les fiches dont la partie commune
-            et toutes les cellules sont complètes sont archivées dans l'historique.
+            Démarrez ou reprenez la saisie commune du mois. Une action principale par fiche.
           </p>
         </div>
         <div class="flex shrink-0 flex-wrap gap-2">
@@ -129,10 +132,32 @@ function httpErrMessage(err: unknown): string {
             class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
           >
             <app-lucide-icon [icon]="icons.plus" className="w-4 h-4" />
-            Ajouter une nouvelle fiche
+            Ajouter une fiche
           </button>
         </div>
       </header>
+
+      @if (campaignRow(); as row) {
+        <div class="border-b border-default bg-card/40 px-4 py-4 sm:px-6">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-muted">Campagne {{ friendlyPeriod(row.period) }}</p>
+              <p class="text-sm text-primary">{{ row.celluleName }}</p>
+            </div>
+            @if (row.nextActionPath && row.nextActionLabel) {
+              <button
+                type="button"
+                (click)="continueCampaign(row)"
+                class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                {{ row.nextActionLabel }}
+                <app-lucide-icon [icon]="icons.arrowRight" className="w-4 h-4" />
+              </button>
+            }
+          </div>
+          <app-prime-campaign-stepper [steps]="row.steps" (stepClick)="onCampaignStep($event)" />
+        </div>
+      }
 
       @if (banner()) {
         <div [class]="bannerClass()" role="alert">
@@ -192,7 +217,7 @@ function httpErrMessage(err: unknown): string {
                 <button
                   type="button"
                   (click)="onOpenTemplateManager()"
-                  class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-blue-300 transition-colors hover:bg-blue-600/10 hover:text-blue-200"
+                  class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-[color:var(--info-text)] transition-colors hover:bg-[color:var(--info-bg)]"
                   title="Gérer les modèles de fiche"
                 >
                   <app-lucide-icon [icon]="icons.settings" className="w-4 h-4" />
@@ -224,17 +249,17 @@ function httpErrMessage(err: unknown): string {
                       <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
                           <span
-                            class="inline-flex shrink-0 items-center gap-1 rounded-md border border-blue-500/40 bg-blue-600/15 px-2 py-0.5 text-xs font-semibold text-primary"
+                            class="inline-flex shrink-0 items-center gap-1 rounded-md border border-[color:var(--info-border)] bg-[color:var(--info-bg)] px-2 py-0.5 text-xs font-semibold text-primary"
                             [title]="'Période ' + friendlyPeriod(item.period)"
                           >
                             {{ friendlyPeriod(item.period) }}
-                            <span class="text-muted/80">·</span>
+                            <span class="text-muted">·</span>
                             <span class="font-mono text-[10px] text-muted">{{ item.period }}</span>
                           </span>
                           <span [class]="statusBadgeClass(item.status)">{{ statusLabel(item.status) }}</span>
                           @if (isActionRequired(item)) {
                             <span
-                              class="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-200"
+                              class="inline-flex shrink-0 items-center gap-1 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--warning-text)]"
                               title="Partie commune validée mais cellules incomplètes"
                             >
                               <app-lucide-icon [icon]="icons.alert" className="w-3 h-3" />
@@ -282,9 +307,8 @@ function httpErrMessage(err: unknown): string {
                         type="button"
                         (click)="onDelete(item)"
                         [disabled]="busyDraftId() === item.id"
-                        class="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-600/10 px-3 py-1.5 text-xs font-semibold text-rose-200 transition-colors hover:bg-rose-600/20 disabled:opacity-50"
+                        class="text-xs font-medium text-[color:var(--danger-text)] hover:underline disabled:opacity-50"
                       >
-                        <app-lucide-icon [icon]="icons.trash" className="w-3.5 h-3.5" />
                         Supprimer
                       </button>
                       <div class="flex flex-wrap items-center gap-2">
@@ -292,35 +316,35 @@ function httpErrMessage(err: unknown): string {
                           type="button"
                           (click)="onOpen(item)"
                           [disabled]="busyDraftId() === item.id"
-                          class="inline-flex items-center gap-1.5 rounded-lg border border-default bg-card px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-input/50 disabled:opacity-50"
-                          title="Reprendre la saisie détaillée RACC / SAV (template)"
+                          class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
                         >
                           <app-lucide-icon [icon]="icons.pen" className="w-3.5 h-3.5" />
-                          Modifier la partie commune
+                          Ouvrir
                         </button>
-                        <button
-                          type="button"
-                          (click)="onOpenCellule(item)"
-                          [disabled]="busyDraftId() === item.id"
-                          [class]="cellPartButtonClass(item)"
-                          [title]="cellPartButtonTitle(item)"
-                        >
-                          <app-lucide-icon [icon]="icons.grid" className="w-3.5 h-3.5" />
-                          Partie cellules
-                          <app-lucide-icon [icon]="icons.arrowRight" className="w-3.5 h-3.5" />
-                        </button>
+                        @if (isActionRequired(item) || (item.status ?? '').toLowerCase() === 'validated') {
+                          <button
+                            type="button"
+                            (click)="onOpenCellule(item)"
+                            [disabled]="busyDraftId() === item.id"
+                            [class]="cellPartButtonClass(item)"
+                          >
+                            Fiches agents
+                            <app-lucide-icon [icon]="icons.arrowRight" className="w-3.5 h-3.5" />
+                          </button>
+                        }
                       </div>
                     </div>
 
+                    @if (role.currentRole() !== 'Superviseur') {
                     <div class="mt-2 border-t border-default/60 pt-2">
                       <button
                         type="button"
                         (click)="toggleGlobalPool(item)"
-                        class="text-left text-xs font-semibold text-blue-300 hover:text-blue-200"
+                        class="text-left text-xs font-semibold text-[color:var(--info-text)] hover:underline"
                       >
                         Fichier global (Excel) — synthèse RH / Manager / Compta
                         @if (item.poolDistributionUnlocked) {
-                          <span class="ml-1 font-normal text-emerald-400">· diffusion débloquée</span>
+                          <span class="ml-1 font-normal text-[color:var(--success-text)]">· diffusion débloquée</span>
                         }
                       </button>
                       @if (globalPoolPanelDraftId() === item.id) {
@@ -443,7 +467,10 @@ function httpErrMessage(err: unknown): string {
                                         <td class="px-2 py-1 text-muted">{{ t.validationStatus }}</td>
                                         <td class="px-2 py-1">{{ trackingSynthLabel(t) }}</td>
                                         <td class="px-2 py-1">
-                                          <span [class.text-emerald-400]="t.paymentStatus === 'Paid'" [class.text-muted]="t.paymentStatus !== 'Paid'">
+                                          <span
+                                            [class.text-[color:var(--success-text)]]="t.paymentStatus === 'Paid'"
+                                            [class.text-muted]="t.paymentStatus !== 'Paid'"
+                                          >
                                             {{ trackingPaymentLabel(t) }}
                                           </span>
                                           @if (t.paidAt) {
@@ -455,7 +482,7 @@ function httpErrMessage(err: unknown): string {
                                             <button
                                               type="button"
                                               (click)="downloadFinalizedFiche(t)"
-                                              class="rounded border border-default px-2 py-0.5 font-medium text-blue-300 hover:bg-input/40"
+                                              class="rounded border border-default px-2 py-0.5 font-medium text-[color:var(--info-text)] hover:bg-input/40"
                                             >
                                               Télécharger
                                             </button>
@@ -473,6 +500,7 @@ function httpErrMessage(err: unknown): string {
                         </div>
                       }
                     </div>
+                    }
                   </article>
                 }
               </div>
@@ -490,6 +518,7 @@ export class PrimeFichesCommunesListComponent implements OnInit {
   readonly poolApi = inject(PrimeGlobalPoolApiService);
   readonly session = inject(PrimeFicheSessionService);
   readonly role = inject(RoleService);
+  readonly scope = inject(PrimeScopeStore);
   private readonly nav = inject(PrimeNavRequestService);
   private readonly confirmService = inject(KyntusConfirmService);
 
@@ -520,6 +549,14 @@ export class PrimeFichesCommunesListComponent implements OnInit {
   readonly globalPoolPreviewRows = signal<string[][]>([]);
   readonly synthTracking = signal<SupervisorSynthesisTrackingItemDto[]>([]);
   readonly synthTrackingLoading = signal(false);
+  readonly campaign = signal<SupervisorCelluleCampaignDto[]>([]);
+
+  readonly campaignRow = computed(() => {
+    const rows = this.campaign();
+    if (!rows.length) return null;
+    const cell = this.scope.selectedCelluleId().trim();
+    return rows.find((r) => r.celluleId === cell) ?? rows[0] ?? null;
+  });
 
   readonly groups = computed<PeriodGroup[]>(() => {
     const byPeriod = new Map<string, SupervisorPolePrimeDraftListItemDto[]>();
@@ -543,7 +580,86 @@ export class PrimeFichesCommunesListComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    const uid = this.role.currentUser()?.id;
+    if (uid) this.scope.hydrateFromStorage(uid);
     void this.refresh();
+  }
+
+  continueCampaign(row: SupervisorCelluleCampaignDto): void {
+    const wizard = resolveCampaignSaisieWizardStep(null, row.nextActionPath, row.nextActionLabel);
+    if (wizard) {
+      void this.openCampaignSaisie(row, wizard);
+      return;
+    }
+    navigatePrimeCampaignPath(this.nav, row.nextActionPath);
+  }
+
+  onCampaignStep(step: { key?: string; actionPath?: string | null; state: string; label?: string }): void {
+    if (step.state === 'blocked' && !(step.actionPath ?? '').trim()) return;
+    const wizard = resolveCampaignSaisieWizardStep(step.key, step.actionPath, step.label);
+    if (wizard) {
+      const row = this.campaignRow();
+      if (row) {
+        void this.openCampaignSaisie(row, wizard);
+        return;
+      }
+    }
+    navigatePrimeCampaignPath(this.nav, step.actionPath);
+  }
+
+  /**
+   * Ouvre le wizard partie commune sur l’étape demandée (pondérations / saisie / setup).
+   * Si pas de draft ou chemin hors saisie → navigation classique.
+   */
+  private async openCampaignSaisie(
+    row: SupervisorCelluleCampaignDto,
+    wizardStep: 'ponderations' | 'entry' | 'setup',
+  ): Promise<void> {
+    const u = this.role.currentUser();
+    if (!u?.id) return;
+
+    const uid = u.id;
+    this.scope.setPeriod(row.period, uid);
+    if (row.celluleId) this.scope.setSelectedCelluleId(row.celluleId, uid);
+
+    if (!row.draftId || !row.templateId) {
+      this.session.startWizardForSupervisor();
+      return;
+    }
+
+    this.busyDraftId.set(row.draftId);
+    this.banner.set(null);
+    try {
+      const draft = await firstValueFrom(
+        this.api.getPoleDraft(uid, row.celluleId, row.period, row.templateId).pipe(
+          catchError((err: unknown) => {
+            this.bannerKind.set('error');
+            this.banner.set(`Impossible d'ouvrir la fiche : ${httpErrMessage(err)}`);
+            return of<SupervisorPolePrimeDraftDto | null>(null);
+          }),
+        ),
+      );
+      if (!draft) {
+        navigatePrimeCampaignPath(this.nav, '/prime-saisie');
+        return;
+      }
+      const ok = this.session.startWizardFromExistingDraft(draft);
+      if (!ok) {
+        this.bannerKind.set('error');
+        this.banner.set(
+          'Impossible de reconstruire le template depuis ce brouillon (schéma ou snapshot manquant). Réimportez le template.',
+        );
+        return;
+      }
+      if (wizardStep === 'entry') {
+        this.session.goEntry();
+      } else if (wizardStep === 'setup') {
+        this.session.goBackToSetup();
+      }
+      // ponderations : déjà positionné par startWizardFromExistingDraft
+    } finally {
+      this.busyDraftId.set(null);
+    }
   }
 
   formatDate(iso: string): string {
@@ -618,12 +734,12 @@ export class PrimeFichesCommunesListComponent implements OnInit {
   }
 
   statusBadgeClass(status: string): string {
-    const base = 'inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-xs font-semibold';
+    const base = 'prime-status-badge';
     const s = (status ?? '').toLowerCase();
     if (s === 'validated') {
-      return `${base} border-emerald-500/40 bg-emerald-600/15 text-emerald-200`;
+      return `${base} prime-status-badge--success`;
     }
-    return `${base} border-default bg-card text-muted`;
+    return `${base} prime-status-badge--neutral`;
   }
 
   async refresh(): Promise<void> {
@@ -645,9 +761,24 @@ export class PrimeFichesCommunesListComponent implements OnInit {
         ),
       );
       this.items.set(list);
+      await this.loadCampaign();
     } finally {
       this.loading.set(false);
     }
+  }
+
+  private async loadCampaign(): Promise<void> {
+    const u = this.role.currentUser();
+    if (!u?.id) {
+      this.campaign.set([]);
+      return;
+    }
+    const list = await firstValueFrom(
+      this.api.getSupervisorCampaign(u.id, this.scope.period()).pipe(
+        catchError(() => of<SupervisorCelluleCampaignDto[]>([])),
+      ),
+    );
+    this.campaign.set(list);
   }
 
   onAdd(): void {
@@ -680,10 +811,8 @@ export class PrimeFichesCommunesListComponent implements OnInit {
         this.banner.set(
           'Impossible de reconstruire le template depuis ce brouillon (schéma ou snapshot manquant). Réimportez le template.',
         );
-      } else {
-        // Flux template : aller directement à la saisie structurée RACC/SAV (éviter l’étape « aperçu »).
-        this.session.goEntry();
       }
+      // Rester sur l’étape pondérations (posée par startWizardFromExistingDraft).
     } finally {
       this.busyDraftId.set(null);
     }
@@ -696,7 +825,9 @@ export class PrimeFichesCommunesListComponent implements OnInit {
    */
   onOpenCellule(item: SupervisorPolePrimeDraftListItemDto): void {
     if (!item?.period) return;
-    this.nav.requestViewWithPeriod('/prime-fiches-pilotes', item.period);
+    const uid = this.role.currentUser()?.id;
+    if (uid) this.scope.setPeriod(item.period, uid);
+    this.nav.requestViewWithTab('/prime-fiches-agents', 'pilotage');
   }
 
   async onDelete(item: SupervisorPolePrimeDraftListItemDto): Promise<void> {

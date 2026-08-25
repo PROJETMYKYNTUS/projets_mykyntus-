@@ -282,6 +282,25 @@ public class PlanningController(
             var result = await _planningService.GeneratePlanningFromConfigAsync(dto);
             return Ok(result);
         }
+        catch (SupervisorModesPendingException ex)
+        {
+            var authUserId = User.GetAuthUserId();
+            if (authUserId is > 0)
+            {
+                var user = await _userService.GetUserByAuthIdAsync(authUserId.Value);
+                if (user != null)
+                {
+                    await _planningService.NotifyModeConfigPendingAsync(
+                        user.Id,
+                        authUserId.Value,
+                        dto.WeekCode ?? string.Empty,
+                        string.Empty,
+                        ex.Message);
+                }
+            }
+
+            return BadRequest(new { message = ex.Message });
+        }
         catch (PlanningValidationException ex)
         {
             return BadRequest(new { message = ex.Message, anomalies = ex.Anomalies });

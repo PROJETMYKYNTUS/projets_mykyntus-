@@ -32,6 +32,19 @@ const FORMATION_TEAM_ALIASES = [
   KyntusRoleNames.Formateur,
 ] as const;
 
+/** Tous les rôles authentifiés sauf Pilote / Employee (espace salarié uniquement). */
+const DUAL_HAT_ROLES = [
+  KyntusRoleNames.Admin,
+  KyntusRoleNames.RH,
+  KyntusRoleNames.Manager,
+  ...REFERENT_ALIASES,
+  ...CHEF_ALIASES,
+  KyntusRoleNames.Audit,
+  ...FORMATION_TEAM_ALIASES,
+  KyntusRoleNames.Superviseur,
+  KyntusRoleNames.Qualiticien,
+] as string[];
+
 export const ROLE_SETS = {
   adminRh: [KyntusRoleNames.Admin, KyntusRoleNames.RH] as string[],
 
@@ -58,6 +71,9 @@ export const ROLE_SETS = {
     ...CHEF_ALIASES,
     KyntusRoleNames.Audit,
     ...FORMATION_TEAM_ALIASES,
+    KyntusRoleNames.Admin,
+    KyntusRoleNames.RH,
+    KyntusRoleNames.Qualiticien,
   ] as string[],
 
   planningManagers: [
@@ -80,6 +96,9 @@ export const ROLE_SETS = {
     KyntusRoleNames.Audit,
     ...FORMATION_TEAM_ALIASES,
     KyntusRoleNames.Superviseur,
+    KyntusRoleNames.Admin,
+    KyntusRoleNames.RH,
+    KyntusRoleNames.Qualiticien,
   ] as string[],
 
   congesManager: [KyntusRoleNames.Admin, KyntusRoleNames.RH, KyntusRoleNames.Manager, KyntusRoleNames.Superviseur] as string[],
@@ -132,6 +151,9 @@ export const ROLE_SETS = {
     KyntusRoleNames.Audit,
     ...FORMATION_TEAM_ALIASES,
     KyntusRoleNames.Superviseur,
+    KyntusRoleNames.Admin,
+    KyntusRoleNames.RH,
+    KyntusRoleNames.Qualiticien,
   ] as string[],
 
   reclamationsEmployee: [
@@ -152,6 +174,26 @@ export const ROLE_SETS = {
     ...CHEF_ALIASES,
     KyntusRoleNames.Admin,
     KyntusRoleNames.Audit,
+  ] as string[],
+
+  qualiteCq: [
+    KyntusRoleNames.Qualiticien,
+    KyntusRoleNames.Admin,
+    KyntusRoleNames.RH,
+    KyntusRoleNames.Superviseur,
+    ...REFERENT_ALIASES,
+    KyntusRoleNames.Manager,
+    ...CHEF_ALIASES,
+  ] as string[],
+
+  qualiteCqPilot: [...PILOTE_ALIASES] as string[],
+
+  qualiteCqCoaching: [
+    KyntusRoleNames.Qualiticien,
+    KyntusRoleNames.Admin,
+    KyntusRoleNames.RH,
+    KyntusRoleNames.Superviseur,
+    ...REFERENT_ALIASES,
   ] as string[],
 
   documentation: [
@@ -187,4 +229,10 @@ export const ROLE_SETS = {
     ...CHEF_ALIASES,
     KyntusRoleNames.Superviseur,
   ] as string[],
+
+  /**
+   * Rôles à double casquette : périmètre d’équipe + espace salarié.
+   * Tous sauf Pilote (Employee ≡ Pilote). Le JWT ne change pas ; seul le menu bascule.
+   */
+  dualHat: DUAL_HAT_ROLES,
 } as const;

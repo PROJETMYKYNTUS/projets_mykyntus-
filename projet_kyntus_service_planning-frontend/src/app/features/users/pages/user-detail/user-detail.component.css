@@ -503,19 +503,19 @@
 .lifecycle-banner {
   margin-bottom: 1.25rem;
   padding: 1rem 1.25rem;
-  border-left: 4px solid var(--soft-blue, #3b82f6);
+  border-left: 4px solid var(--soft-blue);
 }
 
 .lifecycle-banner.lifecycle--formation {
-  border-left-color: #f59e0b;
+  border-left-color: var(--warning);
 }
 
 .lifecycle-banner.lifecycle--warn {
-  border-left-color: #ef4444;
+  border-left-color: var(--danger);
 }
 
 .lifecycle-banner.lifecycle--inactive {
-  border-left-color: #94a3b8;
+  border-left-color: var(--text-muted);
 }
 
 .lifecycle-banner__head {
@@ -564,12 +564,12 @@
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 50%;
-  background: #94a3b8;
+  background: var(--text-muted);
 }
 
-.lifecycle-step--done .lifecycle-step__dot { background: #22c55e; }
-.lifecycle-step--current .lifecycle-step__dot { background: #f59e0b; }
-.lifecycle-step--blocked .lifecycle-step__dot { background: #ef4444; }
+.lifecycle-step--done .lifecycle-step__dot { background: var(--success); }
+.lifecycle-step--current .lifecycle-step__dot { background: var(--warning); }
+.lifecycle-step--blocked .lifecycle-step__dot { background: var(--danger); }
 
 @media (max-width: 900px) {
   .field-grid,

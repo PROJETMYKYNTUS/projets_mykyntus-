@@ -3,6 +3,19 @@ namespace Planning.Infrastructure.Services;
 /// <summary>Répartition déterministe des effectifs depuis des pourcentages (plus grands restes).</summary>
 public static class ShiftModeQuotaAllocator
 {
+    /// <summary>
+    /// Quotas journaliers d'un mode multi-shift.
+    /// Solo (1 personne, &gt;1 shift) : tous à 0 — l'alternance semaine remplace les %.
+    /// </summary>
+    public static int[] AllocateModeRequiredCounts(IReadOnlyList<decimal> percentages, int headcount)
+    {
+        if (percentages.Count == 0)
+            return [];
+        if (headcount == 1 && percentages.Count > 1)
+            return percentages.Select(_ => 0).ToArray();
+        return AllocateCounts(percentages, headcount);
+    }
+
     public static int[] AllocateCounts(IReadOnlyList<decimal> percentages, int totalHeadcount)
     {
         if (totalHeadcount <= 0 || percentages.Count == 0)

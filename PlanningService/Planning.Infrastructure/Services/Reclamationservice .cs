@@ -12,15 +12,25 @@ namespace Planning.Infrastructure.Services
         private readonly AppDbContext _context;
         private readonly ILogger<ReclamationService> _logger;
         private readonly IReclamationNotificationService _notif;
-        public ReclamationService(AppDbContext context, ILogger<ReclamationService> logger, IReclamationNotificationService notif)
+        private readonly IMediaAssetService _media;
+        private readonly ITicketCommentService _comments;
+
+        public ReclamationService(
+            AppDbContext context,
+            ILogger<ReclamationService> logger,
+            IReclamationNotificationService notif,
+            IMediaAssetService media,
+            ITicketCommentService comments)
         {
             _context = context;
             _logger = logger;
             _notif = notif;
+            _media = media;
+            _comments = comments;
         }
 
         // ------------------------------------------
-        // Soumettre (tous les rôles)
+        // Soumettre (tous les r?les)
         // ------------------------------------------
         public async Task<ReclamationDto> SoumettreAsync(
             CreateReclamationDto dto, string auteurId, string auteurNom, string auteurRole)
@@ -38,21 +48,22 @@ namespace Planning.Infrastructure.Services
             _context.Reclamations.Add(reclamation);
             await _context.SaveChangesAsync();
 
-            await AddHistoriqueAsync(reclamation.Id, "Réclamation soumise",
-                reclamation.Status.ToString(), auteurId, auteurNom);
-            Console.WriteLine($"?? ENVOI NOTIFICATION managers — {dto.Titre}");
-            await _notif.NotifyManagersAsync(
-        "Nouvelle réclamation",
-        $"{auteurNom} a soumis une réclamation : {dto.Titre}",
-        "info"
-    );
+            if (dto.MediaIds is { Count: > 0 })
+                await _media.AttachAsync(dto.MediaIds, MediaOwnerType.Reclamation, reclamation.Id);
 
-            _logger.LogInformation("Réclamation {Id} soumise par {Auteur}", reclamation.Id, auteurNom);
-            return MapToDto(reclamation);
+            await AddHistoriqueAsync(reclamation.Id, "Reclamation soumise",
+                reclamation.Status.ToString(), auteurId, auteurNom);
+            await _notif.NotifyManagersAsync(
+                "Nouvelle reclamation",
+                $"{auteurNom} a soumis une reclamation : {dto.Titre}",
+                "info");
+
+            _logger.LogInformation("Reclamation {Id} soumise par {Auteur}", reclamation.Id, auteurNom);
+            return await MapToDtoAsync(reclamation);
         }
 
         // ------------------------------------------
-        // Mes demandes (tous les rôles)
+        // Mes demandes (tous les r?les)
         // ------------------------------------------
         public async Task<PaginatedResult<ReclamationDto>> GetMesDemandesAsync(
             string auteurId, int page = 1, int pageSize = 20)
@@ -65,7 +76,7 @@ namespace Planning.Infrastructure.Services
         }
 
         // ------------------------------------------
-        // Détail (auteur + rôles autorisés)
+        // D?tail (auteur + r?les autoris?s)
         // ------------------------------------------
         public async Task<ReclamationDetailDto?> GetByIdAsync(int id, string userId)
         {
@@ -73,11 +84,11 @@ namespace Planning.Infrastructure.Services
                 .Include(r => r.Historique)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
-            return rec is null ? null : MapToDetailDto(rec);
+            return rec is null ? null : await MapToDetailDtoAsync(rec);
         }
 
         // ------------------------------------------
-        // Toutes les réclamations (RH, Manager, RP, Admin)
+        // Toutes les r?clamations (RH, Manager, RP, Admin)
         // ------------------------------------------
         public async Task<PaginatedResult<ReclamationDto>> GetAllAsync(
             int page = 1, int pageSize = 20, string? status = null, string? priorite = null)
@@ -118,12 +129,12 @@ namespace Planning.Infrastructure.Services
             await _context.SaveChangesAsync();
             await _notif.NotifyAuteurAsync(
       rec.AuteurId,
-      "Réclamation mise à jour",
-      $"Votre réclamation '{rec.Titre}' est maintenant : {dto.Status}",
+      "R?clamation mise ? jour",
+      $"Votre r?clamation '{rec.Titre}' est maintenant : {dto.Status}",
       dto.Status == ReclamationStatus.Traitee ? "success" :
       dto.Status == ReclamationStatus.Rejetee ? "warning" : "info"
   );
-            await AddHistoriqueAsync(id, "Statut changé",
+            await AddHistoriqueAsync(id, "Statut chang?",
                 $"{ancienStatut} ? {dto.Status}", traiteurId, traiteurNom);
 
         }
@@ -140,11 +151,11 @@ namespace Planning.Infrastructure.Services
             rec.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-            await AddHistoriqueAsync(id, "Assigné à", dto.AssigneeNom, assigneurId, assigneurNom);
+            await AddHistoriqueAsync(id, "Assign? ?", dto.AssigneeNom, assigneurId, assigneurNom);
             await _notif.NotifyAuteurAsync(
                 rec.AuteurId,
-                "Réclamation assignée",
-                $"Votre réclamation '{rec.Titre}' a été assignée à {dto.AssigneeNom}",
+                "R?clamation assign?e",
+                $"Votre r?clamation '{rec.Titre}' a ?t? assign?e ? {dto.AssigneeNom}",
                 "info"
             );
         }
@@ -161,12 +172,12 @@ namespace Planning.Infrastructure.Services
             rec.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-            await AddHistoriqueAsync(id, "Priorité changée",
+            await AddHistoriqueAsync(id, "Priorit? chang?e",
                 $"{ancienne} ? {dto.Priorite}", userId, userNom);
             await _notif.NotifyAuteurAsync(
     rec.AuteurId,
-    "Priorité mise à jour",
-    $"La priorité de '{rec.Titre}' est maintenant : {dto.Priorite}",
+    "Priorit? mise ? jour",
+    $"La priorit? de '{rec.Titre}' est maintenant : {dto.Priorite}",
     dto.Priorite == Priority.Critique ? "warning" : "info"
 );
         }
@@ -216,8 +227,19 @@ namespace Planning.Infrastructure.Services
                 query = query.Where(r => r.Id == reclamationId.Value);
 
             query = query.OrderByDescending(r => r.CreatedAt);
+            var total = await query.CountAsync();
+            var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+            var mapped = new List<ReclamationDetailDto>();
+            foreach (var r in items)
+                mapped.Add(await MapToDetailDtoAsync(r));
 
-            return await PaginateAsync(query, page, pageSize, MapToDetailDto);
+            return new PaginatedResult<ReclamationDetailDto>
+            {
+                Items = mapped,
+                TotalCount = total,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         // ------------------------------------------
@@ -231,24 +253,24 @@ namespace Planning.Infrastructure.Services
                 throw new UnauthorizedAccessException("Seul l'auteur peut noter la satisfaction.");
 
             if (rec.Status != ReclamationStatus.Traitee && rec.Status != ReclamationStatus.Cloturee)
-                throw new InvalidOperationException("La réclamation doit être traitée pour noter la satisfaction.");
+                throw new InvalidOperationException("La r?clamation doit ?tre trait?e pour noter la satisfaction.");
 
             rec.SatisfactionNote = dto.Note;
             rec.SatisfactionCommentaire = dto.Commentaire;
             rec.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-            await AddHistoriqueAsync(id, "Satisfaction notée",
+            await AddHistoriqueAsync(id, "Satisfaction not?e",
                 $"{dto.Note}/5", auteurId, rec.AuteurNom);
         }
 
         // ------------------------------------------
-        // Helpers privés
+        // Helpers priv?s
         // ------------------------------------------
         private async Task<Reclamation> GetOrThrowAsync(int id)
         {
             return await _context.Reclamations.FindAsync(id)
-                ?? throw new KeyNotFoundException($"Réclamation {id} introuvable.");
+                ?? throw new KeyNotFoundException($"R?clamation {id} introuvable.");
         }
 
         private async Task AddHistoriqueAsync(
@@ -302,25 +324,52 @@ namespace Planning.Infrastructure.Services
             ClotureeAt = r.ClotureeAt
         };
 
-        private static ReclamationDetailDto MapToDetailDto(Reclamation r)
+        private async Task<ReclamationDto> MapToDtoAsync(Reclamation r)
         {
-            var dto = new ReclamationDetailDto();
-            // copy base properties
-            var baseDto = MapToDto(r);
-            foreach (var prop in typeof(ReclamationDto).GetProperties())
-                prop.SetValue(dto, prop.GetValue(baseDto));
+            var dto = MapToDto(r);
+            var media = await _media.ListByOwnerAsync(MediaOwnerType.Reclamation, r.Id);
+            dto.Media = media.ToList();
+            dto.MediaCount = media.Count;
+            return dto;
+        }
 
-            dto.Historique = r.Historique
-                .OrderByDescending(h => h.CreatedAt)
-                .Select(h => new HistoriqueDto
-                {
-                    Id = h.Id,
-                    Action = h.Action,
-                    Valeur = h.Valeur,
-                    EffectueParNom = h.EffectueParNom,
-                    CreatedAt = h.CreatedAt
-                }).ToList();
-
+        private async Task<ReclamationDetailDto> MapToDetailDtoAsync(Reclamation r)
+        {
+            var baseDto = await MapToDtoAsync(r);
+            var dto = new ReclamationDetailDto
+            {
+                Id = baseDto.Id,
+                Titre = baseDto.Titre,
+                Description = baseDto.Description,
+                Type = baseDto.Type,
+                Status = baseDto.Status,
+                Priorite = baseDto.Priorite,
+                AuteurId = baseDto.AuteurId,
+                AuteurNom = baseDto.AuteurNom,
+                AuteurRole = baseDto.AuteurRole,
+                AssigneeId = baseDto.AssigneeId,
+                AssigneeNom = baseDto.AssigneeNom,
+                CommentaireTraitement = baseDto.CommentaireTraitement,
+                SatisfactionNote = baseDto.SatisfactionNote,
+                SatisfactionCommentaire = baseDto.SatisfactionCommentaire,
+                CreatedAt = baseDto.CreatedAt,
+                UpdatedAt = baseDto.UpdatedAt,
+                TraiteeAt = baseDto.TraiteeAt,
+                ClotureeAt = baseDto.ClotureeAt,
+                Media = baseDto.Media,
+                MediaCount = baseDto.MediaCount,
+                Historique = r.Historique
+                    .OrderByDescending(h => h.CreatedAt)
+                    .Select(h => new HistoriqueDto
+                    {
+                        Id = h.Id,
+                        Action = h.Action,
+                        Valeur = h.Valeur,
+                        EffectueParNom = h.EffectueParNom,
+                        CreatedAt = h.CreatedAt
+                    }).ToList(),
+                Comments = (await _comments.ListAsync(MediaOwnerType.Reclamation, r.Id)).ToList()
+            };
             return dto;
         }
     }

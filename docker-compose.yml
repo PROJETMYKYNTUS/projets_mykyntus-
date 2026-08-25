@@ -3,7 +3,7 @@
 # UI login          8201   | SPA unifiée (planning + prime + parrainage) 8200
 # API Gateway       8500   | Postgres hôte   8433   | pgAdmin         8505
 # auth-backend      8520   | planning        8521   | formation       8522   | documentation 8530
-# conge             8540   | prime           8550   | parrainage      8560
+# conge             8540   | prime           8550   | parrainage      8560   | qualité KCQ   8570
 # RabbitMQ          8672   | RabbitMQ UI     18672
 x-documentation-integration:
   public_gateway_base: "http://localhost:8500"
@@ -427,6 +427,95 @@ services:
     networks:
       - microservices-network
 
+  # ─── QUALITÉ KCQ (module wrap Node) ───────────────────
+  kcq-mongo:
+    # Default mongo:4.4 for VPS without AVX (web-s-2 exit 132 on mongo:7).
+    # Local PC with existing kcq_mongo_data (format 14): use docker-compose.override.yml → mongo:7.
+    image: mongo:4.4
+    container_name: kyntus_kcq_mongo
+    restart: unless-stopped
+    volumes:
+      - kcq_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongo", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - microservices-network
+
+  # One-shot : restore mongodump KyntusCQ -> kcq si scores/grids vides (./backup_kcq_db).
+  kcq-mongo-restore:
+    image: mongo:4.4
+    container_name: kyntus_kcq_mongo_restore
+    restart: "no"
+    volumes:
+      - ./backup_kcq_db:/backup:ro
+      - ./init/kcq-mongo-restore.sh:/restore.sh:ro
+    entrypoint: ["/bin/bash", "/restore.sh"]
+    depends_on:
+      kcq-mongo:
+        condition: service_healthy
+    networks:
+      - microservices-network
+
+  kcq-backend:
+    build:
+      context: ./QualiteService/backend
+      dockerfile: Dockerfile
+    container_name: kyntus_kcq_backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGO_URI: mongodb://kcq-mongo:27017/kcq
+      JWT_SECRET: ${KYNTUS_JWT_SECRET:?Définir KYNTUS_JWT_SECRET dans .env}
+      JWT_ISSUER: ${KYNTUS_JWT_ISSUER:-AuthService}
+      JWT_AUDIENCE: ${KYNTUS_JWT_AUDIENCE:-AuthServiceClient}
+      DIRECTORY_BASE_URL: http://employee-directory-backend:8080
+      DIRECTORY_SYNC_INTERVAL_MS: ${DIRECTORY_SYNC_INTERVAL_MS:-600000}
+      RECORDINGS_MODE: ${KYNTUS_KCQ_RECORDINGS_MODE:-mysql}
+      DB_HOST: ${KYNTUS_KCQ_DB_HOST:-}
+      DB_PORT: ${KYNTUS_KCQ_DB_PORT:-3306}
+      DB_NAME: ${KYNTUS_KCQ_DB_NAME:-enregistrement_audio}
+      DB_USER: ${KYNTUS_KCQ_DB_USER:-kpi}
+      DB_PASSWORD: ${KYNTUS_KCQ_DB_PASSWORD:-}
+      AUDIO_BASE_PATH: /app/audio_mails
+      PICKING_AUDIO_DIR: /app/audio_mails
+      PICKING_API_URL: ${KYNTUS_KCQ_PICKING_API_URL:-}
+      PICKING_API_KEY: ${KYNTUS_KCQ_PICKING_API_KEY:-}
+    volumes:
+      - ${KYNTUS_KCQ_AUDIO_HOST_PATH:-./QualiteService/audio_mails}:/app/audio_mails:ro
+    ports:
+      - "8570:5000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5000/api/qualite/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    depends_on:
+      kcq-mongo:
+        condition: service_healthy
+      kcq-mongo-restore:
+        condition: service_completed_successfully
+      employee-directory-backend:
+        condition: service_started
+    networks:
+      - microservices-network
+
+  kcq-frontend:
+    build:
+      context: ./QualiteService/Frontend
+      dockerfile: Dockerfile
+    container_name: kyntus_kcq_frontend
+    restart: unless-stopped
+    depends_on:
+      - kcq-backend
+    networks:
+      - microservices-network
+
   # ─── API GATEWAY ──────────────────────────────────────
   # Point d’entrée unique côté HTTP pour /api/* et /hubs/* (Ocelot : init/ocelot.gateway.json).
   api-gateway:
@@ -456,6 +545,8 @@ services:
       employee-directory-backend:
         condition: service_healthy
       parrainage-backend:
+        condition: service_healthy
+      kcq-backend:
         condition: service_healthy
     networks:
       - microservices-network
@@ -494,6 +585,8 @@ services:
          condition: service_started
        planning-backend:
          condition: service_healthy
+       kcq-frontend:
+         condition: service_started
      networks:
        - microservices-network
 
@@ -514,6 +607,7 @@ volumes:
   postgres_data:
   rabbitmq_data:
   parrainage_cv_uploads:
+  kcq_mongo_data:
 
 networks:
   microservices-network:

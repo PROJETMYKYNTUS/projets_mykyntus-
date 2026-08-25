@@ -1,0 +1,14 @@
+node_modules/
+Frontend/node_modules/
+Frontend/dist/
+Frontend/.vite
+backend/node_modules/
+backend/uploads/
+audio_mails/
+.env
+*.backup-*
+backup-*/
+*.bak
+*.save
+*.tar.gz
+apply_modifs.sh

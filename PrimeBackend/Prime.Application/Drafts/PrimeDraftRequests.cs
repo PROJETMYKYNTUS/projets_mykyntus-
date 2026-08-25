@@ -63,6 +63,30 @@ public sealed class DeleteSupervisorCellulePrimeDraftCommandHandler(ISupervisorC
     }
 }
 
+public record RolloverSupervisorCellulePrimeDraftCommand(RolloverCellulePrimeDraftRequest Body)
+    : IRequest<CelluleDraftRolloverResultDto>;
+
+public sealed class RolloverSupervisorCellulePrimeDraftCommandHandler(ISupervisorCellulePrimeDraftAppService drafts)
+    : IRequestHandler<RolloverSupervisorCellulePrimeDraftCommand, CelluleDraftRolloverResultDto>
+{
+    public Task<CelluleDraftRolloverResultDto> Handle(
+        RolloverSupervisorCellulePrimeDraftCommand request,
+        CancellationToken ct) =>
+        drafts.RolloverAsync(request.Body, ct);
+}
+
+public record GetSupervisorCampaignQuery(string SupervisorUserId, string Period)
+    : IRequest<IReadOnlyList<SupervisorCelluleCampaignDto>>;
+
+public sealed class GetSupervisorCampaignQueryHandler(ISupervisorCampaignAppService campaign)
+    : IRequestHandler<GetSupervisorCampaignQuery, IReadOnlyList<SupervisorCelluleCampaignDto>>
+{
+    public Task<IReadOnlyList<SupervisorCelluleCampaignDto>> Handle(
+        GetSupervisorCampaignQuery request,
+        CancellationToken ct) =>
+        campaign.GetCampaignAsync(request.SupervisorUserId, request.Period, ct);
+}
+
 // ---- Legacy supervisor prime fiches ----
 public record CreateSupervisorPrimeFicheCommand(CreateSupervisorPrimeFicheRequest Body)
     : IRequest<SupervisorPrimeFicheResponseDto>;

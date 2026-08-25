@@ -13,6 +13,7 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
     public DbSet<SupervisorPrimeFicheEntity> SupervisorPrimeFiches => Set<SupervisorPrimeFicheEntity>();
     public DbSet<ServicePrimeIndicatorEntity> ServicePrimeIndicators => Set<ServicePrimeIndicatorEntity>();
     public DbSet<ServicePoleLinePonderationEntity> ServicePoleLinePonderations => Set<ServicePoleLinePonderationEntity>();
+    public DbSet<CommonLinePonderationEntity> CommonLinePonderations => Set<CommonLinePonderationEntity>();
     public DbSet<SupervisorCellulePrimeDraft> SupervisorCellulePrimeDrafts => Set<SupervisorCellulePrimeDraft>();
     public DbSet<EmployeePrimeServiceFiche> EmployeePrimeServiceFiches => Set<EmployeePrimeServiceFiche>();
     public DbSet<PrimeHistoricalFicheEntity> PrimeHistoricalFiches => Set<PrimeHistoricalFicheEntity>();
@@ -146,6 +147,23 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<CommonLinePonderationEntity>(e =>
+        {
+            e.ToTable("prime_common_line_ponderation");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ScopeType).HasMaxLength(16).IsRequired();
+            e.Property(x => x.ScopeId).HasMaxLength(128).IsRequired();
+            e.Property(x => x.TemplateId).HasMaxLength(128).IsRequired();
+            e.Property(x => x.TemplateStableId).HasMaxLength(256).IsRequired();
+            e.Property(x => x.Label).HasMaxLength(512);
+            e.Property(x => x.Contract).HasMaxLength(32);
+            e.Property(x => x.PonderationPrimePct).HasPrecision(9, 4);
+            e.Property(x => x.PonderationChallengePct).HasPrecision(9, 4);
+            e.Property(x => x.CreatedBy).HasMaxLength(128);
+            e.HasIndex(x => new { x.ScopeType, x.ScopeId, x.TemplateId, x.TemplateStableId, x.EffectiveFrom });
+            e.HasIndex(x => new { x.ScopeType, x.ScopeId, x.TemplateStableId, x.EffectiveTo });
+        });
+
         modelBuilder.Entity<SupervisorCellulePrimeDraft>(e =>
         {
             e.ToTable("prime_supervisor_cellule_prime_draft");
@@ -191,6 +209,7 @@ public class PrimeDbContext(DbContextOptions<PrimeDbContext> options) : DbContex
             e.Property(x => x.TotalAmount).HasPrecision(12, 2);
             e.Property(x => x.DetailGridPreviewSheetName).HasMaxLength(256);
             e.Property(x => x.TemplateVersionRef).HasMaxLength(256);
+            e.Property(x => x.PonderationsSnapshotJson);
             e.HasIndex(x => new { x.ServiceId, x.Period });
             e.HasIndex(x => new { x.SupervisorUserId, x.Period });
             e.HasIndex(x => new { x.EmployeeId, x.Period }).IsUnique();

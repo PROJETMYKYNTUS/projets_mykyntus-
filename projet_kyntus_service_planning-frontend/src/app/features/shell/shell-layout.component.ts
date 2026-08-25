@@ -7,11 +7,14 @@ import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 import { filter } from 'rxjs/operators';
-import { Bell, CircleHelp, Moon, Settings, Sun } from 'lucide';
+import { Bell, Briefcase, CircleHelp, Moon, Settings, Sun, UserRound } from 'lucide';
 
 import { Microservice, MenuItem } from '../../core/navigation/microservices.config';
-
 import { NavigationMenuService } from '../../core/navigation/navigation-menu.service';
+import { WorkspaceHatService } from '../../core/navigation/workspace-hat.service';
+import {
+  landingForHat,
+} from '../../core/navigation/workspace-hat.util';
 import { DepartmentContextService } from '../../features/prime/services/allowance-api.service';
 import { AllowanceInboxBadgeService } from '../../features/prime/services/allowance-inbox-badge.service';
 
@@ -108,8 +111,17 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   readonly notifHub = inject(KyntusNotificationHubService);
   readonly notifInit = inject(KyntusNotificationInitService);
   readonly shellUi = inject(KyntusShellUiService);
+  readonly workspace = inject(WorkspaceHatService);
 
-  readonly icons = { bell: Bell, help: CircleHelp, settings: Settings, moon: Moon, sun: Sun };
+  readonly icons = {
+    bell: Bell,
+    help: CircleHelp,
+    settings: Settings,
+    moon: Moon,
+    sun: Sun,
+    user: UserRound,
+    briefcase: Briefcase,
+  };
 
   currentUser: any = null;
 
@@ -164,6 +176,11 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
       void this.deptContext.context();
       this.refreshGroups();
     });
+    effect(() => {
+      this.workspace.hat();
+      if (!this.role) return;
+      this.refreshGroups();
+    });
   }
 
 
@@ -187,6 +204,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     }
 
     this.role = (this.auth.getRole() || this.currentUser?.role || '').trim();
+    this.workspace.bindRole(this.role);
 
     if (!this.session.isAuthenticated()) {
       redirectToAuthLogin();
@@ -195,6 +213,8 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
 
     this.notifInit.connectIfAuthenticated();
+
+    this.refreshGroups();
 
     void this.deptContext.load().finally(() => this.refreshGroups());
 
@@ -207,13 +227,9 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
 
       .subscribe((e) => {
-
         this.refreshGroups();
-
         this.updateModuleClass(e.urlAfterRedirects);
-
         this.openGroupForUrl(e.urlAfterRedirects);
-
       });
 
   }
@@ -410,7 +426,20 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
       return path === '/organisation';
     }
 
-    return !!item.route && (path === item.route || path.startsWith(item.route + '/'));
+    if (item.route) {
+      const [itemPath, itemQs] = item.route.split('?');
+      if (itemPath === '/qualite/cq') {
+        const view = this.router.parseUrl(this.router.url).queryParams['view'] ?? '';
+        const itemView = itemQs ? new URLSearchParams(itemQs).get('view') || '' : '';
+        if (itemView) {
+          return path === '/qualite/cq' && view === itemView;
+        }
+        return path === '/qualite/cq' && (!view || view === 'evaluations' || view === 'list');
+      }
+      return path === itemPath || path.startsWith(itemPath + '/');
+    }
+
+    return false;
 
   }
 
@@ -499,7 +528,24 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     void this.router.navigate(['/settings']);
   }
 
+  goToPersonalSpace(): void {
+    this.workspace.setHat('self');
+    this.sidebarOpen = false;
+    void this.router.navigateByUrl(landingForHat('self'));
+  }
 
+  goToTeamSpace(): void {
+    this.workspace.setHat('team');
+    this.sidebarOpen = false;
+    void this.router.navigateByUrl(landingForHat('team'));
+  }
+
+  /** Bascule casquette uniquement sur action explicite (pilule topbar). */
+  toggleHat(): void {
+    if (!this.workspace.canSwitch()) return;
+    if (this.workspace.hat() === 'team') this.goToPersonalSpace();
+    else this.goToTeamSpace();
+  }
 
   logout(): void {
     redirectToAuthLogin(undefined, { clearReturnUrl: true });

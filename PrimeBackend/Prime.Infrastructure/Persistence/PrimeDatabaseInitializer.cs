@@ -61,6 +61,7 @@ public sealed class PrimeDatabaseInitializer(
         {
             await PrimeSchemaPatches.EnsureAllowanceTrackSchemaAsync(db, cancellationToken);
             await PrimeSchemaPatches.EnsureServicePoleLinePonderationTableAsync(db, cancellationToken);
+            await PrimeSchemaPatches.EnsureCommonLinePonderationTableAsync(db, cancellationToken);
             logger.LogInformation("PRIME : schéma Allowances + pondérations RACC/SAV appliqué.");
         }
         catch (Exception ex)

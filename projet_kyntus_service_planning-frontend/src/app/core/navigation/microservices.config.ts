@@ -4,7 +4,8 @@ import type { AuditSectionId } from '../../features/parrainage/state/audit-secti
 import type { DocumentationTabId } from '../../features/documentation/services/documentation-navigation.service';
 import type { AuditInterfaceSectionId } from '../../features/documentation/services/audit-interface-nav.service';
 import type { OrganisationMenuEntry } from './organisation-nav';
-import { ROLE_SETS } from '../org/kyntus-role-names';
+import { KyntusRoleNames, ROLE_SETS } from '../org/kyntus-role-names';
+import type { MenuHat } from './workspace-hat.util';
 
 /**
  * Configuration centrale du menu latéral global des microservices.
@@ -43,6 +44,11 @@ export interface MenuItem {
   isSectionHeader?: boolean;
   /** Badge numérique (ex. compteur inbox). */
   menuBadge?: number;
+  /**
+   * Casquette UI. `self` = espace salarié, `team` = périmètre d’équipe.
+   * Absent = équipe. `both` = visible dans les deux modes.
+   */
+  hat?: MenuHat;
 }
 
 export interface Microservice {
@@ -66,6 +72,10 @@ const MES_SESSIONS_ROLES = ROLE_SETS.mesSessions;
 const FORMATION_GESTION_ROLES = ROLE_SETS.formationGestion;
 const FORMATION_FORMATEUR_ROLES = ROLE_SETS.formationFormateur;
 const FORMATION_PLANNER_ROLES = ROLE_SETS.formationPlanner;
+const QUALITE_CQ_ROLES = ROLE_SETS.qualiteCq;
+const QUALITE_CQ_PILOT_ROLES = ROLE_SETS.qualiteCqPilot;
+const QUALITE_CQ_COACHING_ROLES = ROLE_SETS.qualiteCqCoaching;
+const QUALITE_CQ_DASHBOARD_ROLES = [...QUALITE_CQ_ROLES, ...QUALITE_CQ_PILOT_ROLES];
 
 const ICONS = {
   grid: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -76,6 +86,7 @@ const ICONS = {
   graduation: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>',
   mail: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
   chat: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
+  headphones: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/></svg>',
   doc: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
   award: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>',
   share: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
@@ -83,13 +94,28 @@ const ICONS = {
 
 export const MICROSERVICES: Microservice[] = [
   {
+    id: 'perimetre-superviseur',
+    label: 'Périmètre superviseur',
+    icon: ICONS.users,
+    roles: ['Superviseur'],
+    children: [
+      {
+        label: 'Périmètre superviseur',
+        route: '/prime',
+        primePath: '/superviseur/scope',
+        roles: ['Superviseur'],
+        hat: 'team',
+      },
+    ],
+  },
+  {
     id: 'organisation-rh',
     label: 'Organisation RH',
     icon: ICONS.building,
     roles: ADMIN_RH,
     children: [
-      { label: 'Structure de production', route: '/organisation', roles: ADMIN_RH },
-      { label: 'Structure support', route: '/departements-metier', roles: ADMIN_RH },
+      { label: 'Structure de production', route: '/organisation', roles: ADMIN_RH, hat: 'team' },
+      { label: 'Structure support', route: '/departements-metier', roles: ADMIN_RH, hat: 'team' },
     ],
   },
   {
@@ -97,13 +123,13 @@ export const MICROSERVICES: Microservice[] = [
     label: 'Ressources humaines',
     icon: ICONS.users,
     children: [
-      { label: 'Employés', route: '/users', roles: ADMIN_RH },
-      { label: 'Nouvel employé', route: '/users/create', roles: ADMIN_RH },
-      { label: 'Import employés', route: '/import', roles: ADMIN_RH },
-      { label: 'Contrats', route: '/contracts', roles: MANAGER_ROLES },
-      { label: 'Liaisons HTEL', route: '/users/htel-liaisons', roles: ADMIN_RH },
-      { label: 'Historique des rotations', route: '/pilotage-rh', roles: ADMIN_RH },
-      { label: 'Champs personnalisés', route: '/users/fields', roles: ADMIN_RH },
+      { label: 'Employés', route: '/users', roles: ADMIN_RH, hat: 'team' },
+      { label: 'Nouvel employé', route: '/users/create', roles: ADMIN_RH, hat: 'team' },
+      { label: 'Import employés', route: '/import', roles: ADMIN_RH, hat: 'team' },
+      { label: 'Contrats', route: '/contracts', roles: MANAGER_ROLES, hat: 'team' },
+      { label: 'Liaisons HTEL', route: '/users/htel-liaisons', roles: ADMIN_RH, hat: 'team' },
+      { label: 'Historique des rotations', route: '/pilotage-rh', roles: ADMIN_RH, hat: 'team' },
+      { label: 'Champs personnalisés', route: '/users/fields', roles: ADMIN_RH, hat: 'team' },
     ],
   },
   {
@@ -114,30 +140,16 @@ export const MICROSERVICES: Microservice[] = [
     icon: ICONS.calendar,
     roles: ALL_ROLES,
     children: [
-      { label: 'Mes plannings', route: '/mes-plannings', roles: PLANNING_SELF_SERVICE_ROLES },
-      { label: 'Mes changements d’horaire', route: '/mes-demandes-changement', roles: PLANNING_SELF_SERVICE_ROLES },
-      { label: 'Mes demandes exceptionnelles', route: '/mes-demandes-exceptionnelles', roles: PLANNING_SELF_SERVICE_ROLES },
-      { label: 'Mes renforts samedi', route: '/mes-renforts', roles: PLANNING_SELF_SERVICE_ROLES },
-      { label: 'Planning de l’équipe', route: '/planning/equipe', roles: ['Manager', 'Coach', 'Référent technique', 'Superviseur'] },
-      { label: 'Traiter les changements', route: '/planning/change-requests', roles: [...ADMIN_RH, 'Superviseur', 'Manager', 'Référent technique', 'Coach', 'Chef de projet', 'RP'] },
-      { label: 'Traiter les demandes exceptionnelles', route: '/planning/exceptional-requests', roles: [...ADMIN_RH, 'Superviseur', 'Manager', 'Référent technique', 'Coach', 'Chef de projet', 'RP'] },
-      { label: 'Traiter les renforts samedi', route: '/planning/demandes-renfort', roles: [...ADMIN_RH, 'Superviseur', 'Manager', 'Référent technique', 'Coach', 'Chef de projet', 'RP'] },
-      { label: 'Valider les plannings', route: '/planning/validation', roles: ['Admin', 'RH'] },
-      { label: 'Configuration des shifts', route: '/planning/shift-config', roles: ADMIN_RH },
-    ],
-  },
-  {
-    id: 'perimetre',
-    label: 'Périmètre',
-    icon: ICONS.users,
-    roles: ['Superviseur'],
-    children: [
-      {
-        label: 'Mon périmètre d’équipe',
-        route: '/prime',
-        primePath: '/superviseur/scope',
-        roles: ['Superviseur'],
-      },
+      { label: 'Mes plannings', route: '/mes-plannings', roles: PLANNING_SELF_SERVICE_ROLES, hat: 'self' },
+      { label: 'Mes changements d’horaire', route: '/mes-demandes-changement', roles: PLANNING_SELF_SERVICE_ROLES, hat: 'self' },
+      { label: 'Mes demandes exceptionnelles', route: '/mes-demandes-exceptionnelles', roles: PLANNING_SELF_SERVICE_ROLES, hat: 'self' },
+      { label: 'Mes renforts samedi', route: '/mes-renforts', roles: PLANNING_SELF_SERVICE_ROLES, hat: 'self' },
+      { label: 'Planning de l’équipe', route: '/planning/equipe', roles: ['Manager', 'Coach', 'Référent technique', 'Superviseur'], hat: 'team' },
+      { label: 'Traiter les changements', route: '/planning/change-requests', roles: [...ADMIN_RH, 'Superviseur', 'Manager', 'Référent technique', 'Coach', 'Chef de projet', 'RP'], hat: 'team' },
+      { label: 'Traiter les demandes exceptionnelles', route: '/planning/exceptional-requests', roles: [...ADMIN_RH, 'Superviseur', 'Manager', 'Référent technique', 'Coach', 'Chef de projet', 'RP'], hat: 'team' },
+      { label: 'Traiter les renforts samedi', route: '/planning/demandes-renfort', roles: [...ADMIN_RH, 'Superviseur', 'Manager', 'Référent technique', 'Coach', 'Chef de projet', 'RP'], hat: 'team' },
+      { label: 'Valider les plannings', route: '/planning/validation', roles: ['Admin', 'RH'], hat: 'team' },
+      { label: 'Configuration des horaires', route: '/planning/shift-config', roles: ADMIN_RH, hat: 'team' },
     ],
   },
   {
@@ -160,12 +172,12 @@ export const MICROSERVICES: Microservice[] = [
     label: 'Congés et absences',
     icon: ICONS.leave,
     children: [
-      { label: 'Mes congés', route: '/mes-conges', roles: EMPLOYEE_ROLES },
-      { label: 'Valider les congés', route: '/conges/validation', roles: [...MANAGER_ROLES, 'Superviseur'] },
-      { label: 'Absences', route: '/absences-planning', roles: MANAGER_ROLES },
-      { label: 'Historique des congés', route: '/conges/historique', roles: MANAGER_ROLES },
-      { label: 'Quotas cellule / service', route: '/conges/quotas-service', roles: ['Superviseur', 'Admin'] },
-      { label: 'Périodes interdites', route: '/conges/periodes-interdites', roles: ADMIN_RH },
+      { label: 'Mes congés', route: '/mes-conges', roles: EMPLOYEE_ROLES, hat: 'self' },
+      { label: 'Valider les congés', route: '/conges/validation', roles: [...MANAGER_ROLES, 'Superviseur'], hat: 'team' },
+      { label: 'Absences', route: '/absences-planning', roles: MANAGER_ROLES, hat: 'team' },
+      { label: 'Historique des congés', route: '/conges/historique', roles: MANAGER_ROLES, hat: 'team' },
+      { label: 'Quotas cellule / service', route: '/conges/quotas-service', roles: ['Superviseur', 'Admin'], hat: 'team' },
+      { label: 'Périodes interdites', route: '/conges/periodes-interdites', roles: ADMIN_RH, hat: 'team' },
     ],
   },
   {
@@ -181,15 +193,15 @@ export const MICROSERVICES: Microservice[] = [
     label: 'Formation',
     icon: ICONS.graduation,
     children: [
-      { label: 'Mes formations', route: '/mes-formations', roles: EMPLOYEE_ROLES },
-      { label: 'Mes sessions', route: '/mes-sessions', roles: MES_SESSIONS_ROLES },
-      { label: 'Tableau de bord', route: '/formations/dashboard', roles: FORMATION_PLANNER_ROLES },
-      { label: 'Bibliothèque', route: '/formations/bibliotheque', roles: FORMATION_PLANNER_ROLES },
-      { label: 'Planifier une formation', route: '/formations/planifier', roles: FORMATION_PLANNER_ROLES },
-      { label: 'Gérer les formations', route: '/formations', roles: FORMATION_GESTION_ROLES },
-      { label: 'Suivi formation initiale', route: '/formations/initiales', roles: FORMATION_FORMATEUR_ROLES },
-      { label: 'Passage en production', route: '/formations/passage-production', roles: ADMIN_RH },
-      { label: 'Checklist documents', route: '/formations/documents-checklist-config', roles: ADMIN_RH },
+      { label: 'Mes formations', route: '/mes-formations', roles: EMPLOYEE_ROLES, hat: 'self' },
+      { label: 'Mes sessions', route: '/mes-sessions', roles: MES_SESSIONS_ROLES, hat: 'self' },
+      { label: 'Tableau de bord', route: '/formations/dashboard', roles: FORMATION_PLANNER_ROLES, hat: 'team' },
+      { label: 'Bibliothèque', route: '/formations/bibliotheque', roles: FORMATION_PLANNER_ROLES, hat: 'team' },
+      { label: 'Planifier une formation continue', route: '/formations/planifier', roles: FORMATION_PLANNER_ROLES, hat: 'team' },
+      { label: 'Gérer les formations', route: '/formations', roles: FORMATION_GESTION_ROLES, hat: 'team' },
+      { label: 'Suivi formation initiale', route: '/formations/initiales', roles: FORMATION_FORMATEUR_ROLES, hat: 'team' },
+      { label: 'Passage en production', route: '/formations/passage-production', roles: ADMIN_RH, hat: 'team' },
+      { label: 'Checklist documents', route: '/formations/documents-checklist-config', roles: ADMIN_RH, hat: 'team' },
     ],
   },
   {
@@ -197,8 +209,8 @@ export const MICROSERVICES: Microservice[] = [
     label: 'Communication',
     icon: ICONS.mail,
     children: [
-      { label: 'Mes newsletters', route: '/mes-newsletters', roles: ALL_ROLES },
-      { label: 'Gérer les newsletters', route: '/newsletter', roles: ADMIN_RH },
+      { label: 'Fil d\'actualités', route: '/mes-newsletters', roles: ALL_ROLES, hat: 'both' },
+      { label: 'Nouvelle publication', route: '/newsletter', roles: ADMIN_RH, hat: 'team' },
     ],
   },
   {
@@ -207,11 +219,35 @@ export const MICROSERVICES: Microservice[] = [
     icon: ICONS.chat,
     children: [
       {
-        label: 'Mes réclamations',
+        label: 'Mes demandes',
         route: '/reclamations',
         roles: ['Employee', 'RH', 'Manager', 'Coach', 'RP', 'Admin', 'Audit', 'Equipe_Formation', 'Equipe formation', 'Superviseur', 'Pilote', 'Formateur'],
+        hat: 'self',
       },
-      { label: 'Gérer les réclamations', route: '/reclamations-admin', roles: ['RH', 'Manager', 'RP', 'Admin', 'Audit'] },
+      { label: 'Traiter les demandes', route: '/reclamations-admin', roles: ['RH', 'Manager', 'RP', 'Admin', 'Audit'], hat: 'team' },
+    ],
+  },
+  {
+    id: 'controle-qualite',
+    label: 'Contrôle qualité',
+    icon: ICONS.headphones,
+    children: [
+      { label: 'Pilotage', isSectionHeader: true, roles: QUALITE_CQ_DASHBOARD_ROLES, hat: 'team' },
+      { label: 'Tableau de bord', route: '/qualite/cq?view=dashboard', roles: QUALITE_CQ_DASHBOARD_ROLES, hat: 'team' },
+      { label: 'Évaluations CQ', route: '/qualite/cq', roles: QUALITE_CQ_ROLES, hat: 'team' },
+      { label: 'Nouvelle évaluation', route: '/qualite/cq?view=new', roles: QUALITE_CQ_ROLES, hat: 'team' },
+      { label: 'Grilles', route: '/qualite/cq?view=grids', roles: QUALITE_CQ_ROLES, hat: 'team' },
+      { label: 'Coaching', route: '/qualite/cq?view=coaching', roles: QUALITE_CQ_COACHING_ROLES, hat: 'team' },
+      { label: 'Appels à évaluer', route: '/qualite/cq?view=picking', roles: QUALITE_CQ_ROLES, hat: 'team' },
+      { label: 'Administration', isSectionHeader: true, roles: ADMIN_RH, hat: 'team' },
+      { label: 'Notifications CQ', route: '/qualite/cq?view=notifications', roles: ADMIN_RH, hat: 'team' },
+      { label: 'État du service', route: '/qualite/cq?view=health', roles: ADMIN_RH, hat: 'team' },
+      { label: 'Journal d\'audit', route: '/qualite/cq?view=audit', roles: ADMIN_RH, hat: 'team' },
+      { label: 'Préférences', isSectionHeader: true, roles: [KyntusRoleNames.Qualiticien], hat: 'team' },
+      { label: 'Paramètres CQ', route: '/qualite/cq?view=settings', roles: [KyntusRoleNames.Qualiticien], hat: 'team' },
+      { label: 'Mon espace', isSectionHeader: true, roles: QUALITE_CQ_PILOT_ROLES, hat: 'self' },
+      { label: 'Mes évaluations', route: '/qualite/cq?view=mine', roles: QUALITE_CQ_PILOT_ROLES, hat: 'self' },
+      { label: 'Mes coachings', route: '/qualite/cq?view=coachings-me', roles: QUALITE_CQ_PILOT_ROLES, hat: 'self' },
     ],
   },
 ];

@@ -1,21 +1,35 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { KyntusToastService } from './kyntus-toast.service';
+
+/** Au-delà : toast centré compact (évite une grande bande trop haute). */
+const LONG_MESSAGE_CHARS = 160;
 
 @Component({
   selector: 'app-kyntus-toast-host',
   standalone: true,
   template: `
     @if (toast.active(); as t) {
-      <div class="kyntus-toast-wrap" role="status" aria-live="polite">
+      <div
+        class="kyntus-toast-wrap"
+        [class.kyntus-toast-wrap--center]="isLong()"
+        role="status"
+        aria-live="polite"
+      >
+        @if (isLong()) {
+          <div class="kyntus-toast-backdrop" (click)="toast.dismiss()" aria-hidden="true"></div>
+        }
         <div
           class="kyntus-toast"
+          [class.kyntus-toast--dialog]="isLong()"
           [class.success]="t.kind === 'success'"
           [class.error]="t.kind === 'error'"
           [style.--toast-duration]="t.durationMs + 'ms'"
         >
           <span class="kyntus-toast-text">{{ t.message }}</span>
           <button type="button" class="kyntus-toast-close" (click)="toast.dismiss()" aria-label="Fermer">×</button>
-          <span class="kyntus-toast-progress" aria-hidden="true"></span>
+          @if (!isLong()) {
+            <span class="kyntus-toast-progress" aria-hidden="true"></span>
+          }
         </div>
       </div>
     }
@@ -28,6 +42,31 @@ import { KyntusToastService } from './kyntus-toast.service';
       z-index: 10000;
       max-width: min(24rem, calc(100vw - 2rem));
     }
+
+    .kyntus-toast-wrap--center {
+      inset: 0;
+      top: 0;
+      right: 0;
+      max-width: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      pointer-events: none;
+    }
+
+    .kyntus-toast-wrap--center .kyntus-toast,
+    .kyntus-toast-wrap--center .kyntus-toast-backdrop {
+      pointer-events: auto;
+    }
+
+    .kyntus-toast-backdrop {
+      position: absolute;
+      inset: 0;
+      background: color-mix(in srgb, var(--navy-950, #0f172a) 45%, transparent);
+      backdrop-filter: blur(4px);
+    }
+
     .kyntus-toast {
       position: relative;
       overflow: hidden;
@@ -42,7 +81,19 @@ import { KyntusToastService } from './kyntus-toast.service';
       box-shadow: 0 12px 40px color-mix(in srgb, #000 35%, transparent);
       font-size: 0.875rem;
       animation: kyntus-toast-in 0.25s var(--ease-out, ease-out);
+      max-height: min(40vh, 220px);
     }
+
+    .kyntus-toast--dialog {
+      z-index: 1;
+      width: min(26rem, calc(100vw - 2.5rem));
+      max-height: min(42vh, 280px);
+      padding: 1rem 1.1rem 1.1rem;
+      border-radius: var(--radius-card, 0.875rem);
+      box-shadow: 0 20px 48px color-mix(in srgb, #000 40%, transparent);
+      animation: kyntus-toast-dialog-in 0.2s var(--ease-out, ease-out);
+    }
+
     .kyntus-toast-progress {
       position: absolute;
       left: 0;
@@ -71,7 +122,15 @@ import { KyntusToastService } from './kyntus-toast.service';
       border-color: var(--danger-border);
       background: var(--danger-bg);
     }
-    .kyntus-toast-text { flex: 1; line-height: 1.4; }
+    .kyntus-toast-text {
+      flex: 1;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-y: auto;
+      max-height: inherit;
+      padding-right: 0.15rem;
+    }
     .kyntus-toast-close {
       border: none;
       background: transparent;
@@ -80,14 +139,26 @@ import { KyntusToastService } from './kyntus-toast.service';
       line-height: 1;
       cursor: pointer;
       padding: 0;
+      flex-shrink: 0;
     }
     @keyframes kyntus-toast-in {
       from { opacity: 0; transform: translateX(1rem); }
       to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes kyntus-toast-dialog-in {
+      from { opacity: 0; transform: translateY(10px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class KyntusToastHostComponent {
   readonly toast = inject(KyntusToastService);
+
+  readonly isLong = computed(() => {
+    const msg = this.toast.active()?.message ?? '';
+    if (msg.length >= LONG_MESSAGE_CHARS) return true;
+    const lines = msg.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    return lines.length >= 3;
+  });
 }

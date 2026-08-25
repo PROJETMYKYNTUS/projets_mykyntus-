@@ -1,88 +1,157 @@
 @import "../styles/reclamation-shared.css";
 
-/*
- * Overrides admin uniquement (layout). Toutes les couleurs, badges, boutons,
- * inputs et états viennent de reclamation-shared.css (tokens du design system).
- */
-
 .rp-root {
   padding: 0;
 }
 
-/* ── Rapport : grille responsive (statuts / notes) ── */
+.active-mode {
+  background: var(--blue-600) !important;
+  color: #fff !important;
+  border-color: var(--blue-600) !important;
+}
+
+.rpa-filters .filters-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.rpa-search {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+
 .rpa-report-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-
-@media (max-width: 768px) {
-  .rpa-report-grid {
-    grid-template-columns: 1fr;
-  }
+  gap: 16px;
 }
 
 .rpa-report-grid .rp-section-label {
   margin-bottom: 16px;
 }
 
+.rpa-bar-group {
+  margin-bottom: 12px;
+}
+
+.rpa-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.84rem;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.rpa-bar-track {
+  height: 8px;
+  border-radius: var(--radius-pill, 999px);
+  background: color-mix(in srgb, var(--text-muted) 16%, transparent);
+  overflow: hidden;
+}
+
+.rpa-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--info);
+}
+
 .rpa-bar-fill--amber {
   background: var(--warning);
 }
 
-/* ── Historique : cartes cliquables ── */
-.rpa-history-card {
-  margin-bottom: 12px;
-  cursor: pointer;
+.rpa-detail-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 16px;
+  align-items: start;
 }
 
-.rpa-history-card .rp-detail-header {
-  margin-bottom: 12px;
+.rpa-detail-main {
+  display: grid;
+  gap: 12px;
+}
+
+.rpa-treat-panel {
+  padding: 18px;
+  position: sticky;
+  top: 88px;
+  display: grid;
+  gap: 12px;
+}
+
+.rpa-treat-panel h3 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.rpa-treat-sub {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.rpa-treat-submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.rpa-history-card {
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rpa-history-card:hover {
+  border-color: color-mix(in srgb, var(--blue-600) 35%, var(--border-subtle, #e2e8f0));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--blue-600) 8%, transparent);
 }
 
 .rpa-history-title-row {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
 .rpa-history-title {
-  font-size: 14px;
-}
-
-.rpa-history-card .rp-detail-meta {
-  margin-top: 6px;
+  font-size: 1rem;
+  color: var(--text-primary);
 }
 
 .rpa-history-more {
-  font-size: 12px;
+  margin-top: 8px;
+  font-size: 0.8rem;
   color: var(--text-muted);
-  padding-left: 20px;
-}
-
-/* ── SLA / ancienneté ── */
-.rp-aging {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.rp-aging-warn {
-  color: var(--warning-text);
   font-weight: 600;
 }
 
+.rp-aging {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.rp-aging-warn {
+  color: var(--warning);
+}
+
 .rp-aging-breach {
-  color: var(--danger-text);
-  font-weight: 700;
+  color: var(--danger);
 }
 
-/* Panneaux d'action : max-widths spécifiques admin */
-.rpa-panel-form .rp-select,
-.rpa-panel-form .rp-input {
-  max-width: 220px;
+@media (max-width: 1100px) {
+  .rpa-detail-split {
+    grid-template-columns: 1fr;
+  }
+
+  .rpa-treat-panel {
+    position: static;
+  }
 }
 
-.rpa-panel-form .rp-textarea {
-  max-width: 400px;
+@media (max-width: 768px) {
+  .rpa-report-grid {
+    grid-template-columns: 1fr;
+  }
 }

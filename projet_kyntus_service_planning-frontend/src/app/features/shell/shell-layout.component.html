@@ -28,7 +28,26 @@
         <span *ngIf="!sidebarCollapsed">Accueil</span>
       </a>
 
-      <span class="ks-nav-label" *ngIf="!sidebarCollapsed">Microservices</span>
+      <button
+        *ngIf="workspace.canSwitch() && workspace.hat() === 'team'"
+        type="button"
+        class="ks-home ks-hat-shortcut"
+        (click)="goToPersonalSpace()"
+        title="Mon espace">
+        <app-lucide-icon [icon]="icons.user" className="w-4 h-4" />
+        <span *ngIf="!sidebarCollapsed">Mon espace</span>
+      </button>
+      <button
+        *ngIf="workspace.canSwitch() && workspace.hat() === 'self'"
+        type="button"
+        class="ks-home ks-hat-shortcut"
+        (click)="goToTeamSpace()"
+        title="Mon équipe">
+        <app-lucide-icon [icon]="icons.briefcase" className="w-4 h-4" />
+        <span *ngIf="!sidebarCollapsed">Mon équipe</span>
+      </button>
+
+      <span class="ks-nav-label" *ngIf="!sidebarCollapsed">Modules</span>
 
       <div class="ks-group" *ngFor="let g of groups()">
         <button type="button" class="ks-group-head" [class.open]="isOpen(g.id)" (click)="toggleGroup(g.id)">
@@ -47,7 +66,7 @@
                [class.active]="isItemActive(item)"
                (click)="onItemClick(item)">
               <span class="ks-dot"></span>
-              {{ item.label }}
+              <span class="ks-sub-label">{{ item.label }}</span>
               <span class="ks-menu-badge" *ngIf="item.menuBadge">{{ item.menuBadge }}</span>
               <span class="ks-ext" *ngIf="item.externalUrl" title="Ouvre dans un nouvel onglet">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -98,7 +117,7 @@
       </button>
       <div class="ks-topbar-title">
         <strong>Plateforme unifiée Kyntus</strong>
-        <span>Gestion RH par microservices</span>
+        <span>Plateforme RH Kyntus</span>
       </div>
       <div class="ks-topbar-right">
         <button type="button" class="ks-tb-icon" (click)="theme.toggleTheme()" [attr.aria-label]="theme.theme() === 'light' ? 'Mode sombre' : 'Mode clair'">
@@ -115,9 +134,20 @@
         <button type="button" class="ks-tb-icon" (click)="openSettings()" aria-label="Paramètres">
           <app-lucide-icon [icon]="icons.settings" className="w-4 h-4" />
         </button>
-        <div class="ks-pill">
+        <button
+          type="button"
+          class="ks-pill ks-pill-toggle"
+          *ngIf="workspace.canSwitch()"
+          [attr.data-hat]="workspace.hat()"
+          (click)="toggleHat()"
+          [attr.title]="workspace.hat() === 'team' ? 'Passer en mode Personnel' : 'Passer en mode Équipe'"
+          [attr.aria-label]="workspace.hat() === 'team' ? 'Mode Équipe — cliquer pour Personnel' : 'Mode Personnel — cliquer pour Équipe'">
           <span class="ks-dot-pulse"></span>
-          Système actif
+          {{ workspace.label() }}
+        </button>
+        <div class="ks-pill" *ngIf="!workspace.canSwitch()">
+          <span class="ks-dot-pulse"></span>
+          Connecté
         </div>
         <div class="ks-tb-av">{{ userInitials }}</div>
       </div>

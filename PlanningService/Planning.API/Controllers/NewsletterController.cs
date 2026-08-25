@@ -51,6 +51,22 @@ namespace Planning.API.Controllers
             }
         }
 
+        /// <summary>Formulaire unique : message + médias + audience + publier/planifier.</summary>
+        [HttpPost("publications")]
+        public async Task<IActionResult> CreatePublication([FromBody] CreatePublicationDto dto)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            try
+            {
+                var result = await _newsletterService.CreatePublicationAsync(dto, CurrentUserId);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateNewsletterDto dto)
         {

@@ -132,6 +132,105 @@ public class ShiftTemplateAndValidationTests
     }
 
     [Fact]
+    public async Task SaveShiftTemplate_blocks_delete_when_pending_exceptional_request_references_template()
+    {
+        await using var db = CreateDb();
+        await SeedSubServiceAsync(db);
+        var svc = CreateService(db);
+
+        await svc.SaveShiftTemplateAsync(new SaveShiftConfigDto
+        {
+            SubServiceId = 1,
+            Shifts =
+            [
+                new ShiftConfigItemDto { Label = "Shift 1", StartTime = "08:00", WorkHours = 8, RequiredCount = 10, DisplayOrder = 1 },
+                new ShiftConfigItemDto { Label = "Shift 2", StartTime = "09:00", WorkHours = 8, RequiredCount = 10, DisplayOrder = 2 },
+            ]
+        });
+
+        var templateId = await db.SubServiceShiftConfigs
+            .Where(c => c.IsTemplate && c.Label == "Shift 1")
+            .Select(c => c.Id)
+            .SingleAsync();
+
+        db.PlanningExceptionalRequests.Add(new PlanningExceptionalRequest
+        {
+            WeekCode = "2026-W32",
+            RequestedDate = new DateOnly(2026, 8, 4),
+            RequesterUserId = 10,
+            SubServiceId = 1,
+            RequestedShiftTemplateId = templateId,
+            Reason = "Contrainte",
+            Status = PlanningExceptionalRequestStatus.PendingSupervisor,
+            CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            svc.SaveShiftTemplateAsync(new SaveShiftConfigDto
+            {
+                SubServiceId = 1,
+                Shifts =
+                [
+                    new ShiftConfigItemDto { Label = "Shift 2", StartTime = "09:00", WorkHours = 8, RequiredCount = 20, DisplayOrder = 1 },
+                ]
+            }));
+
+        Assert.Contains("en attente", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.True(await db.SubServiceShiftConfigs.AnyAsync(c => c.Id == templateId));
+    }
+
+    [Fact]
+    public async Task SaveShiftTemplate_allows_delete_when_only_closed_exceptional_request_references_template()
+    {
+        await using var db = CreateDb();
+        await SeedSubServiceAsync(db);
+        var svc = CreateService(db);
+
+        await svc.SaveShiftTemplateAsync(new SaveShiftConfigDto
+        {
+            SubServiceId = 1,
+            Shifts =
+            [
+                new ShiftConfigItemDto { Label = "Shift 1", StartTime = "08:00", WorkHours = 8, RequiredCount = 10, DisplayOrder = 1 },
+                new ShiftConfigItemDto { Label = "Shift 2", StartTime = "09:00", WorkHours = 8, RequiredCount = 10, DisplayOrder = 2 },
+            ]
+        });
+
+        var templateId = await db.SubServiceShiftConfigs
+            .Where(c => c.IsTemplate && c.Label == "Shift 1")
+            .Select(c => c.Id)
+            .SingleAsync();
+
+        db.PlanningExceptionalRequests.Add(new PlanningExceptionalRequest
+        {
+            WeekCode = "2026-W32",
+            RequestedDate = new DateOnly(2026, 8, 4),
+            RequesterUserId = 10,
+            SubServiceId = 1,
+            RequestedShiftTemplateId = templateId,
+            Reason = "Contrainte",
+            Status = PlanningExceptionalRequestStatus.Approved,
+            CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        await svc.SaveShiftTemplateAsync(new SaveShiftConfigDto
+        {
+            SubServiceId = 1,
+            Shifts =
+            [
+                new ShiftConfigItemDto { Label = "Shift 2", StartTime = "09:00", WorkHours = 8, RequiredCount = 20, DisplayOrder = 1 },
+            ]
+        });
+
+        Assert.False(await db.SubServiceShiftConfigs.AnyAsync(c => c.Id == templateId));
+        var closed = await db.PlanningExceptionalRequests.SingleAsync();
+        Assert.Null(closed.RequestedShiftTemplateId);
+        Assert.Equal(PlanningExceptionalRequestStatus.Approved, closed.Status);
+    }
+
+    [Fact]
     public async Task EnsureWeekSnapshot_clones_template_and_is_idempotent()
     {
         await using var db = CreateDb();

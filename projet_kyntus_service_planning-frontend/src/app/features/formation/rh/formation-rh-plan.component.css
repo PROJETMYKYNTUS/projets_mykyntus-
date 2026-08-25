@@ -1,10 +1,261 @@
 .formation-plan-page {
-  max-width: 56rem;
-  margin: 0 auto;
-  padding: 0 1rem 2rem;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 0 2rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+.plan-stepper {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr auto 1fr auto 1fr auto;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-lg, 0.75rem);
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+}
+
+.plan-stepper-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.2rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+
+.plan-stepper-item.is-active {
+  color: var(--text-primary);
+}
+
+.plan-stepper-item.is-done {
+  color: var(--text-primary);
+  opacity: 0.9;
+}
+
+.plan-stepper-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-card) 80%, transparent);
+}
+
+.plan-stepper-item.is-active .plan-stepper-num {
+  border-color: color-mix(in srgb, var(--soft-blue) 70%, var(--border-color));
+  background: color-mix(in srgb, var(--soft-blue) 22%, transparent);
+}
+
+.plan-stepper-item.is-done .plan-stepper-num {
+  background: var(--success-bg);
+  border-color: var(--success-border);
+}
+
+.plan-stepper-label {
+  font-size: 0.82rem;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plan-stepper-line {
+  height: 2px;
+  background: var(--border-color);
+  min-width: 0.5rem;
+}
+
+.plan-stepper-line.is-done {
+  background: var(--success-border);
+}
+
+.plan-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  .plan-layout {
+    grid-template-columns: minmax(0, 1fr) 18.5rem;
+  }
+
+  .plan-aside {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+.plan-main {
+  min-width: 0;
+}
+
+.wizard-panel-head {
+  margin-bottom: 1.15rem;
+}
+
+.wizard-panel-head h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.wizard-panel-head p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.choice-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 720px) {
+  .choice-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.choice-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-lg, 0.75rem);
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-card) 80%, transparent);
+  cursor: pointer;
+}
+
+.choice-card input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.choice-card strong {
+  font-size: 0.9rem;
+}
+
+.choice-card span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.choice-card.is-selected {
+  border-color: color-mix(in srgb, var(--soft-blue) 65%, var(--border-color));
+  background: color-mix(in srgb, var(--soft-blue) 12%, transparent);
+}
+
+.presentiel-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 900px) {
+  .presentiel-split {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    align-items: start;
+  }
+}
+
+.recap-stack {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.recap-stack dt {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 0.15rem;
+}
+
+.recap-stack dd {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.sessions-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+@media (min-width: 900px) {
+  .sessions-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1.5rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .plan-stepper {
+    display: flex;
+    overflow-x: auto;
+    grid-template-columns: none;
+  }
+
+  .plan-stepper-line {
+    width: 1.25rem;
+    flex-shrink: 0;
+  }
+}
+
+.plan-section {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 0.75rem);
+  padding: 0.35rem 1rem 1rem;
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+}
+
+.plan-section summary {
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 650;
+  padding: 0.65rem 0;
+  list-style: none;
+}
+
+.plan-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.plan-section summary::before {
+  content: '▾ ';
+  color: var(--text-muted);
+}
+
+.plan-section:not([open]) summary::before {
+  content: '▸ ';
+}
+
+.recap-mini {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
 }
 
 .wizard-steps {
@@ -28,9 +279,9 @@
 
 .wizard-step.active {
   opacity: 1;
-  color: var(--text-primary, #f1f5f9);
-  border-color: color-mix(in srgb, var(--soft-blue, #93c5fd) 55%, var(--border-color));
-  background: color-mix(in srgb, var(--soft-blue, #93c5fd) 12%, transparent);
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--soft-blue) 55%, var(--border-color));
+  background: color-mix(in srgb, var(--soft-blue) 12%, transparent);
 }
 
 .wizard-step.done {
@@ -46,7 +297,7 @@
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 700;
-  background: color-mix(in srgb, var(--soft-blue, #93c5fd) 25%, transparent);
+  background: color-mix(in srgb, var(--soft-blue) 25%, transparent);
 }
 
 .wizard-step-label {
@@ -69,7 +320,7 @@
   display: inline-block;
   margin-top: 0.35rem;
   font-size: 0.78rem;
-  color: var(--soft-blue, #93c5fd);
+  color: var(--soft-blue);
   text-decoration: underline;
 }
 
@@ -398,8 +649,8 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  color: #1e40af;
-  background: color-mix(in srgb, #93c5fd 35%, transparent);
+  color: var(--info-text);
+  background: var(--info-bg);
   vertical-align: middle;
 }
 
@@ -435,8 +686,8 @@
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 700;
-  background: color-mix(in srgb, var(--soft-blue, #93c5fd) 28%, transparent);
-  color: var(--text-primary, #111827);
+  background: color-mix(in srgb, var(--soft-blue) 28%, transparent);
+  color: var(--text-primary);
 }
 
 .beneficiary-list {
@@ -457,8 +708,8 @@
   gap: 0.75rem;
   padding: 0.55rem 0.7rem;
   border-radius: 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--border-color, #e5e7eb) 80%, transparent);
-  background: color-mix(in srgb, var(--border-color, #e5e7eb) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+  background: color-mix(in srgb, var(--border-color) 18%, transparent);
 }
 
 .beneficiary-list-item .employee-option-name,
@@ -515,7 +766,7 @@
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: var(--blue-600, #5b8def);
+  color: var(--blue-600);
 }
 
 .session-slot-duration {

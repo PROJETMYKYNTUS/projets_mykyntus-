@@ -3,382 +3,392 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-page-header.component';
 import { KyntusToastService } from '../../../shared/components/ui/kyntus-toast.service';
-import { Subscription } from 'rxjs';
+import { KyMediaUploaderComponent } from '../../../shared/components/ui/ky-media-uploader.component';
+import { KyMediaGalleryComponent } from '../../../shared/components/ui/ky-media-gallery.component';
+import { Subscription, forkJoin, of } from 'rxjs';
+import { catchError, finalize, switchMap } from 'rxjs/operators';
 import { ReclamationService } from '../../../core/services/reclamation.service';
 import { PropositionService } from '../../../core/services/proposition.service';
 import { NotificationService, ReclamationNotif } from '../../../core/services/notification.service';
+import { MediaAsset, MediaService, TicketComment } from '../../../core/services/media.service';
 import {
   Reclamation, Proposition, ReclamationDetail, PropositionDetail,
   PaginatedResult, SatisfactionReport, Priority,
   UpdateStatusPayload, AssignPayload, PrioriserPayload
 } from '../../../core/models/reclamation.model';
 
-type MainTab   = 'reclamations' | 'propositions';
-type AdminView = 'list' | 'detail' | 'reporting' | 'historique';
+type AdminMode = 'demandes' | 'stats' | 'historique';
+type KindFilter = 'all' | 'reclamations' | 'propositions';
+type DemandKind = 'reclamation' | 'proposition';
+
+type UnifiedItem = (Reclamation | Proposition) & { _kind: DemandKind };
 
 @Component({
   selector: 'app-reclamation-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, KyntusPageHeaderComponent],
+  imports: [
+    CommonModule, FormsModule, DatePipe, KyntusPageHeaderComponent,
+    KyMediaUploaderComponent, KyMediaGalleryComponent
+  ],
   templateUrl: './reclamation-admin.component.html',
   styleUrls: ['./reclamation-admin.component.css']
 })
 export class ReclamationAdminComponent implements OnInit, OnDestroy {
-
   private readonly toastSvc = inject(KyntusToastService);
+  private readonly mediaSvc = inject(MediaService);
 
-  // ── State ────────────────────────────────────────────
-  mainTab:   MainTab   = 'reclamations';
-  adminView: AdminView = 'list';
-
-  // ── Filters ──────────────────────────────────────────
-  filterStatus   = '';
+  mode: AdminMode = 'demandes';
+  kindFilter: KindFilter = 'all';
+  filterStatus = '';
   filterPriorite = '';
-
-  // ── Subscription SignalR centralisé ──────────────────
+  searchTerm = '';
+  detailOpen = false;
   private notifSub?: Subscription;
 
-  // ── Réclamations data ─────────────────────────────────
-  reclamations: Reclamation[]    = [];
-  recTotal     = 0; recPage = 1;
+  reclamations: Reclamation[] = [];
+  recTotal = 0;
+  propositions: Proposition[] = [];
+  propTotal = 0;
+
   selectedRec: ReclamationDetail | null = null;
-
-  // ── Propositions data ─────────────────────────────────
-  propositions: Proposition[]    = [];
-  propTotal    = 0; propPage = 1;
   selectedProp: PropositionDetail | null = null;
+  detailKind: DemandKind = 'reclamation';
 
-  // ── Reporting ─────────────────────────────────────────
   report: SatisfactionReport | null = null;
-  reportFrom = ''; reportTo = '';
+  reportFrom = '';
+  reportTo = '';
+  reportKind: KindFilter = 'reclamations';
+  historique: Array<(ReclamationDetail | PropositionDetail) & { _kind: DemandKind }> = [];
 
-  // ── Historique ────────────────────────────────────────
-  historique:  (ReclamationDetail | PropositionDetail)[] = [];
-  histTotal    = 0; histPage = 1;
-
-  // ── Action panels ─────────────────────────────────────
-  activePanel: 'none' | 'traiter' | 'assigner' | 'prioriser' = 'none';
-
-  traiterForm: UpdateStatusPayload = { status: 'EnCours', commentaire: '' };
-  assignerForm: AssignPayload      = { assigneeId: '', assigneeNom: '' };
-  prioriserForm: PrioriserPayload  = { priorite: 'Normale' };
+  treatForm = {
+    status: 'EnCours',
+    priorite: 'Normale' as Priority,
+    assigneeId: '',
+    assigneeNom: '',
+    commentaire: '',
+  };
+  commentMedia: MediaAsset[] = [];
+  comments: TicketComment[] = [];
 
   priorities: Priority[] = ['Basse', 'Normale', 'Haute', 'Critique'];
+  recStatuts = ['Soumise', 'EnCours', 'Traitee', 'Rejetee', 'Cloturee'];
+  propStatuts = ['Soumise', 'EnEvaluation', 'Approuvee', 'Rejetee', 'EnCours', 'Implementee'];
 
-  recStatuts  = ['EnCours', 'Traitee', 'Rejetee', 'Cloturee'];
-  propStatuts = ['EnEvaluation', 'Approuvee', 'Rejetee', 'EnCours', 'Implementee'];
-
-  // ── UI ───────────────────────────────────────────────
-  loading    = false;
+  loading = false;
   submitting = false;
 
   constructor(
-    private reclamationSvc:      ReclamationService,
-    private propositionSvc:      PropositionService,
+    private reclamationSvc: ReclamationService,
+    private propositionSvc: PropositionService,
     private notificationService: NotificationService,
-    private cdr:                 ChangeDetectorRef
+    private cdr: ChangeDetectorRef
   ) {}
 
-  // ─────────────────────────────────────────────────────
-  // Lifecycle
-  // ─────────────────────────────────────────────────────
+  get filterStatuts(): string[] {
+    if (this.kindFilter === 'propositions') return this.propStatuts;
+    if (this.kindFilter === 'reclamations') return this.recStatuts;
+    return [...new Set([...this.recStatuts, ...this.propStatuts])];
+  }
+
+  get treatStatuts(): string[] {
+    return this.detailKind === 'reclamation' ? this.recStatuts : this.propStatuts;
+  }
+
+  get unifiedList(): UnifiedItem[] {
+    const recs: UnifiedItem[] = this.reclamations.map(r => ({ ...r, _kind: 'reclamation' as const }));
+    const props: UnifiedItem[] = this.propositions.map(p => ({ ...p, _kind: 'proposition' as const }));
+    let items =
+      this.kindFilter === 'reclamations' ? recs
+        : this.kindFilter === 'propositions' ? props
+          : [...recs, ...props];
+
+    const q = this.searchTerm.trim().toLowerCase();
+    if (q) {
+      items = items.filter(i =>
+        (i.titre || '').toLowerCase().includes(q)
+        || (i.auteurNom || '').toLowerCase().includes(q)
+        || (i.assigneeNom || '').toLowerCase().includes(q)
+      );
+    }
+    if (this.filterStatus) {
+      items = items.filter(i => i.status === this.filterStatus);
+    }
+    if (this.filterPriorite) {
+      items = items.filter(i => i.priorite === this.filterPriorite);
+    }
+    return items.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+  }
+
+  get totalOpen(): number {
+    const statuses = [
+      ...this.reclamations.map(r => r.status),
+      ...this.propositions.map(p => p.status),
+    ];
+    return statuses.filter(s => ['Soumise', 'EnCours', 'EnEvaluation'].includes(s)).length;
+  }
 
   ngOnInit(): void {
-    this.loadList();
-
-    // ✅ Écouter via le NotificationService centralisé
-    // (la connexion hub est déjà ouverte par connectAsManager dans le shell)
-    this.notifSub = this.notificationService.reclamationNotif$.subscribe(
-      (notif: ReclamationNotif) => {
-        console.log('📨 Admin reçoit ReclamationNotif:', notif);
-        const type: 'success' | 'error' =
-          notif.type === 'warning' ? 'error' : 'success';
-        this.showToast(`${notif.titre} — ${notif.message}`, type);
-        this.loadList();
-        this.cdr.detectChanges();
-      }
-    );
+    this.loadDemandes();
+    this.notifSub = this.notificationService.reclamationNotif$.subscribe((notif: ReclamationNotif) => {
+      this.showToast(`${notif.titre} — ${notif.message}`, notif.type === 'warning' ? 'error' : 'success');
+      this.loadDemandes();
+      this.cdr.detectChanges();
+    });
   }
 
   ngOnDestroy(): void {
-    // ✅ Pas besoin de stopper le hub ici (géré par NotificationService)
     this.notifSub?.unsubscribe();
   }
 
-  // ─────────────────────────────────────────────────────
-  // Tab
-  // ─────────────────────────────────────────────────────
-
-  setTab(tab: MainTab): void {
-    this.mainTab   = tab;
-    this.adminView = 'list';
-    this.selectedRec  = null;
+  setMode(mode: AdminMode): void {
+    this.mode = mode;
+    this.detailOpen = false;
+    this.selectedRec = null;
     this.selectedProp = null;
-    this.activePanel  = 'none';
+    if (mode === 'demandes') this.loadDemandes();
+    if (mode === 'stats') this.loadReport();
+    if (mode === 'historique') this.loadHistorique();
+  }
+
+  setKindFilter(filter: KindFilter): void {
+    this.kindFilter = filter;
     this.filterStatus = '';
     this.filterPriorite = '';
-    this.loadList();
   }
 
-  setView(v: AdminView): void {
-    this.adminView   = v;
-    this.activePanel = 'none';
-    if (v === 'list')       this.loadList();
-    if (v === 'reporting')  this.loadReport();
-    if (v === 'historique') this.loadHistorique();
-  }
-
-  // ─────────────────────────────────────────────────────
-  // Load list
-  // ─────────────────────────────────────────────────────
-
-  loadList(): void {
+  loadDemandes(): void {
     this.loading = true;
-    if (this.mainTab === 'reclamations') {
-      this.reclamationSvc
-        .getAll(this.recPage, 20, this.filterStatus || undefined, this.filterPriorite || undefined)
-        .subscribe({
-          next:     (r: PaginatedResult<Reclamation>) => {
-            this.reclamations = r.items;
-            this.recTotal     = r.totalCount;
-          },
-          error:    () => this.showToast('Erreur de chargement', 'error'),
-          complete: () => { this.loading = false; this.cdr.detectChanges(); }
-        });
-    } else {
-      this.propositionSvc
-        .getAll(this.propPage, 20, this.filterStatus || undefined)
-        .subscribe({
-          next:     (r: PaginatedResult<Proposition>) => {
-            this.propositions = r.items;
-            this.propTotal    = r.totalCount;
-          },
-          error:    () => this.showToast('Erreur de chargement', 'error'),
-          complete: () => { this.loading = false; this.cdr.detectChanges(); }
-        });
-    }
+    forkJoin({
+      rec: this.reclamationSvc.getAll(1, 100).pipe(catchError(() => of({ items: [], totalCount: 0 } as PaginatedResult<Reclamation>))),
+      prop: this.propositionSvc.getAll(1, 100).pipe(catchError(() => of({ items: [], totalCount: 0 } as PaginatedResult<Proposition>))),
+    }).subscribe({
+      next: ({ rec, prop }) => {
+        this.reclamations = rec.items;
+        this.recTotal = rec.totalCount;
+        this.propositions = prop.items;
+        this.propTotal = prop.totalCount;
+        this.loading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loading = false;
+        this.showToast('Impossible de charger les demandes.', 'error');
+      }
+    });
   }
 
-  applyFilters(): void {
-    this.recPage  = 1;
-    this.propPage = 1;
-    this.loadList();
+  clearFilters(): void {
+    this.filterStatus = '';
+    this.filterPriorite = '';
+    this.searchTerm = '';
+    this.kindFilter = 'all';
   }
 
-  // ─────────────────────────────────────────────────────
-  // Detail
-  // ─────────────────────────────────────────────────────
+  openItem(item: UnifiedItem): void {
+    this.openDetail(item.id, item._kind);
+  }
 
-  openDetail(id: number): void {
+  openDetail(id: number, kind: DemandKind): void {
     this.loading = true;
-    this.activePanel = 'none';
-    if (this.mainTab === 'reclamations') {
+    this.detailKind = kind;
+    if (kind === 'reclamation') {
       this.reclamationSvc.getById(id).subscribe({
-        next:     (r) => { this.selectedRec = r; this.adminView = 'detail'; },
-        error:    () => { this.loading = false; this.cdr.detectChanges(); },
+        next: r => {
+          this.selectedRec = r;
+          this.selectedProp = null;
+          this.detailOpen = true;
+          this.mode = 'demandes';
+          this.seedTreatForm(r.status, r.priorite, r.assigneeId, r.assigneeNom);
+          this.comments = r.comments ?? [];
+          this.commentMedia = [];
+        },
+        error: () => this.showToast('Impossible d’ouvrir cette demande.', 'error'),
         complete: () => { this.loading = false; this.cdr.detectChanges(); }
       });
     } else {
       this.propositionSvc.getById(id).subscribe({
-        next:     (p) => { this.selectedProp = p; this.adminView = 'detail'; },
-        error:    () => { this.loading = false; this.cdr.detectChanges(); },
+        next: p => {
+          this.selectedProp = p;
+          this.selectedRec = null;
+          this.detailOpen = true;
+          this.mode = 'demandes';
+          this.seedTreatForm(p.status, p.priorite, p.assigneeId, p.assigneeNom);
+          this.comments = p.comments ?? [];
+          this.commentMedia = [];
+        },
+        error: () => this.showToast('Impossible d’ouvrir cette demande.', 'error'),
         complete: () => { this.loading = false; this.cdr.detectChanges(); }
       });
     }
   }
 
-  // ─────────────────────────────────────────────────────
-  // Actions
-  // ─────────────────────────────────────────────────────
-
-  submitTraiter(): void {
-    if (!this.selectedRec && !this.selectedProp) return;
-    const id = (this.selectedRec ?? this.selectedProp)!.id;
-    this.submitting = true;
-    const obs = this.mainTab === 'reclamations'
-      ? this.reclamationSvc.traiter(id, this.traiterForm)
-      : this.propositionSvc.evaluer(id, this.traiterForm);
-    obs.subscribe({
-      next: () => {
-        this.submitting  = false;
-        this.activePanel = 'none';
-        this.showToast('Statut mis à jour');
-        this.openDetail(id);
-      },
-      error: () => { this.submitting = false; this.showToast('Erreur', 'error'); }
-    });
+  private seedTreatForm(status: string, priorite: Priority, assigneeId?: string, assigneeNom?: string): void {
+    this.treatForm = {
+      status,
+      priorite,
+      assigneeId: assigneeId || '',
+      assigneeNom: assigneeNom || '',
+      commentaire: '',
+    };
   }
-
-  submitAssigner(): void {
-    if (!this.assignerForm.assigneeId.trim() || !this.assignerForm.assigneeNom.trim()) return;
-    const id = (this.selectedRec ?? this.selectedProp)!.id;
-    this.submitting = true;
-    const obs = this.mainTab === 'reclamations'
-      ? this.reclamationSvc.assigner(id, this.assignerForm)
-      : this.propositionSvc.assigner(id, this.assignerForm);
-    obs.subscribe({
-      next: () => {
-        this.submitting  = false;
-        this.activePanel = 'none';
-        this.showToast('Assigné avec succès');
-        this.openDetail(id);
-      },
-      error: () => { this.submitting = false; this.showToast('Erreur', 'error'); }
-    });
-  }
-
-  submitPrioriser(): void {
-    const id = (this.selectedRec ?? this.selectedProp)!.id;
-    this.submitting = true;
-    const obs = this.mainTab === 'reclamations'
-      ? this.reclamationSvc.prioriser(id, this.prioriserForm)
-      : this.propositionSvc.prioriser(id, this.prioriserForm);
-    obs.subscribe({
-      next: () => {
-        this.submitting  = false;
-        this.activePanel = 'none';
-        this.showToast('Priorité mise à jour');
-        this.openDetail(id);
-      },
-      error: () => { this.submitting = false; this.showToast('Erreur', 'error'); }
-    });
-  }
-
-  // ─────────────────────────────────────────────────────
-  // Reporting
-  // ─────────────────────────────────────────────────────
-loadReport(): void {
-  this.loading = true;
-  if (this.mainTab === 'reclamations') {
-    this.reclamationSvc
-      .getReporting(this.reportFrom || undefined, this.reportTo || undefined)
-      .subscribe({
-        next:     (r) => { this.report = r; },
-        error:    () => this.showToast('Erreur reporting', 'error'),
-        complete: () => { this.loading = false; this.cdr.detectChanges(); }
-      });
-  } else {
-    this.propositionSvc
-      .getReporting(this.reportFrom || undefined, this.reportTo || undefined)
-      .subscribe({
-        next:     (r) => { this.report = r; },
-        error:    () => this.showToast('Erreur reporting', 'error'),
-        complete: () => { this.loading = false; this.cdr.detectChanges(); }
-      });
-  }
-}
-
-  getBarWidth(count: number): string {
-    if (!this.report || this.report.totalDemandes === 0) return '0%';
-    return Math.round((count / this.report.totalDemandes) * 100) + '%';
-  }
-
-  getStatutEntries():   { key: string; val: number }[] {
-    return Object.entries(this.report?.parStatut   ?? {}).map(([key, val]) => ({ key, val }));
-  }
-  getPrioriteEntries(): { key: string; val: number }[] {
-    return Object.entries(this.report?.parPriorite ?? {}).map(([key, val]) => ({ key, val }));
-  }
-  getNoteEntries(): { key: number; val: number }[] {
-    return Object.entries(this.report?.repartitionNotes ?? {})
-      .map(([key, val]) => ({ key: +key, val }))
-      .sort((a, b) => b.key - a.key);
-  }
-
-  // ─────────────────────────────────────────────────────
-  // Historique
-  // ─────────────────────────────────────────────────────
-loadHistorique(): void {
-  this.loading = true;
-  if (this.mainTab === 'reclamations') {
-    this.reclamationSvc
-      .getHistorique(undefined, this.histPage)
-      .subscribe({
-        next:     (r) => { this.historique = r.items; this.histTotal = r.totalCount; },
-        error:    () => this.showToast('Erreur historique', 'error'),
-        complete: () => { this.loading = false; this.cdr.detectChanges(); }
-      });
-  } else {
-    this.propositionSvc
-      .getHistorique(undefined, this.histPage)
-      .subscribe({
-        next:     (r) => { this.historique = r.items; this.histTotal = r.totalCount; },
-        error:    () => this.showToast('Erreur historique', 'error'),
-        complete: () => { this.loading = false; this.cdr.detectChanges(); }
-      });
-  }
-}
-
-  // ─────────────────────────────────────────────────────
-  // Helpers
-  // ─────────────────────────────────────────────────────
 
   goBack(): void {
-    this.adminView   = 'list';
-    this.selectedRec  = null;
+    this.detailOpen = false;
+    this.selectedRec = null;
     this.selectedProp = null;
-    this.activePanel  = 'none';
-    this.loadList();
+  }
+
+  submitTreatment(): void {
+    const id = this.selectedRec?.id ?? this.selectedProp?.id;
+    if (!id) return;
+    this.submitting = true;
+
+    const statusPayload: UpdateStatusPayload = {
+      status: this.treatForm.status,
+      commentaire: this.treatForm.commentaire || undefined
+    };
+    const assignPayload: AssignPayload = {
+      assigneeId: this.treatForm.assigneeId || this.treatForm.assigneeNom,
+      assigneeNom: this.treatForm.assigneeNom
+    };
+    const prioPayload: PrioriserPayload = { priorite: this.treatForm.priorite };
+    const isRec = this.detailKind === 'reclamation';
+
+    const status$ = isRec
+      ? this.reclamationSvc.traiter(id, statusPayload)
+      : this.propositionSvc.evaluer(id, statusPayload);
+    const assign$ = this.treatForm.assigneeNom.trim()
+      ? (isRec ? this.reclamationSvc.assigner(id, assignPayload) : this.propositionSvc.assigner(id, assignPayload))
+      : of(void 0);
+    const prio$ = isRec
+      ? this.reclamationSvc.prioriser(id, prioPayload)
+      : this.propositionSvc.prioriser(id, prioPayload);
+    const comment$ = this.treatForm.commentaire.trim()
+      ? this.mediaSvc.addComment(
+          isRec ? 'Reclamation' : 'Proposition',
+          id,
+          this.treatForm.commentaire.trim(),
+          this.commentMedia.map(m => m.id)
+        ).pipe(catchError(() => of(null)))
+      : of(null);
+
+    status$.pipe(
+      switchMap(() => forkJoin([assign$, prio$, comment$])),
+      finalize(() => { this.submitting = false; this.cdr.detectChanges(); })
+    ).subscribe({
+      next: () => {
+        this.showToast('Traitement enregistré.');
+        this.commentMedia = [];
+        this.openDetail(id, this.detailKind);
+        this.loadDemandes();
+      },
+      error: () => this.showToast('Impossible d’enregistrer le traitement. Réessayez.', 'error')
+    });
+  }
+
+  loadReport(): void {
+    const from = this.reportFrom || undefined;
+    const to = this.reportTo || undefined;
+    const kind = this.reportKind === 'propositions' ? 'propositions' : 'reclamations';
+    this.loading = true;
+    const req$ = kind === 'reclamations'
+      ? this.reclamationSvc.getReporting(from, to)
+      : this.propositionSvc.getReporting(from, to);
+    req$.subscribe({
+      next: r => {
+        this.report = r;
+        this.loading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loading = false;
+        this.report = null;
+        this.showToast('Impossible de charger les statistiques.', 'error');
+      }
+    });
+  }
+
+  loadHistorique(): void {
+    this.loading = true;
+    forkJoin({
+      rec: this.reclamationSvc.getHistorique(undefined, 1).pipe(
+        catchError(() => of({ items: [], totalCount: 0 } as PaginatedResult<ReclamationDetail>))
+      ),
+      prop: this.propositionSvc.getHistorique(undefined, 1).pipe(
+        catchError(() => of({ items: [], totalCount: 0 } as PaginatedResult<PropositionDetail>))
+      ),
+    }).subscribe({
+      next: ({ rec, prop }) => {
+        const items = [
+          ...rec.items.map(i => ({ ...i, _kind: 'reclamation' as const })),
+          ...prop.items.map(i => ({ ...i, _kind: 'proposition' as const })),
+        ].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+        this.historique = items;
+        this.loading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loading = false;
+        this.showToast('Impossible de charger l’historique.', 'error');
+      }
+    });
+  }
+
+  daysOpen(createdAt: string): number {
+    return Math.floor((Date.now() - +new Date(createdAt)) / 86400000);
+  }
+
+  getTypeLabel(type: string): string {
+    const map: Record<string, string> = {
+      ServiceQualite: 'Qualité', RessourcesHumaines: 'RH', Technique: 'Technique',
+      Administrative: 'Admin', Autre: 'Autre'
+    };
+    return map[type] ?? type;
+  }
+
+  getStatusLabel(status: string): string {
+    const map: Record<string, string> = {
+      Soumise: 'Soumise',
+      EnCours: 'En cours',
+      Traitee: 'Traitée',
+      Rejetee: 'Rejetée',
+      Cloturee: 'Clôturée',
+      EnEvaluation: 'En évaluation',
+      Approuvee: 'Approuvée',
+      Implementee: 'Mise en œuvre',
+    };
+    return map[status] ?? 'Statut inconnu';
   }
 
   getStatusClass(status: string): string {
     const map: Record<string, string> = {
-      Soumise:       'rp-status-soumise',
-      EnCours:       'rp-status-encours',
-      Traitee:       'rp-status-traitee',
-      Rejetee:       'rp-status-rejetee',
-      Cloturee:      'rp-status-cloturee',
-      EnEvaluation:  'rp-status-encours',
-      Approuvee:     'rp-status-traitee',
-      Implementee:   'rp-status-implementee'
+      Soumise: 'rp-status-soumise', EnCours: 'rp-status-encours', Traitee: 'rp-status-traitee',
+      Rejetee: 'rp-status-rejetee', Cloturee: 'rp-status-cloturee', EnEvaluation: 'rp-status-encours',
+      Approuvee: 'rp-status-traitee', Implementee: 'rp-status-implementee'
     };
     return map[status] ?? 'rp-status-soumise';
   }
 
   getPriorityClass(p: string): string {
     const map: Record<string, string> = {
-      Basse:    'rp-prio-basse',
-      Normale:  'rp-prio-normale',
-      Haute:    'rp-prio-haute',
-      Critique: 'rp-prio-critique'
+      Basse: 'rp-prio-basse', Normale: 'rp-prio-normale', Haute: 'rp-prio-haute', Critique: 'rp-prio-critique'
     };
     return map[p] ?? 'rp-prio-normale';
   }
 
-  getTypeLabel(type: string): string {
-    const map: Record<string, string> = {
-      ServiceQualite:    'Qualité',
-      RessourcesHumaines:'RH',
-      Technique:         'Technique',
-      Administrative:    'Admin',
-      Autre:             'Autre'
-    };
-    return map[type] ?? type;
+  getStatutEntries(): { key: string; val: number }[] {
+    if (!this.report) return [];
+    return Object.entries(this.report.parStatut).map(([key, val]) => ({ key, val }));
   }
 
-  /** Jours ouverts depuis la création (SLA / aging). */
-  daysOpen(createdAt: string | Date | null | undefined): number {
-    if (!createdAt) return 0;
-    const start = new Date(createdAt).getTime();
-    if (Number.isNaN(start)) return 0;
-    return Math.max(0, Math.floor((Date.now() - start) / 86_400_000));
+  getNoteEntries(): { key: number; val: number }[] {
+    if (!this.report) return [];
+    return Object.entries(this.report.repartitionNotes).map(([key, val]) => ({ key: +key, val }));
   }
 
-  get currentStatuts(): string[] {
-    return this.mainTab === 'reclamations' ? this.recStatuts : this.propStatuts;
-  }
-
-  get recPages():  number[] {
-    return Array.from({ length: Math.ceil(this.recTotal  / 20) }, (_, i) => i + 1);
-  }
-  get propPages(): number[] {
-    return Array.from({ length: Math.ceil(this.propTotal / 20) }, (_, i) => i + 1);
-  }
-
-  changePage(p: number): void {
-    if (this.mainTab === 'reclamations') this.recPage  = p;
-    else                                 this.propPage = p;
-    this.loadList();
+  getBarWidth(val: number): string {
+    const max = Math.max(1, ...(this.report ? Object.values(this.report.parStatut) : [1]));
+    return `${Math.round((val / max) * 100)}%`;
   }
 
   private showToast(msg: string, type: 'success' | 'error' = 'success'): void {

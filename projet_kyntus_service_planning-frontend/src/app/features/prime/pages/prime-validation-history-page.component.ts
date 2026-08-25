@@ -317,7 +317,7 @@ export class PrimeValidationHistoryPageComponent {
   }
 
   goToValidation(): void {
-    this.nav.requestView('/validation');
+    this.nav.requestViewWithTab('/prime-validation-hub', 'validate');
   }
 
   isMyAction(item: PrimeFicheValidationHistoryFeedItemDto): boolean {

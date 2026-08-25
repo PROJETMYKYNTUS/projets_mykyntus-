@@ -1,7 +1,7 @@
 /** Clé sessionStorage — survit au clear des tokens localStorage. */
 export const KYNTUS_RETURN_URL_KEY = 'kyntus.returnUrl';
 
-const BLOCKED_PATH_PREFIXES = ['/auth-callback', '/login'];
+const BLOCKED_PATH_PREFIXES = ['/auth-callback', '/login', '/unauthorized'];
 
 /**
  * Valide une URL de retour interne (chemin relatif SPA uniquement).

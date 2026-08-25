@@ -8,6 +8,8 @@ namespace Planning.Domain.Entities
         public string Name { get; set; } = string.Empty;
         public int NewsletterId { get; set; }
         public AudienceTarget AudienceTarget { get; set; } = AudienceTarget.All;
+        /// <summary>JSON array of user GUIDs when AudienceTarget is Custom (même logique bénéficiaires formation).</summary>
+        public string? RecipientUserIdsJson { get; set; }
         public CampaignStatus Status { get; set; } = CampaignStatus.Draft;
         public DateTime? ScheduledAt { get; set; }
         public DateTime? PublishedAt { get; set; }   // Remplace SentAt (pas d'email)

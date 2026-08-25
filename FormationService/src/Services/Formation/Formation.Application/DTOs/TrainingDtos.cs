@@ -206,6 +206,35 @@ public sealed record TrainingProgramDto(
     int Capacity,
     IReadOnlyList<TrainingSessionDto> Sessions);
 
+public sealed record ProgramBeneficiaryProgressDto(
+    Guid EmployeeId,
+    string EmployeeName,
+    bool AttendedInPerson,
+    bool ContentCompleted,
+    bool QuizPassed,
+    bool HasContentTrack,
+    bool HasQuizTrack,
+    bool IsComplete);
+
+public sealed record TrainingProgramDetailDto(
+    Guid Id,
+    string Title,
+    string Description,
+    TrainingProgramMode Mode,
+    int SessionCount,
+    AnimatorKind AnimatorKind,
+    Guid? AnimatorUserId,
+    string? ExternalAnimatorName,
+    string? ExternalAnimatorOrganization,
+    string? ExternalAnimatorEmail,
+    string? ExternalAnimatorPhone,
+    int Capacity,
+    Guid? CatalogItemId,
+    Guid? QuizTemplateId,
+    string? LearningGateMode,
+    IReadOnlyList<TrainingSessionDto> Sessions,
+    IReadOnlyList<ProgramBeneficiaryProgressDto> Beneficiaries);
+
 public sealed class CreateTrainingProgramRequest
 {
     public string Title { get; set; } = string.Empty;

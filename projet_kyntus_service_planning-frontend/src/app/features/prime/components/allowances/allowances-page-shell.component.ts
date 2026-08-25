@@ -4,18 +4,18 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   selector: 'app-allowances-page-shell',
   standalone: true,
   template: `
-    <div class="prime-page-shell">
-      <div class="flex flex-wrap justify-between items-start gap-4">
-        <div>
+    <div class="prime-page-shell supervision-shell">
+      <header class="supervision-shell__header">
+        <div class="supervision-shell__titles">
           <h1 class="prime-page-title">{{ title() }}</h1>
           @if (subtitle()) {
             <p class="prime-page-subtitle">{{ subtitle() }}</p>
           }
         </div>
-        <div class="flex flex-wrap gap-2 items-center">
+        <div class="supervision-shell__actions">
           <ng-content select="[pageActions]" />
         </div>
-      </div>
+      </header>
 
       @if (error()) {
         <div class="ky-alert ky-alert-error">{{ error() }}</div>
@@ -24,6 +24,25 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       <ng-content />
     </div>
   `,
+  styles: [`
+    .supervision-shell__header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem 1.25rem;
+    }
+    .supervision-shell__titles {
+      min-width: 0;
+      flex: 1 1 16rem;
+    }
+    .supervision-shell__actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+    }
+  `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AllowancesPageShellComponent {

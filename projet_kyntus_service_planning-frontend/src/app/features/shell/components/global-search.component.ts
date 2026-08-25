@@ -344,19 +344,33 @@ export class GlobalSearchComponent implements OnInit, OnDestroy {
           queryParams: { requestId: result.id },
         });
         break;
-      case 'formation':
+      case 'formation': {
+        const kind = result.meta?.kind;
+        const tab = kind === 'path' ? 'initial' : 'continue';
         void this.router.navigate(['/formations'], {
-          queryParams: { highlight: result.id },
+          queryParams: { tab, highlight: result.id },
         });
         break;
-      case 'conge':
-        void this.router.navigate(['/conges/validation'], {
-          queryParams: { demandeId: result.id },
+      }
+      case 'conge': {
+        const year = result.meta?.year;
+        void this.router.navigate(['/conges/historique'], {
+          queryParams: {
+            demandeId: result.id,
+            ...(year != null ? { annee: String(year) } : {}),
+          },
         });
         break;
-      case 'prime':
-        void this.navActions.openPrimePath('/dashboard');
+      }
+      case 'prime': {
+        const id = (result.id || '').trim();
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+          void this.router.navigate(['/users', id]);
+        } else {
+          void this.navActions.openPrimePath('/team-performance');
+        }
         break;
+      }
     }
   }
 

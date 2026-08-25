@@ -1,7 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { CanActivate, ActivatedRouteSnapshot, Router } from '@angular/router';
-import { KYNTUS_JWT_CLAIMS } from '../../core/session/kyntus-session.constants';
-import { clearStoredTokens, isJwtExpired, readStoredAccessToken, readStoredRefreshToken } from '../../core/session/kyntus-auth-token.util';
+import { clearStoredTokens, isJwtExpired, readJwtRole, readJwtRoles, readStoredAccessToken, readStoredRefreshToken } from '../../core/session/kyntus-auth-token.util';
 import { redirectToAuthLogin } from '../../core/session/kyntus-auth-refresh.service';
 import { currentAppReturnUrl } from '../../core/session/kyntus-return-url.util';
 import { roleNamesMatch } from '../../core/org/org-role-assignment';
@@ -34,8 +33,8 @@ export class AuthGuard implements CanActivate {
         // Rôle indisponible tant que le refresh n’a pas abouti — autoriser, le menu filtrera.
         return true;
       }
-      const role = this.getRole(roleToken);
-      const ok = allowedRoles.some((r) => roleNamesMatch(r, role));
+      const roles = readJwtRoles(roleToken);
+      const ok = roles.some((role) => allowedRoles.some((r) => roleNamesMatch(r, role)));
       if (!ok) {
         this.router.navigate(['/unauthorized']);
         return false;
@@ -51,13 +50,7 @@ export class AuthGuard implements CanActivate {
   }
 
   getRole(token: string): string {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1])) as Record<string, unknown>;
-      const role = payload[KYNTUS_JWT_CLAIMS.role];
-      return typeof role === 'string' ? role : '';
-    } catch {
-      return '';
-    }
+    return readJwtRole(token);
   }
 
   isTokenExpired(token: string): boolean {

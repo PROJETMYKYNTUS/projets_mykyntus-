@@ -39,6 +39,7 @@ import {
   orgPerimeterSummary,
   type UserOrgPerimeterView,
 } from '../../../core/org/user-org-perimeter';
+import type { ProgramBeneficiaryProgressDto } from '../../../core/models/formation-training.models';
 
 export type AudiencePickerMode = 'beneficiaries' | 'audience';
 
@@ -85,6 +86,10 @@ export class KyntusAudiencePickerComponent implements OnInit, OnChanges {
   @Input() userIds: string[] = [];
   /** Valeurs initiales / synchronisées (beneficiaries). */
   @Input() beneficiaries: EmployeePickerRow[] = [];
+  /** Avancement par GUID employé (édition de programme). */
+  @Input() progressByEmployeeId: Record<string, ProgramBeneficiaryProgressDto> = {};
+  /** Agents déjà terminés : conservés pour tracabilité, non retirables. */
+  @Input() lockedEmployeeIds: string[] = [];
   /** Libellé légende. */
   @Input() legend = '';
 
@@ -260,7 +265,9 @@ export class KyntusAudiencePickerComponent implements OnInit, OnChanges {
       changes['availableRoles'] ||
       changes['mode'] ||
       changes['enableStructureKeys'] ||
-      changes['legend']
+      changes['legend'] ||
+      changes['progressByEmployeeId'] ||
+      changes['lockedEmployeeIds']
     ) {
       this.inputTick.update((n) => n + 1);
     }
@@ -514,7 +521,7 @@ export class KyntusAudiencePickerComponent implements OnInit, OnChanges {
 
   removeBeneficiary(row: EmployeePickerRow): void {
     const guid = resolveUserGuid(row.user);
-    if (!guid) return;
+    if (!guid || this.isBeneficiaryLocked(row)) return;
     this.beneficiaryList.update((list) => list.filter((r) => resolveUserGuid(r.user) !== guid));
     this.perimeterChecklist.update((list) =>
       list.map((c) => (resolveUserGuid(c.row.user) === guid ? { ...c, checked: false } : c)),
@@ -523,9 +530,34 @@ export class KyntusAudiencePickerComponent implements OnInit, OnChanges {
   }
 
   clearBeneficiaryList(): void {
-    this.beneficiaryList.set([]);
-    this.perimeterChecklist.update((list) => list.map((c) => ({ ...c, checked: false })));
+    const locked = new Set(this.lockedEmployeeIds.map((id) => id.toLowerCase()));
+    const kept = this.beneficiaryList().filter((r) => {
+      const g = resolveUserGuid(r.user).toLowerCase();
+      return !!g && locked.has(g);
+    });
+    const keptSet = new Set(kept.map((r) => resolveUserGuid(r.user)));
+    this.beneficiaryList.set(kept);
+    this.perimeterChecklist.update((list) =>
+      list.map((c) => ({ ...c, checked: keptSet.has(resolveUserGuid(c.row.user)) })),
+    );
     this.emitSelection();
+  }
+
+  isBeneficiaryLocked(row: EmployeePickerRow): boolean {
+    this.inputTick();
+    const g = resolveUserGuid(row.user).toLowerCase();
+    return !!g && this.lockedEmployeeIds.some((id) => id.toLowerCase() === g);
+  }
+
+  progressFor(row: EmployeePickerRow): ProgramBeneficiaryProgressDto | null {
+    this.inputTick();
+    const g = resolveUserGuid(row.user);
+    if (!g) return null;
+    return this.progressByEmployeeId[g] ?? this.progressByEmployeeId[g.toLowerCase()] ?? null;
+  }
+
+  hasRemovableBeneficiaries(): boolean {
+    return this.beneficiaryList().some((r) => !this.isBeneficiaryLocked(r));
   }
 
   removeUserId(id: string): void {

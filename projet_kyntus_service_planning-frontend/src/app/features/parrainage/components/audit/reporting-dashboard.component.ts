@@ -189,8 +189,10 @@ export class ReportingDashboardComponent {
 
   exportPdfHtml(): void {
     const k = this.kpis;
+    const cs = getComputedStyle(document.body);
+    const tok = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback;
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Rapport audit — PDF</title>
-<style>body{font-family:system-ui;padding:24px;background:#0f172a;color:#e2e8f0;} h1{color:#93c5fd;} table{border-collapse:collapse;width:100%;margin-top:16px;} td,th{border:1px solid #334155;padding:8px;text-align:left;font-size:12px;}</style></head><body>
+<style>:root{--bg-primary:${tok('--bg-primary','#0f172a')};--bg-card:${tok('--bg-card','#0f172a')};--text-primary:${tok('--text-primary','#e2e8f0')};--text-muted:${tok('--text-muted','#64748b')};--border-color:${tok('--border-color','#334155')};--info-text:${tok('--info-text','#93c5fd')};}body{font-family:system-ui;padding:24px;background:var(--bg-primary);color:var(--text-primary);} h1{color:var(--info-text);} table{border-collapse:collapse;width:100%;margin-top:16px;} td,th{border:1px solid var(--border-color);padding:8px;text-align:left;font-size:12px;}</style></head><body>
 <h1>Rapport analytique — Audit Parrainage</h1>
 <table>
 <tr><th>Indicateur</th><th>Valeur</th></tr>
@@ -201,7 +203,7 @@ export class ReportingDashboardComponent {
 <tr><td>Anomalies détectées</td><td>${k.anomaliesCount}</td></tr>
 <tr><td>Top utilisateur</td><td>${k.topUser} (${k.topUserActions} actions)</td></tr>
 </table>
-<p style="margin-top:24px;font-size:11px;color:#64748b;">Ouvrez via le navigateur puis Fichier → Imprimer → Enregistrer au format PDF.</p>
+<p style="margin-top:24px;font-size:11px;color:var(--text-muted);">Ouvrez via le navigateur puis Fichier → Imprimer → Enregistrer au format PDF.</p>
 </body></html>`;
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const a = document.createElement('a');

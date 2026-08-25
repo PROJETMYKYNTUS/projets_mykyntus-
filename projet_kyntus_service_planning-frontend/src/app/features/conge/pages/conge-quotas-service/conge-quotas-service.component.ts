@@ -17,7 +17,7 @@ import { KyntusSessionService } from '../../../../core/session/kyntus-session.se
     <div class="ky-page-shell">
       <app-kyntus-page-header
         title="Quotas congés (cellules / services)"
-        subtitle="Nombre max d’employés absents le même jour par cellule ou service. Seuls les congés validés superviseur (en attente RH) et validés RH comptent.">
+        subtitle="Nombre max d’employés absents le même jour. Configurez un quota par cellule et/ou par service. Seuls les congés validés superviseur (en attente RH) et validés RH comptent.">
         <div actions>
           <button type="button" class="ky-btn-secondary" (click)="load()">Actualiser</button>
         </div>
@@ -29,57 +29,115 @@ import { KyntusSessionService } from '../../../../core/session/kyntus-session.se
         Vérifiez vos affectations Organisation RH (superviseur sur une cellule), puis actualisez.
       </p>
 
-      <div class="table-wrap" *ngIf="!loading && rows.length > 0">
-        <table class="prime-table">
-          <thead>
-            <tr>
-              <th>Type</th>
-              <th>Périmètre</th>
-              <th>Effectif</th>
-              <th>Max absents / jour</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let r of rows">
-              <td>
-                <span class="scope-chip" [attr.data-scope]="r.scopeKind">{{ scopeLabel(r.scopeKind) }}</span>
-              </td>
-              <td>{{ r.serviceNom }}</td>
-              <td>{{ r.effectif }}</td>
-              <td>
-                <input class="ky-input" type="number" min="1" [(ngModel)]="edits[r.serviceId]"
-                       [placeholder]="r.maxAbsentsSimultanes == null ? 'Non défini' : ''" />
-              </td>
-              <td>
-                <button type="button" class="ky-btn-primary" (click)="save(r)">Enregistrer</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <ng-container *ngIf="!loading && rows.length > 0">
+        <section class="quota-section" *ngIf="celluleRows.length > 0">
+          <h2 class="quota-section-title">Par cellule</h2>
+          <p class="quota-section-sub">Plafond global pour toute la cellule (tous services confondus).</p>
+          <div class="table-wrap">
+            <table class="prime-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Périmètre</th>
+                  <th>Effectif</th>
+                  <th>Max absents / jour</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of celluleRows">
+                  <td>
+                    <span class="scope-chip" data-scope="Cellule">Cellule</span>
+                  </td>
+                  <td>{{ r.serviceNom }}</td>
+                  <td>{{ r.effectif }}</td>
+                  <td>
+                    <input class="ky-input" type="number" min="1" [(ngModel)]="edits[r.serviceId]"
+                           [placeholder]="r.maxAbsentsSimultanes == null ? 'Non défini' : ''" />
+                  </td>
+                  <td>
+                    <button type="button" class="ky-btn-primary" (click)="save(r)">Enregistrer</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="quota-section" *ngIf="serviceRows.length > 0">
+          <h2 class="quota-section-title">Par service</h2>
+          <p class="quota-section-sub">Plafond spécifique à chaque service de votre périmètre.</p>
+          <div class="table-wrap">
+            <table class="prime-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Périmètre</th>
+                  <th>Effectif</th>
+                  <th>Max absents / jour</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of serviceRows">
+                  <td>
+                    <span class="scope-chip" data-scope="Service">Service</span>
+                  </td>
+                  <td>{{ r.serviceNom }}</td>
+                  <td>{{ r.effectif }}</td>
+                  <td>
+                    <input class="ky-input" type="number" min="1" [(ngModel)]="edits[r.serviceId]"
+                           [placeholder]="r.maxAbsentsSimultanes == null ? 'Non défini' : ''" />
+                  </td>
+                  <td>
+                    <button type="button" class="ky-btn-primary" (click)="save(r)">Enregistrer</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <p class="hint" *ngIf="celluleRows.length > 0 && serviceRows.length === 0">
+          Aucun service listé sous vos cellules. Vérifiez que les agents ont un service renseigné dans l’organisation RH.
+        </p>
+      </ng-container>
     </div>
   `,
   styles: [`
-    .hint { color: #64748b; margin-top: 1rem; }
-    .table-wrap { margin-top: 1rem; overflow-x: auto; }
+    .hint { color: var(--text-muted); margin-top: 1rem; font-size: 0.9rem; line-height: 1.45; }
+    .quota-section { margin-top: 1.5rem; }
+    .quota-section-title {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .quota-section-sub {
+      margin: 0.35rem 0 0.75rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border-color); border-radius: var(--radius-card, 0.875rem); }
     input.ky-input { max-width: 120px; }
     .scope-chip {
       display: inline-block;
       font-size: 0.68rem;
       font-weight: 700;
-      padding: 0.15rem 0.5rem;
-      border-radius: 0.35rem;
-      background: #e2e8f0;
-      color: #334155;
+      padding: 0.2rem 0.55rem;
+      border-radius: var(--radius-md, 0.5rem);
+      background: var(--bg-input);
+      color: var(--text-primary);
     }
     .scope-chip[data-scope="Cellule"] {
-      background: #dbeafe;
-      color: #1d4ed8;
+      background: var(--info-bg);
+      color: var(--info-text);
+      border: 1px solid var(--info-border);
     }
     .scope-chip[data-scope="Service"] {
-      background: #ccfbf1;
-      color: #0f766e;
+      background: var(--success-bg);
+      color: var(--success-text);
+      border: 1px solid var(--success-border);
     }
   `]
 })
@@ -95,10 +153,17 @@ export class CongeQuotasServiceComponent implements OnInit {
   loading = true;
   private superviseurId = '';
 
+  get celluleRows(): QuotaCongeServiceDto[] {
+    return this.rows.filter((r) => (r.scopeKind || '').toLowerCase() === 'cellule');
+  }
+
+  get serviceRows(): QuotaCongeServiceDto[] {
+    return this.rows.filter((r) => (r.scopeKind || '').toLowerCase() !== 'cellule');
+  }
+
   ngOnInit(): void {
     this.userSvc.getCurrentUser().subscribe({
       next: (u) => {
-        // Directory / ReBAC utilisent le subject Auth (Guid), pas seulement le guid Planning.
         this.superviseurId =
           this.session.getSubjectId()?.trim()
           || resolveCurrentUserGuid()
@@ -107,10 +172,6 @@ export class CongeQuotasServiceComponent implements OnInit {
       },
       error: () => this.toast.error('Impossible de récupérer le profil.')
     });
-  }
-
-  scopeLabel(kind?: string | null): string {
-    return (kind || '').toLowerCase() === 'cellule' ? 'Cellule' : 'Service';
   }
 
   load(): void {

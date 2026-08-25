@@ -93,7 +93,7 @@ import { KyntusPageHeaderComponent } from '../../../shared/components/ui/kyntus-
     }
     .fpc-date { font-size: 0.72rem; }
     .fpc-muted { margin: 0; color: var(--text-muted); }
-    .fpc-error { margin: 0; color: #dc2626; font-size: 0.85rem; }
+    .fpc-error { margin: 0; color: var(--danger-text); font-size: 0.85rem; }
     .fpc-nav {
       display: flex;
       flex-wrap: wrap;

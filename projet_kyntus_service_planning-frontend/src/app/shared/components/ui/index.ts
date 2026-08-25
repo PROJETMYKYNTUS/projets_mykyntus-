@@ -22,3 +22,7 @@ export { KyntusEmployeeInboxComponent } from './kyntus-employee-inbox.component'
 export { KyntusAuditDrawerComponent, type KyntusAuditField } from './kyntus-audit-drawer.component';
 export { KyntusAuditLogPageComponent } from './kyntus-audit-log-page.component';
 export { KyntusRulesAdminPageComponent } from './kyntus-rules-admin-page.component';
+export { KyMediaUploaderComponent } from './ky-media-uploader.component';
+export { KyMediaGalleryComponent } from './ky-media-gallery.component';
+export { KyRichTextEditorComponent } from './ky-rich-text-editor.component';
+export { KyAuthMediaImgComponent } from './ky-auth-media-img.component';

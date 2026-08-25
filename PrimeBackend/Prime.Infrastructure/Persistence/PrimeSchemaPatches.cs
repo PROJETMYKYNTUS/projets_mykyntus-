@@ -276,6 +276,8 @@ public static class PrimeSchemaPatches
               ADD COLUMN IF NOT EXISTS "TemplateVersionRef" character varying(256);
             ALTER TABLE prime_employee_prime_service_fiche
               ADD COLUMN IF NOT EXISTS "DetailGridFrozenAt" timestamp with time zone;
+            ALTER TABLE prime_employee_prime_service_fiche
+              ADD COLUMN IF NOT EXISTS "PonderationsSnapshotJson" text;
             """,
             ct);
     }
@@ -783,6 +785,76 @@ public static class PrimeSchemaPatches
                 ON prime_service_pole_line_ponderation ("ServiceId", "SortOrder");
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_prime_service_pole_line_ponderation_ServiceId_TemplateStableId"
                 ON prime_service_pole_line_ponderation ("ServiceId", "TemplateStableId");
+            """,
+            ct);
+    }
+
+    /// <summary>
+    /// Pondérations partie commune versionnées cellule/service + copie des anciennes lignes par service.
+    /// </summary>
+    public static async Task EnsureCommonLinePonderationTableAsync(PrimeDbContext db, CancellationToken ct = default)
+    {
+        if (!await TableExistsAsync(db, "prime_service", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS prime_common_line_ponderation (
+                "Id" uuid NOT NULL,
+                "ScopeType" character varying(16) NOT NULL,
+                "ScopeId" character varying(128) NOT NULL,
+                "TemplateId" character varying(128) NOT NULL,
+                "TemplateStableId" character varying(256) NOT NULL,
+                "Label" character varying(512) NOT NULL,
+                "Contract" character varying(32) NOT NULL DEFAULT '',
+                "SortOrder" integer NOT NULL,
+                "PonderationPrimePct" numeric(9,4) NULL,
+                "PonderationChallengePct" numeric(9,4) NULL,
+                "EffectiveFrom" timestamp with time zone NOT NULL,
+                "EffectiveTo" timestamp with time zone NULL,
+                "CreatedBy" character varying(128) NULL,
+                "CreatedAt" timestamp with time zone NOT NULL,
+                CONSTRAINT "PK_prime_common_line_ponderation" PRIMARY KEY ("Id")
+            );
+            CREATE INDEX IF NOT EXISTS "IX_prime_common_line_ponderation_scope_template_from"
+                ON prime_common_line_ponderation ("ScopeType", "ScopeId", "TemplateId", "TemplateStableId", "EffectiveFrom");
+            CREATE INDEX IF NOT EXISTS "IX_prime_common_line_ponderation_scope_stable_to"
+                ON prime_common_line_ponderation ("ScopeType", "ScopeId", "TemplateStableId", "EffectiveTo");
+            """,
+            ct);
+
+        if (!await TableExistsAsync(db, "prime_service_pole_line_ponderation", ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            INSERT INTO prime_common_line_ponderation (
+                "Id", "ScopeType", "ScopeId", "TemplateId", "TemplateStableId",
+                "Label", "Contract", "SortOrder",
+                "PonderationPrimePct", "PonderationChallengePct",
+                "EffectiveFrom", "EffectiveTo", "CreatedBy", "CreatedAt")
+            SELECT
+                gen_random_uuid(),
+                'Service',
+                p."ServiceId",
+                '',
+                p."TemplateStableId",
+                COALESCE(p."Label", ''),
+                '',
+                p."SortOrder",
+                p."PonderationPrimePct",
+                p."PonderationChallengePct",
+                TIMESTAMPTZ '2000-01-01 00:00:00+00',
+                NULL,
+                NULL,
+                COALESCE(p."CreatedAt", NOW())
+            FROM prime_service_pole_line_ponderation p
+            WHERE NOT EXISTS (
+                SELECT 1 FROM prime_common_line_ponderation c
+                WHERE c."ScopeType" = 'Service'
+                  AND c."ScopeId" = p."ServiceId"
+                  AND c."TemplateStableId" = p."TemplateStableId"
+                  AND c."EffectiveTo" IS NULL);
             """,
             ct);
     }

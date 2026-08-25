@@ -20,14 +20,14 @@
 .fco-empty {
   text-align: center;
   padding: 1.5rem 1rem;
-  color: var(--muted, #64748b);
-  border: 1px dashed var(--border, #e2e8f0);
+  color: var(--text-muted);
+  border: 1px dashed var(--border-color);
   border-radius: .75rem;
 }
 
 .fco-muted {
   font-size: .85rem;
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
   margin: .25rem 0 0;
 }
 
@@ -40,9 +40,9 @@
 }
 
 .fco-module {
-  border: 1px solid var(--border, #e2e8f0);
+  border: 1px solid var(--border-color);
   border-radius: .75rem;
-  background: var(--surface, #fff);
+  background: var(--bg-card);
   margin-bottom: .65rem;
   overflow: hidden;
 }
@@ -56,12 +56,12 @@
 }
 
 .fco-row-module {
-  background: var(--surface-2, #f8fafc);
+  background: var(--bg-input);
   border-bottom: 1px solid transparent;
 }
 
 .fco-module:has(.fco-lessons) .fco-row-module {
-  border-bottom-color: var(--border, #e2e8f0);
+  border-bottom-color: var(--border-color);
 }
 
 .fco-row-lesson {
@@ -70,7 +70,7 @@
 
 .fco-row-resource {
   padding-left: 2.25rem;
-  border-top: 1px solid var(--border, #e2e8f0);
+  border-top: 1px solid var(--border-color);
 }
 
 .fco-toggle {
@@ -78,7 +78,7 @@
   background: transparent;
   padding: .15rem;
   cursor: pointer;
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
   display: inline-flex;
 }
 
@@ -91,11 +91,11 @@
   cursor: text;
   padding: .2rem .35rem;
   border-radius: .35rem;
-  color: var(--text, #0f172a);
+  color: var(--text-primary);
 }
 
 .fco-title:hover {
-  background: color-mix(in srgb, var(--primary, #4f46e5) 8%, transparent);
+  background: color-mix(in srgb, var(--blue-600) 8%, transparent);
 }
 
 .fco-inline-input {
@@ -106,7 +106,7 @@
 
 .fco-meta {
   font-size: .75rem;
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
 }
 
 .fco-actions {
@@ -123,20 +123,20 @@
 }
 
 .fco-chip {
-  border: 1px solid var(--border, #e2e8f0);
+  border: 1px solid var(--border-color);
   background: transparent;
   border-radius: 999px;
   padding: .15rem .55rem;
   font-size: .7rem;
   font-weight: 600;
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
   cursor: pointer;
 }
 
 .fco-chip-on {
-  border-color: color-mix(in srgb, var(--primary, #4f46e5) 40%, var(--border, #e2e8f0));
-  color: var(--primary, #4f46e5);
-  background: color-mix(in srgb, var(--primary, #4f46e5) 8%, transparent);
+  border-color: color-mix(in srgb, var(--blue-600) 40%, var(--border-color));
+  color: var(--blue-600);
+  background: color-mix(in srgb, var(--blue-600) 8%, transparent);
 }
 
 .fco-lessons {
@@ -148,13 +148,13 @@
 }
 
 .fco-res-icon {
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
 .fco-link {
   font-size: .78rem;
-  color: var(--primary, #4f46e5);
+  color: var(--blue-600);
   text-decoration: none;
 }
 
@@ -165,7 +165,7 @@
 .fco-empty-inline {
   padding: .5rem 1rem .5rem 2.5rem;
   font-size: .8rem;
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
 }
 
 /* Modale centrée sur le viewport (via appBodyPortal → document.body) */
@@ -181,8 +181,8 @@
   position: relative;
   width: min(720px, calc(100vw - 2rem));
   max-height: min(90vh, 860px);
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #e2e8f0);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: .85rem;
   display: flex;
   flex-direction: column;
@@ -194,7 +194,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.1rem;
-  border-bottom: 1px solid var(--border, #e2e8f0);
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
@@ -207,7 +207,7 @@
   display: flex;
   gap: .25rem;
   padding: .5rem 1.1rem 0;
-  border-bottom: 1px solid var(--border, #e2e8f0);
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
@@ -217,15 +217,15 @@
   padding: .55rem .85rem;
   font-size: .85rem;
   font-weight: 600;
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
 }
 
 .fco-modal-tab.active {
-  color: var(--primary, #4f46e5);
-  border-bottom-color: var(--primary, #4f46e5);
+  color: var(--blue-600);
+  border-bottom-color: var(--blue-600);
 }
 
 .fco-modal-body {
@@ -247,13 +247,13 @@
 }
 
 .fco-block {
-  border: 1px solid var(--border, #e2e8f0);
+  border: 1px solid var(--border-color);
   border-radius: .65rem;
   padding: .85rem;
   display: flex;
   flex-direction: column;
   gap: .65rem;
-  background: var(--surface-2, #f8fafc);
+  background: var(--bg-input);
 }
 
 .fco-block-head {
@@ -271,7 +271,7 @@
 .fco-file-name {
   font-weight: 500;
   font-size: .8rem;
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
 }
 
 .fco-preview-title {
@@ -294,7 +294,7 @@
   flex-direction: column;
   gap: .65rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border, #e2e8f0);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .fco-preview-part:last-child {
@@ -307,9 +307,9 @@
   justify-content: flex-end;
   gap: .5rem;
   padding: .85rem 1.1rem;
-  border-top: 1px solid var(--border, #e2e8f0);
+  border-top: 1px solid var(--border-color);
   flex-shrink: 0;
-  background: var(--surface, #fff);
+  background: var(--bg-card);
   border-radius: 0 0 .85rem .85rem;
 }
 

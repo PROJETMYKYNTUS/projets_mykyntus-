@@ -270,12 +270,43 @@ internal static class CongeQuotaPerimeter
             try
             {
                 var cellules = await rebac.GetManagedNodeIdsAsync(actorId, "Superviseur", ct);
+                var managedCelluleIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var raw in cellules)
+                {
                     TryAddManagedNode(map, raw, QuotaScopeKinds.Cellule, team, catalog);
+                    var id = QuotaCongeService.NormalizeNodeId(raw);
+                    if (id is not null)
+                        managedCelluleIds.Add(id);
+                }
 
                 var services = await rebac.GetManagedNodeIdsAsync(actorId, "ReferentTechnique", ct);
                 foreach (var raw in services)
+                {
+                    var svcId = QuotaCongeService.NormalizeNodeId(raw);
+                    if (managedCelluleIds.Count > 0
+                        && svcId is not null
+                        && !catalog.IsServiceUnderCellules(svcId, managedCelluleIds))
+                        continue;
                     TryAddManagedNode(map, raw, QuotaScopeKinds.Service, team, catalog);
+                }
+
+                // Superviseur d'une cellule : exposer aussi les quotas des services
+                // des agents de l'équipe rattachés à ces cellules (pas seulement ReferentTechnique).
+                // Un OrgServiceId obsolète (ex. autre cellule) est exclu via l'arbre Directory.
+                if (managedCelluleIds.Count > 0)
+                {
+                    foreach (var e in team)
+                    {
+                        var empCellule = QuotaCongeService.NormalizeNodeId(e.CelluleId);
+                        if (empCellule is null || !managedCelluleIds.Contains(empCellule))
+                            continue;
+                        if (!TryResolveServiceId(e, out var serviceId))
+                            continue;
+                        if (!catalog.IsServiceUnderCellules(serviceId, managedCelluleIds))
+                            continue;
+                        UpsertBucket(map, serviceId, QuotaScopeKinds.Service, e, catalog);
+                    }
+                }
             }
             catch
             {

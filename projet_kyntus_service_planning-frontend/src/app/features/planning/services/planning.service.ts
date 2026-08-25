@@ -111,6 +111,8 @@ export interface ShiftConfig {
   breakSlots?:   string[];
   breakDurationMinutes?: number;
   isCriticalCell?: boolean;
+  shiftModeProfileId?: number | null;
+  shiftModeTitle?: string | null;
 }
 
 export interface SaturdayYtd {
@@ -421,6 +423,11 @@ export interface WeeklyShiftModePlan {
   isValidated: boolean;
   isLocked: boolean;
   validatedAt?: string | null;
+  isCopiedPreview?: boolean;
+  sourceWeekCode?: string | null;
+  isSupervisorSaved?: boolean;
+  deadlineLocal?: string | null;
+  deadlinePassed?: boolean;
   availableModes: ShiftModeProfileDto[];
   employees: WeeklyEmployeeShiftMode[];
 }

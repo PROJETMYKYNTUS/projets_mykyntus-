@@ -8,14 +8,14 @@
 .frv-skeleton {
   padding: 1rem;
   border-radius: .65rem;
-  border: 1px dashed var(--border, #e2e8f0);
-  background: var(--surface-2, #f8fafc);
+  border: 1px dashed var(--border-color);
+  background: var(--bg-input);
 }
 .frv-skeleton-bar {
   height: .75rem;
   border-radius: .35rem;
   margin-bottom: .5rem;
-  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background: linear-gradient(90deg, var(--border-color) 25%, var(--bg-input) 50%, var(--border-color) 75%);
   background-size: 200% 100%;
   animation: frv-shimmer 1.2s infinite;
 }
@@ -32,9 +32,9 @@
   justify-content: space-between;
   gap: .75rem 1rem;
   padding: 1rem 1.1rem;
-  border: 1px dashed var(--border, #cbd5e1);
+  border: 1px dashed var(--border-color);
   border-radius: .65rem;
-  background: var(--surface-2, #f8fafc);
+  background: var(--bg-input);
 }
 .frv-reveal-meta {
   display: flex;
@@ -46,11 +46,11 @@
   font-size: .75rem;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
 }
 .frv-reveal-file {
   font-size: .8rem;
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -59,9 +59,9 @@
 .frv-frame {
   width: 100%;
   min-height: 28rem;
-  border: 1px solid var(--border, #e2e8f0);
+  border: 1px solid var(--border-color);
   border-radius: .5rem;
-  background: #fff;
+  background: var(--bg-card);
 }
 
 .frv-video-wrap {
@@ -82,8 +82,8 @@
   width: 100%;
   border-radius: .65rem;
   overflow: hidden;
-  background: var(--surface-2, #f1f5f9);
-  border: 1px solid var(--border, #e2e8f0);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
 }
 
 .frv-image-btn {
@@ -105,7 +105,7 @@
   max-height: min(70vh, 32rem);
   object-fit: contain;
   margin: 0 auto;
-  background: #0f172a08;
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 
 .frv-image-zoomed .frv-image {
@@ -117,7 +117,7 @@
 .frv-text {
   line-height: 1.6;
   font-size: .95rem;
-  color: var(--text, #0f172a);
+  color: var(--text-primary);
 }
 
 .frv-text :is(p, ul, ol) {
@@ -133,14 +133,14 @@
 }
 
 .frv-text a {
-  color: var(--primary, #4f46e5);
+  color: var(--blue-600);
 }
 
 .frv-empty {
-  color: var(--muted, #64748b);
+  color: var(--text-muted);
   margin: 0;
 }
 
 .frv-error {
-  color: #b91c1c;
+  color: var(--danger-text);
 }

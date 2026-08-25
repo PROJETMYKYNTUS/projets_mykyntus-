@@ -1,78 +1,72 @@
-import { Component, OnDestroy, OnInit, ChangeDetectorRef, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject, takeUntil } from 'rxjs';
 import { KyntusPageHeaderComponent } from '../../shared/components/ui/kyntus-page-header.component';
 import { KyntusToastService } from '../../shared/components/ui/kyntus-toast.service';
-import { Subject, takeUntil } from 'rxjs';
+import { KyMediaUploaderComponent } from '../../shared/components/ui/ky-media-uploader.component';
+import { KyRichTextEditorComponent } from '../../shared/components/ui/ky-rich-text-editor.component';
+import { MediaAsset } from '../../core/services/media.service';
 import {
   AudienceTarget,
   CampaignAnalytics,
   CampaignResponse,
-  NewsletterResponse,
   NewsletterService
 } from '../../core/services/newsletter.service';
-import { KyntusConfirmService } from '../../shared/components/kyntus-confirm/kyntus-confirm.service';
+import { NewsletterReaderComponent } from '../newsletter-inbox/newsletter-reader.component';
+import {
+  KyntusAudiencePickerComponent,
+  type AudiencePickerSelection,
+} from '../formation/shared/kyntus-audience-picker.component';
+import type { EmployeePickerRow } from '../contract/lib/contract-employee-filter';
+import { resolveUserGuid } from '../../core/lib/user-guid.util';
+import { formatHttpErrorMessage } from '../../core/lib/http-error-message.util';
 
-type AdminView = 'list' | 'create' | 'campaigns' | 'analytics';
+type AdminMode = 'compose' | 'suivi';
 
 @Component({
   selector: 'app-newsletter-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, KyntusPageHeaderComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    KyntusPageHeaderComponent,
+    KyMediaUploaderComponent,
+    KyRichTextEditorComponent,
+    NewsletterReaderComponent,
+    KyntusAudiencePickerComponent,
+  ],
   templateUrl: './newsletter-admin.component.html',
   styleUrls: ['./newsletter-admin.component.css']
 })
 export class NewsletterAdminComponent implements OnInit, OnDestroy {
   private readonly toastSvc = inject(KyntusToastService);
-  private readonly confirmService = inject(KyntusConfirmService);
-
-  currentView: AdminView = 'list';
   private destroy$ = new Subject<void>();
-  private loadedViews = new Set<AdminView>();
 
-  newsletters: NewsletterResponse[] = [];
+  @ViewChild(KyRichTextEditorComponent) editor?: KyRichTextEditorComponent;
+
+  mode: AdminMode = 'compose';
   campaigns: CampaignResponse[] = [];
   analytics: CampaignAnalytics | null = null;
-  previewNewsletter: NewsletterResponse | null = null;
+  selectedCampaignId: number | null = null;
+  loading = false;
+  submitting = false;
 
-  loadingNewsletters = false;
-  loadingCampaigns = false;
-  loadingAnalytics = false;
-  submittingNewsletter = false;
-  submittingCampaign = false;
-
-  audienceOptions: AudienceTarget[] = [
-  'All', 'Employees', 'Managers', 'Admins',
-  'Pilotes', 'Coaches', 'RPs', 'Audits',
-  'EquipeFormation', 'Custom'
-];
-
-  newNewsletter = {
+  form = {
     title: '',
     subject: '',
     textContent: '',
-    coverImageUrl: '' as string | undefined,
+    scheduleMode: 'now' as 'now' | 'later' | 'draft',
+    scheduledAt: '',
   };
 
-  coverImagePreview = '';
-  coverImageFileName = '';
+  mediaItems: MediaAsset[] = [];
+  readonly beneficiaryList = signal<EmployeePickerRow[]>([]);
 
-  newCampaign = {
-    name: '',
-    newsletterId: 0,
-    audienceTarget: 'All' as AudienceTarget,
-    scheduledAt: ''
-  };
-
-  selectedCampaignId: number | null = null;
-
-  constructor(
-    private newsletterSvc: NewsletterService,
-  private cdr: ChangeDetectorRef 
-) {}
+  constructor(private newsletterSvc: NewsletterService) {}
 
   ngOnInit(): void {
-    this.setView('list');
+    this.loadCampaigns();
   }
 
   ngOnDestroy(): void {
@@ -80,326 +74,156 @@ export class NewsletterAdminComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  setView(view: AdminView): void {
-    this.currentView = view;
-
-    if (view === 'list' && !this.loadedViews.has('list')) {
-      this.loadNewsletters();
-    }
-
-    if (view === 'campaigns' && !this.loadedViews.has('campaigns')) {
-      this.loadCampaigns();
-    }
-  }
-
-  refresh(): void {
-    this.loadedViews.delete(this.currentView);
-    if (this.currentView === 'analytics' && this.selectedCampaignId) {
-      this.viewAnalytics(this.selectedCampaignId);
-      return;
-    }
-    this.setView(this.currentView);
-  }
-
- loadNewsletters(): void {
-    this.loadingNewsletters = true;
-    this.newsletterSvc.getNewsletters()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (data) => {
-          this.newsletters = data ?? [];
-          this.loadingNewsletters = false;
-          this.loadedViews.add('list');
-          this.cdr.detectChanges(); // ← ajouter
-        },
-        error: () => {
-          this.loadingNewsletters = false;
-          this.showToast('Erreur de chargement des newsletters', 'error');
-          this.cdr.detectChanges(); // ← ajouter
-        }
-      });
+  setMode(mode: AdminMode): void {
+    this.mode = mode;
+    if (mode === 'suivi') this.loadCampaigns();
   }
 
   loadCampaigns(): void {
-    this.loadingCampaigns = true;
+    this.loading = true;
     this.newsletterSvc.getCampaigns()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (data) => {
-          this.campaigns = data ?? [];
-          this.loadingCampaigns = false;
-          this.loadedViews.add('campaigns');
-          this.cdr.detectChanges(); // ← ajouter
+        next: list => {
+          this.campaigns = list;
+          this.loading = false;
         },
         error: () => {
-          this.loadingCampaigns = false;
-          this.showToast('Erreur de chargement des campagnes', 'error');
-          this.cdr.detectChanges(); // ← ajouter
+          this.loading = false;
+          this.toastSvc.error('Impossible de charger le suivi.');
         }
       });
   }
 
-  submitNewsletter(): void {
-    if (!this.newNewsletter.title.trim() || !this.newNewsletter.subject.trim() || !this.newNewsletter.textContent.trim()) {
-      this.showToast('Remplissez le titre, le sujet et le contenu du message', 'error');
-      return;
-    }
+  onBeneficiariesChange(sel: AudiencePickerSelection): void {
+    this.beneficiaryList.set([...sel.beneficiaries]);
+  }
 
-    this.submittingNewsletter = true;
-    const payload = {
-      title: this.newNewsletter.title.trim(),
-      subject: this.newNewsletter.subject.trim(),
-      textContent: this.newNewsletter.textContent.trim(),
-      coverImageUrl: this.newNewsletter.coverImageUrl || undefined,
+  getAudienceLabel(a: AudienceTarget): string {
+    const map: Record<string, string> = {
+      All: 'Tous', Employees: 'Employés', Managers: 'Managers', Admins: 'Admins',
+      Pilotes: 'Pilotes', Coaches: 'Coaches', RPs: 'RPs', Audits: 'Audit',
+      EquipeFormation: 'Équipe formation', Custom: 'Destinataires sélectionnés'
     };
-
-    this.newsletterSvc.createNewsletter(payload)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.submittingNewsletter = false;
-          this.newNewsletter = { title: '', subject: '', textContent: '', coverImageUrl: undefined };
-          this.coverImagePreview = '';
-          this.coverImageFileName = '';
-          this.loadedViews.delete('list');
-          this.setView('list');
-          this.showToast('Newsletter creee avec succes');
-        },
-        error: () => {
-          this.submittingNewsletter = false;
-          this.showToast('Erreur lors de la creation de la newsletter', 'error');
-        }
-      });
+    return map[a] ?? 'Destinataires';
   }
 
-  onCoverImageSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      this.showToast('Veuillez selectionner une image (JPG, PNG, WebP).', 'error');
-      input.value = '';
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      this.showToast('Image trop volumineuse (max 2 Mo).', 'error');
-      input.value = '';
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : '';
-      this.newNewsletter.coverImageUrl = result;
-      this.coverImagePreview = result;
-      this.coverImageFileName = file.name;
-      this.cdr.detectChanges();
+  getStatusLabel(s: string): string {
+    const map: Record<string, string> = {
+      Draft: 'Brouillon', Scheduled: 'Planifiée', Sending: 'Envoi…',
+      Sent: 'Envoyée', Cancelled: 'Annulée', Failed: 'Échec'
     };
-    reader.readAsDataURL(file);
+    return map[s] ?? 'Inconnu';
   }
 
-  removeCoverImage(): void {
-    this.newNewsletter.coverImageUrl = undefined;
-    this.coverImagePreview = '';
-    this.coverImageFileName = '';
+  formatDate(iso?: string | null): string {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('fr-FR');
   }
 
-  async deleteNewsletter(id: number): Promise<void> {
-    const ok = await this.confirmService.confirm({
-      title: 'Supprimer la newsletter',
-      message: 'Supprimer cette newsletter ?',
-      confirmLabel: 'Supprimer',
-      variant: 'danger',
-    });
-    if (!ok) return;
-
-    this.newsletterSvc.deleteNewsletter(id)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.showToast('Newsletter supprimee');
-          this.loadedViews.delete('list');
-          this.loadNewsletters();
-        },
-        error: () => {
-          this.showToast('Erreur lors de la suppression', 'error');
-        }
-      });
-  }
-
-  submitCampaign(): void {
-    if (!this.newCampaign.name.trim() || !this.newCampaign.newsletterId) {
-      this.showToast('Selectionnez une newsletter et donnez un nom a la campagne', 'error');
+  submit(mode: 'draft' | 'publish' | 'schedule'): void {
+    const text = this.editor?.getPlainText() || this.form.textContent.trim();
+    if (!this.form.title.trim()) {
+      this.toastSvc.error('Le titre est obligatoire.');
+      return;
+    }
+    if (!text) {
+      this.toastSvc.error('Le message est obligatoire.');
+      return;
+    }
+    if (mode === 'schedule' && !this.form.scheduledAt) {
+      this.toastSvc.error('Choisissez une date de planification.');
       return;
     }
 
-    this.submittingCampaign = true;
-    const dto = {
-      ...this.newCampaign,
-      scheduledAt: this.newCampaign.scheduledAt || null
+    const beneficiaryUserIds = this.beneficiaryList()
+      .map(r => resolveUserGuid(r.user))
+      .filter(id => !!id);
+
+    if (mode !== 'draft' && beneficiaryUserIds.length === 0) {
+      this.toastSvc.error('Sélectionnez au moins un destinataire.');
+      return;
+    }
+
+    this.submitting = true;
+    this.newsletterSvc.createPublication({
+      title: this.form.title.trim(),
+      subject: (this.form.subject || this.form.title).trim(),
+      textContent: text,
+      mediaIds: this.mediaItems.map(m => m.id),
+      audienceTarget: 'Custom',
+      beneficiaryUserIds,
+      mode,
+      scheduledAt: mode === 'schedule' ? new Date(this.form.scheduledAt).toISOString() : null,
+      campaignName: this.form.title.trim(),
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        this.submitting = false;
+        this.toastSvc.success(
+          mode === 'draft' ? 'Brouillon enregistré.'
+            : mode === 'schedule' ? 'Publication planifiée.'
+            : 'Publication envoyée.'
+        );
+        this.resetForm();
+        this.setMode('suivi');
+      },
+      error: err => {
+        this.submitting = false;
+        this.toastSvc.error(formatHttpErrorMessage(err, 'Échec de la publication.'));
+      }
+    });
+  }
+
+  resetForm(): void {
+    this.form = {
+      title: '',
+      subject: '',
+      textContent: '',
+      scheduleMode: 'now',
+      scheduledAt: '',
     };
-
-    this.newsletterSvc.createCampaign(dto)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.submittingCampaign = false;
-          this.newCampaign = {
-            name: '',
-            newsletterId: 0,
-            audienceTarget: 'All',
-            scheduledAt: ''
-          };
-          this.loadedViews.delete('campaigns');
-          this.setView('campaigns');
-          this.showToast('Campagne creee avec succes');
-        },
-        error: () => {
-          this.submittingCampaign = false;
-          this.showToast('Erreur lors de la creation de la campagne', 'error');
-        }
-      });
+    this.mediaItems = [];
+    this.beneficiaryList.set([]);
+    this.editor?.writeValue('');
   }
 
-  async publishCampaign(id: number): Promise<void> {
-    const ok = await this.confirmService.confirm({
-      title: 'Publier la campagne',
-      message: 'Publier cette campagne maintenant ?',
-      confirmLabel: 'Publier',
-    });
-    if (!ok) return;
-
-    this.newsletterSvc.publishCampaign(id)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.showToast('Campagne publiee');
-          this.loadedViews.delete('campaigns');
-          this.loadCampaigns();
-        },
-        error: () => {
-          this.showToast('Erreur lors de la publication', 'error');
-        }
-      });
-  }
-
-  async cancelCampaign(id: number): Promise<void> {
-    const ok = await this.confirmService.confirm({
-      title: 'Annuler la campagne',
-      message: 'Annuler cette campagne ?',
-      confirmLabel: 'Annuler',
-      variant: 'danger',
-    });
-    if (!ok) return;
-
-    this.newsletterSvc.cancelCampaign(id)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.showToast('Campagne annulee');
-          this.loadedViews.delete('campaigns');
-          this.loadCampaigns();
-        },
-        error: () => {
-          this.showToast('Erreur lors de l annulation', 'error');
-        }
-      });
-  }
-
-  viewAnalytics(id: number): void {
+  openAnalytics(id: number): void {
     this.selectedCampaignId = id;
-    this.loadingAnalytics = true;
-    this.newsletterSvc.getAnalytics(id)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (data) => {
-          this.analytics = data;
-          this.loadingAnalytics = false;
-          this.currentView = 'analytics';
-          this.loadedViews.add('analytics');
-          this.cdr.detectChanges(); // ← ajouter
-        },
-        error: () => {
-          this.loadingAnalytics = false;
-          this.showToast('Erreur de chargement des analytics', 'error');
-          this.cdr.detectChanges(); // ← ajouter
-        }
-      });
-  }
-
-  openNewsletterPreview(newsletter: NewsletterResponse): void {
-    this.previewNewsletter = newsletter;
-  }
-
-  closeNewsletterPreview(): void {
-    this.previewNewsletter = null;
-  }
-
-  getStatusClass(status: string): string {
-    const map: Record<string, string> = {
-      Draft: 'nl-status-draft',
-      Scheduled: 'nl-status-scheduled',
-      Sending: 'nl-status-sending',
-      Sent: 'nl-status-sent',
-      Cancelled: 'nl-status-cancelled',
-      Failed: 'nl-status-failed'
-    };
-    return map[status] || 'nl-status-draft';
-  }
-
-  getStatusLabel(status: string): string {
-    const map: Record<string, string> = {
-      Draft: 'Brouillon',
-      Scheduled: 'Planifiee',
-      Sending: 'En cours',
-      Sent: 'Envoyee',
-      Cancelled: 'Annulee',
-      Failed: 'Echec'
-    };
-    return map[status] || status;
-  }
-
-getAudienceLabel(audience: string): string {
-    const map: Record<string, string> = {
-        All:             'Tous',
-        Employees:       'Employés',
-        Managers:        'Managers',
-        Admins:          'Admins',
-        Pilotes:         'Pilotes',
-        Coaches:         'Coachs',
-        RPs:             'RP',
-        Audits:          'Audit',
-        EquipeFormation: 'Équipe formation',
-        Custom:          'Personnalisé'
-    };
-    return map[audience] || audience;
-}
-  getAnalyticsReadPercent(): number {
-    return this.analytics ? Math.max(0, Math.min(100, this.analytics.readRate || 0)) : 0;
-  }
-
-  formatDate(value?: string | null): string {
-    if (!value) {
-      return '-';
-    }
-
-    return new Date(value).toLocaleString('fr-FR', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
+    this.newsletterSvc.getAnalytics(id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: a => this.analytics = a,
+      error: () => this.toastSvc.error('Impossible de charger le suivi des lectures.')
     });
   }
 
-  showToast(message: string, type: 'success' | 'error' = 'success'): void {
-    if (type === 'error') this.toastSvc.error(message);
-    else this.toastSvc.success(message);
+  publishExisting(id: number): void {
+    this.newsletterSvc.publishCampaign(id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        this.toastSvc.success('Publication envoyée.');
+        this.loadCampaigns();
+      },
+      error: err => this.toastSvc.error(formatHttpErrorMessage(err, 'Publication impossible.'))
+    });
   }
 
-  trackById(index: number, item: { id: number }): number {
-    return item.id;
+  cancelCampaign(id: number): void {
+    this.newsletterSvc.cancelCampaign(id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        this.toastSvc.success('Publication annulée.');
+        this.loadCampaigns();
+      },
+      error: err => this.toastSvc.error(formatHttpErrorMessage(err, 'Annulation impossible.'))
+    });
+  }
+
+  previewTitle(): string {
+    return this.form.title.trim() || 'Titre de la publication';
+  }
+
+  previewSubject(): string {
+    return (this.form.subject || this.form.title).trim() || 'Sujet';
+  }
+
+  previewText(): string {
+    return this.editor?.getPlainText() || this.form.textContent || 'Aperçu du message…';
   }
 }

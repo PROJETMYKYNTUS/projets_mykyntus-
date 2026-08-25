@@ -41,15 +41,6 @@ $runtimeTargets = @(
 )
 
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-foreach ($target in $runtimeTargets) {
-    $dir = Split-Path -Parent $target
-    if (-not (Test-Path $dir)) {
-        New-Item -ItemType Directory -Path $dir -Force | Out-Null
-    }
-    [System.IO.File]::WriteAllText($target, $runtimeJs, $utf8NoBom)
-}
-
-$utf8NoBom = New-Object System.Text.UTF8Encoding $false
 
 function Update-TextFileLine {
     param(
@@ -61,6 +52,29 @@ function Update-TextFileLine {
     $content = [System.IO.File]::ReadAllText($Path, $utf8NoBom)
     $updated = [regex]::Replace($content, $Pattern, $Replacement)
     [System.IO.File]::WriteAllText($Path, $updated, $utf8NoBom)
+}
+
+foreach ($target in $runtimeTargets) {
+    $dir = Split-Path -Parent $target
+    if (-not (Test-Path $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+    [System.IO.File]::WriteAllText($target, $runtimeJs, $utf8NoBom)
+}
+
+$urlCacheBuster = "$($urls.profile)-$($urls.host)"
+$indexHtmlTargets = @(
+    (Join-Path $root 'auth-frontend\src\index.html'),
+    (Join-Path $root 'projet_kyntus_service_planning-frontend\src\index.html')
+)
+foreach ($indexPath in $indexHtmlTargets) {
+    if (-not (Test-Path $indexPath)) { continue }
+    Update-TextFileLine -Path $indexPath `
+        -Pattern 'kyntus-public-urls\.js\?v=[^"]+' `
+        -Replacement "kyntus-public-urls.js?v=$urlCacheBuster"
+    Update-TextFileLine -Path $indexPath `
+        -Pattern 'kyntus-public-urls\.js"' `
+        -Replacement "kyntus-public-urls.js?v=$urlCacheBuster`""
 }
 
 $ocelotPath = Join-Path $root 'init\ocelot.gateway.json'
@@ -99,4 +113,7 @@ if ($RecreateDocker) {
 else {
     Write-Output "Appliquer sans rebuild image:"
     Write-Output "  scripts\switch-kyntus-urls.cmd -Profile $Profile -RecreateDocker"
+    Write-Output ""
+    Write-Output "Si le navigateur redirige encore vers l'ancien host (10.10.10.25):"
+    Write-Output "  Ctrl+Shift+R sur http://localhost:8200 et http://localhost:8201"
 }

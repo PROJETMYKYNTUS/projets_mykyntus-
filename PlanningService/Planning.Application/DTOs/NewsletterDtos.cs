@@ -1,4 +1,5 @@
 using Planning.Domain.Enums;
+using Planning.Application.DTOs;
 
 namespace Planning.Application.DTOs.Newsletter
 {
@@ -10,6 +11,7 @@ namespace Planning.Application.DTOs.Newsletter
         public string Subject { get; set; } = string.Empty;
         public string TextContent { get; set; } = string.Empty;
         public string? CoverImageUrl { get; set; }
+        public List<int>? MediaIds { get; set; }
     }
 
     public class UpdateNewsletterDto
@@ -18,6 +20,7 @@ namespace Planning.Application.DTOs.Newsletter
         public string? Subject { get; set; }
         public string? TextContent { get; set; }
         public string? CoverImageUrl { get; set; }
+        public List<int>? MediaIds { get; set; }
     }
 
     public class NewsletterResponseDto
@@ -32,6 +35,29 @@ namespace Planning.Application.DTOs.Newsletter
         public DateTime? UpdatedAt { get; set; }
         public string CreatedByUserId { get; set; } = string.Empty;
         public int CampaignsCount { get; set; }
+        public List<MediaAssetDto> Media { get; set; } = new();
+    }
+
+    /// <summary>Formulaire unique : contenu + audience + publier/planifier en une requÍte.</summary>
+    public class CreatePublicationDto
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Subject { get; set; } = string.Empty;
+        public string TextContent { get; set; } = string.Empty;
+        public List<int>? MediaIds { get; set; }
+        public AudienceTarget AudienceTarget { get; set; } = AudienceTarget.Custom;
+        /// <summary>GUIDs employÈs sÈlectionnÈs (mÍme picker que formation continue).</summary>
+        public List<string>? BeneficiaryUserIds { get; set; }
+        /// <summary>draft | publish | schedule</summary>
+        public string Mode { get; set; } = "publish";
+        public DateTime? ScheduledAt { get; set; }
+        public string? CampaignName { get; set; }
+    }
+
+    public class PublicationResponseDto
+    {
+        public NewsletterResponseDto Newsletter { get; set; } = null!;
+        public CampaignResponseDto? Campaign { get; set; }
     }
 
     // --- Campaign --------------------------------------------------------------
@@ -42,6 +68,7 @@ namespace Planning.Application.DTOs.Newsletter
         public int NewsletterId { get; set; }
         public AudienceTarget AudienceTarget { get; set; } = AudienceTarget.All;
         public DateTime? ScheduledAt { get; set; }
+        public List<string>? BeneficiaryUserIds { get; set; }
     }
 
     public class CampaignResponseDto
@@ -59,11 +86,11 @@ namespace Planning.Application.DTOs.Newsletter
         public DateTime CreatedAt { get; set; }
     }
 
-    // --- Vue Employee : newsletter reÁue dans le dashboard ---------------------
+    // --- Vue Employee : newsletter reùue dans le dashboard ---------------------
 
     public class EmployeeNewsletterDto
     {
-        public int AnalyticsId { get; set; }           // Pour marquer comme lu
+        public int AnalyticsId { get; set; }
         public int CampaignId { get; set; }
         public string CampaignName { get; set; } = string.Empty;
         public string NewsletterTitle { get; set; } = string.Empty;
@@ -74,9 +101,10 @@ namespace Planning.Application.DTOs.Newsletter
         public bool IsRead { get; set; }
         public DateTime? ReadAt { get; set; }
         public DateTime ReceivedAt { get; set; }
+        public List<MediaAssetDto> Media { get; set; } = new();
     }
 
-    // --- Notification SignalR (payload poussÈ en temps rÈel) -------------------
+    // --- Notification SignalR (payload poussù en temps rùel) -------------------
 
     public class NewsletterNotificationDto
     {

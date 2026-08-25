@@ -561,7 +561,7 @@ export class PrimeResultsPageComponent implements OnInit {
   }
 
   openResult(item: EmployeePrimeServiceFicheValidationDto): void {
-    this.nav.requestViewWithPeriod('/validation', item.period);
+    this.nav.requestViewWithPeriodAndTab('/prime-validation-hub', item.period, 'validate');
   }
 
   private matchesQuickView(item: EmployeePrimeServiceFicheValidationDto): boolean {

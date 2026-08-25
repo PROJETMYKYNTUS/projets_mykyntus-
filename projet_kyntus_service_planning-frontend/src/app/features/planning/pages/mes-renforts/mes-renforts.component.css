@@ -35,8 +35,9 @@
   top: 1rem;
   right: 1rem;
   z-index: 50;
-  background: #065f46;
-  color: #fff;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
   padding: 0.6rem 1rem;
   border-radius: 8px;
 }
@@ -57,7 +58,7 @@
 .mdc-table th,
 .mdc-table td {
   padding: 8px 10px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
   text-align: left;
   vertical-align: top;
 }
@@ -65,24 +66,24 @@
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .mdc-status {
   font-weight: 600;
   font-size: 0.8rem;
 }
-.mdc-status[data-status='Approved'] { color: #15803d; }
-.mdc-status[data-status='Rejected'] { color: #b91c1c; }
+.mdc-status[data-status='Approved'] { color: var(--success-text); }
+.mdc-status[data-status='Rejected'] { color: var(--danger-text); }
 .mdc-status[data-status='PendingPartner'],
 .mdc-status[data-status='Pending'],
-.mdc-status[data-status='PendingSupervisor'] { color: #b45309; }
-.mdc-status[data-status='Cancelled'] { color: #64748b; }
+.mdc-status[data-status='PendingSupervisor'] { color: var(--warning-text); }
+.mdc-status[data-status='Cancelled'] { color: var(--text-muted); }
 
 .mdc-reject {
   display: block;
   margin-top: 2px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 
@@ -97,8 +98,8 @@
   padding: 0;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #0369a1;
+  color: var(--info-text);
   cursor: pointer;
 }
-.mdc-ok { color: #15803d; }
-.mdc-bad { color: #b91c1c; }
+.mdc-ok { color: var(--success-text); }
+.mdc-bad { color: var(--danger-text); }

@@ -17,8 +17,11 @@
 /build_log.txt
 /dir
 /docker-compose.yml.backup
+/kcq_images/
+/backup_kcq_db/
 /docker-compose.override.yml
 /_audit_*
+/_kcq_tmp/
 /_login_*
 /_t.json
 /_phase0_now.cmd
@@ -31,6 +34,9 @@
 
 # Cursor IDE (plans, règles locales — ne pas versionner)
 .cursor/
+
+# Archives tar générées par scripts/deploy-delta.ps1
+/deploy/out/
 
 # Secrets / config locale développement (.NET)
 **/appsettings.Development.json

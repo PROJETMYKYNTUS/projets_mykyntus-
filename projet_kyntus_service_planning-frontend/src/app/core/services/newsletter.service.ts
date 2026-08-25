@@ -2,10 +2,11 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { MediaAsset } from './media.service';
 
-export type AudienceTarget = 
-  'All' | 'Employees' | 'Managers' | 'Admins' | 
-  'Pilotes' | 'Coaches' | 'RPs' | 'Audits' | 
+export type AudienceTarget =
+  'All' | 'Employees' | 'Managers' | 'Admins' |
+  'Pilotes' | 'Coaches' | 'RPs' | 'Audits' |
   'EquipeFormation' | 'Custom';
 export type CampaignStatus = 'Draft' | 'Scheduled' | 'Sending' | 'Sent' | 'Cancelled' | 'Failed';
 
@@ -14,13 +15,7 @@ export interface CreateNewsletterDto {
   subject: string;
   textContent: string;
   coverImageUrl?: string;
-}
-
-export interface UpdateNewsletterDto {
-  title?: string;
-  subject?: string;
-  textContent?: string;
-  coverImageUrl?: string;
+  mediaIds?: number[];
 }
 
 export interface NewsletterResponse {
@@ -34,6 +29,25 @@ export interface NewsletterResponse {
   updatedAt?: string;
   createdByUserId: string;
   campaignsCount: number;
+  media?: MediaAsset[];
+}
+
+export interface CreatePublicationDto {
+  title: string;
+  subject: string;
+  textContent: string;
+  mediaIds?: number[];
+  audienceTarget?: AudienceTarget;
+  /** GUIDs employés — même logique que formation continue. */
+  beneficiaryUserIds?: string[];
+  mode: 'draft' | 'publish' | 'schedule';
+  scheduledAt?: string | null;
+  campaignName?: string;
+}
+
+export interface PublicationResponse {
+  newsletter: NewsletterResponse;
+  campaign?: CampaignResponse | null;
 }
 
 export interface CreateCampaignDto {
@@ -69,6 +83,7 @@ export interface EmployeeNewsletter {
   isRead: boolean;
   readAt?: string | null;
   receivedAt: string;
+  media?: MediaAsset[];
 }
 
 export interface CampaignAnalytics {
@@ -99,24 +114,12 @@ export class NewsletterService {
     return this.http.post<NewsletterResponse>(this.base, dto);
   }
 
-  updateNewsletter(id: number, dto: UpdateNewsletterDto): Observable<NewsletterResponse> {
-    return this.http.put<NewsletterResponse>(`${this.base}/${id}`, dto);
-  }
-
-  deleteNewsletter(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.base}/${id}`);
+  createPublication(dto: CreatePublicationDto): Observable<PublicationResponse> {
+    return this.http.post<PublicationResponse>(`${this.base}/publications`, dto);
   }
 
   getCampaigns(): Observable<CampaignResponse[]> {
     return this.http.get<CampaignResponse[]>(`${this.base}/campaigns`);
-  }
-
-  getCampaignById(id: number): Observable<CampaignResponse> {
-    return this.http.get<CampaignResponse>(`${this.base}/campaigns/${id}`);
-  }
-
-  createCampaign(dto: CreateCampaignDto): Observable<CampaignResponse> {
-    return this.http.post<CampaignResponse>(`${this.base}/campaigns`, dto);
   }
 
   publishCampaign(id: number): Observable<{ message: string }> {
